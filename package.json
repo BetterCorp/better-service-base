@@ -19,7 +19,7 @@
   "main": "lib/index.js",
   "version": "1.0.29",
   "dependencies": {
-    "@bettercorp/tools": "^1.0.3",
+    "@bettercorp/tools": "^1.0.4",
     "@types/node": "^14.11.2",
     "@types/uuid": "^8.0.0",
     "events": "^3.1.0",
