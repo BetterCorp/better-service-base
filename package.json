@@ -1,5 +1,6 @@
 {
   "name": "@bettercorp/service-base",
+  "license": "GNU AGPLv3",
   "repository": {
     "url": "https://gitlab.com/BetterCorp/public/service-base"
   },
