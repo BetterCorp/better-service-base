@@ -1,0 +1,48 @@
+# This file is a template, and might need editing before it works on your project.
+default:
+  image: node:latest
+
+  # Validate that the repository contains a package.json and extract a few values from it.
+  before_script:
+    - |
+      if [[ ! -f package.json ]]; then
+        echo "No package.json found! A package.json file is required to publish a package to NPM."
+        exit 1
+      fi
+    - NPM_PACKAGE_NAME=$(node -p "require('./package.json').name")
+    - NPM_PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+prebuild_package:
+  stage: build
+  script:
+    - |
+      {
+        npm i
+      }
+
+build_package:
+  stage: build
+  script:
+    - |
+      {
+        npm run build &&
+        echo "Successfully built version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME}"
+      }
+
+# Publish the package. If the version in package.json has not yet been published, it will be
+# published to THE NPM registry. If the version already exists, the publish command
+# will fail and the existing package will not be updated.
+publish_package:
+  stage: deploy
+  only:
+    - master
+  script:
+    - |
+      {
+        npm install -g npm-cli-login &&
+        npm-cli-login -u $K8S_SECRET_NPM_USERNAME -p $K8S_SECRET_NPM_TOKEN -e $K8S_SECRET_NPM_EMAIL &&
+        npm run deploy &&
+        echo "Successfully published version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME} to NPM"
+      } || {
+        echo "No new version of ${NPM_PACKAGE_NAME} published. This is most likely because version ${NPM_PACKAGE_VERSION} already exists in the NPM registry."; exit 1
+      }
