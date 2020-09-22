@@ -1,5 +1,8 @@
 {
   "name": "@bettercorp/service-base",
+  "repository": {
+    "url": "https://gitlab.com/BetterCorp/public/service-base"
+  },
   "scripts": {
     "dev": "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --exec ts-node src/index.ts",
     "start": "node lib/index.js",
