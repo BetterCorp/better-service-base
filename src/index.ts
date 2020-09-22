@@ -105,6 +105,10 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
           });
           INTERNAL_EVENTS.emit(`${endpointOrPluginName}-${event}`, {
             resultKey: resultKey,
+            resultNames: {
+              success: endEventName,
+              error: errEventName
+            },
             ...args
           });
         })
