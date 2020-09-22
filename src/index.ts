@@ -50,14 +50,14 @@ if (!Tools.isNullOrUndefined(loggerPlugin)) {
   logger = require(loggerPlugin!).default;
 }
 
-console.log(' - BOOT UP: @' + _version);
+logger.info(' - BOOT UP: @' + _version);
 
 const SETUP_PLUGINS = () => new Promise(async (resolve) => {
   for (let pluginName of Object.keys(LIBRARY_PLUGINS)) {
     let plugin = LIBRARY_PLUGINS[pluginName];
-    console.log(`Setup Plugin: ${pluginName}`);
+    logger.info(`Setup Plugin: ${pluginName}`);
     if (plugin.init) {
-      console.log(` - INIT`);
+      logger.info(` - INIT`);
       plugin.init({
         log: {
           info: (...data: any[]) => !Tools.isNullOrUndefined(plugin.log)
@@ -74,7 +74,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
         events: INTERNAL_EVENTS,
         config: appConfig,
         onEvent: (event: string, endpoint: string | null = null, listener: (...args: any[]) => void, global: Boolean = false) => {
-          console.log(` - LISTEN: [${global ? event : `${endpoint !== null ? `${endpoint}-` : ''}${pluginName}-${event}`}]`);
+          logger.info(` - LISTEN: [${global ? event : `${endpoint !== null ? `${endpoint}-` : ''}${pluginName}-${event}`}]`);
           INTERNAL_EVENTS.on(global ? event : `${endpoint !== null ? `${endpoint}-` : ''}${pluginName}-${event}`, listener);
         },
         emitEvent: (event: string, ...args: any[]) => {
@@ -110,7 +110,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
         })
       });
     }
-    console.log(' - DONE');
+    logger.info(' - DONE');
   }
   resolve();
 });
@@ -130,7 +130,7 @@ const loadPlugin = (name: string, path: string) => {
     packageChanges = true;
   } else {
     if (packageJSON[packageJSONPluginsObjName][name] == false) {
-      console.log(` - IGNORE PLUGIN [${name}] - defined in package.json`);
+      logger.info(` - IGNORE PLUGIN [${name}] - defined in package.json`);
       return;
     }
   }
@@ -140,19 +140,19 @@ const loadPlugin = (name: string, path: string) => {
   }
 
   let importedPlugin = require(path);
-  console.log(` - ${name}: LOADED`);
+  logger.info(` - ${name}: LOADED`);
   LIBRARY_PLUGINS[name] = importedPlugin;
 };
 const loadPlugins = (path: string): void => {
-  console.log(`Load plugins in: ${path}`);
+  logger.info(`Load plugins in: ${path}`);
   for (let dirFileWhat of FS.readdirSync(path)) {
     if (FS.statSync(PATH.join(path, dirFileWhat)).isDirectory()) {
       if (dirFileWhat.indexOf('-') === 0) {
-        console.log(` - IGNORE [${dirFileWhat}]`);
+        logger.info(` - IGNORE [${dirFileWhat}]`);
         continue;
       }
       if (CORE_PLUGINS.indexOf(dirFileWhat) > 0) {
-        console.log(` - IGNORE CORE PLUGIN [${dirFileWhat}]`);
+        logger.info(` - IGNORE CORE PLUGIN [${dirFileWhat}]`);
         continue;
       }
       let pluginFile = PATH.join(path, dirFileWhat, 'plugin.ts');
@@ -170,16 +170,16 @@ export default class ServiceBase {
   init (): void {
 
     const npmPluginsDir = PATH.join(CWD, './node_modules/@bettercorp');
-    console.log(`Load NPM plugins in: ${npmPluginsDir}`);
+    logger.info(`Load NPM plugins in: ${npmPluginsDir}`);
     for (let dirFileWhat of FS.readdirSync(npmPluginsDir)) {
       if (FS.statSync(PATH.join(npmPluginsDir, dirFileWhat)).isDirectory()) {
         if (dirFileWhat.indexOf('service-base') != 0) {
-          console.log(` - IGNORE [${dirFileWhat}]`);
+          logger.info(` - IGNORE [${dirFileWhat}]`);
           continue;
         }
         const innerPluginLib = PATH.join(npmPluginsDir, dirFileWhat, './lib');
         if (!FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
-          console.log(` - IGNORE [${dirFileWhat}]`);
+          logger.info(` - IGNORE [${dirFileWhat}]`);
           continue;
         }
         const innerPluginLibPlugin = PATH.join(innerPluginLib, './plugins');
@@ -188,7 +188,7 @@ export default class ServiceBase {
           if (!FS.existsSync(pluginFile))
             pluginFile = PATH.join(innerPluginLib, 'plugin.js');
           if (!FS.existsSync(pluginFile)) {
-            console.log(` - IGNORE [${dirFileWhat}]`);
+            logger.info(` - IGNORE [${dirFileWhat}]`);
             continue;
           }
 
@@ -196,7 +196,7 @@ export default class ServiceBase {
           continue;
         }
         if (!FS.statSync(innerPluginLibPlugin).isDirectory()) {
-          console.log(` - IGNORE [${dirFileWhat}]`);
+          logger.info(` - IGNORE [${dirFileWhat}]`);
           continue;
         }
 
@@ -204,7 +204,7 @@ export default class ServiceBase {
       }
     }
 
-    console.log(`Load app plugins in: ${pluginsDir}`);
+    logger.info(`Load app plugins in: ${pluginsDir}`);
     loadPlugins(pluginsDir);
 
     if (packageChanges) {
@@ -213,9 +213,9 @@ export default class ServiceBase {
   }
 
   async run (): Promise<void> {
-    console.log('Setup plugins');
+    logger.info('Setup plugins');
     await SETUP_PLUGINS();
 
-    console.log('App Ready');
+    logger.info('App Ready');
   }
 }
