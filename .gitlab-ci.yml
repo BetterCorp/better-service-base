@@ -2,6 +2,13 @@
 default:
   image: node:latest
 
+  stages:
+    - before_script
+    - prebuild_package
+    - build_package
+    - publish_package
+
+
   # Validate that the repository contains a package.json and extract a few values from it.
   before_script:
     - |
