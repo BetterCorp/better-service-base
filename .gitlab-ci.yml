@@ -1,26 +1,12 @@
-# This file is a template, and might need editing before it works on your project.
-default:
-  image: node:latest
+image: node:latest
 
-  stages:
-    - before_script
-    - prebuild_package
-    - build_package
-    - publish_package
-
-
-  # Validate that the repository contains a package.json and extract a few values from it.
-  before_script:
-    - |
-      if [[ ! -f package.json ]]; then
-        echo "No package.json found! A package.json file is required to publish a package to NPM."
-        exit 1
-      fi
-    - NPM_PACKAGE_NAME=$(node -p "require('./package.json').name")
-    - NPM_PACKAGE_VERSION=$(node -p "require('./package.json').version")
+stages:
+  - prebuild
+  - build
+  - deploy
 
 prebuild_package:
-  stage: build
+  stage: prebuild
   script:
     - |
       {
