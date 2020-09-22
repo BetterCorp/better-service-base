@@ -10,6 +10,7 @@ prebuild_package:
   script:
     - |
       {
+        npm i -g typescript ts-node nodemon &&
         npm i
       }
 
