@@ -10,7 +10,6 @@ prebuild_package:
   script:
     - |
       {
-        npm i -g typescript ts-node nodemon &&
         npm i
       }
 
@@ -19,6 +18,7 @@ build_package:
   script:
     - |
       {
+        npm i -g typescript ts-node nodemon &&
         npm run build &&
         echo "Successfully built version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME}"
       }
