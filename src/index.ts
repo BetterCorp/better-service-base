@@ -3,7 +3,7 @@ import * as FS from 'fs';
 import * as PATH from 'path';
 import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
-import { ILOGGER, IPlugin } from "./ILib";
+import { IEmitter, ILOGGER, IPlugin } from "./ILib";
 import { v4 as UUID } from 'uuid';
 
 const CWD = process.env.APP_DIR || process.cwd();
@@ -73,14 +73,14 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
         cwd: CWD,
         events: INTERNAL_EVENTS,
         config: appConfig,
-        onEvent: (event: string, global: Boolean = false, listener: (...args: any[]) => void) => {
+        onEvent: <T = any>(event: string, global: Boolean = false, listener: (data: IEmitter<T>) => void) => {
           logger.info(` - LISTEN: [${global ? event : `${pluginName}-${event}`}]`);
           INTERNAL_EVENTS.on(global ? event : `${pluginName}-${event}`, listener);
         },
-        emitEvent: (event: string, global: boolean = false, ...args: any[]) => {
-          INTERNAL_EVENTS.emit(global ? event : `${pluginName}-${event}`, ...args);
+        emitEvent: <T = any>(event: string, global: boolean = false, data?: T) => {
+          INTERNAL_EVENTS.emit(global ? event : `${pluginName}-${event}`, data);
         },
-        emitEventAndReturn: (event: string, endpointOrPluginName: string, timeoutSeconds: number = 10, args: any) => new Promise((resolve, reject) => {
+        emitEventAndReturn: <T1 = any, T2 = any>(event: string, endpointOrPluginName: string, data?: T1) => new Promise((resolve, reject) => {
           const resultKey = UUID();
           const endEventName = `${endpointOrPluginName}-${event}-result-${resultKey}`;
           const errEventName = `${endpointOrPluginName}-${event}-error-${resultKey}`;
@@ -89,19 +89,19 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
             if (timeoutTimer === null) return;
             INTERNAL_EVENTS.removeListener(endEventName, () => { });
             INTERNAL_EVENTS.removeListener(errEventName, () => { });
-            reject(`NO RESPONSE IN TIME: ${endEventName} x${timeoutSeconds || 10}s`);
-          }, (timeoutSeconds || 10) * 1000);
-          INTERNAL_EVENTS.once(errEventName, (args: any) => {
+            reject(`NO RESPONSE IN TIME: ${endEventName} x${((data || {}) as any).timeoutSeconds || 10}s`);
+          }, (((data || {}) as any).timeoutSeconds || 10) * 1000);
+          INTERNAL_EVENTS.once(errEventName, (data: Error | string | any) => {
             clearTimeout(timeoutTimer);
             INTERNAL_EVENTS.removeListener(endEventName, () => { });
             INTERNAL_EVENTS.removeListener(errEventName, () => { });
-            reject(args);
+            reject(data);
           });
-          INTERNAL_EVENTS.once(endEventName, (args: any) => {
+          INTERNAL_EVENTS.once(endEventName, (data: T2 | any) => {
             clearTimeout(timeoutTimer);
             INTERNAL_EVENTS.removeListener(endEventName, () => { });
             INTERNAL_EVENTS.removeListener(errEventName, () => { });
-            resolve(args);
+            resolve(data);
           });
           INTERNAL_EVENTS.emit(`${endpointOrPluginName}-${event}`, {
             resultKey: resultKey,
@@ -109,7 +109,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
               success: endEventName,
               error: errEventName
             },
-            ...args
+            data: data
           });
         })
       });
