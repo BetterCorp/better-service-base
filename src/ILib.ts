@@ -16,8 +16,8 @@ export interface PluginFeature {
   cwd: string,
   events: IEventEmitter;
   config: any;
-  onEvent(event: string, endpoint: string | null, listener: (...args: any[]) => void, global: Boolean): void;
-  emitEvent(event: string, ...args: any[]): void;
+  onEvent(event: string, global: Boolean, listener: (...args: any[]) => void): void;
+  emitEvent(event: string, global: boolean, ...args: any[]): void;
   emitEventAndReturn(event: string, endpointOrPluginName: string, timeoutSeconds?: number, ...args: any[]): Promise<any | void>;
 }
 

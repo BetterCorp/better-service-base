@@ -73,12 +73,12 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
         cwd: CWD,
         events: INTERNAL_EVENTS,
         config: appConfig,
-        onEvent: (event: string, endpoint: string | null = null, listener: (...args: any[]) => void, global: Boolean = false) => {
-          logger.info(` - LISTEN: [${global ? event : `${endpoint !== null ? `${endpoint}-` : ''}${pluginName}-${event}`}]`);
-          INTERNAL_EVENTS.on(global ? event : `${endpoint !== null ? `${endpoint}-` : ''}${pluginName}-${event}`, listener);
+        onEvent: (event: string, global: Boolean = false, listener: (...args: any[]) => void) => {
+          logger.info(` - LISTEN: [${global ? event : `${pluginName}-${event}`}]`);
+          INTERNAL_EVENTS.on(global ? event : `${pluginName}-${event}`, listener);
         },
-        emitEvent: (event: string, ...args: any[]) => {
-          INTERNAL_EVENTS.emit(event, ...args);
+        emitEvent: (event: string, global: boolean = false, ...args: any[]) => {
+          INTERNAL_EVENTS.emit(global ? event : `${pluginName}-${event}`, ...args);
         },
         emitEventAndReturn: (event: string, endpointOrPluginName: string, timeoutSeconds: number = 10, args: any) => new Promise((resolve, reject) => {
           const resultKey = UUID();
