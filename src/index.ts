@@ -3,7 +3,7 @@ import * as FS from 'fs';
 import * as PATH from 'path';
 import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
-import { IEmitter, ILOGGER, IPlugin } from "./ILib";
+import { IEmitter, ILOGGER, IPlugin, ServiceConfig } from "./ILib";
 import { v4 as UUID } from 'uuid';
 
 const CWD = process.env.APP_DIR || process.cwd();
@@ -11,16 +11,22 @@ const PACKAGE_JSON = PATH.join(CWD, './package.json');
 const _version = JSON.parse(FS.readFileSync(PACKAGE_JSON).toString()).version;
 let _runningInDebug = true;
 
-const appConfig = JSON.parse(process.env.CONFIG_OBJECT || FS.readFileSync(process.env.CONFIG_FILE || PATH.join(CWD, "./sec.config.json")) as any);
+const appConfig = JSON.parse(process.env.CONFIG_OBJECT || FS.readFileSync(process.env.CONFIG_FILE || PATH.join(CWD, "./sec.config.json")).toString()) as ServiceConfig;
 
 if (!Tools.isNullOrUndefined(appConfig.debug)) {
-  _runningInDebug = appConfig.debug as boolean;
+  _runningInDebug = appConfig.debug;
 }
 if (process.env.FORCE_DEBUG !== undefined && process.env.FORCE_DEBUG !== null && process.env.FORCE_DEBUG == '1') {
   _runningInDebug = true;
 }
 
-let pluginsDir = PATH.join(CWD, _runningInDebug ? 'src' : 'lib', './plugins');
+appConfig.debug = _runningInDebug;
+let pluginsDir = PATH.join(CWD, 'src');
+if (!FS.existsSync(pluginsDir) || !FS.statSync(pluginsDir).isDirectory()) {
+  pluginsDir = PATH.join(CWD, 'lib');
+}
+
+pluginsDir = PATH.join(pluginsDir, './plugins');
 const LIBRARY_PLUGINS: IDictionary<IPlugin> = {};
 const INTERNAL_EVENTS = new (EVENT_EMITTER as any)();
 
@@ -35,7 +41,14 @@ if (FS.existsSync(`${loggerPlugin}.ts`)) {
   loggerPlugin = null;
 }
 
+const cnull = () => { };
+
 let logger: ILOGGER = {
+  debug: (pluginName: string, ...data: any[]) => _runningInDebug ? (
+    typeof data === 'string'
+      ? console.log(`[DEBUG][${pluginName.toUpperCase()}] ${data}`)
+      : console.log(`[DEBUG] ${pluginName.toUpperCase()}`, data)) :
+    cnull(),
   info: (pluginName: string, ...data: any[]) => typeof data === 'string'
     ? console.log(`[${pluginName.toUpperCase()}] ${data}`)
     : console.log(pluginName.toUpperCase(), data),
@@ -59,7 +72,11 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     if (plugin.init) {
       logger.info(` - INIT`);
       plugin.init({
+        pluginName,
         log: {
+          debug: (...data: any[]) => !Tools.isNullOrUndefined(plugin.log)
+            ? plugin.log!.info(pluginName, data)
+            : logger.info(pluginName, data),
           info: (...data: any[]) => !Tools.isNullOrUndefined(plugin.log)
             ? plugin.log!.info(pluginName, data)
             : logger.info(pluginName, data),
@@ -73,14 +90,14 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
         cwd: CWD,
         events: INTERNAL_EVENTS,
         config: appConfig,
-        onEvent: <T = any>(event: string, global: Boolean = false, listener: (data: IEmitter<T>) => void) => {
+        onEvent: <T = any> (event: string, global: Boolean = false, listener: (data: IEmitter<T>) => void) => {
           logger.info(` - LISTEN: [${global ? event : `${pluginName}-${event}`}]`);
           INTERNAL_EVENTS.on(global ? event : `${pluginName}-${event}`, listener);
         },
-        emitEvent: <T = any>(event: string, global: boolean = false, data?: T) => {
+        emitEvent: <T = any> (event: string, global: boolean = false, data?: T) => {
           INTERNAL_EVENTS.emit(global ? event : `${pluginName}-${event}`, data);
         },
-        emitEventAndReturn: <T1 = any, T2 = any>(event: string, endpointOrPluginName: string, data?: T1) => new Promise((resolve, reject) => {
+        emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => new Promise((resolve, reject) => {
           const resultKey = UUID();
           const endEventName = `${endpointOrPluginName}-${event}-result-${resultKey}`;
           const errEventName = `${endpointOrPluginName}-${event}-error-${resultKey}`;
