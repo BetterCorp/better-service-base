@@ -1,3 +1,5 @@
+import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
+
 export enum GLOBAL_INNER_EVENTS {
   EVENT_WS_CONNECTION = 'ws-connection',
   EVENT_WS_FORCE_DC = 'ws-force-disconnect',
@@ -18,6 +20,7 @@ export interface PluginFeature {
   cwd: string;
   events: IEventEmitter;
   config: ServiceConfig;
+  getPluginConfig<T = ServiceConfigPlugins>(): T;
   onEvent<T = any>(event: string, global: Boolean, listener: (data: IEmitter<T>) => void): void;
   emitEvent<T = any>(event: string, global: boolean, data?: T): void;
   emitEventAndReturn<T1 = any, T2 = any>(event: string, endpointOrPluginName: string, data?: T1): Promise<T2 | void>;
@@ -48,6 +51,6 @@ export interface ServiceConfig {
   plugins: ServiceConfigPlugins;
 }
 
-export interface ServiceConfigPlugins {
+export interface ServiceConfigPlugins extends IDictionary {
 
 }

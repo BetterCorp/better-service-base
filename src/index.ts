@@ -3,7 +3,7 @@ import * as FS from 'fs';
 import * as PATH from 'path';
 import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
-import { IEmitter, ILOGGER, IPlugin, ServiceConfig } from "./ILib";
+import { IEmitter, ILOGGER, IPlugin, ServiceConfig, ServiceConfigPlugins } from "./ILib";
 import { v4 as UUID } from 'uuid';
 
 const CWD = process.env.APP_DIR || process.cwd();
@@ -90,6 +90,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
         cwd: CWD,
         events: INTERNAL_EVENTS,
         config: appConfig,
+        getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
         onEvent: <T = any> (event: string, global: Boolean = false, listener: (data: IEmitter<T>) => void) => {
           logger.info(` - LISTEN: [${global ? event : `${pluginName}-${event}`}]`);
           INTERNAL_EVENTS.on(global ? event : `${pluginName}-${event}`, listener);
