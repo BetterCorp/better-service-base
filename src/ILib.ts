@@ -13,10 +13,17 @@ export interface ILOGGER {
   debug (plugin: string, ...data: any[]): void;
 }
 
+export interface IPluginLOGGER {
+  info (...data: any[]): void;
+  warn (...data: any[]): void;
+  error (...data: any[]): void;
+  debug (...data: any[]): void;
+}
+
 exports.GLOBAL_INNER_EVENTS;
 export interface PluginFeature {
   pluginName: string;
-  log: ILOGGER;
+  log: IPluginLOGGER;
   cwd: string;
   events: IEventEmitter;
   config: ServiceConfig;
@@ -28,7 +35,7 @@ export interface PluginFeature {
 
 export interface IPlugin {
   name: string;
-  log: ILOGGER | undefined;
+  log: IPluginLOGGER | undefined;
   init(features: PluginFeature): void;
 }
 
