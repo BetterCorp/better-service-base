@@ -1,31 +1,23 @@
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
 
-export enum GLOBAL_INNER_EVENTS {
-  EVENT_WS_CONNECTION = 'ws-connection',
-  EVENT_WS_FORCE_DC = 'ws-force-disconnect',
-  EVENT_WS_DISCONNECTED = 'ws-close',
-};
-
-export interface ILOGGER {
+export interface ILogger {
   info (plugin: string, ...data: any[]): void;
   warn (plugin: string, ...data: any[]): void;
   error (plugin: string, ...data: any[]): void;
   debug (plugin: string, ...data: any[]): void;
 }
 
-export interface IPluginLOGGER {
+export interface IPluginLogger {
   info (...data: any[]): void;
   warn (...data: any[]): void;
   error (...data: any[]): void;
   debug (...data: any[]): void;
 }
 
-exports.GLOBAL_INNER_EVENTS;
 export interface PluginFeature {
   pluginName: string;
-  log: IPluginLOGGER;
+  log: IPluginLogger;
   cwd: string;
-  events: IEventEmitter;
   config: ServiceConfig;
   getPluginConfig<T = ServiceConfigPlugins>(): T;
   onEvent<T = any>(event: string, global: Boolean, listener: (data: IEmitter<T>) => void): void;
@@ -33,9 +25,15 @@ export interface PluginFeature {
   emitEventAndReturn<T1 = any, T2 = any>(event: string, endpointOrPluginName: string, data?: T1): Promise<T2 | void>;
 }
 
+export interface IEvents {
+  onEvent<T = any>(plugin: string, event: string, global: Boolean, listener: (data: IEmitter<T>) => void): void;
+  emitEvent<T = any>(plugin: string, event: string, global: boolean, data?: T): void;
+  emitEventAndReturn<T1 = any, T2 = any>(plugin: string, event: string, endpointOrPluginName: string, data?: T1): Promise<T2 | void>;
+}
+
 export interface IPlugin {
   name: string;
-  log: IPluginLOGGER | undefined;
+  log: IPluginLogger | undefined;
   init(features: PluginFeature): void;
 }
 
