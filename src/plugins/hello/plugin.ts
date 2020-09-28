@@ -4,15 +4,15 @@ import { IEmitter, PluginFeature, IPlugin } from "../../ILib";
 export class Plugin implements IPlugin {
   init (features: PluginFeature): IPlugin {
     // This function is called on plugin initialization
-    features.onEvent('world', false, (data: IEmitter<number>) => {
+    features.onEvent(null, 'world', (data: IEmitter<number>) => {
       let ran: number = (!Tools.isNullOrUndefined(data.data)) ? data.data : new Date().getTime();
 
       if (ran % 2)
         // If the event returns data    
-        return features.emitEvent(data.resultNames.success, false, true);
+        return features.emitEvent(data.resultNames.plugin, data.resultNames.success, true);
 
       // If the event returns data but errors out
-      features.emitEvent(data.resultNames.success, false, false);
+      features.emitEvent(data.resultNames.plugin, data.resultNames.success, false);
     });
 
     setTimeout(() => {

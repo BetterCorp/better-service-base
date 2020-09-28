@@ -52,9 +52,9 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     cwd: CWD,
     config: appConfig,
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[loggerPluginName] as T,
-    onEvent: <T = any> (event: string, global: Boolean, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(loggerPluginName, event, global, listener),
-    emitEvent: <T = any> (event: string, global: boolean, data?: T) => events.emitEvent<T>(loggerPluginName, event, global, data),
-    emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, event, endpointOrPluginName, data)
+    onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(loggerPluginName, plugin, event, listener),
+    emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(loggerPluginName, plugin, event, data),
+    emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data)
   });
   if (loggerName !== null) {
     defaultLog.info(corePluginName, `Logging moved to plugin: ${loggerName}`);
@@ -66,9 +66,9 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     cwd: CWD,
     config: appConfig,
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[eventsPluginName] as T,
-    onEvent: <T = any> (event: string, global: Boolean, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(eventsPluginName, event, global, listener),
-    emitEvent: <T = any> (event: string, global: boolean, data?: T) => events.emitEvent<T>(eventsPluginName, event, global, data),
-    emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, event, endpointOrPluginName, data)
+    onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(eventsPluginName, plugin, event, listener),
+    emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(eventsPluginName, plugin, event, data),
+    emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data)
   });
   if (eventsName !== null) {
     defaultLog.info(corePluginName, `Events moved to plugin: ${eventsName}`);
@@ -99,9 +99,9 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
       cwd: CWD,
       config: appConfig,
       getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
-      onEvent: <T = any> (event: string, global: Boolean, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(pluginName, event, global, listener),
-      emitEvent: <T = any> (event: string, global: boolean, data?: T) => events.emitEvent<T>(pluginName, event, global, data),
-      emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => events.emitEventAndReturn<T1, T2>(pluginName, event, endpointOrPluginName, data)
+      onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(pluginName, plugin, event, listener),
+      emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(pluginName, plugin, event, data),
+      emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data)
     });
     defaultLog.info(corePluginName, ' - DONE');
   }
