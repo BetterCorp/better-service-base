@@ -2,7 +2,7 @@ import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IEmitter, PluginFeature, IPlugin } from "../../ILib";
 
 export class Plugin implements IPlugin {
-  init (features: PluginFeature): Promise<IPlugin> {
+  init (features: PluginFeature): Promise<void> {
     return new Promise((resolve) => {
       // This function is called on plugin initialization
       features.onEvent(null, 'world', (data: IEmitter<number>) => {
@@ -28,7 +28,7 @@ export class Plugin implements IPlugin {
           .catch(features.log.error);
       }, 2000);
 
-      resolve(this);
+      resolve();
     });
   }
 }

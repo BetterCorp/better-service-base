@@ -7,10 +7,10 @@ export class Events implements IEvents {
   private internalEvents: any;
   private logger!: IPluginLogger;
 
-  init(feature: PluginFeature): Promise<IEvents> {
+  init(feature: PluginFeature): Promise<void> {
     this.logger = feature.log;
     this.internalEvents = new (EVENT_EMITTER as any)();
-    return new Promise((resolve) => resolve(this));
+    return new Promise((resolve) => resolve());
   }
 
   onEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (data: IEmitter<T>) => void): void {

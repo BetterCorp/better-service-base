@@ -1,7 +1,7 @@
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
 
 export interface ILogger {
-  init (features: PluginFeature): Promise<ILogger>;
+  init (features: PluginFeature): Promise<void>;
   info (plugin: string, ...data: any[]): void;
   warn (plugin: string, ...data: any[]): void;
   error (plugin: string, ...data: any[]): void;
@@ -27,7 +27,7 @@ export interface PluginFeature {
 }
 
 export interface IEvents {
-  init (features: PluginFeature): Promise<IEvents>;
+  init (features: PluginFeature): Promise<void>;
   onEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (data: IEmitter<T>) => void): void;
   emitEvent<T = any> (plugin: string, pluginName: string | null, event: string, data?: T): void;
   emitEventAndReturn<T1 = any, T2 = any> (plugin: string, pluginName: string | null, event: string, data?: T1): Promise<T2 | void>;
@@ -35,7 +35,7 @@ export interface IEvents {
 
 export interface IPlugin {
   log?: IPluginLogger;
-  init(features: PluginFeature): Promise<IPlugin>;
+  init(features: PluginFeature): Promise<void>;
 }
 
 export interface IEventEmitter {
