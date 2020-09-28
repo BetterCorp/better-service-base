@@ -32,8 +32,7 @@ const LIBRARY_PLUGINS: IDictionary<IPlugin> = {};
 
 const cnull = () => { };
 
-let defaultLog = new DefaultLogger();
-defaultLog.init(null!); // We know the default logger is using console, so we don't need the plugin features passed through
+let defaultLog = new DefaultLogger(); // Default logger does not require init to be called ... so we're being lazy and not calling it.
 let logger: ILogger = new DefaultLogger();
 let loggerName: string | null = null;
 
@@ -46,7 +45,7 @@ if (appConfig.debug)
 
 const SETUP_PLUGINS = () => new Promise(async (resolve) => {
   const loggerPluginName = loggerName || 'default-logger';
-  logger.init({
+  await logger.init({
     log: defaultLog,
     pluginName: loggerPluginName,
     cwd: CWD,
@@ -60,7 +59,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     defaultLog.info(corePluginName, `Logging moved to plugin: ${loggerName}`);
   }
   const eventsPluginName = eventsName || 'default-events';
-  events.init({
+  await events.init({
     log: logger,
     pluginName: eventsPluginName,
     cwd: CWD,
@@ -78,7 +77,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     let plugin = LIBRARY_PLUGINS[pluginName];
     defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
     defaultLog.info(corePluginName, ` - INIT`);
-    plugin.init({
+    await plugin.init({
       pluginName,
       log: {
         debug: (...data: any[]) => !_runningInDebug ?

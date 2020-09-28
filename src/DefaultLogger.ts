@@ -1,8 +1,8 @@
 import { ILogger, PluginFeature } from "./ILib";
 
 export class Logger implements ILogger {
-  init (features: PluginFeature): ILogger {
-    return this;
+  init (features: PluginFeature): Promise<ILogger> {
+    return new Promise((resolve) => resolve(this));
   }
   debug (plugin: string, ...data: any[]): void {
     if (typeof data === 'string')
