@@ -17,7 +17,7 @@
     "install-plugin.js"
   ],
   "main": "lib/index.js",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "dependencies": {
     "@bettercorp/tools": "^1.0.5",
     "@types/node": "^14.11.2",

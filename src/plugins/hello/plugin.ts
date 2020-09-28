@@ -1,7 +1,7 @@
 import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IEmitter, PluginFeature, IPlugin } from "../../ILib";
 
-export class hello implements IPlugin {
+export class Plugin implements IPlugin {
   init (features: PluginFeature): IPlugin {
     // This function is called on plugin initialization
     features.onEvent('world', false, (data: IEmitter<number>) => {

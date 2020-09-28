@@ -41,6 +41,8 @@ let events: IEvents = new DefaultEvents();
 let eventsName: string | null = null;
 
 defaultLog.info(corePluginName, ' - BOOT UP: @' + _version);
+if (appConfig.debug)
+  defaultLog.info(corePluginName, ' - RUNNING IN DEBUG MODE');
 
 const SETUP_PLUGINS = () => new Promise(async (resolve) => {
   const loggerPluginName = loggerName || 'default-logger';
@@ -75,34 +77,32 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
   for (let pluginName of Object.keys(LIBRARY_PLUGINS)) {
     let plugin = LIBRARY_PLUGINS[pluginName];
     defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
-    if (plugin.init) {
-      defaultLog.info(corePluginName, ` - INIT`);
-      plugin.init({
-        pluginName,
-        log: {
-          debug: (...data: any[]) => !_runningInDebug ?
-            cnull()
-            : (!Tools.isNullOrUndefined(plugin.log)
-              ? plugin.log!.debug(pluginName, data)
-              : logger.debug(pluginName, data)),
-          info: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
-            ? plugin.log!.info(pluginName, data)
-            : logger.info(pluginName, data)),
-          error: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
-            ? plugin.log!.error(pluginName, data)
-            : logger.error(pluginName, data)),
-          warn: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
-            ? plugin.log!.warn(pluginName, data)
-            : logger.warn(pluginName, data))
-        },
-        cwd: CWD,
-        config: appConfig,
-        getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
-        onEvent: <T = any> (event: string, global: Boolean, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(pluginName, event, global, listener),
-        emitEvent: <T = any> (event: string, global: boolean, data?: T) => events.emitEvent<T>(pluginName, event, global, data),
-        emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => events.emitEventAndReturn<T1, T2>(pluginName, event, endpointOrPluginName, data)
-      });
-    }
+    defaultLog.info(corePluginName, ` - INIT`);
+    plugin.init({
+      pluginName,
+      log: {
+        debug: (...data: any[]) => !_runningInDebug ?
+          cnull()
+          : (!Tools.isNullOrUndefined(plugin.log)
+            ? plugin.log!.debug(pluginName, data)
+            : logger.debug(pluginName, data)),
+        info: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+          ? plugin.log!.info(pluginName, data)
+          : logger.info(pluginName, data)),
+        error: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+          ? plugin.log!.error(pluginName, data)
+          : logger.error(pluginName, data)),
+        warn: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+          ? plugin.log!.warn(pluginName, data)
+          : logger.warn(pluginName, data))
+      },
+      cwd: CWD,
+      config: appConfig,
+      getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
+      onEvent: <T = any> (event: string, global: Boolean, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(pluginName, event, global, listener),
+      emitEvent: <T = any> (event: string, global: boolean, data?: T) => events.emitEvent<T>(pluginName, event, global, data),
+      emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => events.emitEventAndReturn<T1, T2>(pluginName, event, endpointOrPluginName, data)
+    });
     defaultLog.info(corePluginName, ' - DONE');
   }
   resolve();
@@ -134,7 +134,7 @@ const loadPlugin = (name: string, path: string) => {
 
   let importedPlugin = require(path);
   defaultLog.info(corePluginName, ` - ${name}: LOADED`);
-  LIBRARY_PLUGINS[name] = importedPlugin;
+  LIBRARY_PLUGINS[name] = new importedPlugin.Plugin();
 };
 const loadCorePlugin = (name: string, path: string) => {
   if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
