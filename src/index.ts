@@ -1,10 +1,10 @@
 import * as FS from 'fs';
 import * as PATH from 'path';
-import { DefaultLogger } from './DefaultLogger';
+import { Logger as DefaultLogger } from './DefaultLogger';
 import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
 import { IEmitter, IEvents, ILogger, IPlugin, ServiceConfig, ServiceConfigPlugins } from "./ILib";
-import { DefaultEvents } from './DefaultEvents';
+import { Events as DefaultEvents } from './DefaultEvents';
 
 const corePluginName = 'self';
 const CWD = process.env.APP_DIR || process.cwd();
@@ -150,14 +150,14 @@ const loadCorePlugin = (name: string, path: string) => {
   if (name.indexOf('log-') === 0) {
     let importedPlugin = require(path);
     defaultLog.info(corePluginName, ` - ${name}: LOADED AS DEFAULT LOGGER`);
-    logger = importedPlugin;
+    logger = new importedPlugin.Logger();
     loggerName = name;
     return;
   }
   if (name.indexOf('events-') === 0) {
     let importedPlugin = require(path);
     defaultLog.info(corePluginName, ` - ${name}: LOADED AS EVENTS HANDLER`);
-    events = importedPlugin;
+    events = new importedPlugin.Events();
     eventsName = name;
     return;
   }

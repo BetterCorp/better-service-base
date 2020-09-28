@@ -1,6 +1,6 @@
 import { ILogger, PluginFeature } from "./ILib";
 
-export class DefaultLogger implements ILogger {
+export class Logger implements ILogger {
   init (features: PluginFeature): ILogger {
     return this;
   }

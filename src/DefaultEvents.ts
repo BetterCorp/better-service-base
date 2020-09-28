@@ -3,7 +3,7 @@ import * as EVENT_EMITTER from 'events';
 import { v4 as UUID } from 'uuid';
 
 
-export class DefaultEvents implements IEvents {
+export class Events implements IEvents {
   private internalEvents: any;
   private logger!: IPluginLogger;
 
