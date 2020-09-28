@@ -133,14 +133,14 @@ const loadCorePlugin = (name: string, path: string) => {
     }
   }
 
-  if (name.indexOf('log') === 0) {
+  if (name.indexOf('log-') === 0) {
     let importedPlugin = require(path);
     defaultLog.info(corePluginName, ` - ${name}: LOADED AS DEFAULT LOGGER`);
     logger = importedPlugin;
     loggerName = name;
     return;
   }
-  if (name.indexOf('events') === 0) {
+  if (name.indexOf('events-') === 0) {
     let importedPlugin = require(path);
     defaultLog.info(corePluginName, ` - ${name}: LOADED AS EVENTS HANDLER`);
     events = importedPlugin;
