@@ -16,13 +16,14 @@ if ( pluginPackageJSON === null ) return 'Unknown script service-base install pl
 console.log( `INSTALL SCRIPT FOR ${pluginPackageJSON.name} in ${CWD}` );
 
 const packaggeJSONFile = PATH.join( CWD, './package.json' );
+let pluginName = pluginPackageJSON.name;
 if ( FS.existsSync( packaggeJSONFile ) ) {
   let jsonString = FS.readFileSync( packaggeJSONFile ).toString();
   let jsonOBJ = JSON.parse( jsonString );
   if ( jsonOBJ.name.indexOf( '@bettercorp/service-base' ) === 0 )
     return console.log( 'Self install. ignoring install script.' );
 
-  let pluginName = pluginPackageJSON.name.split( '@bettercorp/service-base-' )[ 1 ];
+  pluginName = pluginPackageJSON.name.split( '@bettercorp/service-base-' )[ 1 ];
 
   jsonOBJ[ 'bettercorp-service-base' ] = jsonOBJ[ 'bettercorp-service-base' ] || {};
   jsonOBJ[ 'bettercorp-service-base' ][ pluginName ] = jsonOBJ[ 'bettercorp-service-base' ][ pluginName ] || false;
@@ -50,7 +51,7 @@ if ( FS.existsSync( installScriptPath ) ) {
   let configString = FS.readFileSync( configFile ).toString();
   let configJSON = JSON.parse( configString );
 
-  configJSON = pluginScript( configJSON );
+  configJSON = pluginScript( configJSON, pluginName );
 
   let outConfigString = JSON.stringify( configJSON );
 
