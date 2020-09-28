@@ -1,10 +1,10 @@
 import * as FS from 'fs';
 import * as PATH from 'path';
-import { Logger as DefaultLogger } from './Logger';
+import { DefaultLogger } from './DefaultLogger';
 import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
 import { IEmitter, IEvents, ILogger, IPlugin, ServiceConfig, ServiceConfigPlugins } from "./ILib";
-import { Events } from './Events';
+import { DefaultEvents } from './DefaultEvents';
 
 const corePluginName = 'self';
 const CWD = process.env.APP_DIR || process.cwd();
@@ -33,16 +33,45 @@ const LIBRARY_PLUGINS: IDictionary<IPlugin> = {};
 const cnull = () => { };
 
 let defaultLog = new DefaultLogger();
+defaultLog.init(null!); // We know the default logger is using console, so we don't need the plugin features passed through
 let logger: ILogger = new DefaultLogger();
 let loggerName: string | null = null;
 
-let events: IEvents = new Events(defaultLog);
+let events: IEvents = new DefaultEvents();
 let eventsName: string | null = null;
 
 defaultLog.info(corePluginName, ' - BOOT UP: @' + _version);
 
 const SETUP_PLUGINS = () => new Promise(async (resolve) => {
-  let booted = false;
+  const loggerPluginName = loggerName || 'default-logger';
+  logger.init({
+    log: defaultLog,
+    pluginName: loggerPluginName,
+    cwd: CWD,
+    config: appConfig,
+    getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[loggerPluginName] as T,
+    onEvent: <T = any> (event: string, global: Boolean, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(loggerPluginName, event, global, listener),
+    emitEvent: <T = any> (event: string, global: boolean, data?: T) => events.emitEvent<T>(loggerPluginName, event, global, data),
+    emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, event, endpointOrPluginName, data)
+  });
+  if (loggerName !== null) {
+    defaultLog.info(corePluginName, `Logging moved to plugin: ${loggerName}`);
+  }
+  const eventsPluginName = eventsName || 'default-events';
+  events.init({
+    log: logger,
+    pluginName: eventsPluginName,
+    cwd: CWD,
+    config: appConfig,
+    getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[eventsPluginName] as T,
+    onEvent: <T = any> (event: string, global: Boolean, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(eventsPluginName, event, global, listener),
+    emitEvent: <T = any> (event: string, global: boolean, data?: T) => events.emitEvent<T>(eventsPluginName, event, global, data),
+    emitEventAndReturn: <T1 = any, T2 = any> (event: string, endpointOrPluginName: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, event, endpointOrPluginName, data)
+  });
+  if (eventsName !== null) {
+    defaultLog.info(corePluginName, `Events moved to plugin: ${eventsName}`);
+  }
+
   for (let pluginName of Object.keys(LIBRARY_PLUGINS)) {
     let plugin = LIBRARY_PLUGINS[pluginName];
     defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
@@ -53,26 +82,18 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
         log: {
           debug: (...data: any[]) => !_runningInDebug ?
             cnull()
-            : !booted ?
-              defaultLog.debug(pluginName, data)
-              : (!Tools.isNullOrUndefined(plugin.log)
-                ? plugin.log!.debug(pluginName, data)
-                : logger.debug(pluginName, data)),
-          info: (...data: any[]) => !booted ?
-            defaultLog.info(pluginName, data)
             : (!Tools.isNullOrUndefined(plugin.log)
-              ? plugin.log!.info(pluginName, data)
-              : logger.info(pluginName, data)),
-          error: (...data: any[]) => !booted ?
-            defaultLog.error(pluginName, data)
-            : (!Tools.isNullOrUndefined(plugin.log)
-              ? plugin.log!.error(pluginName, data)
-              : logger.error(pluginName, data)),
-          warn: (...data: any[]) => !booted ?
-            defaultLog.warn(pluginName, data)
-            : (!Tools.isNullOrUndefined(plugin.log)
-              ? plugin.log!.warn(pluginName, data)
-              : logger.warn(pluginName, data))
+              ? plugin.log!.debug(pluginName, data)
+              : logger.debug(pluginName, data)),
+          info: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+            ? plugin.log!.info(pluginName, data)
+            : logger.info(pluginName, data)),
+          error: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+            ? plugin.log!.error(pluginName, data)
+            : logger.error(pluginName, data)),
+          warn: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+            ? plugin.log!.warn(pluginName, data)
+            : logger.warn(pluginName, data))
         },
         cwd: CWD,
         config: appConfig,
@@ -83,13 +104,6 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
       });
     }
     defaultLog.info(corePluginName, ' - DONE');
-  }
-  booted = true;
-  if (loggerName !== null) {
-    defaultLog.info(corePluginName, `Logging moved to plugin: ${loggerName}`);
-  }
-  if (eventsName !== null) {
-    defaultLog.info(corePluginName, `Events moved to plugin: ${eventsName}`);
   }
   resolve();
 });
@@ -147,7 +161,7 @@ const loadCorePlugin = (name: string, path: string) => {
     eventsName = name;
     return;
   }
-  
+
   defaultLog.warn(corePluginName, `Plugin (${name}) was ignored as it's not a valid core plugin... contact support@bettercorp.co.za.`);
 };
 
