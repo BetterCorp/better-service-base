@@ -50,10 +50,12 @@ if ( FS.existsSync( installScriptPath ) ) {
     pluginScript = pluginScript.default;
 
   let configString = FS.readFileSync( configFile ).toString();
-  let configJSON = JSON.parse( configString );
+  let configJSON = JSON.parse( configString ) || {};
+  configJSON.plugins = configJSON.plugins || {};
+  configJSON.plugins[pluginName] = configJSON.plugins[pluginName] || {};
 
-  let pluginMadeConfig = pluginScript( pluginName );
-  configJSON = TOOLS.Tools.mergeObjects( pluginMadeConfig, configJSON );
+  let pluginMadeConfig = pluginScript();
+  configJSON.plugins[pluginName] = TOOLS.Tools.mergeObjects( pluginMadeConfig, configJSON.plugins[pluginName] );
 
   let outConfigString = JSON.stringify( configJSON );
 
