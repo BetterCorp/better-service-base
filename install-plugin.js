@@ -1,5 +1,6 @@
 const FS = require( 'fs' );
 const PATH = require( 'path' );
+const TOOLS = require( '@bettercorp/tools/lib/Tools' );
 let PLUGIN_CWD = process.cwd();
 let CWD = process.cwd();
 
@@ -51,7 +52,8 @@ if ( FS.existsSync( installScriptPath ) ) {
   let configString = FS.readFileSync( configFile ).toString();
   let configJSON = JSON.parse( configString );
 
-  configJSON = pluginScript( configJSON, pluginName );
+  let pluginMadeConfig = pluginScript( pluginName );
+  configJSON = TOOLS.Tools.mergeObjects( pluginMadeConfig, configJSON );
 
   let outConfigString = JSON.stringify( configJSON );
 

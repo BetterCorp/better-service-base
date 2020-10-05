@@ -35,7 +35,7 @@ export interface IEvents {
 
 export interface IPlugin {
   log?: IPluginLogger;
-  init(features: PluginFeature): Promise<void>;
+  init (features: PluginFeature): Promise<void>;
 }
 
 export interface IEventEmitter {
@@ -43,12 +43,12 @@ export interface IEventEmitter {
 }
 
 export interface IEmitter<T = any> {
-  resultKey: string,
+  resultKey: string;
   resultNames: {
     plugin: string,
     success: string,
     error: string;
-  },
+  };
   data: T;
 }
 

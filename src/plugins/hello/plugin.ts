@@ -1,11 +1,11 @@
 import { Tools } from '@bettercorp/tools/lib/Tools';
-import { IEmitter, PluginFeature, IPlugin } from "../../ILib";
+import { PluginFeature, IPlugin, IEmitter } from "../../ILib";
 
 export class Plugin implements IPlugin {
   init (features: PluginFeature): Promise<void> {
     return new Promise((resolve) => {
       // This function is called on plugin initialization
-      features.onEvent(null, 'world', (data: IEmitter<number>) => {
+      features.onEvent<number>(null, 'world', (data: IEmitter<number>) => {
         let ran: number = (!Tools.isNullOrUndefined(data.data)) ? data.data : new Date().getTime();
 
         if (ran % 2)
