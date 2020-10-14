@@ -21,7 +21,7 @@ export class Events implements IEvents {
     this.logger.debug(plugin, ` - EMIT: [${`${pluginName || plugin}-${event}`}]`, data);
     this.internalEvents.emit(`${pluginName || plugin}-${event}`, data);
   }
-  emitEventAndReturn<T1 = any, T2 = any> (plugin: string, pluginName: string | null, event: string, data?: T1): Promise<void | T2> {
+  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1): Promise<T2> {
     this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, data);
     let self = this;
     return new Promise((resolve, reject) => {

@@ -23,19 +23,21 @@ export interface PluginFeature {
   getPluginConfig<T = ServiceConfigPlugins> (): T;
   onEvent<T = any> (pluginName: string | null, event: string, listener: (data: IEmitter<T>) => void): void;
   emitEvent<T = any> (pluginName: string | null, event: string, data?: T): void;
-  emitEventAndReturn<T1 = any, T2 = any> (pluginName: string | null, event: string, data?: T1): Promise<T2 | void>;
+  emitEventAndReturn<T1 = any, T2 = void> (pluginName: string | null, event: string, data?: T1): Promise<T2>;
+  initForPlugins?<T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2>;
 }
 
 export interface IEvents {
   init (features: PluginFeature): Promise<void>;
   onEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (data: IEmitter<T>) => void): void;
   emitEvent<T = any> (plugin: string, pluginName: string | null, event: string, data?: T): void;
-  emitEventAndReturn<T1 = any, T2 = any> (plugin: string, pluginName: string | null, event: string, data?: T1): Promise<T2 | void>;
+  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1): Promise<T2>;
 }
 
 export interface IPlugin {
   log?: IPluginLogger;
   init (features: PluginFeature): Promise<void>;
+  initForPlugins?<T1 = any, T2 = void>(initType: string | null, args: T1): Promise<T2>;
 }
 
 export interface IEventEmitter {

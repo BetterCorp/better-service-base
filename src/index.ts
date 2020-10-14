@@ -53,7 +53,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[loggerPluginName] as T,
     onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(loggerPluginName, plugin, event, listener),
     emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(loggerPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data)
+    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data)
   });
   if (loggerName !== null) {
     defaultLog.info(corePluginName, `Logging moved to plugin: ${loggerName}`);
@@ -67,7 +67,7 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[eventsPluginName] as T,
     onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(eventsPluginName, plugin, event, listener),
     emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(eventsPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data)
+    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data)
   });
   if (eventsName !== null) {
     defaultLog.info(corePluginName, `Events moved to plugin: ${eventsName}`);
@@ -98,9 +98,20 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
       cwd: CWD,
       config: appConfig,
       getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
-      onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(pluginName, plugin, event, listener),
-      emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(pluginName, plugin, event, data),
-      emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data)
+      onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
+      emitEvent: <T = any> (plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
+      emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data),
+      initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1) => {
+        return new Promise((resolve, reject) => {
+          if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
+            return reject(`No plugin loaded matching plugin name! [${pluginName}]`);
+
+          if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName].initForPlugins) || !Tools.isFunction(LIBRARY_PLUGINS[pluginName].initForPlugins))
+            return reject(`No plugin init mech available for plugin! [${pluginName}]`);
+
+          LIBRARY_PLUGINS[pluginName].initForPlugins!<T1, T2>(initType, args).then(resolve as any).catch(reject);
+        });
+      }
     });
     defaultLog.info(corePluginName, ' - DONE');
   }
