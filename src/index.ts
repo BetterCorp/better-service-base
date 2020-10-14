@@ -73,11 +73,86 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     defaultLog.info(corePluginName, `Events moved to plugin: ${eventsName}`);
   }
 
-  for (let pluginName of Object.keys(LIBRARY_PLUGINS)) {
+  let initPlugins = Object.keys(LIBRARY_PLUGINS);
+  let loadedPlugins = Object.keys(LIBRARY_PLUGINS);
+  for (let i = 0; i < initPlugins.length; i++) {
+    if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[initPlugins[i]].initIndex)) {
+      LIBRARY_PLUGINS[initPlugins[i]].initIndex = -1;
+    }
+    if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex)) {
+      LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex = -1;
+    }
+  }
+  for (let i = 0; i < initPlugins.length - 1; i++) {
+    for (let j = i + 1; j < initPlugins.length; j++) {
+      if (LIBRARY_PLUGINS[initPlugins[i]].initIndex! > LIBRARY_PLUGINS[initPlugins[j]].initIndex!) {
+        let temp = initPlugins[i];
+        initPlugins[i] = initPlugins[j];
+        initPlugins[j] = temp;
+      }
+    }
+  }
+  for (let i = 0; i < loadedPlugins.length - 1; i++) {
+    for (let j = i + 1; j < loadedPlugins.length; j++) {
+      if (LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex! > LIBRARY_PLUGINS[loadedPlugins[j]].loadedIndex!) {
+        let temp = loadedPlugins[i];
+        loadedPlugins[i] = loadedPlugins[j];
+        loadedPlugins[j] = temp;
+      }
+    }
+  }
+
+  for (let pluginName of initPlugins) {
     let plugin = LIBRARY_PLUGINS[pluginName];
     defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
     defaultLog.info(corePluginName, ` - INIT`);
     await plugin.init({
+      pluginName,
+      log: {
+        debug: (...data: any[]) => !_runningInDebug ?
+          cnull()
+          : (!Tools.isNullOrUndefined(plugin.log)
+            ? plugin.log!.debug(pluginName, data)
+            : logger.debug(pluginName, data)),
+        info: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+          ? plugin.log!.info(pluginName, data)
+          : logger.info(pluginName, data)),
+        error: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+          ? plugin.log!.error(pluginName, data)
+          : logger.error(pluginName, data)),
+        warn: (...data: any[]) => (!Tools.isNullOrUndefined(plugin.log)
+          ? plugin.log!.warn(pluginName, data)
+          : logger.warn(pluginName, data))
+      },
+      cwd: CWD,
+      config: appConfig,
+      getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
+      onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
+      emitEvent: <T = any> (plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
+      emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data),
+      initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1) => {
+        return new Promise((resolve, reject) => {
+          if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
+            return reject(`No plugin loaded matching plugin name! [${pluginName}]`);
+
+          if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName].initForPlugins) || !Tools.isFunction(LIBRARY_PLUGINS[pluginName].initForPlugins))
+            return reject(`No plugin init mech available for plugin! [${pluginName}]`);
+
+          LIBRARY_PLUGINS[pluginName].initForPlugins!<T1, T2>(initType, args).then(resolve as any).catch(reject);
+        });
+      }
+    });
+    defaultLog.info(corePluginName, ' - DONE');
+  }
+  for (let pluginName of loadedPlugins) {
+    let plugin = LIBRARY_PLUGINS[pluginName];
+    defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
+    if (Tools.isNullOrUndefined(plugin.loaded)) {
+      defaultLog.info(corePluginName, ` - NO LOAD REQUIRED`);
+      continue;
+    }
+    defaultLog.info(corePluginName, ` - LOADED`);
+    await plugin.loaded!({
       pluginName,
       log: {
         debug: (...data: any[]) => !_runningInDebug ?

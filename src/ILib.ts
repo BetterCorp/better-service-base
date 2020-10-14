@@ -36,7 +36,10 @@ export interface IEvents {
 
 export interface IPlugin {
   log?: IPluginLogger;
+  initIndex?: number;
   init (features: PluginFeature): Promise<void>;
+  loadedIndex?: number;
+  loaded? (features: PluginFeature): Promise<void>;
   initForPlugins?<T1 = any, T2 = void>(initType: string | null, args: T1): Promise<T2>;
 }
 
