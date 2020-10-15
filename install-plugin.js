@@ -27,8 +27,9 @@ if ( FS.existsSync( packaggeJSONFile ) ) {
   pluginName = pluginPackageJSON.name.split( '@bettercorp/service-base-' )[ 1 ];
 
   jsonOBJ[ 'bettercorp-service-base' ] = jsonOBJ[ 'bettercorp-service-base' ] || {};
-  if ( FS.existsSync( PATH.join( PLUGIN_CWD, './lib/plugins' ) ) ) {
-    for (let iPluginName of FS.statSync(PATH.join( PLUGIN_CWD, './lib/plugins' ))) {
+  const iPluginPath = PATH.join( PLUGIN_CWD, './lib/plugins' );
+  if ( FS.existsSync( iPluginPath ) && FS.statSync( iPluginPath ).isDirectory() ) {
+    for ( let iPluginName of FS.readdirSync( iPluginPath ) ) {
       const iFullPluginName = `plugin-${iPluginName}`;
       jsonOBJ[ 'bettercorp-service-base' ][ iFullPluginName ] = jsonOBJ[ 'bettercorp-service-base' ][ iFullPluginName ] || false;
       if ( jsonOBJ[ 'bettercorp-service-base' ][ iFullPluginName ] === false )
