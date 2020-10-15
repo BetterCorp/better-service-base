@@ -24,7 +24,7 @@ export interface PluginFeature {
   onEvent<T = any> (pluginName: string | null, event: string, listener: (data: IEmitter<T>) => void): void;
   emitEvent<T = any> (pluginName: string | null, event: string, data?: T): void;
   emitEventAndReturn<T1 = any, T2 = void> (pluginName: string | null, event: string, data?: T1): Promise<T2>;
-  initForPlugins?<T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2>;
+  initForPlugins<T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2>;
 }
 
 export interface IEvents {

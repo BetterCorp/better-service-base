@@ -53,7 +53,10 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[loggerPluginName] as T,
     onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(loggerPluginName, plugin, event, listener),
     emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(loggerPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data)
+    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data),
+    initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
+      reject('NOT VALID FOR LOGGING CONTEXT');
+    })
   });
   if (loggerName !== null) {
     defaultLog.info(corePluginName, `Logging moved to plugin: ${loggerName}`);
@@ -67,7 +70,10 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[eventsPluginName] as T,
     onEvent: <T = any> (plugin: string, event: string, listener: (data: IEmitter<T>) => void) => events.onEvent<T>(eventsPluginName, plugin, event, listener),
     emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(eventsPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data)
+    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data),
+    initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
+      reject('NOT VALID FOR EVENTS CONTEXT');
+    })
   });
   if (eventsName !== null) {
     defaultLog.info(corePluginName, `Events moved to plugin: ${eventsName}`);
