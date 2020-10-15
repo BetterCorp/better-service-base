@@ -305,7 +305,7 @@ export default class ServiceBase {
             continue;
           }
 
-          loadPlugin(dirFileWhat.replace('service-base-', ''), pluginFile);
+          loadPlugin(dirFileWhat.replace('service-base-', 'plugin-'), pluginFile);
           continue;
         }
         if (!FS.statSync(innerPluginLibPlugin).isDirectory()) {

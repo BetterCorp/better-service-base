@@ -27,11 +27,20 @@ if ( FS.existsSync( packaggeJSONFile ) ) {
   pluginName = pluginPackageJSON.name.split( '@bettercorp/service-base-' )[ 1 ];
 
   jsonOBJ[ 'bettercorp-service-base' ] = jsonOBJ[ 'bettercorp-service-base' ] || {};
-  jsonOBJ[ 'bettercorp-service-base' ][ pluginName ] = jsonOBJ[ 'bettercorp-service-base' ][ pluginName ] || false;
-  let outJSONString = JSON.stringify( jsonOBJ );
-  if ( outJSONString !== jsonString ) {
+  if ( FS.existsSync( PATH.join( PLUGIN_CWD, './lib/plugins' ) ) ) {
+    for (let iPluginName of FS.statSync(PATH.join( PLUGIN_CWD, './lib/plugins' ))) {
+      const iFullPluginName = `plugin-${iPluginName}`;
+      jsonOBJ[ 'bettercorp-service-base' ][ iFullPluginName ] = jsonOBJ[ 'bettercorp-service-base' ][ iFullPluginName ] || false;
+      if ( jsonOBJ[ 'bettercorp-service-base' ][ iFullPluginName ] === false )
+        console.log( ` Automatically added config to package.json for you .... the plugin[${iFullPluginName}] is disabled ... go into your packge.json to enable it` )
+    }
+  } else {
+    jsonOBJ[ 'bettercorp-service-base' ][ pluginName ] = jsonOBJ[ 'bettercorp-service-base' ][ pluginName ] || false;
     if ( jsonOBJ[ 'bettercorp-service-base' ][ pluginName ] === false )
       console.log( ` Automatically added config to package.json for you .... the plugin[${pluginName}] is disabled ... go into your packge.json to enable it` )
+  }
+  let outJSONString = JSON.stringify( jsonOBJ );
+  if ( outJSONString !== jsonString ) {
     FS.writeFileSync( packaggeJSONFile, outJSONString )
   }
 }
@@ -52,10 +61,10 @@ if ( FS.existsSync( installScriptPath ) ) {
   let configString = FS.readFileSync( configFile ).toString();
   let configJSON = JSON.parse( configString ) || {};
   configJSON.plugins = configJSON.plugins || {};
-  configJSON.plugins[pluginName] = configJSON.plugins[pluginName] || {};
+  configJSON.plugins[ pluginName ] = configJSON.plugins[ pluginName ] || {};
 
   let pluginMadeConfig = pluginScript();
-  configJSON.plugins[pluginName] = TOOLS.Tools.mergeObjects( pluginMadeConfig, configJSON.plugins[pluginName] );
+  configJSON.plugins[ pluginName ] = TOOLS.Tools.mergeObjects( pluginMadeConfig, configJSON.plugins[ pluginName ] );
 
   let outConfigString = JSON.stringify( configJSON );
 
