@@ -261,7 +261,7 @@ const loadPlugins = (path: string, pluginKey?: string): void => {
   for (let dirFileWhat of FS.readdirSync(path)) {
     if (FS.statSync(PATH.join(path, dirFileWhat)).isDirectory()) {
       if (dirFileWhat.indexOf('-') === 0) {
-        defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}]`);
+        defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No plugin reference type`);
         continue;
       }
       let pluginFile = PATH.join(path, dirFileWhat, 'plugin.ts');
@@ -287,12 +287,12 @@ export default class ServiceBase {
     for (let dirFileWhat of FS.readdirSync(npmPluginsDir)) {
       if (FS.statSync(PATH.join(npmPluginsDir, dirFileWhat)).isDirectory()) {
         if (dirFileWhat.indexOf('service-base') != 0) {
-          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}]`);
+          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] Not a service base package`);
           continue;
         }
         const innerPluginLib = PATH.join(npmPluginsDir, dirFileWhat, './lib');
         if (!FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
-          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}]`);
+          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No lib dir in package`);
           continue;
         }
         const innerPluginLibPlugin = PATH.join(innerPluginLib, './plugins');
@@ -301,7 +301,7 @@ export default class ServiceBase {
           if (!FS.existsSync(pluginFile))
             pluginFile = PATH.join(innerPluginLib, 'plugin.js');
           if (!FS.existsSync(pluginFile)) {
-            defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}]`);
+            defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No plugin file available`);
             continue;
           }
 
@@ -310,7 +310,7 @@ export default class ServiceBase {
           continue;
         }
         if (!FS.statSync(innerPluginLibPlugin).isDirectory()) {
-          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}]`);
+          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No inner plugins dir`);
           continue;
         }
 
