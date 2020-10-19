@@ -213,7 +213,7 @@ const loadPlugin = (name: string, path: string) => {
     packageJSON[packageJSONPluginsObjName][name] = true;
     packageChanges = true;
   } else {
-    if (packageJSON[packageJSONPluginsObjName][name] == false) {
+    if (packageJSON[packageJSONPluginsObjName][name] !== true) {
       defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in package.json`);
       return;
     }
