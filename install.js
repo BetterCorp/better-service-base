@@ -50,3 +50,6 @@ if ( !FS.existsSync( pluginsDir ) ) {
 }
 
 console.log( 'INSTALL COMPLETE FOR @bettercorp/service-base' );
+
+console.log( 'PERFORMING PLUGIN INSTALL WITH IN-BUILT PLUGINS' );
+require('./install-plugin');

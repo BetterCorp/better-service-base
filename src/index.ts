@@ -285,6 +285,7 @@ export default class ServiceBase {
     const npmPluginsDir = PATH.join(CWD, './node_modules/@bettercorp');
     defaultLog.info(corePluginName, `Load NPM plugins in: ${npmPluginsDir}`);
     for (let dirFileWhat of FS.readdirSync(npmPluginsDir)) {
+      defaultLog.info(corePluginName, ` - CHECK [${dirFileWhat}] ${PATH.join(npmPluginsDir, dirFileWhat)}`);
       if (FS.statSync(PATH.join(npmPluginsDir, dirFileWhat)).isDirectory()) {
         if (dirFileWhat.indexOf('service-base') != 0) {
           defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] Not a service base package`);
