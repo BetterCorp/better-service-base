@@ -22,6 +22,7 @@ if (process.env.FORCE_DEBUG !== undefined && process.env.FORCE_DEBUG !== null &&
 }
 
 appConfig.debug = _runningInDebug;
+appConfig.enabledPlugins = appConfig.enabledPlugins || [];
 let pluginsDir = PATH.join(CWD, 'src');
 if (!FS.existsSync(pluginsDir) || !FS.statSync(pluginsDir).isDirectory()) {
   pluginsDir = PATH.join(CWD, 'lib');
@@ -212,9 +213,14 @@ const loadPlugin = (name: string, path: string) => {
   if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
     packageJSON[packageJSONPluginsObjName][name] = true;
     packageChanges = true;
-  } else {
+  } else if (appConfig.enabledPlugins.length === 0) {
     if (packageJSON[packageJSONPluginsObjName][name] !== true) {
       defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in package.json`);
+      return;
+    }
+  } else {
+    if (appConfig.enabledPlugins.indexOf(name) < 0) {
+      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in sec.config.json`);
       return;
     }
   }

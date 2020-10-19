@@ -58,6 +58,7 @@ export interface IEmitter<T = any> {
 }
 
 export interface ServiceConfig {
+  enabledPlugins: Array<string>;
   identity: string;
   debug: boolean;
   plugins: ServiceConfigPlugins;

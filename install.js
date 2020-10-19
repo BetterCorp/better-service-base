@@ -18,7 +18,7 @@ if ( FS.existsSync( packaggeJSONFile ) )
 const configFile = PATH.join( CWD, './sec.config.json' );
 if ( !FS.existsSync( configFile ) ) {
   console.log( `Creating config file... (${configFile})` );
-  FS.writeFileSync( configFile, '{}' );
+  FS.writeFileSync( configFile, '{"enabledPlugins": []}' );
 }
 
 const srcDir = PATH.join( CWD, './src' );
