@@ -209,7 +209,7 @@ if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
   packageChanges = true;
 }
 
-const loadPlugin = (name: string, path: string) => {
+const loadPlugin = async (name: string, path: string) => {
   if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
     packageJSON[packageJSONPluginsObjName][name] = true;
     packageChanges = true;
@@ -229,7 +229,7 @@ const loadPlugin = (name: string, path: string) => {
     throw new Error(`Cannot have 2 plugins with the same name!! [${name}]`);
   }
 
-  let importedPlugin = require(path);
+  let importedPlugin = await import(path);
   defaultLog.info(corePluginName, ` - ${name}: LOADED`);
   LIBRARY_PLUGINS[name] = new importedPlugin.Plugin();
 };
