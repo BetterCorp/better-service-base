@@ -144,6 +144,9 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
   for (let pluginName of initPlugins) {
     let plugin = LIBRARY_PLUGINS[pluginName];
     defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
+    if (!_runningInDebug && pluginName.endsWith('-test')) {
+      defaultLog.info(corePluginName, `Plugin is a test plugin, and we're running in prod... so don't load: ${pluginName}`);
+    }
     defaultLog.info(corePluginName, ` - INIT`);
     await plugin.init({
       pluginName,
