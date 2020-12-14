@@ -10,6 +10,8 @@ Create ts/js files according to your new plugin:
 
 ```lib/<plugin-name>/plugin.js```  
 
+# TODO: This readme needs to be updated
+
 # Core plugins
 
 ## Logger  

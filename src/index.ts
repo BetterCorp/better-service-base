@@ -9,10 +9,52 @@ import { Events as DefaultEvents } from './DefaultEvents';
 const corePluginName = 'self';
 const CWD = process.env.APP_DIR || process.cwd();
 const PACKAGE_JSON = PATH.join(CWD, './package.json');
-const _version = JSON.parse(FS.readFileSync(PACKAGE_JSON).toString()).version;
+const packageJSON = JSON.parse(FS.readFileSync(PACKAGE_JSON).toString());
+const _version = packageJSON.version;
+let packageChanges = false;
 let _runningInDebug = true;
+let _runningInPluginDebug = false;
 
-const appConfig = JSON.parse(process.env.CONFIG_OBJECT || FS.readFileSync(process.env.CONFIG_FILE || PATH.join(CWD, "./sec.config.json")).toString()) as ServiceConfig;
+const cnull = () => { };
+
+let defaultLog = new DefaultLogger(); // Default logger does not require init to be called ... so we're being lazy and not calling it.
+let logger: ILogger = new DefaultLogger();
+let loggerName: string | null = null;
+
+let events: IEvents = new DefaultEvents();
+let eventsName: string | null = null;
+
+const packageJSONPluginsObjName = 'bettercorp-service-base';
+defaultLog.info(corePluginName, 'BOOT UP: @' + _version);
+
+const secConfigJsonFile = PATH.join(CWD, "./sec.config.json");
+const secConfigJsonInstallerFile = PATH.join(CWD, "./installer.js");
+let debugConfig: any = undefined;
+if (!FS.existsSync(secConfigJsonFile)) {
+  defaultLog.error('! sec.config.json CAN`T BE FOUND !');
+  if (FS.existsSync(secConfigJsonInstallerFile)) {
+    // running in debug mode
+    _runningInPluginDebug = true;
+    defaultLog.error('! RUNNING IN DEBUG PLUGIN MODE !');
+    defaultLog.error('WE WILL USE PLUGIN DEFAULTS');
+    let pluginScript = require(secConfigJsonInstallerFile);
+    if (pluginScript.default !== undefined)
+      pluginScript = pluginScript.default;
+
+    let pluginName = packageJSON.name.split('@bettercorp/service-base-')[1].toLowerCase();
+    let testPluginName = `${pluginName}-test`;
+    defaultLog.error(`Plugin setup as : ${pluginName} & ${testPluginName}`);
+    debugConfig = {};
+    debugConfig.plugins = debugConfig.plugins || {};
+    debugConfig.plugins[pluginName] = pluginScript();
+    packageJSON[packageJSONPluginsObjName][pluginName] = true;
+    debugConfig.plugins[testPluginName] = pluginScript();
+    packageJSON[packageJSONPluginsObjName][testPluginName] = true;
+  } else {
+    throw '! sec.config.json CAN`T BE FOUND !';
+  }
+}
+const appConfig = debugConfig || JSON.parse(process.env.CONFIG_OBJECT || FS.readFileSync(process.env.CONFIG_FILE || secConfigJsonFile).toString()) as ServiceConfig;
 
 if (!Tools.isNullOrUndefined(appConfig.debug)) {
   _runningInDebug = appConfig.debug;
@@ -31,18 +73,8 @@ if (!FS.existsSync(pluginsDir) || !FS.statSync(pluginsDir).isDirectory()) {
 pluginsDir = PATH.join(pluginsDir, './plugins');
 const LIBRARY_PLUGINS: IDictionary<IPlugin> = {};
 
-const cnull = () => { };
-
-let defaultLog = new DefaultLogger(); // Default logger does not require init to be called ... so we're being lazy and not calling it.
-let logger: ILogger = new DefaultLogger();
-let loggerName: string | null = null;
-
-let events: IEvents = new DefaultEvents();
-let eventsName: string | null = null;
-
-defaultLog.info(corePluginName, ' - BOOT UP: @' + _version);
 if (appConfig.debug)
-  defaultLog.info(corePluginName, ' - RUNNING IN DEBUG MODE');
+  defaultLog.info(corePluginName, 'RUNNING IN DEBUG MODE');
 
 const SETUP_PLUGINS = () => new Promise(async (resolve) => {
   const loggerPluginName = loggerName || 'default-logger';
@@ -200,10 +232,6 @@ const SETUP_PLUGINS = () => new Promise(async (resolve) => {
   resolve();
 });
 
-const packageJSONPluginsObjName = 'bettercorp-service-base';
-let packageJSON = JSON.parse(FS.readFileSync(PACKAGE_JSON).toString());
-let packageChanges = false;
-
 if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
   packageJSON[packageJSONPluginsObjName] = {};
   packageChanges = true;
@@ -211,7 +239,7 @@ if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
 
 const loadPlugin = async (name: string, path: string) => {
   if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
-    packageJSON[packageJSONPluginsObjName][name] = true;
+    packageJSON[packageJSONPluginsObjName][name] = false;
     packageChanges = true;
   } else if (appConfig.enabledPlugins.length === 0) {
     if (packageJSON[packageJSONPluginsObjName][name] !== true) {
@@ -238,7 +266,7 @@ const loadCorePlugin = (name: string, path: string) => {
     packageJSON[packageJSONPluginsObjName][name] = true;
     packageChanges = true;
   } else {
-    if (packageJSON[packageJSONPluginsObjName][name] == false) {
+    if (packageJSON[packageJSONPluginsObjName][name] !== true) {
       defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in package.json`);
       return;
     }
@@ -263,7 +291,10 @@ const loadCorePlugin = (name: string, path: string) => {
 };
 
 const loadPlugins = (path: string, pluginKey?: string): void => {
-  defaultLog.info(corePluginName, `Loading plugins in: ${path}`);
+  if (_runningInPluginDebug && Tools.isNullOrUndefined(pluginKey)) {
+    pluginKey = 'plugin-'
+  }
+  defaultLog.info(corePluginName, `Loading plugins in: ${path} (${pluginKey})`);
   for (let dirFileWhat of FS.readdirSync(path)) {
     if (FS.statSync(PATH.join(path, dirFileWhat)).isDirectory()) {
       if (dirFileWhat.indexOf('-') === 0) {

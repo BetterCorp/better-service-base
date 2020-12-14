@@ -17,13 +17,13 @@ export class Plugin implements IPlugin {
       });
 
       setTimeout(() => {
-        features.emitEventAndReturn('hello', 'world')
+        features.emitEventAndReturn('plugin-hello', 'world')
           .then(features.log.warn)
           .catch(features.log.error);
-        features.emitEventAndReturn('hello', 'world', 1)
+        features.emitEventAndReturn('plugin-hello', 'world', 1)
           .then(features.log.warn)
           .catch(features.log.error);
-        features.emitEventAndReturn('hello', 'world', 2)
+        features.emitEventAndReturn('plugin-hello', 'world', 2)
           .then(features.log.warn)
           .catch(features.log.error);
       }, 2000);
