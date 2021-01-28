@@ -46,9 +46,9 @@ if (!FS.existsSync(secConfigJsonFile)) {
     defaultLog.error(`Plugin setup as : ${pluginName} & ${testPluginName}`);
     debugConfig = {};
     debugConfig.plugins = debugConfig.plugins || {};
-    debugConfig.plugins[pluginName] = pluginScript();
+    debugConfig.plugins[pluginName] = pluginScript(pluginName);
     packageJSON[packageJSONPluginsObjName][pluginName] = true;
-    debugConfig.plugins[testPluginName] = pluginScript();
+    debugConfig.plugins[testPluginName] = pluginScript(pluginName);
     packageJSON[packageJSONPluginsObjName][testPluginName] = true;
   } else {
     throw '! sec.config.json CAN`T BE FOUND !';
@@ -76,7 +76,7 @@ const LIBRARY_PLUGINS: IDictionary<IPlugin> = {};
 if (appConfig.debug)
   defaultLog.info(corePluginName, 'RUNNING IN DEBUG MODE');
 
-const SETUP_PLUGINS = () => new Promise(async (resolve) => {
+const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   const loggerPluginName = loggerName || 'default-logger';
   await logger.init({
     log: defaultLog,
@@ -295,7 +295,7 @@ const loadCorePlugin = (name: string, path: string) => {
 
 const loadPlugins = (path: string, pluginKey?: string): void => {
   if (_runningInPluginDebug && Tools.isNullOrUndefined(pluginKey)) {
-    pluginKey = 'plugin-'
+    pluginKey = 'plugin-';
   }
   defaultLog.info(corePluginName, `Loading plugins in: ${path} (${pluginKey})`);
   for (let dirFileWhat of FS.readdirSync(path)) {
