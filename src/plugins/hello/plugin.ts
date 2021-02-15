@@ -1,19 +1,15 @@
 import { Tools } from '@bettercorp/tools/lib/Tools';
-import { PluginFeature, IPlugin, IEmitter } from "../../ILib";
+import { PluginFeature, IPlugin } from "../../ILib";
 
 export class Plugin implements IPlugin {
   init (features: PluginFeature): Promise<void> {
     return new Promise((resolve) => {
       // This function is called on plugin initialization
-      features.onEvent<number>(null, 'world', (data: IEmitter<number>) => {
-        let ran: number = (!Tools.isNullOrUndefined(data.data)) ? data.data : new Date().getTime();
+      features.onReturnableEvent<number>(null, 'world', (resolve, reject, data: number) => {
+        if (Tools.isNullOrUndefined(data))
+          return reject('Data not defined!');
 
-        if (ran % 2)
-          // If the event returns data    
-          return features.emitEvent(data.resultNames.plugin, data.resultNames.success, true);
-
-        // If the event returns data but errors out
-        features.emitEvent(data.resultNames.plugin, data.resultNames.success, false);
+        resolve(data % 2);
       });
 
       setTimeout(() => {
