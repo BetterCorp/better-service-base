@@ -12,6 +12,7 @@ const PACKAGE_JSON = PATH.join(CWD, './package.json');
 const packageJSON = JSON.parse(FS.readFileSync(PACKAGE_JSON).toString());
 const _version = packageJSON.version;
 let packageChanges = false;
+let configChanges = false;
 let _runningInDebug = true;
 let _runningInPluginDebug = false;
 
@@ -93,7 +94,7 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
     config: appConfig,
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[loggerPluginName] as T,
     onEvent: <T = any> (plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(loggerPluginName, plugin, event, listener),
-      onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(loggerPluginName, plugin, event, listener),
+    onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(loggerPluginName, plugin, event, listener),
     emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(loggerPluginName, plugin, event, data),
     emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data),
     initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
@@ -125,7 +126,7 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
     config: appConfig,
     getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[eventsPluginName] as T,
     onEvent: <T = any> (plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(eventsPluginName, plugin, event, listener),
-      onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(eventsPluginName, plugin, event, listener),
+    onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(eventsPluginName, plugin, event, listener),
     emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(eventsPluginName, plugin, event, data),
     emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data),
     initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
@@ -266,12 +267,29 @@ if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
   packageChanges = true;
 }
 
-const loadPlugin = async (name: string, path: string) => {
+const loadPluginConfig = async (name: string, path: string) => {
+  let loadedFile = require(path);
+  if (loadedFile.default !== undefined)
+    loadedFile = loadedFile.default;
+  let newConfig = Tools.mergeObjects(loadedFile(name), appConfig.plugins[name]);
+  if (JSON.stringify(newConfig) != JSON.stringify(appConfig.plugins[name])) {
+    defaultLog.info(corePluginName, ` - PLUGIN [${name}] SEC CONFIG UPDATED - TRIGGER DEFAULTS UPDATE`);
+    configChanges = true;
+    appConfig.plugins[name] = newConfig;
+  }
+};
+
+const loadPlugin = async (name: string, path: string, pluginInstallerFile: string | null) => {
   if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
     packageJSON[packageJSONPluginsObjName][name] = false;
     packageChanges = true;
   } else if (appConfig.enabledPlugins.length === 0) {
-    if (packageJSON[packageJSONPluginsObjName][name] !== true) {
+    if (typeof packageJSON[packageJSONPluginsObjName][name] === 'string') {
+      // plugin must run with a different name
+      // an example of this is when running 2 web socket servers for different clients, you can define one as ws1 and the other as ws2 by defining the package variable
+      defaultLog.info(corePluginName, ` - PLUGIN [${name}] DEFINED TO RUN AS [${packageJSON[packageJSONPluginsObjName][name]}]`);
+      name = packageJSON[packageJSONPluginsObjName][name];
+    } else if (packageJSON[packageJSONPluginsObjName][name] !== true) {
       defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in package.json`);
       return;
     }
@@ -286,14 +304,17 @@ const loadPlugin = async (name: string, path: string) => {
     throw new Error(`Cannot have 2 plugins with the same name!! [${name}]`);
   }
 
+  if (pluginInstallerFile !== null)
+    loadPluginConfig(name, pluginInstallerFile);
+
   let importedPlugin = await import(path);
   defaultLog.info(corePluginName, ` - ${name}: LOADING`);
   LIBRARY_PLUGINS[name] = new importedPlugin.Plugin();
   defaultLog.info(corePluginName, ` - ${name}: LOADED`);
 };
-const loadCorePlugin = (name: string, path: string) => {
+const loadCorePlugin = (name: string, path: string, pluginInstallerFile: string | null) => {
   if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
-    packageJSON[packageJSONPluginsObjName][name] = true;
+    packageJSON[packageJSONPluginsObjName][name] = false;
     packageChanges = true;
   } else {
     if (packageJSON[packageJSONPluginsObjName][name] !== true) {
@@ -303,6 +324,8 @@ const loadCorePlugin = (name: string, path: string) => {
   }
 
   if (name.indexOf('log-') === 0) {
+    if (pluginInstallerFile !== null)
+      loadPluginConfig(name, pluginInstallerFile);
     let importedPlugin = require(path);
     defaultLog.info(corePluginName, ` - ${name}: LOADED AS DEFAULT LOGGER`);
     logger = new importedPlugin.Logger();
@@ -310,6 +333,8 @@ const loadCorePlugin = (name: string, path: string) => {
     return;
   }
   if (name.indexOf('events-') === 0) {
+    if (pluginInstallerFile !== null)
+      loadPluginConfig(name, pluginInstallerFile);
     let importedPlugin = require(path);
     defaultLog.info(corePluginName, ` - ${name}: LOADED AS EVENTS HANDLER`);
     events = new importedPlugin.Events();
@@ -340,6 +365,12 @@ const loadPlugins = (path: string, pluginKey?: string): void => {
         continue;
       }
 
+      let pluginInstallerFile: string | null = PATH.join(path, dirFileWhat, 'sec.config.ts');
+      if (!FS.existsSync(pluginInstallerFile))
+        pluginInstallerFile = PATH.join(path, dirFileWhat, 'sec.config.js');
+      if (!FS.existsSync(pluginInstallerFile))
+        pluginInstallerFile = null;
+
       let foundCorePlugin = false;
       for (let cPlugin of CORE_PLUGINS) {
         if (dirFileWhat.indexOf(cPlugin) === 0) {
@@ -349,11 +380,11 @@ const loadPlugins = (path: string, pluginKey?: string): void => {
       }
       if (foundCorePlugin) {
         defaultLog.info(corePluginName, `Core plugin: ${path} (${dirFileWhat})`);
-        loadCorePlugin(dirFileWhat, pluginFile);
+        loadCorePlugin(dirFileWhat, pluginFile, pluginInstallerFile);
         defaultLog.info(corePluginName, `Core plugin: ${path} (${dirFileWhat}) - LOADED`);
       } else {
         defaultLog.info(corePluginName, `Plugin: ${path} (${dirFileWhat})`);
-        loadPlugin(`${pluginKey || ''}${dirFileWhat}`, pluginFile);
+        loadPlugin(`${pluginKey || ''}${dirFileWhat}`, pluginFile, pluginInstallerFile);
         defaultLog.info(corePluginName, `Plugin: ${path} (${dirFileWhat}) - LOADED`);
       }
     }
@@ -388,8 +419,14 @@ export default class ServiceBase {
             continue;
           }
 
+          let pluginInstallerFile: string | null = PATH.join(innerPluginLib, dirFileWhat, 'sec.config.ts');
+          if (!FS.existsSync(pluginInstallerFile))
+            pluginInstallerFile = PATH.join(innerPluginLib, dirFileWhat, 'sec.config.js');
+          if (!FS.existsSync(pluginInstallerFile))
+            pluginInstallerFile = null;
+
           defaultLog.info(corePluginName, `Load NPM plugin in: ${innerPluginLib}`);
-          loadPlugin(dirFileWhat.replace('service-base-', ''), pluginFile);
+          loadPlugin(dirFileWhat.replace('service-base-', ''), pluginFile, pluginInstallerFile);
           continue;
         }
         if (!FS.statSync(innerPluginLibPlugin).isDirectory()) {
@@ -405,7 +442,12 @@ export default class ServiceBase {
     loadPlugins(pluginsDir);
 
     if (packageChanges) {
+      defaultLog.error('PACKAGE.JSON AUTOMATICALLY UPDATED.');
       FS.writeFileSync(PACKAGE_JSON, JSON.stringify(packageJSON));
+    }
+    if (configChanges) {
+      defaultLog.error('SEC CONFIG AUTOMATICALLY UPDATED.');
+      FS.writeFileSync(secConfigJsonFile, JSON.stringify(appConfig));
     }
   }
 
