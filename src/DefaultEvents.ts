@@ -45,7 +45,7 @@ export class Events implements IEvents {
       const errEventName = `${event}-error-${resultKey}`;
       const fullErrEventName = `${pluginName || plugin}-${errEventName}`;
 
-      let timeoutTimer = setTimeout(() => {
+      let timeoutTimer: any = setTimeout(() => {
         if (timeoutTimer === null)
           return;
         self.internalReturnableEvents.removeListener(fullEndEventName, () => { });
@@ -56,6 +56,7 @@ export class Events implements IEvents {
       self.internalReturnableEvents.once(fullErrEventName, (data: Error | string | any) => {
         this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, 'ERRORED', data);
         clearTimeout(timeoutTimer);
+        timeoutTimer = null;
         self.internalReturnableEvents.removeListener(fullEndEventName, () => { });
         self.internalReturnableEvents.removeListener(fullErrEventName, () => { });
         reject(data);
@@ -63,6 +64,7 @@ export class Events implements IEvents {
       self.internalReturnableEvents.once(fullEndEventName, (data: T2 | any) => {
         this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, 'SUCCESS', data);
         clearTimeout(timeoutTimer);
+        timeoutTimer = null;
         self.internalReturnableEvents.removeListener(fullEndEventName, () => { });
         self.internalReturnableEvents.removeListener(fullErrEventName, () => { });
         resolve(data);
@@ -71,8 +73,8 @@ export class Events implements IEvents {
         resultKey: resultKey,
         resultNames: {
           plugin: pluginName,
-          success: endEventName,
-          error: errEventName
+          success: fullEndEventName,
+          error: fullErrEventName
         },
         data: data
       });
