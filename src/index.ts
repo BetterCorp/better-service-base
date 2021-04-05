@@ -247,10 +247,10 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
       emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data),
       initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1) => {
         return new Promise((resolve, reject) => {
-          if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
+          if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
             return reject(`No plugin loaded matching plugin name! [${pluginName}]`);
 
-          if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName].initForPlugins) || !Tools.isFunction(LIBRARY_PLUGINS[pluginName].initForPlugins))
+          if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName].initForPlugins) || !Tools.isFunction(LIBRARY_PLUGINS[pluginName].initForPlugins))
             return reject(`No plugin init mech available for plugin! [${pluginName}]`);
 
           LIBRARY_PLUGINS[pluginName].initForPlugins!<T1, T2>(initType, args).then(resolve as any).catch(reject);
