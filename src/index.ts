@@ -271,7 +271,7 @@ const loadPluginConfig = async (name: string, path: string) => {
   let loadedFile = require(path);
   if (loadedFile.default !== undefined)
     loadedFile = loadedFile.default;
-  let newConfig = Tools.mergeObjects(loadedFile(name), appConfig.plugins[name]);
+  let newConfig = Tools.mergeObjects(loadedFile(name, appConfig.plugins[name]), appConfig.plugins[name]);
   if (JSON.stringify(newConfig) != JSON.stringify(appConfig.plugins[name])) {
     defaultLog.info(corePluginName, ` - PLUGIN [${name}] SEC CONFIG UPDATED - TRIGGER DEFAULTS UPDATE`);
     configChanges = true;
