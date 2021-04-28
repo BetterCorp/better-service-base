@@ -140,10 +140,10 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   let initPlugins = Object.keys(LIBRARY_PLUGINS);
   let loadedPlugins = Object.keys(LIBRARY_PLUGINS);
   for (let i = 0; i < initPlugins.length; i++) {
-    if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[initPlugins[i]].initIndex)) {
+    if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[initPlugins[i]].initIndex)) {
       LIBRARY_PLUGINS[initPlugins[i]].initIndex = -1;
     }
-    if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex)) {
+    if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex)) {
       LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex = -1;
     }
   }
