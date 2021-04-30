@@ -43,8 +43,8 @@ if (!FS.existsSync(secConfigJsonFile)) {
       pluginScript = pluginScript.default;
 
     let pluginName = packageJSON.name.split('@bettercorp/service-base-')[1].toLowerCase();
-    let testPluginName = `${pluginName}-test`;
-    defaultLog.error(`Plugin setup as : ${pluginName} & ${testPluginName}`);
+    let testPluginName = `${ pluginName }-test`;
+    defaultLog.error(`Plugin setup as : ${ pluginName } & ${ testPluginName }`);
     debugConfig = {};
     debugConfig.plugins = debugConfig.plugins || {};
     debugConfig.plugins[pluginName] = pluginScript(pluginName);
@@ -79,7 +79,7 @@ if (appConfig.debug)
 
 const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   const loggerPluginName = loggerName || 'default-logger';
-  defaultLog.info(corePluginName, `Activating logs on with: ${loggerPluginName}`);
+  defaultLog.info(corePluginName, `Activating logs on with: ${ loggerPluginName }`);
   await logger.init({
     log: {
       debug: (...data: any[]) => !_runningInDebug ?
@@ -92,20 +92,20 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
     pluginName: loggerPluginName,
     cwd: CWD,
     config: appConfig,
-    getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[loggerPluginName] as T,
-    onEvent: <T = any> (plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(loggerPluginName, plugin, event, listener),
-    onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(loggerPluginName, plugin, event, listener),
-    emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(loggerPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data),
-    initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
+    getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[loggerPluginName] as T,
+    onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(loggerPluginName, plugin, event, listener),
+    onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(loggerPluginName, plugin, event, listener),
+    emitEvent: <T = any>(plugin: string, event: string, data?: T) => events.emitEvent<T>(loggerPluginName, plugin, event, data),
+    emitEventAndReturn: <T1 = any, T2 = void>(plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data),
+    initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
       reject('NOT VALID FOR LOGGING CONTEXT');
     })
   });
   if (loggerName !== null) {
-    defaultLog.info(corePluginName, `Logging moved to plugin: ${loggerName}`);
+    defaultLog.info(corePluginName, `Logging moved to plugin: ${ loggerName }`);
   }
   const eventsPluginName = eventsName || 'default-events';
-  defaultLog.info(corePluginName, `Activating events on with: ${eventsPluginName}`);
+  defaultLog.info(corePluginName, `Activating events on with: ${ eventsPluginName }`);
   await events.init({
     log: {
       debug: (...data: any[]) => !_runningInDebug ?
@@ -124,27 +124,34 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
     pluginName: eventsPluginName,
     cwd: CWD,
     config: appConfig,
-    getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[eventsPluginName] as T,
-    onEvent: <T = any> (plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(eventsPluginName, plugin, event, listener),
-    onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(eventsPluginName, plugin, event, listener),
-    emitEvent: <T = any> (plugin: string, event: string, data?: T) => events.emitEvent<T>(eventsPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = void> (plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data),
-    initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
+    getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[eventsPluginName] as T,
+    onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(eventsPluginName, plugin, event, listener),
+    onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(eventsPluginName, plugin, event, listener),
+    emitEvent: <T = any>(plugin: string, event: string, data?: T) => events.emitEvent<T>(eventsPluginName, plugin, event, data),
+    emitEventAndReturn: <T1 = any, T2 = void>(plugin: string, event: string, data?: T1) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data),
+    initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
       reject('NOT VALID FOR EVENTS CONTEXT');
     })
   });
   if (eventsName !== null) {
-    defaultLog.info(corePluginName, `Events moved to plugin: ${eventsName}`);
+    defaultLog.info(corePluginName, `Events moved to plugin: ${ eventsName }`);
   }
 
   let initPlugins = Object.keys(LIBRARY_PLUGINS);
   let loadedPlugins = Object.keys(LIBRARY_PLUGINS);
   for (let i = 0; i < initPlugins.length; i++) {
     if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[initPlugins[i]].initIndex)) {
+      defaultLog.info(`Set ${initPlugins[i]} to initIndex of ${-1}`);
       LIBRARY_PLUGINS[initPlugins[i]].initIndex = -1;
     }
     if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex)) {
+      defaultLog.info(`Set ${initPlugins[i]} to loadIndex of ${-1}`);
       LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex = -1;
+    }
+    if (loadedPlugins[i].indexOf('plugin-') >= 0) {
+      LIBRARY_PLUGINS[initPlugins[i]].initIndex!--;
+      LIBRARY_PLUGINS[initPlugins[i]].loadedIndex!++;
+      defaultLog.info(`Update ${initPlugins[i]} to init/load of ${LIBRARY_PLUGINS[initPlugins[i]].initIndex}/${LIBRARY_PLUGINS[initPlugins[i]].loadedIndex}`);
     }
   }
   for (let i = 0; i < initPlugins.length - 1; i++) {
@@ -166,11 +173,20 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
     }
   }
 
+  defaultLog.info('Init Order: ' + initPlugins.join(','));
+  for (let pluginName of initPlugins) {
+    defaultLog.info(`  - [${LIBRARY_PLUGINS[pluginName].initIndex!}] ${pluginName}`);
+  }
+  defaultLog.info('Loaded Order: ' + loadedPlugins.join(','));
+  for (let pluginName of loadedPlugins) {
+    defaultLog.info(`  - [${LIBRARY_PLUGINS[pluginName].initIndex!}] ${pluginName}`);
+  }
+
   for (let pluginName of initPlugins) {
     let plugin = LIBRARY_PLUGINS[pluginName];
-    defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
+    defaultLog.info(corePluginName, `Setup Plugin: ${ pluginName }`);
     if (!_runningInDebug && pluginName.endsWith('-test')) {
-      defaultLog.info(corePluginName, `Plugin is a test plugin, and we're running in prod... so don't load: ${pluginName}`);
+      defaultLog.info(corePluginName, `Plugin is a test plugin, and we're running in prod... so don't load: ${ pluginName }`);
     }
     defaultLog.info(corePluginName, ` - INIT`);
     await plugin.init({
@@ -193,18 +209,18 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
       },
       cwd: CWD,
       config: appConfig,
-      getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
-      onEvent: <T = any> (plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
-      onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(pluginName, plugin, event, listener),
-      emitEvent: <T = any> (plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
-      emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data),
-      initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1) => {
+      getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[pluginName] as T,
+      onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
+      onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(pluginName, plugin, event, listener),
+      emitEvent: <T = any>(plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
+      emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data),
+      initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1) => {
         return new Promise((resolve, reject) => {
           if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
-            return reject(`No plugin loaded matching plugin name! [${pluginName}]`);
+            return reject(`No plugin loaded matching plugin name! [${ pluginName }]`);
 
           if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName].initForPlugins) || !Tools.isFunction(LIBRARY_PLUGINS[pluginName].initForPlugins))
-            return reject(`No plugin init mech available for plugin! [${pluginName}]`);
+            return reject(`No plugin init mech available for plugin! [${ pluginName }]`);
 
           LIBRARY_PLUGINS[pluginName].initForPlugins!<T1, T2>(initType, args).then(resolve as any).catch(reject);
         });
@@ -214,7 +230,7 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   }
   for (let pluginName of loadedPlugins) {
     let plugin = LIBRARY_PLUGINS[pluginName];
-    defaultLog.info(corePluginName, `Setup Plugin: ${pluginName}`);
+    defaultLog.info(corePluginName, `Setup Plugin: ${ pluginName }`);
     if (Tools.isNullOrUndefined(plugin.loaded)) {
       defaultLog.info(corePluginName, ` - NO LOAD REQUIRED`);
       continue;
@@ -240,18 +256,18 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
       },
       cwd: CWD,
       config: appConfig,
-      getPluginConfig: <T = ServiceConfigPlugins> (): T => appConfig.plugins[pluginName] as T,
-      onEvent: <T = any> (plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
-      onReturnableEvent: <T = any> (plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(pluginName, plugin, event, listener),
-      emitEvent: <T = any> (plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
-      emitEventAndReturn: <T1 = any, T2 = any> (plugin: string, event: string, data?: T1): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data),
-      initForPlugins: <T1 = any, T2 = void> (pluginName: string, initType: string | null, args: T1) => {
+      getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[pluginName] as T,
+      onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
+      onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(pluginName, plugin, event, listener),
+      emitEvent: <T = any>(plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
+      emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data),
+      initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1) => {
         return new Promise((resolve, reject) => {
           if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
-            return reject(`No plugin loaded matching plugin name! [${pluginName}]`);
+            return reject(`No plugin loaded matching plugin name! [${ pluginName }]`);
 
           if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName].initForPlugins) || !Tools.isFunction(LIBRARY_PLUGINS[pluginName].initForPlugins))
-            return reject(`No plugin init mech available for plugin! [${pluginName}]`);
+            return reject(`No plugin init mech available for plugin! [${ pluginName }]`);
 
           LIBRARY_PLUGINS[pluginName].initForPlugins!<T1, T2>(initType, args).then(resolve as any).catch(reject);
         });
@@ -273,7 +289,7 @@ const loadPluginConfig = async (name: string, path: string) => {
     loadedFile = loadedFile.default;
   let newConfig = Tools.mergeObjects(loadedFile(name, appConfig.plugins[name]), appConfig.plugins[name]);
   if (JSON.stringify(newConfig) != JSON.stringify(appConfig.plugins[name])) {
-    defaultLog.info(corePluginName, ` - PLUGIN [${name}] SEC CONFIG UPDATED - TRIGGER DEFAULTS UPDATE`);
+    defaultLog.info(corePluginName, ` - PLUGIN [${ name }] SEC CONFIG UPDATED - TRIGGER DEFAULTS UPDATE`);
     configChanges = true;
     appConfig.plugins[name] = newConfig;
   }
@@ -287,30 +303,30 @@ const loadPlugin = async (name: string, path: string, pluginInstallerFile: strin
     if (typeof packageJSON[packageJSONPluginsObjName][name] === 'string') {
       // plugin must run with a different name
       // an example of this is when running 2 web socket servers for different clients, you can define one as ws1 and the other as ws2 by defining the package variable
-      defaultLog.info(corePluginName, ` - PLUGIN [${name}] DEFINED TO RUN AS [${packageJSON[packageJSONPluginsObjName][name]}]`);
+      defaultLog.info(corePluginName, ` - PLUGIN [${ name }] DEFINED TO RUN AS [${ packageJSON[packageJSONPluginsObjName][name] }]`);
       name = packageJSON[packageJSONPluginsObjName][name];
     } else if (packageJSON[packageJSONPluginsObjName][name] !== true) {
-      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in package.json`);
+      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in package.json`);
       return;
     }
   } else {
     if (appConfig.enabledPlugins.indexOf(name) < 0) {
-      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in sec.config.json`);
+      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in sec.config.json`);
       return;
     }
   }
 
   if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[name])) {
-    throw new Error(`Cannot have 2 plugins with the same name!! [${name}]`);
+    throw new Error(`Cannot have 2 plugins with the same name!! [${ name }]`);
   }
 
   if (pluginInstallerFile !== null)
     loadPluginConfig(name, pluginInstallerFile);
 
   let importedPlugin = await import(path);
-  defaultLog.info(corePluginName, ` - ${name}: LOADING`);
+  defaultLog.info(corePluginName, ` - ${ name }: LOADING`);
   LIBRARY_PLUGINS[name] = new importedPlugin.Plugin();
-  defaultLog.info(corePluginName, ` - ${name}: LOADED`);
+  defaultLog.info(corePluginName, ` - ${ name }: LOADED`);
 };
 const loadCorePlugin = (name: string, path: string, pluginInstallerFile: string | null) => {
   if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
@@ -318,7 +334,7 @@ const loadCorePlugin = (name: string, path: string, pluginInstallerFile: string 
     packageChanges = true;
   } else {
     if (packageJSON[packageJSONPluginsObjName][name] !== true) {
-      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${name}] - defined in package.json`);
+      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in package.json`);
       return;
     }
   }
@@ -327,7 +343,7 @@ const loadCorePlugin = (name: string, path: string, pluginInstallerFile: string 
     if (pluginInstallerFile !== null)
       loadPluginConfig(name, pluginInstallerFile);
     let importedPlugin = require(path);
-    defaultLog.info(corePluginName, ` - ${name}: LOADED AS DEFAULT LOGGER`);
+    defaultLog.info(corePluginName, ` - ${ name }: LOADED AS DEFAULT LOGGER`);
     logger = new importedPlugin.Logger();
     loggerName = name;
     return;
@@ -336,32 +352,32 @@ const loadCorePlugin = (name: string, path: string, pluginInstallerFile: string 
     if (pluginInstallerFile !== null)
       loadPluginConfig(name, pluginInstallerFile);
     let importedPlugin = require(path);
-    defaultLog.info(corePluginName, ` - ${name}: LOADED AS EVENTS HANDLER`);
+    defaultLog.info(corePluginName, ` - ${ name }: LOADED AS EVENTS HANDLER`);
     events = new importedPlugin.Events();
     eventsName = name;
     return;
   }
 
-  defaultLog.warn(corePluginName, `Plugin (${name}) was ignored as it's not a valid core plugin... contact support@bettercorp.co.za.`);
+  defaultLog.warn(corePluginName, `Plugin (${ name }) was ignored as it's not a valid core plugin... contact support@bettercorp.co.za.`);
 };
 
 const loadPlugins = (path: string, pluginKey?: string): void => {
   if (_runningInPluginDebug && Tools.isNullOrUndefined(pluginKey)) {
     pluginKey = 'plugin-';
   }
-  defaultLog.info(corePluginName, `Loading plugins in: ${path} (${pluginKey})`);
+  defaultLog.info(corePluginName, `Loading plugins in: ${ path } (${ pluginKey })`);
   for (let dirFileWhat of FS.readdirSync(path)) {
-    defaultLog.info(corePluginName, `I think i found a plugin: ${path} (${dirFileWhat})`);
+    defaultLog.info(corePluginName, `I think i found a plugin: ${ path } (${ dirFileWhat })`);
     if (FS.statSync(PATH.join(path, dirFileWhat)).isDirectory()) {
       if (dirFileWhat.indexOf('-') === 0) {
-        defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No plugin reference type`);
+        defaultLog.info(corePluginName, ` - IGNORE [${ dirFileWhat }] No plugin reference type`);
         continue;
       }
       let pluginFile = PATH.join(path, dirFileWhat, 'plugin.ts');
       if (!FS.existsSync(pluginFile))
         pluginFile = PATH.join(path, dirFileWhat, 'plugin.js');
       if (!FS.existsSync(pluginFile)) {
-        defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] Not a valid plugin`);
+        defaultLog.info(corePluginName, ` - IGNORE [${ dirFileWhat }] Not a valid plugin`);
         continue;
       }
 
@@ -379,13 +395,13 @@ const loadPlugins = (path: string, pluginKey?: string): void => {
         }
       }
       if (foundCorePlugin) {
-        defaultLog.info(corePluginName, `Core plugin: ${path} (${dirFileWhat})`);
+        defaultLog.info(corePluginName, `Core plugin: ${ path } (${ dirFileWhat })`);
         loadCorePlugin(dirFileWhat, pluginFile, pluginInstallerFile);
-        defaultLog.info(corePluginName, `Core plugin: ${path} (${dirFileWhat}) - LOADED`);
+        defaultLog.info(corePluginName, `Core plugin: ${ path } (${ dirFileWhat }) - LOADED`);
       } else {
-        defaultLog.info(corePluginName, `Plugin: ${path} (${dirFileWhat})`);
-        loadPlugin(`${pluginKey || ''}${dirFileWhat}`, pluginFile, pluginInstallerFile);
-        defaultLog.info(corePluginName, `Plugin: ${path} (${dirFileWhat}) - LOADED`);
+        defaultLog.info(corePluginName, `Plugin: ${ path } (${ dirFileWhat })`);
+        loadPlugin(`${ pluginKey || '' }${ dirFileWhat }`, pluginFile, pluginInstallerFile);
+        defaultLog.info(corePluginName, `Plugin: ${ path } (${ dirFileWhat }) - LOADED`);
       }
     }
   }
@@ -394,19 +410,19 @@ const loadPlugins = (path: string, pluginKey?: string): void => {
 const CORE_PLUGINS = ['log-', 'events-'];
 
 export default class ServiceBase {
-  init (): void {
+  init(): void {
     const npmPluginsDir = PATH.join(CWD, './node_modules/@bettercorp');
-    defaultLog.info(corePluginName, `Load NPM plugins in: ${npmPluginsDir}`);
+    defaultLog.info(corePluginName, `Load NPM plugins in: ${ npmPluginsDir }`);
     for (let dirFileWhat of FS.readdirSync(npmPluginsDir)) {
-      defaultLog.info(corePluginName, ` - CHECK [${dirFileWhat}] ${PATH.join(npmPluginsDir, dirFileWhat)}`);
+      defaultLog.info(corePluginName, ` - CHECK [${ dirFileWhat }] ${ PATH.join(npmPluginsDir, dirFileWhat) }`);
       if (FS.statSync(PATH.join(npmPluginsDir, dirFileWhat)).isDirectory()) {
         if (dirFileWhat.indexOf('service-base') != 0) {
-          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] Not a service base package`);
+          defaultLog.info(corePluginName, ` - IGNORE [${ dirFileWhat }] Not a service base package`);
           continue;
         }
         const innerPluginLib = PATH.join(npmPluginsDir, dirFileWhat, './lib');
         if (!FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
-          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No lib dir in package`);
+          defaultLog.info(corePluginName, ` - IGNORE [${ dirFileWhat }] No lib dir in package`);
           continue;
         }
         const innerPluginLibPlugin = PATH.join(innerPluginLib, './plugins');
@@ -415,7 +431,7 @@ export default class ServiceBase {
           if (!FS.existsSync(pluginFile))
             pluginFile = PATH.join(innerPluginLib, 'plugin.js');
           if (!FS.existsSync(pluginFile)) {
-            defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No plugin file available`);
+            defaultLog.info(corePluginName, ` - IGNORE [${ dirFileWhat }] No plugin file available`);
             continue;
           }
 
@@ -425,12 +441,12 @@ export default class ServiceBase {
           if (!FS.existsSync(pluginInstallerFile))
             pluginInstallerFile = null;
 
-          defaultLog.info(corePluginName, `Load NPM plugin in: ${innerPluginLib}`);
+          defaultLog.info(corePluginName, `Load NPM plugin in: ${ innerPluginLib }`);
           loadPlugin(dirFileWhat.replace('service-base-', ''), pluginFile, pluginInstallerFile);
           continue;
         }
         if (!FS.statSync(innerPluginLibPlugin).isDirectory()) {
-          defaultLog.info(corePluginName, ` - IGNORE [${dirFileWhat}] No inner plugins dir`);
+          defaultLog.info(corePluginName, ` - IGNORE [${ dirFileWhat }] No inner plugins dir`);
           continue;
         }
 
@@ -438,7 +454,7 @@ export default class ServiceBase {
       }
     }
 
-    defaultLog.info(corePluginName, `Get app plugins in: ${pluginsDir}`);
+    defaultLog.info(corePluginName, `Get app plugins in: ${ pluginsDir }`);
     loadPlugins(pluginsDir);
 
     if (packageChanges) {
@@ -451,7 +467,7 @@ export default class ServiceBase {
     }
   }
 
-  async run (): Promise<void> {
+  async run(): Promise<void> {
     defaultLog.info(corePluginName, 'Setup plugins');
     await SETUP_PLUGINS();
 
