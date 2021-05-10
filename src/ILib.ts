@@ -24,7 +24,7 @@ export interface PluginFeature {
   onEvent<T = any> (pluginName: string | null, event: string, listener: (data: T) => void): void;
   onReturnableEvent<T = any> (pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void;
   emitEvent<T = any> (pluginName: string | null, event: string, data?: T): void;
-  emitEventAndReturn<T1 = any, T2 = void> (pluginName: string | null, event: string, data?: T1): Promise<T2>;
+  emitEventAndReturn<T1 = any, T2 = void> (pluginName: string | null, event: string, data?: T1, timeoutSeconds?: number): Promise<T2>;
   initForPlugins<T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2>;
 }
 
@@ -34,7 +34,7 @@ export interface IEvents {
   onEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (data: T) => void): void;
   onReturnableEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void;
   emitEvent<T = any> (plugin: string, pluginName: string | null, event: string, data?: T): void;
-  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1): Promise<T2>;
+  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1, timeoutSeconds?: number): Promise<T2>;
 }
 
 export interface IPlugin {

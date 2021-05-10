@@ -35,7 +35,7 @@ export class Events implements IEvents {
       }, data.data)
     });
   }
-  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1): Promise<T2> {
+  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1, timeoutSeconds: number = 10): Promise<T2> {
     this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, data);
     let self = this;
     return new Promise((resolve, reject) => {
@@ -51,8 +51,8 @@ export class Events implements IEvents {
         self.internalReturnableEvents.removeListener(fullEndEventName, () => { });
         self.internalReturnableEvents.removeListener(fullErrEventName, () => { });
         this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, 'TIMED OUT');
-        reject(`NO RESPONSE IN TIME: ${pluginName || plugin}-${endEventName} x${((data || {}) as any).timeoutSeconds || 10}s`);
-      }, (((data || {}) as any).timeoutSeconds || 10) * 1000);
+        reject(`NO RESPONSE IN TIME: ${pluginName || plugin}-${endEventName} x${timeoutSeconds || 10}s`);
+      }, (timeoutSeconds || 10) * 1000);
       self.internalReturnableEvents.once(fullErrEventName, (data: Error | string | any) => {
         this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, 'ERRORED', data);
         clearTimeout(timeoutTimer);
