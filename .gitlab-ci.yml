@@ -1,37 +1,4 @@
-image: node:latest
-
-stages:
-  - buildAndDeploy
-
-build_only:
-  stage: buildAndDeploy
-  except:
-    - master
-  script:
-    - |
-      {
-        npm i -g typescript ts-node nodemon &&
-        npm i &&
-        npm run build &&
-        echo "Successfully built version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME}"
-      }
-
-# Publish the package. If the version in package.json has not yet been published, it will be
-# published to THE NPM registry. If the version already exists, the publish command
-# will fail and the existing package will not be updated.
-build_and_deploy:
-  stage: buildAndDeploy
-  only:
-    - master
-  script:
-    - |
-      {
-        echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc &&
-        npm i -g typescript ts-node nodemon &&
-        npm i &&
-        npm run build &&
-        npm run deploy &&
-        echo "Successfully published version ${NPM_PACKAGE_VERSION} of ${NPM_PACKAGE_NAME} to NPM"
-      } || {
-        echo "No new version of ${NPM_PACKAGE_NAME} published. This is most likely because version ${NPM_PACKAGE_VERSION} already exists in the NPM registry."; exit 1
-      }
+include:
+  - project: 'BetterCorp/cicd'
+    ref: master
+    file: '/bsb-cicd.yml'
