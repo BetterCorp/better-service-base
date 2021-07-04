@@ -314,20 +314,22 @@ const loadPluginConfig = async (name: string, path: string) => {
 
 const loadPlugin = async (name: string, path: string, pluginInstallerFile: string | null) => {
   // upgrade path
-  if (Tools.isBoolean(packageJSON[packageJSONPluginsObjName][name])) {
-    appConfig.enabledPlugins[name] = packageJSON[packageJSONPluginsObjName][name];
-    delete packageJSON[packageJSONPluginsObjName][name];
-    packageChanges = true;
-    configChanges = true;
-    defaultLog.info(corePluginName, ` - UPGRADE PLUGIN [${ name }] - from package.json state`);
-  }
-  if (Tools.isString(packageJSON[packageJSONPluginsObjName][name])) {
-    appConfig.enabledPlugins[name] = true;
-    appConfig.mappedPlugins[name] = packageJSON[packageJSONPluginsObjName][name];
-    delete packageJSON[packageJSONPluginsObjName][name];
-    packageChanges = true;
-    configChanges = true;
-    defaultLog.info(corePluginName, ` - UPGRADE PLUGIN [${ name }] - from package.json map`);
+  if (!Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
+    if (Tools.isBoolean(packageJSON[packageJSONPluginsObjName][name])) {
+      appConfig.enabledPlugins[name] = packageJSON[packageJSONPluginsObjName][name];
+      delete packageJSON[packageJSONPluginsObjName][name];
+      packageChanges = true;
+      configChanges = true;
+      defaultLog.info(corePluginName, ` - UPGRADE PLUGIN [${ name }] - from package.json state`);
+    }
+    if (Tools.isString(packageJSON[packageJSONPluginsObjName][name])) {
+      appConfig.enabledPlugins[name] = true;
+      appConfig.mappedPlugins[name] = packageJSON[packageJSONPluginsObjName][name];
+      delete packageJSON[packageJSONPluginsObjName][name];
+      packageChanges = true;
+      configChanges = true;
+      defaultLog.info(corePluginName, ` - UPGRADE PLUGIN [${ name }] - from package.json map`);
+    }
   }
   // upgrade path
 
@@ -365,6 +367,18 @@ const loadPlugin = async (name: string, path: string, pluginInstallerFile: strin
   defaultLog.info(corePluginName, ` - ${ name }: LOADED`);
 };
 const loadCorePlugin = (name: string, path: string, pluginInstallerFile: string | null) => {
+  // upgrade path
+  if (!Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
+    if (!Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
+      appConfig.enabledPlugins[name] = packageJSON[packageJSONPluginsObjName][name];
+      delete packageJSON[packageJSONPluginsObjName][name];
+      packageChanges = true;
+      configChanges = true;
+      defaultLog.info(corePluginName, ` - UPGRADE CORE-PLUGIN [${ name }] - from package.json state`);
+    }
+  }
+  // upgrade path
+
   if (Tools.isNullOrUndefined(appConfig.enabledPlugins[name])) {
     appConfig.enabledPlugins[name] = false;
     configChanges = true;
@@ -493,6 +507,11 @@ export default class ServiceBase {
     loadPlugins(pluginsDir);
 
     if (canWriteChanges) {
+      if (!Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
+        delete packageJSON[packageJSONPluginsObjName];
+        packageChanges = true;
+      }
+      
       if (packageChanges) {
         defaultLog.error('PACKAGE.JSON AUTOMATICALLY UPDATED.');
         FS.writeFileSync(PACKAGE_JSON, JSON.stringify(packageJSON));
@@ -502,7 +521,7 @@ export default class ServiceBase {
         FS.writeFileSync(secConfigJsonFile, JSON.stringify(appConfig));
       }
     } else {
-      defaultLog.info('SYSTEM IN LIVE MODE : WE WONT UPDATE FILES')
+      defaultLog.info('SYSTEM IN LIVE MODE : WE WONT UPDATE FILES');
     }
   }
 
