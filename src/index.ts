@@ -28,7 +28,21 @@ let eventsName: string | null = null;
 const packageJSONPluginsObjName = 'bettercorp-service-base';
 defaultLog.info(corePluginName, 'BOOT UP: @' + _version);
 
-const secConfigJsonFile = PATH.join(CWD, "./sec.config.json");
+let canWriteChanges = true;
+if (!Tools.isNullOrUndefined(process.env.BSB_LIVE)) {
+  canWriteChanges = false;
+}
+let secConfigJsonFile = PATH.join(CWD, "./sec.config.json");
+let deploymentProfile: string = 'default';
+if (!Tools.isNullOrUndefined(process.env.BSB_PROFILE)) {
+  deploymentProfile = process.env.BSB_PROFILE!;
+}
+if (deploymentProfile !== 'default') {
+  secConfigJsonFile = PATH.join(CWD, `./sec.config.${ deploymentProfile }.json`);
+}
+if (!Tools.isNullOrUndefined(process.env.BSB_SEC_JSON)) {
+  secConfigJsonFile = process.env.BSB_SEC_JSON!;
+}
 const secConfigJsonInstallerFile = PATH.join(CWD, "./installer.js");
 let debugConfig: any = undefined;
 if (!FS.existsSync(secConfigJsonFile)) {
@@ -47,10 +61,14 @@ if (!FS.existsSync(secConfigJsonFile)) {
     defaultLog.error(`Plugin setup as : ${ pluginName } & ${ testPluginName }`);
     debugConfig = {};
     debugConfig.plugins = debugConfig.plugins || {};
+    debugConfig.enabledPlugins = debugConfig.enabledPlugins || {};
+    debugConfig.mappedPlugins = debugConfig.mappedPlugins || {};
     debugConfig.plugins[pluginName] = pluginScript(pluginName);
-    packageJSON[packageJSONPluginsObjName][pluginName] = true;
+    debugConfig.enabledPlugins[pluginName] = true;
+    debugConfig.mappedPlugins[pluginName] = pluginName;
     debugConfig.plugins[testPluginName] = pluginScript(pluginName);
-    packageJSON[packageJSONPluginsObjName][testPluginName] = true;
+    debugConfig.enabledPlugins[testPluginName] = true;
+    debugConfig.mappedPlugins[testPluginName] = testPluginName;
   } else {
     throw '! sec.config.json CAN`T BE FOUND !';
   }
@@ -65,7 +83,11 @@ if (process.env.FORCE_DEBUG !== undefined && process.env.FORCE_DEBUG !== null &&
 }
 
 appConfig.debug = _runningInDebug;
-appConfig.enabledPlugins = appConfig.enabledPlugins || [];
+appConfig.enabledPlugins = appConfig.enabledPlugins || {};
+if (Tools.isArray(appConfig.enabledPlugins)) { // upgrade path
+  appConfig.enabledPlugins = {};
+}
+appConfig.mappedPlugins = appConfig.mappedPlugins || {};
 let pluginsDir = PATH.join(CWD, 'src');
 if (!FS.existsSync(pluginsDir) || !FS.statSync(pluginsDir).isDirectory()) {
   pluginsDir = PATH.join(CWD, 'lib');
@@ -141,17 +163,17 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   let loadedPlugins = Object.keys(LIBRARY_PLUGINS);
   for (let i = 0; i < initPlugins.length; i++) {
     if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[initPlugins[i]].initIndex)) {
-      defaultLog.info(`Set ${initPlugins[i]} to initIndex of ${-1}`);
+      defaultLog.info(`Set ${ initPlugins[i] } to initIndex of ${ -1 }`);
       LIBRARY_PLUGINS[initPlugins[i]].initIndex = -1;
     }
     if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex)) {
-      defaultLog.info(`Set ${initPlugins[i]} to loadIndex of ${-1}`);
+      defaultLog.info(`Set ${ initPlugins[i] } to loadIndex of ${ -1 }`);
       LIBRARY_PLUGINS[loadedPlugins[i]].loadedIndex = -1;
     }
     if (loadedPlugins[i].indexOf('plugin-') >= 0) {
       LIBRARY_PLUGINS[initPlugins[i]].initIndex!--;
       LIBRARY_PLUGINS[initPlugins[i]].loadedIndex!++;
-      defaultLog.info(`Update ${initPlugins[i]} to init/load of ${LIBRARY_PLUGINS[initPlugins[i]].initIndex}/${LIBRARY_PLUGINS[initPlugins[i]].loadedIndex}`);
+      defaultLog.info(`Update ${ initPlugins[i] } to init/load of ${ LIBRARY_PLUGINS[initPlugins[i]].initIndex }/${ LIBRARY_PLUGINS[initPlugins[i]].loadedIndex }`);
     }
   }
   for (let i = 0; i < initPlugins.length - 1; i++) {
@@ -175,11 +197,11 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
 
   defaultLog.info('Init Order: ' + initPlugins.join(','));
   for (let pluginName of initPlugins) {
-    defaultLog.info(`  - [${LIBRARY_PLUGINS[pluginName].initIndex!}] ${pluginName}`);
+    defaultLog.info(`  - [${ LIBRARY_PLUGINS[pluginName].initIndex! }] ${ pluginName }`);
   }
   defaultLog.info('Loaded Order: ' + loadedPlugins.join(','));
   for (let pluginName of loadedPlugins) {
-    defaultLog.info(`  - [${LIBRARY_PLUGINS[pluginName].initIndex!}] ${pluginName}`);
+    defaultLog.info(`  - [${ LIBRARY_PLUGINS[pluginName].initIndex! }] ${ pluginName }`);
   }
 
   for (let pluginName of initPlugins) {
@@ -278,11 +300,6 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   resolve();
 });
 
-if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
-  packageJSON[packageJSONPluginsObjName] = {};
-  packageChanges = true;
-}
-
 const loadPluginConfig = async (name: string, path: string) => {
   let loadedFile = require(path);
   if (loadedFile.default !== undefined)
@@ -296,24 +313,43 @@ const loadPluginConfig = async (name: string, path: string) => {
 };
 
 const loadPlugin = async (name: string, path: string, pluginInstallerFile: string | null) => {
-  if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
-    packageJSON[packageJSONPluginsObjName][name] = false;
+  // upgrade path
+  if (Tools.isBoolean(packageJSON[packageJSONPluginsObjName][name])) {
+    appConfig.enabledPlugins[name] = packageJSON[packageJSONPluginsObjName][name];
+    delete packageJSON[packageJSONPluginsObjName][name];
     packageChanges = true;
-  } else if (appConfig.enabledPlugins.length === 0) {
-    if (typeof packageJSON[packageJSONPluginsObjName][name] === 'string') {
-      // plugin must run with a different name
-      // an example of this is when running 2 web socket servers for different clients, you can define one as ws1 and the other as ws2 by defining the package variable
-      defaultLog.info(corePluginName, ` - PLUGIN [${ name }] DEFINED TO RUN AS [${ packageJSON[packageJSONPluginsObjName][name] }]`);
-      name = packageJSON[packageJSONPluginsObjName][name];
-    } else if (packageJSON[packageJSONPluginsObjName][name] !== true) {
-      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in package.json`);
-      return;
-    }
-  } else {
-    if (appConfig.enabledPlugins.indexOf(name) < 0) {
-      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in sec.config.json`);
-      return;
-    }
+    configChanges = true;
+    defaultLog.info(corePluginName, ` - UPGRADE PLUGIN [${ name }] - from package.json state`);
+  }
+  if (Tools.isString(packageJSON[packageJSONPluginsObjName][name])) {
+    appConfig.enabledPlugins[name] = true;
+    appConfig.mappedPlugins[name] = packageJSON[packageJSONPluginsObjName][name];
+    delete packageJSON[packageJSONPluginsObjName][name];
+    packageChanges = true;
+    configChanges = true;
+    defaultLog.info(corePluginName, ` - UPGRADE PLUGIN [${ name }] - from package.json map`);
+  }
+  // upgrade path
+
+  if (Tools.isNullOrUndefined(appConfig.enabledPlugins[name])) {
+    appConfig.enabledPlugins[name] = false;
+    configChanges = true;
+    defaultLog.info(corePluginName, ` - REFERENCE PLUGIN [${ name }] - set state false`);
+  }
+  if (Tools.isNullOrUndefined(appConfig.mappedPlugins[name])) {
+    appConfig.mappedPlugins[name] = name;
+    configChanges = true;
+    defaultLog.info(corePluginName, ` - REFERENCE PLUGIN [${ name }] - set map '${ name }'`);
+  }
+
+  if (appConfig.enabledPlugins[name] !== true) {
+    defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in sec.config.json`);
+    return;
+  }
+
+  if (appConfig.mappedPlugins[name] !== name) {
+    defaultLog.info(corePluginName, ` - MAP PLUGIN [${ name }] - set map '${ appConfig.mappedPlugins[name] }'`);
+    name = appConfig.mappedPlugins[name];
   }
 
   if (!Tools.isNullOrUndefined(LIBRARY_PLUGINS[name])) {
@@ -329,14 +365,13 @@ const loadPlugin = async (name: string, path: string, pluginInstallerFile: strin
   defaultLog.info(corePluginName, ` - ${ name }: LOADED`);
 };
 const loadCorePlugin = (name: string, path: string, pluginInstallerFile: string | null) => {
-  if (Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName][name])) {
-    packageJSON[packageJSONPluginsObjName][name] = false;
-    packageChanges = true;
-  } else {
-    if (packageJSON[packageJSONPluginsObjName][name] !== true) {
-      defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in package.json`);
-      return;
-    }
+  if (Tools.isNullOrUndefined(appConfig.enabledPlugins[name])) {
+    appConfig.enabledPlugins[name] = false;
+    configChanges = true;
+  }
+  if (appConfig.enabledPlugins[name] !== true) {
+    defaultLog.info(corePluginName, ` - IGNORE PLUGIN [${ name }] - defined in sec.config.json`);
+    return;
   }
 
   if (name.indexOf('log-') === 0) {
@@ -457,13 +492,17 @@ export default class ServiceBase {
     defaultLog.info(corePluginName, `Get app plugins in: ${ pluginsDir }`);
     loadPlugins(pluginsDir);
 
-    if (packageChanges) {
-      defaultLog.error('PACKAGE.JSON AUTOMATICALLY UPDATED.');
-      FS.writeFileSync(PACKAGE_JSON, JSON.stringify(packageJSON));
-    }
-    if (configChanges) {
-      defaultLog.error('SEC CONFIG AUTOMATICALLY UPDATED.');
-      FS.writeFileSync(secConfigJsonFile, JSON.stringify(appConfig));
+    if (canWriteChanges) {
+      if (packageChanges) {
+        defaultLog.error('PACKAGE.JSON AUTOMATICALLY UPDATED.');
+        FS.writeFileSync(PACKAGE_JSON, JSON.stringify(packageJSON));
+      }
+      if (configChanges) {
+        defaultLog.error('SEC CONFIG AUTOMATICALLY UPDATED.');
+        FS.writeFileSync(secConfigJsonFile, JSON.stringify(appConfig));
+      }
+    } else {
+      defaultLog.info('SYSTEM IN LIVE MODE : WE WONT UPDATE FILES')
     }
   }
 
