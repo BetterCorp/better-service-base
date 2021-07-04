@@ -99,6 +99,18 @@ const LIBRARY_PLUGINS: IDictionary<IPlugin> = {};
 if (appConfig.debug)
   defaultLog.info(corePluginName, 'RUNNING IN DEBUG MODE');
 
+let updateAppConfig = (plugin?: string) => {
+  if (!Tools.isNullOrUndefined(plugin) && Tools.isNullOrUndefined(appConfig.mappedPlugins[plugin!])) {
+    appConfig.mappedPlugins[plugin!] = plugin;
+    configChanges = true;
+  }
+  if (canWriteChanges && configChanges) {
+    defaultLog.error('SEC CONFIG AUTOMATICALLY UPDATED.');
+    FS.writeFileSync(secConfigJsonFile, JSON.stringify(appConfig));
+    configChanges = false;
+  }
+};
+
 const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   const loggerPluginName = loggerName || 'default-logger';
   defaultLog.info(corePluginName, `Activating logs on with: ${ loggerPluginName }`);
@@ -115,10 +127,22 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
     cwd: CWD,
     config: appConfig,
     getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[loggerPluginName] as T,
-    onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(loggerPluginName, plugin, event, listener),
-    onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(loggerPluginName, plugin, event, listener),
-    emitEvent: <T = any>(plugin: string, event: string, data?: T) => events.emitEvent<T>(loggerPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = void>(plugin: string, event: string, data?: T1, timeoutSeconds?: number) => events.emitEventAndReturn<T1, T2>(loggerPluginName, plugin, event, data, timeoutSeconds),
+    onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => {
+      updateAppConfig(plugin);
+      return events.onEvent<T>(loggerPluginName, appConfig.mappedPlugins[plugin], event, listener);
+    },
+    onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => {
+      updateAppConfig(plugin);
+      return events.onReturnableEvent<T>(loggerPluginName, appConfig.mappedPlugins[plugin], event, listener);
+    },
+    emitEvent: <T = any>(plugin: string, event: string, data?: T) => {
+      updateAppConfig(plugin);
+      return events.emitEvent<T>(loggerPluginName, appConfig.mappedPlugins[plugin], event, data);
+    },
+    emitEventAndReturn: <T1 = any, T2 = void>(plugin: string, event: string, data?: T1, timeoutSeconds?: number) => {
+      updateAppConfig(plugin);
+      return events.emitEventAndReturn<T1, T2>(loggerPluginName, appConfig.mappedPlugins[plugin], event, data, timeoutSeconds);
+    },
     initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
       reject('NOT VALID FOR LOGGING CONTEXT');
     })
@@ -147,10 +171,22 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
     cwd: CWD,
     config: appConfig,
     getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[eventsPluginName] as T,
-    onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(eventsPluginName, plugin, event, listener),
-    onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(eventsPluginName, plugin, event, listener),
-    emitEvent: <T = any>(plugin: string, event: string, data?: T) => events.emitEvent<T>(eventsPluginName, plugin, event, data),
-    emitEventAndReturn: <T1 = any, T2 = void>(plugin: string, event: string, data?: T1, timeoutSeconds?: number) => events.emitEventAndReturn<T1, T2>(eventsPluginName, plugin, event, data, timeoutSeconds),
+    onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => {
+      updateAppConfig(plugin);
+      return events.onEvent<T>(eventsPluginName, appConfig.mappedPlugins[plugin], event, listener);
+    },
+    onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => {
+      updateAppConfig(plugin);
+      return events.onReturnableEvent<T>(eventsPluginName, appConfig.mappedPlugins[plugin], event, listener);
+    },
+    emitEvent: <T = any>(plugin: string, event: string, data?: T) => {
+      updateAppConfig(plugin);
+      return events.emitEvent<T>(eventsPluginName, appConfig.mappedPlugins[plugin], event, data);
+    },
+    emitEventAndReturn: <T1 = any, T2 = void>(plugin: string, event: string, data?: T1, timeoutSeconds?: number) => {
+      updateAppConfig(plugin);
+      return events.emitEventAndReturn<T1, T2>(eventsPluginName, appConfig.mappedPlugins[plugin], event, data, timeoutSeconds);
+    },
     initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2> => new Promise((resolve, reject) => {
       reject('NOT VALID FOR EVENTS CONTEXT');
     })
@@ -232,10 +268,22 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
       cwd: CWD,
       config: appConfig,
       getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[pluginName] as T,
-      onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
-      onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(pluginName, plugin, event, listener),
-      emitEvent: <T = any>(plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
-      emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data, timeoutSeconds),
+      onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => {
+        updateAppConfig(plugin);
+        return events.onEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, listener);
+      },
+      onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => {
+        updateAppConfig(plugin);
+        return events.onReturnableEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, listener);
+      },
+      emitEvent: <T = any>(plugin: string, event: string, data?: T): void => {
+        updateAppConfig(plugin);
+        return events.emitEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, data)
+      },
+      emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
+        updateAppConfig(plugin);
+        return events.emitEventAndReturn<T1, T2>(pluginName, appConfig.mappedPlugins[plugin], event, data, timeoutSeconds);
+      },
       initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1) => {
         return new Promise((resolve, reject) => {
           if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
@@ -279,10 +327,22 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
       cwd: CWD,
       config: appConfig,
       getPluginConfig: <T = ServiceConfigPlugins>(): T => appConfig.plugins[pluginName] as T,
-      onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => events.onEvent<T>(pluginName, plugin, event, listener),
-      onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => events.onReturnableEvent<T>(pluginName, plugin, event, listener),
-      emitEvent: <T = any>(plugin: string, event: string, data?: T): void => events.emitEvent<T>(pluginName, plugin, event, data),
-      emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => events.emitEventAndReturn<T1, T2>(pluginName, plugin, event, data, timeoutSeconds),
+      onEvent: <T = any>(plugin: string, event: string, listener: (data: T) => void): void => {
+        updateAppConfig(plugin);
+        return events.onEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, listener);
+      },
+      onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => {
+        updateAppConfig(plugin);
+        return events.onReturnableEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, listener)
+      },
+      emitEvent: <T = any>(plugin: string, event: string, data?: T): void => {
+        updateAppConfig(plugin);
+        return events.emitEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, data)
+      },
+      emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
+        updateAppConfig(plugin);
+        return events.emitEventAndReturn<T1, T2>(pluginName, appConfig.mappedPlugins[plugin], event, data, timeoutSeconds);
+      },
       initForPlugins: <T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1) => {
         return new Promise((resolve, reject) => {
           if (Tools.isNullOrUndefined(LIBRARY_PLUGINS[pluginName]))
@@ -511,16 +571,14 @@ export default class ServiceBase {
         delete packageJSON[packageJSONPluginsObjName];
         packageChanges = true;
       }
-      
+
       if (packageChanges) {
         defaultLog.error('PACKAGE.JSON AUTOMATICALLY UPDATED.');
         FS.writeFileSync(PACKAGE_JSON, JSON.stringify(packageJSON));
       }
-      if (configChanges) {
-        defaultLog.error('SEC CONFIG AUTOMATICALLY UPDATED.');
-        FS.writeFileSync(secConfigJsonFile, JSON.stringify(appConfig));
-      }
+      updateAppConfig();
     } else {
+      updateAppConfig = () => { };
       defaultLog.info('SYSTEM IN LIVE MODE : WE WONT UPDATE FILES');
     }
   }
