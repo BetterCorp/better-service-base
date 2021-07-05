@@ -7,7 +7,7 @@ for (let arg of args) {
   if (arg.indexOf('--version=') >= 0) {
     version = arg.split('--version=')[1].trim();
   }
-  if (arg.indexOf('--version=') >= 0) {
+  if (arg.indexOf('--branch=') >= 0) {
     buildTag = arg.split('--branch=')[1].trim().replace(/(?![-])[\W]/g,'');
   }
 }
