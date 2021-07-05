@@ -58,6 +58,9 @@ const packaggeJSONFile = PATH.join(CWD, './package.json');
 if (FS.existsSync(packaggeJSONFile)) {
   let readPackageJsonFile = JSON.parse(FS.readFileSync(packaggeJSONFile).toString())
 
+  if (readPackageJsonFile.name == '@bettercorp/service-base')
+    return console.log('Self install. ignoring install script.');
+
   if (readPackageJsonFile.name.indexOf('@bettercorp/service-base') === 0)
     libInstall = true;
 
@@ -87,7 +90,7 @@ if (FS.existsSync(packaggeJSONFile)) {
   }
 
   if (libInstall) {
-    return console.log('Self install. ignoring app install script.');
+    return console.log('Package install. ignoring app install script.');
   }
 }
 
