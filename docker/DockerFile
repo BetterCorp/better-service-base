@@ -1,0 +1,10 @@
+FROM node:lts-alpine
+
+RUN apk update
+RUN npm i -g typescript@4.3.5 ts-node@10.0.0
+
+WORKDIR /home/bsb
+
+RUN npm i --save @bettercorp/${SERVICE}@${RELEASE}
+
+CMD npm start
