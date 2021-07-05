@@ -39,10 +39,6 @@ if (!FS.existsSync(dockerFile) && FS.existsSync(dockerSrcFile)) {
 
 const isTS = FS.existsSync(PATH.join(CWD, './tsconfig.json'));
 
-let readPackageJsonFile = JSON.parse(FS.readFileSync(packaggeJSONFile).toString())
-if (Tools.isNullOrUndefined(readPackageJsonFile.scripts)) {
-  readPackageJsonFile.scripts = {};
-}
 const appScripts = {
   dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node src/index.ts",
   start: "node lib/index.js",
@@ -59,37 +55,40 @@ const libScripts = {
 let libInstall = false;
 
 const packaggeJSONFile = PATH.join(CWD, './package.json');
-if (FS.existsSync(packaggeJSONFile))
-  if (JSON.parse(FS.readFileSync(packaggeJSONFile).toString()).name.indexOf('@bettercorp/service-base') === 0)
+if (FS.existsSync(packaggeJSONFile)) {
+  let readPackageJsonFile = JSON.parse(FS.readFileSync(packaggeJSONFile).toString())
+
+  if (readPackageJsonFile.name.indexOf('@bettercorp/service-base') === 0)
     libInstall = true;
 
-let scripts = libScripts;
-if (!libInstall) {
-  scripts = appScripts;
-}
-if (Tools.isNullOrUndefined(readPackageJsonFile.scripts)) {
-  readPackageJsonFile.scripts = {};
-}
-let pakUpdates = false;
-for (let key of Object.keys(scripts)) {
-  if (Tools.isNullOrUndefined(scripts[key])) continue;
+  let scripts = libScripts;
+  if (!libInstall) {
+    scripts = appScripts;
+  }
+  if (Tools.isNullOrUndefined(readPackageJsonFile.scripts)) {
+    readPackageJsonFile.scripts = {};
+  }
+  let pakUpdates = false;
+  for (let key of Object.keys(scripts)) {
+    if (Tools.isNullOrUndefined(scripts[key])) continue;
 
-  if (readPackageJsonFile.scripts[key] !== scripts[key]) {
-    readPackageJsonFile.scripts[key] = scripts[key];
+    if (readPackageJsonFile.scripts[key] !== scripts[key]) {
+      readPackageJsonFile.scripts[key] = scripts[key];
+      pakUpdates = true;
+    }
+  }
+  if (Tools.isNullOrUndefined(readPackageJsonFile.files)) {
+    readPackageJsonFile.files = ["lib/**/*"];
     pakUpdates = true;
   }
-}
-if (Tools.isNullOrUndefined(readPackageJsonFile.files)) {
-  readPackageJsonFile.files = ["lib/**/*"];
-  pakUpdates = true;
-}
-if (pakUpdates) {
-  console.log(`Updating package scripts for you... (${packaggeJSONFile})`);
-  FS.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile))
-}
+  if (pakUpdates) {
+    console.log(`Updating package scripts for you... (${packaggeJSONFile})`);
+    FS.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile))
+  }
 
-if (libInstall) {
-  return console.log('Self install. ignoring app install script.');
+  if (libInstall) {
+    return console.log('Self install. ignoring app install script.');
+  }
 }
 
 const configFile = PATH.join(CWD, './sec.config.json');
