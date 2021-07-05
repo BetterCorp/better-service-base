@@ -42,7 +42,7 @@ const scripts = {
   start: "node lib/index.js",
   build: isTS ? "tsc" : undefined,
   publish: "npm publish",
-  version: "node ./node_modules/@bettercorp/service-base/build/version.js"
+  version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
 }
 if (Tools.isNullOrUndefined(readPackageJsonFile.scripts)) {
   readPackageJsonFile.scripts = {};
