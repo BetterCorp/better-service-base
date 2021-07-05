@@ -2,9 +2,13 @@ const fs = require('fs');
 let packageJSON = JSON.parse(fs.readFileSync('./package.json').toString());
 let args = process.argv;
 let version = packageJSON.version;
+let buildTag = '';
 for (let arg of args) {
   if (arg.indexOf('--version=') >= 0) {
     version = arg.split('--version=')[1].trim();
+  }
+  if (arg.indexOf('--version=') >= 0) {
+    buildTag = arg.split('--branch=')[1].trim().replace(/(?![-])[\W]/g,'');
   }
 }
 let versionSplit = version.split('-');
@@ -14,6 +18,9 @@ let minor = versionKeys[1];
 let tag = '';
 if (versionSplit.length > 1) {
   tag = `-${tag}`;
+}
+if (buildTag != '') {
+  tag = `-${buildTag}`
 }
 let now = new Date();
 let month = now.getMonth();
