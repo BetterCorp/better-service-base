@@ -41,7 +41,8 @@ const scripts = {
   dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node src/index.ts",
   start: "node lib/index.js",
   build: isTS ? "tsc" : undefined,
-  publish: "npm publish"
+  publish: "npm publish",
+  version: "node ./node_modules/@bettercorp/service-base/build/version.js"
 }
 if (Tools.isNullOrUndefined(readPackageJsonFile.scripts)) {
   readPackageJsonFile.scripts = {};
@@ -82,6 +83,18 @@ const pluginsDir = PATH.join(CWD, `./src/plugins`);
 if (!FS.existsSync(pluginsDir)) {
   console.log(`Creating plugins dir... (${pluginsDir})`);
   FS.mkdirSync(pluginsDir);
+}
+
+const dockerDir = PATH.join(CWD, `./docker`);
+if (!FS.existsSync(dockerDir)) {
+  console.log(`Creating docker dir... (${dockerDir})`);
+  FS.mkdirSync(dockerDir);
+}
+const dockerSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/docker/DockerFile`);
+const dockerFile = PATH.join(dockerDir, `./DockerFile`);
+if (!FS.existsSync(dockerFile) && FS.existsSync(dockerSrcFile)) {
+  console.log(`Creating docker build file... (${dockerSrcFile} -> ${dockerFile})`);
+  FS.copyFileSync(dockerSrcFile, dockerFile)
 }
 
 console.log('INSTALL COMPLETE FOR @bettercorp/service-base');

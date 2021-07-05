@@ -9,10 +9,13 @@
     "start": "node lib/index.js",
     "build": "tsc",
     "postinstall": "node ./install.js",
-    "deploy": "npm publish"
+    "deploy": "npm publish",
+    "version": "node ./build/version.js"
   },
   "files": [
     "lib/**/*",
+    "build/**/*",
+    "docker/**/*",
     "install.js",
     "install-plugin.js"
   ],
