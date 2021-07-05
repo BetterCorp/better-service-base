@@ -4,11 +4,14 @@ let args = process.argv;
 let version = packageJSON.version;
 let buildTag = '';
 for (let arg of args) {
+  console.log(`FARG: ${arg}`)
   if (arg.indexOf('--version=') >= 0) {
     version = arg.split('--version=')[1].trim();
+    console.log(`-FARG: ${arg} = '${version}'`)
   }
   if (arg.indexOf('--branch=') >= 0) {
-    buildTag = arg.split('--branch=')[1].trim().replace(/(?![-])[\W]/g,'');
+    buildTag = arg.split('--branch=')[1].trim().replace(/(?![-])[\W]/g, '');
+    console.log(`-FARG: ${arg} = '${buildTag}'`)
   }
 }
 let versionSplit = version.split('-');
