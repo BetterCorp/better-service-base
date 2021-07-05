@@ -26,19 +26,19 @@ if (buildTag != '') {
   tag = `-${buildTag}`
 }
 let now = new Date();
-let month = now.getMonth();
+let month = `${now.getMonth()}`;
 if (month.length == 1)
   month = `0${month}`
-let day = now.getDay();
+let day = `${now.getDay()}`;
 if (day.length == 1)
   day = `0${day}`
-let hour = now.getHours();
+let hour = `${now.getHours()}`;
 if (hour.length == 1)
   hour = `0${hour}`
-let minutes = now.getMinutes();
+let minutes = `${now.getMinutes()}`;
 if (minutes.length == 1)
   minutes = `0${minutes}`
-let seconds = now.getSeconds();
+let seconds = `${now.getSeconds()}`;
 if (seconds.length == 1)
   seconds = `0${seconds}`
 let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}${tag}`;
