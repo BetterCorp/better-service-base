@@ -29,7 +29,7 @@ let now = new Date();
 let month = `${now.getMonth()}`;
 if (month.length == 1)
   month = `0${month}`
-let day = `${now.getDay()}`;
+let day = `${now.getDate()}`;
 if (day.length == 1)
   day = `0${day}`
 let hour = `${now.getHours()}`;
