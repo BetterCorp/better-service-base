@@ -10,7 +10,7 @@
     "build": "tsc",
     "postinstall": "node ./install.js",
     "deploy": "npm publish",
-    "version": "node ./build/version.js"
+    "version": "node ./build/version.js $0"
   },
   "files": [
     "lib/**/*",
