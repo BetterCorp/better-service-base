@@ -43,12 +43,12 @@ const appScripts = {
   dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node src/index.ts",
   start: "node lib/index.js",
   build: isTS ? "tsc" : undefined,
-  publish: "npm publish",
+  //publish: "npm publish",
   version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
 }
 const libScripts = {
   build: isTS ? "tsc" : undefined,
-  publish: "npm publish",
+  //publish: "npm publish",
   version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
 }
 
