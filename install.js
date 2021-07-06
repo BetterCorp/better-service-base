@@ -84,6 +84,12 @@ if (FS.existsSync(packaggeJSONFile)) {
     readPackageJsonFile.files = ["lib/**/*"];
     pakUpdates = true;
   }
+  if (readPackageJsonFile.scripts.publish !== undefined && readPackageJsonFile.scripts.publish.indexOf('npm publish') >= 0) {
+    if (readPackageJsonFile.scripts.publish == 'npm publish')
+      delete readPackageJsonFile.scripts.publish;
+    else
+      readPackageJsonFile.scripts.publish = `${readPackageJsonFile.scripts.publish}`.replace('npm publish', '');
+  }
   if (pakUpdates) {
     console.log(`Updating package scripts for you... (${packaggeJSONFile})`);
     FS.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile))
