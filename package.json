@@ -9,7 +9,7 @@
     "start": "node lib/index.js",
     "build": "tsc",
     "postinstall": "node ./install.js",
-    "deploy": "npm publish",
+    "publish": "npm publish",
     "version": "node ./build/version.js $0"
   },
   "files": [
