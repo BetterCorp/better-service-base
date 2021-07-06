@@ -22,7 +22,7 @@ let tag = '';
 if (versionSplit.length > 1) {
   tag = `-${tag}`;
 }
-if (buildTag != '') {
+if (buildTag != '' && buildTag != 'master') {
   tag = `-${buildTag}`
 }
 let now = new Date();
