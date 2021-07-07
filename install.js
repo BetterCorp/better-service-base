@@ -37,17 +37,28 @@ if (!FS.existsSync(dockerFile) && FS.existsSync(dockerSrcFile)) {
   FS.copyFileSync(dockerSrcFile, dockerFile)
 }
 
-const isTS = FS.existsSync(PATH.join(CWD, './tsconfig.json'));
+const tsConfigSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tsconfig.json`);
+const tsConfigFile = PATH.join(dockerDir, `./DockerFile`);
+if (!FS.existsSync(tsConfigFile) && FS.existsSync(tsConfigSrcFile)) {
+  console.log(`Creating tsConfig build file... (${tsConfigSrcFile} -> ${tsConfigFile})`);
+  FS.copyFileSync(tsConfigSrcFile, tsConfigFile)
+}
+const tsLintSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tslint.json`);
+const tsLintFile = PATH.join(dockerDir, `./DockerFile`);
+if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
+  console.log(`Creating tslint build file... (${tsLintSrcFile} -> ${tsLintFile})`);
+  FS.copyFileSync(tsLintSrcFile, tsLintFile)
+}
 
 const appScripts = {
   dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node src/index.ts",
   start: "node lib/index.js",
-  build: isTS ? "tsc" : undefined,
+  build: "tsc",
   //publish: "npm publish",
   version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
 }
 const libScripts = {
-  build: isTS ? "tsc" : undefined,
+  build: "tsc",
   //publish: "npm publish",
   version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
 }
@@ -85,6 +96,7 @@ if (FS.existsSync(packaggeJSONFile)) {
     pakUpdates = true;
   }
   if (readPackageJsonFile.scripts.publish !== undefined && readPackageJsonFile.scripts.publish.indexOf('npm publish') >= 0) {
+    pakUpdates = true;
     if (readPackageJsonFile.scripts.publish == 'npm publish')
       delete readPackageJsonFile.scripts.publish;
     else
@@ -106,18 +118,15 @@ if (!FS.existsSync(configFile)) {
   FS.writeFileSync(configFile, '{"enabledPlugins": {}, "plugins": {}, "mappedPlugins": {}}');
 }
 
-const srcIndex = PATH.join(CWD, `./src/index.${isTS ? 'ts' : 'js'}`);
+const srcIndex = PATH.join(CWD, `./src/index.ts`);
 if (!FS.existsSync(srcIndex)) {
   console.log(`Creating Main index file... (${srcIndex})`);
-  FS.writeFileSync(srcIndex, isTS ?
-    "import ServiceBase from '@bettercorp/service-base';\n\n" +
-    "const SB = new ServiceBase();\n" +
-    "SB.init();\n" +
-    "SB.run();" :
-    'const ServiceBase = require("@bettercorp/service-base");\n\n' +
-    "const SB = new (ServiceBase.default || ServiceBase)();\n" +
-    "SB.init();\n" +
-    "SB.run();");
+  const indexSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/sourceFiles/index.ts.src`);
+  const indexFile = PATH.join(dockerDir, `./index.ts`);
+  if (!FS.existsSync(indexFile) && FS.existsSync(indexSrcFile)) {
+    console.log(`Creating src/index.ts build file... (${indexSrcFile} -> ${indexFile})`);
+    FS.copyFileSync(indexSrcFile, indexFile)
+  }
 }
 
 console.log('INSTALL COMPLETE FOR @bettercorp/service-base');

@@ -12,6 +12,9 @@
     "version": "node ./build/version.js $0"
   },
   "files": [
+    "tsconfig.json",
+    "tslint.json",
+    "sourceFiles/**/*",
     "lib/**/*",
     "build/**/*",
     "docker/**/*",
