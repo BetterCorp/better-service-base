@@ -6,6 +6,12 @@ ARG RELEASE
 RUN apk update
 RUN npm i -g typescript@4.3.5 ts-node@10.0.0
 
+RUN mkdir /home/bsb-build
+ADD ./package.json /home/bsb-build/
+ADD ./package-lock.json /home/bsb-build/
+ADD ./lib /home/bsb-build/
+
+RUN mkdir /home/bsb
 WORKDIR /home/bsb
 
 # Default plugins available
@@ -13,6 +19,6 @@ RUN npm i --save @bettercorp/service-base-plugin-events-rabbitmq
 RUN npm i --save @bettercorp/service-base-plugin-log-gelf
 
 # Actual plugin/service
-RUN npm i --save @bettercorp/$SERVICE@$RELEASE
+RUN npm i --save /home/bsb-build
 
 CMD npm start

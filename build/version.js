@@ -54,7 +54,11 @@ if (seconds.length == 1)
 let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}${tag}`;
 packageJSON.version = `${major}.${minor}.${micro}`;
 if (outputPackageName) {
-  console.log(packageJSON.name.split('/')[1]);
+  if (packageJSON.name.indexOf('@bettercorp/service-base-') < 0) {
+    console.log('false')
+  } else {
+    console.log(packageJSON.name.replace('@bettercorp/service-base-', ''));
+  }
 } else if (outputOnly) {
   console.log(packageJSON.version);
 } else {
