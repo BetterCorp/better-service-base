@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const cwdPackJson = path.join(process.cwd(), './package.json');
+const exportsDir = path.join(process.cwd(), './exports');
+
 let packageJSON = JSON.parse(fs.readFileSync(cwdPackJson).toString());
 let args = process.argv;
 let version = packageJSON.version;
@@ -46,12 +48,12 @@ if (seconds.length == 1)
 let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}${tag}`;
 packageJSON.version = `${major}.${minor}.${micro}`;
 
-if (!fs.existsSync('./_exports'))
-  fs.mkdirSync('./_exports')
-fs.writeFileSync('./exports/PACKAGE_VERSION', packageJSON.version);
-fs.writeFileSync('./exports/PACKAGE_NAME', packageJSON.name.replace('@bettercorp/service-base-', ''));
+if (!fs.existsSync(exportsDir))
+  fs.mkdirSync(exportsDir)
+fs.writeFileSync(path.join(exportsDir,'./PACKAGE_VERSION'), packageJSON.version);
+fs.writeFileSync(path.join(exportsDir,'./PACKAGE_NAME'), packageJSON.name.replace('@bettercorp/service-base-', ''));
 if (packageJSON.name.indexOf('@bettercorp/service-base-') >= 0) {
-  fs.writeFileSync('./exports/RUN_DOCKER', 'true');
+  fs.writeFileSync(path.join(exportsDir,'./RUN_DOCKER'), 'true');
 }
 fs.writeFileSync(cwdPackJson, JSON.stringify(packageJSON));
 console.log(`Package versioned as ${packageJSON.version}`);
