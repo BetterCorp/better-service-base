@@ -38,13 +38,13 @@ if (FS.existsSync(dockerSrcFile)) {
 }*/
 
 const tsConfigSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tsconfig.json`);
-const tsConfigFile = PATH.join(dockerDir, `./DockerFile`);
+const tsConfigFile = PATH.join(CWD, `./tsconfig.json`);
 if (!FS.existsSync(tsConfigFile) && FS.existsSync(tsConfigSrcFile)) {
   console.log(`Creating tsConfig build file... (${tsConfigSrcFile} -> ${tsConfigFile})`);
   FS.copyFileSync(tsConfigSrcFile, tsConfigFile)
 }
 const tsLintSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tslint.json`);
-const tsLintFile = PATH.join(dockerDir, `./DockerFile`);
+const tsLintFile = PATH.join(CWD, `./tslint.json`);
 if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
   console.log(`Creating tslint build file... (${tsLintSrcFile} -> ${tsLintFile})`);
   FS.copyFileSync(tsLintSrcFile, tsLintFile)
