@@ -1,0 +1,18 @@
+FROM node:lts-alpine
+
+RUN apk update
+RUN npm i -g typescript@4.3.5 ts-node@10.0.0
+
+RUN mkdir /home/bsb-build
+RUN mkdir /home/bsb
+WORKDIR /home/bsb
+
+# NPM repo defaults
+RUN npm init -y
+
+# Default plugins available
+RUN npm i --save @bettercorp/service-base
+RUN npm i --save @bettercorp/service-base-plugin-events-rabbitmq
+RUN npm i --save @bettercorp/service-base-plugin-log-gelf
+
+CMD npm start
