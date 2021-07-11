@@ -37,6 +37,12 @@ if (FS.existsSync(dockerSrcFile)) {
   FS.copyFileSync(dockerSrcFile, dockerFile)
 }*/
 
+const gitlabCISrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/build/gitlab-ci.yml`);
+const gitlabCIFile = PATH.join(CWD, `./.gitlab-ci.yml`);
+if (!FS.existsSync(gitlabCIFile) && FS.existsSync(gitlabCISrcFile)) {
+  console.log(`Creating .gitlab-ci.yml build file... (${gitlabCISrcFile} -> ${gitlabCIFile})`);
+  FS.copyFileSync(gitlabCISrcFile, gitlabCIFile)
+}
 const tsConfigSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tsconfig.json`);
 const tsConfigFile = PATH.join(CWD, `./tsconfig.json`);
 if (!FS.existsSync(tsConfigFile) && FS.existsSync(tsConfigSrcFile)) {
