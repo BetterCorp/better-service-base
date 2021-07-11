@@ -21,6 +21,10 @@ build:docker:bsb:
     - rm -f ~/.docker
     - mkdir ~/.docker
     - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$DOCKER_TOKEN\"}}}" > ~/.docker/config.json
+    - PACKAGE_VERSION=$(cat ./_exports/PACKAGE_VERSION)
+    - PACKAGE_NAME=$(cat ./_exports/PACKAGE_NAME)
+    - echo PACKAGE_VERSION=$PACKAGE_VERSION
+    - echo PACKAGE_NAME=$PACKAGE_NAME
   script:
     - docker build --tag betterweb/better-service-base:base-$PACKAGE_VERSION --file docker/BSB_DockerFile .
     - docker tag betterweb/better-service-base:base-$PACKAGE_VERSION betterweb/better-service-base:base-latest
@@ -46,6 +50,10 @@ publish:docker:bsb:
     - rm -f ~/.docker
     - mkdir ~/.docker
     - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$DOCKER_TOKEN\"}}}" > ~/.docker/config.json
+    - PACKAGE_VERSION=$(cat ./_exports/PACKAGE_VERSION)
+    - PACKAGE_NAME=$(cat ./_exports/PACKAGE_NAME)
+    - echo PACKAGE_VERSION=$PACKAGE_VERSION
+    - echo PACKAGE_NAME=$PACKAGE_NAME
   script:
     - docker push betterweb/better-service-base:base-$PACKAGE_VERSION
     - docker push betterweb/better-service-base:base-latest
