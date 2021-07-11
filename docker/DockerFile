@@ -4,4 +4,7 @@ ADD ./package.json /home/bsb-build/
 ADD ./package-lock.json /home/bsb-build/
 ADD ./lib /home/bsb-build/
 
+# Actual plugin/service
+RUN npm i --save /home/bsb-build
+
 CMD npm start
