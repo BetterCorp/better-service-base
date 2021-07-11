@@ -5,9 +5,6 @@ let packageJSON = JSON.parse(fs.readFileSync(cwdPackJson).toString());
 let args = process.argv;
 let version = packageJSON.version;
 let buildTag = '';
-let outputOnly = false;
-let outputPackageName = false;
-let BSBOutput = false;
 for (let arg of args) {
   //console.log(`FARG: ${arg}`)
   if (arg.indexOf('--version=') >= 0) {
@@ -17,15 +14,6 @@ for (let arg of args) {
   if (arg.indexOf('--branch=') >= 0) {
     buildTag = arg.split('--branch=')[1].trim().replace(/(?![-])[\W]/g, '');
     //console.log(`-FARG: ${arg} = '${buildTag}'`)
-  }
-  if (arg.indexOf('--output') >= 0) {
-    outputOnly = true;
-  }
-  if (arg.indexOf('--package') >= 0) {
-    outputPackageName = true;
-  }
-  if (arg.indexOf('--bsb') >= 0) {
-    BSBOutput = true;
   }
 }
 let versionSplit = version.split('-');
@@ -57,23 +45,13 @@ if (seconds.length == 1)
   seconds = `0${seconds}`
 let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}${tag}`;
 packageJSON.version = `${major}.${minor}.${micro}`;
-if (BSBOutput) {
-  if (!fs.existsSync('./_exports'))
-    fs.mkdirSync('./_exports')
-  fs.writeFileSync('./exports/PACKAGE_VERSION', packageJSON.version);
-  fs.writeFileSync('./exports/PACKAGE_NAME', packageJSON.name.replace('@bettercorp/service-base-', ''));
-  if (packageJSON.name.indexOf('@bettercorp/service-base-') >= 0) {
-    fs.writeFileSync('./exports/RUN_DOCKER', 'true');
-  }
-} else if (outputPackageName) {
-  if (packageJSON.name.indexOf('@bettercorp/service-base-') < 0) {
-    console.log('false')
-  } else {
-    console.log(packageJSON.name.replace('@bettercorp/service-base-', ''));
-  }
-} else if (outputOnly) {
-  console.log(packageJSON.version);
-} else {
-  fs.writeFileSync(cwdPackJson, JSON.stringify(packageJSON));
-  console.log(`Package versioned as ${packageJSON.version}`);
+
+if (!fs.existsSync('./_exports'))
+  fs.mkdirSync('./_exports')
+fs.writeFileSync('./exports/PACKAGE_VERSION', packageJSON.version);
+fs.writeFileSync('./exports/PACKAGE_NAME', packageJSON.name.replace('@bettercorp/service-base-', ''));
+if (packageJSON.name.indexOf('@bettercorp/service-base-') >= 0) {
+  fs.writeFileSync('./exports/RUN_DOCKER', 'true');
 }
+fs.writeFileSync(cwdPackJson, JSON.stringify(packageJSON));
+console.log(`Package versioned as ${packageJSON.version}`);
