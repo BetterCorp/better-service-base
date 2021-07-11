@@ -1,4 +1,4 @@
-FROM @betterweb/better-service-base:base-latest
+FROM betterweb/better-service-base:base-latest
 
 ADD ./package.json /home/bsb-build/
 ADD ./package-lock.json /home/bsb-build/
