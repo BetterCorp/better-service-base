@@ -20,7 +20,7 @@ build:docker:bsb:
     - docker --version
     - rm -f ~/.docker
     - mkdir ~/.docker
-    - echo $DOCKER_TOKEN > ~/.docker/config.json
+    - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"auth\":\"$DOCKER_TOKEN\"}}}" > ~/.docker/config.json
   script:
     - docker build --tag @betterweb/better-service-base:base-latest --file docker/BSB_DockerFile .
     - docker push @betterweb/better-service-base:base-latest

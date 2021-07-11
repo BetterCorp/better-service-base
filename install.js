@@ -25,7 +25,7 @@ if (!FS.existsSync(pluginsDir)) {
   FS.mkdirSync(pluginsDir);
 }
 
-const dockerDir = PATH.join(CWD, `./docker`);
+/*const dockerDir = PATH.join(CWD, `./docker`);
 if (!FS.existsSync(dockerDir)) {
   console.log(`Creating docker dir... (${dockerDir})`);
   FS.mkdirSync(dockerDir);
@@ -35,7 +35,7 @@ const dockerFile = PATH.join(dockerDir, `./DockerFile`);
 if (FS.existsSync(dockerSrcFile)) {
   console.log(`Creating docker build file... (${dockerSrcFile} -> ${dockerFile})`);
   FS.copyFileSync(dockerSrcFile, dockerFile)
-}
+}*/
 
 const tsConfigSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tsconfig.json`);
 const tsConfigFile = PATH.join(dockerDir, `./DockerFile`);
