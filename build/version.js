@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const cwdPackJson = path.join(process.cwd(), './package.json');
-const exportsDir = path.join(process.cwd(), './exports');
+const exportsDir = path.join(process.cwd(), './_exports');
 console.log(`CWD: ${exportsDir}`);
 
 let packageJSON = JSON.parse(fs.readFileSync(cwdPackJson).toString());
