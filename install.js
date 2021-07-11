@@ -32,7 +32,7 @@ if (!FS.existsSync(dockerDir)) {
 }
 const dockerSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/docker/DockerFile`);
 const dockerFile = PATH.join(dockerDir, `./DockerFile`);
-if (!FS.existsSync(dockerFile) && FS.existsSync(dockerSrcFile)) {
+if (FS.existsSync(dockerSrcFile)) {
   console.log(`Creating docker build file... (${dockerSrcFile} -> ${dockerFile})`);
   FS.copyFileSync(dockerSrcFile, dockerFile)
 }

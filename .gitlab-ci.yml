@@ -2,3 +2,27 @@ include:
   - project: 'BetterCorp/cicd'
     ref: master
     file: '/bsb-cicd.yml'
+
+build:docker:bsb:
+  image: docker:20.10.7
+  dependencies:
+    - build:npm
+  tags:
+    - build
+    - docker
+    - docker-dind
+  stage: build:docker
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+      when: on_success
+    - when: never
+  before_script:
+    - docker --version
+    - rm -f ~/.docker
+    - mkdir ~/.docker
+    - echo $DOCKER_TOKEN > ~/.docker/config.json
+  script:
+    - docker build --tag @betterweb/better-service-base:base-latest --file docker/BSB_DockerFile .
+    - docker push @betterweb/better-service-base:base-latest
+  after_script:
+    - rm -f ~/.docker/config.json
