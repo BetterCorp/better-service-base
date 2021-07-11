@@ -59,7 +59,7 @@ let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}${tag}
 packageJSON.version = `${major}.${minor}.${micro}`;
 if (BSBOutput) {
   if (!fs.existsSync('./_exports'))
-    fs.writeFileSync('./_exports')
+    fs.mkdirSync('./_exports')
   fs.writeFileSync('./exports/PACKAGE_VERSION', packageJSON.version);
   fs.writeFileSync('./exports/PACKAGE_NAME', packageJSON.name.replace('@bettercorp/service-base-', ''));
   if (packageJSON.name.indexOf('@bettercorp/service-base-') >= 0) {
