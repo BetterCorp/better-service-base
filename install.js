@@ -128,7 +128,7 @@ const srcIndex = PATH.join(CWD, `./src/index.ts`);
 if (!FS.existsSync(srcIndex)) {
   console.log(`Creating Main index file... (${srcIndex})`);
   const indexSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/sourceFiles/index.ts.src`);
-  const indexFile = PATH.join(dockerDir, `./index.ts`);
+  const indexFile = PATH.join(CWD, `./index.ts`);
   if (!FS.existsSync(indexFile) && FS.existsSync(indexSrcFile)) {
     console.log(`Creating src/index.ts build file... (${indexSrcFile} -> ${indexFile})`);
     FS.copyFileSync(indexSrcFile, indexFile)
