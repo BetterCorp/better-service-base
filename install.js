@@ -124,15 +124,11 @@ if (!FS.existsSync(configFile)) {
   FS.writeFileSync(configFile, '{"enabledPlugins": {}, "plugins": {}, "mappedPlugins": {}}');
 }
 
-const srcIndex = PATH.join(CWD, `./src/index.ts`);
+const srcIndex = PATH.join(srcDir, `./index.ts`);
+const indexSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/sourceFiles/index.ts.src`);
 if (!FS.existsSync(srcIndex)) {
-  console.log(`Creating Main index file... (${srcIndex})`);
-  const indexSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/sourceFiles/index.ts.src`);
-  const indexFile = PATH.join(srcIndex, `./index.ts`);
-  if (!FS.existsSync(indexFile) && FS.existsSync(indexSrcFile)) {
-    console.log(`Creating src/index.ts build file... (${indexSrcFile} -> ${indexFile})`);
-    FS.copyFileSync(indexSrcFile, indexFile)
-  }
+  console.log(`Creating src/index.ts file... (${indexSrcFile} -> ${srcIndex})`);
+  FS.copyFileSync(indexSrcFile, srcIndex)
 }
 
 console.log('INSTALL COMPLETE FOR @bettercorp/service-base');
