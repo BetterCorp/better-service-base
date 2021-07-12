@@ -17,7 +17,6 @@
     "sourceFiles/**/*",
     "lib/**/*",
     "build/**/*",
-    "docker/**/*",
     "install.js",
     "install-plugin.js"
   ],

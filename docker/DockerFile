@@ -6,7 +6,7 @@ RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/
 
 # Install plugin
-RUN npm i --save "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
+RUN npm i "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
 
 # Cleanup
 RUN rm -rfv /home/bsb-build
