@@ -1,10 +1,12 @@
+# Image setup
 FROM betterweb/better-service-base:base-latest
 
-ADD ./package.json /home/bsb-build/
-ADD ./package-lock.json /home/bsb-build/
-ADD ./lib /home/bsb-build/
+# Add package (from local)
+RUN mkdir /home/bsb-build
+COPY *.tgz /home/bsb-build/
 
-# Actual plugin/service
-RUN npm i --save /home/bsb-build
+# Install plugin
+RUN npm i --save "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
 
-CMD npm start
+# Cleanup
+RUN rm -rfv /home/bsb-build

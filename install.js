@@ -58,7 +58,7 @@ if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
 
 const appScripts = {
   dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node src/index.ts",
-  start: "node lib/index.js",
+  start: "ts-node src/index.ts",
   build: "tsc",
   //publish: "npm publish",
   version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
@@ -128,7 +128,7 @@ const srcIndex = PATH.join(CWD, `./src/index.ts`);
 if (!FS.existsSync(srcIndex)) {
   console.log(`Creating Main index file... (${srcIndex})`);
   const indexSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/sourceFiles/index.ts.src`);
-  const indexFile = PATH.join(CWD, `./index.ts`);
+  const indexFile = PATH.join(srcIndex, `./index.ts`);
   if (!FS.existsSync(indexFile) && FS.existsSync(indexSrcFile)) {
     console.log(`Creating src/index.ts build file... (${indexSrcFile} -> ${indexFile})`);
     FS.copyFileSync(indexSrcFile, indexFile)
