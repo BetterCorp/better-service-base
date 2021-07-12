@@ -588,5 +588,8 @@ export default class ServiceBase {
     await SETUP_PLUGINS();
 
     defaultLog.info(corePluginName, 'App Ready');
+    setInterval(()=>{
+      defaultLog.info('System Heartbeat')
+    }, 60 * 60 * 1000)
   }
 }
