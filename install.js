@@ -59,9 +59,11 @@ if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
 const appScripts = {
   dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node src/index.ts",
   start: "ts-node src/index.ts",
-  build: "tsc",
-  //publish: "npm publish",
-  version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
+  build: "tsc"
+}
+const internalAppScripts = {
+  ...appScripts,
+  version: "node ./node_modules/@bettercorp/service-base/build/version-internal.js $0"
 }
 const libScripts = {
   build: "tsc",
@@ -69,6 +71,7 @@ const libScripts = {
   version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
 }
 
+let coreAppInstall = false;
 let libInstall = false;
 
 const packaggeJSONFile = PATH.join(CWD, './package.json');
@@ -78,11 +81,15 @@ if (FS.existsSync(packaggeJSONFile)) {
   if (readPackageJsonFile.name == '@bettercorp/service-base')
     return console.log('Self install. ignoring install script.');
 
+  if (readPackageJsonFile.name.indexOf('@bettercorp/core-internal-') === 0)
+    coreAppInstall = true;
   if (readPackageJsonFile.name.indexOf('@bettercorp/service-base') === 0)
     libInstall = true;
 
   let scripts = libScripts;
-  if (!libInstall) {
+  if (coreAppInstall) {
+    scripts = internalAppScripts;
+  } else if (!libInstall) {
     scripts = appScripts;
   }
   if (Tools.isNullOrUndefined(readPackageJsonFile.scripts)) {
