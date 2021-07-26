@@ -4,7 +4,9 @@ FROM betterweb/better-service-base:base-latest
 # Add package (from local)
 RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/
-ADD .npmrc ~/.npmrc
+ADD .npmrc .npmrc
+RUN mv ./.npmrc ~/.npmrc
+RUN echo "HOME: $(echo ~/)" 
 
 # Install plugin
 RUN npm i "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
