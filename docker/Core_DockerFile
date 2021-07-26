@@ -1,0 +1,17 @@
+# Image setup
+FROM betterweb/better-service-base:base-latest
+
+# Add package (from local)
+ADD package.json /home/bsb/package.json
+ADD package-lock.json /home/bsb/package-lock.json
+ADD lib/ /home/bsb/lib/
+
+ADD .npmrc .npmrc
+RUN mv ./.npmrc ~/.npmrc
+RUN echo "HOME: $(echo ~/)" 
+
+# Install plugin
+RUN npm i
+
+# Cleanup
+RUN rm -fv ~/.npmrc

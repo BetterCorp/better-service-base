@@ -1,7 +1,7 @@
 include:
   - project: 'BetterCorp/cicd'
     ref: master
-    file: '/bsb-cicd.yml'
+    file: '/bsb-cicd-base.yml'
 
 build:docker:bsb:
   image: docker:20.10.7
