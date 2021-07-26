@@ -4,11 +4,11 @@ FROM betterweb/better-service-base:base-latest
 # Add package (from local)
 RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/
-ADD /root/.npmrc /root/.npmrc
+ADD .npmrc ~/.npmrc
 
 # Install plugin
 RUN npm i "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
 
 # Cleanup
 RUN rm -rfv /home/bsb-build
-RUN rm -fv /root/.npmrc
+RUN rm -fv ~/.npmrc
