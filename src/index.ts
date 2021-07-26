@@ -88,12 +88,6 @@ if (Tools.isArray(appConfig.enabledPlugins)) { // upgrade path
   appConfig.enabledPlugins = {};
 }
 appConfig.mappedPlugins = appConfig.mappedPlugins || {};
-let pluginsDir = PATH.join(CWD, 'src');
-if (!FS.existsSync(pluginsDir) || !FS.statSync(pluginsDir).isDirectory()) {
-  pluginsDir = PATH.join(CWD, 'lib');
-}
-
-pluginsDir = PATH.join(pluginsDir, './plugins');
 const LIBRARY_PLUGINS: IDictionary<IPlugin> = {};
 
 if (appConfig.debug)
@@ -243,8 +237,9 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
   for (let pluginName of initPlugins) {
     let plugin = LIBRARY_PLUGINS[pluginName];
     defaultLog.info(corePluginName, `Setup Plugin: ${ pluginName }`);
-    if (!_runningInDebug && pluginName.endsWith('-test')) {
+    if ((!_runningInDebug || deploymentProfile !== 'default') && pluginName.endsWith('-test')) {
       defaultLog.info(corePluginName, `Plugin is a test plugin, and we're running in prod... so don't load: ${ pluginName }`);
+      continue;
     }
     defaultLog.info(corePluginName, ` - INIT`);
     await plugin.init({
@@ -278,7 +273,7 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
       },
       emitEvent: <T = any>(plugin: string, event: string, data?: T): void => {
         updateAppConfig(plugin);
-        return events.emitEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, data)
+        return events.emitEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, data);
       },
       emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
         updateAppConfig(plugin);
@@ -333,11 +328,11 @@ const SETUP_PLUGINS = (): Promise<void> => new Promise(async (resolve) => {
       },
       onReturnableEvent: <T = any>(plugin: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => {
         updateAppConfig(plugin);
-        return events.onReturnableEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, listener)
+        return events.onReturnableEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, listener);
       },
       emitEvent: <T = any>(plugin: string, event: string, data?: T): void => {
         updateAppConfig(plugin);
-        return events.emitEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, data)
+        return events.emitEvent<T>(pluginName, appConfig.mappedPlugins[plugin], event, data);
       },
       emitEventAndReturn: <T1 = any, T2 = any>(plugin: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
         updateAppConfig(plugin);
@@ -563,8 +558,26 @@ export default class ServiceBase {
       }
     }
 
-    defaultLog.info(corePluginName, `Get app plugins in: ${ pluginsDir }`);
-    loadPlugins(pluginsDir);
+    let pluginsDir = PATH.join(CWD, 'src');
+    if (FS.existsSync(pluginsDir) && FS.statSync(pluginsDir).isDirectory()) {
+      pluginsDir = PATH.join(pluginsDir, './plugins');
+      if (FS.existsSync(pluginsDir) && FS.statSync(pluginsDir).isDirectory()) {
+        defaultLog.info(corePluginName, `Get APP SRC plugins in: ${ pluginsDir }`);
+        loadPlugins(pluginsDir);
+      }
+    }
+    if (deploymentProfile !== 'default') {
+      pluginsDir = PATH.join(CWD, 'lib');
+      if (FS.existsSync(pluginsDir) && FS.statSync(pluginsDir).isDirectory()) {
+        pluginsDir = PATH.join(pluginsDir, './plugins');
+        if (FS.existsSync(pluginsDir) && FS.statSync(pluginsDir).isDirectory()) {
+          defaultLog.info(corePluginName, `Get APP LIB plugins in: ${ pluginsDir }`);
+          loadPlugins(pluginsDir);
+        }
+      }
+    } else {
+      defaultLog.info(`System not running in production... so we're not going to look for plugins in LIB/`);
+    }
 
     if (canWriteChanges) {
       if (!Tools.isNullOrUndefined(packageJSON[packageJSONPluginsObjName])) {
@@ -588,8 +601,8 @@ export default class ServiceBase {
     await SETUP_PLUGINS();
 
     defaultLog.info(corePluginName, 'App Ready');
-    setInterval(()=>{
-      defaultLog.info('System Heartbeat')
-    }, 60 * 60 * 1000)
+    setInterval(() => {
+      defaultLog.info('System Heartbeat');
+    }, 60 * 60 * 1000);
   }
 }
