@@ -11,6 +11,11 @@ const CWD = process.env.APP_DIR || process.cwd();
 const PACKAGE_JSON = PATH.join(CWD, './package.json');
 const packageJSON = JSON.parse(FS.readFileSync(PACKAGE_JSON).toString());
 const _version = packageJSON.version;
+let _BSBVersion = 'unknown';
+const BSSPathToPackageJson = PATH.join(CWD, './node_modules/@bettercorp/service-base/package.json');
+if (FS.existsSync(BSSPathToPackageJson)) {
+  _BSBVersion = JSON.parse(FS.readFileSync(BSSPathToPackageJson).toString()).version;
+}
 let packageChanges = false;
 let configChanges = false;
 let _runningInDebug = true;
@@ -26,7 +31,7 @@ let events: IEvents = new DefaultEvents();
 let eventsName: string | null = null;
 
 const packageJSONPluginsObjName = 'bettercorp-service-base';
-defaultLog.info(corePluginName, 'BOOT UP: @' + _version);
+defaultLog.info(corePluginName, `BOOT UP: @${_version} with BSB@${_BSBVersion}`);
 
 let canWriteChanges = true;
 if (!Tools.isNullOrUndefined(process.env.BSB_LIVE)) {
