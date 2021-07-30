@@ -1,62 +1,199 @@
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
-
-export interface ILogger {
-  init (features: PluginFeature): Promise<void>;
-  info (plugin: string, ...data: any[]): void;
-  warn (plugin: string, ...data: any[]): void;
-  error (plugin: string, ...data: any[]): void;
-  debug (plugin: string, ...data: any[]): void;
-}
+import { Tools } from '@bettercorp/tools/lib/Tools';
+import { AppConfig } from './AppConfig';
 
 export interface IPluginLogger {
-  info (...data: any[]): void;
-  warn (...data: any[]): void;
-  error (...data: any[]): void;
-  debug (...data: any[]): void;
+  info(...data: any[]): void;
+  warn(...data: any[]): void;
+  error(...data: any[]): void;
+  fatal(...data: any[]): void;
+  debug(...data: any[]): void;
 }
 
-export interface PluginFeature {
+
+export interface ILogger {
+  init?(): Promise<void>;
+  info(plugin: string, ...data: any[]): void;
+  warn(plugin: string, ...data: any[]): void;
+  error(plugin: string, ...data: any[]): void;
+  fatal(plugin: string, ...data: any[]): void;
+  debug(plugin: string, ...data: any[]): void;
+}
+
+export class CLogger<PluginConfigType extends IPluginConfig = any> implements ILogger {
   pluginName: string;
   log: IPluginLogger;
   cwd: string;
-  config: ServiceConfig;
-  getPluginConfig<T = ServiceConfigPlugins> (): T;
-  onEvent<T = any> (pluginName: string | null, event: string, listener: (data: T) => void): void;
-  onReturnableEvent<T = any> (pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void;
-  emitEvent<T = any> (pluginName: string | null, event: string, data?: T): void;
-  emitEventAndReturn<T1 = any, T2 = void> (pluginName: string | null, event: string, data?: T1, timeoutSeconds?: number): Promise<T2>;
-  initForPlugins<T1 = any, T2 = void>(pluginName: string, initType: string | null, args: T1): Promise<T2>;
+  appConfig: AppConfig;
+  getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
+    return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
+  };
+
+  constructor(pluginName: string, cwd: string, log: IPluginLogger, appConfig: AppConfig) {
+    this.pluginName = pluginName;
+    this.cwd = cwd;
+    this.log = log;
+    this.appConfig = appConfig;
+  }
+
+  info(plugin: string, ...data: any[]): void {
+    throw new Error('Method not implemented.');
+  }
+  warn(plugin: string, ...data: any[]): void {
+    throw new Error('Method not implemented.');
+  }
+  error(plugin: string, ...data: any[]): void {
+    throw new Error('Method not implemented.');
+  }
+  fatal(plugin: string, ...data: any[]): void {
+    throw new Error('Method not implemented.');
+  }
+  debug(plugin: string, ...data: any[]): void {
+    throw new Error('Method not implemented.');
+  }
 }
 
-export interface IEvents {
-  init (features: PluginFeature): Promise<void>;
+export interface IEvents<DefaultDataType = any, DefaultReturnType = void> {
+  init?(): Promise<void>;
   log?: IPluginLogger;
-  onEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (data: T) => void): void;
-  onReturnableEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void;
-  emitEvent<T = any> (plugin: string, pluginName: string | null, event: string, data?: T): void;
-  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1, timeoutSeconds?: number): Promise<T2>;
+  onEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): void;
+  onReturnableEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void;
+  emitEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): void;
+  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
 }
 
-export interface IPlugin {
-  log?: IPluginLogger;
+export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataType = any, DefaultReturnType = void> implements IEvents {
+  pluginName: string;
+  log: IPluginLogger;
+  cwd: string;
+  appConfig: AppConfig;
+  getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
+    return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
+  };
+
+  constructor(pluginName: string, cwd: string, log: IPluginLogger, appConfig: AppConfig) {
+    this.pluginName = pluginName;
+    this.cwd = cwd;
+    this.log = log;
+    this.appConfig = appConfig;
+  }
+
+  onEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): void {
+    throw new Error('Method not implemented.');
+  }
+  onReturnableEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
+    throw new Error('Method not implemented.');
+  }
+  emitEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): void {
+    throw new Error('Method not implemented.');
+  }
+  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+    throw new Error('Method not implemented.');
+  }
+}
+
+export interface IPlugin<DefaultDataType = any, DefaultReturnType = void> {
   initIndex?: number;
-  init (features: PluginFeature): Promise<void>;
+  init?(): Promise<void>;
   loadedIndex?: number;
-  loaded? (features: PluginFeature): Promise<void>;
-  initForPlugins?<T1 = any, T2 = void>(initType: string | null, args: T1): Promise<T2>;
+  loaded?(): Promise<void>;
+
+  onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): void;
+  onReturnableEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void;
+  emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): void;
+  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
+  initForPlugins?<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string, initType: string | null, args: ArgsDataType): Promise<ReturnDataType>;
 }
 
-export interface IEventEmitter {
-  emit (name: string, object: any): void;
+export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataType = any, DefaultReturnType = void> implements IPlugin {
+  initIndex?: number;
+  loadedIndex?: number;
+
+  pluginName: string;
+  log: IPluginLogger;
+  cwd: string;
+  appConfig: AppConfig;
+  getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
+    return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
+  };
+
+  constructor(pluginName: string, cwd: string, log: IPluginLogger, appConfig: AppConfig) {
+    if (Tools.isNullOrUndefined(this.initIndex))
+      this.initIndex = -1;
+    if (Tools.isNullOrUndefined(this.loadedIndex))
+      this.loadedIndex = 1;
+    this.pluginName = pluginName;
+    this.cwd = cwd;
+    this.log = log;
+    this.appConfig = appConfig;
+  }
+  onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): void {
+    throw new Error('BSB INIT ERROR');
+  }
+  onReturnableEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
+    throw new Error('BSB INIT ERROR');
+  }
+  emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): void {
+    throw new Error('BSB INIT ERROR');
+  }
+  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+    throw new Error('BSB INIT ERROR');
+  }
+
+}
+
+export class CPluginClient {
+  public readonly _pluginName: string | undefined;
+  public readonly pluginName: string;
+  public refPlugin: CPlugin;
+
+  constructor(self: CPlugin) {
+    this.pluginName = self.appConfig.getMappedPluginName(this._pluginName!);
+    this.refPlugin = self;
+  }
+
+  onEvent<ArgsDataType = any>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): void {
+    this.refPlugin.onEvent<ArgsDataType>(pluginName, event, listener);
+  }
+  onReturnableEvent<ArgsDataType = any>(pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
+    this.refPlugin.onReturnableEvent<ArgsDataType>(pluginName, event, listener);
+  }
+  emitEvent<T = any>(pluginName: string | null, event: string, data?: T): void {
+    this.refPlugin.emitEvent<T>(pluginName, event, data);
+  }
+  emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+    return this.refPlugin.emitEventAndReturn<ArgsDataType, ReturnDataType>(pluginName, event, data, timeoutSeconds);
+  }
+  initForPlugins<ArgsDataType = any, ReturnDataType = void>(pluginName: string, initType: string | null, args: ArgsDataType): Promise<ReturnDataType> {
+    return (this.refPlugin as IPlugin).initForPlugins!<ArgsDataType, ReturnDataType>(pluginName, initType, args);
+  }
 }
 
 export interface ServiceConfig {
-  enabledPlugins: Array<string>;
   identity: string;
   debug: boolean;
-  plugins: ServiceConfigPlugins;
+  plugins: IDictionary<IPluginConfig>;
+  deploymentProfiles: DeploymentProfiles<DeploymentProfile>;
 }
 
-export interface ServiceConfigPlugins extends IDictionary {
+export interface IPluginConfig { }
 
+export interface DeploymentProfiles<T> extends IDictionary<T> {
+  default: T;
+}
+export interface DeploymentProfile {
+  mappedName: string;
+  enabled: boolean;
+}
+
+export enum IPluginDefinition {
+  events = "events",
+  logging = "logging",
+  normal = "normal"
+}
+
+export interface IReadyPlugin {
+  name: string;
+  pluginFile: string;
+  installerFile: string | null;
 }

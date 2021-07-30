@@ -57,8 +57,8 @@ if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
 }
 
 const appScripts = {
-  dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node src/index.ts",
-  start: "ts-node src/index.ts",
+  dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node node_modules/@bettercorp/service-base/lib/index.ts",
+  start: "ts-node node_modules/@bettercorp/service-base/lib/index.js",
   build: "tsc"
 }
 const internalAppScripts = {
@@ -128,14 +128,17 @@ if (FS.existsSync(packaggeJSONFile)) {
 const configFile = PATH.join(CWD, './sec.config.json');
 if (!FS.existsSync(configFile)) {
   console.log(`Creating config file... (${configFile})`);
-  FS.writeFileSync(configFile, '{"enabledPlugins": {}, "plugins": {}, "mappedPlugins": {}}');
-}
-
-const srcIndex = PATH.join(srcDir, `./index.ts`);
-const indexSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/sourceFiles/index.ts.src`);
-if (!FS.existsSync(srcIndex)) {
-  console.log(`Creating src/index.ts file... (${indexSrcFile} -> ${srcIndex})`);
-  FS.copyFileSync(indexSrcFile, srcIndex)
+  FS.writeFileSync(configFile, `{"identity":"${os.hostname}","debug":true,"deploymentProfiles": {}, "plugins": {}}`);
+} else {
+  let tSec = JSON.parse(FS.readFileSync(configFile).toString());
+  let tBefore = JSON.stringify(tSec);
+  tSec.identity = tSec.identity || os.hostname;
+  tSec.debug = tSec.debug || true;
+  tSec.deploymentProfiles = tSec.deploymentProfiles || {};
+  tSec.plugins = tSec.plugins || {};
+  let tAfter = JSON.stringify(tSec);
+  if (tBefore != tAfter)
+    FS.writeFileSync(configFile, tAfter);
 }
 
 console.log('INSTALL COMPLETE FOR @bettercorp/service-base');

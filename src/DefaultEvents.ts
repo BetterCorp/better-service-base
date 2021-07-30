@@ -1,75 +1,74 @@
-import { IEvents, IPluginLogger, PluginFeature } from "./ILib";
+import { CEvents } from "./ILib";
 import * as EVENT_EMITTER from 'events';
 import { v4 as UUID } from 'uuid';
 
 
-export class Events implements IEvents {
+export class Events extends CEvents {
   private internalEvents: any;
   private internalReturnableEvents: any;
-  private logger!: IPluginLogger;
 
-  init(feature: PluginFeature): Promise<void> {
-    this.logger = feature.log;
+  init(): Promise<void> {
     this.internalEvents = new (EVENT_EMITTER as any)();
     this.internalReturnableEvents = new (EVENT_EMITTER as any)();
     return new Promise((resolve) => resolve());
   }
 
-  onEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (data: T) => void): void {
-    this.logger.info(plugin, ` - LISTEN: [${`${pluginName || plugin}-${event}`}]`);
-    this.internalEvents.on(`${pluginName || plugin}-${event}`, listener);
+  onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): void {
+    this.log.info(callerPluginName, ` - LISTEN: [${`${pluginName}-${event}`}]`);
+    this.internalEvents.on(`${pluginName}-${event}`, listener);
   }
-  emitEvent<T = any> (plugin: string, pluginName: string | null, event: string, data?: T): void {
-    this.logger.debug(plugin, ` - EMIT: [${`${pluginName || plugin}-${event}`}]`, data);
-    this.internalEvents.emit(`${pluginName || plugin}-${event}`, data);
+  emitEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): void {
+    this.log.debug(callerPluginName, ` - EMIT: [${`${pluginName}-${event}`}]`, data);
+    this.internalEvents.emit(`${pluginName}-${event}`, data);
   }
-  onReturnableEvent<T = any> (plugin: string, pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void {
-    this.logger.info(plugin, ` - LISTEN EAR: [${`${pluginName || plugin}-${event}`}]`);
-    this.internalReturnableEvents.on(`${pluginName || plugin}-${event}`, (data: any) => {
+  onReturnableEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
+    const self = this;
+    self.log.info(callerPluginName, ` - LISTEN EAR: [${`${pluginName}-${event}`}]`);
+    self.internalReturnableEvents.on(`${pluginName}-${event}`, (data: any) => {
       listener((x: any) => {
-        this.logger.debug(plugin, ` - RETURN OKAY: [${`${pluginName || plugin}-${event}`}]`, data);
-        this.internalReturnableEvents.emit(data.resultNames.success, x);
+        self.log.debug(callerPluginName, ` - RETURN OKAY: [${`${pluginName}-${event}`}]`, data);
+        self.internalReturnableEvents.emit(data.resultNames.success, x);
       }, (x: any) => {
-        this.logger.debug(plugin, ` - RETURN ERROR: [${`${pluginName || plugin}-${event}`}]`, data);
-        this.internalReturnableEvents.emit(data.resultNames.error, x);
+        self.log.debug(callerPluginName, ` - RETURN ERROR: [${`${pluginName}-${event}`}]`, data);
+        self.internalReturnableEvents.emit(data.resultNames.error, x);
       }, data.data)
     });
   }
-  emitEventAndReturn<T1 = any, T2 = void> (plugin: string, pluginName: string | null, event: string, data?: T1, timeoutSeconds: number = 10): Promise<T2> {
-    this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, data);
+  emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     let self = this;
+    self.log.debug(callerPluginName, ` - EMIT AR: [${`${pluginName}-${event}`}]`, data);
     return new Promise((resolve, reject) => {
       const resultKey = UUID();
       const endEventName = `${event}-result-${resultKey}`;
-      const fullEndEventName = `${pluginName || plugin}-${endEventName}`;
+      const fullEndEventName = `${pluginName}-${endEventName}`;
       const errEventName = `${event}-error-${resultKey}`;
-      const fullErrEventName = `${pluginName || plugin}-${errEventName}`;
+      const fullErrEventName = `${pluginName}-${errEventName}`;
 
       let timeoutTimer: any = setTimeout(() => {
         if (timeoutTimer === null)
           return;
         self.internalReturnableEvents.removeListener(fullEndEventName, () => { });
         self.internalReturnableEvents.removeListener(fullErrEventName, () => { });
-        this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, 'TIMED OUT');
-        reject(`NO RESPONSE IN TIME: ${pluginName || plugin}-${endEventName} x${timeoutSeconds || 10}s`);
+        self.log.debug(callerPluginName, ` - EMIT AR: [${`${pluginName}-${event}`}]`, 'TIMED OUT');
+        reject(`NO RESPONSE IN TIME: ${pluginName}-${endEventName} x${timeoutSeconds || 10}s`);
       }, (timeoutSeconds || 10) * 1000);
       self.internalReturnableEvents.once(fullErrEventName, (data: Error | string | any) => {
-        this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, 'ERRORED', data);
+        self.log.debug(callerPluginName, ` - EMIT AR: [${`${pluginName}-${event}`}]`, 'ERRORED', data);
         clearTimeout(timeoutTimer);
         timeoutTimer = null;
         self.internalReturnableEvents.removeListener(fullEndEventName, () => { });
         self.internalReturnableEvents.removeListener(fullErrEventName, () => { });
         reject(data);
       });
-      self.internalReturnableEvents.once(fullEndEventName, (data: T2 | any) => {
-        this.logger.debug(plugin, ` - EMIT AR: [${`${pluginName || plugin}-${event}`}]`, 'SUCCESS', data);
+      self.internalReturnableEvents.once(fullEndEventName, (data: ReturnDataType | any) => {
+        self.log.debug(callerPluginName, ` - EMIT AR: [${`${pluginName}-${event}`}]`, 'SUCCESS', data);
         clearTimeout(timeoutTimer);
         timeoutTimer = null;
         self.internalReturnableEvents.removeListener(fullEndEventName, () => { });
         self.internalReturnableEvents.removeListener(fullErrEventName, () => { });
         resolve(data);
       });
-      self.internalReturnableEvents.emit(`${pluginName || plugin}-${event}`, {
+      self.internalReturnableEvents.emit(`${pluginName}-${event}`, {
         resultKey: resultKey,
         resultNames: {
           plugin: pluginName,
