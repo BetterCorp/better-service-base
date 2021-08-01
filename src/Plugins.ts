@@ -2,7 +2,7 @@ import * as FS from 'fs';
 import * as PATH from 'path';
 import { Tools } from '@bettercorp/tools/lib/Tools';
 import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
-import { CEvents, CLogger, IEvents, ILogger, IPlugin, IPluginDefinition, IPluginLogger, IReadyPlugin } from "./ILib";
+import { CLogger, IEvents, ILogger, IPlugin, IPluginDefinition, IPluginLogger, IReadyPlugin } from "./ILib";
 import { AppConfig } from './AppConfig';
 import { Logger } from './DefaultLogger';
 import { Events } from './DefaultEvents';
@@ -14,9 +14,9 @@ export class Plugins {
   private _appConfig: AppConfig;
   private _loadedPlugins: IDictionary<IPlugin> = {};
   private _plugins: Array<IReadyPlugin> = [];
-  private _logger: CLogger;
+  private _logger: ILogger;
   private _loggerName: string = "log";
-  private _events: CEvents;
+  private _events: IEvents;
   private _eventsName: string = "events";
 
   constructor(log: IPluginLogger, logger: CLogger, appConfig: AppConfig, cwd: string) {
@@ -75,9 +75,9 @@ export class Plugins {
 
     return arrOfPlugins;
   }
-  private findPluginsInBase(path: string): Array<IReadyPlugin> {
+  private findPluginsInBase(path: string, libOnly: boolean = false): Array<IReadyPlugin> {
     let innerPluginLib = PATH.join(path, './src');
-    if (!FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
+    if (libOnly || !FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
       innerPluginLib = PATH.join(path, './lib');
     }
     if (!FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
@@ -106,7 +106,7 @@ export class Plugins {
           continue;
         }
 
-        arrOfPlugins = arrOfPlugins.concat(this.findPluginsInBase(pluginPath));
+        arrOfPlugins = arrOfPlugins.concat(this.findPluginsInBase(pluginPath, true));
       }
     }
 
@@ -119,20 +119,41 @@ export class Plugins {
     return this.findNPMPlugins().concat(this.findLocalPlugins());
   }
 
+  private loadPluginConfig(name: string, mappedPluginName: string, path: string): void {
+    this._coreLogger.info(`LOAD P CONFIG: ${ name }`);
+    let loadedFile = require(path);
+    if (loadedFile.default !== undefined)
+      loadedFile = loadedFile.default;
+    this._coreLogger.info(`LOAD P CONFIG: ${ name } Ready`);
+    let tPConfig = Tools.mergeObjects(loadedFile(mappedPluginName, this._appConfig.getPluginConfig(mappedPluginName)), this._appConfig.getPluginConfig(mappedPluginName));
+    this._coreLogger.info(`LOAD P CONFIG: ${ name } Update app config`);
+    this._appConfig.updateAppConfig(name, mappedPluginName, tPConfig);
+    this._coreLogger.info(`LOAD P CONFIG: ${ name } Complete`);
+  }
 
-  private async getReadyToLoadPlugin(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<IPlugin | ILogger | IEvents> {
+  private async getReadyPluginConfig(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<void> {
+    this._coreLogger.info(`READY: ${ plugin.name } AS ${ mappedPluginName } [${ definition }]`);
     if (!Tools.isNullOrUndefined(this._loadedPlugins[plugin.name])) {
       this._coreLogger.fatal(`Cannot have 2 plugins with the same name!! [${ plugin.name }]`);
     }
 
+    this._coreLogger.info(`READY: ${ plugin.name } Installer`);
     if (plugin.installerFile !== null) {
+      this._coreLogger.info(`READY: ${ plugin.name } Installer from ${ plugin.installerFile }`);
       this.loadPluginConfig(plugin.name, mappedPluginName, plugin.installerFile);
     } else {
-      this._appConfig.updateAppConfig(plugin.name, mappedPluginName, {});
+      this._coreLogger.info(`READY: ${ plugin.name } Installer as {}`);
+      this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
     }
+    this._coreLogger.info(`READY: ${ plugin.name } Installer Complete`);
+  }
 
+  private async getReadyToLoadPlugin(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<IPlugin | ILogger | IEvents> {
+    this.getReadyPluginConfig(definition, plugin, mappedPluginName);
+
+    this._coreLogger.info(`READY: ${ plugin.name } Import`);
     let importedPlugin = await import(plugin.pluginFile);
-    this._coreLogger.info(`READY: ${ plugin.name } AS ${ mappedPluginName }[${ definition }]`);
+    this._coreLogger.info(`READY: ${ plugin.name } Create instance`);
     switch (definition) {
       case IPluginDefinition.events:
         if (Tools.isNullOrUndefined(importedPlugin.Events))
@@ -148,30 +169,36 @@ export class Plugins {
         return importedPlugin.Plugin;
     }
   }
-  private loadPluginConfig = (name: string, mappedPluginName: string, path: string): void => {
-    let loadedFile = require(path);
-    if (loadedFile.default !== undefined)
-      loadedFile = loadedFile.default;
-    let tPConfig = Tools.mergeObjects(loadedFile(mappedPluginName, this._appConfig.getPluginConfig(mappedPluginName)), this._appConfig.getPluginConfig(mappedPluginName));
-    this._appConfig.updateAppConfig(name, mappedPluginName, tPConfig);
-  };
 
+  async configAllPlugins(): Promise<void> {
+    this._coreLogger.info(`CONFIG: constructAllPlugins`);
+    this._plugins = this.findAllPlugins();
+    this._coreLogger.info(`CONFIG: ${ this._plugins.length } plugins`);
+    for (let plugin of this._plugins) {
+      let pluginDefinition = this.getPluginType(plugin.name);
+      let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
+      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin.name } AS ${ mappedPlugin }`);
+      this.getReadyPluginConfig(pluginDefinition, plugin, mappedPlugin);
+      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin!.name } [CONFIGURED]`);
+    }
+  }
 
   async constructAllPlugins(): Promise<void> {
     this._coreLogger.info(`CONSTRUCT: constructAllPlugins`);
     this._plugins = this.findAllPlugins();
+    for (let plugin of this._plugins) {
+      let mappedPluginName = this._appConfig.getMappedPluginName(plugin.name);
+      this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
+    }
     this._coreLogger.info(`CONSTRUCT: ${ this._plugins.length } plugins`);
     let logger: IReadyPlugin;
     let events: IReadyPlugin;
     for (let plugin of this._plugins) {
-      this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin!.name } [CHECK]`);
       let pluginDefinition = this.getPluginType(plugin.name);
       if (pluginDefinition !== IPluginDefinition.logging) {
-        this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin!.name } [NO]`);
         continue;
       }
       if (!this._appConfig.getPluginState(plugin.name)) {
-        this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin!.name } [DISABLED]`);
         continue;
       }
       this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin!.name } [LOADED]`);
@@ -179,14 +206,11 @@ export class Plugins {
       break;
     }
     for (let plugin of this._plugins) {
-      this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin!.name } [CHECK]`);
       let pluginDefinition = this.getPluginType(plugin.name);
       if (pluginDefinition !== IPluginDefinition.events) {
-        this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin!.name } [NO]`);
         continue;
       }
       if (!this._appConfig.getPluginState(plugin.name)) {
-        this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin!.name } [DISABLED]`);
         continue;
       }
       this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin!.name } [LOADED]`);
@@ -224,8 +248,9 @@ export class Plugins {
       }
       let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
       this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name } AS ${ mappedPlugin }`);
-      let readToLoadPlugin = (await this.getReadyToLoadPlugin(IPluginDefinition.events, plugin, mappedPlugin));
-      this._loadedPlugins = new (readToLoadPlugin as any)(mappedPlugin, this._cwd, {
+      let readToLoadPlugin = (await this.getReadyToLoadPlugin(IPluginDefinition.normal, plugin, mappedPlugin));
+      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name } Render`);
+      this._loadedPlugins[plugin.name] = new (readToLoadPlugin as any)(mappedPlugin, this._cwd, {
         info: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
         warn: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
         error: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
@@ -234,6 +259,7 @@ export class Plugins {
       }, this._appConfig);
       this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin!.name } [LOADED]`);
     }
+    this._coreLogger.info(`CONSTRUCTED: [${ Object.keys(this._loadedPlugins).join(',') }]`);
   }
 
   async setupEventsAllPlugins(): Promise<void> {
@@ -245,19 +271,19 @@ export class Plugins {
       self._coreLogger.info(`SETUP: ${ plugin }`);
       let mappedPlugin = this._appConfig.getMappedPluginName(plugin);
       self._loadedPlugins[plugin].onEvent = <T = any>(pluginName: string, event: string, listener: (data: T) => void): void => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName);
+        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.onEvent<T>(mappedPlugin, imappedPlugin, event, listener);
       };
       self._loadedPlugins[plugin].onReturnableEvent = <T = any>(pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName);
+        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.onReturnableEvent<T>(mappedPlugin, imappedPlugin, event, listener);
       };
       self._loadedPlugins[plugin].emitEvent = <T = any>(pluginName: string, event: string, data?: T): void => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName);
+        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.emitEvent<T>(mappedPlugin, imappedPlugin, event, data);
       };
       self._loadedPlugins[plugin].emitEventAndReturn = <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName);
+        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.emitEventAndReturn<T1, T2>(mappedPlugin, imappedPlugin, event, data, timeoutSeconds);
       };
       self._loadedPlugins[plugin].initForPlugins = <ArgsDataType = any, ReturnDataType = void>(pluginName: string, initType: string, ...args: Array<ArgsDataType>): Promise<ReturnDataType> => {
@@ -265,13 +291,16 @@ export class Plugins {
           if (pluginsToInit.indexOf(pluginName) < 0) {
             return self._logger.fatal(`Please install and enable the plugin ${ pluginName } to be able to init for it.`);
           }
+          if (Tools.isNullOrUndefined(self._loadedPlugins[pluginName])) {
+            return self._logger.fatal(`Plugin reference error: ${ pluginName }`);
+          }
 
-          if (Tools.isNullOrUndefined((self._loadedPlugins[plugin] as any)[initType]))
-            return self._logger.fatal(`The plugin ${ pluginName } does not have a method ${ initType }... Please check the plugin docs`);
+          if (typeof (self._loadedPlugins[pluginName] as any)[initType] !== 'function')
+            return self._logger.fatal(`The plugin ${ pluginName } does not have a method ${ initType }... [${Object.keys((self._loadedPlugins[pluginName] as any)).join(',')}]`);
 
-          self._coreLogger.info(`SETUP: ${ plugin } INIT WITH ${ initType }`);
-          (self._loadedPlugins[plugin] as any)[initType](...args).then(resolve as any).catch(reject);
-          self._coreLogger.info(`SETUP: ${ plugin } INIT WITH ${ initType } - COMPLETE`);
+          self._coreLogger.info(`SETUP: ${ pluginName } INIT WITH ${ initType }`);
+          (self._loadedPlugins[pluginName] as any)[initType](...args).then(resolve as any).catch(reject);
+          self._coreLogger.info(`SETUP: ${ pluginName } INIT WITH ${ initType } - COMPLETE`);
         });
       };
       self._coreLogger.info(`SETUP: ${ plugin } - COMPLETE`);
@@ -280,6 +309,14 @@ export class Plugins {
     self._coreLogger.info(`SETUP: setupEventsAllPlugins - COMPLETE`);
   }
 
+  async initCorePlugins(): Promise<void> {
+    this._coreLogger.info(`INIT: CORE: ${ this._loggerName }`);
+    if (!Tools.isNullOrUndefined(this._logger.init))
+      await this._logger.init!();
+    this._coreLogger.info(`INIT: CORE: ${ this._eventsName }`);
+    if (!Tools.isNullOrUndefined(this._events.init))
+      await this._events.init!();
+  }
   async initAllPlugins(): Promise<void> {
     this._coreLogger.info(`INIT: initAllPlugins`);
     let pluginsToInit = Object.keys(this._loadedPlugins);

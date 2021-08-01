@@ -3,6 +3,7 @@ const {
 } = require('@bettercorp/tools/lib/Tools');
 const FS = require('fs');
 const PATH = require('path');
+const OS = require('os');
 let CWD = process.cwd();
 
 console.log(`Install CWD: ${CWD}`)
@@ -57,7 +58,7 @@ if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
 }
 
 const appScripts = {
-  dev: "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --watch sec.config.json --exec ts-node node_modules/@bettercorp/service-base/lib/index.ts",
+  dev: "nodemon -L --watch src/**/*.ts --watch sec.config.json --exec ts-node node_modules/@bettercorp/service-base/lib/index.js",
   start: "ts-node node_modules/@bettercorp/service-base/lib/index.js",
   build: "tsc"
 }
@@ -128,11 +129,11 @@ if (FS.existsSync(packaggeJSONFile)) {
 const configFile = PATH.join(CWD, './sec.config.json');
 if (!FS.existsSync(configFile)) {
   console.log(`Creating config file... (${configFile})`);
-  FS.writeFileSync(configFile, `{"identity":"${os.hostname}","debug":true,"deploymentProfiles": {}, "plugins": {}}`);
+  FS.writeFileSync(configFile, `{"identity":"${OS.hostname}","debug":true,"deploymentProfiles": {"default":{}}, "plugins": {}}`);
 } else {
   let tSec = JSON.parse(FS.readFileSync(configFile).toString());
   let tBefore = JSON.stringify(tSec);
-  tSec.identity = tSec.identity || os.hostname;
+  tSec.identity = tSec.identity || OS.hostname;
   tSec.debug = tSec.debug || true;
   tSec.deploymentProfiles = tSec.deploymentProfiles || {};
   tSec.plugins = tSec.plugins || {};
@@ -140,8 +141,8 @@ if (!FS.existsSync(configFile)) {
   if (tBefore != tAfter)
     FS.writeFileSync(configFile, tAfter);
 }
-
-console.log('INSTALL COMPLETE FOR @bettercorp/service-base');
-
-console.log('PERFORMING PLUGIN INSTALL WITH IN-BUILT PLUGINS');
-require('./install-plugin');
+const installer = PATH.join(CWD, './node_modules/@bettercorp/service-base/lib/ServiceBase.js');
+console.log('INSTALL FINAL : AUTOLOAD: ' + installer);
+const ServiceBase = require(installer);
+const SB = new ServiceBase.default(CWD);
+SB.config().then(() => console.log('INSTALL COMPLETE FOR @bettercorp/service-base')).catch(() => process.exit(1));

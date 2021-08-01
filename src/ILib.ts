@@ -10,7 +10,6 @@ export interface IPluginLogger {
   debug(...data: any[]): void;
 }
 
-
 export interface ILogger {
   init?(): Promise<void>;
   info(plugin: string, ...data: any[]): void;
@@ -102,7 +101,7 @@ export interface IPlugin<DefaultDataType = any, DefaultReturnType = void> {
   onReturnableEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void;
   emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): void;
   emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
-  initForPlugins?<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string, initType: string | null, args: ArgsDataType): Promise<ReturnDataType>;
+  initForPlugins?<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string, initType: string | null, ...args: Array<ArgsDataType>): Promise<ReturnDataType>;
 }
 
 export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataType = any, DefaultReturnType = void> implements IPlugin {
@@ -142,30 +141,34 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
 
 }
 
-export class CPluginClient {
+export class CPluginClient<T> {
   public readonly _pluginName: string | undefined;
   public readonly pluginName: string;
   public refPlugin: CPlugin;
 
-  constructor(self: CPlugin) {
-    this.pluginName = self.appConfig.getMappedPluginName(this._pluginName!);
-    this.refPlugin = self;
+  constructor(self: IPlugin) {
+    this.refPlugin = self as CPlugin;
+    this.pluginName = this.refPlugin.appConfig.getMappedPluginName(this._pluginName!);
   }
 
-  onEvent<ArgsDataType = any>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): void {
-    this.refPlugin.onEvent<ArgsDataType>(pluginName, event, listener);
+  getPluginConfig(): T {
+    return this.refPlugin.getPluginConfig<T>(this.pluginName);
   }
-  onReturnableEvent<ArgsDataType = any>(pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
-    this.refPlugin.onReturnableEvent<ArgsDataType>(pluginName, event, listener);
+
+  onEvent<ArgsDataType = any>(event: string, listener: (data: ArgsDataType) => void): void {
+    this.refPlugin.onEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
-  emitEvent<T = any>(pluginName: string | null, event: string, data?: T): void {
-    this.refPlugin.emitEvent<T>(pluginName, event, data);
+  onReturnableEvent<ArgsDataType = any>(event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
+    this.refPlugin.onReturnableEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
-  emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
-    return this.refPlugin.emitEventAndReturn<ArgsDataType, ReturnDataType>(pluginName, event, data, timeoutSeconds);
+  emitEvent<T = any>(event: string, data?: T): void {
+    this.refPlugin.emitEvent<T>(this._pluginName!, event, data);
   }
-  initForPlugins<ArgsDataType = any, ReturnDataType = void>(pluginName: string, initType: string | null, args: ArgsDataType): Promise<ReturnDataType> {
-    return (this.refPlugin as IPlugin).initForPlugins!<ArgsDataType, ReturnDataType>(pluginName, initType, args);
+  emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+    return this.refPlugin.emitEventAndReturn<ArgsDataType, ReturnDataType>(this._pluginName!, event, data, timeoutSeconds);
+  }
+  initForPlugins<ArgsDataType = any, ReturnDataType = void>(initType: string, ...args: Array<ArgsDataType>): Promise<ReturnDataType> {
+    return (this.refPlugin as IPlugin).initForPlugins!<ArgsDataType, ReturnDataType>(this._pluginName!, initType, ...args);
   }
 }
 

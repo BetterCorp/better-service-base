@@ -1,8 +1,8 @@
 import { CPlugin, CPluginClient } from "../../ILib";
 
-export class demo extends CPluginClient {
+export class demo extends CPluginClient<any> {
   public readonly _pluginName: string = "demo";
-  
+
   setTime(time: number): void {
     this.refPlugin.emitEvent(this.pluginName, 'setTime', time);
   };

@@ -49,7 +49,7 @@ export class AppConfig {
       secConfigJsonFile = process.env.BSB_SEC_JSON!;
     }
     if (!FS.existsSync(secConfigJsonFile)) {
-      throw '! sec.config.json CAN`T BE FOUND !';
+      this._defaultLogger.fatal('! sec.config.json CAN`T BE FOUND !');
     }
     this._appConfig = JSON.parse(process.env.BSB_CONFIG_OBJECT || FS.readFileSync(process.env.BSB_CONFIG_FILE || secConfigJsonFile).toString()) as ServiceConfig;
     this._appConfig.deploymentProfiles = this._appConfig.deploymentProfiles || {};
@@ -64,7 +64,9 @@ export class AppConfig {
       this._debugMode = true;
     }
 
-    this._defaultLogger.info(`BOOT UP: @${ _version } with BSB@${ _BSBVersion } and debugging ${ this._debugMode ? 'enabled' : 'disabled' }`);
+    this.updateAppConfig();
+
+    this._defaultLogger.info(`BOOT UP: @${ _version } with BSB@${ _BSBVersion } and debugging ${ this._debugMode ? 'enabled' : 'disabled' } while running ${ this._runningLive ? 'live' : 'normally' }`);
   }
 
   public getPluginConfig<T extends IPluginConfig>(pluginName: string): T {
@@ -74,32 +76,49 @@ export class AppConfig {
     return this.activeDeploymentProfile[pluginName!];
   }
   public getMappedPluginName(pluginName: string): string {
-    return this.getPluginDeploymentProfile(pluginName).mappedName;
+    if (Tools.isNullOrUndefined(this.getPluginDeploymentProfile(pluginName))) return pluginName;
+    return this.getPluginDeploymentProfile(pluginName).mappedName || pluginName;
   }
   public getPluginState(pluginName: string): boolean {
     return this.getPluginDeploymentProfile(pluginName).enabled;
   }
   public updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig) {
-    if (this._runningLive) return;
+    if (Tools.isNullOrUndefined(this.activeDeploymentProfile)) {
+      (this._appConfig.deploymentProfiles[this._deploymentProfile] as any) = {};
+      this._hasConfigChanges = true;
+    }
 
-    if (!Tools.isNullOrUndefined(pluginName) && !Tools.isNullOrUndefined(mappedPluginName)) {
-      if (Tools.isNullOrUndefined((this._appConfig.deploymentProfiles[this._deploymentProfile] as any)[pluginName!])) {
+    if (!Tools.isNullOrUndefined(pluginName)) {
+      if (Tools.isNullOrUndefined(this.getPluginDeploymentProfile(pluginName!))) {
         ((this._appConfig.deploymentProfiles[this._deploymentProfile] as any)[pluginName!] as DeploymentProfile) = {
-          mappedName: mappedPluginName!,
+          mappedName: mappedPluginName || pluginName!,
           enabled: false
         };
         this._hasConfigChanges = true;
       }
-      if (Tools.isNullOrUndefined(config)) {
+      if (Tools.isNullOrUndefined(this._appConfig.plugins[mappedPluginName!])) {
+        this._appConfig.plugins[mappedPluginName!] = {};
+        this._hasConfigChanges = true;
+      }
+      if (!Tools.isNullOrUndefined(config)) {
         this._appConfig.plugins[mappedPluginName!] = config!;
         this._hasConfigChanges = true;
       }
     }
 
+    if (this._runningLive) return;
     if (this._hasConfigChanges) {
-      this._defaultLogger.warn('SEC CONFIG AUTOMATICALLY UPDATED.');
-      FS.writeFileSync(this._secConfigFilePath, JSON.stringify(this._appConfig));
+      this._defaultLogger.warn('SEC CONFIG AUTOMATICALLY UPDATING.');
+      let readFile = JSON.stringify(JSON.parse(FS.readFileSync(this._secConfigFilePath).toString()));
+      let configFile = JSON.stringify(this._appConfig);
+      if (readFile == configFile) {
+        this._defaultLogger.warn('SEC CONFIG AUTOMATICALLY UPDATING: IGNORED = NO CHANGES');
+        this._hasConfigChanges = false;
+        return;
+      }
+      FS.writeFileSync(this._secConfigFilePath, configFile);
       this._hasConfigChanges = false;
+      this._defaultLogger.warn('SEC CONFIG AUTOMATICALLY UPDATING: UPDATED');
     }
   }
 }
