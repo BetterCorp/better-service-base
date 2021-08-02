@@ -1,5 +1,5 @@
 # Image setup
-FROM betterweb/better-service-base:base-latest
+FROM betterweb/better-service-base:base-${BSB_VERSION}
 
 # Add package (from local)
 ADD package.json /home/bsb/package.json
