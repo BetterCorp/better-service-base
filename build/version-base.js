@@ -54,7 +54,8 @@ module.exports = (pkBase) => {
     fs.mkdirSync(exportsDir)
   fs.writeFileSync(path.join(exportsDir, './PACKAGE_VERSION'), packageJSON.version);
   fs.writeFileSync(path.join(exportsDir, './PACKAGE_NAME'), packageJSON.name.replace(pkBase, ''));
-  fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.dependencies["@bettercorp/service-base"].substring(1));
+  if (packageJSON.name !== "@bettercorp/service-base")
+    fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.dependencies["@bettercorp/service-base"].substring(1));
   if (packageJSON.name.indexOf(pkBase) >= 0) {
     fs.writeFileSync(path.join(exportsDir, './RUN_DOCKER'), 'true');
   }
