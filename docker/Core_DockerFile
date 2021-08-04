@@ -1,3 +1,6 @@
+# Args
+ARG BSB_VERSION=latest
+
 # Image setup
 FROM betterweb/better-service-base:base-${BSB_VERSION}
 
