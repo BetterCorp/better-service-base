@@ -107,9 +107,15 @@ export class Plugins {
     this._coreLogger.info(`FIND: NPM plugins in: ${ npmPluginsDir }`);
     for (let dirFileWhat of FS.readdirSync(npmPluginsDir)) {
       const pluginPath = PATH.join(npmPluginsDir, dirFileWhat);
+      if (dirFileWhat.indexOf('.') === 0) {
+        continue;
+      }
       if (dirFileWhat.indexOf('@') === 0) {
         this._coreLogger.info(`FIND: GROUP [${ dirFileWhat }] ${ pluginPath }`);
         for (let groupPluginName of FS.readdirSync(pluginPath)) {
+          if (groupPluginName.indexOf('.') === 0) {
+            continue;
+          }
           const groupPluginPath = PATH.join(pluginPath, groupPluginName);
           this._coreLogger.info(`FIND: CHECK [${ dirFileWhat }/${ groupPluginName }] ${ groupPluginPath }`);
           if (FS.statSync(groupPluginPath).isDirectory()) {

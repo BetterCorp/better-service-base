@@ -116,6 +116,10 @@ if (FS.existsSync(packaggeJSONFile)) {
     else
       readPackageJsonFile.scripts.publish = `${readPackageJsonFile.scripts.publish}`.replace('npm publish', '');
   }
+  if (typeof readPackageJsonFile.bsb_project !== 'boolean') {
+    readPackageJsonFile.bsb_project = true;
+    pakUpdates = true;
+  }
   if (pakUpdates) {
     console.log(`Updating package scripts for you... (${packaggeJSONFile})`);
     FS.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile))
