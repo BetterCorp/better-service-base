@@ -141,14 +141,16 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
 
 }
 
+
 export class CPluginClient<T> {
   public readonly _pluginName: string | undefined;
-  public readonly pluginName: string;
+  public get pluginName(): string {
+    return this.refPlugin.appConfig.getMappedPluginName(this._pluginName!);
+  }
   public refPlugin: CPlugin;
 
   constructor(self: IPlugin) {
     this.refPlugin = self as CPlugin;
-    this.pluginName = this.refPlugin.appConfig.getMappedPluginName(this._pluginName!);
   }
 
   getPluginConfig(): T {
