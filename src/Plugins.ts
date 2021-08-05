@@ -38,15 +38,15 @@ export class Plugins {
   private findPluginsFiles(path: string, version: string): Array<IReadyPlugin> {
     let arrOfPlugins: Array<IReadyPlugin> = [];
 
-    this._coreLogger.info(`FIND: FIND plugins in [${ path }]`);
+    this._coreLogger.debug(`FIND: FIND plugins in [${ path }]`);
     for (let dirPluginFolderName of FS.readdirSync(path)) {
       let thisFullPath = PATH.join(path, dirPluginFolderName);
       if (!FS.statSync(thisFullPath).isDirectory()) {
-        this._coreLogger.info(`FIND: IGNORE [${ thisFullPath }] Not a DIR`);
+        this._coreLogger.debug(`FIND: IGNORE [${ thisFullPath }] Not a DIR`);
         continue;
       }
       if (dirPluginFolderName.indexOf('-') === 0) {
-        this._coreLogger.info(`FIND: IGNORE [${ thisFullPath }] Defined for ignore`);
+        this._coreLogger.debug(`FIND: IGNORE [${ thisFullPath }] Defined for ignore`);
         continue;
       }
       let pluginFile = PATH.join(thisFullPath, 'plugin.ts');
@@ -54,7 +54,7 @@ export class Plugins {
         pluginFile = PATH.join(thisFullPath, 'plugin.js');
 
       if (!FS.existsSync(pluginFile)) {
-        this._coreLogger.info(`FIND: IGNORE [${ thisFullPath }] Not a valid plugin`);
+        this._coreLogger.debug(`FIND: IGNORE [${ thisFullPath }] Not a valid plugin`);
         continue;
       }
 
@@ -65,7 +65,7 @@ export class Plugins {
       if (!FS.existsSync(pluginInstallerFile))
         pluginInstallerFile = null;
 
-      this._coreLogger.info(`FIND: READY [dirPluginFolderName] in: ${ thisFullPath }`);
+      this._coreLogger.debug(`FIND: READY [dirPluginFolderName] in: ${ thisFullPath }`);
       arrOfPlugins.push({
         name: dirPluginFolderName,
         version,
@@ -79,7 +79,7 @@ export class Plugins {
   private findPluginsInBase(path: string, libOnly: boolean = false): Array<IReadyPlugin> {
     let pluginJson = JSON.parse(FS.readFileSync(PATH.join(path, './package.json')).toString());
     if (pluginJson.bsb_project !== true) {
-      this._coreLogger.info(`FIND: IGNORE AS NOT BSB PROJECT`);
+      this._coreLogger.debug(`FIND: IGNORE AS NOT BSB PROJECT`);
       return [];
     }
 
@@ -88,12 +88,12 @@ export class Plugins {
       innerPluginLib = PATH.join(path, './lib');
     }
     if (!FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
-      this._coreLogger.info(`FIND: IGNORE [${ innerPluginLib }] No src/lib dir in package`);
+      this._coreLogger.debug(`FIND: IGNORE [${ innerPluginLib }] No src/lib dir in package`);
       return [];
     }
     const innerPluginLibPlugin = PATH.join(innerPluginLib, './plugins');
     if (!FS.existsSync(innerPluginLibPlugin) || !FS.statSync(innerPluginLibPlugin).isDirectory()) {
-      this._coreLogger.info(`FIND: IGNORE [${ innerPluginLibPlugin }] No inner plugins dir`);
+      this._coreLogger.debug(`FIND: IGNORE [${ innerPluginLibPlugin }] No inner plugins dir`);
       return [];
     }
 
@@ -104,27 +104,27 @@ export class Plugins {
     let arrOfPlugins: Array<IReadyPlugin> = [];
 
     const npmPluginsDir = PATH.join(this._cwd, './node_modules');
-    this._coreLogger.info(`FIND: NPM plugins in: ${ npmPluginsDir }`);
+    this._coreLogger.debug(`FIND: NPM plugins in: ${ npmPluginsDir }`);
     for (let dirFileWhat of FS.readdirSync(npmPluginsDir)) {
       const pluginPath = PATH.join(npmPluginsDir, dirFileWhat);
       if (dirFileWhat.indexOf('.') === 0) {
         continue;
       }
       if (dirFileWhat.indexOf('@') === 0) {
-        this._coreLogger.info(`FIND: GROUP [${ dirFileWhat }] ${ pluginPath }`);
+        this._coreLogger.debug(`FIND: GROUP [${ dirFileWhat }] ${ pluginPath }`);
         for (let groupPluginName of FS.readdirSync(pluginPath)) {
           if (groupPluginName.indexOf('.') === 0) {
             continue;
           }
           const groupPluginPath = PATH.join(pluginPath, groupPluginName);
-          this._coreLogger.info(`FIND: CHECK [${ dirFileWhat }/${ groupPluginName }] ${ groupPluginPath }`);
+          this._coreLogger.debug(`FIND: CHECK [${ dirFileWhat }/${ groupPluginName }] ${ groupPluginPath }`);
           if (FS.statSync(groupPluginPath).isDirectory()) {
             arrOfPlugins = arrOfPlugins.concat(this.findPluginsInBase(groupPluginPath, true));
           }
         }
       }
       else {
-        this._coreLogger.info(`FIND: CHECK [${ dirFileWhat }] ${ pluginPath }`);
+        this._coreLogger.debug(`FIND: CHECK [${ dirFileWhat }] ${ pluginPath }`);
         if (FS.statSync(pluginPath).isDirectory()) {
           arrOfPlugins = arrOfPlugins.concat(this.findPluginsInBase(pluginPath, true));
         }
@@ -141,40 +141,40 @@ export class Plugins {
   }
 
   private loadPluginConfig(name: string, mappedPluginName: string, path: string): void {
-    this._coreLogger.info(`LOAD P CONFIG: ${ name }`);
+    this._coreLogger.debug(`LOAD P CONFIG: ${ name }`);
     let loadedFile = require(path);
     if (loadedFile.default !== undefined)
       loadedFile = loadedFile.default;
-    this._coreLogger.info(`LOAD P CONFIG: ${ name } Ready`);
+    this._coreLogger.debug(`LOAD P CONFIG: ${ name } Ready`);
     let tPConfig = Tools.mergeObjects(loadedFile(mappedPluginName, this._appConfig.getPluginConfig(mappedPluginName)), this._appConfig.getPluginConfig(mappedPluginName));
-    this._coreLogger.info(`LOAD P CONFIG: ${ name } Update app config`);
+    this._coreLogger.debug(`LOAD P CONFIG: ${ name } Update app config`);
     this._appConfig.updateAppConfig(name, mappedPluginName, tPConfig);
-    this._coreLogger.info(`LOAD P CONFIG: ${ name } Complete`);
+    this._coreLogger.debug(`LOAD P CONFIG: ${ name } Complete`);
   }
 
   private async getReadyPluginConfig(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<void> {
-    this._coreLogger.info(`READY: ${ plugin.name } AS ${ mappedPluginName } [${ definition }]`);
+    this._coreLogger.debug(`READY: ${ plugin.name } AS ${ mappedPluginName } [${ definition }]`);
     if (!Tools.isNullOrUndefined(this._loadedPlugins[plugin.name])) {
       this._coreLogger.fatal(`Cannot have 2 plugins with the same name!! [${ plugin.name }]`);
     }
 
-    this._coreLogger.info(`READY: ${ plugin.name } Installer`);
+    this._coreLogger.debug(`READY: ${ plugin.name } Installer`);
     if (plugin.installerFile !== null) {
-      this._coreLogger.info(`READY: ${ plugin.name } Installer from ${ plugin.installerFile }`);
+      this._coreLogger.debug(`READY: ${ plugin.name } Installer from ${ plugin.installerFile }`);
       this.loadPluginConfig(plugin.name, mappedPluginName, plugin.installerFile);
     } else {
-      this._coreLogger.info(`READY: ${ plugin.name } Installer as {}`);
+      this._coreLogger.debug(`READY: ${ plugin.name } Installer as {}`);
       this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
     }
-    this._coreLogger.info(`READY: ${ plugin.name } Installer Complete`);
+    this._coreLogger.debug(`READY: ${ plugin.name } Installer Complete`);
   }
 
   private async getReadyToLoadPlugin(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<IPlugin | ILogger | IEvents> {
     this.getReadyPluginConfig(definition, plugin, mappedPluginName);
 
-    this._coreLogger.info(`READY: ${ plugin.name }v${ plugin.version } Import`);
+    this._coreLogger.debug(`READY: ${ plugin.name }v${ plugin.version } Import`);
     let importedPlugin = await import(plugin.pluginFile);
-    this._coreLogger.info(`READY: ${ plugin.name }v${ plugin.version } Create instance`);
+    this._coreLogger.debug(`READY: ${ plugin.name }v${ plugin.version } Create instance`);
     switch (definition) {
       case IPluginDefinition.events:
         if (Tools.isNullOrUndefined(importedPlugin.Events))
