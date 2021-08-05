@@ -5,6 +5,11 @@ ARG PLUGIN_VERSION=latest
 # Image setup
 FROM betterweb/better-service-base:base-${BSB_VERSION}
 
+# Core perms
+ADD .npmrc .npmrc
+RUN mv ./.npmrc ~/.npmrc
+RUN echo "HOME: $(echo ~/)" 
+
 # Add package (from local)
 RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/

@@ -197,6 +197,7 @@ export enum IPluginDefinition {
 
 export interface IReadyPlugin {
   name: string;
+  version: string;
   pluginFile: string;
   installerFile: string | null;
 }

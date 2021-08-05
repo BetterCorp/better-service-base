@@ -35,7 +35,7 @@ export class Plugins {
     return IPluginDefinition.normal;
   }
 
-  private findPluginsFiles(path: string): Array<IReadyPlugin> {
+  private findPluginsFiles(path: string, version: string): Array<IReadyPlugin> {
     let arrOfPlugins: Array<IReadyPlugin> = [];
 
     this._coreLogger.info(`FIND: FIND plugins in [${ path }]`);
@@ -68,6 +68,7 @@ export class Plugins {
       this._coreLogger.info(`FIND: READY [dirPluginFolderName] in: ${ thisFullPath }`);
       arrOfPlugins.push({
         name: dirPluginFolderName,
+        version,
         pluginFile,
         installerFile: pluginInstallerFile
       });
@@ -90,7 +91,8 @@ export class Plugins {
       return [];
     }
 
-    return this.findPluginsFiles(innerPluginLibPlugin);
+    let packageVersion = JSON.parse(FS.readFileSync(PATH.join(path, './package.json')).toString()).version;
+    return this.findPluginsFiles(innerPluginLibPlugin, packageVersion);
   }
   private findNPMPlugins(): Array<IReadyPlugin> {
     let arrOfPlugins: Array<IReadyPlugin> = [];
@@ -151,9 +153,9 @@ export class Plugins {
   private async getReadyToLoadPlugin(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<IPlugin | ILogger | IEvents> {
     this.getReadyPluginConfig(definition, plugin, mappedPluginName);
 
-    this._coreLogger.info(`READY: ${ plugin.name } Import`);
+    this._coreLogger.info(`READY: ${ plugin.name }v${plugin.version} Import`);
     let importedPlugin = await import(plugin.pluginFile);
-    this._coreLogger.info(`READY: ${ plugin.name } Create instance`);
+    this._coreLogger.info(`READY: ${ plugin.name }v${plugin.version} Create instance`);
     switch (definition) {
       case IPluginDefinition.events:
         if (Tools.isNullOrUndefined(importedPlugin.Events))
@@ -177,9 +179,9 @@ export class Plugins {
     for (let plugin of this._plugins) {
       let pluginDefinition = this.getPluginType(plugin.name);
       let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
-      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin.name } AS ${ mappedPlugin }`);
+      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin.name }v${plugin.version} AS ${ mappedPlugin }`);
       this.getReadyPluginConfig(pluginDefinition, plugin, mappedPlugin);
-      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin!.name } [CONFIGURED]`);
+      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin!.name }v${plugin.version} [CONFIGURED]`);
     }
   }
 
@@ -201,7 +203,7 @@ export class Plugins {
       if (!this._appConfig.getPluginState(plugin.name)) {
         continue;
       }
-      this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin!.name } [LOADED]`);
+      this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin.name }v${plugin.version} [LOADED]`);
       logger = plugin;
       break;
     }
@@ -213,7 +215,7 @@ export class Plugins {
       if (!this._appConfig.getPluginState(plugin.name)) {
         continue;
       }
-      this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin!.name } [LOADED]`);
+      this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin.name }v${plugin.version} [LOADED]`);
       events = plugin;
       break;
     }
@@ -247,9 +249,9 @@ export class Plugins {
         continue;
       }
       let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
-      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name } AS ${ mappedPlugin }`);
+      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${plugin.version} AS ${ mappedPlugin }`);
       let readToLoadPlugin = (await this.getReadyToLoadPlugin(IPluginDefinition.normal, plugin, mappedPlugin));
-      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name } Render`);
+      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${plugin.version} Render`);
       this._loadedPlugins[plugin.name] = new (readToLoadPlugin as any)(mappedPlugin, this._cwd, {
         info: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
         warn: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
