@@ -77,6 +77,12 @@ export class Plugins {
     return arrOfPlugins;
   }
   private findPluginsInBase(path: string, libOnly: boolean = false): Array<IReadyPlugin> {
+    let pluginJson = JSON.parse(FS.readFileSync(PATH.join(path, './package.json')).toString());
+    if (pluginJson.bsb_project !== true) {
+      this._coreLogger.info(`FIND: IGNORE AS NOT BSB PROJECT`);
+      return [];
+    }
+
     let innerPluginLib = PATH.join(path, './src');
     if (libOnly || !FS.existsSync(innerPluginLib) || !FS.statSync(innerPluginLib).isDirectory()) {
       innerPluginLib = PATH.join(path, './lib');
@@ -91,24 +97,31 @@ export class Plugins {
       return [];
     }
 
-    let packageVersion = JSON.parse(FS.readFileSync(PATH.join(path, './package.json')).toString()).version;
+    let packageVersion = pluginJson.version;
     return this.findPluginsFiles(innerPluginLibPlugin, packageVersion);
   }
   private findNPMPlugins(): Array<IReadyPlugin> {
     let arrOfPlugins: Array<IReadyPlugin> = [];
 
-    const npmPluginsDir = PATH.join(this._cwd, './node_modules/@bettercorp');
+    const npmPluginsDir = PATH.join(this._cwd, './node_modules');
     this._coreLogger.info(`FIND: NPM plugins in: ${ npmPluginsDir }`);
     for (let dirFileWhat of FS.readdirSync(npmPluginsDir)) {
       const pluginPath = PATH.join(npmPluginsDir, dirFileWhat);
-      this._coreLogger.info(`FIND: CHECK [${ dirFileWhat }] ${ pluginPath }`);
-      if (FS.statSync(pluginPath).isDirectory()) {
-        if (dirFileWhat.indexOf('service-base') != 0) {
-          this._coreLogger.info(`FIND: IGNORE [${ dirFileWhat }] Not a service base package`);
-          continue;
+      if (dirFileWhat.indexOf('@') === 0) {
+        this._coreLogger.info(`FIND: GROUP [${ dirFileWhat }] ${ pluginPath }`);
+        for (let groupPluginName of FS.readdirSync(pluginPath)) {
+          const groupPluginPath = PATH.join(pluginPath, groupPluginName);
+          this._coreLogger.info(`FIND: CHECK [${ dirFileWhat }/${ groupPluginName }] ${ groupPluginPath }`);
+          if (FS.statSync(groupPluginPath).isDirectory()) {
+            arrOfPlugins = arrOfPlugins.concat(this.findPluginsInBase(groupPluginPath, true));
+          }
         }
-
-        arrOfPlugins = arrOfPlugins.concat(this.findPluginsInBase(pluginPath, true));
+      }
+      else {
+        this._coreLogger.info(`FIND: CHECK [${ dirFileWhat }] ${ pluginPath }`);
+        if (FS.statSync(pluginPath).isDirectory()) {
+          arrOfPlugins = arrOfPlugins.concat(this.findPluginsInBase(pluginPath, true));
+        }
       }
     }
 
@@ -153,9 +166,9 @@ export class Plugins {
   private async getReadyToLoadPlugin(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<IPlugin | ILogger | IEvents> {
     this.getReadyPluginConfig(definition, plugin, mappedPluginName);
 
-    this._coreLogger.info(`READY: ${ plugin.name }v${plugin.version} Import`);
+    this._coreLogger.info(`READY: ${ plugin.name }v${ plugin.version } Import`);
     let importedPlugin = await import(plugin.pluginFile);
-    this._coreLogger.info(`READY: ${ plugin.name }v${plugin.version} Create instance`);
+    this._coreLogger.info(`READY: ${ plugin.name }v${ plugin.version } Create instance`);
     switch (definition) {
       case IPluginDefinition.events:
         if (Tools.isNullOrUndefined(importedPlugin.Events))
@@ -179,9 +192,9 @@ export class Plugins {
     for (let plugin of this._plugins) {
       let pluginDefinition = this.getPluginType(plugin.name);
       let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
-      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin.name }v${plugin.version} AS ${ mappedPlugin }`);
+      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin.name }v${ plugin.version } AS ${ mappedPlugin }`);
       this.getReadyPluginConfig(pluginDefinition, plugin, mappedPlugin);
-      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin!.name }v${plugin.version} [CONFIGURED]`);
+      this._coreLogger.info(`CONFIG: PLUGIN ${ plugin!.name }v${ plugin.version } [CONFIGURED]`);
     }
   }
 
@@ -203,7 +216,7 @@ export class Plugins {
       if (!this._appConfig.getPluginState(plugin.name)) {
         continue;
       }
-      this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin.name }v${plugin.version} [LOADED]`);
+      this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin.name }v${ plugin.version } [LOADED]`);
       logger = plugin;
       break;
     }
@@ -215,7 +228,7 @@ export class Plugins {
       if (!this._appConfig.getPluginState(plugin.name)) {
         continue;
       }
-      this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin.name }v${plugin.version} [LOADED]`);
+      this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin.name }v${ plugin.version } [LOADED]`);
       events = plugin;
       break;
     }
@@ -249,9 +262,9 @@ export class Plugins {
         continue;
       }
       let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
-      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${plugin.version} AS ${ mappedPlugin }`);
+      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${ plugin.version } AS ${ mappedPlugin }`);
       let readToLoadPlugin = (await this.getReadyToLoadPlugin(IPluginDefinition.normal, plugin, mappedPlugin));
-      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${plugin.version} Render`);
+      this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${ plugin.version } Render`);
       this._loadedPlugins[plugin.name] = new (readToLoadPlugin as any)(mappedPlugin, this._cwd, {
         info: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
         warn: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
@@ -298,7 +311,7 @@ export class Plugins {
           }
 
           if (typeof (self._loadedPlugins[pluginName] as any)[initType] !== 'function')
-            return self._logger.fatal(`The plugin ${ pluginName } does not have a method ${ initType }... [${Object.keys((self._loadedPlugins[pluginName] as any)).join(',')}]`);
+            return self._logger.fatal(`The plugin ${ pluginName } does not have a method ${ initType }... [${ Object.keys((self._loadedPlugins[pluginName] as any)).join(',') }]`);
 
           self._coreLogger.info(`SETUP: ${ pluginName } INIT WITH ${ initType }`);
           (self._loadedPlugins[pluginName] as any)[initType](...args).then(resolve as any).catch(reject);
