@@ -42,9 +42,9 @@ export class AppConfig {
     if (!Tools.isNullOrUndefined(process.env.BSB_PROFILE)) {
       this._deploymentProfile = process.env.BSB_PROFILE!;
     }
-    if (this._deploymentProfile !== 'default') {
+    /*if (this._deploymentProfile !== 'default') {
       secConfigJsonFile = PATH.join(cwd, `./sec.config.${ this._deploymentProfile }.json`);
-    }
+    }*/
     if (!Tools.isNullOrUndefined(process.env.BSB_SEC_JSON)) {
       secConfigJsonFile = process.env.BSB_SEC_JSON!;
     }
