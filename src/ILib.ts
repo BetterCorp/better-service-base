@@ -176,6 +176,9 @@ export class CPluginClient<T> {
   }
 }
 
+export interface DeploymentProfiles<T> extends IDictionary<T> {
+  default: T;
+}
 export interface ServiceConfig {
   identity: string;
   debug: boolean;
@@ -183,9 +186,6 @@ export interface ServiceConfig {
   deploymentProfiles: DeploymentProfiles<DeploymentProfile>;
 }
 
-export interface DeploymentProfiles<T> extends IDictionary<T> {
-  default: T;
-}
 export interface DeploymentProfile {
   mappedName: string;
   enabled: boolean;

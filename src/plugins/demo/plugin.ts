@@ -1,6 +1,6 @@
 import { CPlugin, CPluginClient } from "../../ILib";
 
-export class demo extends CPluginClient<any> {
+export class Demo extends CPluginClient<any> {
   public readonly _pluginName: string = "demo";
 
   setTime(time: number): void {
@@ -31,11 +31,11 @@ export class Plugin extends CPlugin {
   })
 
   // demo of use
-  private demo!: demo;
+  private demo!: Demo;
   loaded(): Promise<void> {
     const self = this;
     return new Promise((resolve) => {
-      self.demo = new demo(self);
+      self.demo = new Demo(self);
       setTimeout(() => {
         // get data from another plugin
         self.demo.getTime()

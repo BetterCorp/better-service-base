@@ -30,8 +30,8 @@ export class Plugins {
 
   private getPluginType(name: string): IPluginDefinition {
     let pluginLow = name.toLowerCase();
-    if (pluginLow.indexOf("events-") == 0) return IPluginDefinition.events;
-    if (pluginLow.indexOf("log-") == 0 || pluginLow.indexOf("logs-") == 0) return IPluginDefinition.logging;
+    if (pluginLow.indexOf("events-") === 0) return IPluginDefinition.events;
+    if (pluginLow.indexOf("log-") === 0 || pluginLow.indexOf("logs-") === 0) return IPluginDefinition.logging;
     return IPluginDefinition.normal;
   }
 
@@ -79,7 +79,7 @@ export class Plugins {
   private findPluginsInBase(path: string, libOnly: boolean = false): Array<IReadyPlugin> {
     const pluginJson = JSON.parse(readFileSync(join(path, "./package.json"), "utf-8").toString());
     if (pluginJson.bsb_project !== true) {
-      this._coreLogger.debug(`FIND: IGNORE AS NOT BSB PROJECT`);
+      this._coreLogger.debug("FIND: IGNORE AS NOT BSB PROJECT");
       return [];
     }
 
@@ -192,7 +192,7 @@ export class Plugins {
   }
 
   public async configAllPlugins(): Promise<void> {
-    this._coreLogger.info(`CONFIG: constructAllPlugins`);
+    this._coreLogger.info("CONFIG: constructAllPlugins");
     this._plugins = this.findAllPlugins();
     this._coreLogger.info(`CONFIG: ${ this._plugins.length } plugins`);
     for (const plugin of this._plugins) {
@@ -205,7 +205,7 @@ export class Plugins {
   }
 
   public async constructAllPlugins(): Promise<void> {
-    this._coreLogger.info(`CONSTRUCT: constructAllPlugins`);
+    this._coreLogger.info("CONSTRUCT: constructAllPlugins");
     this._plugins = this.findAllPlugins();
     for (let plugin of this._plugins) {
       let mappedPluginName = this._appConfig.getMappedPluginName(plugin.name);
@@ -285,7 +285,7 @@ export class Plugins {
 
   public async setupEventsAllPlugins(): Promise<void> {
     const self = this;
-    self._coreLogger.info(`SETUP: setupEventsAllPlugins`);
+    self._coreLogger.info("SETUP: setupEventsAllPlugins");
     let pluginsToInit = Object.keys(self._loadedPlugins);
 
     for (let plugin of pluginsToInit) {
@@ -327,7 +327,7 @@ export class Plugins {
       self._coreLogger.info(`SETUP: ${ plugin } - COMPLETE`);
     }
 
-    self._coreLogger.info(`SETUP: setupEventsAllPlugins - COMPLETE`);
+    self._coreLogger.info("SETUP: setupEventsAllPlugins - COMPLETE");
   }
 
   public async initCorePlugins(): Promise<void> {
@@ -339,7 +339,7 @@ export class Plugins {
       await this._events.init!();
   }
   public async initAllPlugins(): Promise<void> {
-    this._coreLogger.info(`INIT: initAllPlugins`);
+    this._coreLogger.info("INIT: initAllPlugins");
     let pluginsToInit = Object.keys(this._loadedPlugins);
     for (let i = 0; i < pluginsToInit.length - 1; i++) {
       for (let j = i + 1; j < pluginsToInit.length; j++) {
@@ -361,11 +361,11 @@ export class Plugins {
       this._coreLogger.info(`INIT: ${ pluginInOrder }@${ this._loadedPlugins[pluginInOrder].initIndex || -1 } - COMPLETE`);
     }
 
-    this._coreLogger.info(`INIT: initAllPlugins - COMPLETE`);
+    this._coreLogger.info("INIT: initAllPlugins - COMPLETE");
   }
 
   public async loadAllPlugins(): Promise<void> {
-    this._coreLogger.info(`LOAD: loadAllPlugins`);
+    this._coreLogger.info("LOAD: loadAllPlugins");
     let pluginsToInit = Object.keys(this._loadedPlugins);
     for (let i = 0; i < pluginsToInit.length - 1; i++) {
       for (let j = i + 1; j < pluginsToInit.length; j++) {
@@ -387,6 +387,6 @@ export class Plugins {
       this._coreLogger.info(`LOAD: ${ pluginInOrder }@${ this._loadedPlugins[pluginInOrder].loadedIndex || -1 } - COMPLETE`);
     }
 
-    this._coreLogger.info(`LOAD: loadAllPlugins - COMPLETE`);
+    this._coreLogger.info("LOAD: loadAllPlugins - COMPLETE");
   }
 }

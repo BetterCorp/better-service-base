@@ -60,7 +60,7 @@ export class AppConfig {
     if (!Tools.isNullOrUndefined(this._appConfig.debug)) {
       this._debugMode = this._appConfig.debug;
     }
-    if (process.env.BSB_FORCE_DEBUG !== undefined && process.env.BSB_FORCE_DEBUG !== null && process.env.BSB_FORCE_DEBUG == "1") {
+    if (process.env.BSB_FORCE_DEBUG !== undefined && process.env.BSB_FORCE_DEBUG !== null && process.env.BSB_FORCE_DEBUG === "1") {
       this._debugMode = true;
     }
 
@@ -111,7 +111,7 @@ export class AppConfig {
     this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING.");
     let readFile = JSON.stringify(JSON.parse(FS.readFileSync(this._secConfigFilePath, "utf-8").toString()));
     let configFile = JSON.stringify(this._appConfig);
-    if (readFile == configFile) {
+    if (readFile === configFile) {
       this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING: IGNORED = NO CHANGES");
       this._hasConfigChanges = false;
       return;
