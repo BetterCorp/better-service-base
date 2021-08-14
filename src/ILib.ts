@@ -1,6 +1,6 @@
-import { IDictionary } from '@bettercorp/tools/lib/Interfaces';
-import { Tools } from '@bettercorp/tools/lib/Tools';
-import { AppConfig } from './AppConfig';
+import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
+import { Tools } from "@bettercorp/tools/lib/Tools";
+import { AppConfig } from "./AppConfig";
 
 export interface IPluginLogger {
   info(...data: any[]): void;
@@ -19,6 +19,8 @@ export interface ILogger {
   debug(plugin: string, ...data: any[]): void;
 }
 
+export interface IPluginConfig { }
+
 export class CLogger<PluginConfigType extends IPluginConfig = any> implements ILogger {
   pluginName: string;
   log: IPluginLogger;
@@ -26,7 +28,7 @@ export class CLogger<PluginConfigType extends IPluginConfig = any> implements IL
   appConfig: AppConfig;
   getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
-  };
+  }
 
   constructor(pluginName: string, cwd: string, log: IPluginLogger, appConfig: AppConfig) {
     this.pluginName = pluginName;
@@ -36,19 +38,19 @@ export class CLogger<PluginConfigType extends IPluginConfig = any> implements IL
   }
 
   info(plugin: string, ...data: any[]): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   warn(plugin: string, ...data: any[]): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   error(plugin: string, ...data: any[]): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   fatal(plugin: string, ...data: any[]): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   debug(plugin: string, ...data: any[]): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 }
 
@@ -68,7 +70,7 @@ export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   appConfig: AppConfig;
   getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
-  };
+  }
 
   constructor(pluginName: string, cwd: string, log: IPluginLogger, appConfig: AppConfig) {
     this.pluginName = pluginName;
@@ -78,16 +80,16 @@ export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   }
 
   onEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   onReturnableEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   emitEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): void {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
   emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
-    throw new Error('Method not implemented.');
+    throw new Error("Method not implemented.");
   }
 }
 
@@ -114,7 +116,7 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   appConfig: AppConfig;
   getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
-  };
+  }
 
   constructor(pluginName: string, cwd: string, log: IPluginLogger, appConfig: AppConfig) {
     if (Tools.isNullOrUndefined(this.initIndex))
@@ -127,16 +129,16 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
     this.appConfig = appConfig;
   }
   onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): void {
-    throw new Error('BSB INIT ERROR');
+    throw new Error("BSB INIT ERROR");
   }
   onReturnableEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
-    throw new Error('BSB INIT ERROR');
+    throw new Error("BSB INIT ERROR");
   }
   emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): void {
-    throw new Error('BSB INIT ERROR');
+    throw new Error("BSB INIT ERROR");
   }
   emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
-    throw new Error('BSB INIT ERROR');
+    throw new Error("BSB INIT ERROR");
   }
 
 }
@@ -180,8 +182,6 @@ export interface ServiceConfig {
   plugins: IDictionary<IPluginConfig>;
   deploymentProfiles: DeploymentProfiles<DeploymentProfile>;
 }
-
-export interface IPluginConfig { }
 
 export interface DeploymentProfiles<T> extends IDictionary<T> {
   default: T;

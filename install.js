@@ -42,19 +42,19 @@ const gitlabCISrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/
 const gitlabCIFile = PATH.join(CWD, `./.gitlab-ci.yml`);
 if (!FS.existsSync(gitlabCIFile) && FS.existsSync(gitlabCISrcFile)) {
   console.log(`Creating .gitlab-ci.yml build file... (${gitlabCISrcFile} -> ${gitlabCIFile})`);
-  FS.copyFileSync(gitlabCISrcFile, gitlabCIFile)
+  FS.copyFileSync(gitlabCISrcFile, gitlabCIFile);
 }
 const tsConfigSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tsconfig.json`);
 const tsConfigFile = PATH.join(CWD, `./tsconfig.json`);
 if (!FS.existsSync(tsConfigFile) && FS.existsSync(tsConfigSrcFile)) {
   console.log(`Creating tsConfig build file... (${tsConfigSrcFile} -> ${tsConfigFile})`);
-  FS.copyFileSync(tsConfigSrcFile, tsConfigFile)
+  FS.copyFileSync(tsConfigSrcFile, tsConfigFile);
 }
 const tsLintSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tslint.json`);
 const tsLintFile = PATH.join(CWD, `./tslint.json`);
 if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
   console.log(`Creating tslint build file... (${tsLintSrcFile} -> ${tsLintFile})`);
-  FS.copyFileSync(tsLintSrcFile, tsLintFile)
+  FS.copyFileSync(tsLintSrcFile, tsLintFile);
 }
 
 const appScripts = {

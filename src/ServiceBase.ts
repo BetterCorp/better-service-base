@@ -1,10 +1,10 @@
-import { Logger as DefaultLogger } from './DefaultLogger';
+import { Logger as DefaultLogger } from "./DefaultLogger";
 import { CLogger, IPluginLogger } from "./ILib";
-import { AppConfig } from './AppConfig';
-import { Plugins } from './Plugins';
+import { AppConfig } from "./AppConfig";
+import { Plugins } from "./Plugins";
 
 export default class ServiceBase {
-  public readonly CORE_PLUGIN_NAME = 'self';
+  public readonly CORE_PLUGIN_NAME = "self";
 
   private _cwd: string;
   private _appConfig: AppConfig;
@@ -18,14 +18,14 @@ export default class ServiceBase {
   private _startKeep(stepName: string) {
     this._keepName = stepName;
     this._keepTimer = new Date().getTime();
-    if (this._keepTimerInitial == 0)
+    if (this._keepTimerInitial === 0)
       this._keepTimerInitial = this._keepTimer;
   }
   private _outputKeep() {
     this._coreLogger.info(`[TIMER] ${ this._keepName } took ${ (new Date().getTime()) - this._keepTimer }ms`);
   }
   constructor(cwd: string) {
-    this._startKeep('boot');
+    this._startKeep("boot");
     this._cwd = cwd;
     this._defaultLogger = new (DefaultLogger as any)(); // Default logger does not require any params, init or loaded to be called ...
     const self = this;
@@ -36,48 +36,48 @@ export default class ServiceBase {
       fatal: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
       debug: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
     };
-    this._coreLogger.info(':STARTUP');
+    this._coreLogger.info(":STARTUP");
     this._appConfig = new AppConfig(this._coreLogger, this._cwd);
     this._plugins = new Plugins(this._coreLogger, this._defaultLogger, this._appConfig, this._cwd);
-    this._coreLogger.info(':STARTUP COMPLETED');
+    this._coreLogger.info(":STARTUP COMPLETED");
     this._outputKeep();
   }
 
   async config(): Promise<void> {
-    this._startKeep('config');
-    this._coreLogger.info(':INIT CONFIG');
+    this._startKeep("config");
+    this._coreLogger.info(":INIT CONFIG");
     await this._plugins.configAllPlugins();
     this._outputKeep();
   }
 
   async construct(): Promise<void> {
-    this._startKeep('construct');
-    this._coreLogger.info(':INIT CONSTRUCT');
+    this._startKeep("construct");
+    this._coreLogger.info(":INIT CONSTRUCT");
     await this._plugins.constructAllPlugins();
     this._outputKeep();
   }
 
   async init(): Promise<void> {
-    this._startKeep('init');
-    this._coreLogger.info(':INIT EVENTS');
+    this._startKeep("init");
+    this._coreLogger.info(":INIT EVENTS");
     await this._plugins.setupEventsAllPlugins();
-    this._coreLogger.info(':INIT PLUGINS LOGGER/EVENTS');
+    this._coreLogger.info(":INIT PLUGINS LOGGER/EVENTS");
     await this._plugins.initCorePlugins();
-    this._coreLogger.info(':INIT PLUGINS INIT');
+    this._coreLogger.info(":INIT PLUGINS INIT");
     await this._plugins.initAllPlugins();
-    this._coreLogger.info(':INIT COMPLETED');
+    this._coreLogger.info(":INIT COMPLETED");
     this._outputKeep();
   }
 
   async run(): Promise<void> {
-    this._startKeep('run');
-    this._coreLogger.info(':RUN PLUGINS LOAD');
+    this._startKeep("run");
+    this._coreLogger.info(":RUN PLUGINS LOAD");
     await this._plugins.loadAllPlugins();
-    this._coreLogger.info(':RUN READY');
+    this._coreLogger.info(":RUN READY");
 
     const self = this;
     setInterval(() => {
-      self._coreLogger.info('[HEARTBEAT]');
+      self._coreLogger.info("[HEARTBEAT]");
     }, 60 * 60 * 1000);
 
     this._outputKeep();
