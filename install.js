@@ -1,15 +1,15 @@
 const {
   Tools
-} = require('@bettercorp/tools/lib/Tools');
-const FS = require('fs');
-const PATH = require('path');
-const OS = require('os');
+} = require("@bettercorp/tools/lib/Tools");
+const FS = require("fs");
+const PATH = require("path");
+const OS = require("os");
 let CWD = process.cwd();
 
 console.log(`Install CWD: ${CWD}`)
 
-if (CWD.indexOf('@bettercorp') >= 0) {
-  CWD = PATH.join(CWD, '../../../');
+if (CWD.indexOf("@bettercorp") >= 0) {
+  CWD = PATH.join(CWD, "../../../");
 }
 
 console.log(`INSTALL SCRIPT FOR @bettercorp/service-base in ${CWD}`);
@@ -75,16 +75,16 @@ const libScripts = {
 let coreAppInstall = false;
 let libInstall = false;
 
-const packaggeJSONFile = PATH.join(CWD, './package.json');
+const packaggeJSONFile = PATH.join(CWD, "./package.json");
 if (FS.existsSync(packaggeJSONFile)) {
   let readPackageJsonFile = JSON.parse(FS.readFileSync(packaggeJSONFile).toString())
 
-  if (readPackageJsonFile.name == '@bettercorp/service-base')
-    return console.log('Self install. ignoring install script.');
+  if (readPackageJsonFile.name == "@bettercorp/service-base")
+    return console.log("Self install. ignoring install script.");
 
-  if (readPackageJsonFile.name.indexOf('@bettercorp/core-internal-') === 0)
+  if (readPackageJsonFile.name.indexOf("@bettercorp/core-internal-") === 0)
     coreAppInstall = true;
-  if (readPackageJsonFile.name.indexOf('@bettercorp/service-base') === 0)
+  if (readPackageJsonFile.name.indexOf("@bettercorp/service-base") === 0)
     libInstall = true;
 
   let scripts = libScripts;
@@ -109,14 +109,14 @@ if (FS.existsSync(packaggeJSONFile)) {
     readPackageJsonFile.files = ["lib/**/*"];
     pakUpdates = true;
   }
-  if (readPackageJsonFile.scripts.publish !== undefined && readPackageJsonFile.scripts.publish.indexOf('npm publish') >= 0) {
+  if (readPackageJsonFile.scripts.publish !== undefined && readPackageJsonFile.scripts.publish.indexOf("npm publish") >= 0) {
     pakUpdates = true;
-    if (readPackageJsonFile.scripts.publish == 'npm publish')
+    if (readPackageJsonFile.scripts.publish == "npm publish")
       delete readPackageJsonFile.scripts.publish;
     else
-      readPackageJsonFile.scripts.publish = `${readPackageJsonFile.scripts.publish}`.replace('npm publish', '');
+      readPackageJsonFile.scripts.publish = `${readPackageJsonFile.scripts.publish}`.replace("npm publish", "");
   }
-  if (typeof readPackageJsonFile.bsb_project !== 'boolean') {
+  if (typeof readPackageJsonFile.bsb_project !== "boolean") {
     readPackageJsonFile.bsb_project = true;
     pakUpdates = true;
   }
@@ -126,11 +126,11 @@ if (FS.existsSync(packaggeJSONFile)) {
   }
 
   if (libInstall) {
-    return console.log('Package install. ignoring app install script.');
+    return console.log("Package install. ignoring app install script.");
   }
 }
 
-const configFile = PATH.join(CWD, './sec.config.json');
+const configFile = PATH.join(CWD, "./sec.config.json");
 if (!FS.existsSync(configFile)) {
   console.log(`Creating config file... (${configFile})`);
   FS.writeFileSync(configFile, `{"identity":"${OS.hostname}","debug":true,"deploymentProfiles": {"default":{}}, "plugins": {}}`);
@@ -145,8 +145,8 @@ if (!FS.existsSync(configFile)) {
   if (tBefore != tAfter)
     FS.writeFileSync(configFile, tAfter);
 }
-const installer = PATH.join(CWD, './node_modules/@bettercorp/service-base/lib/ServiceBase.js');
-console.log('INSTALL FINAL : AUTOLOAD: ' + installer);
+const installer = PATH.join(CWD, "./node_modules/@bettercorp/service-base/lib/ServiceBase.js");
+console.log("INSTALL FINAL : AUTOLOAD: " + installer);
 const ServiceBase = require(installer);
 const SB = new ServiceBase.default(CWD);
-SB.config().then(() => console.log('INSTALL COMPLETE FOR @bettercorp/service-base')).catch(() => process.exit(1));
+SB.config().then(() => console.log("INSTALL COMPLETE FOR @bettercorp/service-base")).catch(() => process.exit(1));
