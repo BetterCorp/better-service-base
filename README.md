@@ -11,7 +11,7 @@ Then run the following command to install the BSB
   
 On installation, we will automatically bootstrap your project for you.  
   
-You can view a list of plugins available here: https://bsb.betterweb.co.za/packages/  
+You can view a list of plugins available here: [https://bsb.betterweb.co.za/packages/](https://bsb.betterweb.co.za/packages/)  
   
 ## Creating your own plugin
   
@@ -21,10 +21,10 @@ Run the following command:
 ```npm run create -n {your plugin name} -t {your plugin type}``` 
   
 Plugin names must not contain any spaces.  
-Plugin types: 
- - plugin (a standard plugin)
- - logger (a logger plugin to extend the logging capabilities of BSB - eg: SYSLOG)
- - events (an events plugin to extend the BSB event bus with different event services - eg: rabbitMQ)
+###Plugin types: 
+ - ```plugin``` (a standard plugin)
+ - ```logger``` (a logger plugin to extend the logging capabilities of BSB - eg: SYSLOG)
+ - ```events``` (an events plugin to extend the BSB event bus with different event services - eg: rabbitMQ)
   
 ## Publishing notes
   
