@@ -16,7 +16,8 @@
     "tslint.json",
     "sourceFiles/**/*",
     "lib/**/*",
-    "build/**/*"
+    "build/**/*",
+    "templates/**/*"
   ],
   "main": "lib/index.js",
   "version": "5.2.0",

@@ -7,6 +7,7 @@ type PluginTypes = 'plugin' | 'logger' | 'events';
 const types: ReadonlyArray<PluginTypes> = ['plugin', 'logger', 'events'];
 
 (async () => {
+  const SBBaseDir = path.join(cwd(), "./node_modules/@bettercorp/service-base");
   const argv = await yargs(process.argv.slice(2))
     .option('type', {
       alias: 't',
@@ -31,16 +32,16 @@ const types: ReadonlyArray<PluginTypes> = ['plugin', 'logger', 'events'];
     throw `Plugin ${ argv.name } already exists!`;
   }
 
-  let srcCode: string = fs.readFileSync(path.join(cwd(), 'templates', `${ argv.type }.ts`)).toString();
+  let srcCode: string = fs.readFileSync(path.join(SBBaseDir, 'templates', `${ argv.type }.ts`)).toString();
   srcCode = srcCode.replace(/demo/g, argv.name);
 
   fs.mkdirSync(dstPluginDir);
   fs.writeFileSync(path.join(dstPluginDir, 'plugin.ts'), srcCode);
-  fs.copyFileSync(path.join(cwd(), 'templates', 'sec.config.ts'), path.join(dstPluginDir, 'sec.config.ts'));
+  fs.copyFileSync(path.join(SBBaseDir, 'templates', 'sec.config.ts'), path.join(dstPluginDir, 'sec.config.ts'));
 
   console.log(`New plugin created ${ argv.name } of type ${ argv.type }`);
 
-  const installer = path.join(cwd(), "./node_modules/@bettercorp/service-base/lib/ServiceBase.js");
+  const installer = path.join(SBBaseDir, "./lib/ServiceBase.js");
   console.log("INSTALL FINAL : AUTOLOAD: " + installer);
   const ServiceBase = require(installer);
   const SB = new ServiceBase.default(cwd());
@@ -48,4 +49,4 @@ const types: ReadonlyArray<PluginTypes> = ['plugin', 'logger', 'events'];
 
   console.log(`New plugin setup ${ argv.name } of type ${ argv.type }`);
   console.log(`Enable the plugin in the /sec.config.json file`);
-});
+})();

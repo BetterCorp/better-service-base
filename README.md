@@ -18,7 +18,8 @@ You can view a list of plugins available here: [https://bsb.betterweb.co.za/pack
 Open command prompt/bash/terminal in the plugin directory.  
   
 Run the following command:  
-```npm run create -n {your plugin name} -t {your plugin type}``` 
+```npm run create -- -t {your plugin type} -n {your plugin name} ```  
+You can type ```npm run create -- --help``` to view the cli help.  
   
 Plugin names must not contain any spaces.  
 ###Plugin types: 
