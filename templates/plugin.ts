@@ -1,4 +1,4 @@
-import { CPlugin, CPluginClient } from "../ILib";
+import { CPlugin, CPluginClient } from "@bettercorp/service-base/lib/ILib";
 import { MyPluginConfig } from './sec.config';
 
 export class demo extends CPluginClient<any> {

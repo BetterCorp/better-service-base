@@ -1,4 +1,4 @@
-import { CEvents } from "../ILib";
+import { CEvents } from "@bettercorp/service-base/lib/ILib";
 import { MyPluginConfig } from './sec.config';
 
 export class Events extends CEvents<MyPluginConfig> {
