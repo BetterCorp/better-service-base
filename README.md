@@ -1,68 +1,37 @@
-# Service base for distributed Services
+# Better-Service-base for distributed Micro-Services
 
-This base allows for a distributed service platform.  
+This base allows for easy distributed service platform development.  
   
-# Plugins
+## Getting started
 
-Create ts/js files according to your new plugin:  
+Create a new npm repo (in a new empty directory) ```npm init -y``` - ignore this step if you already have a project  
+  
+Then run the following command to install the BSB  
+```npm i --save @bettercorp/service-base```  
+  
+On installation, we will automatically bootstrap your project for you.  
+  
+You can view a list of plugins available here: https://bsb.betterweb.co.za/packages/  
+  
+## Creating your own plugin
+  
+Open command prompt/bash/terminal in the plugin directory.  
+  
+Run the following command:  
+```npm run create -n {your plugin name} -t {your plugin type}``` 
+  
+Plugin names must not contain any spaces.  
+Plugin types: 
+ - plugin (a standard plugin)
+ - logger (a logger plugin to extend the logging capabilities of BSB - eg: SYSLOG)
+ - events (an events plugin to extend the BSB event bus with different event services - eg: rabbitMQ)
+  
+## Publishing notes
+  
+As long as you have installed the service base as per the getting started, if you npm install your package, BSB will find your package and ready it for use.  
+  
+## Running the plugin
 
-```src/<plugin-name>/plugin.ts```  
-
-```lib/<plugin-name>/plugin.js```  
-
-# TODO: This readme needs to be updated
-
-# Core plugins
-
-## Logger  
-```src/logging/plugin.ts```  
-
-```typescript
-exports.default = {
-  info: (pluginName: string, ...data: any[]) => typeof data === 'string'  
-    ? console.log(`[${pluginName.toUpperCase()}] ${data}`)  
-    : console.log(pluginName.toUpperCase(), data),  
-  error: (pluginName: string, ...data: any[]) => typeof data === 'string'  
-    ? console.error(`[${pluginName.toUpperCase()}] ${data}`)  
-    : console.error(pluginName.toUpperCase(), data),  
-  warn: (pluginName: string, ...data: any[]) => typeof data === 'string'  
-    ? console.warn(`[${pluginName.toUpperCase()}] ${data}`)  
-    : console.warn(pluginName.toUpperCase(), data)  
-}  
-```  
-
-# New plugin  
-```src/<plugin-name>/plugin.ts```  
-
-```typescript
-module.exports.init = (features: PluginFeature) => {
-  // This function is called on plugin initialization
-   
-  features.onEvent('<event-name>', '<plugin-name>', (...args: any[]) => {
-    if (args.length === 0) return;
-    let objectOfInfo: any = args[0];
-
-    // *objectOfInfo* is the data passed in to your event handler
-
-    // If the event returns data    
-    features.emitEvent(`<plugin-name>-<event-name>-result-${objectOfInfo.resultKey}`, '<result data object or string>');
-
-    // If the event returns data but errors out
-    features.emitEvent(`<plugin-name>-<event-name>-error-${objectOfInfo.resultKey}`, '<error message or string>');
-  });
-}
-```  
-
-# Pre-built plugins
-
-```@bettercorp/service-base-plugin-<plugin>```
-
-# Using the base
-
-```typescript
-import ServiceBase from '@bettercorp/service-base';
-
-const SB = new ServiceBase();
-SB.init();
-SB.run();
-```
+Development: ```npm run dev```  
+Live: ```npm run start```  
+Build package: ```npm run build```

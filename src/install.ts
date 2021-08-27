@@ -1,86 +1,76 @@
-const {
-  Tools
-} = require("@bettercorp/tools/lib/Tools");
-const FS = require("fs");
-const PATH = require("path");
-const OS = require("os");
+import { Tools } from "@bettercorp/tools/lib/Tools";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 let CWD = process.cwd();
 
-console.log(`Install CWD: ${CWD}`)
+console.log(`Install CWD: ${ CWD }`);
 
 if (CWD.indexOf("@bettercorp") >= 0) {
-  CWD = PATH.join(CWD, "../../../");
+  CWD = path.join(CWD, "../../../");
 }
 
 console.log(`INSTALL SCRIPT FOR @bettercorp/service-base in ${CWD}`);
 
-const srcDir = PATH.join(CWD, `./src`);
-if (!FS.existsSync(srcDir)) {
+const srcDir = path.join(CWD, `./src`);
+if (!fs.existsSync(srcDir)) {
   console.log(`Creating src dir... (${srcDir})`);
-  FS.mkdirSync(srcDir);
+  fs.mkdirSync(srcDir);
 }
 
-const pluginsDir = PATH.join(CWD, `./src/plugins`);
-if (!FS.existsSync(pluginsDir)) {
+const pluginsDir = path.join(CWD, `./src/plugins`);
+if (!fs.existsSync(pluginsDir)) {
   console.log(`Creating plugins dir... (${pluginsDir})`);
-  FS.mkdirSync(pluginsDir);
+  fs.mkdirSync(pluginsDir);
 }
 
-/*const dockerDir = PATH.join(CWD, `./docker`);
-if (!FS.existsSync(dockerDir)) {
-  console.log(`Creating docker dir... (${dockerDir})`);
-  FS.mkdirSync(dockerDir);
-}
-const dockerSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/docker/DockerFile`);
-const dockerFile = PATH.join(dockerDir, `./DockerFile`);
-if (FS.existsSync(dockerSrcFile)) {
-  console.log(`Creating docker build file... (${dockerSrcFile} -> ${dockerFile})`);
-  FS.copyFileSync(dockerSrcFile, dockerFile)
-}*/
-
-const gitlabCISrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/build/gitlab-ci.yml`);
-const gitlabCIFile = PATH.join(CWD, `./.gitlab-ci.yml`);
-if (!FS.existsSync(gitlabCIFile) && FS.existsSync(gitlabCISrcFile)) {
+const gitlabCISrcFile = path.join(CWD, `./node_modules/@bettercorp/service-base/build/gitlab-ci.yml`);
+const gitlabCIFile = path.join(CWD, `./.gitlab-ci.yml`);
+if (!fs.existsSync(gitlabCIFile) && fs.existsSync(gitlabCISrcFile)) {
   console.log(`Creating .gitlab-ci.yml build file... (${gitlabCISrcFile} -> ${gitlabCIFile})`);
-  FS.copyFileSync(gitlabCISrcFile, gitlabCIFile);
+  fs.copyFileSync(gitlabCISrcFile, gitlabCIFile);
 }
-const tsConfigSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tsconfig.json`);
-const tsConfigFile = PATH.join(CWD, `./tsconfig.json`);
-if (!FS.existsSync(tsConfigFile) && FS.existsSync(tsConfigSrcFile)) {
+const tsConfigSrcFile = path.join(CWD, `./node_modules/@bettercorp/service-base/tsconfig.json`);
+const tsConfigFile = path.join(CWD, `./tsconfig.json`);
+if (!fs.existsSync(tsConfigFile) && fs.existsSync(tsConfigSrcFile)) {
   console.log(`Creating tsConfig build file... (${tsConfigSrcFile} -> ${tsConfigFile})`);
-  FS.copyFileSync(tsConfigSrcFile, tsConfigFile);
+  fs.copyFileSync(tsConfigSrcFile, tsConfigFile);
 }
-const tsLintSrcFile = PATH.join(CWD, `./node_modules/@bettercorp/service-base/tslint.json`);
-const tsLintFile = PATH.join(CWD, `./tslint.json`);
-if (!FS.existsSync(tsLintFile) && FS.existsSync(tsLintSrcFile)) {
+const tsLintSrcFile = path.join(CWD, `./node_modules/@bettercorp/service-base/tslint.json`);
+const tsLintFile = path.join(CWD, `./tslint.json`);
+if (!fs.existsSync(tsLintFile) && fs.existsSync(tsLintSrcFile)) {
   console.log(`Creating tslint build file... (${tsLintSrcFile} -> ${tsLintFile})`);
-  FS.copyFileSync(tsLintSrcFile, tsLintFile);
+  fs.copyFileSync(tsLintSrcFile, tsLintFile);
 }
 
-const appScripts = {
+const appScripts: any = {
   dev: "nodemon -L --watch src/**/*.ts --watch sec.config.json --exec ts-node node_modules/@bettercorp/service-base/lib/index.js",
   start: "ts-node node_modules/@bettercorp/service-base/lib/index.js",
-  build: "tsc"
+  build: "tsc",
+  create: "ts-node node_modules/@bettercorp/service-base/lib/bootstrap.js $0"
 }
-const internalAppScripts = {
+const internalAppScripts: any = {
   ...appScripts,
   version: "node ./node_modules/@bettercorp/service-base/build/version-internal.js $0"
 }
-const libScripts = {
+const libScripts: any = {
   build: "tsc",
   //publish: "npm publish",
-  version: "node ./node_modules/@bettercorp/service-base/build/version.js $0"
+  version: "node ./node_modules/@bettercorp/service-base/build/version.js $0",
+  create: "ts-node node_modules/@bettercorp/service-base/lib/bootstrap.js $0"
 }
 
 let coreAppInstall = false;
 let libInstall = false;
 
-const packaggeJSONFile = PATH.join(CWD, "./package.json");
-if (FS.existsSync(packaggeJSONFile)) {
-  let readPackageJsonFile = JSON.parse(FS.readFileSync(packaggeJSONFile).toString())
+const packaggeJSONFile = path.join(CWD, "./package.json");
+if (fs.existsSync(packaggeJSONFile)) {
+  let readPackageJsonFile = JSON.parse(fs.readFileSync(packaggeJSONFile).toString())
 
-  if (readPackageJsonFile.name == "@bettercorp/service-base")
-    return console.log("Self install. ignoring install script.");
+  if (readPackageJsonFile.name == "@bettercorp/service-base") {
+    console.log("Self install. ignoring install script.");
+    process.exit(0);
+  }
 
   if (readPackageJsonFile.name.indexOf("@bettercorp/core-internal-") === 0)
     coreAppInstall = true;
@@ -122,30 +112,31 @@ if (FS.existsSync(packaggeJSONFile)) {
   }
   if (pakUpdates) {
     console.log(`Updating package scripts for you... (${packaggeJSONFile})`);
-    FS.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile))
+    fs.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile))
   }
 
   if (libInstall) {
-    return console.log("Package install. ignoring app install script.");
+    console.log("Package install. ignoring app install script.");
+    process.exit(0);
   }
 }
 
-const configFile = PATH.join(CWD, "./sec.config.json");
-if (!FS.existsSync(configFile)) {
+const configFile = path.join(CWD, "./sec.config.json");
+if (!fs.existsSync(configFile)) {
   console.log(`Creating config file... (${configFile})`);
-  FS.writeFileSync(configFile, `{"identity":"${OS.hostname}","debug":true,"deploymentProfiles": {"default":{}}, "plugins": {}}`);
+  fs.writeFileSync(configFile, `{"identity":"${os.hostname}","debug":true,"deploymentProfiles": {"default":{}}, "plugins": {}}`);
 } else {
-  let tSec = JSON.parse(FS.readFileSync(configFile).toString());
+  let tSec = JSON.parse(fs.readFileSync(configFile).toString());
   let tBefore = JSON.stringify(tSec);
-  tSec.identity = tSec.identity || OS.hostname;
+  tSec.identity = tSec.identity || os.hostname;
   tSec.debug = tSec.debug || true;
   tSec.deploymentProfiles = tSec.deploymentProfiles || {};
   tSec.plugins = tSec.plugins || {};
   let tAfter = JSON.stringify(tSec);
   if (tBefore != tAfter)
-    FS.writeFileSync(configFile, tAfter);
+    fs.writeFileSync(configFile, tAfter);
 }
-const installer = PATH.join(CWD, "./node_modules/@bettercorp/service-base/lib/ServiceBase.js");
+const installer = path.join(CWD, "./node_modules/@bettercorp/service-base/lib/ServiceBase.js");
 console.log("INSTALL FINAL : AUTOLOAD: " + installer);
 const ServiceBase = require(installer);
 const SB = new ServiceBase.default(CWD);
