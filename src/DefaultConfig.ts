@@ -29,16 +29,6 @@ export class DefaultConfig extends CConfig {
   public async getPluginConfig<T extends IPluginConfig>(pluginName: string): Promise<T> {
     return (this._appConfig.plugins[pluginName] || {}) as T;
   }
-  public async getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile> {
-    return this.activeDeploymentProfile[pluginName!];
-  }
-  public async getMappedPluginName(pluginName: string): Promise<string> {
-    if (Tools.isNullOrUndefined(this.getPluginDeploymentProfile(pluginName))) return pluginName;
-    return (await this.getPluginDeploymentProfile(pluginName)).mappedName || pluginName;
-  }
-  public async getPluginState(pluginName: string): Promise<boolean> {
-    return (await this.getPluginDeploymentProfile(pluginName)).enabled;
-  }
   public async refreshAppConfig(): Promise<void> {
     return new Promise((r) => {
       const PACKAGE_JSON = PATH.join(this._cwd, "./package.json");

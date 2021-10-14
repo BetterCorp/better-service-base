@@ -231,17 +231,18 @@ export class CConfig implements IConfig {
   async updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): Promise<void> {
     throw new Error('Method not implemented.');
   }
-  async getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile> {
-    throw new Error('Method not implemented.');
-  }
-  async getMappedPluginName(pluginName: string): Promise<string> {
-    throw new Error('Method not implemented.');
-  }
-  async getPluginState(pluginName: string): Promise<boolean> {
-    throw new Error('Method not implemented.');
-  }
   async getPluginConfig<T extends IPluginConfig>(pluginName: string): Promise<T> {
     throw new Error('Method not implemented.');
+  }
+  public async getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile> {
+    return this.activeDeploymentProfile[pluginName!];
+  }
+  public async getMappedPluginName(pluginName: string): Promise<string> {
+    if (Tools.isNullOrUndefined(this.getPluginDeploymentProfile(pluginName))) return pluginName;
+    return (await this.getPluginDeploymentProfile(pluginName)).mappedName || pluginName;
+  }
+  public async getPluginState(pluginName: string): Promise<boolean> {
+    return (await this.getPluginDeploymentProfile(pluginName)).enabled;
   }
   get runningInDebug(): boolean {
     throw new Error('Method not implemented.');
