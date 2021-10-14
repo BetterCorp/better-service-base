@@ -151,7 +151,7 @@ export class Plugins {
     if (loadedFile.default !== undefined)
       loadedFile = loadedFile.default;
     this._coreLogger.debug(`LOAD P CONFIG: ${ name } Ready`);
-    let tPConfig = Tools.mergeObjects(loadedFile(mappedPluginName, this._appConfig.getPluginConfig(mappedPluginName)), this._appConfig.getPluginConfig(mappedPluginName));
+    let tPConfig = Tools.mergeObjects(loadedFile(mappedPluginName, await this._appConfig.getPluginConfig(mappedPluginName)), await this._appConfig.getPluginConfig(mappedPluginName));
     this._coreLogger.debug(`LOAD P CONFIG: ${ name } Update app config`);
     await this._appConfig.updateAppConfig(name, mappedPluginName, tPConfig);
     this._coreLogger.debug(`LOAD P CONFIG: ${ name } Complete`);
