@@ -23,8 +23,12 @@ export class Plugins {
     this._cwd = cwd;
     this._defaultLogger = logger;
     this._coreLogger = log;
-    this._logger = new Logger(this._loggerName, this._cwd, this._defaultLogger, undefined as any);
-    this._events = new Events(this._eventsName, this._cwd, this._defaultLogger, undefined as any);
+    this._logger = new Logger(this._loggerName, this._cwd, this._defaultLogger, {
+      runningInDebug: true
+    } as any);
+    this._events = new Events(this._eventsName, this._cwd, this._defaultLogger, {
+      runningInDebug: true
+    } as any);
 
     this._coreLogger.info("FIND: findAllPlugins");
     this._plugins = this.findAllPlugins();
@@ -158,6 +162,8 @@ export class Plugins {
   }
 
   private async getReadyPluginConfig(definition: IPluginDefinition, plugin: IReadyPlugin, mappedPluginName: string): Promise<void> {
+    if (definition === IPluginDefinition.config) return;
+
     this._coreLogger.debug(`READY: ${ plugin.name } AS ${ mappedPluginName } [${ definition }]`);
     if (!Tools.isNullOrUndefined(this._loadedPlugins[plugin.name])) {
       this._coreLogger.fatal(`Cannot have 2 plugins with the same name!! [${ plugin.name }]`);
@@ -200,11 +206,12 @@ export class Plugins {
     }
   }
 
-  public async setupConfigAllPlugins(): Promise<void> {
+  public async setupConfigPlugin(): Promise<void> {
     let deploymentProfile = "default";
     if (!Tools.isNullOrUndefined(process.env.BSB_PROFILE)) {
       deploymentProfile = process.env.BSB_PROFILE!;
     }
+
     if ((!Tools.isNullOrUndefined(process.env.BSB_CONFIG_PLUGIN) && process.env.BSB_CONFIG_PLUGIN !== '') || existsSync(join(this._cwd, './BSB_CONFIG_PLUGIN'))) {
       let pluginName = process.env.BSB_CONFIG_PLUGIN || readFileSync(join(this._cwd, './BSB_CONFIG_PLUGIN')).toString();
       this._coreLogger.info(`APP_CONFIG: PLUGIN ${ pluginName } check`);
@@ -218,11 +225,13 @@ export class Plugins {
         }
       }
     }
+
     if (Tools.isNullOrUndefined(this._appConfig)) {
-      this._coreLogger.info(`APP_CONFIG: PLUGIN default`);
+      this._coreLogger.info(`APP_CONFIG: PLUGIN default config loader`);
       this._appConfig = new DefaultConfig(this._defaultLogger, this._cwd, deploymentProfile);
       this._coreLogger.info(`APP_CONFIG: PLUGIN default [CONFIGURED]`);
     }
+
     await this._appConfig.refreshAppConfig();
   }
   public async configAllPlugins(): Promise<void> {
@@ -250,7 +259,7 @@ export class Plugins {
       if (plugin.pluginDefinition !== IPluginDefinition.logging) {
         continue;
       }
-      if (!this._appConfig.getPluginState(plugin.name)) {
+      if (!await this._appConfig.getPluginState(plugin.name)) {
         continue;
       }
       this._coreLogger.info(`CONSTRUCT: LOGGER ${ plugin.name }v${ plugin.version } [LOADED]`);
@@ -261,7 +270,7 @@ export class Plugins {
       if (plugin.pluginDefinition !== IPluginDefinition.events) {
         continue;
       }
-      if (!this._appConfig.getPluginState(plugin.name)) {
+      if (!await this._appConfig.getPluginState(plugin.name)) {
         continue;
       }
       this._coreLogger.info(`CONSTRUCT: EVENTS ${ plugin.name }v${ plugin.version } [LOADED]`);
@@ -292,7 +301,7 @@ export class Plugins {
     for (let plugin of this._plugins) {
       if (plugin.pluginDefinition !== IPluginDefinition.normal) continue;
       this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin!.name } [CHECK]`);
-      if (!this._appConfig.getPluginState(plugin.name)) {
+      if (!await this._appConfig.getPluginState(plugin.name)) {
         this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin!.name } [DISABLED]`);
         continue;
       }

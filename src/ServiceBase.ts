@@ -25,7 +25,9 @@ export default class ServiceBase {
   constructor(cwd: string) {
     this._startKeep("boot");
     this._cwd = cwd;
-    this._defaultLogger = new (DefaultLogger as any)(); // Default logger does not require any params, init or loaded to be called ...
+    this._defaultLogger = new DefaultLogger('CORE', cwd, undefined!, {
+      runningInDebug: true
+    } as any);
     const self = this;
     this._coreLogger = {
       info: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
@@ -43,7 +45,7 @@ export default class ServiceBase {
   async config(): Promise<void> {
     this._startKeep("config");
     this._coreLogger.info(":INIT CONFIG PLUGIN");
-    await this._plugins.setupConfigAllPlugins();
+    await this._plugins.setupConfigPlugin();
     this._coreLogger.info(":INIT CONFIG");
     await this._plugins.configAllPlugins();
     this._outputKeep();

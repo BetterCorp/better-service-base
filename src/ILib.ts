@@ -236,11 +236,12 @@ export class CConfig implements IConfig {
     throw new Error('Method not implemented.');
   }
   public async getMappedPluginName(pluginName: string): Promise<string> {
-    if (Tools.isNullOrUndefined(this.getPluginDeploymentProfile(pluginName))) return pluginName;
-    return (await this.getPluginDeploymentProfile(pluginName)).mappedName || pluginName;
+    let mappedDeploymentProfile = await this.getPluginDeploymentProfile(pluginName);
+    if (Tools.isNullOrUndefined(mappedDeploymentProfile)) return pluginName;
+    return mappedDeploymentProfile.mappedName || pluginName;
   }
   public async getPluginState(pluginName: string): Promise<boolean> {
-    return (await this.getPluginDeploymentProfile(pluginName)).enabled;
+    return (await this.getPluginDeploymentProfile(pluginName)).enabled || false;
   }
 
   get runningInDebug(): boolean {

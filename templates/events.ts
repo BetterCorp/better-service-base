@@ -4,20 +4,20 @@ import { MyPluginConfig } from './sec.config';
 export class Events extends CEvents<MyPluginConfig> {
   init(): Promise<void> {
     return new Promise((resolve) => {
-      resolve()
+      resolve();
     });
   }
 
-  onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): void {
+  async onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): Promise<void> {
     throw 'onEvent not setup';
   }
-  emitEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): void {
+  async emitEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): Promise<void> {
     throw 'emitEvent not setup';
   }
-  onReturnableEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
+  async onReturnableEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): Promise<void> {
     throw 'onReturnableEvent not setup';
   }
-  emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+  async emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     throw 'emitEventAndReturn not setup';
   }
 }

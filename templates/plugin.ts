@@ -4,10 +4,10 @@ import { MyPluginConfig } from './sec.config';
 export class demo extends CPluginClient<any> {
   public readonly _pluginName: string = "demo";
 
-  triggerServerOnEvent(data: any): void {
+  async triggerServerOnEvent(data: any): Promise<void> {
     this.refPlugin.emitEvent(this.pluginName, "exampleOnEvent", data);
   }
-  triggerServerMethod(data: any): Promise<any> {
+  async triggerServerMethod(data: any): Promise<any> {
     return this.refPlugin.emitEventAndReturn(this.pluginName, "exampleServerMethod", data);
   }
 }
@@ -15,9 +15,9 @@ export class demo extends CPluginClient<any> {
 export class Plugin extends CPlugin<MyPluginConfig> {
   init(): Promise<void> {
     const self = this;
-    return new Promise((resolve) => {
-      self.onEvent(self.pluginName, "exampleOnEvent", self.exampleOnEvent);
-      self.onReturnableEvent(self.pluginName, "exampleServerMethod", self.exampleServerMethod);
+    return new Promise(async (resolve) => {
+      self.onEvent(self.pluginName, "exampleOnEvent", x => self.exampleOnEvent(x));
+      self.onReturnableEvent(self.pluginName, "exampleServerMethod", (re: any, rj: any, d: any) => self.exampleServerMethod(d).then(re).catch(rj));
       resolve();
     });
   }

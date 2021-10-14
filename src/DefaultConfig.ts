@@ -1,7 +1,7 @@
 import * as FS from "fs";
 import * as PATH from "path";
 import { Tools } from "@bettercorp/tools/lib/Tools";
-import { DeploymentProfile, IPluginLogger, IPluginConfig, ServiceConfig, CConfig } from "./ILib";
+import { DeploymentProfile, IPluginLogger, IPluginConfig, ServiceConfig, CConfig, DeploymentProfiles } from "./ILib";
 
 export class DefaultConfig extends CConfig {
   private _appConfig!: ServiceConfig;
@@ -22,7 +22,12 @@ export class DefaultConfig extends CConfig {
     super(logger, cwd, deploymentProfile);
     this._cwd = cwd;
   }
-
+  public get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile> {
+    return this._appConfig.deploymentProfiles[this._deploymentProfile] as any;
+  }
+  public async getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile> {
+    return (await this.activeDeploymentProfile)[pluginName!];
+  }
   public async getPluginConfig<T extends IPluginConfig>(pluginName: string): Promise<T> {
     return (this._appConfig.plugins[pluginName] || {}) as T;
   }
@@ -43,12 +48,20 @@ export class DefaultConfig extends CConfig {
       if (!Tools.isNullOrUndefined(process.env.BSB_SEC_JSON)) {
         secConfigJsonFile = process.env.BSB_SEC_JSON!;
       }
-      if (!FS.existsSync(secConfigJsonFile)) {
-        this._defaultLogger.fatal("! sec.config.json CAN`T BE FOUND !");
+      if (FS.existsSync(secConfigJsonFile)) {
+        this._appConfig = JSON.parse(process.env.BSB_CONFIG_OBJECT || FS.readFileSync(process.env.BSB_CONFIG_FILE || secConfigJsonFile, "utf-8").toString()) as ServiceConfig;
+        this._appConfig.deploymentProfiles = this._appConfig.deploymentProfiles || {};
+        this._appConfig.deploymentProfiles.default = this._appConfig.deploymentProfiles.default || {};
+      } else {
+        this._debugMode = true;
+        this._defaultLogger.warn("! sec.config.json CAN`T BE FOUND ... we will try create one / work in memory!");
+        this._appConfig = {
+          "plugins": {},
+          "deploymentProfiles": {
+            "default": {}
+          }
+        } as any;
       }
-      this._appConfig = JSON.parse(process.env.BSB_CONFIG_OBJECT || FS.readFileSync(process.env.BSB_CONFIG_FILE || secConfigJsonFile, "utf-8").toString()) as ServiceConfig;
-      this._appConfig.deploymentProfiles = this._appConfig.deploymentProfiles || {};
-      this._appConfig.deploymentProfiles.default = this._appConfig.deploymentProfiles.default || {};
 
       this._secConfigFilePath = secConfigJsonFile;
       if (!this._runningLive || (process.env.BSB_FORCE_DEBUG !== undefined && process.env.BSB_FORCE_DEBUG !== null && process.env.BSB_FORCE_DEBUG === "1")) {
@@ -62,14 +75,15 @@ export class DefaultConfig extends CConfig {
     });
   }
   public async updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): Promise<void> {
-    return new Promise((r) => {
+    return new Promise(async (r) => {
       if (Tools.isNullOrUndefined(this._appConfig.deploymentProfiles[this._deploymentProfile])) {
         (this._appConfig.deploymentProfiles[this._deploymentProfile] as any) = {};
         this._hasConfigChanges = true;
       }
 
       if (!Tools.isNullOrUndefined(pluginName)) {
-        if (Tools.isNullOrUndefined(this.getPluginDeploymentProfile(pluginName!))) {
+        this._defaultLogger.debug(`Plugin check ${pluginName} as ${mappedPluginName}`);
+        if (Tools.isNullOrUndefined(await this.getPluginDeploymentProfile(pluginName!))) {
           ((this._appConfig.deploymentProfiles[this._deploymentProfile] as any)[pluginName!] as DeploymentProfile) = {
             mappedName: mappedPluginName || pluginName!,
             enabled: false
@@ -89,7 +103,7 @@ export class DefaultConfig extends CConfig {
       if (this._runningLive || !this._hasConfigChanges) return r();
 
       this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING.");
-      let readFile = JSON.stringify(JSON.parse(FS.readFileSync(this._secConfigFilePath, "utf-8").toString()));
+      let readFile = FS.existsSync(this._secConfigFilePath || './notavalid.file') ? JSON.stringify(JSON.parse(FS.readFileSync(this._secConfigFilePath, "utf-8").toString())) : {};
       let configFile = JSON.stringify(this._appConfig);
       if (readFile === configFile) {
         this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING: IGNORED = NO CHANGES");

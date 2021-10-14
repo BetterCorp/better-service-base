@@ -2,19 +2,19 @@ import { CLogger } from "@bettercorp/service-base/lib/ILib";
 import { MyPluginConfig } from './sec.config';
 
 export class Logger extends CLogger<MyPluginConfig> {
-  debug(plugin: string, ...data: any[]): void {
+  async debug(plugin: string, ...data: any[]): Promise<void> {
     throw 'debug not setup';
   }
-  info(plugin: string, ...data: any[]): void {
+  async info(plugin: string, ...data: any[]): Promise<void> {
     throw 'info not setup';
   }
-  warn(plugin: string, ...data: any[]): void {
+  async warn(plugin: string, ...data: any[]): Promise<void> {
     throw 'warn not setup';
   }
-  error(plugin: string, ...data: any[]): void {
+  async error(plugin: string, ...data: any[]): Promise<void> {
     throw 'error not setup';
   }
-  fatal(plugin: string, ...data: any[]): void {
+  async fatal(plugin: string, ...data: any[]): Promise<void> {
     throw 'fatal not setup';
   }
 }
