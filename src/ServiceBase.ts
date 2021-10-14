@@ -1,13 +1,11 @@
 import { Logger as DefaultLogger } from "./DefaultLogger";
 import { CLogger, IPluginLogger } from "./ILib";
-import { AppConfig } from "./AppConfig";
 import { Plugins } from "./Plugins";
 
 export default class ServiceBase {
   public readonly CORE_PLUGIN_NAME = "self";
 
   private _cwd: string;
-  private _appConfig: AppConfig;
   private _coreLogger: IPluginLogger;
   private _defaultLogger: CLogger;
   private _plugins: Plugins;
@@ -37,14 +35,15 @@ export default class ServiceBase {
       debug: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
     };
     this._coreLogger.info(":STARTUP");
-    this._appConfig = new AppConfig(this._coreLogger, this._cwd);
-    this._plugins = new Plugins(this._coreLogger, this._defaultLogger, this._appConfig, this._cwd);
+    this._plugins = new Plugins(this._coreLogger, this._defaultLogger, this._cwd);
     this._coreLogger.info(":STARTUP COMPLETED");
     this._outputKeep();
   }
 
   async config(): Promise<void> {
     this._startKeep("config");
+    this._coreLogger.info(":INIT CONFIG PLUGIN");
+    await this._plugins.setupConfigAllPlugins();
     this._coreLogger.info(":INIT CONFIG");
     await this._plugins.configAllPlugins();
     this._outputKeep();

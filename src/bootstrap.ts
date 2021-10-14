@@ -53,6 +53,13 @@ const types: ReadonlyArray<PluginTypes> = ['plugin', 'logger', 'events'];
 
   console.log(`New plugin created ${ pluginName } of type ${ argv.type }`);
 
+  let secConfigFile = path.join(path.join(cwd(), './sec.config.js'));
+  if (!fs.existsSync(secConfigFile)) {
+    console.log('Init sec.config.json');
+    const installer = path.join(SBBaseDir, "./lib/initAppConfig.js");
+    console.log("INIT CONFIG : " + installer);
+    require(installer);
+  }
   const installer = path.join(SBBaseDir, "./lib/ServiceBase.js");
   console.log("INSTALL FINAL : AUTOLOAD: " + installer);
   const ServiceBase = require(installer);
@@ -61,4 +68,6 @@ const types: ReadonlyArray<PluginTypes> = ['plugin', 'logger', 'events'];
 
   console.log(`New plugin setup ${ pluginName } of type ${ argv.type }`);
   console.log(`Enable the plugin in the /sec.config.json file`);
+
+  console.log(`New plugin created ${ pluginName } of type ${ argv.type } successfully`);
 })();

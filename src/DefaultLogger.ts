@@ -1,7 +1,8 @@
 import { CLogger } from "./ILib";
 
-export class Logger extends CLogger {  
+export class Logger extends CLogger {
   debug(plugin: string, ...data: any[]): void {
+    if (!this.appConfig.runningInDebug) return;
     if (typeof data === "string")
       return console.debug(`[DEBUG][${ plugin.toUpperCase() }] ${ data }`);
     console.debug(`[DEBUG][${ plugin.toUpperCase() }]`, data);

@@ -32,7 +32,7 @@ module.exports = (pkBase) => {
     tag = `-${buildTag}`
   }
   let now = new Date();
-  let month = `${now.getMonth()}`;
+  let month = `${now.getMonth()+1}`;
   if (month.length == 1)
     month = `0${month}`
   let day = `${now.getDate()}`;

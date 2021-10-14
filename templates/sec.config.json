@@ -1,0 +1,7 @@
+{
+  "plugins": {},
+  "deploymentProfiles": {
+    "default": {}
+  },
+  "debug": true
+}
