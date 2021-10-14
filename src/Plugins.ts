@@ -69,7 +69,7 @@ export class Plugins {
       if (!existsSync(pluginInstallerFile))
         pluginInstallerFile = null;
 
-      this._coreLogger.debug(`FIND: READY [dirPluginFolderName] in: ${ thisFullPath }`);
+      this._coreLogger.debug(`FIND: READY [${ dirPluginFolderName }] in: ${ thisFullPath }`);
       arrOfPlugins.push({
         pluginDefinition: this.getPluginType(dirPluginFolderName),
         name: dirPluginFolderName,
@@ -205,10 +205,12 @@ export class Plugins {
     if (!Tools.isNullOrUndefined(process.env.BSB_PROFILE)) {
       deploymentProfile = process.env.BSB_PROFILE!;
     }
-    if (!Tools.isNullOrUndefined(process.env.BSB_CONFIG) && process.env.BSB_CONFIG !== '') {
+    if ((!Tools.isNullOrUndefined(process.env.BSB_CONFIG_PLUGIN) && process.env.BSB_CONFIG_PLUGIN !== '') || existsSync(join(this._cwd, './BSB_CONFIG_PLUGIN'))) {
+      let pluginName = process.env.BSB_CONFIG_PLUGIN || readFileSync(join(this._cwd, './BSB_CONFIG_PLUGIN')).toString();
+      this._coreLogger.info(`APP_CONFIG: PLUGIN ${ pluginName } check`);
       for (const plugin of this._plugins) {
         if (plugin.pluginDefinition === IPluginDefinition.config) {
-          if (process.env.BSB_CONFIG !== plugin.name) continue;
+          if (pluginName !== plugin.name) continue;
           this._coreLogger.info(`APP_CONFIG: PLUGIN ${ plugin.name }v${ plugin.version }`);
           let configPlugin = ((await this.getReadyToLoadPlugin(plugin, plugin.name)) as any);
           this._appConfig = new configPlugin(this._defaultLogger, this._cwd, deploymentProfile);
