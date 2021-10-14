@@ -250,7 +250,7 @@ export class CConfig implements IConfig {
     throw new Error('Method not implemented.');
   }
   get deploymentProfile(): string {
-    throw new Error('Method not implemented.');
+    return this._deploymentProfile;
   }
   get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile> {
     throw new Error('Method not implemented.');

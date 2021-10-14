@@ -17,9 +17,6 @@ export class DefaultConfig extends CConfig {
   public get runningLive(): boolean {
     return this._runningLive;
   }
-  public get deploymentProfile(): string {
-    return this._deploymentProfile;
-  }
   public get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile> {
     return this._appConfig.deploymentProfiles[this._deploymentProfile] as any;
   }
