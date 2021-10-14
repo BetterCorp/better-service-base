@@ -28,11 +28,11 @@ export default class ServiceBase {
     this._defaultLogger = new (DefaultLogger as any)(); // Default logger does not require any params, init or loaded to be called ...
     const self = this;
     this._coreLogger = {
-      info: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      warn: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      error: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      fatal: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      debug: (...data: any[]): void => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
+      info: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
+      warn: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
+      error: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
+      fatal: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
+      debug: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
     };
     this._coreLogger.info(":STARTUP");
     this._plugins = new Plugins(this._coreLogger, this._defaultLogger, this._cwd);

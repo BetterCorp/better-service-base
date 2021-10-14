@@ -229,7 +229,7 @@ export class Plugins {
     this._coreLogger.info(`CONFIG: ${ this._plugins.length } plugins`);
     for (const plugin of this._plugins) {
       if (plugin.pluginDefinition === IPluginDefinition.config) continue;
-      let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
+      let mappedPlugin = await this._appConfig.getMappedPluginName(plugin.name);
       this._coreLogger.info(`CONFIG: PLUGIN ${ plugin.name }v${ plugin.version } AS ${ mappedPlugin }`);
       this.getReadyPluginConfig(plugin.pluginDefinition, plugin, mappedPlugin);
       this._coreLogger.info(`CONFIG: PLUGIN ${ plugin!.name }v${ plugin.version } [CONFIGURED]`);
@@ -240,7 +240,7 @@ export class Plugins {
     this._coreLogger.info("CONSTRUCT: constructAllPlugins");
     for (let plugin of this._plugins) {
       if (plugin.pluginDefinition === IPluginDefinition.config) continue;
-      let mappedPluginName = this._appConfig.getMappedPluginName(plugin.name);
+      let mappedPluginName = await this._appConfig.getMappedPluginName(plugin.name);
       await this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
     }
     this._coreLogger.info(`CONSTRUCT: ${ this._plugins.length } plugins`);
@@ -271,22 +271,22 @@ export class Plugins {
 
     // (pluginName: string, cwd: string, log: IPluginLogger, appConfig: AppConfig)
     if (!Tools.isNullOrUndefined(logger!)) {
-      let mappedPlugin = this._appConfig.getMappedPluginName(logger!.name);
+      let mappedPlugin = await this._appConfig.getMappedPluginName(logger!.name);
       this._coreLogger.info(`CONSTRUCT: ${ logger!.name } AS ${ mappedPlugin } [LOGGER]`);
       let readToLoadPlugin = (await this.getReadyToLoadPlugin(logger!, mappedPlugin));
       this._logger = new (readToLoadPlugin as any)(mappedPlugin, this._cwd, this._defaultLogger, this._appConfig);
     }
     const self = this;
     if (!Tools.isNullOrUndefined(events!)) {
-      let mappedPlugin = this._appConfig.getMappedPluginName(events!.name);
+      let mappedPlugin = await this._appConfig.getMappedPluginName(events!.name);
       this._coreLogger.info(`CONSTRUCT: ${ events!.name } AS ${ mappedPlugin } [EVENTS]`);
       let readToLoadPlugin = (await this.getReadyToLoadPlugin(events!, mappedPlugin));
       this._events = new (readToLoadPlugin as any)(mappedPlugin, this._cwd, {
-        info: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        warn: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        error: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        fatal: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        debug: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
+        info: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        warn: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        error: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        fatal: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        debug: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
       }, this._appConfig);
     }
     for (let plugin of this._plugins) {
@@ -296,16 +296,16 @@ export class Plugins {
         this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin!.name } [DISABLED]`);
         continue;
       }
-      let mappedPlugin = this._appConfig.getMappedPluginName(plugin.name);
+      let mappedPlugin = await this._appConfig.getMappedPluginName(plugin.name);
       this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${ plugin.version } AS ${ mappedPlugin }`);
       let readToLoadPlugin = (await this.getReadyToLoadPlugin(plugin, mappedPlugin));
       this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin.name }v${ plugin.version } Render`);
       this._loadedPlugins[plugin.name] = new (readToLoadPlugin as any)(mappedPlugin, this._cwd, {
-        info: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        warn: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        error: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        fatal: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
-        debug: (...data: any[]): void => self._logger.error(mappedPlugin, ...data),
+        info: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        warn: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        error: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        fatal: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
+        debug: (...data: any[]): Promise<void> => self._logger.error(mappedPlugin, ...data),
       }, this._appConfig);
       this._coreLogger.info(`CONSTRUCT: PLUGIN ${ plugin!.name } [LOADED]`);
     }
@@ -319,35 +319,35 @@ export class Plugins {
 
     for (let plugin of pluginsToInit) {
       self._coreLogger.info(`SETUP: ${ plugin }`);
-      let mappedPlugin = this._appConfig.getMappedPluginName(plugin);
-      self._loadedPlugins[plugin].onEvent = <T = any>(pluginName: string, event: string, listener: (data: T) => void): void => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
+      let mappedPlugin = await this._appConfig.getMappedPluginName(plugin);
+      self._loadedPlugins[plugin].onEvent = async <T = any>(pluginName: string, event: string, listener: (data: T) => void): Promise<void> => {
+        let imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.onEvent<T>(mappedPlugin, imappedPlugin, event, listener);
       };
-      self._loadedPlugins[plugin].onReturnableEvent = <T = any>(pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): void => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
+      self._loadedPlugins[plugin].onReturnableEvent = async <T = any>(pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): Promise<void> => {
+        let imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.onReturnableEvent<T>(mappedPlugin, imappedPlugin, event, listener);
       };
-      self._loadedPlugins[plugin].emitEvent = <T = any>(pluginName: string, event: string, data?: T): void => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
+      self._loadedPlugins[plugin].emitEvent = async <T = any>(pluginName: string, event: string, data?: T): Promise<void> => {
+        let imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.emitEvent<T>(mappedPlugin, imappedPlugin, event, data);
       };
-      self._loadedPlugins[plugin].emitEventAndReturn = <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
-        let imappedPlugin = this._appConfig.getMappedPluginName(pluginName || plugin);
+      self._loadedPlugins[plugin].emitEventAndReturn = async <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
+        let imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.emitEventAndReturn<T1, T2>(mappedPlugin, imappedPlugin, event, data, timeoutSeconds);
       };
-      self._loadedPlugins[plugin].initForPlugins = <ArgsDataType = any, ReturnDataType = void>(pluginName: string, initType: string, ...args: Array<ArgsDataType>): Promise<ReturnDataType> => {
+      self._loadedPlugins[plugin].initForPlugins = async <ArgsDataType = any, ReturnDataType = void>(pluginName: string, initType: string, ...args: Array<ArgsDataType>): Promise<ReturnDataType> => {
+        if (pluginsToInit.indexOf(pluginName) < 0) {
+          throw (`Please install and enable the plugin ${ pluginName } to be able to init for it.`);
+        }
+        if (Tools.isNullOrUndefined(self._loadedPlugins[pluginName])) {
+          throw (`Plugin reference error: ${ pluginName }`);
+        }
+
+        if (typeof (self._loadedPlugins[pluginName] as any)[initType] !== "function")
+          throw (`The plugin ${ pluginName } does not have a method ${ initType }... [${ Object.keys((self._loadedPlugins[pluginName] as any)).join(",") }]`);
+
         return new Promise((resolve, reject) => {
-          if (pluginsToInit.indexOf(pluginName) < 0) {
-            return self._logger.fatal(`Please install and enable the plugin ${ pluginName } to be able to init for it.`);
-          }
-          if (Tools.isNullOrUndefined(self._loadedPlugins[pluginName])) {
-            return self._logger.fatal(`Plugin reference error: ${ pluginName }`);
-          }
-
-          if (typeof (self._loadedPlugins[pluginName] as any)[initType] !== "function")
-            return self._logger.fatal(`The plugin ${ pluginName } does not have a method ${ initType }... [${ Object.keys((self._loadedPlugins[pluginName] as any)).join(",") }]`);
-
           self._coreLogger.info(`SETUP: ${ pluginName } INIT WITH ${ initType }`);
           (self._loadedPlugins[pluginName] as any)[initType](...args).then(resolve as any).catch(reject);
           self._coreLogger.info(`SETUP: ${ pluginName } INIT WITH ${ initType } - COMPLETE`);

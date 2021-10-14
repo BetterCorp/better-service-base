@@ -13,15 +13,15 @@ export class Events extends CEvents {
     return new Promise((resolve) => resolve());
   }
 
-  onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): void {
+  async onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): Promise<void> {
     this.log.info(callerPluginName, ` - LISTEN: [${ `${ pluginName }-${ event }` }]`);
     this.internalEvents.on(`${ pluginName }-${ event }`, listener);
   }
-  emitEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): void {
+  async emitEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): Promise<void> {
     this.log.debug(callerPluginName, ` - EMIT: [${ `${ pluginName }-${ event }` }]`, data);
     this.internalEvents.emit(`${ pluginName }-${ event }`, data);
   }
-  onReturnableEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): void {
+  async onReturnableEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): Promise<void> {
     const self = this;
     self.log.info(callerPluginName, ` - LISTEN EAR: [${ `${ pluginName }-${ event }` }]`);
     self.internalReturnableEvents.on(`${ pluginName }-${ event }`, (data: any) => {
@@ -34,7 +34,7 @@ export class Events extends CEvents {
       }, data.data);
     });
   }
-  emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+  async emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     let self = this;
     self.log.debug(callerPluginName, ` - EMIT AR: [${ `${ pluginName }-${ event }` }]`, data);
     return new Promise((resolve, reject) => {
