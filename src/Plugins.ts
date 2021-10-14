@@ -145,7 +145,7 @@ export class Plugins {
     return this.findNPMPlugins().concat(this.findLocalPlugins());
   }
 
-  private loadPluginConfig(name: string, mappedPluginName: string, path: string): void {
+  private async loadPluginConfig(name: string, mappedPluginName: string, path: string): Promise<void> {
     this._coreLogger.debug(`LOAD P CONFIG: ${ name }`);
     let loadedFile = require(path);
     if (loadedFile.default !== undefined)
@@ -153,7 +153,7 @@ export class Plugins {
     this._coreLogger.debug(`LOAD P CONFIG: ${ name } Ready`);
     let tPConfig = Tools.mergeObjects(loadedFile(mappedPluginName, this._appConfig.getPluginConfig(mappedPluginName)), this._appConfig.getPluginConfig(mappedPluginName));
     this._coreLogger.debug(`LOAD P CONFIG: ${ name } Update app config`);
-    this._appConfig.updateAppConfig(name, mappedPluginName, tPConfig);
+    await this._appConfig.updateAppConfig(name, mappedPluginName, tPConfig);
     this._coreLogger.debug(`LOAD P CONFIG: ${ name } Complete`);
   }
 
@@ -169,7 +169,7 @@ export class Plugins {
       this.loadPluginConfig(plugin.name, mappedPluginName, plugin.installerFile);
     } else {
       this._coreLogger.debug(`READY: ${ plugin.name } Installer as {}`);
-      this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
+      await this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
     }
     this._coreLogger.debug(`READY: ${ plugin.name } Installer Complete`);
   }
@@ -223,6 +223,7 @@ export class Plugins {
       this._appConfig = new DefaultConfig(this._defaultLogger, this._cwd, deploymentProfile);
       this._coreLogger.info(`APP_CONFIG: PLUGIN default [CONFIGURED]`);
     }
+    await this._appConfig.refreshAppConfig();
   }
   public async configAllPlugins(): Promise<void> {
     this._coreLogger.info(`CONFIG: ${ this._plugins.length } plugins`);
@@ -240,7 +241,7 @@ export class Plugins {
     for (let plugin of this._plugins) {
       if (plugin.pluginDefinition === IPluginDefinition.config) continue;
       let mappedPluginName = this._appConfig.getMappedPluginName(plugin.name);
-      this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
+      await this._appConfig.updateAppConfig(plugin.name, mappedPluginName);
     }
     this._coreLogger.info(`CONSTRUCT: ${ this._plugins.length } plugins`);
     let logger: IReadyPlugin;

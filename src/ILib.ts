@@ -25,7 +25,7 @@ export class CLogger<PluginConfigType extends IPluginConfig = any> implements IL
   log: IPluginLogger;
   cwd: string;
   appConfig: IConfig;
-  getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
+  async getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): Promise<PluginConfigType> {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
   }
 
@@ -67,7 +67,7 @@ export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   log: IPluginLogger;
   cwd: string;
   appConfig: IConfig;
-  getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
+  async getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): Promise<PluginConfigType> {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
   }
 
@@ -113,7 +113,7 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   log: IPluginLogger;
   cwd: string;
   appConfig: IConfig;
-  getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): PluginConfigType {
+  async getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): Promise<PluginConfigType> {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
   }
 
@@ -145,7 +145,7 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
 
 export class CPluginClient<T> {
   public readonly _pluginName: string | undefined;
-  public get pluginName(): string {
+  public async pluginName(): Promise<string> {
     return this.refPlugin.appConfig.getMappedPluginName(this._pluginName!);
   }
   public refPlugin: CPlugin;
@@ -154,8 +154,8 @@ export class CPluginClient<T> {
     this.refPlugin = self as CPlugin;
   }
 
-  getPluginConfig(): T {
-    return this.refPlugin.getPluginConfig<T>(this.pluginName);
+  async getPluginConfig(): Promise<T> {
+    return this.refPlugin.getPluginConfig<T>(await this.pluginName());
   }
 
   onEvent<ArgsDataType = any>(event: string, listener: (data: ArgsDataType) => void): void {
@@ -209,13 +209,13 @@ export interface IConfig {
   get deploymentProfile(): string;
   get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile>;
 
-  getPluginConfig<T extends IPluginConfig>(pluginName: string): T;
-  getPluginDeploymentProfile(pluginName: string): DeploymentProfile;
-  getMappedPluginName(pluginName: string): string;
-  getPluginState(pluginName: string): boolean;
+  getPluginConfig<T extends IPluginConfig>(pluginName: string): Promise<T>;
+  getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile>;
+  getMappedPluginName(pluginName: string): Promise<string>;
+  getPluginState(pluginName: string): Promise<boolean>;
 
-  refreshAppConfig(): void;
-  updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): void;
+  refreshAppConfig(): Promise<void>;
+  updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): Promise<void>;
 }
 
 export class CConfig implements IConfig {
@@ -225,23 +225,22 @@ export class CConfig implements IConfig {
     this._defaultLogger = logger;
     this._deploymentProfile = deploymentProfile;
   }
-  refreshAppConfig(): void {
+  async refreshAppConfig(): Promise<void> {
     throw new Error('Method not implemented.');
   }
-  updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): void {
-    this._defaultLogger.debug('Cannot update config: Ignoring update request.')
-    return;
-  }
-  getPluginDeploymentProfile(pluginName: string): DeploymentProfile {
+  async updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): Promise<void> {
     throw new Error('Method not implemented.');
   }
-  getMappedPluginName(pluginName: string): string {
+  async getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile> {
     throw new Error('Method not implemented.');
   }
-  getPluginState(pluginName: string): boolean {
+  async getMappedPluginName(pluginName: string): Promise<string> {
     throw new Error('Method not implemented.');
   }
-  getPluginConfig<T extends IPluginConfig>(pluginName: string): T {
+  async getPluginState(pluginName: string): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+  async getPluginConfig<T extends IPluginConfig>(pluginName: string): Promise<T> {
     throw new Error('Method not implemented.');
   }
   get runningInDebug(): boolean {
