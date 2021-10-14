@@ -1,7 +1,7 @@
 import * as FS from "fs";
 import * as PATH from "path";
 import { Tools } from "@bettercorp/tools/lib/Tools";
-import { DeploymentProfile, DeploymentProfiles, IPluginLogger, IPluginConfig, ServiceConfig, CConfig } from "./ILib";
+import { DeploymentProfile, IPluginLogger, IPluginConfig, ServiceConfig, CConfig } from "./ILib";
 
 export class DefaultConfig extends CConfig {
   private _appConfig!: ServiceConfig;
@@ -16,9 +16,6 @@ export class DefaultConfig extends CConfig {
   }
   public get runningLive(): boolean {
     return this._runningLive;
-  }
-  public get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile> {
-    return this._appConfig.deploymentProfiles[this._deploymentProfile] as any;
   }
 
   constructor(logger: IPluginLogger, cwd: string, deploymentProfile: string) {
@@ -66,7 +63,7 @@ export class DefaultConfig extends CConfig {
   }
   public async updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): Promise<void> {
     return new Promise((r) => {
-      if (Tools.isNullOrUndefined(this.activeDeploymentProfile)) {
+      if (Tools.isNullOrUndefined(this._appConfig.deploymentProfiles[this._deploymentProfile])) {
         (this._appConfig.deploymentProfiles[this._deploymentProfile] as any) = {};
         this._hasConfigChanges = true;
       }

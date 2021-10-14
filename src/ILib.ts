@@ -206,8 +206,6 @@ export interface IReadyPlugin {
 export interface IConfig {
   get runningInDebug(): boolean;
   get runningLive(): boolean;
-  get deploymentProfile(): string;
-  get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile>;
 
   getPluginConfig<T extends IPluginConfig>(pluginName: string): Promise<T>;
   getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile>;
@@ -235,7 +233,7 @@ export class CConfig implements IConfig {
     throw new Error('Method not implemented.');
   }
   public async getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile> {
-    return this.activeDeploymentProfile[pluginName!];
+    throw new Error('Method not implemented.');
   }
   public async getMappedPluginName(pluginName: string): Promise<string> {
     if (Tools.isNullOrUndefined(this.getPluginDeploymentProfile(pluginName))) return pluginName;
@@ -244,16 +242,11 @@ export class CConfig implements IConfig {
   public async getPluginState(pluginName: string): Promise<boolean> {
     return (await this.getPluginDeploymentProfile(pluginName)).enabled;
   }
+
   get runningInDebug(): boolean {
     throw new Error('Method not implemented.');
   }
   get runningLive(): boolean {
-    throw new Error('Method not implemented.');
-  }
-  get deploymentProfile(): string {
-    return this._deploymentProfile;
-  }
-  get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile> {
     throw new Error('Method not implemented.');
   }
 }
