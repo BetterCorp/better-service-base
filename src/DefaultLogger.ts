@@ -23,7 +23,6 @@ export class Logger extends CLogger {
     console.error(`[${ plugin.toUpperCase() }]`, data);
   }
   async fatal(plugin: string, ...data: any[]): Promise<void> {
-    this.error(plugin, ...data);
-    process.exit(1);
+    await this.error(plugin, 'FATAL', ...data);
   }
 }

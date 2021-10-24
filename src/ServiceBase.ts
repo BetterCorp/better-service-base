@@ -10,6 +10,8 @@ export default class ServiceBase {
   private _defaultLogger: CLogger;
   private _plugins: Plugins;
 
+  private _heartbeat: NodeJS.Timer | null = null;
+
   private _keepTimerInitial: number = 0;
   private _keepTimer: number = 0;
   private _keepName: string = "";
@@ -22,6 +24,12 @@ export default class ServiceBase {
   private _outputKeep() {
     this._coreLogger.info(`[TIMER] ${ this._keepName } took ${ (new Date().getTime()) - this._keepTimer }ms`);
   }
+  private async _fatalHandler() {
+    await this._coreLogger.error('CORE', 'APPLICATION FATAL ERROR OCCURED. PERFORMING APP EXIT (1)');
+    if (this._heartbeat !== null)
+      clearTimeout(this._heartbeat);
+    process.exit(1);
+  }
   constructor(cwd: string) {
     this._startKeep("boot");
     this._cwd = cwd;
@@ -33,16 +41,24 @@ export default class ServiceBase {
       info: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
       warn: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
       error: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      fatal: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
+      fatal: async (...data: any[]): Promise<void> => { await self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data); await self._fatalHandler(); },
       debug: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
     };
     this._coreLogger.info(":STARTUP");
-    this._plugins = new Plugins(this._coreLogger, this._defaultLogger, this._cwd);
+    this._plugins = new Plugins(this._coreLogger, this._defaultLogger, this._cwd, this._fatalHandler);
     this._coreLogger.info(":STARTUP COMPLETED");
     this._outputKeep();
   }
 
+  private async findAllPlugins(): Promise<void> {
+    this._startKeep("findAllPlugins");
+    this._coreLogger.info(":INIT PLUGIN LOCATOR");
+    await this._plugins.findAllPlugins();
+    this._outputKeep();
+  }
+
   async config(): Promise<void> {
+    await this.findAllPlugins();
     this._startKeep("config");
     this._coreLogger.info(":INIT CONFIG PLUGIN");
     await this._plugins.setupConfigPlugin();
@@ -77,7 +93,7 @@ export default class ServiceBase {
     this._coreLogger.info(":RUN READY");
 
     const self = this;
-    setInterval(() => {
+    this._heartbeat = setInterval(() => {
       self._coreLogger.info("[HEARTBEAT]");
     }, 60 * 60 * 1000);
 
