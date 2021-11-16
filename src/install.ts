@@ -42,8 +42,8 @@ const filesToCopyToDest = [
     name: 'eslintrc'
   },
   {
-    src: path.join(CWD, './node_modules/@bettercorp/service-base/build/.tsconfig.js'),
-    dst: path.join(CWD, './.tsconfig.js'),
+    src: path.join(CWD, './node_modules/@bettercorp/service-base/build/tsconfig.js'),
+    dst: path.join(CWD, './tsconfig.js'),
     name: 'tsconfig'
   },
 
