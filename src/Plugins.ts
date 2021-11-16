@@ -70,9 +70,9 @@ export class Plugins {
         continue;
       }
 
-      let pluginInstallerFile: string | null = join(thisFullPath, "sec.config.ts");
-      if (!existsSync(pluginInstallerFile))
-        pluginInstallerFile = join(thisFullPath, "sec.config.js");
+      let pluginInstallerFile: string | null = join(thisFullPath, "sec.config.js");
+      //if (!existsSync(pluginInstallerFile))
+      //  pluginInstallerFile = join(thisFullPath, "sec.config.js");
 
       if (!existsSync(pluginInstallerFile))
         pluginInstallerFile = null;
