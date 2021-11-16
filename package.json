@@ -9,7 +9,7 @@
     "start": "node lib/index.js",
     "build": "tsc",
     "postinstall": "node ./lib/install.js",
-    "version": "node ./build/version.js $0",
+    "version": "node ./build/version-bcorp.js $0",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx"
   },
   "files": [
