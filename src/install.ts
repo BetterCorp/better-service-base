@@ -1,5 +1,6 @@
 import { Tools } from "@bettercorp/tools/lib/Tools";
 import * as fs from "fs";
+import * as crypto from "crypto";
 import * as path from "path";
 import * as os from "os";
 let CWD = process.cwd();
@@ -40,12 +41,13 @@ const filesToCopyToDest = [
     dst: path.join(CWD, './.eslintrc.js'),
     name: 'eslintrc'
   },
+  {
+    src: path.join(CWD, './node_modules/@bettercorp/service-base/build/.tsconfig.js'),
+    dst: path.join(CWD, './.tsconfig.js'),
+    name: 'tsconfig'
+  },
 
   // old build files
-  {
-    dst: path.join(CWD, './tsconfig.json'),
-    remove: true
-  },
   {
     dst: path.join(CWD, './tslint.json'),
     remove: true
@@ -59,6 +61,16 @@ for (const fileInfo of filesToCopyToDest) {
   } else {
     if (!fs.existsSync(fileInfo.dst)) {
       console.log(`Creating ${ fileInfo.name } build file... (${ fileInfo.src } -> ${ fileInfo.dst })`);
+      fs.copyFileSync(fileInfo.src!, fileInfo.dst!);
+    }
+    const srcBuffer = fs.readFileSync(fileInfo.src!);
+    const srcHash = crypto.createHash('sha256');
+    srcHash.update(srcBuffer);
+    const dstBuffer = fs.readFileSync(fileInfo.dst!);
+    const dstHash = crypto.createHash('sha256');
+    dstHash.update(dstBuffer);
+    if (srcHash.digest('hex') !== dstHash.digest('hex')) {
+      console.log(`Updating ${ fileInfo.name } build file... (${ fileInfo.src } -> ${ fileInfo.dst })`);
       fs.copyFileSync(fileInfo.src!, fileInfo.dst!);
     }
   }
