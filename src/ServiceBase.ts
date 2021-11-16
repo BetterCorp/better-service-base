@@ -12,9 +12,9 @@ export default class ServiceBase {
 
   private _heartbeat: NodeJS.Timer | null = null;
 
-  private _keepTimerInitial: number = 0;
-  private _keepTimer: number = 0;
-  private _keepName: string = "";
+  private _keepTimerInitial = 0;
+  private _keepTimer = 0;
+  private _keepName = "";
   private _startKeep(stepName: string) {
     this._keepName = stepName;
     this._keepTimer = new Date().getTime();

@@ -53,16 +53,16 @@ const types: ReadonlyArray<PluginTypes> = ['plugin', 'logger', 'events'];
 
   console.log(`New plugin created ${ pluginName } of type ${ argv.type }`);
 
-  let secConfigFile = path.join(path.join(cwd(), './sec.config.js'));
+  const secConfigFile = path.join(path.join(cwd(), './sec.config.js'));
   if (!fs.existsSync(secConfigFile)) {
     console.log('Init sec.config.json');
     const installer = path.join(SBBaseDir, "./lib/initAppConfig.js");
     console.log("INIT CONFIG : " + installer);
-    require(installer);
+    require(installer); // eslint-disable-line @typescript-eslint/no-var-requires
   }
   const installer = path.join(SBBaseDir, "./lib/ServiceBase.js");
   console.log("INSTALL FINAL : AUTOLOAD: " + installer);
-  const ServiceBase = require(installer);
+  const ServiceBase = require(installer); // eslint-disable-line @typescript-eslint/no-var-requires
   const SB = new ServiceBase.default(cwd());
   SB.config().then(() => console.log("INSTALL COMPLETE FOR @bettercorp/service-base")).catch(() => process.exit(1));
 

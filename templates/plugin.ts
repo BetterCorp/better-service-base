@@ -5,10 +5,10 @@ export class demo extends CPluginClient<any> {
   public readonly _pluginName: string = "demo";
 
   async triggerServerOnEvent(data: any): Promise<void> {
-    this.refPlugin.emitEvent(this.pluginName, "exampleOnEvent", data);
+    this.refPlugin.emitEvent(null, "exampleOnEvent", data);
   }
   async triggerServerMethod(data: any): Promise<any> {
-    return this.refPlugin.emitEventAndReturn(this.pluginName, "exampleServerMethod", data);
+    return this.refPlugin.emitEventAndReturn(null, "exampleServerMethod", data);
   }
 }
 
@@ -16,8 +16,8 @@ export class Plugin extends CPlugin<MyPluginConfig> {
   init(): Promise<void> {
     const self = this;
     return new Promise(async (resolve) => {
-      self.onEvent(self.pluginName, "exampleOnEvent", x => self.exampleOnEvent(x));
-      self.onReturnableEvent(self.pluginName, "exampleServerMethod", (re: any, rj: any, d: any) => self.exampleServerMethod(d).then(re).catch(rj));
+      self.onEvent(null, "exampleOnEvent", x => self.exampleOnEvent(x));
+      self.onReturnableEvent(null, "exampleServerMethod", (re: any, rj: any, d: any) => self.exampleServerMethod(d).then(re).catch(rj));
       resolve();
     });
   }

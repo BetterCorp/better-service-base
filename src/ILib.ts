@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 
@@ -18,7 +19,7 @@ export interface ILogger {
   debug(plugin: string, ...data: any[]): Promise<void>;
 }
 
-export interface IPluginConfig { }
+export interface IPluginConfig { } // eslint-disable-line @typescript-eslint/no-empty-interface
 
 export class CLogger<PluginConfigType extends IPluginConfig = any> implements ILogger {
   pluginName: string;
@@ -236,7 +237,7 @@ export class CConfig implements IConfig {
     throw new Error('Method not implemented.');
   }
   public async getMappedPluginName(pluginName: string): Promise<string> {
-    let mappedDeploymentProfile = await this.getPluginDeploymentProfile(pluginName);
+    const mappedDeploymentProfile = await this.getPluginDeploymentProfile(pluginName);
     if (Tools.isNullOrUndefined(mappedDeploymentProfile)) return pluginName;
     return mappedDeploymentProfile.mappedName || pluginName;
   }

@@ -35,7 +35,7 @@ export class Events extends CEvents {
     });
   }
   async emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
-    let self = this;
+    const self = this;
     self.log.debug(callerPluginName, ` - EMIT AR: [${ `${ pluginName }-${ event }` }]`, data);
     return new Promise((resolve, reject) => {
       const resultKey = v4();

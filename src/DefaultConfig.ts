@@ -5,11 +5,11 @@ import { DeploymentProfile, IPluginLogger, IPluginConfig, ServiceConfig, CConfig
 
 export class DefaultConfig extends CConfig {
   private _appConfig!: ServiceConfig;
-  private _hasConfigChanges: boolean = false;
-  private _runningLive: boolean = false;
+  private _hasConfigChanges = false;
+  private _runningLive = false;
   private _secConfigFilePath!: string;
   private _cwd: string;
-  private _debugMode: boolean = false;
+  private _debugMode = false;
 
   public get runningInDebug(): boolean {
     return this._debugMode;
@@ -75,46 +75,43 @@ export class DefaultConfig extends CConfig {
     });
   }
   public async updateAppConfig(pluginName?: string, mappedPluginName?: string, config?: IPluginConfig): Promise<void> {
-    return new Promise(async (r) => {
-      if (Tools.isNullOrUndefined(this._appConfig.deploymentProfiles[this._deploymentProfile])) {
-        (this._appConfig.deploymentProfiles[this._deploymentProfile] as any) = {};
+    if (Tools.isNullOrUndefined(this._appConfig.deploymentProfiles[this._deploymentProfile])) {
+      (this._appConfig.deploymentProfiles[this._deploymentProfile] as any) = {};
+      this._hasConfigChanges = true;
+    }
+
+    if (!Tools.isNullOrUndefined(pluginName)) {
+      this._defaultLogger.debug(`Plugin check ${ pluginName } as ${ mappedPluginName }`);
+      if (Tools.isNullOrUndefined(await this.getPluginDeploymentProfile(pluginName!))) {
+        ((this._appConfig.deploymentProfiles[this._deploymentProfile] as any)[pluginName!] as DeploymentProfile) = {
+          mappedName: mappedPluginName || pluginName!,
+          enabled: false
+        };
         this._hasConfigChanges = true;
       }
-
-      if (!Tools.isNullOrUndefined(pluginName)) {
-        this._defaultLogger.debug(`Plugin check ${pluginName} as ${mappedPluginName}`);
-        if (Tools.isNullOrUndefined(await this.getPluginDeploymentProfile(pluginName!))) {
-          ((this._appConfig.deploymentProfiles[this._deploymentProfile] as any)[pluginName!] as DeploymentProfile) = {
-            mappedName: mappedPluginName || pluginName!,
-            enabled: false
-          };
-          this._hasConfigChanges = true;
-        }
-        if (Tools.isNullOrUndefined(this._appConfig.plugins[mappedPluginName!])) {
-          this._appConfig.plugins[mappedPluginName!] = {};
-          this._hasConfigChanges = true;
-        }
-        if (!Tools.isNullOrUndefined(config)) {
-          this._appConfig.plugins[mappedPluginName!] = config!;
-          this._hasConfigChanges = true;
-        }
+      if (Tools.isNullOrUndefined(this._appConfig.plugins[mappedPluginName!])) {
+        this._appConfig.plugins[mappedPluginName!] = {};
+        this._hasConfigChanges = true;
       }
-
-      if (this._runningLive || !this._hasConfigChanges) return r();
-
-      this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING.");
-      let readFile = FS.existsSync(this._secConfigFilePath || './notavalid.file') ? JSON.stringify(JSON.parse(FS.readFileSync(this._secConfigFilePath, "utf-8").toString())) : {};
-      let configFile = JSON.stringify(this._appConfig);
-      if (readFile === configFile) {
-        this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING: IGNORED = NO CHANGES");
-        this._hasConfigChanges = false;
-        return r();
+      if (!Tools.isNullOrUndefined(config)) {
+        this._appConfig.plugins[mappedPluginName!] = config!;
+        this._hasConfigChanges = true;
       }
+    }
 
-      FS.writeFileSync(this._secConfigFilePath, configFile);
+    if (this._runningLive || !this._hasConfigChanges) return;
+
+    this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING.");
+    const readFile = FS.existsSync(this._secConfigFilePath || './notavalid.file') ? JSON.stringify(JSON.parse(FS.readFileSync(this._secConfigFilePath, "utf-8").toString())) : {};
+    const configFile = JSON.stringify(this._appConfig);
+    if (readFile === configFile) {
+      this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING: IGNORED = NO CHANGES");
       this._hasConfigChanges = false;
-      this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING: UPDATED");
-      r();
-    });
+      return;
+    }
+
+    FS.writeFileSync(this._secConfigFilePath, configFile);
+    this._hasConfigChanges = false;
+    this._defaultLogger.warn("SEC CONFIG AUTOMATICALLY UPDATING: UPDATED");
   }
 }
