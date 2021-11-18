@@ -23,7 +23,7 @@
   "main": "lib/index.js",
   "version": "6.0.0",
   "dependencies": {
-    "@bettercorp/tools": "^1.2.20211101100533",
+    "@bettercorp/tools": "^1.2.20211118015545",
     "@types/node": "^16.11.7",
     "@types/uuid": "^8.3.3",
     "@types/yargs": "^17.0.6",
