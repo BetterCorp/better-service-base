@@ -89,7 +89,7 @@ const internalAppScripts: any = {
 };
 const bcorpLibScripts: any = {
   ...defaultScripts,
-  version: "node ./node_modules/@bettercorp/service-base/build/version-internal.js $0"
+  version: "node ./node_modules/@bettercorp/service-base/build/version-bcorp.js $0"
 };
 
 let coreAppInstall = false;
