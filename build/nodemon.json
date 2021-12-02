@@ -1,0 +1,17 @@
+{
+  "restartable": "rs",
+  "ignore": [
+    ".git",
+    "lib",
+    "node_modules/**/node_modules",
+    "src/plugins/-*/**/*.ts"
+  ],
+  "delay": 2000,
+  "signal": "SIGHUP",
+  "exec": "ts-node node_modules/@bettercorp/service-base/lib/index.js",
+  "watch": [
+    "src/**/*.ts",
+    "sec.config.json"
+  ],
+  "ext": "ts,json"
+}

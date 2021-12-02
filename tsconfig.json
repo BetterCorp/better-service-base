@@ -9,12 +9,14 @@
     "rootDir": "src",
     "sourceMap": true,
     "strict": true,
-    "target": "es2015",
-    "declaration": true
+    "target": "es2021",
+    "declaration": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
   },
   "linterOptions": {
     "exclude": [
-        "src/plugins/-*/*.*"
+      "src/plugins/-*/**/*.*"
     ]
   },
   "compileOnSave": true,

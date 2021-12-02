@@ -78,7 +78,7 @@ for (const fileInfo of filesToCopyToDest) {
 
 const defaultScripts: any = {
   build: "tsc",
-  dev: "nodemon -L --watch src/**/*.ts --watch sec.config.json --exec ts-node node_modules/@bettercorp/service-base/lib/index.js",
+  dev: "nodemon --config node_modules/@bettercorp/service-base/build/nodemon.json",
   start: "ts-node node_modules/@bettercorp/service-base/lib/index.js",
   create: "ts-node node_modules/@bettercorp/service-base/lib/bootstrap.js $0",
   version: "node ./node_modules/@bettercorp/service-base/build/version-ci.js $0",
