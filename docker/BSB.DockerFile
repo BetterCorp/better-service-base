@@ -16,6 +16,7 @@ COPY *.tgz /home/bsb-build/
 RUN npm i --save "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
 RUN npm i --save @bettercorp/service-base-plugin-config-1password
 RUN npm i --save @bettercorp/service-base-plugin-events-rabbitmq
+RUN npm i --save @bettercorp/service-base-plugin-events-pubnub
 RUN npm i --save @bettercorp/service-base-plugin-log-gelf
 
 RUN cat ./package.json

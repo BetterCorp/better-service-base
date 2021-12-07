@@ -3,7 +3,7 @@ ARG BSB_VERSION=latest
 ARG PLUGIN_VERSION=latest
 
 # Image setup
-FROM betterweb/better-service-base:base-${BSB_VERSION}
+FROM betterweb/better-service-base:${BSB_VERSION}
 
 # Core perms
 ADD .npmrc .npmrc
