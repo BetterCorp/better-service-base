@@ -1,5 +1,5 @@
 # Image setup
-FROM node:14-alpine
+FROM betterweb/node:14-alpine
 RUN apk update
 RUN npm i -g typescript@4.3.5 ts-node@10.0.0
 RUN mkdir /home/bsb
