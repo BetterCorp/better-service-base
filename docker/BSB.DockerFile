@@ -1,7 +1,10 @@
+# Args
+ARG IMAGE_PLATFORM_TYPE=
+
 # Image setup
-FROM betterweb/node:14-alpine-${IMAGE_PLATFORM_TYPE}
+FROM  --platform=$BUILDPLATFORM betterweb/node:14-alpine${IMAGE_PLATFORM_TYPE}
 RUN apk update
-RUN npm i -g typescript@4.3.5 ts-node@10.0.0
+RUN npm i -g typescript@4.5.2 ts-node@10.4.0
 RUN mkdir /home/bsb
 WORKDIR /home/bsb
 
