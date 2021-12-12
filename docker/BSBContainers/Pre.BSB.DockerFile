@@ -3,9 +3,10 @@
 ARG BSB_VERSION=latest
 ARG PLUGIN_VERSION=latest
 ARG IMAGE_PLATFORM_TYPE=
+ARG BUILD_PLATFORM=linux/amd64
 
 # Image setup
-FROM --platform=$BUILDPLATFORM betterweb/service-base:${BSB_VERSION}${IMAGE_PLATFORM_TYPE}
+FROM --platform=$BUILD_PLATFORM betterweb/service-base:${BSB_VERSION}${IMAGE_PLATFORM_TYPE}
 
 # Add package (from local)
 RUN mkdir /home/bsb-build
