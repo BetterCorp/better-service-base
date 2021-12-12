@@ -1,3 +1,4 @@
+
 # Args
 ARG BSB_VERSION=latest
 ARG PLUGIN_VERSION=latest
@@ -11,11 +12,3 @@ COPY *.tgz /home/bsb-build/
 ADD .npmrc .npmrc
 RUN mv ./.npmrc ~/.npmrc
 RUN echo "HOME: $(echo ~/)" 
-
-# Install plugin
-RUN npm i "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
-RUN npm version ${PLUGIN_VERSION}
-
-# Cleanup
-RUN rm -rfv /home/bsb-build
-RUN rm -fv ~/.npmrc
