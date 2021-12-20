@@ -348,9 +348,9 @@ export class Plugins {
         const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.onEvent<T>(mappedPlugin, imappedPlugin, event, listener);
       };
-      self._loadedPlugins[plugin].onReturnableEvent = async <T = any>(pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: T) => void): Promise<void> => {
+      self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(pluginName: string, event: string, listener: (resolve: { (data: ResolveDataType): void; }, reject: { (error: RejectDataType): void; }, data: ArgsDataType) => void): Promise<void> => {
         const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
-        return self._events.onReturnableEvent<T>(mappedPlugin, imappedPlugin, event, listener);
+        return self._events.onReturnableEvent<ArgsDataType, ResolveDataType, RejectDataType>(mappedPlugin, imappedPlugin, event, listener);
       };
       self._loadedPlugins[plugin].emitEvent = async <T = any>(pluginName: string, event: string, data?: T): Promise<void> => {
         const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
