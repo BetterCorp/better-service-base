@@ -26,7 +26,7 @@ export class CLogger<PluginConfigType extends IPluginConfig = any> implements IL
   log: IPluginLogger;
   cwd: string;
   appConfig: IConfig;
-  async getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): Promise<PluginConfigType> {
+  async getPluginConfig<T = PluginConfigType>(pluginName?: string): Promise<T> {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
   }
 
@@ -68,7 +68,7 @@ export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   log: IPluginLogger;
   cwd: string;
   appConfig: IConfig;
-  async getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): Promise<PluginConfigType> {
+  async getPluginConfig<T = PluginConfigType>(pluginName?: string): Promise<T> {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
   }
 
@@ -114,7 +114,7 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   log: IPluginLogger;
   cwd: string;
   appConfig: IConfig;
-  async getPluginConfig<T extends PluginConfigType = any>(pluginName?: string): Promise<PluginConfigType> {
+  async getPluginConfig<T = PluginConfigType>(pluginName?: string): Promise<T> {
     return this.appConfig.getPluginConfig<T>(pluginName || this.pluginName);
   }
 
