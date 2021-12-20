@@ -21,7 +21,7 @@
     "templates/**/*"
   ],
   "main": "lib/index.js",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "dependencies": {
     "@bettercorp/tools": "^1.2.20211118015545",
     "@types/node": "^16.11.14",
