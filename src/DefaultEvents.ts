@@ -1,6 +1,6 @@
 import { CEvents } from "./ILib";
 import * as EVENT_EMITTER from "events";
-import { v4 } from "uuid";
+import { randomUUID } from 'crypto';
 
 
 export class Events extends CEvents {
@@ -21,7 +21,7 @@ export class Events extends CEvents {
     this.log.debug(callerPluginName, ` - EMIT: [${ `${ pluginName }-${ event }` }]`, data);
     this.internalEvents.emit(`${ pluginName }-${ event }`, data);
   }
-  async onReturnableEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: Function, reject: Function, data: ArgsDataType) => void): Promise<void> {
+  async onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (resolve: { (...args: ResolveDataType[]): void; }, reject: { (...args: RejectDataType[]): void; }, data: ArgsDataType): void; }): Promise<void> {
     const self = this;
     self.log.info(callerPluginName, ` - LISTEN EAR: [${ `${ pluginName }-${ event }` }]`);
     self.internalReturnableEvents.on(`${ pluginName }-${ event }`, (data: any) => {
@@ -38,7 +38,7 @@ export class Events extends CEvents {
     const self = this;
     self.log.debug(callerPluginName, ` - EMIT AR: [${ `${ pluginName }-${ event }` }]`, data);
     return new Promise((resolve, reject) => {
-      const resultKey = v4();
+      const resultKey = randomUUID();
       const endEventName = `${ event }-result-${ resultKey }`;
       const fullEndEventName = `${ pluginName }-${ endEventName }`;
       const errEventName = `${ event }-error-${ resultKey }`;
