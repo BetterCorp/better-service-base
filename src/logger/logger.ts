@@ -1,4 +1,4 @@
-import { CLogger } from "./ILib";
+import { CLogger } from "../interfaces/logger";
 
 export class Logger extends CLogger {
   async debug(plugin: string, ...data: any[]): Promise<void> {

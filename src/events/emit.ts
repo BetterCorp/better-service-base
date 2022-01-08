@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { CEvents } from '../ILib';
+import { CEvents } from '../interfaces/events';
 
 export default class emit extends EventEmitter {
   private uSelf: CEvents;

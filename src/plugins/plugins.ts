@@ -2,10 +2,13 @@ import { readdirSync, statSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
-import { CLogger, IConfig, IEvents, ILogger, IPlugin, IPluginDefinition, IPluginLogger, IReadyPlugin } from "./ILib";
-import { DefaultConfig } from "./DefaultConfig";
-import { Logger } from "./DefaultLogger";
-import { Events } from "./DefaultEvents";
+import { CLogger, ILogger, IPluginLogger } from "../interfaces/logger";
+import { IConfig } from "../interfaces/config";
+import { IEvents } from "../interfaces/events";
+import { IPlugin, IPluginDefinition, IReadyPlugin } from "../interfaces/plugins";
+import { DefaultConfig } from "../config/config";
+import { Logger } from "../logger/logger";
+import { Events } from "../events/events";
 import { Readable } from 'stream';
 
 export class Plugins {
@@ -346,20 +349,16 @@ export class Plugins {
       self._coreLogger.info(`SETUP: ${ plugin }`);
       const mappedPlugin = await this._appConfig.getMappedPluginName(plugin);
       self._loadedPlugins[plugin].onEvent = async <T = any>(pluginName: string, event: string, listener: (data: T) => void): Promise<void> => {
-        const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
-        return self._events.onEvent<T>(mappedPlugin, imappedPlugin, event, listener);
+        return self._events.onEvent<T>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, listener);
       };
       self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(pluginName: string, event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void> => {
-        const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
-        return self._events.onReturnableEvent<ArgsDataType, ResolveDataType, RejectDataType>(mappedPlugin, imappedPlugin, event, listener);
+        return self._events.onReturnableEvent<ArgsDataType, ResolveDataType, RejectDataType>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, listener);
       };
       self._loadedPlugins[plugin].emitEvent = async <T = any>(pluginName: string, event: string, data?: T): Promise<void> => {
-        const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
-        return self._events.emitEvent<T>(mappedPlugin, imappedPlugin, event, data);
+        return self._events.emitEvent<T>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, data);
       };
-      self._loadedPlugins[plugin].emitEventAndReturn = async <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number, stream?: Readable, streamTimeoutSeconds?: number): Promise<T2> => {
-        const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
-        return self._events.emitEventAndReturn<T1, T2>(mappedPlugin, imappedPlugin, event, data, timeoutSeconds, stream, streamTimeoutSeconds);
+      self._loadedPlugins[plugin].emitEventAndReturn = async <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
+        return self._events.emitEventAndReturn<T1, T2>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, data, timeoutSeconds);
       };
       self._loadedPlugins[plugin].initForPlugins = async <ArgsDataType = any, ReturnDataType = void>(pluginName: string, initType: string, ...args: Array<ArgsDataType>): Promise<ReturnDataType> => {
         if (pluginsToInit.indexOf(pluginName) < 0) {

@@ -1,6 +1,6 @@
-import { Logger as DefaultLogger } from "./DefaultLogger";
-import { CLogger, IPluginLogger } from "./ILib";
-import { Plugins } from "./Plugins";
+import { Logger as DefaultLogger } from "./logger/logger";
+import { CLogger, IPluginLogger } from "./interfaces/logger";
+import { Plugins } from "./plugins/plugins";
 
 export default class ServiceBase {
   public readonly CORE_PLUGIN_NAME = "self";
