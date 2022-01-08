@@ -6,6 +6,7 @@ import { CLogger, IConfig, IEvents, ILogger, IPlugin, IPluginDefinition, IPlugin
 import { DefaultConfig } from "./DefaultConfig";
 import { Logger } from "./DefaultLogger";
 import { Events } from "./DefaultEvents";
+import { Readable } from 'stream';
 
 export class Plugins {
   private _cwd: string;
@@ -348,7 +349,7 @@ export class Plugins {
         const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.onEvent<T>(mappedPlugin, imappedPlugin, event, listener);
       };
-      self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(pluginName: string, event: string, listener: (resolve: { (data: ResolveDataType): void; }, reject: { (error: RejectDataType): void; }, data: ArgsDataType) => void): Promise<void> => {
+      self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(pluginName: string, event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void> => {
         const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.onReturnableEvent<ArgsDataType, ResolveDataType, RejectDataType>(mappedPlugin, imappedPlugin, event, listener);
       };
@@ -356,9 +357,9 @@ export class Plugins {
         const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
         return self._events.emitEvent<T>(mappedPlugin, imappedPlugin, event, data);
       };
-      self._loadedPlugins[plugin].emitEventAndReturn = async <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
+      self._loadedPlugins[plugin].emitEventAndReturn = async <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number, stream?: Readable, streamTimeoutSeconds?: number): Promise<T2> => {
         const imappedPlugin = await this._appConfig.getMappedPluginName(pluginName || plugin);
-        return self._events.emitEventAndReturn<T1, T2>(mappedPlugin, imappedPlugin, event, data, timeoutSeconds);
+        return self._events.emitEventAndReturn<T1, T2>(mappedPlugin, imappedPlugin, event, data, timeoutSeconds, stream, streamTimeoutSeconds);
       };
       self._loadedPlugins[plugin].initForPlugins = async <ArgsDataType = any, ReturnDataType = void>(pluginName: string, initType: string, ...args: Array<ArgsDataType>): Promise<ReturnDataType> => {
         if (pluginsToInit.indexOf(pluginName) < 0) {

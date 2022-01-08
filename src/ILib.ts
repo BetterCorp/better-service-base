@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
 import { Tools } from "@bettercorp/tools/lib/Tools";
+import { hostname } from 'os';
+import { randomUUID } from 'crypto';
+import { Readable } from 'stream';
 
 export interface IPluginLogger {
   info(...data: any[]): Promise<void>;
@@ -58,9 +61,9 @@ export interface IEvents<DefaultDataType = any, DefaultReturnType = void> {
   init?(): Promise<void>;
   log?: IPluginLogger;
   onEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): Promise<void>;
-  onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: { (data: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data: ArgsDataType) => void): Promise<void>;
+  onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void>;
   emitEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): Promise<void>;
-  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
+  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number, stream?: Readable, streamTimeoutSeconds?: number): Promise<ReturnDataType>;
 }
 
 export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataType = any, DefaultReturnType = void> implements IEvents {
@@ -82,13 +85,13 @@ export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   async onEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): Promise<void> {
     throw new Error("Method not implemented.");
   }
-  async onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: { (data: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data: ArgsDataType) => void): Promise<void> {
+  async onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void> {
     throw new Error("Method not implemented.");
   }
   async emitEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): Promise<void> {
     throw new Error("Method not implemented.");
   }
-  async emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+  async emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number, stream?: Readable, streamTimeoutSeconds?: number): Promise<ReturnDataType> {
     throw new Error("Method not implemented.");
   }
 }
@@ -100,9 +103,9 @@ export interface IPlugin<DefaultDataType = any, DefaultReturnType = void> {
   loaded?(): Promise<void>;
 
   onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): Promise<void>;
-  onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: { (data: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data: ArgsDataType) => void): Promise<void>;
+  onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void>;
   emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): Promise<void>;
-  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
+  emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number, stream?: Readable, streamTimeoutSeconds?: number): Promise<ReturnDataType>;
   initForPlugins?<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string, initType: string | null, ...args: Array<ArgsDataType>): Promise<ReturnDataType>;
 }
 
@@ -131,13 +134,13 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   async onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
-  async onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: { (data: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data: ArgsDataType) => void): Promise<void> {
+  async onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
   async emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
-  async emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
+  async emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number, stream?: Readable, streamTimeoutSeconds?: number): Promise<ReturnDataType> {
     throw new Error("BSB INIT ERROR");
   }
 
@@ -162,14 +165,14 @@ export class CPluginClient<T> {
   async onEvent<ArgsDataType = any>(event: string, listener: (data: ArgsDataType) => void): Promise<void> {
     this.refPlugin.onEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
-  async onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(event: string, listener: (resolve: { (data: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data: ArgsDataType) => void): Promise<void> {
+  async onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void> {
     this.refPlugin.onReturnableEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
   async emitEvent<T = any>(event: string, data?: T): Promise<void> {
     this.refPlugin.emitEvent<T>(this._pluginName!, event, data);
   }
-  async emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
-    return this.refPlugin.emitEventAndReturn<ArgsDataType, ReturnDataType>(this._pluginName!, event, data, timeoutSeconds);
+  async emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(event: string, data?: ArgsDataType, timeoutSeconds?: number, stream?: Readable, streamTimeoutSeconds?: number): Promise<ReturnDataType> {
+    return this.refPlugin.emitEventAndReturn<ArgsDataType, ReturnDataType>(this._pluginName!, event, data, timeoutSeconds, stream, streamTimeoutSeconds);
   }
   async initForPlugins<ArgsDataType = any, ReturnDataType = void>(initType: string, ...args: Array<ArgsDataType>): Promise<ReturnDataType> {
     return (this.refPlugin as IPlugin).initForPlugins!<ArgsDataType, ReturnDataType>(this._pluginName!, initType, ...args);
@@ -250,5 +253,8 @@ export class CConfig implements IConfig {
   }
   get runningLive(): boolean {
     throw new Error('Method not implemented.');
+  }
+  get appId(): string {
+    return `${ hostname() }-${ randomUUID() }`;
   }
 }
