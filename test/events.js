@@ -15,7 +15,7 @@ const fakeLogger = new testogger('test-plugin', process.cwd(),
   });
 
 describe('Events', () => {
-  /*emit(async () => {
+  emit(async () => {
     const refP = new events('test-plugin', process.cwd(), fakeLogger, {
       runningInDebug: true
     });
@@ -30,7 +30,7 @@ describe('Events', () => {
     if (refP.init !== undefined)
       await refP.init();
     return refP;
-  }, 10);*/
+  }, 10);
   emitStreamAndReceiveStream(async () => {
     const refP = new events('test-plugin', process.cwd(), fakeLogger, {
       runningInDebug: true

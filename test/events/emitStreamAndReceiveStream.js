@@ -187,9 +187,9 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitS
     runTest('1MB');
     runTest('16MB');
     runTest('128MB', 4);
-    runTest('512MB', 16);
-    runTest('1GB', 32);
-    runTest('5GB', 160);
+    //runTest('512MB', 16);
+    //runTest('1GB', 32);
+    //runTest('5GB', 160);
     //runTest('12GB', 384);
   });
 });
