@@ -63,7 +63,10 @@ module.exports = (pkBase) => {
     exportsVars.push(`PACKAGE_TAG=${packageTag}`);
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_NAME'), packageJSON.name.replace(pkBase, ''));
     exportsVars.push(`PACKAGE_NAME=${packageJSON.name.replace(pkBase, '')}`);
-    if (packageJSON.name !== "@bettercorp/service-base") {
+    if (packageJSON.name === "@bettercorp/service-base") {
+      fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.version);
+      exportsVars.push(`BSB_VERSION=${packageJSON.version}`)
+    } else {
       fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.dependencies["@bettercorp/service-base"].substring(1));
       exportsVars.push(`BSB_VERSION=${packageJSON.dependencies["@bettercorp/service-base"].substring(1)}`)
     }
