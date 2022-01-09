@@ -54,11 +54,11 @@ module.exports = (pkBase) => {
   if (pkBase !== false) {
     let exportsVars = [];
     const exportsDir = path.join(process.cwd(), './_exports');
+    if (!fs.existsSync(exportsDir))
+      fs.mkdirSync(exportsDir);
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_VERSION'), packageJSON.version);
     exportsVars.push(`PACKAGE_VERSION=${packageJSON.version}`);
     console.log(`CWD:E: ${exportsDir}`);
-    if (!fs.existsSync(exportsDir))
-      fs.mkdirSync(exportsDir);
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_TAG'), packageTag);
     exportsVars.push(`PACKAGE_TAG=${packageTag}`);
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_NAME'), packageJSON.name.replace(pkBase, ''));
