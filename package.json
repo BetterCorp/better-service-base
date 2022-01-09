@@ -8,7 +8,7 @@
     "dev": "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --exec ts-node src/index.ts",
     "start": "node lib/index.js",
     "build": "tsc",
-    "postinstall": "node ./lib/install.js",
+    "postinstall": "node ./postinstall.js",
     "version": "node ./build/version-bcorp.js $0",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "./node_modules/mocha/bin/mocha --reporter mocha-junit-reporter --reporter-options mochaFile=junit.xml",
@@ -21,7 +21,8 @@
     "lib/**/*",
     "test/**/*",
     "build/**/*",
-    "templates/**/*"
+    "templates/**/*",
+    "postinstall.js"
   ],
   "main": "lib/index.js",
   "version": "7.0.0",
