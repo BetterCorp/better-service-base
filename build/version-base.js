@@ -23,11 +23,14 @@ module.exports = (pkBase) => {
   let major = versionKeys[0];
   let minor = versionKeys[1];
   let tag = '';
+  let packageTag = 'latest';
   if (versionSplit.length > 1) {
     tag = `-${tag}`;
+    packageTag = tag;
   }
   if (buildTag != '' && buildTag != 'master') {
     tag = `-${buildTag}`
+    packageTag = buildTag;
   }
   let now = new Date();
   let month = `${now.getMonth()+1}`;
@@ -54,6 +57,7 @@ module.exports = (pkBase) => {
     if (!fs.existsSync(exportsDir))
       fs.mkdirSync(exportsDir)
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_VERSION'), packageJSON.version);
+    fs.writeFileSync(path.join(exportsDir, './PACKAGE_TAG'), packageTag);
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_NAME'), packageJSON.name.replace(pkBase, ''));
     if (packageJSON.name !== "@bettercorp/service-base")
       fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.dependencies["@bettercorp/service-base"].substring(1));
