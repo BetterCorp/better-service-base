@@ -52,18 +52,26 @@ module.exports = (pkBase) => {
   packageJSON.version = `${major}.${minor}.${micro}`;
 
   if (pkBase !== false) {
+    let exportsVars = [];
     const exportsDir = path.join(process.cwd(), './_exports');
+    fs.writeFileSync(path.join(exportsDir, './PACKAGE_VERSION'), packageJSON.version);
+    exportsVars.push(`PACKAGE_VERSION=${packageJSON.version}`);
     console.log(`CWD:E: ${exportsDir}`);
     if (!fs.existsSync(exportsDir))
-      fs.mkdirSync(exportsDir)
-    fs.writeFileSync(path.join(exportsDir, './PACKAGE_VERSION'), packageJSON.version);
+      fs.mkdirSync(exportsDir);
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_TAG'), packageTag);
+    exportsVars.push(`PACKAGE_TAG=${packageTag}`);
     fs.writeFileSync(path.join(exportsDir, './PACKAGE_NAME'), packageJSON.name.replace(pkBase, ''));
-    if (packageJSON.name !== "@bettercorp/service-base")
+    exportsVars.push(`PACKAGE_NAME=${packageJSON.name.replace(pkBase, '')}`);
+    if (packageJSON.name !== "@bettercorp/service-base") {
       fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.dependencies["@bettercorp/service-base"].substring(1));
+      exportsVars.push(`BSB_VERSION=${packageJSON.dependencies["@bettercorp/service-base"].substring(1)}`)
+    }
     if (packageJSON.name.indexOf(pkBase) >= 0) {
       fs.writeFileSync(path.join(exportsDir, './RUN_DOCKER'), 'true');
+      exportsVars.push(`RUN_DOCKER=true`)
     }
+    fs.writeFileSync(path.join(exportsDir, './exports.env'), exportsVars.join('\n'));
   }
   fs.writeFileSync(cwdPackJson, JSON.stringify(packageJSON));
   console.log(`Package versioned as ${packageJSON.version}`);
