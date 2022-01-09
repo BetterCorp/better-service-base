@@ -56,25 +56,27 @@ module.exports = (pkBase) => {
     const exportsDir = path.join(process.cwd(), './_exports');
     if (!fs.existsSync(exportsDir))
       fs.mkdirSync(exportsDir);
-    fs.writeFileSync(path.join(exportsDir, './PACKAGE_VERSION'), packageJSON.version);
     exportsVars.push(`PACKAGE_VERSION=${packageJSON.version}`);
     console.log(`CWD:E: ${exportsDir}`);
-    fs.writeFileSync(path.join(exportsDir, './PACKAGE_TAG'), packageTag);
     exportsVars.push(`PACKAGE_TAG=${packageTag}`);
-    fs.writeFileSync(path.join(exportsDir, './PACKAGE_NAME'), packageJSON.name.replace(pkBase, ''));
     exportsVars.push(`PACKAGE_NAME=${packageJSON.name.replace(pkBase, '')}`);
     if (packageJSON.name === "@bettercorp/service-base") {
-      fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.version);
-      exportsVars.push(`BSB_VERSION=${packageJSON.version}`)
+      exportsVars.push(`BSB_VERSION=${packageJSON.version}`);
+      exportsVars.push(`BSB_TAG=${packageTag}`);
     } else {
-      fs.writeFileSync(path.join(exportsDir, './BSB_VERSION'), packageJSON.dependencies["@bettercorp/service-base"].substring(1));
-      exportsVars.push(`BSB_VERSION=${packageJSON.dependencies["@bettercorp/service-base"].substring(1)}`)
+      let bsbVersion = packageJSON.dependencies["@bettercorp/service-base"].substring(1);
+      exportsVars.push(`BSB_VERSION=${bsbVersion}`);
+      let bsbVTag = bsbVersion.split('-');
+      exportsVars.push(`BSB_TAG=${bsbVTag.length > 1 ? bsbVTag[1] : 'latest'}`);
     }
     if (packageJSON.name.indexOf(pkBase) >= 0) {
-      fs.writeFileSync(path.join(exportsDir, './RUN_DOCKER'), 'true');
       exportsVars.push(`RUN_DOCKER=true`)
     }
-    fs.writeFileSync(path.join(exportsDir, './exports.env'), exportsVars.join('\n'));
+    for (let varEx of exportsVars) {
+      let varEXpl = varEx.split('=');
+      fs.writeFileSync(path.join(exportsDir, varEXpl[0]), varEXpl[1]);
+    }
+    fs.writeFileSync(path.join(exportsDir, './.env'), exportsVars.join('\n'));
   }
   fs.writeFileSync(cwdPackJson, JSON.stringify(packageJSON));
   console.log(`Package versioned as ${packageJSON.version}`);
