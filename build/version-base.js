@@ -48,7 +48,7 @@ module.exports = (pkBase) => {
   let seconds = `${now.getSeconds()}`;
   if (seconds.length == 1)
     seconds = `0${seconds}`
-  let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}${tag}`;
+  let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}`;
   packageJSON.version = `${major}.${minor}.${micro}`;
 
   if (pkBase !== false) {
