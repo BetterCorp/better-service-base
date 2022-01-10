@@ -2,8 +2,13 @@ module.exports = (pkBase) => {
   const fs = require('fs');
   const path = require('path');
   const cwdPackJson = path.join(process.cwd(), './package.json');
+  const cwdPackLockJson = path.join(process.cwd(), './package-lock.json');
 
   let packageJSON = JSON.parse(fs.readFileSync(cwdPackJson).toString());
+  let packageLockJSON = null;
+  if (fs.existsSync(cwdPackLockJson)) {
+    packageLockJSON = JSON.parse(fs.readFileSync(cwdPackLockJson).toString());
+  }
   let args = process.argv;
   let version = packageJSON.version;
   let buildTag = '';
@@ -50,6 +55,9 @@ module.exports = (pkBase) => {
     seconds = `0${seconds}`
   let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}`;
   packageJSON.version = `${major}.${minor}.${micro}`;
+  if (packageLockJSON !== null) {
+    packageLockJSON = packageJSON.version;
+  }
 
   if (pkBase !== false) {
     let exportsVars = [];
@@ -79,5 +87,7 @@ module.exports = (pkBase) => {
     fs.writeFileSync(path.join(exportsDir, './.env'), exportsVars.join('\n'));
   }
   fs.writeFileSync(cwdPackJson, JSON.stringify(packageJSON));
+  if (packageLockJSON !== null)
+    fs.writeFileSync(cwdPackLockJson, JSON.stringify(packageLockJSON));
   console.log(`Package versioned as ${packageJSON.version}`);
 };
