@@ -54,7 +54,7 @@ module.exports = (pkBase) => {
   if (seconds.length == 1)
     seconds = `0${seconds}`
   let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}`;
-  packageJSON.version = `${major}.${minor}.${micro}`;
+  packageJSON.version = `${major}.${minor}.${micro}${tag}`;
   if (packageLockJSON !== null) {
     packageLockJSON.version = packageJSON.version;
   }
@@ -68,15 +68,20 @@ module.exports = (pkBase) => {
     console.log(`CWD:E: ${exportsDir}`);
     exportsVars.push(`PACKAGE_TAG=${packageTag}`);
     exportsVars.push(`PACKAGE_NAME=${packageJSON.name.replace(pkBase, '')}`);
+    let bsbVersion = null;
     if (packageJSON.name === "@bettercorp/service-base") {
-      exportsVars.push(`BSB_VERSION=${packageJSON.version}`);
-      exportsVars.push(`BSB_TAG=${packageTag}`);
+      bsbVersion = packageJSON.version;
     } else {
-      let bsbVersion = packageJSON.dependencies["@bettercorp/service-base"].substring(1);
-      exportsVars.push(`BSB_VERSION=${bsbVersion}`);
-      let bsbVTag = bsbVersion.split('-');
-      exportsVars.push(`BSB_TAG=${bsbVTag.length > 1 ? bsbVTag[1] : 'latest'}`);
+      bsbVersion = packageJSON.dependencies["@bettercorp/service-base"].substring(1);
     }
+    let bsbVTag = bsbVersion.split('-');
+    exportsVars.push(`BSB_FULL_VERSION=${bsbVersion}`);
+    exportsVars.push(`BSB_VERSION=${bsbVTag[0]}`);
+    let isNotLatest = bsbVTag.length > 1;
+    exportsVars.push(`BSB_TAG=${isNotLatest ? bsbVTag[1] : ''}`);
+    exportsVars.push(`BSB_TAGN=${isNotLatest ? bsbVTag[1] : 'latest'}`);
+    exportsVars.push(`BSB_DTAG=${isNotLatest ? '-' + bsbVTag[1] : ''}`);
+    exportsVars.push(`BSB_DTAGN=${isNotLatest ? '-' + bsbVTag[1] : '-latest'}`);
     if (packageJSON.name.indexOf(pkBase) >= 0) {
       exportsVars.push(`RUN_DOCKER=true`)
     }
