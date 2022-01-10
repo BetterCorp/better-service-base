@@ -56,7 +56,7 @@ module.exports = (pkBase) => {
   let micro = `${now.getFullYear()}${month}${day}${hour}${minutes}${seconds}`;
   packageJSON.version = `${major}.${minor}.${micro}`;
   if (packageLockJSON !== null) {
-    packageLockJSON = packageJSON.version;
+    packageLockJSON.version = packageJSON.version;
   }
 
   if (pkBase !== false) {
