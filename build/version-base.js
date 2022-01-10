@@ -86,6 +86,7 @@ module.exports = (pkBase) => {
       exportsVars.push(`RUN_DOCKER=true`)
     }
     for (let varEx of exportsVars) {
+      console.log(`EXPORT [${varEx}]`);
       let varEXpl = varEx.split('=');
       fs.writeFileSync(path.join(exportsDir, varEXpl[0]), varEXpl[1]);
     }
