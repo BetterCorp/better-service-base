@@ -18,7 +18,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
         assert.ok(true, 'Received onEvent');
         resolve(emitData2);
       });
@@ -34,7 +34,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
         assert.ok(true, 'Received onEvent');
         resolve(emitData2);
       });
@@ -51,7 +51,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, timermaxTimeoutToExpectAResponse);
-      emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
         assert.fail('EEAR MSG Received');
       });
       try {
@@ -71,7 +71,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, timermaxTimeoutToExpectAResponse);
-      emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
         assert.fail('EEAR MSG Received');
       });
       try {
@@ -91,7 +91,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
         //assert.ok(true, 'Received onEvent');
         //resolve(emitData2);
       });
@@ -112,7 +112,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
         //assert.ok(true, 'Received onEvent');
         //resolve(emitData2);
         reject('THISISANERROR')
@@ -182,7 +182,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse);
-        emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
           assert.strictEqual(data, typeToTest.data);
           resolve(typeToTest.rData || typeToTest.data);
         });
@@ -197,7 +197,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse);
-        emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
           assert.strictEqual(data, typeToTest.data, "Received data");
           resolve(typeToTest.rData || typeToTest.data);
         });
@@ -214,7 +214,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, timermaxTimeoutToExpectAResponse);
-        emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
           assert.fail('EEAR MSG Received');
         });
         try {
@@ -234,7 +234,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, timermaxTimeoutToExpectAResponse);
-        emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
           assert.fail('EEAR MSG Received');
         });
         try {
@@ -254,7 +254,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse);
-        emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
           //assert.ok(true, 'Received onEvent');
           //resolve(emitData2);
         });
@@ -275,7 +275,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitA
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse);
-        emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
           //assert.ok(true, 'Received onEvent');
           //resolve(emitData2);
           assert.strictEqual(data, typeToTest.data);

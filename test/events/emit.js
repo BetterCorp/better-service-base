@@ -17,11 +17,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.ok(data);
       });
-      emitter.emitEvent(thisCaller, thisPlugin, thisEvent, emitData)
+      await emitter.emitEvent(thisCaller, thisPlugin, thisEvent, emitData)
     });
     it('should be able to emit to events with self', async () => {
       const thisCaller = randomName();
@@ -30,11 +30,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, null, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, null, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.ok(data);
       });
-      emitter.emitEvent(thisCaller, null, thisEvent, emitData)
+      await emitter.emitEvent(thisCaller, null, thisEvent, emitData)
     });
     it('should not be able to emit to other events with plugin name defined', async () => {
       const thisCaller = randomName();
@@ -45,11 +45,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.fail('Event received');
       });
-      emitter.emitEvent(thisCaller, thisPlugin, thisEvent2, emitData)
+      await emitter.emitEvent(thisCaller, thisPlugin, thisEvent2, emitData)
     });
     it('should not be able to emit to other events with self', async () => {
       const thisCaller = randomName();
@@ -59,11 +59,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, null, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, null, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.fail('Event received');
       });
-      emitter.emitEvent(thisCaller, null, thisEvent2, emitData)
+      await emitter.emitEvent(thisCaller, null, thisEvent2, emitData)
     });
   });
   describe('onEvent', async () => {
@@ -76,11 +76,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.strictEqual(data, emitData);
       });
-      emitter.emitEvent(thisCaller, thisPlugin, thisEvent, emitData)
+      await emitter.emitEvent(thisCaller, thisPlugin, thisEvent, emitData)
     });
     it('should be able to emit to events with self', async () => {
       const thisCaller = randomName();
@@ -90,11 +90,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, null, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, null, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.strictEqual(data, emitData);
       });
-      emitter.emitEvent(thisCaller, null, thisEvent, emitData)
+      await emitter.emitEvent(thisCaller, null, thisEvent, emitData)
     });
     it('should not be able to emit to other events with plugin name defined', async () => {
       const thisCaller = randomName();
@@ -105,11 +105,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.fail('Event received');
       });
-      emitter.emitEvent(thisCaller, thisPlugin, thisEvent2, emitData)
+      await emitter.emitEvent(thisCaller, thisPlugin, thisEvent2, emitData)
     });
     it('should not be able to emit to other events with self', async () => {
       const thisCaller = randomName();
@@ -119,11 +119,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, maxTimeoutToExpectAResponse);
-      emitter.onEvent(thisCaller, null, thisEvent, (data) => {
+      await emitter.onEvent(thisCaller, null, thisEvent, (data) => {
         clearTimeout(emitTimeout);
         assert.fail('Event received');
       });
-      emitter.emitEvent(thisCaller, null, thisEvent2, emitData)
+      await emitter.emitEvent(thisCaller, null, thisEvent2, emitData)
     });
   });
   const typesToTest = [{
@@ -176,11 +176,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, maxTimeoutToExpectAResponse);
-        emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
+        await emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
           clearTimeout(emitTimeout);
           assert.strictEqual(data, typeToTest.data);
         });
-        emitter.emitEvent(thisCaller, thisPlugin, thisEvent, typeToTest.data)
+        await emitter.emitEvent(thisCaller, thisPlugin, thisEvent, typeToTest.data)
       });
       it('should be able to emit to events with self', async () => {
         const thisCaller = randomName();
@@ -189,11 +189,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, maxTimeoutToExpectAResponse);
-        emitter.onEvent(thisCaller, null, thisEvent, (data) => {
+        await emitter.onEvent(thisCaller, null, thisEvent, (data) => {
           clearTimeout(emitTimeout);
           assert.strictEqual(data, typeToTest.data);
         });
-        emitter.emitEvent(thisCaller, null, thisEvent, typeToTest.data)
+        await emitter.emitEvent(thisCaller, null, thisEvent, typeToTest.data)
       });
       it('should not be able to emit to other events with plugin name defined', async () => {
         const thisCaller = randomName();
@@ -204,11 +204,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
+        await emitter.onEvent(thisCaller, thisPlugin, thisEvent, (data) => {
           clearTimeout(emitTimeout);
           assert.fail('Event received');
         });
-        emitter.emitEvent(thisCaller, thisPlugin, thisEvent2, typeToTest.data)
+        await emitter.emitEvent(thisCaller, thisPlugin, thisEvent2, typeToTest.data)
       });
       it('should not be able to emit to other events with self', async () => {
         const thisCaller = randomName();
@@ -218,11 +218,11 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit'
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        emitter.onEvent(thisCaller, null, thisEvent, (data) => {
+        await emitter.onEvent(thisCaller, null, thisEvent, (data) => {
           clearTimeout(emitTimeout);
           assert.fail('Event received');
         });
-        emitter.emitEvent(thisCaller, null, thisEvent2, typeToTest.data)
+        await emitter.emitEvent(thisCaller, null, thisEvent2, typeToTest.data)
       });
     });
 });
