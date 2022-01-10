@@ -68,8 +68,8 @@ const convertBytes = (bytes, sizes = ["Bytes", "KB", "MB", "GB", "TB"]) => {
 }
 
 exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('EmitStreamAndReceiveStream', async () => {
-  this.timeout(maxTimeoutToExpectAResponse + 20);
-  this.afterEach(done => setTimeout(done, maxTimeoutToExpectAResponse));
+  //this.timeout(maxTimeoutToExpectAResponse + 20);
+  //this.afterEach(done => setTimeout(done, maxTimeoutToExpectAResponse));
   const timermaxTimeoutToExpectAResponse = maxTimeoutToExpectAResponse + 10;
   describe('receiveStream creates UUID', async () => {
     it('should generate a valid UUID string', async () => {

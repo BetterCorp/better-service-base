@@ -4,8 +4,8 @@ const crypto = require('crypto');
 const randomName = () => crypto.randomUUID();
 
 exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true) => describe('EmitAndReturn', async () => {
-  if (a) this.timeout(maxTimeoutToExpectAResponse + 20);
-  if (b) this.afterEach(done => setTimeout(done, maxTimeoutToExpectAResponse));
+  //if (a) this.timeout(maxTimeoutToExpectAResponse + 20);
+  //if (b) this.afterEach(done => setTimeout(done, maxTimeoutToExpectAResponse));
   const timermaxTimeoutToExpectAResponse = maxTimeoutToExpectAResponse + 10;
   describe('emitEventAndReturn', async () => {
     const emitData = true;
