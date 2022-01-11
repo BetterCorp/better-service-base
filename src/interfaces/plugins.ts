@@ -38,7 +38,7 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   async onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
-  async onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (resolve: { (data?: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType) => void): Promise<void> {
+  async onReturnableEvent<ArgsDataType = DefaultDataType, ResolveDataType = DefaultDataType, RejectDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data?: ArgsDataType) => Promise<void>): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
   async emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): Promise<void> {
@@ -76,8 +76,8 @@ export class CPluginClient<T> implements IPluginClientEvents<any, any> {
   async onEvent<ArgsDataType = any>(event: string, listener: (data: ArgsDataType) => void): Promise<void> {
     this.refPlugin.onEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
-  async onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(event: string, listener: (resolve: { (data?: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType) => void): Promise<void> {
-    this.refPlugin.onReturnableEvent<ArgsDataType>(this._pluginName!, event, listener);
+  async onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(event: string, listener: (data?: ArgsDataType) => Promise<void>): Promise<void> {
+    await this.refPlugin.onReturnableEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
   async emitEvent<T = any>(event: string, data?: T): Promise<void> {
     this.refPlugin.emitEvent<T>(this._pluginName!, event, data);

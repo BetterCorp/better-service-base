@@ -18,13 +18,13 @@ export class Events extends CEvents {
     this.eas = new emitStreamAndReceiveStream(this);
   }
 
-  async onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void): Promise<void> {
+  async onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (data: ArgsDataType): Promise<void>; }): Promise<void> {
     this.emit.onEvent<ArgsDataType>(callerPluginName, pluginName, event, listener);
   }
   async emitEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): Promise<void> {
     this.emit.emitEvent<ArgsDataType>(callerPluginName, pluginName, event, data);
   }
-  async onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (resolve: { (data?: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType): void; }): Promise<void> {
+  async onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (data?: ArgsDataType): Promise<void>; }): Promise<void> {
     this.ear.onReturnableEvent<ArgsDataType, ResolveDataType>(callerPluginName, pluginName, event, listener);
   }
   async emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {

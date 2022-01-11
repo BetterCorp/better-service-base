@@ -9,9 +9,15 @@ export default class emitAndReturn extends EventEmitter {
     this.uSelf = uSelf;
   }
 
-  onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (resolve: { (data?: ResolveDataType): void; }, reject: { (error?: RejectDataType): void; }, data?: ArgsDataType): void; }): void {
+  onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (data?: ArgsDataType): Promise<void>; }): void {
     this.uSelf.log.info(`EAR: ${ callerPluginName } listening to ${ pluginName || '_self' }-${ event }`);
-    this.on(event, listener);
+    this.on(event, async (resolve, reject, data) => {
+      try {
+        return resolve(await listener(data));
+      } catch (exc) {
+        reject(exc);
+      }
+    });
   }
 
   emitReturnableEvent<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeout = 5): Promise<ReturnDataType> {

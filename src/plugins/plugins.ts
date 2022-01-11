@@ -9,7 +9,6 @@ import { IPlugin, IPluginDefinition, IReadyPlugin } from "../interfaces/plugins"
 import { DefaultConfig } from "../config/config";
 import { Logger } from "../logger/logger";
 import { Events } from "../events/events";
-import { Readable } from 'stream';
 
 export class Plugins {
   private _cwd: string;
@@ -348,10 +347,10 @@ export class Plugins {
     for (const plugin of pluginsToInit) {
       self._coreLogger.info(`SETUP: ${ plugin }`);
       const mappedPlugin = await this._appConfig.getMappedPluginName(plugin);
-      self._loadedPlugins[plugin].onEvent = async <T = any>(pluginName: string, event: string, listener: (data: T) => void): Promise<void> => {
+      self._loadedPlugins[plugin].onEvent = async <T = any>(pluginName: string, event: string, listener: { (data: T): Promise<void>; }): Promise<void> => {
         return self._events.onEvent<T>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, listener);
       };
-      self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(pluginName: string, event: string, listener: (resolve: { (data?: ResolveDataType, stream?: Readable): void; }, reject: { (error: RejectDataType): void; }, data?: ArgsDataType, stream?: Readable) => void): Promise<void> => {
+      self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(pluginName: string, event: string, listener: ({ (data?: ArgsDataType): Promise<void>; })): Promise<void> => {
         return self._events.onReturnableEvent<ArgsDataType, ResolveDataType, RejectDataType>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, listener);
       };
       self._loadedPlugins[plugin].emitEvent = async <T = any>(pluginName: string, event: string, data?: T): Promise<void> => {

@@ -14,7 +14,7 @@ export default class emit extends EventEmitter {
     this.on('*', listener);
   }
 
-  onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: (data: ArgsDataType) => void) {
+  onEvent<ArgsDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (data: ArgsDataType): Promise<void>; }) {
     this.uSelf.log.info(`EMIT: ${ callerPluginName } listening to ${ pluginName || '_self' }-${ event }`);
     this.on(`${ pluginName || callerPluginName }-${ event }`, listener);
   }
