@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import { randomUUID } from 'crypto';
 import { CEvents } from '../interfaces/events';
 
-export default class emitAndReturn extends EventEmitter {
+export default class emitStreamAndReceiveStream extends EventEmitter {
   // If we try receive or send a stream and the other party is not ready for some reason, we will automatically timeout in 5s.
   private readonly staticCommsTimeout = 1000;
   private uSelf: CEvents;
