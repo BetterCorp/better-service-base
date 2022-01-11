@@ -18,12 +18,12 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (data) => {
         setTimeout(() => {
           console.log('Received onEvent');
           assert.ok(true, 'Received onEvent');
         }, 1)
-        resolve(emitData2);
+        return emitData2;
       });
       console.log('!!Received onEvent');
       const resp = await emitter.emitEventAndReturn(thisCaller, thisPlugin, thisEvent, {}, maxTimeoutToExpectAResponse / 1000);
@@ -39,9 +39,9 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {
         assert.ok(true, 'Received onEvent');
-        resolve(emitData2);
+        return emitData2;
       });
       const resp = await emitter.emitEventAndReturn(thisCaller, null, thisEvent, emitData, maxTimeoutToExpectAResponse / 1000);
       clearTimeout(emitTimeout);
@@ -56,7 +56,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, timermaxTimeoutToExpectAResponse);
-      await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (data) => {
         assert.fail('EEAR MSG Received');
       });
       try {
@@ -76,7 +76,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
       const emitTimeout = setTimeout(() => {
         assert.ok(true);
       }, timermaxTimeoutToExpectAResponse);
-      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {
         assert.fail('EEAR MSG Received');
       });
       try {
@@ -96,7 +96,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {});
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {});
       try {
         await emitter.emitEventAndReturn(thisCaller, null, thisEvent, emitData, maxTimeoutToExpectAResponse / 1000);
         clearTimeout(emitTimeout);
@@ -108,14 +108,13 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
     });
     it('should response error correctly', async () => {
       const thisCaller = randomName();
-      const thisPlugin = randomName();
       const thisEvent = randomName();
       const emitter = await genNewPlugin();
       const emitTimeout = setTimeout(() => {
         assert.fail('Event not received');
       }, timermaxTimeoutToExpectAResponse);
-      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
-        reject('THISISANERROR')
+      await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {
+        throw 'THISISANERROR';
       });
       try {
         await emitter.emitEventAndReturn(thisCaller, null, thisEvent, emitData, maxTimeoutToExpectAResponse / 1000);
@@ -182,8 +181,8 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
-          resolve(typeToTest.rData || typeToTest.data);
+        await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (data) => {
+          return typeToTest.rData || typeToTest.data;
         });
         const resp = await emitter.emitEventAndReturn(thisCaller, thisPlugin, thisEvent, typeToTest.data, maxTimeoutToExpectAResponse / 1000);
         clearTimeout(emitTimeout);
@@ -196,10 +195,10 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {
           clearTimeout(emitTimeout);
           assert.strictEqual(JSON.stringify(data), JSON.stringify(typeToTest.data), "Received data");
-          resolve(typeToTest.rData || typeToTest.data);
+          return typeToTest.rData || typeToTest.data;
         });
         const resp = await emitter.emitEventAndReturn(thisCaller, null, thisEvent, typeToTest.data, maxTimeoutToExpectAResponse / 1000);
         clearTimeout(emitTimeout);
@@ -213,7 +212,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, thisPlugin, thisEvent, (data) => {
           assert.fail('EEAR MSG Received');
         });
         try {
@@ -233,7 +232,7 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {
           assert.fail('EEAR MSG Received');
         });
         try {
@@ -247,13 +246,12 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
       });
       it('should timeout correctly - general timeout', async () => {
         const thisCaller = randomName();
-        const thisPlugin = randomName();
         const thisEvent = randomName();
         const emitter = await genNewPlugin();
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse + 10);
-        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {});
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {});
         try {
           await emitter.emitEventAndReturn(thisCaller, null, thisEvent, typeToTest.data, maxTimeoutToExpectAResponse / 1000);
           clearTimeout(emitTimeout);
@@ -288,8 +286,8 @@ exports.default = (genNewPlugin, maxTimeoutToExpectAResponse, a = true, b = true
         const emitTimeout = setTimeout(() => {
           assert.fail('Event not received');
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (resolve, reject, data) => {
-          reject(typeToTest.rData || typeToTest.data);
+        await emitter.onReturnableEvent(thisCaller, null, thisEvent, (data) => {
+          throw typeToTest.rData || typeToTest.data;
         });
         try {
           await emitter.emitEventAndReturn(thisCaller, null, thisEvent, typeToTest.data, maxTimeoutToExpectAResponse / 1000);
