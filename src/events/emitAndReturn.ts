@@ -9,7 +9,7 @@ export default class emitAndReturn extends EventEmitter {
     this.uSelf = uSelf;
   }
 
-  onReturnableEvent<ArgsDataType = any, ResolveDataType = any, RejectDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (data?: ArgsDataType): Promise<void>; }): void {
+  onReturnableEvent<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, listener: { (data?: ArgsDataType): Promise<ReturnDataType>; }): void {
     this.uSelf.log.info(`EAR: ${ callerPluginName } listening to ${ pluginName || '_self' }-${ event }`);
     this.on(event, async (resolve, reject, data) => {
       try {

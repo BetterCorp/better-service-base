@@ -13,26 +13,25 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
     this.uSelf = uSelf;
   }
 
-  receiveStream(callerPluginName: string, pluginName: string, event: string, listener: { (error: Error | null, stream: Readable): void; }): Promise<string> {
-    const streamId = randomUUID();
-    const streamRefId = `${ pluginName || callerPluginName }-${ event }-${ streamId }`;
-    this.uSelf.log.info(`SR: ${ callerPluginName } listening to ${ pluginName || '_self' }-${ event }-${ streamId }`);
+  receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): void; }, timeoutSeconds: number = 60): Promise<string> {
+    const streamId = `${ randomUUID() }=${ timeoutSeconds }`;
+    this.uSelf.log.info(`SR: ${ callerPluginName } listening to ${ streamId }`);
     const self = this;
     return new Promise((resolve) => {
       let receiptTimeoutHandler: NodeJS.Timeout = setTimeout(() => {
         const err = new Error('Receive Receipt Timeout');
         listener(err, null!);
-        self.emit(`${ streamRefId }-error`, err);
-        self.removeAllListeners(streamRefId);
+        self.emit(`${ streamId }-error`, err);
+        self.removeAllListeners(streamId);
       }, self.staticCommsTimeout);
-      self.once(streamRefId, (stream: Readable): void => {
+      self.once(streamId, (stream: Readable): void => {
         clearTimeout(receiptTimeoutHandler);
-        self.emit(`${ streamRefId }-emit`);
+        self.emit(`${ streamId }-emit`);
         stream.on('error', (e) => {
-          self.emit(`${ streamRefId }-error`, e);
+          self.emit(`${ streamId }-error`, e);
         });
         stream.on('end', () => {
-          self.emit(`${ streamRefId }-end`);
+          self.emit(`${ streamId }-end`);
         });
         listener(null, stream);
       });
@@ -40,20 +39,20 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
     });
   }
 
-  sendStream(callerPluginName: string, pluginName: string, event: string, streamId: string, stream: Readable, timeout = 60): Promise<void> {
+  sendStream(callerPluginName: string, streamId: string, stream: Readable): Promise<void> {
     const self = this;
-    const streamRefId = `${ pluginName || callerPluginName }-${ event }-${ streamId }`;
-    this.uSelf.log.info(`SS: ${ callerPluginName } emitting ${ pluginName || '_self' }-${ event }-${ streamId }`);
+    this.uSelf.log.info(`SS: ${ callerPluginName } emitting ${ '_self' }-${ streamId }`);
     return new Promise((resolve, rejectI) => {
+      const timeout = Number.parseInt(streamId.split('=')[1]);
       const clearSessions = (e?: Error) => {
         stream.destroy(e);
         if (receiptTimeoutHandler !== null)
           clearTimeout(receiptTimeoutHandler);
         receiptTimeoutHandler = null;
         clearTimeout(timeoutHandler);
-        self.removeAllListeners(`${ streamRefId }-emit`);
-        self.removeAllListeners(`${ streamRefId }-end`);
-        self.removeAllListeners(`${ streamRefId }-error`);
+        self.removeAllListeners(`${ streamId }-emit`);
+        self.removeAllListeners(`${ streamId }-end`);
+        self.removeAllListeners(`${ streamId }-error`);
       };
       const reject = (e: Error) => {
         clearSessions(e);
@@ -65,17 +64,17 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
       let timeoutHandler = setTimeout(() => {
         reject(new Error('Stream Timeout'));
       }, timeout * 1000);
-      self.once(`${ streamRefId }-emit`, () => {
+      self.once(`${ streamId }-emit`, () => {
         if (receiptTimeoutHandler !== null)
           clearTimeout(receiptTimeoutHandler);
         receiptTimeoutHandler = null;
       });
-      self.once(`${ streamRefId }-end`, () => {
+      self.once(`${ streamId }-end`, () => {
         clearSessions();
         resolve();
       });
-      self.once(`${ streamRefId }-error`, (e: Error) => reject(e));
-      self.emit(streamRefId, stream);
+      self.once(`${ streamId }-error`, (e: Error) => reject(e));
+      self.emit(streamId, stream);
     });
   }
 }
