@@ -85,7 +85,7 @@ export class CPluginClient<T> implements IPluginClientEvents<any, any> {
   async emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     return this.refPlugin.emitEventAndReturn<ArgsDataType, ReturnDataType>(this._pluginName!, event, data, timeoutSeconds);
   }
-  async receiveStream(listener: (error: Error | null, stream: Readable) => void): Promise<string> {
+  async receiveStream(listener: (error: Error | null, stream: Readable) => Promise<void>): Promise<string> {
     return this.refPlugin.receiveStream(listener);
   }
   async sendStream(streamId: string, stream: Readable, timeout?: number): Promise<void> {

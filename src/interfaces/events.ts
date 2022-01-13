@@ -9,7 +9,7 @@ export interface IEvents<DefaultDataType = any, DefaultReturnType = void> {
   onReturnableEvent<ArgsDataType = DefaultDataType, ReturnDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, listener: (data?: ArgsDataType) => Promise<ReturnDataType>): Promise<void>;
   emitEvent<ArgsDataType = DefaultDataType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType): Promise<void>;
   emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
-  receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): void; }, timeoutSeconds?: number): Promise<string>;
+  receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): Promise<void>; }, timeoutSeconds?: number): Promise<string>;
   sendStream(callerPluginName: string, streamId: string, stream: Readable): Promise<void>;
 }
 
@@ -18,7 +18,7 @@ export interface IPluginEvents<DefaultDataType = any, DefaultReturnType = void> 
   onReturnableEvent<ArgsDataType = DefaultDataType, ReturnDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data?: ArgsDataType) => Promise<ReturnDataType>): Promise<void>;
   emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): Promise<void>;
   emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
-  receiveStream(listener: { (error: Error | null, stream: Readable): void; }, timeoutSeconds?: number): Promise<string>;
+  receiveStream(listener: { (error: Error | null, stream: Readable): Promise<void>; }, timeoutSeconds?: number): Promise<string>;
   sendStream(streamId: string, stream: Readable): Promise<void>;
 }
 
@@ -27,7 +27,7 @@ export interface IPluginClientEvents<DefaultDataType = any, DefaultReturnType = 
   onReturnableEvent<ArgsDataType = DefaultDataType, ReturnDataType = DefaultDataType>(event: string, listener: (data?: ArgsDataType) => Promise<ReturnDataType>): Promise<void>;
   emitEvent<ArgsDataType = DefaultDataType>(event: string, data?: ArgsDataType): Promise<void>;
   emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType>;
-  receiveStream(listener: { (error: Error | null, stream: Readable): void; }, timeoutSeconds?: number): Promise<string>;
+  receiveStream(listener: { (error: Error | null, stream: Readable): Promise<void>; }, timeoutSeconds?: number): Promise<string>;
   sendStream(streamId: string, stream: Readable): Promise<void>;
 }
 
@@ -59,7 +59,7 @@ export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   async emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     throw new Error("Method not implemented.");
   }
-  async receiveStream(callerPluginName: string, listener: (error: Error | null, stream: Readable) => void, timeoutSeconds?: number): Promise<string> {
+  async receiveStream(callerPluginName: string, listener: (error: Error | null, stream: Readable) => Promise<void>, timeoutSeconds?: number): Promise<string> {
     throw new Error('Method not implemented.');
   }
   async sendStream(callerPluginName: string, streamId: string, stream: Readable): Promise<void> {

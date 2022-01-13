@@ -360,7 +360,7 @@ export class Plugins {
       self._loadedPlugins[plugin].emitEventAndReturn = async <T1 = any, T2 = any>(pluginName: string, event: string, data?: T1, timeoutSeconds?: number): Promise<T2> => {
         return self._events.emitEventAndReturn<T1, T2>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, data, timeoutSeconds);
       };
-      self._loadedPlugins[plugin].receiveStream = async (listener: { (error: Error | null, stream: Readable): void; }, timeoutSeconds?: number): Promise<string> => {
+      self._loadedPlugins[plugin].receiveStream = async (listener: { (error: Error | null, stream: Readable): Promise<void>; }, timeoutSeconds?: number): Promise<string> => {
         return self._events.receiveStream(mappedPlugin, listener, timeoutSeconds);
       };
       self._loadedPlugins[plugin].sendStream = async (streamId: string, stream: Readable): Promise<void> => {

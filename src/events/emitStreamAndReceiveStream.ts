@@ -13,7 +13,7 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
     this.uSelf = uSelf;
   }
 
-  receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): void; }, timeoutSeconds: number = 60): Promise<string> {
+  receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): Promise<void>; }, timeoutSeconds: number = 60): Promise<string> {
     const streamId = `${ randomUUID() }=${ timeoutSeconds }`;
     this.uSelf.log.info(`SR: ${ callerPluginName } listening to ${ streamId }`);
     const self = this;

@@ -30,7 +30,7 @@ export class Events extends CEvents {
   async emitEventAndReturn<ArgsDataType = any, ReturnDataType = any>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     return this.ear.emitReturnableEvent<ArgsDataType, ReturnDataType>(callerPluginName, pluginName, event, data, timeoutSeconds);
   }
-  async receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): void; }, timeoutSeconds?: number): Promise<string> {
+  async receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): Promise<void>; }, timeoutSeconds?: number): Promise<string> {
     return this.eas.receiveStream(callerPluginName, listener, timeoutSeconds);
   }
   async sendStream(callerPluginName: string, streamId: string, stream: Readable): Promise<void> {
