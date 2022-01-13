@@ -47,10 +47,10 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   async emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(pluginName: string | null, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     throw new Error("BSB INIT ERROR");
   }
-  async receiveStream(listener: (error: Error | null, stream: Readable) => void): Promise<string> {
+  async receiveStream(listener: (error: Error | null, stream: Readable) => void, timeoutSeconds?: number): Promise<string> {
     throw new Error("BSB INIT ERROR");
   }
-  async sendStream(streamId: string, stream: Readable, timeout?: number): Promise<void> {
+  async sendStream(streamId: string, stream: Readable): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
 }
@@ -85,11 +85,11 @@ export class CPluginClient<T> implements IPluginClientEvents<any, any> {
   async emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     return this.refPlugin.emitEventAndReturn<ArgsDataType, ReturnDataType>(this._pluginName!, event, data, timeoutSeconds);
   }
-  async receiveStream(listener: (error: Error | null, stream: Readable) => Promise<void>): Promise<string> {
-    return this.refPlugin.receiveStream(listener);
+  async receiveStream(listener: (error: Error | null, stream: Readable) => Promise<void>, timeoutSeconds?: number): Promise<string> {
+    return this.refPlugin.receiveStream(listener, timeoutSeconds);
   }
-  async sendStream(streamId: string, stream: Readable, timeout?: number): Promise<void> {
-    return this.refPlugin.sendStream(streamId, stream, timeout);
+  async sendStream(streamId: string, stream: Readable): Promise<void> {
+    return this.refPlugin.sendStream(streamId, stream);
   }
 }
 
