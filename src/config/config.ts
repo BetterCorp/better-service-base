@@ -1,7 +1,8 @@
 import * as FS from "fs";
 import * as PATH from "path";
 import { Tools } from "@bettercorp/tools/lib/Tools";
-import { DeploymentProfile, IPluginLogger, IPluginConfig, ServiceConfig, CConfig, DeploymentProfiles } from "./ILib";
+import { DeploymentProfile, IPluginConfig, ServiceConfig, CConfig, DeploymentProfiles } from "../interfaces/config";
+import { IPluginLogger } from "../interfaces/logger";
 
 export class DefaultConfig extends CConfig {
   private _appConfig!: ServiceConfig;

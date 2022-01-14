@@ -8,20 +8,15 @@
     "dev": "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --exec ts-node src/index.ts",
     "start": "node lib/index.js",
     "build": "tsc",
-    "postinstall": "node ./lib/install.js",
+    "postinstall": "node ./postinstall.js",
     "version": "node ./build/version-bcorp.js $0",
-    "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
+    "test": "./node_modules/mocha/bin/mocha --reporter mocha-junit-reporter --reporter-options mochaFile=junit.xml",
+    "testDev": "./node_modules/mocha/bin/mocha"
   },
-  "files": [
-    "tsconfig.json",
-    "tslint.json",
-    "sourceFiles/**/*",
-    "lib/**/*",
-    "build/**/*",
-    "templates/**/*"
-  ],
+  "files": ["tsconfig.json", "tslint.json", "sourceFiles/**/*", "lib/**/*", "test/**/*", "build/**/*", "templates/**/*", "postinstall.js"],
   "main": "lib/index.js",
-  "version": "6.1.0",
+  "version": "7.3.0",
   "dependencies": {
     "@bettercorp/tools": "^1.2.20211118015545",
     "@types/node": "^16.11.14",
@@ -35,6 +30,7 @@
     "@typescript-eslint/parser": "^5.7.0",
     "eslint": "^8.5.0",
     "mocha": "^9.1.3",
+    "mocha-junit-reporter": "^2.0.2",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.4"
   }

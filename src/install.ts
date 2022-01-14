@@ -46,6 +46,12 @@ const filesToCopyToDest = [
     dst: path.join(CWD, './tsconfig.json'),
     name: 'tsconfig'
   },
+  {
+    src: path.join(CWD, './node_modules/@bettercorp/service-base/build/.gitignore'),
+    dst: path.join(CWD, './.gitignore'),
+    name: '.gitignore',
+    merge: true
+  },
 
   // old build files
   {
@@ -63,15 +69,28 @@ for (const fileInfo of filesToCopyToDest) {
       console.log(`Creating ${ fileInfo.name } build file... (${ fileInfo.src } -> ${ fileInfo.dst })`);
       fs.copyFileSync(fileInfo.src!, fileInfo.dst!);
     }
-    const srcBuffer = fs.readFileSync(fileInfo.src!);
-    const srcHash = crypto.createHash('sha256');
-    srcHash.update(srcBuffer);
-    const dstBuffer = fs.readFileSync(fileInfo.dst!);
-    const dstHash = crypto.createHash('sha256');
-    dstHash.update(dstBuffer);
-    if (srcHash.digest('hex') !== dstHash.digest('hex')) {
-      console.log(`Updating ${ fileInfo.name } build file... (${ fileInfo.src } -> ${ fileInfo.dst })`);
-      fs.copyFileSync(fileInfo.src!, fileInfo.dst!);
+    if (fileInfo.merge === true) {
+      const srcBuffer = fs.readFileSync(fileInfo.src!).toString().split('\n');
+      const dstBuffer = fs.readFileSync(fileInfo.dst!).toString().split('\n');
+      for (let line of dstBuffer) {
+        if (srcBuffer.indexOf(line) >= 0)
+          srcBuffer.splice(srcBuffer.indexOf(line), 1);
+      }
+      for (let line of srcBuffer) {
+        dstBuffer.push(line);
+      }
+      fs.writeFileSync(fileInfo.dst!, dstBuffer.join('\n'));
+    } else {
+      const srcBuffer = fs.readFileSync(fileInfo.src!);
+      const srcHash = crypto.createHash('sha256');
+      srcHash.update(srcBuffer);
+      const dstBuffer = fs.readFileSync(fileInfo.dst!);
+      const dstHash = crypto.createHash('sha256');
+      dstHash.update(dstBuffer);
+      if (srcHash.digest('hex') !== dstHash.digest('hex')) {
+        console.log(`Updating ${ fileInfo.name } build file... (${ fileInfo.src } -> ${ fileInfo.dst })`);
+        fs.copyFileSync(fileInfo.src!, fileInfo.dst!);
+      }
     }
   }
 }
