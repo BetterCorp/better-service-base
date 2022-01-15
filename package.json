@@ -14,9 +14,18 @@
     "test": "./node_modules/mocha/bin/mocha --reporter mocha-junit-reporter --reporter-options mochaFile=junit.xml",
     "testDev": "./node_modules/mocha/bin/mocha"
   },
-  "files": ["tsconfig.json", "tslint.json", "sourceFiles/**/*", "lib/**/*", "test/**/*", "build/**/*", "templates/**/*", "postinstall.js"],
+  "files": [
+    "tsconfig.json",
+    "tslint.json",
+    "sourceFiles/**/*",
+    "lib/**/*",
+    "test/**/*",
+    "build/**/*",
+    "templates/**/*",
+    "postinstall.js"
+  ],
   "main": "lib/index.js",
-  "version": "7.3.0",
+  "version": "7.4.0",
   "dependencies": {
     "@bettercorp/tools": "^1.2.20211118015545",
     "@types/node": "^16.11.14",
