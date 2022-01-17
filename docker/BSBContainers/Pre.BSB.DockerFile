@@ -18,4 +18,3 @@ ADD .npmrc .npmrc
 RUN mv ./.npmrc ~/.npmrc
 RUN echo "HOME: $(echo ~/)" 
 
-ARG NPM2_TOKEN=

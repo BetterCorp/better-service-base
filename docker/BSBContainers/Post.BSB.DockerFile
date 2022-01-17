@@ -1,5 +1,6 @@
 
 # Install plugin
+ARG NPM2_TOKEN=
 RUN npm i "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
 RUN npm version ${PLUGIN_VERSION}
 
