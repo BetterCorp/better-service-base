@@ -1,6 +1,5 @@
 
 # Args
-ARG NPM2_TOKEN=
 ARG BSB_VERSION=latest
 ARG PLUGIN_VERSION=latest
 ARG IMAGE_PLATFORM_TYPE=
@@ -18,3 +17,5 @@ COPY *.tgz /home/bsb-build/
 ADD .npmrc .npmrc
 RUN mv ./.npmrc ~/.npmrc
 RUN echo "HOME: $(echo ~/)" 
+
+ARG NPM2_TOKEN=
