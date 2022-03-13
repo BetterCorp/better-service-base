@@ -59,7 +59,7 @@ export class CEvents<PluginConfigType extends IPluginConfig = any, DefaultDataTy
   async emitEventAndReturn<ArgsDataType = DefaultDataType, ReturnDataType = DefaultReturnType>(callerPluginName: string, pluginName: string, event: string, data?: ArgsDataType, timeoutSeconds?: number): Promise<ReturnDataType> {
     throw new Error("Method not implemented.");
   }
-  async receiveStream(callerPluginName: string, listener: (error: Error | null, stream: Readable) => Promise<void>, timeoutSeconds?: number): Promise<string> {
+  async receiveStream(callerPluginName: string, listener: { (error: Error | null, stream: Readable): Promise<void>; }, timeoutSeconds?: number): Promise<string> {
     throw new Error('Method not implemented.');
   }
   async sendStream(callerPluginName: string, streamId: string, stream: Readable): Promise<void> {
