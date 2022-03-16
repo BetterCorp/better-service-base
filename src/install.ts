@@ -214,6 +214,7 @@ export default (CWD: string) => {
   console.log("INSTALL FINAL : AUTOLOAD: " + installer);
   const ServiceBase = require(installer); // eslint-disable-line @typescript-eslint/no-var-requires
   const SB = new ServiceBase.default(CWD);
+  let completedInstaller = false;
   SB.config().then(() => {
     console.log("INSTALL COMPLETE FOR @bettercorp/service-base");
 
@@ -222,5 +223,10 @@ export default (CWD: string) => {
     console.log("");
 
     for (const todoItem of todoList) console.warn(todoItem);
+    completedInstaller = true;
   }).catch(() => process.exit(1));
+  let timeoutHandle = setTimeout(() => {
+    if (completedInstaller)
+      clearTimeout(timeoutHandle);
+  }, 10);
 };
