@@ -224,9 +224,12 @@ export default (CWD: string) => {
 
     for (const todoItem of todoList) console.warn(todoItem);
     completedInstaller = true;
-  }).catch(() => process.exit(1));
+  }).catch((e: any) => {
+    console.error(e);
+    process.exit(1);
+  });
   let timeoutHandle = setTimeout(() => {
     if (completedInstaller)
       clearTimeout(timeoutHandle);
-  }, 10);
+  }, 100);
 };

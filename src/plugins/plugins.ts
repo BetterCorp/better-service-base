@@ -123,28 +123,32 @@ export class Plugins {
     const npmPluginsDir = join(this._cwd, "./node_modules");
     await this._coreLogger.debug(`FIND: NPM plugins in: ${ npmPluginsDir }`);
     for (const dirFileWhat of readdirSync(npmPluginsDir)) {
-      const pluginPath = join(npmPluginsDir, dirFileWhat);
-      if (dirFileWhat.indexOf(".") === 0) {
-        continue;
-      }
-      if (dirFileWhat.indexOf("@") === 0) {
-        await this._coreLogger.debug(`FIND: GROUP [${ dirFileWhat }] ${ pluginPath }`);
-        for (const groupPluginName of readdirSync(pluginPath)) {
-          if (groupPluginName.indexOf(".") === 0) {
-            continue;
-          }
-          const groupPluginPath = join(pluginPath, groupPluginName);
-          await this._coreLogger.debug(`FIND: CHECK [${ dirFileWhat }/${ groupPluginName }] ${ groupPluginPath }`);
-          if (statSync(groupPluginPath).isDirectory()) {
-            arrOfPlugins = arrOfPlugins.concat(await this.findPluginsInBase(groupPluginPath, true));
+      try {
+        const pluginPath = join(npmPluginsDir, dirFileWhat);
+        if (dirFileWhat.indexOf(".") === 0) {
+          continue;
+        }
+        if (dirFileWhat.indexOf("@") === 0) {
+          await this._coreLogger.debug(`FIND: GROUP [${ dirFileWhat }] ${ pluginPath }`);
+          for (const groupPluginName of readdirSync(pluginPath)) {
+            if (groupPluginName.indexOf(".") === 0) {
+              continue;
+            }
+            const groupPluginPath = join(pluginPath, groupPluginName);
+            await this._coreLogger.debug(`FIND: CHECK [${ dirFileWhat }/${ groupPluginName }] ${ groupPluginPath }`);
+            if (statSync(groupPluginPath).isDirectory()) {
+              arrOfPlugins = arrOfPlugins.concat(await this.findPluginsInBase(groupPluginPath, true));
+            }
           }
         }
-      }
-      else {
-        await this._coreLogger.debug(`FIND: CHECK [${ dirFileWhat }] ${ pluginPath }`);
-        if (statSync(pluginPath).isDirectory()) {
-          arrOfPlugins = arrOfPlugins.concat(await this.findPluginsInBase(pluginPath, true));
+        else {
+          await this._coreLogger.debug(`FIND: CHECK [${ dirFileWhat }] ${ pluginPath }`);
+          if (statSync(pluginPath).isDirectory()) {
+            arrOfPlugins = arrOfPlugins.concat(await this.findPluginsInBase(pluginPath, true));
+          }
         }
+      } catch (err) {
+        await this._coreLogger.error(err);
       }
     }
 
