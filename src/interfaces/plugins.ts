@@ -35,10 +35,10 @@ export class CPlugin<PluginConfigType extends IPluginConfig = any, DefaultDataTy
     this.log = log;
     this.appConfig = appConfig;
   }
-  async onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data: ArgsDataType) => void): Promise<void> {
+  async onEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, listener: { (data: ArgsDataType): Promise<void>; }): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
-  async onReturnableEvent<ArgsDataType = DefaultDataType, ReturnDataType = DefaultDataType>(pluginName: string | null, event: string, listener: (data?: ArgsDataType) => Promise<ReturnDataType>): Promise<void> {
+  async onReturnableEvent<ArgsDataType = DefaultDataType, ReturnDataType = DefaultDataType>(pluginName: string | null, event: string, listener: { (data?: ArgsDataType): Promise<ReturnDataType>; }): Promise<void> {
     throw new Error("BSB INIT ERROR");
   }
   async emitEvent<ArgsDataType = DefaultDataType>(pluginName: string | null, event: string, data?: ArgsDataType): Promise<void> {
@@ -73,10 +73,10 @@ export class CPluginClient<T> implements IPluginClientEvents<any, any> {
     return (this.refPlugin as IPlugin).initForPlugins!<ArgsDataType, ReturnDataType>(this._pluginName!, initType, ...args);
   }
 
-  async onEvent<ArgsDataType = any>(event: string, listener: (data: ArgsDataType) => void): Promise<void> {
+  async onEvent<ArgsDataType = any>(event: string, listener: { (data: ArgsDataType): Promise<void>; }): Promise<void> {
     this.refPlugin.onEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
-  async onReturnableEvent<ArgsDataType = any, ReturnDataType = any>(event: string, listener: (data?: ArgsDataType) => Promise<ReturnDataType>): Promise<void> {
+  async onReturnableEvent<ArgsDataType = any, ReturnDataType = any>(event: string, listener: { (data?: ArgsDataType): Promise<ReturnDataType>; }): Promise<void> {
     await this.refPlugin.onReturnableEvent<ArgsDataType>(this._pluginName!, event, listener);
   }
   async emitEvent<T = any>(event: string, data?: T): Promise<void> {

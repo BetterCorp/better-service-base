@@ -351,7 +351,7 @@ export class Plugins {
       self._loadedPlugins[plugin].onEvent = async <T = any>(pluginName: string, event: string, listener: { (data: T): Promise<void>; }): Promise<void> => {
         return self._events.onEvent<T>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, listener);
       };
-      self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ReturnDataType = any>(pluginName: string, event: string, listener: ({ (data?: ArgsDataType): Promise<ReturnDataType>; })): Promise<void> => {
+      self._loadedPlugins[plugin].onReturnableEvent = async <ArgsDataType = any, ReturnDataType = any>(pluginName: string, event: string, listener: { (data?: ArgsDataType): Promise<ReturnDataType>; }): Promise<void> => {
         return self._events.onReturnableEvent<ArgsDataType, ReturnDataType>(mappedPlugin, await this._appConfig.getMappedPluginName(pluginName || plugin), event, listener);
       };
       self._loadedPlugins[plugin].emitEvent = async <T = any>(pluginName: string, event: string, data?: T): Promise<void> => {

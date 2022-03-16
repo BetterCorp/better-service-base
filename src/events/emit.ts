@@ -9,7 +9,7 @@ export default class emit extends EventEmitter {
     this.uSelf = uSelf;
   }
 
-  onAllEvents(callerPluginName: string, listener: (data: any) => void) {
+  onAllEvents<ArgsDataType = any>(callerPluginName: string, listener: { (data: ArgsDataType): Promise<void>; }) {
     this.uSelf.log.info(`EMIT: ${ callerPluginName } listening to *`);
     this.on('*', listener);
   }
