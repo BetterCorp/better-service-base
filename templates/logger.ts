@@ -1,4 +1,4 @@
-import { CLogger } from "@bettercorp/service-base/lib/ILib";
+import { CLogger } from "@bettercorp/service-base/lib/interfaces/logger";
 import { MyPluginConfig } from './sec.config';
 
 export class Logger extends CLogger<MyPluginConfig> {

@@ -1,40 +1,32 @@
-import { CPlugin, CPluginClient } from "@bettercorp/service-base/lib/ILib";
+import { CPlugin, CPluginClient } from "@bettercorp/service-base/lib/interfaces/plugins";
 import { MyPluginConfig } from './sec.config';
 
 export class demo extends CPluginClient<any> {
   public readonly _pluginName: string = "demo";
 
   async triggerServerOnEvent(data: any): Promise<void> {
-    this.refPlugin.emitEvent(null, "exampleOnEvent", data);
+    await this.emitEvent("exampleOnEvent", data);
   }
   async triggerServerMethod(data: any): Promise<any> {
-    return this.refPlugin.emitEventAndReturn(null, "exampleServerMethod", data);
+    return this.emitEventAndReturn("exampleServerMethod", data);
   }
 }
 
 export class Plugin extends CPlugin<MyPluginConfig> {
-  init(): Promise<void> {
-    const self = this;
-    return new Promise(async (resolve) => {
-      self.onEvent(null, "exampleOnEvent", x => self.exampleOnEvent(x));
-      self.onReturnableEvent(null, "exampleServerMethod", (re: any, rj: any, d: any) => self.exampleServerMethod(d).then(re).catch(rj));
-      resolve();
-    });
+  async init(): Promise<void> {
+    await this.onEvent(null, "exampleOnEvent", x => self.exampleOnEvent(x));
+    await this.onReturnableEvent(null, "exampleServerMethod", self.exampleServerMethod);
   }
 
-  exampleOnEvent(data: any): void {
+  async exampleOnEvent(data: any): Promise<void> {
     this.log.info("Received exampleOnEvent");
   }
 
-  exampleServerMethod = (data: any): Promise<any> => new Promise((resolve, reject) => {
-    resolve(data);
-  });
+  async exampleServerMethod(data: any): Promise<any> {
+    return data;
+  };
 
-  loaded(): Promise<void> {
-    const self = this;
-    return new Promise((resolve) => {
-      self.emitEvent('another-plugin-name', 'another-plugin-on-event', '0');
-      resolve();
-    });
+  async loaded(): Promise<void> {
+    await this.emitEvent('another-plugin-name', 'another-plugin-on-event', '0');
   }
 }
