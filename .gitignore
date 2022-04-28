@@ -1,0 +1,5 @@
+/lib
+node_modules
+/_exports
+/junit.xml
+/test-file-*
