@@ -2,6 +2,7 @@
 lang: en-US
 title: Config plugins
 description: Config plugins for BSB
+footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 ---
 
 # BSB Config  

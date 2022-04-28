@@ -6,6 +6,9 @@ export default defineUserConfig({
   title: 'Better-Service-Base Documentation',
   description: 'Better-Service-Base for distributed Micro-Services',
   theme: defaultTheme({
+    repo: 'https://github.com/BetterCorp/better-service-base',
+    docsRepo: 'https://github.com/BetterCorp/better-service-base',
+    docsBranch: 'documentation',
     // default theme config
     navbar: [
       {

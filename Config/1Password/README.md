@@ -2,6 +2,7 @@
 lang: en-US
 title: 1Password config plugin
 description: 1Password config plugin for BSB
+footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 ---
 
 # 1Password config plugin

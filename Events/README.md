@@ -2,6 +2,7 @@
 lang: en-US
 title: Event plugins
 description: Event plugins for BSB
+footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 ---
 
 # BSB Config
@@ -97,3 +98,5 @@ await sendStream(streamId, stream);
 ## BSB Config Plugins
 
 ### [RabbitMQ](/Events/RabbitMQ)
+### [PubNub](/Events/PubNub)
+

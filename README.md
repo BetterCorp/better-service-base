@@ -1,4 +1,16 @@
-# Better-Service-Base (aka. BSB)
+---
+home: true
+heroText: Better-Service-Base
+tagline: A simple yet scalable microservice base
+features:
+- title: Start Simple
+  details: Get started quickly, expand infinitely
+- title: Event Based
+  details: BSB is completely event based.  Choose the event broker that suites your needs, or build one if it doesn't exist yet.
+- title: Scalable
+  details: Services are designed to be containerized and scaled to meet demand.
+footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
+---
 
 ## About
 

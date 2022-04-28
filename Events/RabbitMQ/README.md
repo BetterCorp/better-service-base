@@ -2,6 +2,7 @@
 lang: en-US
 title: RabbitMQ Plugin
 description: RabbitMQ events plugin for BSB
+footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 ---
 
 # RabbitMQ events plugin
@@ -34,7 +35,7 @@ Docker compose example:
     "password": "guest"
   },
   "uniqueId": null
-},
+}
 ```
 
 Channels/subscriptions and events are handled automatically.  

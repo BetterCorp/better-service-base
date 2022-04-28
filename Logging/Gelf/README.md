@@ -2,6 +2,7 @@
 lang: en-US
 title: Gelf plugin
 description: Gelf logging plugin for BSB
+footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 ---
 
 # Gelf logging plugin
