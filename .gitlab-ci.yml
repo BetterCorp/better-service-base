@@ -20,8 +20,6 @@ generate:
 # the 'pages' job will deploy and build your site to the 'public' path
 pages:
   stage: deploy
-  rules:
-    - if: $CI_COMMIT_BRANCH == 'documentation'
   dependencies:
     - generate
   script:
