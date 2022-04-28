@@ -1,0 +1,34 @@
+image: node:latest
+
+stages:
+  - build
+  - deploy
+
+generate:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'documentation'
+  script:
+    - "npm ci"
+    - "npm run build"
+    - "mv ./.vuepress/dist ./dist"
+  artifacts:
+    paths:
+      - dist
+    expire_in: 1 week
+
+# the 'pages' job will deploy and build your site to the 'public' path
+pages:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'documentation'
+  dependencies:
+    - generate
+  script:
+    - mv dist public
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+  only:
+    - master # this job will affect only the 'master' branch
