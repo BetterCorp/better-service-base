@@ -14,6 +14,7 @@ The BSB base docker image contains the default config/event libraries for quick 
 
 This is the base docker image that is kept up to date with the basic event/config/logging plugins.
 
+
 ### Plugins included
 
 Events:  
