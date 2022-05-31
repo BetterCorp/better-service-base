@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const process = require("process");
-const cwd = process.cwd();
+let cwd = process.cwd();
 let hardSetCWD = false;
 
 for (let argv of process.argv) {
