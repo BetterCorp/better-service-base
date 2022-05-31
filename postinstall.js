@@ -17,11 +17,18 @@ if (fs.existsSync(path.join(cwd, "./.bsb.local"))) {
 } else {
   console.log("BSB Post Install: Run");
   if (cwd.indexOf("/node_modules/") > 0 && hardSetCWD === false) {
-    console.log("BSB Post Install: Bypass - we`re in node_modules dir.");
+    console.log("BSB Post Install: Search - we`re in node_modules dir.");
+    const argSpl = cwd.indexOf('/') >= 0 ? '/' : '\\';
+    cwd = cwd.split(`${argSpl}node_modules${argSpl}`)[0];
+    console.log("BSB Post Install: Try " + cwd);
+  }
+  const bsbBase = path.join(cwd, "./node_modules/@bettercorp/service-base");
+  if (!fs.existsSync(bsbBase)) {
+    console.log("BSB Post Install: Bypass - cannot find service-base.");
     process.exit(0);
   }
-  const installer = require(path.join(cwd, "./lib/install.js")).default;
-  console.log(fs.readdirSync("./build/"));
-  installer(path.join(cwd, "../../../"));
+  const installer = require(path.join(bsbBase, "./lib/install.js")).default;
+  //console.log(fs.readdirSync("./build/"));
+  installer(cwd);
   console.log("BSB Post Install: Complete");
 }
