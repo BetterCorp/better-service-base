@@ -18,6 +18,7 @@ COPY *.tgz /home/bsb-build/
 
 # Default plugins/setup
 RUN npm i --save "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
+RUN node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 
 RUN cat ./package.json
 
