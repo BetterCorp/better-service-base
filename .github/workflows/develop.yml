@@ -1,16 +1,14 @@
-name: Build Framework
+name: Build and Publish Framework (BETA)
 
 on:
   push:
     branches:
-      - '**'
-      - '!develop'
-      - '!master'
+      - 'develop'
     tags-ignore:
       - '**'
 
 jobs:
-  build-framework:
+  build-and-publish-beta:
     runs-on: ubuntu-latest
 
     strategy:
