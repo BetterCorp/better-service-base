@@ -3,7 +3,11 @@ name: Build Documentation
 on:
   push:
     branches:
-      - "!master"
+      - '**'
+      - '!develop'
+      - '!master'
+    tags-ignore:
+      - '**'
 
 jobs:
   build-and-release:
@@ -21,10 +25,11 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-          
+
       - run: npm i -g typescript ts-node
       - run: tsc -v ; ts-node -v
       - run: npm ci
+
       - name: semver
         id: semver
         uses: paulhatch/semantic-version@v4.0.2
@@ -37,6 +42,7 @@ jobs:
           change_path: "src/"
           bump_each_commit: true
           namespace: ""
+
       - name: output version
         run: |
           echo "Setting version too: ${{ steps.semver.outputs.version }}";
