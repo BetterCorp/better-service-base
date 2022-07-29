@@ -35,7 +35,7 @@ jobs:
         uses: paulhatch/semantic-version@v4.0.2
         with:
           tag_prefix: "v"
-          branch: ${GITHUB_REF#refs/heads/}
+          branch: "${{ GITHUB_REF#refs/heads/ }}"
           major_pattern: "(MAJOR)"
           minor_pattern: "(MINOR)"
           format: "${major}.${minor}.${patch}-beta${increment}"
