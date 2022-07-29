@@ -38,7 +38,7 @@ jobs:
           branch: develop
           major_pattern: "(MAJOR)"
           minor_pattern: "(MINOR)"
-          format: "${major}.${minor}.${patch}-beta${increment}"
+          format: "${major}.${minor}.${patch}-rc.${increment}"
           change_path: "./"
           bump_each_commit: true
           namespace: ""
@@ -57,7 +57,8 @@ jobs:
       - run: npm run build
       - run: npm run test
 
-      - run: npm publish
+      - run: npm publish --tag beta
+        if: contains(matrix.node-version, '18.x')
 
       - name: cleanup
         if: always()
