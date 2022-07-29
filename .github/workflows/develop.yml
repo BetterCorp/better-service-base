@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [14.x,16.x,18.x]
+        node-version: [16.x,18.x]
 
     steps:
       - uses: actions/checkout@v3
@@ -46,6 +46,7 @@ jobs:
           echo "Setting version too: ${{ steps.semver.outputs.version }}";
       - run: npm version ${{ steps.semver.outputs.version }}
       - run: npm run build
+      - run: npm run test
 
       - name: cleanup
         if: always()
