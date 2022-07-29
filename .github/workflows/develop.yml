@@ -46,7 +46,7 @@ jobs:
       - name: output version
         run: |
           echo "Setting version too: ${{ steps.semver.outputs.version }}";
-      - run: npm run version -- --branch=develop --version=${{ steps.semver.outputs.version }}
+      - run: npm version ${{ steps.semver.outputs.version }}
 
       - run: rm -f ~/.npmrc ; rm -f ./.npmrc ; echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM2_TOKEN_PUB }}" > ./.npmrc
       - run: |
@@ -56,7 +56,7 @@ jobs:
 
       - run: npm run build
       - run: npm run test
-      
+
       - run: npm publish
 
       - name: cleanup
