@@ -50,6 +50,9 @@ jobs:
       - run: npm run build
       - run: npm run test
 
+      - run: rm -f ~/.npmrc ; rm -f ./.npmrc ; echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM2_TOKEN_PUB }}" > ./.npmrc
+      - run: npm publish
+
       - name: cleanup
         if: always()
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
