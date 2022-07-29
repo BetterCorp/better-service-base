@@ -3,9 +3,9 @@ name: Build and Publish Framework (BETA)
 on:
   push:
     branches:
-      - 'develop'
+      - "develop"
     tags-ignore:
-      - '**'
+      - "**"
 
 jobs:
   build-and-publish-beta:
@@ -13,10 +13,12 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [16.x,18.x]
+        node-version: [16.x, 18.x]
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
