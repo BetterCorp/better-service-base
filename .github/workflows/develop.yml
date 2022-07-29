@@ -39,7 +39,7 @@ jobs:
           major_pattern: "(MAJOR)"
           minor_pattern: "(MINOR)"
           format: "${major}.${minor}.${patch}-beta${increment}"
-          change_path: "src/"
+          change_path: "./"
           bump_each_commit: true
           namespace: ""
 
