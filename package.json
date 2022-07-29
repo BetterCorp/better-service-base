@@ -9,7 +9,7 @@
     "start": "node lib/index.js",
     "build": "tsc",
     "postinstall": "node ./postinstall.js",
-    "version": "node ./build/version-bcorp.js $0",
+    "versionOld": "node ./build/version-bcorp.js $0",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "./node_modules/mocha/bin/mocha --reporter mocha-junit-reporter --reporter-options mochaFile=junit.xml",
     "testDev": "./node_modules/mocha/bin/mocha"
