@@ -1,0 +1,48 @@
+name: Build Documentation
+
+on:
+  push:
+    branches:
+      - "!master"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [14.x,16.x,18.x,19.x]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+          
+      - run: npm i -g typescript ts-node
+      - run: tsc -v ; ts-node -v
+      - run: npm ci
+      - name: semver
+        id: semver
+        uses: paulhatch/semantic-version@v4.0.2
+        with:
+          tag_prefix: "v"
+          branch: ${GITHUB_REF#refs/heads/}
+          major_pattern: "(MAJOR)"
+          minor_pattern: "(MINOR)"
+          format: "${major}.${minor}.${patch}-beta${increment}"
+          change_path: "src/"
+          bump_each_commit: true
+          namespace: ""
+      - name: output version
+        run: |
+          echo "Setting version too: ${{ steps.semver.outputs.version }}";
+      - run: npm version ${{ steps.semver.outputs.version }}
+      - run: npm run build
+
+      - name: cleanup
+        if: always()
+        run: rm -f ~/.npmrc ; rm -f ./.npmrc;
