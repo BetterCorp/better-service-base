@@ -3,6 +3,9 @@ RUN npm i -g typescript ts-node
 RUN mkdir /home/bsb
 WORKDIR /home/bsb
 
+ENV NODE_ENV production
+ENV BSB_LIVE true
+
 # NPM repo defaults
 RUN npm init -y
 
@@ -11,7 +14,7 @@ RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/
 
 # Default plugins/setup
-RUN npm i --save "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
+RUN npm i --save --omit=dev --no-optional --production "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
 RUN node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 
 RUN cat ./package.json
