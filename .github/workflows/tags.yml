@@ -74,7 +74,11 @@ jobs:
       - run: npm publish
         if: contains(matrix.node-version, '18.x')
 
+      - run: npm pack
+        if: contains(matrix.node-version, '18.x')
+
       - uses: actions/upload-artifact@v2
+        if: contains(matrix.node-version, '18.x')
         with:
           name: published-package
           path: bettercorp-service-base-*.tgz
