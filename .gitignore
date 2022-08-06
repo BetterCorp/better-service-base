@@ -4,3 +4,6 @@ node_modules
 /junit.xml
 /test-file-*
 /.vuepress
+/.nyc_output
+/coverage
+/junit.json

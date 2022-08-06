@@ -61,17 +61,19 @@ jobs:
       - run: npm run build
       - run: npm run test
 
-      - name: Test Report
+      - name: Test Report ${{ matrix.node-version }}
         uses: dorny/test-reporter@v1.5.0
         with:
           name: Tests
           path: junit.json
           reporter: mocha-json
 
-      - name: Coverage Report
-        uses: Tintef/nyc-reporter-action@0.2.5
+      - name: Upload coverage reports to Codecov
+        if: contains(matrix.node-version, '18.x')
+        uses: codecov/codecov-action@v3
         with:
-          REPORTER: "json"
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: coverage
 
 
       - run: npm publish --tag ea
