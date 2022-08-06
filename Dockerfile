@@ -1,4 +1,4 @@
-FROM betterweb/node:current-alpine
+FROM betterweb/node:latest
 # RUN npm i -g typescript ts-node
 RUN mkdir /home/bsb
 WORKDIR /home/bsb
