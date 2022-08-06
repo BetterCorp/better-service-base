@@ -18,7 +18,7 @@ jobs:
         #  - node-version: 19.x
         #    experimental: true
 
-    continue-on-error: ${{ matrix.experimental }}
+    #continue-on-error: ${{ matrix.experimental }}
 
     steps:
       - uses: actions/checkout@v3

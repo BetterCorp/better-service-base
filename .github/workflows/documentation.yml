@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         node-version: [14.x]
-    
+
     steps:
       - name: Cleanup working dir
         run: rm -rfv ./*
@@ -28,10 +28,10 @@ jobs:
 
       - name: NPM Build
         run: npm run build
-      
+
       - name: Move dist dir for release
         run: mv ./.vuepress/dist ./dist
-      
+
       - name: Deploy to GitHub Pages
         if: success()
         uses: crazy-max/ghaction-github-pages@v2
