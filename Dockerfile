@@ -1,5 +1,5 @@
 FROM betterweb/node:current-alpine
-RUN npm i -g typescript ts-node
+# RUN npm i -g typescript ts-node
 RUN mkdir /home/bsb
 WORKDIR /home/bsb
 
