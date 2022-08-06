@@ -101,17 +101,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      # ${GITHUB_REPOSITORY#*/}
-      - name: Prepare
-        id: prep
-        run: |
-          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/service-base
-          TAGS="${DOCKER_IMAGE}:${{ needs.build_and_publish_ea.outputs.version }},${DOCKER_IMAGE}:ea-latest"
-
-          # Set output parameters.
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=docker_image::${DOCKER_IMAGE}
-
       - uses: actions/download-artifact@v2
         with:
           name: published-package
@@ -140,4 +129,6 @@ jobs:
           file: ./docker/BSB.Dockerfile
           platforms: linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: true
-          tags: ${{ steps.prep.outputs.tags }}
+          tags: |
+            betterweb/service-base:ea-latest
+            betterweb/service-base:${{ needs.build_and_publish_ea.outputs.version }}
