@@ -11,8 +11,8 @@
     "postinstall": "node ./postinstall.js",
     "versionOld": "node ./build/version-bcorp.js $0",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
-    "test": "node ./node_modules/mocha/bin/mocha.js --reporter mocha-junit-reporter --reporter-options mochaFile=junit.xml",
-    "testDev": "node ./node_modules/mocha/bin/mocha.js"
+    "test": "node ./node_modules/nyc/bin/nyc.js --reporter json ./node_modules/mocha/bin/mocha.js --reporter json --reporter-options output=junit.json",
+    "testDev": "node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js"
   },
   "files": [
     "tsconfig.json",

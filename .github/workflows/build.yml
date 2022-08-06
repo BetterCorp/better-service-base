@@ -32,6 +32,18 @@ jobs:
       - run: npm run build
       - run: npm run test
 
+      - name: Test Report
+        uses: dorny/test-reporter@v1.5.0
+        with:
+          name: Tests
+          path: junit.json
+          reporter: mocha-json
+
+      - name: Coverage Report
+        uses: Tintef/nyc-reporter-action@0.2.5
+        with:
+          REPORTER: "json"
+
       - name: cleanup
         if: always()
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
