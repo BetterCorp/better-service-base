@@ -59,6 +59,9 @@ jobs:
 
       - run: npm version ${{ steps.semver.outputs.version }}
       - run: npm run build
+      - run: ls -la ./node_modules/
+      - run: ls -la ./node_modules/mocha
+      - run: ls -la ./node_modules/mocha/bin
       - run: npm run test
 
       - run: npm publish --tag ea
