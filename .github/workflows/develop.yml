@@ -12,10 +12,10 @@ jobs:
     strategy:
       matrix:
         node-version: [16.x, 18.x]
-        experimental: [false]
-        include:
-          - node-version: 19.x
-            experimental: true
+        #experimental: [false]
+        #include:
+        #  - node-version: 19.x
+        #    experimental: true
 
     continue-on-error: ${{ matrix.experimental }}
 
@@ -36,7 +36,7 @@ jobs:
 
       - name: semver
         id: semver
-        uses: paulhatch/semantic-version@v4.0.2
+        uses: paulhatch/semantic-version@v4.0.3
         with:
           tag_prefix: "v"
           branch: develop
