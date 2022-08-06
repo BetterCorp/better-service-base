@@ -1,1 +1,0 @@
-require('./version-base')('@bettercorp/core-internal-');

@@ -1,12 +1,12 @@
-name: Build and Publish (EA)
+name: Build and Publish (RC)
 
 on:
   push:
     branches:
-      - "develop"
+      - "master"
 
 jobs:
-  build-and-publish-ea:
+  build-and-publish-rc:
     runs-on: ubuntu-latest
 
     strategy:
@@ -39,10 +39,10 @@ jobs:
         uses: paulhatch/semantic-version@v4.0.2
         with:
           tag_prefix: "v"
-          branch: develop
+          branch: master
           major_pattern: "(MAJOR)"
           minor_pattern: "(MINOR)"
-          format: "${major}.${minor}.${patch}-ea.${increment}"
+          format: "${major}.${minor}.${patch}-rc.${increment}"
           change_path: "./"
           bump_each_commit: true
           namespace: ""
@@ -61,7 +61,7 @@ jobs:
       - run: npm run build
       - run: npm run test
 
-      - run: npm publish --tag ea
+      - run: npm publish --tag rc
         if: contains(matrix.node-version, '18.x')
 
       - name: cleanup
