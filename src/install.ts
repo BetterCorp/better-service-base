@@ -1,4 +1,4 @@
-import { Tools } from "@bettercorp/tools/lib/Tools";
+//import { Tools } from "@bettercorp/tools/lib/Tools";
 import * as fs from "fs";
 //import * as crypto from "crypto";
 import * as path from "path";
