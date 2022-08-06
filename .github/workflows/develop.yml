@@ -88,7 +88,7 @@ jobs:
         if: contains(matrix.node-version, '18.x')
         with:
           name: published-package
-          path: bettercorp-service-base-*.tgz
+          path: ./*.tgz
 
       - name: cleanup
         if: always()
