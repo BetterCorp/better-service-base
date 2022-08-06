@@ -98,18 +98,6 @@ jobs:
         with:
           name: published-package
 
-      # ${GITHUB_REPOSITORY#*/}
-      - name: Prepare
-        id: prep
-        run: |
-          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/service-base
-
-          TAGS="${DOCKER_IMAGE}:${{ needs.build_and_publish_prod.outputs.version }},${DOCKER_IMAGE}:latest"
-
-          # Set output parameters.
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=docker_image::${DOCKER_IMAGE}
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -131,7 +119,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: .
-          file: ./docker/BSB.Dockerfile
-          platforms: linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+          file: ./Dockerfile
+          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: true
-          tags: ${{ steps.prep.outputs.tags }}
+          tags: |
+            betterweb/service-base:latest
+            betterweb/service-base:${{ needs.build_and_publish_ea.outputs.version }}

@@ -99,7 +99,7 @@ export default (CWD: string) => {
     console.log(`Updating package scripts... (${ packaggeJSONFile })`);
     const readPackageJsonFile = JSON.parse(fs.readFileSync(packaggeJSONFile).toString());
     readPackageJsonFile.scripts = readPackageJsonFile.scripts || {};
-    readPackageJsonFile.scripts.start = "ts-node node_modules/@bettercorp/service-base/lib/index.js";
+    readPackageJsonFile.scripts.start = "node node_modules/@bettercorp/service-base/lib/index.js";
     fs.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile));
   }
 
