@@ -22,6 +22,7 @@ jobs:
 
     outputs:
       version: ${{ steps.semver.outputs.version }}
+      major: ${{ steps.semver.outputs.major }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -125,3 +126,4 @@ jobs:
           tags: |
             betterweb/service-base:latest
             betterweb/service-base:${{ needs.build_and_publish_ea.outputs.version }}
+            betterweb/service-base:v${{ needs.build_and_publish_ea.outputs.major }}

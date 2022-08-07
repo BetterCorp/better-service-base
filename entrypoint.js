@@ -13,7 +13,7 @@ const packageConfig = JSON.parse(fs.readFileSync("./package.json").toString());
 
 for (let plugin of (process.env.BSB_PLUGINS || "").split(",")) {
   console.log("INSTALL PLUGIN?: " + plugin);
-  let pluginString = plug.split(":");
+  let pluginString = plugin.split(":");
   let existingPlugin = null;
   for (let ePlugin of Object.keys(packageConfig.dependencies)) {
     if (pluginString[0] === ePlugin) {
