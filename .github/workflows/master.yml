@@ -134,6 +134,7 @@ jobs:
 
   docs_build_rc:
     runs-on: ubuntu-latest
+    needs: [build_and_publish_rc]
 
     strategy:
       matrix:

@@ -130,6 +130,7 @@ jobs:
 
   docs_build_prod:
     runs-on: ubuntu-latest
+    needs: [build_and_publish_prod]
 
     strategy:
       matrix:
