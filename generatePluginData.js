@@ -1,9 +1,18 @@
 const fs = require("fs");
+const crypto = require("crypto");
 const https = require("https");
 const path = require("path");
 const execSync = require("child_process").execSync;
 
 const tempDir = path.join(process.cwd(), "_temp");
+
+const getFileHash = (file) => {
+  const fileBuffer = fs.readFileSync(file);
+  const hashSum = crypto.createHash("sha256");
+  hashSum.update(fileBuffer);
+
+  return hashSum.digest("hex");
+};
 
 const getGithubRepos = () =>
   new Promise(async (resolve, reject) => {
@@ -97,6 +106,7 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   });
 
 (async () => {
+  const existingHashOfFile = getFileHash("./plugins.json");
   let availPlugins = [];
   if (fs.existsSync(tempDir))
     execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
@@ -192,4 +202,6 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   fs.writeFileSync("./plugins.json", JSON.stringify(availPlugins, " ", 2));
   if (fs.existsSync(tempDir))
     execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
+  const newHash = getFileHash("./plugins.json");
+  console.log(`::set-output name=changes::${newHash === existingHashOfFile}`);
 })();
