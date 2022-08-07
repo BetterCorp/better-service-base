@@ -1,11 +1,11 @@
 ---
 lang: en-US
-title: Getting Started
-description: Using the BSB
+title: Deployment
+description: BSB Docker Deployment
 footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 ---
 
-# BSB Getting Started  
+# BSB Docker Deployment  
 
 ## About  
 

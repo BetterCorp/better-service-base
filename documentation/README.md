@@ -16,29 +16,14 @@ footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 
 BSB was designed to be a simple, expandable and server agnostic platform for simple, scalable microservice projects.  
 
-Each plugin builds a docker image that can be deployed quickly.
-
-The BSB base docker image contains the default config/event libraries for quick deployment.  
+From v8 of the BSB, a single container can be deployed with a linked volume to minize the storage space required for deployment.  
+See [Docker Deployment](/Deployment)  for deployment configurations
   
 ## Docker
 
 [betterweb/service-base](https://hub.docker.com/r/betterweb/service-base)  
 
 This is the base docker image that is kept up to date with the basic event/config/logging plugins.
-
-
-### Plugins included
-
-Events:  
- - [RabbitMQ](/Events/RabbitMQ)  
- - [Pubnub](/Events/Pubnub)  
-  
-Config:
- - [1Password](/Config/1Password)  
-  
-Logging:  
- - [Gelf](/Logging/Gelf)
-  
   
 ### Environment variables
 
@@ -103,7 +88,7 @@ An example docker compose file for a service.
 
 - A server running docker (docker swarm/kubernetes/nomad)  
 - An events service (should you want to run more than 1 service...)
-  - Example: RabbitMQ
+  - Example: RabbitMQ/Pubnub
 
 
 ## Getting started

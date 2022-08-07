@@ -1,21 +1,28 @@
-
-import { defineUserConfig, defaultTheme, viteBundler } from 'vuepress';
+import { defineUserConfig, defaultTheme, viteBundler } from "vuepress";
 
 export default defineUserConfig({
-  lang: 'en-US',
-  title: 'Better-Service-Base Documentation',
-  description: 'Better-Service-Base for distributed Micro-Services',
+  lang: "en-US",
+  title: "Better-Service-Base Documentation",
+  description: "Better-Service-Base for distributed Micro-Services",
   theme: defaultTheme({
-    repo: 'https://github.com/BetterCorp/better-service-base',
-    docsRepo: 'https://github.com/BetterCorp/better-service-base',
-    docsBranch: 'documentation',
+    repo: "https://github.com/BetterCorp/better-service-base",
+    docsRepo: "https://github.com/BetterCorp/better-service-base",
+    docsBranch: "documentation",
     // default theme config
     navbar: [
       {
-        text: 'Home',
-        link: '/',
+        text: "Home",
+        link: "/",
       },
       {
+        text: "Get Started",
+        link: "/Development",
+      },
+      {
+        text: "Deployment",
+        link: "/Deployment",
+      },
+      /*{
         text: 'Config',
         link: '/Config',
       },
@@ -26,14 +33,10 @@ export default defineUserConfig({
       {
         text: 'Logging',
         link: '/Logging',
-      },
+      },*/
       {
-        text: 'Plugins',
-        link: '/Plugins',
-      },
-      {
-        text: 'Development',
-        link: '/Development',
+        text: "Plugins",
+        link: "/Plugins",
       },
     ],
   }),
@@ -41,7 +44,7 @@ export default defineUserConfig({
     vuePluginOptions: {
       template: {
         compilerOptions: {
-          isCustomElement: (tag) => tag === 'left',
+          isCustomElement: (tag) => tag === "left",
         },
       },
     },
