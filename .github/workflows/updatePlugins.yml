@@ -1,4 +1,4 @@
-name: Build and Publish (RC)
+name: Update documentation plugins
 
 on:
   schedule:
