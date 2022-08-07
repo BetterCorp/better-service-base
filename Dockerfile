@@ -35,5 +35,5 @@ RUN chown -R root:root /home/bsb
 RUN chmod -R 644 /home/bsb
 RUN chown node:node /home/bsb/sec.config.json
 
-ENTRYPOINT [ "/bin/sh /root/entrypoint.sh" ]
+ENTRYPOINT [ "/root/entrypoint.sh" ]
 CMD npm start
