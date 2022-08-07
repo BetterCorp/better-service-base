@@ -4,7 +4,7 @@ if [ "$BSB_CONTAINER" == "true" ]; then
   cd /mnt/bsb-plugins
   node /root/entrypoint.js
   cd /home/bsb
-  node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
+  # node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 fi
 
 chown -R root:node /home/bsb
