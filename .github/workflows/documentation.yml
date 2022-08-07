@@ -3,25 +3,29 @@ name: Build Documentation
 on:
   push:
     branches:
-      - documentation
+      - master
 
 jobs:
-  build-and-release:
+  build-and-release-docs:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [14.x]
+        node-version: [16.x]
 
     steps:
-      - name: Cleanup working dir
-        run: rm -rfv ./*
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      #- name: Cleanup working dir
+      #  run: rm -rfv ./*
 
-      - name: Clone repo (needed for contribs)
-        run: git clone https://github.com/BetterCorp/better-service-base.git ./
+      #- name: Clone repo (needed for contribs)
+      #  run: git clone https://github.com/BetterCorp/better-service-base.git ./
 
-      - name: Checkout documentation
-        run: git checkout documentation
+      #- name: Checkout documentation
+      #  run: git checkout documentation
 
       - name: NPM I
         run: npm ci
