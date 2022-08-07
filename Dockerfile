@@ -20,8 +20,9 @@ COPY entrypoint.sh /root/entrypoint.sh
 COPY entrypoint.js /root/entrypoint.js
 
 # Default plugins/setup
-RUN pnpm add "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
-RUN pnpm i --prod --fix-lockfile "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz)"
+RUN ls -la /home/bsb-build/
+RUN pnpm add "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz | head -1)"
+#RUN pnpm i --prod --fix-lockfile "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz | head -1)"
 RUN node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 
 RUN cat ./package.json
