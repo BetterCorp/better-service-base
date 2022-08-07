@@ -1,0 +1,14 @@
+{
+  "name": "bsb-documentation",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "npx vuepress dev",
+    "build": "npx vuepress build"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "vuepress": "^2.0.0-beta.41"
+  }
+}
