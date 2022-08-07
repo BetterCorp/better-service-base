@@ -2,6 +2,7 @@
 
 if [ "$BSB_CONTAINER" == "true" ]; then
   pushd /mnt/bsb-plugins && node /root/entrypoint.js && popd
+  node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 fi
 
 chmod -R 644 /home/bsb

@@ -175,10 +175,10 @@ export class Plugins {
       libOnly
     );
   }
-  private async findNPMPlugins(): Promise<Array<IReadyPlugin>> {
+  private async findNPMPlugins(cwd: string = this._cwd): Promise<Array<IReadyPlugin>> {
     let arrOfPlugins: Array<IReadyPlugin> = [];
 
-    const npmPluginsDir = join(this._cwd, "./node_modules");
+    const npmPluginsDir = join(cwd, "./node_modules");
     await this._coreLogger.debug(`FIND: NPM plugins in: ${npmPluginsDir}`);
     for (const dirFileWhat of readdirSync(npmPluginsDir)) {
       try {
@@ -233,7 +233,7 @@ export class Plugins {
       this._plugins = [];
       for (let dir of (process.env.BSB_PLUGIN_DIR || "").split(",")) {
         await this._coreLogger.info("FIND: findAllPlugins: " + dir);
-        this._plugins = this._plugins.concat(await this.findPluginsInBase(dir));
+        this._plugins = this._plugins.concat(await this.findNPMPlugins(dir));
       }
       await this._coreLogger.info(
         `FIND: ${this._plugins.length} plugins found`
