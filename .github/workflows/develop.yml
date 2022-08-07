@@ -94,7 +94,7 @@ jobs:
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
 
   docker_build_ea:
-    needs: build_and_publish_ea
+    needs: [build_and_publish_ea, docs_build_ea]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -151,7 +151,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-          
+
       - run: npm ci
         working-directory: documentation/
 

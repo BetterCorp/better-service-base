@@ -89,7 +89,7 @@ jobs:
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
 
   docker_build_prod:
-    needs: build_and_publish_prod
+    needs: [build_and_publish_prod, docs_build_prod]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -147,7 +147,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-          
+
       - run: npm ci
         working-directory: documentation/
 
@@ -160,4 +160,3 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: pages publish documentation/.vuepress/dist --project-name=bsb-documentation --commit-dirty=true --branch=master
-

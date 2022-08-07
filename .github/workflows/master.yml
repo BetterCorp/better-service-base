@@ -94,7 +94,7 @@ jobs:
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
 
   docker_build_rc:
-    needs: build_and_publish_rc
+    needs: [build_and_publish_rc, docs_build_rc]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
