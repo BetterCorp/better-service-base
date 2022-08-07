@@ -1,0 +1,39 @@
+name: Build and Publish (RC)
+
+on:
+  schedule:
+    - cron: "0 0/6 1/1 * *"
+  workflow_dispatch:
+
+jobs:
+  build_and_update_plugins:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: documentation
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Plugin def generation
+        id: plugin_generation
+        run: node generatePluginData.js
+
+      - uses: EndBug/add-and-commit@v9 # You can change this to use a specific version.
+        if: ${{ steps.plugin_generation.outputs.changes == 'true' }}
+        with:
+          add: "plugins.json"
+          committer_name: GitHub Actions
+          committer_email: actions@github.com
+          message: "Updated known plugins"
+          pull: ""
+          push: true
