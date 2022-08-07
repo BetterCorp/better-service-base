@@ -159,5 +159,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages publish documentation/.vuepress/dist --project-name=bsb-docs  --branch=master
+          command: pages publish documentation/.vuepress/dist --project-name=bsb-documentation --commit-dirty=true --branch=master
 
