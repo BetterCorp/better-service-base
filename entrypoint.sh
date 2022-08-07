@@ -5,9 +5,10 @@ if [ "$BSB_CONTAINER" == "true" ]; then
   node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 fi
 
-chmod -R 644 /home/bsb
+chown -R root:node /home/bsb
+chmod -R 650 /home/bsb
 chown node:node /home/bsb/sec.config.json
-chown -R root:root /mnt/bsb-plugins
-chmod -R 644 /mnt/bsb-plugins
+chown -R root:node /mnt/bsb-plugins
+chmod -R 650 /mnt/bsb-plugins
 
 exec gosu node "$@"

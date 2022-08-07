@@ -19,7 +19,7 @@ RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/
 COPY entrypoint.sh /root/entrypoint.sh
 COPY entrypoint.js /root/entrypoint.js
-RUN chmod +x /root/entrypoint.sh
+RUN chmod 550 /root/entrypoint.sh
 
 # Default plugins/setup
 RUN ls -la /home/bsb-build/
@@ -32,8 +32,8 @@ RUN cat ./package.json
 # Cleanup
 RUN rm -rfv /home/bsb-build
 
-RUN chown -R root:root /home/bsb
-RUN chmod -R 644 /home/bsb
+RUN chown -R root:node /home/bsb
+RUN chmod -R 650 /home/bsb
 RUN chown node:node /home/bsb/sec.config.json
 
 ENTRYPOINT [ "/root/entrypoint.sh" ]
