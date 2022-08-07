@@ -1,7 +1,9 @@
 #!/bin/sh
 
 if [ "$BSB_CONTAINER" == "true" ]; then
-  pushd /mnt/bsb-plugins && node /root/entrypoint.js && popd
+  cd /mnt/bsb-plugins
+  node /root/entrypoint.js
+  cd /home/bsb
   node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 fi
 
