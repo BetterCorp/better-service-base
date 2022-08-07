@@ -19,6 +19,7 @@ RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/
 COPY entrypoint.sh /root/entrypoint.sh
 COPY entrypoint.js /root/entrypoint.js
+RUN chmod +x /root/entrypoint.sh
 
 # Default plugins/setup
 RUN ls -la /home/bsb-build/
