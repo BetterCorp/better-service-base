@@ -175,11 +175,19 @@ export class Plugins {
       libOnly
     );
   }
-  private async findNPMPlugins(cwd: string = this._cwd): Promise<Array<IReadyPlugin>> {
+  private async findNPMPlugins(
+    cwd: string = this._cwd
+  ): Promise<Array<IReadyPlugin>> {
     let arrOfPlugins: Array<IReadyPlugin> = [];
 
     const npmPluginsDir = join(cwd, "./node_modules");
     await this._coreLogger.debug(`FIND: NPM plugins in: ${npmPluginsDir}`);
+    if (!existsSync(npmPluginsDir)) {
+      await this._coreLogger.error(
+        `FIND: NPM plugins dir does not exist: ${npmPluginsDir}`
+      );
+      return [];
+    }
     for (const dirFileWhat of readdirSync(npmPluginsDir)) {
       try {
         const pluginPath = join(npmPluginsDir, dirFileWhat);
