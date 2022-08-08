@@ -156,6 +156,15 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
           )
         )
       );
+      const bsbPluginJson = JSON.parse(
+        fs.readFileSync(
+          path.join(
+            repoTempDir,
+            `${repo.name}-${repo.default_branch}`,
+            "bsb.json"
+          )
+        )
+      );
       console.log(`  : Getting NPM package`);
       execSync(
         `cd ${npmTempDir} && npm pack ${packgeJson.name} && mv *.tgz Package.tar.gz`,
@@ -171,6 +180,7 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
       let plugins = fs
         .readdirSync(path.join(npmTempDir, `package`, "lib/plugins/"))
         .filter((x) => x.indexOf("-") !== 0)
+        .filter((x) => bsbPluginJson.filter((w) => w.key === x).length === 1)
         .map((x) => {
           let pluginType = "plugin";
           if (x.indexOf("events-") === 0) pluginType = "events";
@@ -179,6 +189,7 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
           return {
             type: pluginType,
             name: x,
+            def: bsbPluginJson.filter((w) => w.key === x)[0],
           };
         });
       for (let plugin of plugins)
@@ -190,6 +201,11 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
       availPlugins.push({
         name: packgeJson.name,
         version: packgeJson.version,
+        author: {
+          name: repo.owner.login,
+          url: repo.owner.html_url,
+          avatar: repo.owner.avatar_url,
+        },
         github: repo.html_url,
         plugins: plugins,
       });
@@ -203,6 +219,10 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   if (fs.existsSync(tempDir))
     execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
   const newHash = getFileHash("./plugins.json");
-  console.log(`? changes: ${newHash !== existingHashOfFile} (e:${existingHashOfFile}|n:${newHash})`);
+  console.log(
+    `? changes: ${
+      newHash !== existingHashOfFile
+    } (e:${existingHashOfFile}|n:${newHash})`
+  );
   console.log(`::set-output name=changes::${newHash !== existingHashOfFile}`);
 })();
