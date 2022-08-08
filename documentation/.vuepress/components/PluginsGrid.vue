@@ -7,7 +7,7 @@
           <div>
             <div>
               <h2>
-                <img style="width: 32px; height: 32px;"
+                <img class="plugin-img"
                   :src="plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon" />
                 {{ plugin.def.name }}
               </h2>
@@ -62,18 +62,17 @@
 
 <style>
 .pluginsList {
-  /* grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); 
-  grid-gap: 30px;
-  box-sizing: border-box;
-  display: grid;
-  padding-top: 16px;
-  padding-bottom: 16px;
-  */
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   justify-content: space-around;
   gap: 50px;
+}
+
+.plugin-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
 }
 
 .plugin-card {
@@ -134,8 +133,9 @@ export default {
   mounted() {
     const self = this;
     fetch(
-      "https://min.gitcdn.link/cdn/BetterCorp/better-service-base/documentation/plugins.json?time=" +
-      new Date().getTime()
+      "https://raw.githubusercontent.com/BetterCorp/better-service-base/documentation/plugins.json"
+      //"https://min.gitcdn.link/cdn/BetterCorp/better-service-base/documentation/plugins.json?time=" +
+      //new Date().getTime()
     )
       .then(async (x) => {
         self.pluginConfig = await x.json();
