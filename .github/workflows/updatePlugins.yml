@@ -11,6 +11,7 @@ on:
   schedule:
     - cron: "0 0/6 1/1 * *"
   workflow_dispatch:
+    branches: [master, develop]
 
 jobs:
   build_and_update_plugins:
