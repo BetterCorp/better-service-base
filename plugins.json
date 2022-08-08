@@ -15,7 +15,7 @@
         "def": {
           "key": "events-rabbitmq",
           "name": "RabbitMQ",
-          "icon": "plugin-events-rabbitmq.png",
+          "icon": "events-rabbitmq.png",
           "description": "RabbitMQ events plugin"
         }
       }
@@ -37,7 +37,7 @@
         "def": {
           "key": "1password",
           "name": "1Password",
-          "icon": "bsb-1password.svg",
+          "icon": "1password.svg",
           "description": "1Password secrets automation"
         }
       },
@@ -47,7 +47,7 @@
         "def": {
           "key": "config-1password",
           "name": "1Password",
-          "icon": "bsb-1password.svg",
+          "icon": "1password.svg",
           "description": "1Password events plugin"
         }
       }
