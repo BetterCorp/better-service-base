@@ -1,13 +1,16 @@
 import { defineUserConfig, defaultTheme, viteBundler } from "vuepress";
+import { path } from "@vuepress/utils";
 
 export default defineUserConfig({
+  clientConfigFile: path.resolve(__dirname, "./clientConfig.ts"),
   lang: "en-US",
   title: "Better-Service-Base Documentation",
   description: "Better-Service-Base for distributed Micro-Services",
   theme: defaultTheme({
     repo: "https://github.com/BetterCorp/better-service-base",
     docsRepo: "https://github.com/BetterCorp/better-service-base",
-    docsBranch: "documentation",
+    docsBranch: "develop",
+    docsDir: "documentation",
     // default theme config
     navbar: [
       {
@@ -36,7 +39,11 @@ export default defineUserConfig({
       },*/
       {
         text: "Plugins",
-        link: "/Plugins",
+        link: "/Plugins/",
+      },
+      {
+        text: "Market",
+        link: "/Plugins/Market",
       },
     ],
   }),
