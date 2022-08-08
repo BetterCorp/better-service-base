@@ -203,5 +203,6 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   if (fs.existsSync(tempDir))
     execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
   const newHash = getFileHash("./plugins.json");
+  console.log(`? changes: ${newHash === existingHashOfFile} (e:${existingHashOfFile}|n:${newHash})`);
   console.log(`::set-output name=changes::${newHash === existingHashOfFile}`);
 })();
