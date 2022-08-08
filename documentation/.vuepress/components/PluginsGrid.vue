@@ -2,17 +2,19 @@
   <div style="margin-top: 50px;">
     <div v-if="pluginConfig === null" style="margin: 0 auto; text-align: center;">[ Loading plugins ]</div>
     <div v-else class="pluginsList">
-      <div class="plugin-card" v-for="plugin of pluginConfig" v-bind:key="plugin.name">
+      <div class="plugin-card" v-for="plugin of reparsedPlugins" v-bind:key="plugin.ref.name + plugin.name">
         <div>
           <div>
             <div>
               <h2>
-                {{ plugin.name }}
+                <img style="width: 32px; height: 32px;"
+                  :src="plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon" />
+                {{ plugin.def.name }}
               </h2>
-              <span>v{{ plugin.version }}</span>
+              <span>v{{ plugin.ref.version }}</span>
               <span> - </span>
               <span>By </span>
-              <span style="font-size: 14px">Darkweak</span>
+              <span style="font-size: 14px">{{ plugin.ref.author.name }}</span>
             </div>
           </div>
           <!-- <div data-part-id="flex">
@@ -29,8 +31,7 @@
           </div> -->
         </div>
         <p size="1" data-part-id="text">
-          Souin is a powerfull cache system as fast as Varnish but easier to
-          configure
+          {{ plugin.def.description }}
         </p>
         <div data-part-id="flex">
           <a href="/plugins/6294728cffc0cd18356a97c2/souin">
@@ -85,7 +86,7 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
-  max-width: 450px;
+  width: 400px;
 }
 
 .plugin-card::before {
@@ -113,6 +114,19 @@ export default {
     };
   },
   computed: {
+    reparsedPlugins() {
+      let outputList = [];
+      for (let plugin of this.pluginConfig) {
+        for (let pluginDef of plugin.plugins) {
+          outputList.push({
+            ...pluginDef,
+            ref: plugin
+          });
+        }
+      }
+      console.log(outputList);
+      return outputList;
+    },
     filteredPlugins() {
       return this.pluginConfig;
     },
