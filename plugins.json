@@ -2,26 +2,54 @@
   {
     "name": "@bettercorp/service-base-plugin-events-rabbitmq",
     "version": "2.2.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
     "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
     "plugins": [
       {
         "type": "events",
-        "name": "events-rabbitmq"
+        "name": "events-rabbitmq",
+        "def": {
+          "key": "events-rabbitmq",
+          "name": "RabbitMQ",
+          "icon": "plugin-events-rabbitmq.png",
+          "description": "RabbitMQ events plugin"
+        }
       }
     ]
   },
   {
     "name": "@bettercorp/service-base-plugin-config-1password",
     "version": "3.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
     "github": "https://github.com/BetterCorp/service-base-config-1password",
     "plugins": [
       {
         "type": "plugin",
-        "name": "1password"
+        "name": "1password",
+        "def": {
+          "key": "1password",
+          "name": "1Password",
+          "icon": "bsb-1password.svg",
+          "description": "1Password secrets automation"
+        }
       },
       {
         "type": "config",
-        "name": "config-1password"
+        "name": "config-1password",
+        "def": {
+          "key": "config-1password",
+          "name": "1Password",
+          "icon": "bsb-1password.svg",
+          "description": "1Password events plugin"
+        }
       }
     ]
   }
