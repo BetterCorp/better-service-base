@@ -9,5 +9,20 @@
         "name": "events-rabbitmq"
       }
     ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-config-1password",
+    "version": "3.0.0",
+    "github": "https://github.com/BetterCorp/service-base-config-1password",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "1password"
+      },
+      {
+        "type": "config",
+        "name": "config-1password"
+      }
+    ]
   }
 ]
