@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - "master"
-      - "documentation"
+      # - "documentation" # Specifically disabled to stop infinite build loop
       - "develop"
   create:
     tags:
