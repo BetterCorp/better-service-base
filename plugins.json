@@ -37,7 +37,7 @@
         "def": {
           "key": "1password",
           "name": "1Password",
-          "icon": "1password.svg",
+          "icon": "1password.png",
           "description": "1Password secrets automation"
         }
       },
@@ -47,7 +47,7 @@
         "def": {
           "key": "config-1password",
           "name": "1Password",
-          "icon": "1password.svg",
+          "icon": "1password.png",
           "description": "1Password events plugin"
         }
       }
