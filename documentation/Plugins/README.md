@@ -31,8 +31,12 @@ These plugins handle logging of the app, so instead of to console, you can send 
 
 These plugins handle the app/plugin config as well as what plugins/events to use.
 
+## Marketplace
+
+You can view all the public plugins available at the [Plugin Marketplace](/Market/)
+
 ## Notes
 
 Some packages could have multiple plugin types built into a npm package.  
-An example would be `config-1password` - it has the config plugin type, and a standard plugin type.  
+An example would be `@bettercorp/service-base-plugin-config-1password` - it has the config plugin type (`config-1password`), and a standard plugin type (`1password`).  
 The config plugin type defines the configuration for deployment whereas the standard plugin type allows other plugins to read/write 1password vaults.

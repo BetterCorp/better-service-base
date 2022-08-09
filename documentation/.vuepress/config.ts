@@ -42,8 +42,8 @@ export default defineUserConfig({
         link: "/Plugins/",
       },
       {
-        text: "Market",
-        link: "/Plugins/Market",
+        text: "Plugin Marketplace",
+        link: "/Market/",
       },
     ],
   }),

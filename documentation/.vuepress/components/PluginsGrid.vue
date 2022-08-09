@@ -1,192 +1,56 @@
 <template>
-  <div style="margin-top: 50px;">
-    <div v-if="pluginConfig === null" style="margin: 0 auto; text-align: center;">[ Loading plugins ]</div>
-    <div v-else>
-      <div class="plugin-selector-container">
-        <div class="plugin-selector">
-          <span :active="filter == 'ALL'" @click="filter = 'ALL'">ALL</span>
-          <span :active="filter == 'PLUGIN'" @click="filter = 'PLUGIN'">PLUGINS</span>
-          <span :active="filter == 'CONFIG'" @click="filter = 'CONFIG'">CONFIG</span>
-          <span :active="filter == 'EVENTS'" @click="filter = 'EVENTS'">EVENTS</span>
-          <span :active="filter == 'LOGGING'" @click="filter = 'LOGGING'">LOGGING</span>
-        </div>
+  <div style="margin-top: 50px;" class="plugins-container">
+    <div :class="`plugin-selector-container plugin-filter-${ filter.toLowerCase() }`">
+      <div class="plugin-selector">
+        <span :active="filter == 'ALL'" @click="filter = 'ALL'">ALL</span>
+        <span :active="filter == 'PLUGIN'" @click="filter = 'PLUGIN'">PLUGINS</span>
+        <span :active="filter == 'CONFIG'" @click="filter = 'CONFIG'">CONFIG</span>
+        <span :active="filter == 'EVENTS'" @click="filter = 'EVENTS'">EVENTS</span>
+        <span :active="filter == 'LOG'" @click="filter = 'LOG'">LOGGING</span>
       </div>
-      <div class="pluginsList">
+      <div class="plugin-selector">
+        <span>SEARCH</span> <input v-model="search" :active="true" />
+      </div>
+    </div>
+    <div class="pluginsList">
+      <template v-if="pluginConfig === null">
+        <PluginsGridPlugin v-for="i of 3" v-bind:key="i" :plugin="null" />
+      </template>
+      <template v-else>
         <div v-if="filteredPlugins.length === 0">[ No plugins found ]</div>
-        <div :class="`plugin-card plugin-type-${ plugin.type }`" v-for="plugin of filteredPlugins"
-          v-bind:key="plugin.ref.name + plugin.name">
-          <div class="plugin-header">
-            <h2 class="plugin-title">
-              <img class="plugin-img plugin-img-author" :src="plugin.ref.author.avatar" />
-              <img class="plugin-img plugin-img-icon"
-                :src="plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon" />
-              <div>
-                {{ plugin.def.name }}
-              </div>
-            </h2>
-            <span style="font-weight: 600;">v{{ plugin.ref.version }}</span>
-            <span> - </span>
-            <span>By </span>
-            <a :href="plugin.ref.author.url" nofollow style="font-weight: 600;">{{ plugin.ref.author.name }}</a>
-          </div>
-          <p size="1" data-part-id="text">
-            {{ plugin.def.description }}
-          </p>
-          <div data-part-id="flex">
-            <a :href="plugin.pluginLink !== null ? `https://${ plugin.pluginLink }` : plugin.ref.github">
-              <div data-part-id="flex">
-                <span size="2">Details
-                </span>
-              </div>
-            </a>
-          </div>
-        </div>
-      </div>
+        <PluginsGridPlugin v-for="plugin of filteredPlugins" v-bind:key="plugin.ref.name + plugin.name"
+          :plugin="plugin" />
+      </template>
     </div>
   </div>
 </template>
-
-<style>
-.plugin-selector-container {
-  text-align: center;
-  margin-bottom: 60px;
-}
-
-.plugin-selector {
-  background: #2d2d2d;
-  border-radius: 35px;
-  padding: 5px;
-  display: inline-block;
-}
-
-.plugin-selector>span {
-  display: inline-block;
-  cursor: pointer;
-  color: white;
-  background: #2d2d2d;
-  border-radius: 15px;
-  padding: 5px 10px 5px 10px;
-}
-
-.plugin-selector>span[active="true"] {
-  color: #2d2d2d;
-  background: #FFFFFF;
-}
-
-.pluginsList {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  justify-content: space-around;
-  gap: 50px;
-}
-
-.plugin-card:not(:hover) .plugin-img-icon {
-  margin-left: -20px;
-}
-
-.plugin-card:hover .plugin-img-icon {
-  margin-left: 5px;
-}
-
-.plugin-img {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: white;
-  border: 3px solid white;
-  box-shadow: rgb(0 0 0 / 20%) 0px 4px 12px 0px;
-}
-
-.plugin-img-icon {
-  transition: 150ms cubic-bezier(.82, .37, .14, .87);
-}
-
-.plugin-title {
-  height: 50px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.plugin-title div {
-  padding-left: 10px;
-  display: inline-block;
-  height: 65px;
-  line-height: 40px;
-  vertical-align: middle;
-}
-
-.plugin-card {
-  box-sizing: border-box;
-  background-color: rgb(255, 255, 255);
-  border-radius: 6px;
-  border: 1px solid rgb(219, 219, 219);
-  position: relative;
-  transition: opacity 80ms linear 0s, transform 150ms ease 0s, border-color 150ms ease-in-out 0s;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  width: 400px;
-  padding-top: 0;
-  border-color: #2d2d2d;
-  box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 12px 0px;
-}
-
-.plugin-header::before {
-  position: absolute;
-  padding: 5px 10px 5px 10px;
-  border-radius: 15px;
-  margin-top: -15px;
-  margin-left: -10px;
-}
-
-.plugin-type-plugin .plugin-header::before {
-  content: "PLUGIN";
-  background: #2d2d2d;
-  color: white;
-}
-
-.plugin-type-config .plugin-header::before {
-  content: "CONFIG";
-  background: #03A9F4;
-  color: white;
-}
-
-.plugin-type-config {
-  border-color: #03A9F4;
-  box-shadow: rgba(2, 166, 242, 0.2) 0px 4px 12px 0px;
-}
-
-.plugin-type-events .plugin-header::before {
-  content: "EVENTS";
-  background: #FB8C00;
-  color: white;
-}
-
-.plugin-type-events {
-  border-color: #FB8C00;
-  box-shadow: rgba(251, 140, 0, 0.2) 0px 4px 12px 0px;
-}
-
-.plugin-type-logging .plugin-header::before {
-  content: "LOGGING";
-  background: #43A047;
-  color: white;
-}
-
-.plugin-type-logging {
-  border-color: #43A047;
-  box-shadow: rgba(67, 160, 71, 0.2) 0px 4px 12px 0px;
-}
-</style>
 
 <script>
 export default {
   data() {
     return {
+      search: '',
       filter: 'ALL',
       pluginConfig: null,
+      pulledFromCache: false
     };
+  },
+  watch: {
+    filter() {
+      //this.pluginConfig = null;
+      window.document.getElementsByClassName('page')[0].classList.add('notransition');
+      switch (this.filter) {
+        case 'PLUGIN':
+          return this.$router.push('/Market/Plugin/');
+        case 'EVENTS':
+          return this.$router.push('/Market/Events/');
+        case 'CONFIG':
+          return this.$router.push('/Market/Config/');
+        case 'LOG':
+          return this.$router.push('/Market/Log/');
+      }
+      this.$router.push('/Market/');
+    }
   },
   computed: {
     reparsedPlugins() {
@@ -199,25 +63,60 @@ export default {
           });
         }
       }
-      console.log(outputList);
+      // console.log(outputList);
       return outputList;
     },
     filteredPlugins() {
       const self = this;
-      if (self.filter === 'ALL') return this.reparsedPlugins;
+      console.log(this.reparsedPlugins);
+      const filterFunc = x => x.name.toLowerCase().indexOf(self.search.toLowerCase()) >= 0 ||
+        x.def.name.toLowerCase().indexOf(self.search.toLowerCase()) >= 0 ||
+        x.def.description.toLowerCase().indexOf(self.search.toLowerCase()) >= 0 ||
+        x.ref.name.toLowerCase().indexOf(self.search.toLowerCase()) >= 0;
+      if (self.filter === 'ALL') {
+        if (self.search === '')
+          return self.reparsedPlugins;
+        return self.reparsedPlugins.filter(filterFunc);
+      }
       const filterAsLower = self.filter.toLowerCase();
-      return this.reparsedPlugins.filter(x => filterAsLower === x.type);
+      if (self.search === '')
+        return self.reparsedPlugins.filter(x => filterAsLower === x.type);
+      return self.reparsedPlugins.filter(x => filterAsLower === x.type).filter(filterFunc);
     },
+  },
+  created() {
+    const self = this;
+    let time = 0;
+    let lastPD = window.localStorage.getItem('plugin-date') || '';
+    if (lastPD !== '') {
+      time = Number.parseInt(lastPD);
+    }
+    if (new Date().getTime() - time < (60 * 60 * 1000)) {
+      self.$data.pluginConfig = JSON.parse(window.localStorage.getItem('plugins'));
+      self.pulledFromCache = true;
+    }
   },
   mounted() {
     const self = this;
+    let searchFilter = this.$route.path.split('Market/')[1];
+    if (searchFilter.indexOf('/') > 0) {
+      this.filter = searchFilter.split('/')[0].toUpperCase();
+      if (['PLUGIN', 'EVENTS', 'LOG', 'CONFIG'].indexOf(this.filter) < 0) {
+        this.$router.replace('/Market/');
+      }
+    }
+    if (self.pulledFromCache) return;
     fetch(
       "https://raw.githubusercontent.com/BetterCorp/better-service-base/documentation/plugins.json"
       //"https://min.gitcdn.link/cdn/BetterCorp/better-service-base/documentation/plugins.json?time=" +
       //new Date().getTime()
     )
       .then(async (x) => {
+        //await (new Promise(r => setTimeout(r, 15000)));
+        //return;
         self.pluginConfig = await x.json();
+        window.localStorage.setItem('plugins', JSON.stringify(self.pluginConfig));
+        window.localStorage.setItem('plugin-date', new Date().getTime());
         //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
         //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
         //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
