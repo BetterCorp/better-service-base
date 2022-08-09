@@ -68,11 +68,25 @@
     margin: 0;
   }
 
+  .plugin-selector>span {
+    transition: 150ms cubic-bezier(.58, .22, .43, .9) !important;
+  }
+
   .plugin-selector>input,
-  .plugin-selector>span[active="true"] {
+  .plugin-selector:not(:hover)>span[active="true"],
+  .plugin-selector>span:hover {
     color: #2d2d2d;
     background: #FFFFFF;
     box-shadow: rgba(146, 146, 146, 0.2) 0px 4px 12px 0px;
+  }
+
+  .plugin-selector-container:not(.plugin-filter-all) .plugin-selector>span:not(:hover),
+  .plugin-selector-container:not(.plugin-filter-all) .plugin-selector:not(:hover)>span:not([active="true"]) {
+    color: white;
+  }
+
+  .plugin-selector-container:not(.plugin-filter-all) .plugin-selector:not(:hover)>span[active="true"] {
+    color: #2d2d2d;
   }
 
   .pluginsList {
@@ -159,10 +173,6 @@
     background: #2d2d2d;
   }
 
-  .plugin-filter-plugin .plugin-selector>span:not([active="true"]) {
-    color: white;
-  }
-
   .plugin-type-plugin .plugin-header::before {
     content: "PLUGIN";
     background: #2d2d2d;
@@ -199,10 +209,6 @@
   /* CONFIG */
   .plugin-filter-config .plugin-selector {
     background: #03A9F4;
-  }
-
-  .plugin-filter-config .plugin-selector>span:not([active="true"]) {
-    color: white;
   }
 
   .plugin-type-config .plugin-header::before {
@@ -243,10 +249,6 @@
     background: #FB8C00;
   }
 
-  .plugin-filter-events .plugin-selector>span:not([active="true"]) {
-    color: white;
-  }
-
   .plugin-type-events .plugin-header::before {
     content: "EVENTS";
     background: #FB8C00;
@@ -283,10 +285,6 @@
   /* LOGGING */
   .plugin-filter-log .plugin-selector {
     background: #43A047;
-  }
-
-  .plugin-filter-log .plugin-selector>span:not([active="true"]) {
-    color: white;
   }
 
   .plugin-type-logging .plugin-header::before {

@@ -8,8 +8,9 @@
         <span :active="filter == 'EVENTS'" @click="filter = 'EVENTS'">EVENTS</span>
         <span :active="filter == 'LOG'" @click="filter = 'LOG'">LOGGING</span>
       </div>
-      <div class="plugin-selector">
-        <span>SEARCH</span> <input v-model="search" :active="true" />
+      <div class="plugin-selector search-bar" v-if="pluginConfig !== null && false">
+        <span :active="!doSearch" @click="doSearch = true">SEARCH</span> <input v-if="doSearch" v-model="search"
+          :active="true" />
       </div>
     </div>
     <div class="pluginsList">
@@ -32,7 +33,8 @@ export default {
       search: '',
       filter: 'ALL',
       pluginConfig: null,
-      pulledFromCache: false
+      pulledFromCache: false,
+      doSearch: false
     };
   },
   watch: {
@@ -98,11 +100,13 @@ export default {
   },
   mounted() {
     const self = this;
-    let searchFilter = this.$route.path.split('Market/')[1];
-    if (searchFilter.indexOf('/') > 0) {
-      this.filter = searchFilter.split('/')[0].toUpperCase();
-      if (['PLUGIN', 'EVENTS', 'LOG', 'CONFIG'].indexOf(this.filter) < 0) {
-        this.$router.replace('/Market/');
+    if (this.$route.path.indexOf('/Market/') === 0) {
+      let searchFilter = this.$route.path.split('Market/')[1];
+      if (searchFilter.indexOf('/') > 0) {
+        this.filter = searchFilter.split('/')[0].toUpperCase();
+        if (['PLUGIN', 'EVENTS', 'LOG', 'CONFIG'].indexOf(this.filter) < 0) {
+          this.$router.replace('/Market/');
+        }
       }
     }
     if (self.pulledFromCache) return;
