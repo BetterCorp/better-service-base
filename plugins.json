@@ -17,7 +17,8 @@
           "name": "RabbitMQ",
           "icon": "events-rabbitmq.png",
           "description": "RabbitMQ events plugin"
-        }
+        },
+        "pluginLink": "rabbitmq.events.bsbcode.dev"
       }
     ]
   },
@@ -39,7 +40,8 @@
           "name": "1Password",
           "icon": "1password.png",
           "description": "1Password secrets automation"
-        }
+        },
+        "pluginLink": "1password.plugin.bsbcode.dev"
       },
       {
         "type": "config",
@@ -49,7 +51,8 @@
           "name": "1Password",
           "icon": "1password.png",
           "description": "1Password events plugin"
-        }
+        },
+        "pluginLink": "1password.config.bsbcode.dev"
       }
     ]
   }

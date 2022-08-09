@@ -1,0 +1,11 @@
+{
+  "BetterCorp": {
+    "service-base-config-1password": {
+      "config-1password": "1password.config.bsbcode.dev",
+      "1password": "1password.plugin.bsbcode.dev"
+    },
+    "service-base-events-rabbitmq": {
+      "events-rabbitmq": "rabbitmq.events.bsbcode.dev"
+    }
+  }
+}

@@ -106,6 +106,9 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   });
 
 (async () => {
+  const reposConfig = JSON.parse(
+    fs.readFileSync(path.join(process.cwd(), "repos.config.json"))
+  );
   const existingHashOfFile = getFileHash("./plugins.json");
   let availPlugins = [];
   if (fs.existsSync(tempDir))
@@ -156,15 +159,6 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
           )
         )
       );
-      const bsbPluginJson = JSON.parse(
-        fs.readFileSync(
-          path.join(
-            repoTempDir,
-            `${repo.name}-${repo.default_branch}`,
-            "bsb.json"
-          )
-        )
-      );
       console.log(`  : Getting NPM package`);
       execSync(
         `cd ${npmTempDir} && npm pack ${packgeJson.name} && mv *.tgz Package.tar.gz`,
@@ -180,7 +174,17 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
       let plugins = fs
         .readdirSync(path.join(npmTempDir, `package`, "lib/plugins/"))
         .filter((x) => x.indexOf("-") !== 0)
-        .filter((x) => bsbPluginJson.filter((w) => w.key === x).length === 1)
+        .filter((x) =>
+          fs.existsSync(
+            path.join(
+              repoTempDir,
+              `${repo.name}-${repo.default_branch}`,
+              "src/plugins/",
+              x,
+              "plugin.config.json"
+            )
+          )
+        )
         .map((x) => {
           let pluginType = "plugin";
           if (x.indexOf("events-") === 0) pluginType = "events";
@@ -189,7 +193,21 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
           return {
             type: pluginType,
             name: x,
-            def: bsbPluginJson.filter((w) => w.key === x)[0],
+            def: JSON.parse(
+              fs.readFileSync(
+                path.join(
+                  repoTempDir,
+                  `${repo.name}-${repo.default_branch}`,
+                  "src/plugins/",
+                  x,
+                  "plugin.config.json"
+                )
+              )
+            ),
+            pluginLink:
+              ((reposConfig[repo.owner.login] || {})[repo.name] || {})[
+                x
+              ] || null,
           };
         });
       for (let plugin of plugins)
