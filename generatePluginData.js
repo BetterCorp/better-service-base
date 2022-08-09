@@ -3,6 +3,8 @@ const crypto = require("crypto");
 const https = require("https");
 const path = require("path");
 const execSync = require("child_process").execSync;
+const generateConfigDefinition =
+  require("./generateConfigDefinition.js").convert;
 
 const tempDir = path.join(process.cwd(), "_temp");
 
@@ -204,10 +206,21 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
                 )
               )
             ),
+            config:
+              pluginType === "config"
+                ? null
+                : generateConfigDefinition(
+                    path.join(
+                      repoTempDir,
+                      `${repo.name}-${repo.default_branch}`,
+                      "src/plugins/",
+                      x,
+                      "sec.config.ts"
+                    )
+                  ),
             pluginLink:
-              ((reposConfig[repo.owner.login] || {})[repo.name] || {})[
-                x
-              ] || null,
+              ((reposConfig[repo.owner.login] || {})[repo.name] || {})[x] ||
+              null,
           };
         });
       for (let plugin of plugins)

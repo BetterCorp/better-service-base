@@ -18,6 +18,36 @@
           "icon": "1password.png",
           "description": "1Password secrets automation"
         },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "serverUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Server URL",
+              "description": "The server URL for the 1password connect service"
+            },
+            "token": {
+              "type": "string",
+              "required": true,
+              "name": "Token",
+              "description": null
+            },
+            "vaultId": {
+              "type": "string",
+              "required": true,
+              "name": "Vault ID",
+              "description": null
+            },
+            "lockToVault": {
+              "type": "boolean",
+              "required": true,
+              "name": "Vault lock",
+              "description": "Lock access to a specific vault ID"
+            }
+          },
+          "extraDefinitions": {}
+        },
         "pluginLink": "1password.plugin.bsbcode.dev"
       },
       {
@@ -29,6 +59,7 @@
           "icon": "1password.png",
           "description": "1Password events plugin"
         },
+        "config": null,
         "pluginLink": "1password.config.bsbcode.dev"
       }
     ]
@@ -51,6 +82,63 @@
           "name": "RabbitMQ",
           "icon": "events-rabbitmq.png",
           "description": "RabbitMQ events plugin"
+        },
+        "config": {
+          "interfaceName": "IPluginConfig",
+          "definitions": {
+            "fatalOnDisconnect": {
+              "type": "boolean",
+              "required": true,
+              "name": "Disconnect on error",
+              "description": "Cause the bsb service to exit code 1 if the connection drops"
+            },
+            "prefetch": {
+              "type": "number",
+              "required": true,
+              "name": "Prefetch",
+              "description": "The RabbitMQ Prefetch amount"
+            },
+            "endpoint": {
+              "type": "string",
+              "required": false,
+              "name": "Endpoint",
+              "description": "The server endpoint - or use endpoints for a cluster"
+            },
+            "endpoints": {
+              "type": "Array<string>",
+              "required": false,
+              "name": "Endpoints",
+              "description": "The list of servers(cluster) to connect too - use Endpoint for a single server"
+            },
+            "credentials": {
+              "type": "IPluginConfig_Credentials",
+              "required": true,
+              "name": "Credentials for server authorization",
+              "description": null
+            },
+            "uniqueId": {
+              "type": "string",
+              "required": false,
+              "name": "Unique Client ID",
+              "description": "A static client Id - hostname is used when not set"
+            }
+          },
+          "extraDefinitions": {
+            "IPluginConfig_Credentials": {
+              "username": {
+                "type": "string",
+                "required": true,
+                "name": "Username",
+                "description": null
+              },
+              "password": {
+                "type": "string",
+                "required": true,
+                "name": "Password",
+                "description": null
+              }
+            }
+          }
         },
         "pluginLink": "rabbitmq.events.bsbcode.dev"
       }
