@@ -1,33 +1,45 @@
 <template>
   <div style="margin-top: 50px;">
     <div v-if="pluginConfig === null" style="margin: 0 auto; text-align: center;">[ Loading plugins ]</div>
-    <div v-else class="pluginsList">
-      <div :class="`plugin-card plugin-type-${ plugin.type }`" v-for="plugin of reparsedPlugins"
-        v-bind:key="plugin.ref.name + plugin.name">
-        <div class="plugin-header">
-          <h2 class="plugin-title">
-            <img class="plugin-img plugin-img-author" :src="plugin.ref.author.avatar" />
-            <img class="plugin-img plugin-img-icon"
-              :src="plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon" />
-            <div>
-              {{ plugin.def.name }}
-            </div>
-          </h2>
-          <span style="font-weight: 600;">v{{ plugin.ref.version }}</span>
-          <span> - </span>
-          <span>By </span>
-          <a :href="plugin.ref.author.url" nofollow style="font-weight: 600;">{{ plugin.ref.author.name }}</a>
+    <div v-else>
+      <div class="plugin-selector-container">
+        <div class="plugin-selector">
+          <span :active="filter == 'ALL'" @click="filter = 'ALL'">ALL</span>
+          <span :active="filter == 'PLUGIN'" @click="filter = 'PLUGIN'">PLUGINS</span>
+          <span :active="filter == 'CONFIG'" @click="filter = 'CONFIG'">CONFIG</span>
+          <span :active="filter == 'EVENTS'" @click="filter = 'EVENTS'">EVENTS</span>
+          <span :active="filter == 'LOGGING'" @click="filter = 'LOGGING'">LOGGING</span>
         </div>
-        <p size="1" data-part-id="text">
-          {{ plugin.def.description }}
-        </p>
-        <div data-part-id="flex">
-          <a href="/plugins/6294728cffc0cd18356a97c2/souin">
-            <div data-part-id="flex">
-              <span size="2">Details
-              </span>
-            </div>
-          </a>
+      </div>
+      <div class="pluginsList">
+        <div v-if="filteredPlugins.length === 0">[ No plugins found ]</div>
+        <div :class="`plugin-card plugin-type-${ plugin.type }`" v-for="plugin of filteredPlugins"
+          v-bind:key="plugin.ref.name + plugin.name">
+          <div class="plugin-header">
+            <h2 class="plugin-title">
+              <img class="plugin-img plugin-img-author" :src="plugin.ref.author.avatar" />
+              <img class="plugin-img plugin-img-icon"
+                :src="plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon" />
+              <div>
+                {{ plugin.def.name }}
+              </div>
+            </h2>
+            <span style="font-weight: 600;">v{{ plugin.ref.version }}</span>
+            <span> - </span>
+            <span>By </span>
+            <a :href="plugin.ref.author.url" nofollow style="font-weight: 600;">{{ plugin.ref.author.name }}</a>
+          </div>
+          <p size="1" data-part-id="text">
+            {{ plugin.def.description }}
+          </p>
+          <div data-part-id="flex">
+            <a :href="plugin.pluginLink !== null ? `https://${ plugin.pluginLink }` : plugin.ref.github">
+              <div data-part-id="flex">
+                <span size="2">Details
+                </span>
+              </div>
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -35,6 +47,32 @@
 </template>
 
 <style>
+.plugin-selector-container {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.plugin-selector {
+  background: #2d2d2d;
+  border-radius: 35px;
+  padding: 5px;
+  display: inline-block;
+}
+
+.plugin-selector>span {
+  display: inline-block;
+  cursor: pointer;
+  color: white;
+  background: #2d2d2d;
+  border-radius: 15px;
+  padding: 5px 10px 5px 10px;
+}
+
+.plugin-selector>span[active="true"] {
+  color: #2d2d2d;
+  background: #FFFFFF;
+}
+
 .pluginsList {
   display: flex;
   flex-wrap: wrap;
@@ -102,6 +140,12 @@
   margin-left: -10px;
 }
 
+.plugin-type-plugin .plugin-header::before {
+  content: "PLUGIN";
+  background: #2d2d2d;
+  color: white;
+}
+
 .plugin-type-config .plugin-header::before {
   content: "CONFIG";
   background: #03A9F4;
@@ -140,6 +184,7 @@
 export default {
   data() {
     return {
+      filter: 'ALL',
       pluginConfig: null,
     };
   },
@@ -158,7 +203,10 @@ export default {
       return outputList;
     },
     filteredPlugins() {
-      return this.pluginConfig;
+      const self = this;
+      if (self.filter === 'ALL') return this.reparsedPlugins;
+      const filterAsLower = self.filter.toLowerCase();
+      return this.reparsedPlugins.filter(x => filterAsLower === x.type);
     },
   },
   mounted() {
@@ -170,10 +218,10 @@ export default {
     )
       .then(async (x) => {
         self.pluginConfig = await x.json();
-        self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
-        self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
-        self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
-        self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
+        //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
+        //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
+        //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
+        //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
       })
       .catch((x) => {
         console.error(x);
