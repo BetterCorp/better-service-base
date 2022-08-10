@@ -46,7 +46,13 @@
               "description": "Lock access to a specific vault ID"
             }
           },
-          "extraDefinitions": {}
+          "extraDefinitions": {},
+          "defaultValues": {
+            "serverUrl": "http://localhost",
+            "token": "localhost",
+            "vaultId": "localhost",
+            "lockToVault": true
+          }
         },
         "pluginLink": "1password.plugin.bsbcode.dev"
       },
@@ -138,6 +144,15 @@
                 "description": null
               }
             }
+          },
+          "defaultValues": {
+            "prefetch": 10,
+            "endpoint": "amqp://localhost",
+            "credentials": {
+              "username": "guest",
+              "password": "guest"
+            },
+            "uniqueId": null
           }
         },
         "pluginLink": "rabbitmq.events.bsbcode.dev"

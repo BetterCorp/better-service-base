@@ -216,6 +216,12 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
                       "src/plugins/",
                       x,
                       "sec.config.ts"
+                    ),
+                    path.join(
+                      npmTempDir,
+                      "package/lib/plugins/",
+                      x,
+                      "sec.config.js"
                     )
                   ),
             pluginLink:

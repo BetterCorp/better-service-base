@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-exports.convert = (file) => {
+exports.convert = (file, generatedFile) => {
   if (!fs.existsSync(file)) return null;
   let lines = fs
     .readFileSync(file)
@@ -98,9 +98,11 @@ exports.convert = (file) => {
     }
     extraDefinitions[typeToFind] = getDefinitions(typeToFind);
   }
+
   return {
     interfaceName,
     definitions,
     extraDefinitions,
+    defaultValues: require(generatedFile).default(),
   };
 };
