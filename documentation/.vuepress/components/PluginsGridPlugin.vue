@@ -40,9 +40,9 @@
     <div class="card-show-container" v-if="plugin !== null && quickStart">
       <div
         :class="`plugin-card plugin-type-${ plugin === null ? 'grey' : plugin.type } plugin-type-${ plugin === null ? 'grey' : plugin.type }-forced card-show-start`">
-        <div class="plugin-header"></div>
+
         <div>
-          <div>
+          <div class="card-show-exit plugin-header">
             <svg @click="quickStart = false" xmlns="http://www.w3.org/2000/svg" class="plugin-img action-button-style"
               style="margin-right: 40px; cursor: pointer; fill: white;" viewBox="0 0 320 512">
               <!--! Font Awesome Pro 6.1.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. -->
@@ -56,46 +56,34 @@
             Start with <a class="author-name"
               :href="plugin.pluginLink !== null ? `https://${ plugin.pluginLink }` : plugin.ref.github"
               :rel="plugin.pluginLink !== null ? 'external' : 'nofollow'" style="font-weight: 600;">{{ plugin.def.name
-              }}</a> <span>v{{ plugin.ref.version }}</span> by
-            <a class="author-name" :href="plugin.ref.author.url" rel="nofollow" style="font-weight: 600;">{{
-                plugin.ref.author.name
-            }}</a>
+              }}</a>
           </h2>
         </div>
         <p>
-          Ok so to get started, let's configure the service.
+          Ok so to get started, let's configure the service.<br />
+          This config is changed in the <code>sec.config.json</code> file or via your respective config plugin (see
+          config plugin documentation for more information)<br /><br />
+          Below are the default plugin configuration values for the plugin:
         </p>
         <div class="language-json ext-json">
           <pre class="language-json"><code v-html="generateConfig"></code></pre>
         </div>
-        <br />
-        <br />
-        <br />
-        <div class="language-typescript ext-ts line-numbers-mode">
-          <pre class="language-typescript"><code><span class="token keyword">export</span> <span class="token keyword">class</span> <span class="token class-name">frontend</span> <span class="token keyword">extends</span> <span class="token class-name">CPluginClient<span class="token operator">&lt;</span><span class="token builtin">any</span><span class="token operator">&gt;</span></span> <span class="token punctuation">{</span>
-  <span class="token keyword">public</span> <span class="token keyword">readonly</span> _pluginName<span class="token operator">:</span> <span class="token builtin">string</span> <span class="token operator">=</span> <span class="token string">"frontend"</span><span class="token punctuation">;</span>
+        <p>
+          Here is more information for the configuration:
+        </p>
+        <div v-html="generateTableProperties">
 
-  <span class="token keyword">async</span> <span class="token function">triggerServerOnEvent</span><span class="token punctuation">(</span>data<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token keyword">void</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
-    <span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">emitEvent</span><span class="token punctuation">(</span><span class="token string">"exampleOnEvent"</span><span class="token punctuation">,</span> data<span class="token punctuation">)</span><span class="token punctuation">;</span>
-  <span class="token punctuation">}</span>
-  <span class="token keyword">async</span> <span class="token function">triggerServerMethod</span><span class="token punctuation">(</span>data<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator">&lt;</span><span class="token builtin">any</span><span class="token operator">&gt;</span> <span class="token punctuation">{</span>
-    <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">emitEventAndReturn</span><span class="token punctuation">(</span><span class="token string">"exampleServerMethod"</span><span class="token punctuation">,</span> data<span class="token punctuation">)</span><span class="token punctuation">;</span>
-  <span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-</code></pre>
-          <div class="line-numbers" aria-hidden="true">
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-            <div class="line-number"></div>
-          </div>
         </div>
+        <p>
+          Now that we have configured the plugin, we should enable it for deployment:
+        </p>
+        <div class="language-json ext-json">
+          <pre class="language-json"><code v-html="generateDeploymentConfig"></code></pre>
+        </div>
+        <p>
+          Last but not least, we should install it.<br />
+          This will actually be taken care of automatically by the BSB.
+        </p>
       </div>
     </div>
   </div>
@@ -110,22 +98,76 @@ export default {
     };
   },
   computed: {
+    generateTableProperties() {
+      return this.generateTableCode(this.plugin.config.definitions, this.plugin.config.defaultValues, this.plugin.config.extraDefinitions, null).join('');
+    },
+    generateDeploymentConfig() {
+      let strCode = `{\n  "<span class="token keyword">deploymentProfiles</span>": {\n    "<span class="token keyword">default</span>": {\n      "<span class="token class-name">${ this.plugin.name }</span>": {\n` +
+        `        "<span class="token function">mappedName</span>": <span class="token string">"${ this.plugin.name }"</span>,\n` +
+        '        "<span class="token function">enabled</span>": <span class="token string">true</span>,\n' +
+        '      }\n    }\n  }\n}';
+      return strCode;
+    },
     generateConfig() {
-      let code = [];
-      console.log(this.plugin.config);
-      let extraDefs = Object.keys(this.plugin.config.extraDefinitions);
-      for (let pkey of Object.keys(this.plugin.config.definitions)) {
-        console.log(pkey);
-        code.push(`      "<span class="token function">${pkey}</span>": ""`);
-        if (extraDefs.indexOf(this.plugin.config.definitions[pkey].type)) {
-          
-        }
-      }
-      let strCode = `{\n  "<span class="token keyword">plugins</span>": {\n    "<span class="token class-name">frontend</span>": {\n` + code.join(',\n') + '\n    }\n  }\n}';
+      let code = this.generateConfigCode(this.plugin.config.definitions, this.plugin.config.defaultValues, this.plugin.config.extraDefinitions, 6);
+      let strCode = `{\n  "<span class="token keyword">plugins</span>": {\n    "<span class="token class-name">${ this.plugin.name }</span>": {\n` + code.join(',\n') + '\n    }\n  }\n}';
       return strCode;
     }
   },
   methods: {
+    generateTableCode(definitions, defaultValues, additionalDefinitions, interfaceName) {
+      let extraDefs = Object.keys(additionalDefinitions);
+      let code = [
+        (interfaceName !== null ? `<h5 id="PLUGIN_DEF_${ interfaceName }">Type: ${ interfaceName }</h5>` : '<h5>Plugin configuration definition</h5>'),
+        `<table style="overflow: visible"><thead><tr>` +
+        `<th>Name</th>` +
+        `<th>Property</th>` +
+        `<th>Required</th>` +
+        `<th>Type</th>` +
+        `<th>Default</th>` +
+        `<th>Description</th>` +
+        `</tr></thead><tbody>`
+      ];
+      let requiredAdditionalDefs = [];
+      for (let pkey of Object.keys(definitions)) {
+        if (defaultValues[pkey] === undefined) continue;
+        code.push('<tr>');
+        code.push(`<td>${ definitions[pkey].name }</td>`);
+        code.push(`<td>${ pkey }</td>`);
+        code.push(`<td>${ definitions[pkey].required ? 'Yes' : 'No' }</td>`);
+        if (extraDefs.indexOf(definitions[pkey].type) >= 0) {
+          requiredAdditionalDefs.push({ p: pkey, t: definitions[pkey].type });
+          code.push(`<td><a href="#PLUGIN_DEF_${ definitions[pkey].type }">${ definitions[pkey].type }</a></td>`);
+          code.push(`<td><a href="#PLUGIN_DEF_${ definitions[pkey].type }"> - see interface definition - </a></td>`);
+        } else {
+          code.push(`<td>${ definitions[pkey].type }</td>`);
+          code.push(`<td>${ JSON.stringify(defaultValues[pkey]) }</td>`);
+        }
+        code.push(`<td>${ definitions[pkey].description || '' }</td>`);
+        code.push('</tr>');
+      }
+      code.push('</tbody>');
+      code.push('</table>');
+
+      for (let def of requiredAdditionalDefs) {
+        code = code.concat(this.generateTableCode(additionalDefinitions[def.t], defaultValues[def.p], additionalDefinitions, def.t));
+      }
+
+      return code;
+    },
+    generateConfigCode(definitions, defaultValues, additionalDefinitions, space) {
+      let extraDefs = Object.keys(additionalDefinitions);
+      let code = [];
+      for (let pkey of Object.keys(definitions)) {
+        if (defaultValues[pkey] === undefined) continue;
+        if (extraDefs.indexOf(definitions[pkey].type) >= 0) {
+          code.push(`${ " ".repeat(space) }"<span class="token function">${ pkey }</span>": {\n${ this.generateConfigCode(additionalDefinitions[definitions[pkey].type], defaultValues[pkey], additionalDefinitions, space + 2).join('\n') }\n${ " ".repeat(space) }}`);
+        } else {
+          code.push(`${ " ".repeat(space) }"<span class="token function">${ pkey }</span>": <span class="token string">${ JSON.stringify(defaultValues[pkey]) }</span>`);
+        }
+      }
+      return code;
+    },
     quickStartEvent(e) {
       e.preventDefault();
       this.quickStart = true;

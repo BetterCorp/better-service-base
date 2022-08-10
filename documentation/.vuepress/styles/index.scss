@@ -363,7 +363,15 @@
   }
 
   .card-show-container .plugin-header::before {
-    margin-top: -35px;
+    margin-top: 80px;
+    margin-left: -16px;
     position: fixed;
+    transform: rotate(-90deg);
+  }
+
+  .card-show-exit {
+    position: fixed;
+    top: 57px;
+    left: 0px;
   }
 }
