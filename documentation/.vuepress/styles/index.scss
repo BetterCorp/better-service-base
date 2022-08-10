@@ -183,7 +183,8 @@
     color: #2d2d2d;
   }
 
-  .plugin-type-plugin .action-button {
+  .plugin-type-plugin .action-button,
+  .plugin-type-plugin .action-button-style {
     background: #2d2d2d;
     color: white;
   }
@@ -194,7 +195,9 @@
   }
 
   .plugin-type-plugin .action-button:hover,
-  .plugin-type-plugin:hover {
+  .plugin-type-plugin .action-button-style:hover,
+  .plugin-type-plugin:hover,
+  .plugin-type-plugin-forced {
     box-shadow: rgba(45, 45, 45, 0.5) 0px 6px 14px 0px !important;
   }
 
@@ -221,7 +224,8 @@
     color: #03A9F4;
   }
 
-  .plugin-type-config .action-button {
+  .plugin-type-config .action-button,
+  .plugin-type-config .action-button-style {
     background: #03A9F4;
     color: white;
   }
@@ -232,7 +236,9 @@
   }
 
   .plugin-type-config .action-button:hover,
-  .plugin-type-config:hover {
+  .plugin-type-config .action-button-style:hover,
+  .plugin-type-config:hover,
+  .plugin-type-config-forced {
     box-shadow: rgba(2, 166, 242, 0.5) 0px 6px 14px 0px !important;
   }
 
@@ -259,7 +265,8 @@
     color: #FB8C00;
   }
 
-  .plugin-type-events .action-button {
+  .plugin-type-events .action-button,
+  .plugin-type-events .action-button-style {
     background: #FB8C00;
     color: white;
   }
@@ -270,7 +277,9 @@
   }
 
   .plugin-type-events .action-button:hover,
-  .plugin-type-events:hover {
+  .plugin-type-events .action-button-style:hover,
+  .plugin-type-events:hover,
+  .plugin-type-events-forced {
     box-shadow: rgba(251, 140, 0, 0.5) 0px 6px 14px 0px !important;
   }
 
@@ -297,7 +306,8 @@
     color: #43A047;
   }
 
-  .plugin-type-logging .action-button {
+  .plugin-type-logging .action-button,
+  .plugin-type-logging .action-button-style {
     background: #43A047;
     color: white;
   }
@@ -308,7 +318,9 @@
   }
 
   .plugin-type-logging .action-button:hover,
-  .plugin-type-logging:hover {
+  .plugin-type-logging .action-button-style:hover,
+  .plugin-type-logging:hover,
+  .plugin-type-logging-forced {
     box-shadow: rgba(67, 160, 71, 0.5) 0px 6px 14px 0px !important;
   }
 
@@ -318,5 +330,40 @@
 
   .plugin-type-logging:hover .plugin-title {
     border-bottom: 1px solid rgba(67, 160, 71, 0.5) !important;
+  }
+
+
+  .card-show-container::before {
+    content: "";
+    position: fixed;
+    width: calc(100%);
+    background: #FFFFFF;
+    opacity: 0.3;
+    top: 0px;
+    left: 00px;
+    right: 0px;
+    bottom: 0px;
+    z-index: 3;
+  }
+
+  .card-show-start {
+    background-color: white;
+    position: fixed;
+    width: calc(100% - 40px);
+    top: 80px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    z-index: 9;
+  }
+
+  .card-show-start {
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .card-show-container .plugin-header::before {
+    margin-top: -35px;
+    position: fixed;
   }
 }
