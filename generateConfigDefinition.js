@@ -49,8 +49,10 @@ exports.convert = (file, generatedFile) => {
     }
 
     let definitions = {};
+    if (indexEndForDef === -1 || indexStartForDef === -1) return definitions;
     for (let index = indexStartForDef; index <= indexEndForDef; index++) {
       let mainDef = lines[index].split(";", 2);
+      if (mainDef[0].indexOf("//") === 0) continue;
       let propDef = mainDef[0].trim().split(":", 2);
       let propName = propDef[0].trim();
       let required = true;

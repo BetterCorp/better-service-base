@@ -188,47 +188,53 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
           )
         )
         .map((x) => {
-          let pluginType = "plugin";
-          if (x.indexOf("events-") === 0) pluginType = "events";
-          if (x.indexOf("log-") === 0) pluginType = "logging";
-          if (x.indexOf("config-") === 0) pluginType = "config";
-          return {
-            type: pluginType,
-            name: x,
-            def: JSON.parse(
-              fs.readFileSync(
-                path.join(
-                  repoTempDir,
-                  `${repo.name}-${repo.default_branch}`,
-                  "src/plugins/",
-                  x,
-                  "plugin.config.json"
+          try {
+            let pluginType = "plugin";
+            if (x.indexOf("events-") === 0) pluginType = "events";
+            if (x.indexOf("log-") === 0) pluginType = "logging";
+            if (x.indexOf("config-") === 0) pluginType = "config";
+            return {
+              type: pluginType,
+              name: x,
+              def: JSON.parse(
+                fs.readFileSync(
+                  path.join(
+                    repoTempDir,
+                    `${repo.name}-${repo.default_branch}`,
+                    "src/plugins/",
+                    x,
+                    "plugin.config.json"
+                  )
                 )
-              )
-            ),
-            config:
-              pluginType === "config"
-                ? null
-                : generateConfigDefinition(
-                    path.join(
-                      repoTempDir,
-                      `${repo.name}-${repo.default_branch}`,
-                      "src/plugins/",
-                      x,
-                      "sec.config.ts"
+              ),
+              config:
+                pluginType === "config"
+                  ? null
+                  : generateConfigDefinition(
+                      path.join(
+                        repoTempDir,
+                        `${repo.name}-${repo.default_branch}`,
+                        "src/plugins/",
+                        x,
+                        "sec.config.ts"
+                      ),
+                      path.join(
+                        npmTempDir,
+                        "package/lib/plugins/",
+                        x,
+                        "sec.config.js"
+                      )
                     ),
-                    path.join(
-                      npmTempDir,
-                      "package/lib/plugins/",
-                      x,
-                      "sec.config.js"
-                    )
-                  ),
-            pluginLink:
-              ((reposConfig[repo.owner.login] || {})[repo.name] || {})[x] ||
-              null,
-          };
-        });
+              pluginLink:
+                ((reposConfig[repo.owner.login] || {})[repo.name] || {})[x] ||
+                null,
+            };
+          } catch (exc) {
+            console.error(exc);
+            return null;
+          }
+        })
+        .filter((x) => x !== null);
       for (let plugin of plugins)
         console.log(`    > [${plugin.name}] as [${plugin.type}]`);
       fs.writeFileSync(

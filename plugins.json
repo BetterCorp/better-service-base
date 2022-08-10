@@ -71,6 +71,234 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-smtp-server",
+    "version": "2.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-smtp-server",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "mail-server",
+        "def": {
+          "key": "mail-server",
+          "name": "NodeMailer",
+          "icon": "nodemailer.png",
+          "description": "NodeMailer mail sending plugin"
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "transport": {
+              "type": "SendmailTransport | SendmailTransport.Options",
+              "required": true,
+              "name": null,
+              "description": null
+            },
+            "defaults": {
+              "type": "SendmailTransport.Options",
+              "required": false,
+              "name": null,
+              "description": null
+            }
+          },
+          "extraDefinitions": {
+            "SendmailTransport | SendmailTransport.Options": {},
+            "SendmailTransport.Options": {}
+          },
+          "defaultValues": {
+            "transport": {
+              "sendmail": true,
+              "newline": "unix",
+              "path": "/usr/sbin/sendmail"
+            }
+          }
+        },
+        "pluginLink": null
+      },
+      {
+        "type": "plugin",
+        "name": "mail-server-mailgun",
+        "def": {
+          "key": "mail-server-mailgun",
+          "name": "Mailgun",
+          "icon": "mailgun.png",
+          "description": "Mailgun mail sending plugin"
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "region": {
+              "type": "MailgunRegion | null",
+              "required": true,
+              "name": "Region",
+              "description": "EU / US"
+            },
+            "templatesPath": {
+              "type": "string",
+              "required": true,
+              "name": "Templates Path",
+              "description": "Path on disk for the template files"
+            },
+            "mailgunDefaults": {
+              "type": "MailgunDefaults",
+              "required": false,
+              "name": "Mailgun Defaults",
+              "description": "Optional for default mailgun sender *depreciated*"
+            }
+          },
+          "extraDefinitions": {
+            "MailgunRegion | null": {},
+            "MailgunDefaults": {
+              "domain": {
+                "type": "string",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "apiKey": {
+                "type": "string",
+                "required": true,
+                "name": null,
+                "description": null
+              }
+            }
+          },
+          "defaultValues": {
+            "region": null,
+            "templatesPath": "/home/mitchellr/_repos/BetterCorp/better-service-base/service-base/node_modules/@bettercorp/service-base-plugin-smtp-server/content/html-templates"
+          }
+        },
+        "pluginLink": null
+      },
+      {
+        "type": "plugin",
+        "name": "smtp-server",
+        "def": {
+          "key": "smtp-server",
+          "name": "SMTP Server",
+          "icon": "smtp.png",
+          "description": "SMTP Server plugin"
+        },
+        "config": {
+          "interfaceName": "ISMTPServerConfig",
+          "definitions": {
+            "port": {
+              "type": "number",
+              "required": true,
+              "name": null,
+              "description": null
+            },
+            "banner": {
+              "type": "string | null",
+              "required": true,
+              "name": null,
+              "description": null
+            },
+            "domains": {
+              "type": "Array<string>",
+              "required": true,
+              "name": null,
+              "description": null
+            },
+            "serverOptions": {
+              "type": "any",
+              "required": true,
+              "name": null,
+              "description": null
+            },
+            "events": {
+              "type": "ISMTPServerEventsConfig",
+              "required": true,
+              "name": null,
+              "description": null
+            },
+            "spfOptions": {
+              "type": "any",
+              "required": true,
+              "name": null,
+              "description": null
+            }
+          },
+          "extraDefinitions": {
+            "string | null": {},
+            "ISMTPServerEventsConfig": {
+              "onAuth": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "onConnect": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "onClose": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "onMailFrom": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "onRcptTo": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "onError": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "onEmail": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "onEmailSpecific": {
+                "type": "Boolean",
+                "required": true,
+                "name": null,
+                "description": null
+              }
+            }
+          },
+          "defaultValues": {
+            "port": 25,
+            "serverOptions": {},
+            "spfOptions": {},
+            "banner": null,
+            "domains": [],
+            "events": {
+              "onAuth": false,
+              "onConnect": false,
+              "onClose": false,
+              "onMailFrom": false,
+              "onRcptTo": false,
+              "onError": false,
+              "onEmail": false,
+              "onEmailSpecific": false
+            }
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-events-rabbitmq",
     "version": "2.2.0",
     "author": {
