@@ -12,7 +12,7 @@ export class DefaultConfig extends CConfig {
   private _cwd: string;
   private _debugMode = false;
 
-  public get runningInDebug(): boolean {
+  public get runningDebug(): boolean {
     return this._debugMode;
   }
   public get runningLive(): boolean {

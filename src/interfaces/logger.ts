@@ -1,110 +1,64 @@
-import { IPluginConfig, IConfig } from "./config";
-import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
+import { ParamsFromString } from "@bettercorp/tools/lib/Interfaces";
 
-export interface LogMeta extends IDictionary<any> {}
+export type LogMeta<T extends string> = Record<ParamsFromString<T>, string>;
 
 export interface IPluginLogger {
-  info(message: string, meta?: LogMeta, hasPIData?: boolean): Promise<void>;
-  warn(message: string, meta?: LogMeta, hasPIData?: boolean): Promise<void>;
-  error(message: string, meta?: LogMeta, hasPIData?: boolean): Promise<void>;
-  fatal(message: string, meta?: LogMeta, hasPIData?: boolean): Promise<void>;
-  debug(message: string, meta?: LogMeta, hasPIData?: boolean): Promise<void>;
+  info<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void>;
+  warn<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void>;
+  error<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void>;
+  fatal<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void>;
+  debug<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void>;
 }
 
 export interface ILogger {
   init?(): Promise<void>;
-  info(
+  info<T extends string>(
     plugin: string,
-    message: string,
-    meta?: LogMeta,
+    message: T,
+    meta?: LogMeta<T>,
     hasPIData?: boolean
   ): Promise<void>;
-  warn(
+  warn<T extends string>(
     plugin: string,
-    message: string,
-    meta?: LogMeta,
+    message: T,
+    meta?: LogMeta<T>,
     hasPIData?: boolean
   ): Promise<void>;
-  error(
+  error<T extends string>(
     plugin: string,
-    message: string,
-    meta?: LogMeta,
+    message: T,
+    meta?: LogMeta<T>,
     hasPIData?: boolean
   ): Promise<void>;
-  fatal(plugin: string, message: string, meta?: LogMeta): Promise<void>;
-  debug(
+  fatal<T extends string>(
     plugin: string,
-    message: string,
-    meta?: LogMeta,
+    message: T,
+    meta?: LogMeta<T>
+  ): Promise<void>;
+  debug<T extends string>(
+    plugin: string,
+    message: T,
+    meta?: LogMeta<T>,
     hasPIData?: boolean
   ): Promise<void>;
-}
-
-export class CLogger<PluginConfigType extends IPluginConfig = any>
-  implements ILogger
-{
-  pluginName: string;
-  log: IPluginLogger;
-  cwd: string;
-  appConfig: IConfig;
-  async getPluginConfig<ConfigType extends IPluginConfig = PluginConfigType>(
-    pluginName?: string
-  ): Promise<ConfigType> {
-    return this.appConfig.getPluginConfig<ConfigType>(
-      pluginName || this.pluginName
-    );
-  }
-
-  constructor(
-    pluginName: string,
-    cwd: string,
-    log: IPluginLogger,
-    appConfig: IConfig
-  ) {
-    this.pluginName = pluginName;
-    this.cwd = cwd;
-    this.log = log;
-    this.appConfig = appConfig;
-  }
-
-  async info(
-    plugin: string,
-    message: string,
-    meta?: LogMeta,
-    hasPIData?: boolean
-  ): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
-  async warn(
-    plugin: string,
-    message: string,
-    meta?: LogMeta,
-    hasPIData?: boolean
-  ): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
-  async error(
-    plugin: string,
-    message: string,
-    meta?: LogMeta,
-    hasPIData?: boolean
-  ): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
-  async fatal(
-    plugin: string,
-    message: string,
-    meta?: LogMeta,
-    hasPIData?: boolean
-  ): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
-  async debug(
-    plugin: string,
-    message: string,
-    meta?: LogMeta,
-    hasPIData?: boolean
-  ): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
 }

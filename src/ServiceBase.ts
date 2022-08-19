@@ -1,5 +1,5 @@
-import { Logger as DefaultLogger } from "./logger/logger";
-import { CLogger, IPluginLogger } from "./interfaces/logger";
+import { IPluginLogger, LogMeta } from "./interfaces/logger";
+import { Logger } from "./logger/logger";
 import { Plugins } from "./plugins/plugins";
 
 export default class ServiceBase {
@@ -7,7 +7,6 @@ export default class ServiceBase {
 
   private _cwd: string;
   private _coreLogger: IPluginLogger;
-  private _defaultLogger: CLogger;
   private _plugins: Plugins;
 
   private _heartbeat: NodeJS.Timer | null = null;
@@ -18,34 +17,67 @@ export default class ServiceBase {
   private _startKeep(stepName: string) {
     this._keepName = stepName;
     this._keepTimer = new Date().getTime();
-    if (this._keepTimerInitial === 0)
-      this._keepTimerInitial = this._keepTimer;
+    if (this._keepTimerInitial === 0) this._keepTimerInitial = this._keepTimer;
   }
   private _outputKeep() {
-    this._coreLogger.info(`[TIMER] ${ this._keepName } took ${ (new Date().getTime()) - this._keepTimer }ms`);
+    this._coreLogger.info(`[TIMER] {timerName} took {time}ms`, {
+      time: new Date().getTime() - this._keepTimer,
+      timerName: this._keepName
+    });
   }
   private async _fatalHandler() {
-    await this._coreLogger.error('CORE', 'APPLICATION FATAL ERROR OCCURED. PERFORMING APP EXIT (1)');
-    if (this._heartbeat !== null)
-      clearTimeout(this._heartbeat);
+    await this._coreLogger.error(
+      "APPLICATION FATAL ERROR OCCURED. PERFORMING APP EXIT (1)"
+    );
+    if (this._heartbeat !== null) clearInterval(this._heartbeat);
     process.exit(1);
   }
   constructor(cwd: string) {
     this._startKeep("boot");
     this._cwd = cwd;
-    this._defaultLogger = new DefaultLogger('CORE', cwd, undefined!, {
-      runningInDebug: true
+    let logger = new Logger("CORE", cwd, undefined!, {
+      runningInDebug: process.env.DEBUG === "true",
+      runningLive: process.env.LIVE === "true",
     } as any);
-    const self = this;
     this._coreLogger = {
-      info: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      warn: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      error: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
-      fatal: async (...data: any[]): Promise<void> => { await self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data); await self._fatalHandler(); },
-      debug: (...data: any[]): Promise<void> => self._defaultLogger.error(self.CORE_PLUGIN_NAME, ...data),
+      info: async (
+        message: string,
+        meta?: LogMeta,
+        hasPIData?: boolean
+      ): Promise<void> =>
+        await logger.info(this.CORE_PLUGIN_NAME, message, meta, hasPIData),
+      warn: async (
+        message: string,
+        meta?: LogMeta,
+        hasPIData?: boolean
+      ): Promise<void> =>
+        await logger.warn(this.CORE_PLUGIN_NAME, message, meta, hasPIData),
+      error: async (
+        message: string,
+        meta?: LogMeta,
+        hasPIData?: boolean
+      ): Promise<void> =>
+        await logger.error(this.CORE_PLUGIN_NAME, message, meta, hasPIData),
+      fatal: async (
+        message: string,
+        meta?: LogMeta,
+        hasPIData?: boolean
+      ): Promise<void> =>
+        await logger.fatal(this.CORE_PLUGIN_NAME, message, meta, hasPIData),
+      debug: async (
+        message: string,
+        meta?: LogMeta,
+        hasPIData?: boolean
+      ): Promise<void> =>
+        await logger.debug(this.CORE_PLUGIN_NAME, message, meta, hasPIData),
     };
+
     this._coreLogger.info(":STARTUP");
-    this._plugins = new Plugins(this._coreLogger, this._defaultLogger, this._cwd, this._fatalHandler);
+    this._plugins = new Plugins(
+      this._coreLogger,
+      this._cwd,
+      this._fatalHandler
+    );
     this._coreLogger.info(":STARTUP COMPLETED");
     this._outputKeep();
   }
@@ -98,6 +130,8 @@ export default class ServiceBase {
     }, 60 * 60 * 1000);
 
     this._outputKeep();
-    this._coreLogger.info(`[TIMER] FULL BOOT took ${ (new Date().getTime()) - this._keepTimerInitial }ms`);
+    this._coreLogger.info(`[TIMER] FULL BOOT took {time}ms`, {
+      time: new Date().getTime() - this._keepTimerInitial,
+    });
   }
 }
