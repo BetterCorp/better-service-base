@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
-import { IPluginLogger } from '../interfaces/logger';
+import { IPluginLogger } from '../../interfaces/logger';
 
 export default class emitStreamAndReceiveStream extends EventEmitter {
   // If we try receive or send a stream and the other party is not ready for some reason, we will automatically timeout in 5s.

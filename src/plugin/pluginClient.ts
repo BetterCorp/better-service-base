@@ -1,107 +1,138 @@
-import { EventType, IPluginEvents } from "../interfaces/events";
-import { Plugin } from "../plugin/plugin";
+import {
+  DynamicallyReferencedMethodEmitEARIEvents,
+  DynamicallyReferencedMethodEmitIEvents,
+  DynamicallyReferencedMethodOnIEvents,
+  IPluginEvents,
+} from "../interfaces/events";
+import { PluginBase } from "../plugin/plugin";
 import { Readable } from "stream";
 import { IPluginConfig } from "../interfaces/config";
 import { DefaultBase } from "../interfaces/base";
 import { ErrorMessages } from "../interfaces/static";
 import {
   DynamicallyReferencedMethod,
-  DynamicallyReferencedMethodBase,
+  DynamicallyReferencedMethodType,
 } from "@bettercorp/tools/lib/Interfaces";
+import { PluginEvents, PluginReturnableEvents, PluginCallable } from "./base";
 
 export class RegisteredPlugin<
-    DRMBI extends DynamicallyReferencedMethodBase,
-    onEvents extends DynamicallyReferencedMethodBase,
-    emitEvents extends DynamicallyReferencedMethodBase,
-    onReturnableEvents extends DynamicallyReferencedMethodBase,
-    emitReturnableEvents extends DynamicallyReferencedMethodBase,
-    PluginConfigType extends IPluginConfig = any
+    onEvents,
+    onReturnableEvents,
+    callableMethods,
+    PluginConfigType extends IPluginConfig
   >
   extends DefaultBase<PluginConfigType>
-  implements
-    IPluginEvents<
-      onEvents,
-      emitEvents,
-      onReturnableEvents,
-      emitReturnableEvents
-    >
+  implements IPluginEvents<onEvents, onReturnableEvents>
 {
-  callPluginMethod<TA extends string>(
-    ...args: DynamicallyReferencedMethod<DRMBI, TA>
-  ): DynamicallyReferencedMethod<DRMBI, TA, false> {
-    throw ErrorMessages.BSBNotInit;
-  }
-
-  onEvent<ArgsDataType = DefaultDataType>(
-    event: onEvents,
-    listener: (data: ArgsDataType) => Promise<void>
-  ): Promise<void> {
-    throw ErrorMessages.BSBNotInit;
-  }
-
-  onReturnableEvent<
-    ArgsDataType = DefaultDataType,
-    ReturnDataType = DefaultDataType
-  >(
-    event: onReturnableEvents,
-    listener: (data?: ArgsDataType | undefined) => Promise<ReturnDataType>
-  ): Promise<void> {
-    throw ErrorMessages.BSBNotInit;
-  }
-
-  emitEvent<ArgsDataType = DefaultDataType>(
-    event: emitEvents,
-    data?: ArgsDataType | undefined
-  ): Promise<void> {
-    throw ErrorMessages.BSBNotInit;
-  }
-
-  emitEventAndReturn<
-    ArgsDataType = DefaultDataType,
-    ReturnDataType = DefaultReturnType
-  >(
-    event: emitReturnableEvents,
-    data?: ArgsDataType | undefined,
-    timeoutSeconds?: number | undefined
-  ): Promise<ReturnDataType> {
-    throw ErrorMessages.BSBNotInit;
-  }
-
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,
-    timeoutSeconds?: number | undefined
+    timeoutSeconds?: number
   ): Promise<string> {
     throw ErrorMessages.BSBNotInit;
   }
-
   sendStream(streamId: string, stream: Readable): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  onEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onEvents>,
+      TA,
+      false
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitIEvents<
+      DynamicallyReferencedMethodType<onEvents>,
+      TA
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  onReturnableEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitEventAndReturn<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true,
+      false
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<onReturnableEvents>,
+    TA,
+    false
+  > {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitEventAndReturnTimed<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true,
+      true
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<onReturnableEvents>,
+    TA,
+    false
+  > {
+    throw ErrorMessages.BSBNotInit;
+  }
+  callPluginMethod<TA extends string>(
+    ...args: DynamicallyReferencedMethod<
+      DynamicallyReferencedMethodType<callableMethods>,
+      TA
+    >
+  ): DynamicallyReferencedMethod<
+    DynamicallyReferencedMethodType<callableMethods>,
+    TA,
+    false
+  > {
     throw ErrorMessages.BSBNotInit;
   }
 }
 
 export class PluginClient<
-  onEvents extends DynamicallyReferencedMethodBase,
-  emitEvents extends DynamicallyReferencedMethodBase,
-  onReturnableEvents extends DynamicallyReferencedMethodBase,
-  emitReturnableEvents extends DynamicallyReferencedMethodBase,
+  onEvents = PluginEvents,
+  onReturnableEvents = PluginReturnableEvents,
+  callableMethods = PluginCallable,
   PluginClientConfigType extends IPluginConfig = any
 > {
-  public readonly _pluginName: string = "override-me";
-  public plugin: RegisteredPlugin<
+  public readonly _pluginName!: string;
+  private _referencedPlugin: PluginBase<any, any, any, any>;
+  private _plugin?: RegisteredPlugin<
     onEvents,
-    emitEvents,
     onReturnableEvents,
-    emitReturnableEvents,
+    callableMethods,
     PluginClientConfigType
   >;
+  protected get plugin(): RegisteredPlugin<
+    onEvents,
+    onReturnableEvents,
+    callableMethods,
+    PluginClientConfigType
+  > {
+    if (this._plugin === undefined) {
+      this._plugin = this._referencedPlugin.registerPluginClient<
+        onEvents,
+        onReturnableEvents,
+        callableMethods,
+        PluginClientConfigType
+      >(this._pluginName);
+    }
+    return this._plugin;
+  }
 
-  constructor(self: Plugin) {
-    this.plugin = self.registerPluginClient<
-      onEvents,
-      emitEvents,
-      onReturnableEvents,
-      emitReturnableEvents,
-      PluginClientConfigType
-    >(this._pluginName);
+  constructor(self: PluginBase<any, any, any>) {
+    this._referencedPlugin = self;
   }
 }

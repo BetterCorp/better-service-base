@@ -4,46 +4,45 @@ import { IPluginLogger } from "../interfaces/logger";
 import { IPlugin } from "../interfaces/plugin";
 import { Readable } from "stream";
 import { DefaultBase } from "../interfaces/base";
-import { EventType } from "../interfaces/events";
 import { RegisteredPlugin } from "./pluginClient";
 import { ErrorMessages } from "../interfaces/static";
-import { DynamicallyReferencedMethodBase } from '@bettercorp/tools/lib/Interfaces';
+import {
+  DynamicallyReferencedMethodType,
+} from "@bettercorp/tools/lib/Interfaces";
+import {
+  DynamicallyReferencedMethodOnIEvents,
+  DynamicallyReferencedMethodEmitIEvents,
+  DynamicallyReferencedMethodEmitEARIEvents,
+} from "../interfaces/events";
+import {
+  PluginCallable, PluginEvents, PluginReturnableEvents,
+} from "./base";
 
-export class Plugin<
-    onEvents  extends DynamicallyReferencedMethodBase,
-    emitEvents  extends DynamicallyReferencedMethodBase,
-    onReturnableEvents  extends DynamicallyReferencedMethodBase,
-    emitReturnableEvents  extends DynamicallyReferencedMethodBase,
-    PluginConfigType extends IPluginConfig = any
+export class PluginBase<
+    onEvents = PluginEvents,
+    onReturnableEvents = PluginReturnableEvents,
+    callableMethods = PluginCallable,
+    pluginConfigType extends IPluginConfig = any
   >
-  extends DefaultBase<PluginConfigType>
-  implements
-    IPlugin<
-      onEvents,
-      emitEvents,
-      onReturnableEvents,
-      emitReturnableEvents
-    >
+  extends DefaultBase<pluginConfigType>
+  implements 
+    IPlugin<onEvents, onReturnableEvents>
 {
   public readonly initIndex?: number;
   public readonly loadedIndex?: number;
 
   public registerPluginClient<
-    onEvents = EventType,
-    emitClientEvents = EventType,
-    onClientReturnableEvents = EventType,
-    emitClientReturnableEvents = EventType,
-    PluginClientConfigType extends IPluginConfig = any,
-    DefaultClientDataType = any,
-    DefaultClientReturnType = void
+    pluginClientOnEvents ,
+    pluginClientOnReturnableEvents ,
+    pluginCallableMethods,
+    pluginClientConfigType extends IPluginConfig
   >(
     pluginName: string
   ): RegisteredPlugin<
-    onEvents,
-    emitClientEvents,
-    onClientReturnableEvents,
-    emitClientReturnableEvents,
-    PluginClientConfigType
+    pluginClientOnEvents,
+    pluginClientOnReturnableEvents,
+    pluginCallableMethods,
+    pluginClientConfigType
   > {
     throw ErrorMessages.BSBNotInit;
   }
@@ -53,38 +52,67 @@ export class Plugin<
     if (Tools.isNullOrUndefined(this.initIndex)) this.initIndex = -1;
     if (Tools.isNullOrUndefined(this.loadedIndex)) this.loadedIndex = 1;
   }
-  onEvent<ArgsDataType = any>(
-    event: onEvents,
-    listener: (data: ArgsDataType) => Promise<void>
-  ): Promise<void> {
-    throw ErrorMessages.PluginNotImplementedProperly;
-  }
-  onReturnableEvent<ArgsDataType = any, ReturnDataType = any>(
-    event: onReturnableEvents,
-    listener: (data?: ArgsDataType | undefined) => Promise<ReturnDataType>
-  ): Promise<void> {
-    throw ErrorMessages.PluginNotImplementedProperly;
-  }
-  emitEvent<ArgsDataType = any>(
-    event: emitEvents,
-    data?: ArgsDataType | undefined
-  ): Promise<void> {
-    throw ErrorMessages.PluginNotImplementedProperly;
-  }
-  emitEventAndReturn<ArgsDataType = any, ReturnDataType = void>(
-    event: emitReturnableEvents,
-    data?: ArgsDataType | undefined,
-    timeoutSeconds?: number | undefined
-  ): Promise<ReturnDataType> {
-    throw ErrorMessages.PluginNotImplementedProperly;
-  }
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,
-    timeoutSeconds?: number | undefined
+    timeoutSeconds?: number
   ): Promise<string> {
-    throw ErrorMessages.PluginNotImplementedProperly;
+    throw ErrorMessages.BSBNotInit;
   }
   sendStream(streamId: string, stream: Readable): Promise<void> {
-    throw ErrorMessages.PluginNotImplementedProperly;
+    throw ErrorMessages.BSBNotInit;
+  }
+  onEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onEvents>,
+      TA,
+      false
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitIEvents<
+      DynamicallyReferencedMethodType<onEvents>,
+      TA
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  onReturnableEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitEventAndReturn<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true,
+      false
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<onReturnableEvents>,
+    TA,
+    false
+  > {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitEventAndReturnTimed<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true,
+      true
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<onReturnableEvents>,
+    TA,
+    false
+  > {
+    throw ErrorMessages.BSBNotInit;
   }
 }

@@ -1,8 +1,12 @@
 import { ParamsFromString } from "@bettercorp/tools/lib/Interfaces";
 
-export type LogMeta<T extends string> = Record<ParamsFromString<T>, string>;
+export type LogMeta<T extends string> = Record<
+  ParamsFromString<T>,
+  string | number | boolean | Array<string | number | boolean>
+>;
 
 export interface IPluginLogger {
+  reportStat(key: string, value: number): Promise<void>;
   info<T extends string>(
     message: T,
     meta?: LogMeta<T>,
@@ -32,6 +36,7 @@ export interface IPluginLogger {
 
 export interface ILogger {
   init?(): Promise<void>;
+  reportStat(plugin: string, key: string, value: number): Promise<void>;
   info<T extends string>(
     plugin: string,
     message: T,
@@ -49,11 +54,6 @@ export interface ILogger {
     message: T,
     meta?: LogMeta<T>,
     hasPIData?: boolean
-  ): Promise<void>;
-  fatal<T extends string>(
-    plugin: string,
-    message: T,
-    meta?: LogMeta<T>
   ): Promise<void>;
   debug<T extends string>(
     plugin: string,

@@ -1,16 +1,11 @@
-import { DynamicallyReferencedMethodBase } from '@bettercorp/tools/lib/Interfaces';
 import { IPluginEvents } from "./events";
 
 export interface IPlugin<
-  onEvents extends DynamicallyReferencedMethodBase,
-  emitEvents extends DynamicallyReferencedMethodBase,
-  onReturnableEvents extends DynamicallyReferencedMethodBase,
-  emitReturnableEvents extends DynamicallyReferencedMethodBase
+  onEvents,
+  onReturnableEvents
 > extends IPluginEvents<
     onEvents,
-    emitEvents,
-    onReturnableEvents,
-    emitReturnableEvents
+    onReturnableEvents
   > {
   initIndex?: number;
   init?(): Promise<void>;

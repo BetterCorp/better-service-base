@@ -1,7 +1,7 @@
 import {ServiceBase} from "./serviceBase/serviceBase";
 const runApp = async () => {
   const CWD = process.env.APP_DIR || process.cwd();
-  const SB = new ServiceBase(true);
+  const SB = new ServiceBase(false);
   await SB.setupSelf();
   await SB.findPlugins(CWD);
   await SB.setupConfig();

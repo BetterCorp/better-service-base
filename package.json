@@ -23,18 +23,19 @@
   "main": "lib/index.js",
   "version": "8.0.0",
   "devDependencies": {
+    "@types/node": "^18.6.2",
+    "@types/yargs": "^17.0.10",
     "@typescript-eslint/eslint-plugin": "^5.31.0",
     "@typescript-eslint/parser": "^5.31.0",
     "eslint": "^8.20.0",
     "mocha": "^10.0.0",
     "nyc": "^15.1.0",
     "ts-node": "^10.9.1",
-    "@types/node": "^18.6.2",
-    "@types/yargs": "^17.0.10",
     "typescript": "^4.7.4",
     "yargs": "^17.5.1"
   },
   "dependencies": {
     "@bettercorp/tools": "^2.0.20220714140658"
-  }
+  },
+  "bsb_project": true
 }

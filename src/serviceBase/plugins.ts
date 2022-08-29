@@ -1,240 +1,18 @@
 import { readdirSync, statSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { Tools } from "@bettercorp/tools/lib/Tools";
-import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
 import { ILogger, IPluginLogger } from "../interfaces/logger";
 import { IConfig } from "../interfaces/config";
-import { IEvents } from "../interfaces/events";
-import {
-  IPlugin,
-  IPluginDefinition,
-  IReadyPlugin,
-} from "../interfaces/plugin";
-import { DefaultConfig } from "../config/config";
-import { Events } from "../events/events";
+import { IPlugin, IPluginDefinition, IReadyPlugin } from "../interfaces/plugin";
+import { DefaultConfig } from "../plugins/config-default/plugin";
 import { Readable } from "stream";
-import { Logger } from "../logger/logger";
 
 export class Plugins {
-  private _cwd: string;
-  private _coreLogger: IPluginLogger;
-  private _appConfig!: IConfig;
-  private _loadedPlugins: IDictionary<IPlugin> = {};
-  private _plugins: Array<IReadyPlugin> = [];
-  private _logger: ILogger;
-  private _loggerName = "log";
-  private _events: IEvents;
-  private _eventsName = "events";
-  private _fatalHandler: { (): Promise<void> };
+  //public static 
 
-  constructor(
-    coreLogger: IPluginLogger,
-    cwd: string,
-    fatalHandler: { (): Promise<void> }
-  ) {
-    this._fatalHandler = fatalHandler;
-    this._cwd = cwd;
-    this._coreLogger = coreLogger;
-    this._logger = new Logger(this._loggerName, this._cwd, this._coreLogger, {
-      runningInDebug: process.env.DEBUG === "true",
-      runningLive: process.env.LIVE === "true",
-    } as any);
-    this._events = new Events(this._eventsName, this._cwd, this._logger, {
-      runningInDebug: true,
-    } as any);
-  }
 
-  private getPluginType(name: string): IPluginDefinition {
-    const pluginLow = name.toLowerCase();
-    if (pluginLow.indexOf("config-") === 0) return IPluginDefinition.config;
-    if (pluginLow.indexOf("events-") === 0) return IPluginDefinition.events;
-    if (pluginLow.indexOf("log-") === 0 || pluginLow.indexOf("logs-") === 0)
-      return IPluginDefinition.logging;
-    return IPluginDefinition.normal;
-  }
 
-  private async findPluginsFiles(
-    path: string,
-    version: string,
-    libOnly = false
-  ): Promise<Array<IReadyPlugin>> {
-    const arrOfPlugins: Array<IReadyPlugin> = [];
 
-    await this._coreLogger.debug(`FIND: FIND plugins in [{path}]`, { path });
-    for (const dirPluginFolderName of readdirSync(path)) {
-      const thisFullPath = join(path, dirPluginFolderName);
-      if (!statSync(thisFullPath).isDirectory()) {
-        await this._coreLogger.debug(
-          `FIND: IGNORE [{thisFullPath}] Not a DIR`,
-          { thisFullPath }
-        );
-        continue;
-      }
-      if (dirPluginFolderName.indexOf("-") === 0) {
-        await this._coreLogger.debug(
-          `FIND: IGNORE [{thisFullPath}] Defined disabled`,
-          { thisFullPath }
-        );
-        continue;
-      }
-      if (libOnly) {
-        if (dirPluginFolderName.indexOf("-test") >= 0) {
-          await this._coreLogger.debug(
-            `FIND: IGNORE [{thisFullPath}] Defined test plugin to ignore`,
-            { thisFullPath }
-          );
-          continue;
-        }
-      }
-      let pluginFile = join(thisFullPath, "plugin.ts");
-      if (!existsSync(pluginFile)) pluginFile = join(thisFullPath, "plugin.js");
-
-      if (!existsSync(pluginFile)) {
-        await this._coreLogger.debug(
-          `FIND: IGNORE [{thisFullPath}] Not a valid plugin`,
-          { thisFullPath }
-        );
-        continue;
-      }
-
-      let pluginInstallerFile: string | null = join(
-        thisFullPath,
-        "sec.config.js"
-      );
-      //if (!existsSync(pluginInstallerFile))
-      //  pluginInstallerFile = join(thisFullPath, "sec.config.js");
-
-      if (!existsSync(pluginInstallerFile)) pluginInstallerFile = null;
-
-      await this._coreLogger.debug(
-        `FIND: READY [{dirPluginFolderName}] in: {thisFullPath}`,
-        { dirPluginFolderName, thisFullPath }
-      );
-      arrOfPlugins.push({
-        pluginDefinition: this.getPluginType(dirPluginFolderName),
-        name: dirPluginFolderName,
-        version,
-        pluginFile,
-        installerFile: pluginInstallerFile,
-      });
-    }
-
-    return arrOfPlugins;
-  }
-  private async findPluginsInBase(
-    path: string,
-    libOnly = false
-  ): Promise<Array<IReadyPlugin>> {
-    const pluginJson = JSON.parse(
-      readFileSync(join(path, "./package.json"), "utf8").toString()
-    );
-    if (pluginJson.bsb_project !== true) {
-      await this._coreLogger.debug("FIND: IGNORE AS NOT BSB PROJECT");
-      return [];
-    }
-
-    let innerPluginLib = join(path, "./src");
-    if (
-      libOnly ||
-      !existsSync(innerPluginLib) ||
-      !statSync(innerPluginLib).isDirectory()
-    ) {
-      innerPluginLib = join(path, "./lib");
-    }
-    if (
-      !existsSync(innerPluginLib) ||
-      !statSync(innerPluginLib).isDirectory()
-    ) {
-      await this._coreLogger.debug(
-        `FIND: IGNORE [{innerPluginLib}] No src/lib dir in package`,
-        { innerPluginLib }
-      );
-      return [];
-    }
-    const innerPluginLibPlugin = join(innerPluginLib, "./plugins");
-    if (
-      !existsSync(innerPluginLibPlugin) ||
-      !statSync(innerPluginLibPlugin).isDirectory()
-    ) {
-      await this._coreLogger.debug(
-        `FIND: IGNORE [{innerPluginLibPlugin}] No inner plugins dir`,
-        { innerPluginLibPlugin }
-      );
-      return [];
-    }
-
-    const packageVersion = pluginJson.version;
-    return await this.findPluginsFiles(
-      innerPluginLibPlugin,
-      packageVersion,
-      libOnly
-    );
-  }
-  private async findNPMPlugins(
-    cwd: string = this._cwd
-  ): Promise<Array<IReadyPlugin>> {
-    let arrOfPlugins: Array<IReadyPlugin> = [];
-
-    const npmPluginsDir = join(cwd, "./node_modules");
-    await this._coreLogger.debug(`FIND: NPM plugins in: {npmPluginsDir}`, {
-      npmPluginsDir,
-    });
-    if (!existsSync(npmPluginsDir)) {
-      await this._coreLogger.error(
-        `FIND: NPM plugins dir does not exist: {npmPluginsDir}`,
-        { npmPluginsDir }
-      );
-      return [];
-    }
-    for (const dirFileWhat of readdirSync(npmPluginsDir)) {
-      try {
-        const pluginPath = join(npmPluginsDir, dirFileWhat);
-        if (dirFileWhat.indexOf(".") === 0) {
-          continue;
-        }
-        if (dirFileWhat.indexOf("@") === 0) {
-          await this._coreLogger.debug(
-            `FIND: GROUP [{dirFileWhat}] {pluginPath}`,
-            { dirFileWhat, pluginPath }
-          );
-          for (const groupPluginName of readdirSync(pluginPath)) {
-            if (groupPluginName.indexOf(".") === 0) {
-              continue;
-            }
-            const groupPluginPath = join(pluginPath, groupPluginName);
-            await this._coreLogger.debug(
-              `FIND: CHECK [{dirFileWhat}/{groupPluginName}] {groupPluginPath}`,
-              { dirFileWhat, groupPluginName, groupPluginPath }
-            );
-            if (statSync(groupPluginPath).isDirectory()) {
-              arrOfPlugins = arrOfPlugins.concat(
-                await this.findPluginsInBase(groupPluginPath, true)
-              );
-            }
-          }
-        } else {
-          await this._coreLogger.debug(
-            `FIND: CHECK [{dirFileWhat}] {pluginPath}`,
-            { dirFileWhat, pluginPath }
-          );
-          if (statSync(pluginPath).isDirectory()) {
-            arrOfPlugins = arrOfPlugins.concat(
-              await this.findPluginsInBase(pluginPath, true)
-            );
-          }
-        }
-      } catch (err: any) {
-        await this._coreLogger.error("{message}", {
-          message: err.message || err.toString(),
-        });
-      }
-    }
-
-    return arrOfPlugins;
-  }
-  private async findLocalPlugins(): Promise<Array<IReadyPlugin>> {
-    return await this.findPluginsInBase(this._cwd);
-  }
   public async findAllPlugins(): Promise<void> {
     if (process.env.BSB_CONTAINER == "true") {
       await this._coreLogger.info(
@@ -384,79 +162,7 @@ export class Plugins {
     }
   }
 
-  public async setupConfigPlugin(): Promise<void> {
-    let deploymentProfile = "default";
-    if (!Tools.isNullOrUndefined(process.env.BSB_PROFILE)) {
-      deploymentProfile = process.env.BSB_PROFILE!;
-    }
-
-    if (
-      (!Tools.isNullOrUndefined(process.env.BSB_CONFIG_PLUGIN) &&
-        process.env.BSB_CONFIG_PLUGIN !== "") ||
-      existsSync(join(this._cwd, "./BSB_CONFIG_PLUGIN"))
-    ) {
-      const pluginName =
-        process.env.BSB_CONFIG_PLUGIN ||
-        readFileSync(join(this._cwd, "./BSB_CONFIG_PLUGIN")).toString();
-      await this._coreLogger.info(`APP_CONFIG: PLUGIN {pluginName} check`, {
-        pluginName,
-      });
-      for (const plugin of this._plugins) {
-        if (plugin.pluginDefinition === IPluginDefinition.config) {
-          if (pluginName !== plugin.name) continue;
-          await this._coreLogger.info(`APP_CONFIG: PLUGIN {name}v{version}`, {
-            name: plugin.name,
-            version: plugin.version,
-          });
-          const configPlugin = (await this.getReadyToLoadPlugin(
-            plugin,
-            plugin.name
-          )) as any;
-          this._appConfig = new configPlugin(
-            this._defaultLogger,
-            this._cwd,
-            deploymentProfile
-          );
-          await this._coreLogger.info(
-            `APP_CONFIG: PLUGIN {name}v{version} [CONFIGURED]`,
-            { name: plugin!.name, version: plugin.version }
-          );
-        }
-      }
-    }
-
-    if (Tools.isNullOrUndefined(this._appConfig)) {
-      await this._coreLogger.info(`APP_CONFIG: PLUGIN default config loader`);
-      this._appConfig = new DefaultConfig(
-        this._defaultLogger,
-        this._cwd,
-        deploymentProfile
-      );
-      await this._coreLogger.info(`APP_CONFIG: PLUGIN default [CONFIGURED]`);
-    }
-
-    await this._appConfig.refreshAppConfig();
-  }
-  public async configAllPlugins(): Promise<void> {
-    await this._coreLogger.info(`CONFIG: {length} plugins`, {
-      length: this._plugins.length,
-    });
-    for (const plugin of this._plugins) {
-      if (plugin.pluginDefinition === IPluginDefinition.config) continue;
-      const mappedPlugin = await this._appConfig.getMappedPluginName(
-        plugin.name
-      );
-      await this._coreLogger.info(
-        `CONFIG: PLUGIN {name}v{version} AS {mappedPlugin}`,
-        { name: plugin.name, version: plugin.version, mappedPlugin }
-      );
-      this.getReadyPluginConfig(plugin.pluginDefinition, plugin, mappedPlugin);
-      await this._coreLogger.info(
-        `CONFIG: PLUGIN {name}v{version} [CONFIGURED]`,
-        { name: plugin!.name, version: plugin.version }
-      );
-    }
-  }
+  
 
   public async constructAllPlugins(): Promise<void> {
     await this._coreLogger.info("CONSTRUCT: constructAllPlugins");
@@ -559,12 +265,13 @@ export class Plugins {
     }
     for (const plugin of this._plugins) {
       if (plugin.pluginDefinition !== IPluginDefinition.normal) continue;
-      await this._coreLogger.info(`CONSTRUCT: PLUGIN {name} [CHECK]`, {name: plugin!.name});
+      await this._coreLogger.info(`CONSTRUCT: PLUGIN {name} [CHECK]`, {
+        name: plugin!.name,
+      });
       if (!(await this._appConfig.getPluginState(plugin.name))) {
-        await this._coreLogger.info(
-          `CONSTRUCT: PLUGIN {name} [DISABLED]`,
-          {name: plugin!.name}
-        );
+        await this._coreLogger.info(`CONSTRUCT: PLUGIN {name} [DISABLED]`, {
+          name: plugin!.name,
+        });
         continue;
       }
       const mappedPlugin = await this._appConfig.getMappedPluginName(
@@ -572,16 +279,16 @@ export class Plugins {
       );
       await this._coreLogger.info(
         `CONSTRUCT: PLUGIN {name}v{version} AS {mappedPlugin}`,
-        {name: plugin.name, version: plugin.version, mappedPlugin}
+        { name: plugin.name, version: plugin.version, mappedPlugin }
       );
       const readToLoadPlugin = await this.getReadyToLoadPlugin(
         plugin,
         mappedPlugin
       );
-      await this._coreLogger.info(
-        `CONSTRUCT: PLUGIN {name}v{version} Render`,
-        {name: plugin.name, version: plugin.version}
-      );
+      await this._coreLogger.info(`CONSTRUCT: PLUGIN {name}v{version} Render`, {
+        name: plugin.name,
+        version: plugin.version,
+      });
       this._loadedPlugins[plugin.name] = new (readToLoadPlugin as any)(
         mappedPlugin,
         this._cwd,
@@ -603,10 +310,9 @@ export class Plugins {
       );
       await this._coreLogger.info(`CONSTRUCT: PLUGIN ${plugin!.name} [LOADED]`);
     }
-    await this._coreLogger.info(
-      `CONSTRUCTED: [{loadedPlugins}]`,
-      {loadedPlugins: Object.keys(this._loadedPlugins)}
-    );
+    await this._coreLogger.info(`CONSTRUCTED: [{loadedPlugins}]`, {
+      loadedPlugins: Object.keys(this._loadedPlugins),
+    });
   }
 
   public async setupEventsAllPlugins(): Promise<void> {

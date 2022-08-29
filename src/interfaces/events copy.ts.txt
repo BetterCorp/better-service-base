@@ -3,6 +3,7 @@ import {
   DynamicallyReferencedMethodType,
 } from "@bettercorp/tools/lib/Interfaces";
 import { Readable } from "stream";
+import { DynamicPluginsList } from "./DynamicPluginsList";
 
 export type DynamicallyReferencedMethodOnIEvents<
   Interface extends DynamicallyReferencedMethodBase,
@@ -10,19 +11,20 @@ export type DynamicallyReferencedMethodOnIEvents<
   hasReturnable extends boolean = false
 > = Interface[Method] extends (...a: infer Arguments) => infer Return
   ? [
+      pluginName: DynamicPluginsList,
       event: Method,
       listener: {
         (...a: Arguments): hasReturnable extends true ? Return : Promise<void>;
       }
     ]
-  : [event: Method, noMatchingEvent: never];
+  : [pluginName: DynamicPluginsList, event: Method, noMatchingEvent: never];
 
 export type DynamicallyReferencedMethodEmitIEvents<
   Interface extends DynamicallyReferencedMethodBase,
   Method extends string
 > = Interface[Method] extends (...a: infer Arguments) => infer Return
-  ? [event: Method, ...a: Arguments]
-  : [noMatchingEvent: never];
+  ? [pluginName: DynamicPluginsList, event: Method, ...a: Arguments]
+  : [pluginName: DynamicPluginsList, noMatchingEvent: never];
 
 export type DynamicallyReferencedMethodEmitEARIEvents<
   Interface extends DynamicallyReferencedMethodBase,
@@ -33,12 +35,13 @@ export type DynamicallyReferencedMethodEmitEARIEvents<
   ? Interface[Method] extends (...a: infer Arguments) => infer Return
     ? ShowTimeout extends true
       ? [
+          pluginName: DynamicPluginsList,
           event: Method,
           timeoutSeconds?: number,
           ...a: Arguments
         ]
-      : [event: Method, ...a: Arguments]
-    : [event: Method, noMatchingEvent: never]
+      : [pluginName: DynamicPluginsList, event: Method, ...a: Arguments]
+    : [pluginName: DynamicPluginsList, event: Method, noMatchingEvent: never]
   : Interface[Method] extends (...a: infer Arguments) => infer Return
   ? Return extends Promise<unknown>
     ? Return
@@ -47,7 +50,9 @@ export type DynamicallyReferencedMethodEmitEARIEvents<
 
 export interface IPluginEvents<
   onEvents,
-  onReturnableEvents
+  emitEvents,
+  onReturnableEvents,
+  emitReturnableEvents
 > {
   onEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodOnIEvents<
@@ -58,7 +63,7 @@ export interface IPluginEvents<
   ): Promise<void>;
   emitEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitIEvents<
-      DynamicallyReferencedMethodType<onEvents>,
+      DynamicallyReferencedMethodType<emitEvents>,
       TA
     >
   ): Promise<void>;
@@ -71,25 +76,25 @@ export interface IPluginEvents<
   ): Promise<void>;
   emitEventAndReturn<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       true,
       false
     >
   ): DynamicallyReferencedMethodEmitEARIEvents<
-    DynamicallyReferencedMethodType<onReturnableEvents>,
+    DynamicallyReferencedMethodType<emitReturnableEvents>,
     TA,
     false
   >;
   emitEventAndReturnTimed<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       true,
       true
     >
   ): DynamicallyReferencedMethodEmitEARIEvents<
-    DynamicallyReferencedMethodType<onReturnableEvents>,
+    DynamicallyReferencedMethodType<emitReturnableEvents>,
     TA,
     false
   >;

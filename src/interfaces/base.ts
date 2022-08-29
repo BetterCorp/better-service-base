@@ -2,6 +2,13 @@ import { IPluginConfig } from "./config";
 import { IPluginLogger } from "./logger";
 import { ErrorMessages } from "./static";
 
+export interface FakeConfigBase<PluginConfigType extends IPluginConfig = any> {
+  runningDebug: boolean;
+  runningLive: boolean;
+  getPluginConfig(): Promise<PluginConfigType>;
+  getPluginState(): Promise<boolean>;
+}
+
 export class DefaultBase<PluginConfigType extends IPluginConfig = any> {
   protected readonly runningDebug: boolean = true;
   protected readonly runningLive: boolean = false;

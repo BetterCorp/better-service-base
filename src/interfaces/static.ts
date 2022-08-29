@@ -19,4 +19,25 @@ export class ErrorMessages {
       "[BSB-E000003] Plugin not properly implementing all methods."
     );
   }
+
+  // [BSB-E000004] The logger plugin in use does not implement all methods required for the BSB to function normally.
+  public static get LoggerNotImplementedProperly() {
+    return new Error(
+      "[BSB-E000004] Logger plugin not properly implementing all methods."
+    );
+  }
+
+  // [BSB-E000005] The logger plugin in use does not implement all methods required for the BSB to function normally.
+  public static get PluginClientNotImplementedProperly() {
+    return new Error(
+      "[BSB-E000005] An extended plugin client must call this.construct(plugin); in the constructor!"
+    );
+  }
+
+  // [BSB-E000006] Plugin sec.config not interfaced correctly
+  public static get PluginConfigNotSetupToGenerateConfig() {
+    return new Error(
+      "[BSB-E000006] Plugin sec.config not interfaced correctly"
+    );
+  }
 }
