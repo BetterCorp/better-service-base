@@ -9,3 +9,12 @@ export class pluginConfig {
     throw ErrorMessages.PluginConfigNotSetupToGenerateConfig;
   }
 }
+
+export class SecConfig<MyPluginConfig extends IPluginConfig = any> {
+  public migrate(
+    mappedPluginName: string,
+    existingConfig: MyPluginConfig | null
+  ): MyPluginConfig {
+    throw ErrorMessages.BSBNotInit;
+  }
+}

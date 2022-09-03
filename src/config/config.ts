@@ -5,54 +5,52 @@ import {
   IConfig,
 } from "../interfaces/config";
 import { IPluginLogger } from "../interfaces/logger";
-import { randomUUID } from "crypto";
-import { hostname } from "os";
+import { DefaultBase } from '../interfaces/base';
+import { ErrorMessages } from '../interfaces/static';
 
-export class ConfigBase implements IConfig {
-  readonly _defaultLogger: IPluginLogger;
+export class ConfigBase<PluginConfigType extends IPluginConfig = any>
+extends DefaultBase<PluginConfigType> implements IConfig {
   readonly _deploymentProfile: string;
-  constructor(logger: IPluginLogger, cwd: string, deploymentProfile: string) {
-    this._defaultLogger = logger;
+  constructor(pluginName: string, cwd: string, log: IPluginLogger, deploymentProfile: string) {
+    super(pluginName, cwd, log);
     this._deploymentProfile = deploymentProfile;
   }
-  async refreshAppConfig(): Promise<void> {
-    throw new Error("Method not implemented.");
+  async createAppConfig(): Promise<void> {
+    throw ErrorMessages.ConfigNotImplementedProperly;
   }
-  async updateAppConfig(
-    pluginName?: string,
-    mappedPluginName?: string,
-    config?: IPluginConfig
+  async migrateAppPluginConfig(
+    pluginName: string,
+    mappedPluginName: string,
+    config: IPluginConfig
   ): Promise<void> {
-    throw new Error("Method not implemented.");
+    throw ErrorMessages.ConfigNotImplementedProperly;
   }
-  public async getPluginConfig<T extends IPluginConfig>(
-    pluginName: string
+  public async getAppMappedPluginConfig<T extends IPluginConfig>(
+    mappedPluginName: string
   ): Promise<T> {
-    throw new Error("Method not implemented.");
+    throw ErrorMessages.ConfigNotImplementedProperly;
   }
-  public async getPluginDeploymentProfile(
+  public async getAppPluginDeploymentProfile(
     pluginName: string
   ): Promise<DeploymentProfile> {
-    throw new Error("Method not implemented.");
+    throw ErrorMessages.ConfigNotImplementedProperly;
   }
-  public async getMappedPluginName(pluginName: string): Promise<string> {
-    const mappedDeploymentProfile = await this.getPluginDeploymentProfile(
+  public async getAppMappedPluginDeploymentProfile(
+    mappedPluginName: string
+  ): Promise<DeploymentProfile> {
+    throw ErrorMessages.ConfigNotImplementedProperly;
+  }
+  public async getAppPluginMappedName(pluginName: string): Promise<string> {
+    const mappedDeploymentProfile = await this.getAppPluginDeploymentProfile(
       pluginName
     );
     if (Tools.isNullOrUndefined(mappedDeploymentProfile)) return pluginName;
     return mappedDeploymentProfile.mappedName || pluginName;
   }
-  public async getPluginState(pluginName: string): Promise<boolean> {
-    return (await this.getPluginDeploymentProfile(pluginName)).enabled || false;
+  public async getAppPluginState(pluginName: string): Promise<boolean> {
+    return (await this.getAppPluginDeploymentProfile(pluginName)).enabled || false;
   }
-
-  public get runningDebug(): boolean {
-    throw new Error("Method not implemented.");
-  }
-  public get runningLive(): boolean {
-    throw new Error("Method not implemented.");
-  }
-  public get appId(): string {
-    return `${hostname()}-${randomUUID()}`;
+  public async getAppMappedPluginState(mappedPluginName: string): Promise<boolean> {
+    return (await this.getAppMappedPluginDeploymentProfile(mappedPluginName)).enabled || false;
   }
 }

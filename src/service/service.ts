@@ -1,10 +1,10 @@
 import { Tools } from "@bettercorp/tools/lib/Tools";
 import { IPluginConfig } from "../interfaces/config";
 import { IPluginLogger } from "../interfaces/logger";
-import { IPlugin } from "../interfaces/plugin";
+import { IService } from "../interfaces/service";
 import { Readable } from "stream";
 import { DefaultBase } from "../interfaces/base";
-import { RegisteredPlugin } from "./pluginClient";
+import { RegisteredPlugin } from "./serviceClient";
 import { ErrorMessages } from "../interfaces/static";
 import {
   DynamicallyReferencedMethodType,
@@ -15,21 +15,23 @@ import {
   DynamicallyReferencedMethodEmitEARIEvents,
 } from "../interfaces/events";
 import {
-  PluginCallable, PluginEvents, PluginReturnableEvents,
+  ServiceCallable, ServiceEvents, ServiceReturnableEvents,
 } from "./base";
 
-export class PluginBase<
-    onEvents = PluginEvents,
-    onReturnableEvents = PluginReturnableEvents,
-    callableMethods = PluginCallable,
+export class ServicesBase<
+    onEvents = ServiceEvents,
+    onReturnableEvents = ServiceReturnableEvents,
+    callableMethods = ServiceCallable,
     pluginConfigType extends IPluginConfig = any
   >
   extends DefaultBase<pluginConfigType>
   implements 
-    IPlugin<onEvents, onReturnableEvents>
+    IService<onEvents, onReturnableEvents>
 {
-  public readonly initIndex?: number;
-  public readonly loadedIndex?: number;
+  public readonly initRequiredPlugins?: Array<string>;
+  public readonly runRequiredPlugins?: Array<string>;
+
+  async run(): Promise<void> {}
 
   public registerPluginClient<
     pluginClientOnEvents ,
@@ -38,19 +40,19 @@ export class PluginBase<
     pluginClientConfigType extends IPluginConfig
   >(
     pluginName: string
-  ): RegisteredPlugin<
+  ): Promise<RegisteredPlugin<
     pluginClientOnEvents,
     pluginClientOnReturnableEvents,
     pluginCallableMethods,
     pluginClientConfigType
-  > {
+  >> {
     throw ErrorMessages.BSBNotInit;
   }
 
   constructor(pluginName: string, cwd: string, log: IPluginLogger) {
     super(pluginName, cwd, log);
-    if (Tools.isNullOrUndefined(this.initIndex)) this.initIndex = -1;
-    if (Tools.isNullOrUndefined(this.loadedIndex)) this.loadedIndex = 1;
+    if (Tools.isNullOrUndefined(this.initRequiredPlugins)) this.initRequiredPlugins = [];
+    if (Tools.isNullOrUndefined(this.runRequiredPlugins)) this.runRequiredPlugins = [];
   }
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,

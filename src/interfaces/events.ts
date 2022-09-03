@@ -45,7 +45,7 @@ export type DynamicallyReferencedMethodEmitEARIEvents<
     : Promise<Return>
   : Promise<never>;
 
-export interface IPluginEvents<
+export interface IServiceEvents<
   onEvents,
   onReturnableEvents
 > {

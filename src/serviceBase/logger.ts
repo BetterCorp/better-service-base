@@ -1,27 +1,41 @@
 import { LoggerBase } from "../logger/logger";
-import { ILogger, IPluginLogger } from "../interfaces/logger";
-import { DefaultLogger } from "../plugins/log-default/plugin";
+import { IPluginLogger } from "../interfaces/logger";
+import { Logger as DefaultLogger } from "../plugins/log-default/plugin";
 import { SBBase } from "./base";
 import { ConfigBase } from "../config/config";
-import { DefaultEvents } from "../plugins/events-default/plugin";
+import { Events as DefaultEvents } from "../plugins/events-default/plugin";
+import { IReadyPlugin } from "../interfaces/service";
 
 export class SBLogger {
   private log: IPluginLogger;
   private _logger: DefaultLogger;
-  private _loggerEvents: DefaultEvents;
+  public _loggerEvents: DefaultEvents;
   private _activeLogger: LoggerBase | undefined;
-  constructor(CORE_PLUGIN_NAME: string, debug: boolean) {
+  constructor(
+    appId: string,
+    runningDebug: boolean,
+    runningLive: boolean,
+    CORE_PLUGIN_NAME: string
+  ) {
     this._logger = new DefaultLogger("default-logger", "./", undefined!);
-    SBBase.setupPlugin(this._logger, {
-      runningDebug: debug,
-      runningLive: true,
-    } as any);
+    SBBase.setupPlugin(
+      appId,
+      runningDebug,
+      runningLive,
+      this._logger,
+      {} as any
+    );
     this._loggerEvents = new DefaultEvents(
       "default-logger-events",
       "./",
       this.generateNullLoggerForPlugin()
     );
     this.log = this.generateLoggerForPlugin(`${CORE_PLUGIN_NAME}-logger`);
+  }
+
+  public dispose() {
+    if (this._activeLogger !== undefined) this._activeLogger.dispose();
+    this._logger.dispose();
   }
 
   public async setupSelf() {
@@ -81,47 +95,63 @@ export class SBLogger {
           args[2],
           args[3]
         );
-        process.exit(2);
+        console.error("FATAL: EXIT");
+        self._loggerEvents.emitEvent("d", "l", "fatal-e", []);
       }
     );
     this.log.info("Logger event core ready.");
   }
 
   async setupLogger(
+    appId: string,
+    runningDebug: boolean,
+    runningLive: boolean,
     cwd: string,
     config: ConfigBase,
-    logger: LoggerBase,
-    pluginName: string
+    plugin: IReadyPlugin
   ) {
+    if (plugin.name === "log-default") return;
+    await this.log.debug(`Import logging plugin: {name} from {file}`, {
+      name: plugin.name,
+      file: plugin.pluginFile,
+    });
+    const importedPlugin = await import(plugin.pluginFile);
+
+    await this.log.debug(`Construct logging plugin: {name}`, {
+      name: plugin.name,
+    });
+
+    let loggerPlugin =
+      new (importedPlugin.Logger as unknown as typeof LoggerBase)(
+        plugin.name,
+        cwd,
+        this.generateLoggerForPlugin(plugin.mappedName)
+      );
+    await this.log.debug(`Create logging plugin: {name}`, {
+      name: plugin.name,
+    });
     //const importedPlugin = await import(plugin.pluginFile);
     await this.log.info(
-      "Setting up {pluginName} as new base logging platform",
+      "Setting up {pluginName} ({mappedName}) as new base logging platform",
       {
-        pluginName,
+        pluginName: plugin.name,
+        mappedName: plugin.mappedName,
       }
     );
-    let loggerReady = new (logger as unknown as typeof LoggerBase)(
-      pluginName,
-      cwd,
-      this.generateLoggerForPlugin(pluginName)
-    );
     await this.log.info("Builing {pluginName} as new base logging platform", {
-      pluginName,
+      pluginName: plugin.name,
     });
-    SBBase.setupPlugin(loggerReady, config);
-    if ((loggerReady as ILogger).init !== undefined) {
-      await this.log.info(
-        "Initialized {pluginName} as new base logging platform",
-        {
-          pluginName,
-        }
-      );
-      await (loggerReady as ILogger).init!();
-    }
-    this._activeLogger = loggerReady;
-    await this.log.info("Ready {pluginName} as new base logging platform", {
-      pluginName,
-    });
+    SBBase.setupPlugin(appId, runningDebug, runningLive, loggerPlugin, config);
+
+    this._activeLogger = loggerPlugin;
+    await this._activeLogger.init();
+    await this.log.info(
+      "Ready {pluginName} ({mappedName}) as new base logging platform",
+      {
+        pluginName: plugin.name,
+        mappedName: plugin.mappedName,
+      }
+    );
   }
   private generateNullLoggerForPlugin(): IPluginLogger {
     return {

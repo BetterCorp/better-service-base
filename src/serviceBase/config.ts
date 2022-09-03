@@ -1,9 +1,11 @@
 import { Tools } from "@bettercorp/tools/lib/Tools";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { IPluginDefinition, IReadyPlugin } from "../interfaces/plugin";
+import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
 import { IPluginLogger } from "../interfaces/logger";
 import { ConfigBase } from "../config/config";
+import { SecConfig } from "../interfaces/serviceConfig";
+import { SBBase } from "./base";
 
 export class SBConfig {
   private log: IPluginLogger;
@@ -13,22 +15,23 @@ export class SBConfig {
     deploymentProfile: string;
   };
   public appConfig!: ConfigBase;
-  constructor(log: IPluginLogger) {
+  constructor(log: IPluginLogger, cwd: string) {
     this.log = log;
+    this.cwd = cwd;
   }
 
-  public async findConfigPlugin(
-    plugins: Array<IReadyPlugin>,
-    cwd: string
-  ): Promise<void> {
-    this.cwd = cwd;
+  public dispose() {
+    this.appConfig.dispose();
+  }
+
+  public async findConfigPlugin(plugins: Array<IReadyPlugin>): Promise<void> {
     let deploymentProfile = "default";
     if (!Tools.isNullOrUndefined(process.env.BSB_PROFILE)) {
       deploymentProfile = process.env.BSB_PROFILE!;
     }
 
     this.log.info(
-      "config load with profile: {deploymentProfile} against {len} plugins",
+      "config load with profile: {deploymentProfile}, against {len} plugins",
       {
         deploymentProfile,
         len: plugins.length,
@@ -38,11 +41,11 @@ export class SBConfig {
     if (
       (!Tools.isNullOrUndefined(process.env.BSB_CONFIG_PLUGIN) &&
         process.env.BSB_CONFIG_PLUGIN !== "") ||
-      existsSync(join(cwd, "./BSB_CONFIG_PLUGIN"))
+      existsSync(join(this.cwd, "./BSB_CONFIG_PLUGIN"))
     ) {
       pluginName =
         process.env.BSB_CONFIG_PLUGIN ||
-        readFileSync(join(cwd, "./BSB_CONFIG_PLUGIN")).toString() ||
+        readFileSync(join(this.cwd, "./BSB_CONFIG_PLUGIN")).toString() ||
         "config-default";
     }
     await this.log.info(`PLUGIN {pluginName} check`, {
@@ -70,37 +73,166 @@ export class SBConfig {
     await this.log.fatal("Unable to setup default config plugin.");
   }
 
+  public async mapPlugins(
+    _plugins: Array<IReadyPlugin>
+  ): Promise<Array<IReadyPlugin>> {
+    let mappedPlugins: Array<IReadyPlugin> = [];
+
+    for (let plugin of _plugins) {
+      if (plugin.pluginDefinition !== IPluginDefinition.config) continue;
+      if (plugin.name !== this.configPlugin.plugin.name) continue;
+      mappedPlugins.push(plugin);
+    }
+
+    for (let plugin of _plugins) {
+      if (
+        plugin.pluginDefinition === IPluginDefinition.config ||
+        plugin.pluginDefinition === IPluginDefinition.service
+      )
+        continue;
+      //if (!await this.appConfig.getAppPluginState(plugin.name)) continue;
+      plugin.mappedName = await this.appConfig.getAppPluginMappedName(
+        plugin.name
+      );
+      mappedPlugins.push(plugin);
+    }
+
+    for (let plugin of _plugins) {
+      if (plugin.pluginDefinition !== IPluginDefinition.service) continue;
+      if (!(await this.appConfig.getAppPluginState(plugin.name))) continue;
+      plugin.mappedName = await this.appConfig.getAppPluginMappedName(
+        plugin.name
+      );
+      mappedPlugins.push(plugin);
+    }
+
+    return mappedPlugins;
+  }
+
+  public async findPluginByType(
+    plugins: Array<IReadyPlugin>,
+    defaultPlugin: string,
+    type: IPluginDefinition
+  ): Promise<IReadyPlugin> {
+    for (const plugin of plugins) {
+      if (plugin.pluginDefinition === type) {
+        if (await this.appConfig.getAppPluginState(plugin.name)) return plugin;
+      }
+    }
+    for (const plugin of plugins) {
+      if (plugin.name === defaultPlugin) {
+        return plugin;
+      }
+    }
+    this.log.fatal(
+      "Cannot find plugin type {type} or default {defaultPlugin}",
+      {
+        type,
+        defaultPlugin,
+      }
+    );
+    return undefined as any; // should not reach this
+  }
+
   public getPluginName(): string {
     return this.configPlugin.plugin.name;
   }
 
-  public async setupConfigPlugin(logger: IPluginLogger): Promise<ConfigBase> {
+  public async setupConfigPlugin(
+    logger: IPluginLogger,
+    appId: string,
+    runningDebug: boolean,
+    runningLive: boolean
+  ): Promise<void> {
     let appConfig: ConfigBase | undefined = undefined;
 
-    await this.log.debug(`Import config plugin: {name}`, {
+    await this.log.debug(`Import config plugin: {name} from {file}`, {
       name: this.configPlugin.plugin.name,
+      file: this.configPlugin.plugin!.pluginFile,
     });
     const importedPlugin = await import(this.configPlugin.plugin!.pluginFile);
-    
+
     await this.log.debug(`Construct config plugin: {name}`, {
       name: this.configPlugin.plugin.name,
     });
 
     appConfig = new (importedPlugin.Config as unknown as typeof ConfigBase)(
-      logger,
+      this.configPlugin.plugin.name,
       this.cwd,
+      logger,
       this.configPlugin.deploymentProfile
     );
-    await this.log.debug(`Refresh config plugin: {name}`, {
+    await this.log.debug(`Create config plugin: {name}`, {
       name: this.configPlugin.plugin.name,
     });
 
-    await appConfig!.refreshAppConfig();
+    let pluginInstaller: SecConfig<any> | null =
+      await this.ImportAndCreatePluginConfig(this.configPlugin.plugin);
+    let pluginConfig = {};
+    if (pluginInstaller !== null) {
+      pluginConfig = pluginInstaller.migrate(
+        this.configPlugin.plugin.name,
+        pluginConfig
+      );
+    }
+
+    SBBase.setupPlugin(appId, runningDebug, runningLive, appConfig, {
+      getAppMappedPluginConfig: async () => {
+        return pluginConfig;
+      },
+      getAppMappedPluginState: async () => {
+        return true;
+      },
+    } as any);
+    await appConfig.createAppConfig();
     this.appConfig = appConfig!;
-    await this.log.info(`config plugin ready: {name}`, {
+    await appConfig.init();
+    await this.log.info(`Config plugin ready: {name}`, {
       name: this.configPlugin.plugin.name,
     });
-    return appConfig!;
+  }
+
+  public async ImportAndMigratePluginConfig(plugin: IReadyPlugin) {
+    let existingConfig = await this.appConfig.getAppMappedPluginConfig(
+      plugin.mappedName
+    );
+    let secConfig = await this.ImportAndCreatePluginConfig(plugin);
+    let config =
+      secConfig !== null
+        ? secConfig.migrate(plugin.mappedName, existingConfig || {})
+        : {};
+    await this.appConfig.migrateAppPluginConfig(
+      plugin.name,
+      plugin.mappedName,
+      config
+    );
+    return config;
+  }
+
+  private async ImportAndCreatePluginConfig(
+    plugin: IReadyPlugin
+  ): Promise<SecConfig | null> {
+    let config: SecConfig | null = null;
+
+    if (plugin.installerFile !== null && existsSync(plugin.installerFile)) {
+      await this.log.debug(
+        `Import plugin config (sec.config.ts/js): {name} -> {installerFile}`,
+        {
+          name: plugin.name,
+          installerFile: plugin.installerFile,
+        }
+      );
+      const importedInstaller = await import(plugin.installerFile);
+      await this.log.debug(`Create plugin config (sec.config.ts/js): {name}`, {
+        name: plugin.name,
+      });
+      config = new (importedInstaller.Config as unknown as typeof SecConfig)();
+    } else {
+      await this.log.debug(`No plugin config (sec.config.ts/js): {name}`, {
+        name: plugin.name,
+      });
+    }
+    return config;
   }
 
   /*public async configAllPlugins(): Promise<void> {

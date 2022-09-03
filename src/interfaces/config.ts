@@ -1,4 +1,3 @@
-
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
 
 export interface IPluginConfig {} // eslint-disable-line @typescript-eslint/no-empty-interface
@@ -8,7 +7,7 @@ export interface DeploymentProfiles<T> extends IDictionary<T> {
 }
 export interface ServiceConfig {
   plugins: IDictionary<IPluginConfig>;
-  deploymentProfiles: DeploymentProfiles<DeploymentProfile>;
+  deploymentProfiles: DeploymentProfiles<IDictionary<DeploymentProfile>>;
 }
 
 export interface DeploymentProfile {
@@ -17,18 +16,20 @@ export interface DeploymentProfile {
 }
 
 export interface IConfig {
-  get runningDebug(): boolean;
-  get runningLive(): boolean;
-
-  getPluginConfig<T extends IPluginConfig>(pluginName: string): Promise<T>;
-  getPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile>;
-  getMappedPluginName(pluginName: string): Promise<string>;
-  getPluginState(pluginName: string): Promise<boolean>;
-
-  refreshAppConfig(): Promise<void>;
-  updateAppConfig(
-    pluginName?: string,
-    mappedPluginName?: string,
-    config?: IPluginConfig
+  createAppConfig(): Promise<void>;
+  migrateAppPluginConfig(
+    pluginName: string,
+    mappedPluginName: string,
+    config: IPluginConfig
   ): Promise<void>;
+  getAppMappedPluginConfig<T extends IPluginConfig>(
+    mappedPluginName: string
+  ): Promise<T>;
+  getAppPluginDeploymentProfile(pluginName: string): Promise<DeploymentProfile>;
+  getAppMappedPluginDeploymentProfile(
+    mappedPluginName: string
+  ): Promise<DeploymentProfile>;
+  getAppPluginMappedName(pluginName: string): Promise<string>;
+  getAppPluginState(pluginName: string): Promise<boolean>;
+  getAppMappedPluginState(mappedPluginName: string): Promise<boolean>;
 }

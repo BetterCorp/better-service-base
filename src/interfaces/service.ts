@@ -1,9 +1,9 @@
-import { IPluginEvents } from "./events";
+import { IServiceEvents } from "./events";
 
-export interface IPlugin<
+export interface IService<
   onEvents,
   onReturnableEvents
-> extends IPluginEvents<
+> extends IServiceEvents<
     onEvents,
     onReturnableEvents
   > {
@@ -17,12 +17,13 @@ export enum IPluginDefinition {
   config = "config",
   events = "events",
   logging = "logging",
-  normal = "normal",
+  service = "service",
 }
 
 export interface IReadyPlugin {
   pluginDefinition: IPluginDefinition;
   name: string;
+  mappedName: string;
   version: string;
   pluginFile: string;
   installerFile: string | null;

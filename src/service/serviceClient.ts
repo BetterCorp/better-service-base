@@ -2,9 +2,9 @@ import {
   DynamicallyReferencedMethodEmitEARIEvents,
   DynamicallyReferencedMethodEmitIEvents,
   DynamicallyReferencedMethodOnIEvents,
-  IPluginEvents,
+  IServiceEvents,
 } from "../interfaces/events";
-import { PluginBase } from "../plugin/plugin";
+import { ServicesBase } from "./service";
 import { Readable } from "stream";
 import { IPluginConfig } from "../interfaces/config";
 import { DefaultBase } from "../interfaces/base";
@@ -13,7 +13,11 @@ import {
   DynamicallyReferencedMethod,
   DynamicallyReferencedMethodType,
 } from "@bettercorp/tools/lib/Interfaces";
-import { PluginEvents, PluginReturnableEvents, PluginCallable } from "./base";
+import {
+  ServiceEvents,
+  ServiceReturnableEvents,
+  ServiceCallable,
+} from "./base";
 
 export class RegisteredPlugin<
     onEvents,
@@ -22,7 +26,7 @@ export class RegisteredPlugin<
     PluginConfigType extends IPluginConfig
   >
   extends DefaultBase<PluginConfigType>
-  implements IPluginEvents<onEvents, onReturnableEvents>
+  implements IServiceEvents<onEvents, onReturnableEvents>
 {
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,
@@ -101,38 +105,32 @@ export class RegisteredPlugin<
   }
 }
 
-export class PluginClient<
-  onEvents = PluginEvents,
-  onReturnableEvents = PluginReturnableEvents,
-  callableMethods = PluginCallable,
+export class ServicesClient<
+  onEvents = ServiceEvents,
+  onReturnableEvents = ServiceReturnableEvents,
+  callableMethods = ServiceCallable,
   PluginClientConfigType extends IPluginConfig = any
 > {
   public readonly _pluginName!: string;
-  private _referencedPlugin: PluginBase<any, any, any, any>;
-  private _plugin?: RegisteredPlugin<
+  private _referencedPlugin: ServicesBase<any, any, any, any>;
+  protected _plugin!: RegisteredPlugin<
     onEvents,
     onReturnableEvents,
     callableMethods,
     PluginClientConfigType
   >;
-  protected get plugin(): RegisteredPlugin<
-    onEvents,
-    onReturnableEvents,
-    callableMethods,
-    PluginClientConfigType
-  > {
+  protected async _register(): Promise<void> {
     if (this._plugin === undefined) {
-      this._plugin = this._referencedPlugin.registerPluginClient<
+      this._plugin = await this._referencedPlugin.registerPluginClient<
         onEvents,
         onReturnableEvents,
         callableMethods,
         PluginClientConfigType
       >(this._pluginName);
     }
-    return this._plugin;
   }
 
-  constructor(self: PluginBase<any, any, any>) {
+  constructor(self: ServicesBase<any, any, any>) {
     this._referencedPlugin = self;
   }
 }

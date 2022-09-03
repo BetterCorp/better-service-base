@@ -1,186 +1,330 @@
-import { IPluginLogger } from "../interfaces/logger";
-//import { LoggerBase } from "../logger/logger";
-//import { PluginBase } from "../plugin/plugin";
+import { IPluginLogger, LogMeta } from "../interfaces/logger";
 import { SBLogger } from "./logger";
-import { IReadyPlugin } from "../interfaces/plugin";
-//import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
-//import { IConfig } from "../interfaces/config";
-import { SBFinder } from "./finder";
+import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
+import { SBPlugins } from "./plugins";
+import { SBServices } from "./services";
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
 import { SBConfig } from "./config";
+import path from "path";
+import fs from "fs";
+import { SBEvents } from "./events";
+import { randomUUID } from "crypto";
+import { hostname } from "os";
+import { Tools } from "@bettercorp/tools/lib/Tools";
+
+export enum BOOT_STAT_KEYS {
+  BSB = "BSB",
+  SELF = "SELF",
+  PLUGINS = "PLUGINS",
+  CONFIG = "CONFIG",
+  LOGGER = "LOGGER",
+  EVENTS = "EVENTS",
+  SERVICES = "SERVICES",
+  INIT = "INIT",
+  RUN = "RUN",
+}
+
+const NS_PER_SEC = 1e9;
+const MS_PER_NS = 1e-6;
+const TIMEKEEPLOG = "[TIMER] {timerName} took ({nsTime}ns) ({msTime}ms)";
 
 export class ServiceBase {
-  public readonly CORE_PLUGIN_NAME = "core";
-  private _coreLogger!: IPluginLogger;
+  private _packJsonFile!: string;
+  private _bsbPackJsonFile!: string;
+  private _appVersion: string = "0.0.1-debug";
+  private _bsbVersion: string = "0.0.1-debug";
+
+  private _runningDebug: boolean = true;
+  private _runningLive: boolean = false;
+
+  private readonly _CORE_PLUGIN_NAME = "core";
+  private readonly _appId;
   private _logger: SBLogger;
   private _config!: SBConfig;
+  private _events!: SBEvents;
+  private _services!: SBServices;
+
+  private plugins: Array<IReadyPlugin> = [];
   private cwd!: string;
-  //private _appConfig!: IConfig;
-  //private _loadedPlugins: IDictionary<PluginBase> = {};
-  private _plugins: Array<IReadyPlugin> = [];
-  //private _logger: LoggerBase;
-  //private _loggerName = "log";
-  //private _events: EventsBase;
-  //private _eventsName = "events";
+  private log!: IPluginLogger;
 
-  //private _heartbeat: NodeJS.Timer | null = null;
-
-  private _keeps: IDictionary<number> = {};
-  //private _keepTimerInitial = 0;
-  //private _keepTimer = 0;
-  //private _keepName: string = "";
-  private _startKeep(stepName: string) {
-    if (this._coreLogger !== undefined)
-      this._coreLogger.debug("Starting timer for {log}", { log: stepName });
-    this._keeps[stepName] = this.timeNow();
-    //this._keepName = stepName;
-    //this._keepTimer = new Date().getTime();
-    //if (this._keepTimerInitial === 0) this._keepTimerInitial = this._keepTimer;
+  private _keeps: IDictionary<[number, number]> = {};
+  private _heartbeat!: NodeJS.Timer;
+  private _startKeep(stepName: BOOT_STAT_KEYS) {
+    if (this.log !== undefined)
+      this.log.debug("Starting timer for {log}", { log: stepName });
+    this._keeps[stepName] = process.hrtime();
   }
-  private timeNow() {
-    let hrTime = process.hrtime();
-    return hrTime[0] * 1000000 + hrTime[1] / 1000;
-  }
-  private async _outputKeep(stepName: string) {
-    let timr = this.timeNow() - (this._keeps[stepName] || 0);
-    await this._coreLogger.info(`[TIMER] {timerName} took {time}ns`, {
-      time: timr,
+  private async _outputKeep(stepName: BOOT_STAT_KEYS) {
+    let diff = process.hrtime(this._keeps[stepName] || undefined);
+    let logMeta: LogMeta<typeof TIMEKEEPLOG> = {
+      nsTime: diff[0] * NS_PER_SEC + diff[1],
+      msTime: (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS,
       timerName: stepName,
-    });
-    await this._coreLogger.reportStat(stepName, timr);
+    };
+    await this.log.info(TIMEKEEPLOG, logMeta);
+    await this.log.reportStat(stepName, logMeta.nsTime as number);
   }
-  constructor(debug: boolean = false) {
-    this._startKeep("bsb");
+  constructor(debug: boolean = true, live: boolean = false, cwd: string) {
+    this.cwd = cwd;
+    this._runningDebug = debug;
+    this._runningLive = live;
+    this._appId = `${hostname()}-${randomUUID()}`;
+    this._startKeep(BOOT_STAT_KEYS.BSB);
     // Initial boot will use the default logger which doesn't require anything special.
     // Once plugin search has been completed, then we can find the defined logger, or re-create the default logger with the correct config definition.
+    this._logger = new SBLogger(
+      this._appId,
+      this._runningDebug,
+      this._runningLive,
+      this._CORE_PLUGIN_NAME
+    );
 
-    this._logger = new SBLogger(this.CORE_PLUGIN_NAME, debug);
-    /*this._logger.setupLogger("./", {
-      runningDebug: debug,
-      runningLive: false,
-    } as any);*/
+    process.stdin.resume(); //so the program will not close instantly
+
+    const self = this;
+
+    //do something when app is closing
+    process.on("exit", () => self.dispose(0, "app exit"));
+
+    //catches ctrl+c event
+    process.on("SIGINT", () => self.dispose(0, "manual exit"));
+
+    // catches "kill pid" (for example: nodemon restart)
+    process.on("SIGUSR1", () => self.dispose(1, "sig kill user 1"));
+    process.on("SIGUSR2", () => self.dispose(2, "sig kill user 2"));
+
+    //catches uncaught exceptions
+    process.on("uncaughtException", (e) =>
+      self.dispose(3, "uncaught exception", e)
+    );
   }
   public async setupSelf() {
-    this._startKeep("boot");
+    this._startKeep(BOOT_STAT_KEYS.SELF);
     await this._logger.setupSelf();
-    this._coreLogger = this._logger.generateLoggerForPlugin(
-      this.CORE_PLUGIN_NAME
+    const self = this;
+    await this._logger._loggerEvents.onEvent("d", "l", "fatal-e", async () =>
+      self.dispose(4, "fatal event")
     );
-    this._config = new SBConfig(
-      this._logger.generateLoggerForPlugin(this.CORE_PLUGIN_NAME + "-config")
+    this.log = this._logger.generateLoggerForPlugin(this._CORE_PLUGIN_NAME);
+    this._config = new SBConfig(this.log, this.cwd);
+    this._events = new SBEvents(
+      this._logger.generateLoggerForPlugin(this._CORE_PLUGIN_NAME + "-events")
     );
-    this._coreLogger.info("STARTUP");
-    this._outputKeep("boot");
+    this._services = new SBServices(
+      this._logger.generateLoggerForPlugin(this._CORE_PLUGIN_NAME + "-services")
+    );
+    this.log.info("BOOT IN: {local}", { local: this.cwd });
+
+    this._packJsonFile = path.join(this.cwd, "./package.json");
+    if (!fs.existsSync(this._packJsonFile)) {
+      this.log.fatal("PACKAGE.JSON FILE NOT FOUND IN {cwd}", { cwd: this.cwd });
+      return;
+    }
+    this._appVersion = JSON.parse(
+      fs.readFileSync(this._packJsonFile, "utf8").toString()
+    ).version;
+
+    this._bsbPackJsonFile = path.join(
+      this.cwd,
+      "./node_modules/@bettercorp/service-base/package.json"
+    );
+    if (fs.existsSync(this._bsbPackJsonFile)) {
+      this._bsbVersion = JSON.parse(
+        fs.readFileSync(this._bsbPackJsonFile, "utf8").toString()
+      ).version;
+    }
+
+    this.log.info(
+      `BOOT UP: @{version} with BSB@{BSBVersion} and debugging {debugMode} while running {runningLive}`,
+      {
+        version: this._appVersion,
+        BSBVersion: this._bsbVersion,
+        debugMode: this._runningDebug,
+        runningLive: this._runningLive,
+      }
+    );
+    this._outputKeep(BOOT_STAT_KEYS.SELF);
   }
 
-  public async findPlugins(cwd: string): Promise<void> {
-    this._startKeep("findPlugins");
-    this._coreLogger.info("INIT PLUGIN LOCATOR");
+  public async setupPlugins(cwd: string): Promise<void> {
+    this._startKeep(BOOT_STAT_KEYS.PLUGINS);
+    this.log.info("INIT PLUGIN LOCATOR");
     let dirsToSearch: Array<string> = [];
-    this._plugins = [];
+    this.plugins = [];
     if (
       process.env.BSB_CONTAINER == "true" &&
       `${process.env.BSB_PLUGIN_DIR || ""}` !== ""
     ) {
-      await this._coreLogger.info(
+      await this.log.info(
         "NOTE: RUNNING IN BSB CONTAINER - PLUGIN LOCATION ALTERED"
       );
       dirsToSearch = dirsToSearch.concat(
         (process.env.BSB_PLUGIN_DIR || "").split(",")
       );
     }
-    //console.log('fap', dirsToSearch)
-    await this._coreLogger.info("FIND: find all plugins: {dirs}", {
-      dirs: dirsToSearch,
-    });
+    if (dirsToSearch.length > 0) {
+      await this.log.info("Find all plugins: {dirs}", {
+        dirs: dirsToSearch,
+      });
 
-    for (let dir of dirsToSearch) {
-      await this._coreLogger.info("FIND: find plugins: {dir}", { dir });
-      this._plugins = this._plugins.concat(
-        await SBFinder.findNPMPlugins(this._coreLogger, dir)
-      );
+      for (let dir of dirsToSearch) {
+        await this.log.info("Find plugins: {dir}", { dir });
+        this.plugins = this.plugins.concat(
+          await SBPlugins.findNPMPlugins(this.log, dir)
+        );
+      }
     }
-    await this._coreLogger.info(
-      `FIND: Performing a node_modules local search.`
-    );
-    this._plugins = this._plugins.concat(
-      await SBFinder.findLocalPlugins(this._coreLogger, cwd)
+    await this.log.info(`Performing a node_modules local search.`);
+    this.plugins = this.plugins.concat(
+      await SBPlugins.findLocalPlugins(this.log, cwd)
     );
 
-    await this._coreLogger.info(`FIND: {len} plugins found`, {
-      len: this._plugins.length,
+    await this.log.info(`{len} plugins found`, {
+      len: this.plugins.length,
     });
 
-    this._outputKeep("findPlugins");
+    this._outputKeep(BOOT_STAT_KEYS.PLUGINS);
     this.cwd = cwd;
   }
+
   public async setupConfig() {
-    this._startKeep("config");
-    await this._config.findConfigPlugin(this._plugins, this.cwd);
+    this._startKeep(BOOT_STAT_KEYS.CONFIG);
+    await this._config.findConfigPlugin(this.plugins);
     let configPluginName = this._config.getPluginName();
     await this._config.setupConfigPlugin(
-      this._logger.generateLoggerForPlugin(configPluginName)
+      this._logger.generateLoggerForPlugin(configPluginName),
+      this._appId,
+      this._runningDebug,
+      this._runningLive
     );
-    this._outputKeep("config");
+    this.plugins = await this._config.mapPlugins(this.plugins);
+    this._outputKeep(BOOT_STAT_KEYS.CONFIG);
   }
   public async setupLogger() {
-    return;
-    /*this._startKeep("logger");
-    await this._logger.setupSelf();
-    this._coreLogger = this._logger.generateLoggerForPlugin(
-      this.CORE_PLUGIN_NAME
+    this._startKeep(BOOT_STAT_KEYS.LOGGER);
+    let loggingPlugin = await this._config.findPluginByType(
+      this.plugins,
+      "log-default",
+      IPluginDefinition.logging
     );
-    this._outputKeep("logger");*/
+    await this._config.ImportAndMigratePluginConfig(loggingPlugin);
+    await this._logger.setupLogger(
+      this._appId,
+      this._runningDebug,
+      this._runningLive,
+      this.cwd,
+      this._config.appConfig,
+      loggingPlugin
+    );
+    this._outputKeep(BOOT_STAT_KEYS.LOGGER);
   }
-
-  /*
-  async config(): Promise<void> {
-    this._startKeep("config");
-    this._coreLogger.info(":INIT CONFIG PLUGIN");
-    await this._plugins.setupConfigPlugin();
-    this._coreLogger.info(":INIT CONFIG");
-    await this._plugins.configAllPlugins();
-    this._outputKeep();
+  public async setupEvents() {
+    this._startKeep(BOOT_STAT_KEYS.EVENTS);
+    let eventsPlugin = await this._config.findPluginByType(
+      this.plugins,
+      "events-default",
+      IPluginDefinition.events
+    );
+    await this._config.ImportAndMigratePluginConfig(eventsPlugin);
+    await this._events.setupEvents(
+      this._appId,
+      this._runningDebug,
+      this._runningLive,
+      this.cwd,
+      this._config.appConfig,
+      eventsPlugin,
+      this._logger.generateLoggerForPlugin(eventsPlugin.mappedName)
+    );
+    this._outputKeep(BOOT_STAT_KEYS.EVENTS);
   }
-
-  async construct(): Promise<void> {
-    this._startKeep("construct");
-    this._coreLogger.info(":INIT CONSTRUCT");
-    await this._plugins.constructAllPlugins();
-    this._outputKeep();
-  }
-
-  async init(): Promise<void> {
-    this._startKeep("init");
-    this._coreLogger.info(":INIT EVENTS");
-    await this._plugins.setupEventsAllPlugins();
-    this._coreLogger.info(":INIT PLUGINS LOGGER/EVENTS");
-    await this._plugins.initCorePlugins();
-    this._coreLogger.info(":INIT PLUGINS INIT");
-    await this._plugins.initAllPlugins();
-    this._coreLogger.info(":INIT COMPLETED");
-    this._outputKeep();
-  }
-
-  async run(): Promise<void> {
-    this._startKeep("run");
-    this._coreLogger.info(":RUN PLUGINS LOAD");
-    await this._plugins.loadAllPlugins();
-    this._coreLogger.info(":RUN READY");
-
+  public async setupServices() {
+    this._startKeep(BOOT_STAT_KEYS.SERVICES);
     const self = this;
-    this._heartbeat = setInterval(() => {
-      self._coreLogger.info("[HEARTBEAT]");
-    }, 60 * 60 * 1000);
+    await this._services.setupServicePlugins(
+      this.cwd,
+      this.plugins,
+      this._config.appConfig,
+      (a) => self._config.ImportAndMigratePluginConfig(a),
+      (a, b) => self._events.generateEventsForService(a, b),
+      (a) => self._logger.generateLoggerForPlugin(a)
+    );
+    this._outputKeep(BOOT_STAT_KEYS.SERVICES);
+  }
 
-    this._outputKeep();
-    this._coreLogger.info(`[TIMER] FULL BOOT took {time}ms`, {
-      time: new Date().getTime() - this._keepTimerInitial,
+  public async initPlugins() {
+    this._startKeep(BOOT_STAT_KEYS.INIT);
+    await this._services.servicesInit();
+    this._outputKeep(BOOT_STAT_KEYS.INIT);
+  }
+
+  public async runPlugins() {
+    this._startKeep(BOOT_STAT_KEYS.RUN);
+    await this._services.servicesRun();
+    this._outputKeep(BOOT_STAT_KEYS.RUN);
+  }
+
+  private async heartBeat() {
+    await this.log.debug("[HEARTBEAT] ({appId}) ({time})", {
+      appId: this._appId,
+      time: new Date().toISOString(),
     });
-  }*/
-
+  }
   async run() {
-    this._outputKeep("bsb");
+    const self = this;
+    this._heartbeat = setInterval(
+      async () => await self.heartBeat(),
+      60 * 60 * 1000
+    );
+    await self.heartBeat();
+    this._outputKeep(BOOT_STAT_KEYS.BSB);
+  }
+  private _disposing: boolean = false;
+  async dispose(eCode: number = 0, reason: string, extraData?: any) {
+    if (this._disposing) return;
+    this._disposing = true;
+
+    if (eCode !== 0)
+      await this.log.warn(
+        "Disposing service: {appId} code {eCode} ({reason}): {extraMsg}",
+        {
+          appId: this._appId,
+          eCode,
+          reason,
+          extraMsg: Tools.isNullOrUndefined(extraData)
+            ? ""
+            : extraData.toString(),
+        }
+      );
+    else
+      await this.log.error(
+        "Disposing service: {appId} code {eCode} ({reason}): {extraMsg}",
+        {
+          appId: this._appId,
+          eCode,
+          reason,
+          extraMsg: Tools.isNullOrUndefined(extraData)
+            ? ""
+            : extraData.toString(),
+        }
+      );
+    clearInterval(this._heartbeat);
+    try {
+      await this.log.warn("Disposing services");
+      this._services.dispose();
+      await this.log.warn("Disposing events");
+      this._events.dispose();
+      await this.log.warn("Disposing config");
+      this._config.dispose();
+      await this.log.warn("Disposing logger");
+      this._logger.dispose();
+    } catch (exc) {
+      console.error(exc);
+      console.error("Disposing forcefully!");
+    }
+
+    console.warn("BSB Disposed successfully. exiting code " + eCode);
+    process.exit(eCode);
   }
 }
 export default ServiceBase;

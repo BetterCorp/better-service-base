@@ -1,14 +1,12 @@
 import { IPluginLogger } from "../../interfaces/logger";
 import { Readable } from "stream";
-import { IPluginConfig } from "../../interfaces/config";
 import emit from "./emit";
 import emitAndReturn from "./emitAndReturn";
 import emitStreamAndReceiveStream from "./emitStreamAndReceiveStream";
 import { EventsBase } from "../../events/events";
+import { PluginConfig } from "./sec.config";
 
-export class Events<
-  PluginConfigType extends IPluginConfig = any
-> extends EventsBase<PluginConfigType> {
+export class Events extends EventsBase<PluginConfig> {
   protected emit!: emit;
   protected ear!: emitAndReturn;
   protected eas!: emitStreamAndReceiveStream;
@@ -77,7 +75,3 @@ export class Events<
     return this.eas.sendStream(callerPluginName, streamId, stream);
   }
 }
-
-export class DefaultEvents<
-  PluginConfigType extends IPluginConfig = any
-> extends Events<PluginConfigType> {}

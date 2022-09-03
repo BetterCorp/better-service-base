@@ -27,17 +27,24 @@ export class ErrorMessages {
     );
   }
 
-  // [BSB-E000005] The logger plugin in use does not implement all methods required for the BSB to function normally.
-  public static get PluginClientNotImplementedProperly() {
+  // [BSB-E000005] The config plugin in use does not implement all methods required for the BSB to function normally.
+  public static get ConfigNotImplementedProperly() {
     return new Error(
-      "[BSB-E000005] An extended plugin client must call this.construct(plugin); in the constructor!"
+      "[BSB-E000005] Config plugin not properly implementing all methods."
     );
   }
 
-  // [BSB-E000006] Plugin sec.config not interfaced correctly
+  // [BSB-E000006] The logger plugin in use does not implement all methods required for the BSB to function normally.
+  public static get PluginClientNotImplementedProperly() {
+    return new Error(
+      "[BSB-E000006] An extended plugin client must call this.construct(plugin); in the constructor!"
+    );
+  }
+
+  // [BSB-E000007] Plugin sec.config not interfaced correctly
   public static get PluginConfigNotSetupToGenerateConfig() {
     return new Error(
-      "[BSB-E000006] Plugin sec.config not interfaced correctly"
+      "[BSB-E000007] Plugin sec.config not interfaced correctly"
     );
   }
 }

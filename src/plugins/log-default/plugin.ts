@@ -1,10 +1,8 @@
-import { IPluginConfig } from "../../interfaces/config";
 import { IPluginLogger, LogMeta } from "../../interfaces/logger";
 import { LoggerBase } from "../../logger/logger";
+import { PluginConfig } from "./sec.config";
 
-export class Logger<
-  PluginConfigType extends IPluginConfig = any
-> extends LoggerBase<PluginConfigType> {
+export class Logger extends LoggerBase<PluginConfig> {
   constructor(pluginName: string, cwd: string, defaultLogger: IPluginLogger) {
     super(pluginName, cwd, defaultLogger);
   }
@@ -48,7 +46,7 @@ export class Logger<
   ): Promise<void> {
     if (this.runningLive && hasPIData === true) return;
     console.warn(
-      `[${plugin.toUpperCase()}] ${this.formatLog<T>(message, meta)}`
+      `[WARN] [${plugin.toUpperCase()}] ${this.formatLog<T>(message, meta)}`
     );
   }
   public async error<T extends string>(
@@ -59,21 +57,7 @@ export class Logger<
   ): Promise<void> {
     if (this.runningLive && hasPIData === true) return;
     console.error(
-      `[${plugin.toUpperCase()}] ${this.formatLog<T>(message, meta)}`
-    );
-  }
-  public async fatal<T extends string>(
-    plugin: string,
-    message: T,
-    meta?: LogMeta<T>,
-    hasPIData?: boolean
-  ): Promise<void> {
-    if (this.runningLive && hasPIData === true) return;
-    console.error(
-      `[FATAL][${plugin.toUpperCase()}] ${this.formatLog<T>(message, meta)}`
+      `[ERROR] [${plugin.toUpperCase()}] ${this.formatLog<T>(message, meta)}`
     );
   }
 }
-export class DefaultLogger<
-  PluginConfigType extends IPluginConfig = any
-> extends Logger<PluginConfigType> {}
