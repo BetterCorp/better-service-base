@@ -92,7 +92,9 @@ export class SBEvents {
           pluginName,
           mappedPluginName,
           args[0],
-          args[1]
+          async (iargs: Array<any>) => {
+            await args[1](...iargs);
+          }
         );
       },
       emitEvent: async <TA extends string>(
@@ -120,7 +122,9 @@ export class SBEvents {
           pluginName,
           mappedPluginName,
           args[0],
-          args[1] as (args: any[]) => Promise<any>
+          async (iargs: Array<any>) => {
+            await args[1](...iargs);
+          }
         );
       },
       emitEventAndReturn: async <TA extends string>(

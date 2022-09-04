@@ -19,6 +19,12 @@ export class Events extends EventsBase<PluginConfig> {
     this.eas = new emitStreamAndReceiveStream(log);
   }
 
+  public dispose() {
+    this.emit.dispose();
+    this.ear.dispose();
+    this.eas.dispose();
+  }
+
   public async onEvent(
     callerPluginName: string,
     pluginName: string,

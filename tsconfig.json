@@ -36,6 +36,8 @@
   "exclude": [
     "src/tests/**",
     "node_modules/**",
-    "src/plugins/*-test*/**/*.*"
+    "src/plugins/*-test*/**/*.*",
+    "src/plugins/-*/**/*.*",
+    "src/plugins/service-*/**/*.*"
   ]
 }

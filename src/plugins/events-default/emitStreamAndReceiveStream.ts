@@ -12,6 +12,9 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
     super();
     this.log = log;
   }
+  public dispose() {
+    this.removeAllListeners();
+  }
 
   receiveStream(
     callerPluginName: string,

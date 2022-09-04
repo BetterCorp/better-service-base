@@ -7,7 +7,7 @@ export interface testCallable extends ServiceCallable {
 }
 
 export interface testEvents extends ServiceCallable {
-  abcd(a: boolean): Promise<void>;
+  abcd(a: boolean, b: number): Promise<void>;
 }
 export interface testEmitEvents extends ServiceCallable {
   //abcd(a: boolean): Promise<void>;
@@ -37,8 +37,8 @@ export class Service
     //throw new Error("Method not implemented.");
   }
   async init() {
-    this.onEvent("abcd", async (a: boolean) => {
-      console.log("received:" + a);
+    this.onEvent("abcd", async (a: boolean, b: number) => {
+      console.log("received:" + a +':'+ b);
       return;
     });
     this.onReturnableEvent("abcdx", async (a: boolean) => {
@@ -64,7 +64,7 @@ export class testClient extends ServicesClient<
   }
   public async register(): Promise<void> {
     await this._register();
-    this._plugin.emitEvent("abcd", true);
+    this._plugin.emitEvent("abcd", true,7);
   }
   async abc(a: boolean): Promise<void> {
     this._plugin.log.info("TESTING CALL");

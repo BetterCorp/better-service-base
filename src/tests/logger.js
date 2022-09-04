@@ -1,7 +1,7 @@
 const events = require('../lib/events/events').Events;
 
 const logger_Def = require("../lib/logger/logger").Logger;
-const testogger = require('./virt-clientLogger').testogger;
+const testogger = require('./virt-clientLogger.ts.txt').testogger;
 const emit = require('./events/emit').default;
 const emitAndReturn = require('./events/emitAndReturn').default;
 const emitStreamAndReceiveStream = require('./events/emitStreamAndReceiveStream').default;
@@ -14,7 +14,7 @@ const fakeLogger = new testogger('test-plugin', process.cwd(),
     fatal: (e) => assert.fail(new Error(e))
   });
 
-describe('Events', () => {
+describe('Logger', () => {
   emit(async () => {
     const refP = new events('test-plugin', process.cwd(), fakeLogger, {
       runningInDebug: true

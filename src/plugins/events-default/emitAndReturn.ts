@@ -8,6 +8,9 @@ export default class emitAndReturn extends EventEmitter {
     super();
     this.log = log;
   }
+  public dispose() {
+    this.removeAllListeners();
+  }
 
   public async onReturnableEvent(
     callerPluginName: string,
@@ -20,7 +23,11 @@ export default class emitAndReturn extends EventEmitter {
       { callerPluginName, pluginName, event }
     );
     this.on(event, async (resolve, reject, data) => {
-      listener(data).then(resolve).catch(reject);
+      try {
+        resolve(await listener(data));
+      } catch (exc) {
+        reject(exc);
+      }
     });
   }
 

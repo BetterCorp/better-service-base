@@ -8,6 +8,9 @@ export default class emit extends EventEmitter {
     super();
     this.log = log;
   }
+  public dispose() {
+    this.removeAllListeners();
+  }
 
   public async onEvent(
     callerPluginName: string,
