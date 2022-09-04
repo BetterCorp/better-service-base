@@ -47,4 +47,11 @@ export class ErrorMessages {
       "[BSB-E000007] Plugin sec.config not interfaced correctly"
     );
   }
+
+  // [BSB-E000008] Cannot call service plugin method because plugin is not running, or setup to handle it
+  public static get ServicePluginNotCallableMethod() {
+    return new Error(
+      "[BSB-E000008] Cannot call service plugin method because plugin is not running, or setup to handle it"
+    );
+  }
 }

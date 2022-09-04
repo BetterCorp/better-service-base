@@ -21,9 +21,12 @@ export class Service
   async abc(): Promise<void> {
     throw new Error("Method not implemented.");
   }
-  async load() {
+  async run() {
+    //console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1')
     let ppp = new testClient(this);
+    //console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2')
     await ppp.register();
+    //console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA3')
     ppp.abc(false);
   }
 }

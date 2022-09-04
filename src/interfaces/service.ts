@@ -2,10 +2,14 @@ import { IServiceEvents } from "./events";
 
 export interface IService<
   onEvents,
-  onReturnableEvents
+  emitEvents,
+  onReturnableEvents,
+  emitReturnableEvents
 > extends IServiceEvents<
     onEvents,
-    onReturnableEvents
+    emitEvents,
+    onReturnableEvents,
+    emitReturnableEvents
   > {
   initIndex?: number;
   init?(): Promise<void>;

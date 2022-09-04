@@ -47,7 +47,9 @@ export type DynamicallyReferencedMethodEmitEARIEvents<
 
 export interface IServiceEvents<
   onEvents,
-  onReturnableEvents
+  emitEvents,
+  onReturnableEvents,
+  emitReturnableEvents
 > {
   onEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodOnIEvents<
@@ -58,7 +60,7 @@ export interface IServiceEvents<
   ): Promise<void>;
   emitEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitIEvents<
-      DynamicallyReferencedMethodType<onEvents>,
+      DynamicallyReferencedMethodType<emitEvents>,
       TA
     >
   ): Promise<void>;
@@ -71,7 +73,7 @@ export interface IServiceEvents<
   ): Promise<void>;
   emitEventAndReturn<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       true,
       false
@@ -83,7 +85,7 @@ export interface IServiceEvents<
   >;
   emitEventAndReturnTimed<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       true,
       true

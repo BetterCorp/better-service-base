@@ -284,7 +284,7 @@ export class ServiceBase {
     if (this._disposing) return;
     this._disposing = true;
 
-    if (eCode !== 0)
+    if (eCode === 0)
       await this.log.warn(
         "Disposing service: {appId} code {eCode} ({reason}): {extraMsg}",
         {

@@ -78,7 +78,7 @@ export class SBEvents {
     }
   }
 
-  generateEventsForService(pluginName: string, mappedPluginName: string): IServiceEvents<any, any> {
+  generateEventsForService(pluginName: string, mappedPluginName: string): IServiceEvents<any, any, any, any> {
     const self = this;
     return {
       onEvent: async <TA extends string>(

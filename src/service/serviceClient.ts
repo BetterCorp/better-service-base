@@ -21,12 +21,14 @@ import {
 
 export class RegisteredPlugin<
     onEvents,
+    emitEvents,
     onReturnableEvents,
+    emitReturnableEvents,
     callableMethods,
     PluginConfigType extends IPluginConfig
   >
   extends DefaultBase<PluginConfigType>
-  implements IServiceEvents<onEvents, onReturnableEvents>
+  implements IServiceEvents<emitEvents, onEvents, emitReturnableEvents, onReturnableEvents>
 {
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,
@@ -39,7 +41,7 @@ export class RegisteredPlugin<
   }
   onEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodOnIEvents<
-      DynamicallyReferencedMethodType<onEvents>,
+      DynamicallyReferencedMethodType<emitEvents>,
       TA,
       false
     >
@@ -56,7 +58,7 @@ export class RegisteredPlugin<
   }
   onReturnableEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodOnIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       true
     >
@@ -71,7 +73,7 @@ export class RegisteredPlugin<
       false
     >
   ): DynamicallyReferencedMethodEmitEARIEvents<
-    DynamicallyReferencedMethodType<onReturnableEvents>,
+    DynamicallyReferencedMethodType<emitReturnableEvents>,
     TA,
     false
   > {
@@ -85,7 +87,7 @@ export class RegisteredPlugin<
       true
     >
   ): DynamicallyReferencedMethodEmitEARIEvents<
-    DynamicallyReferencedMethodType<onReturnableEvents>,
+    DynamicallyReferencedMethodType<emitReturnableEvents>,
     TA,
     false
   > {
@@ -107,7 +109,9 @@ export class RegisteredPlugin<
 
 export class ServicesClient<
   onEvents = ServiceEvents,
+  emitEvents = ServiceEvents,
   onReturnableEvents = ServiceReturnableEvents,
+  emitReturnableEvents = ServiceReturnableEvents,
   callableMethods = ServiceCallable,
   PluginClientConfigType extends IPluginConfig = any
 > {
@@ -115,7 +119,9 @@ export class ServicesClient<
   private _referencedPlugin: ServicesBase<any, any, any, any>;
   protected _plugin!: RegisteredPlugin<
     onEvents,
+    emitEvents,
     onReturnableEvents,
+    emitReturnableEvents,
     callableMethods,
     PluginClientConfigType
   >;
@@ -123,7 +129,9 @@ export class ServicesClient<
     if (this._plugin === undefined) {
       this._plugin = await this._referencedPlugin.registerPluginClient<
         onEvents,
+        emitEvents,
         onReturnableEvents,
+        emitReturnableEvents,
         callableMethods,
         PluginClientConfigType
       >(this._pluginName);

@@ -3,7 +3,8 @@ import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
 import { IServiceEvents } from "../interfaces/events";
 import { SBBase } from "./base";
 import { ServicesBase } from "../service/service";
-import { ConfigBase } from '../config/config';
+import { ConfigBase } from "../config/config";
+import { ErrorMessages } from "../interfaces/static";
 
 export class SBServices {
   private _activeServices: Array<ServicesBase> = [];
@@ -24,7 +25,7 @@ export class SBServices {
     appConfig: ConfigBase,
     ImportAndMigratePluginConfig: { (plugin: IReadyPlugin): Promise<any> },
     generateEventsForService: {
-      (pluginName: string, mappedPluginName: string): IServiceEvents<any, any>;
+      (pluginName: string, mappedPluginName: string): IServiceEvents<any, any, any, any>;
     },
     generateLoggerForPlugin: { (pluginName: string): IPluginLogger }
   ) {
@@ -61,13 +62,23 @@ export class SBServices {
       await this.log.info("Builing {pluginName} as new base service platform", {
         pluginName: plugin.name,
       });
+      const self = this;
       await SBBase.setupServicePlugin(
         servicePlugin,
         await generateEventsForService(plugin.name, plugin.mappedName),
         appConfig,
         cwd,
         generateEventsForService,
-        generateLoggerForPlugin
+        generateLoggerForPlugin,
+        this.log,
+        async (pluginName: string, method: string, args: Array<any>) => {
+          for (let plugin of self._activeServices) {
+            if (plugin.pluginName === pluginName) {
+              return await (plugin as any)[method](...args);
+            }
+          }
+          throw ErrorMessages.ServicePluginNotCallableMethod;
+        }
       );
 
       await this.log.info(
@@ -141,92 +152,4 @@ export class SBServices {
       await service.ref.run();
     }
   }
-
-  /*  public async initCorePlugins(): Promise<void> {
-    await this._coreLogger.info(`INIT: CORE: ${this._loggerName}`);
-    if (!Tools.isNullOrUndefined(this._logger.init)) await this._logger.init!();
-    await this._coreLogger.info(`INIT: CORE: ${this._eventsName}`);
-    if (!Tools.isNullOrUndefined(this._events.init)) await this._events.init!();
-  }
-  public async initAllPlugins(): Promise<void> {
-    await this._coreLogger.info("INIT: initAllPlugins");
-    const pluginsToInit = Object.keys(this._loadedPlugins);
-    for (let i = 0; i < pluginsToInit.length - 1; i++) {
-      for (let j = i + 1; j < pluginsToInit.length; j++) {
-        if (
-          (this._loadedPlugins[pluginsToInit[i]].initIndex || -1) >
-          (this._loadedPlugins[pluginsToInit[j]].initIndex || -1)
-        ) {
-          const temp = pluginsToInit[i];
-          pluginsToInit[i] = pluginsToInit[j];
-          pluginsToInit[j] = temp;
-        }
-      }
-    }
-
-    for (const pluginInOrder of pluginsToInit) {
-      await this._coreLogger.info(
-        `INIT: ${pluginInOrder}@${
-          this._loadedPlugins[pluginInOrder].initIndex || -1
-        }`
-      );
-      if (Tools.isNullOrUndefined(this._loadedPlugins[pluginInOrder].init)) {
-        await this._coreLogger.info(
-          `INIT: ${pluginInOrder}@${
-            this._loadedPlugins[pluginInOrder].initIndex || -1
-          } - IGNORE`
-        );
-        continue;
-      }
-      await this._loadedPlugins[pluginInOrder].init!();
-      await this._coreLogger.info(
-        `INIT: ${pluginInOrder}@${
-          this._loadedPlugins[pluginInOrder].initIndex || -1
-        } - COMPLETE`
-      );
-    }
-
-    await this._coreLogger.info("INIT: initAllPlugins - COMPLETE");
-  }
-
-  public async loadAllPlugins(): Promise<void> {
-    await this._coreLogger.info("LOAD: loadAllPlugins");
-    const pluginsToInit = Object.keys(this._loadedPlugins);
-    for (let i = 0; i < pluginsToInit.length - 1; i++) {
-      for (let j = i + 1; j < pluginsToInit.length; j++) {
-        if (
-          (this._loadedPlugins[pluginsToInit[i]].loadedIndex || -1) >
-          (this._loadedPlugins[pluginsToInit[j]].loadedIndex || -1)
-        ) {
-          const temp = pluginsToInit[i];
-          pluginsToInit[i] = pluginsToInit[j];
-          pluginsToInit[j] = temp;
-        }
-      }
-    }
-
-    for (const pluginInOrder of pluginsToInit) {
-      await this._coreLogger.info(
-        `LOAD: ${pluginInOrder}@${
-          this._loadedPlugins[pluginInOrder].loadedIndex || -1
-        }`
-      );
-      if (Tools.isNullOrUndefined(this._loadedPlugins[pluginInOrder].loaded)) {
-        await this._coreLogger.info(
-          `LOAD: ${pluginInOrder}@${
-            this._loadedPlugins[pluginInOrder].loadedIndex || -1
-          } - IGNORE`
-        );
-        continue;
-      }
-      await this._loadedPlugins[pluginInOrder].loaded!();
-      await this._coreLogger.info(
-        `LOAD: ${pluginInOrder}@${
-          this._loadedPlugins[pluginInOrder].loadedIndex || -1
-        } - COMPLETE`
-      );
-    }
-
-    await this._coreLogger.info("LOAD: loadAllPlugins - COMPLETE");
-  }*/
 }

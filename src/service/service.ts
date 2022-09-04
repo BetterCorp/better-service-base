@@ -20,13 +20,15 @@ import {
 
 export class ServicesBase<
     onEvents = ServiceEvents,
+    emitEvents = ServiceEvents,
     onReturnableEvents = ServiceReturnableEvents,
+    emitReturnableEvents = ServiceReturnableEvents,
     callableMethods = ServiceCallable,
     pluginConfigType extends IPluginConfig = any
   >
   extends DefaultBase<pluginConfigType>
   implements 
-    IService<onEvents, onReturnableEvents>
+    IService<onEvents, emitEvents, onReturnableEvents, emitReturnableEvents>
 {
   public readonly initRequiredPlugins?: Array<string>;
   public readonly runRequiredPlugins?: Array<string>;
@@ -35,14 +37,18 @@ export class ServicesBase<
 
   public registerPluginClient<
     pluginClientOnEvents ,
+    pluginClientEmitEvents ,
     pluginClientOnReturnableEvents ,
+    pluginClientEmitReturnableEvents ,
     pluginCallableMethods,
     pluginClientConfigType extends IPluginConfig
   >(
     pluginName: string
   ): Promise<RegisteredPlugin<
     pluginClientOnEvents,
+    pluginClientEmitEvents,
     pluginClientOnReturnableEvents,
+    pluginClientEmitReturnableEvents,
     pluginCallableMethods,
     pluginClientConfigType
   >> {
@@ -74,7 +80,7 @@ export class ServicesBase<
   }
   emitEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitIEvents<
-      DynamicallyReferencedMethodType<onEvents>,
+      DynamicallyReferencedMethodType<emitEvents>,
       TA
     >
   ): Promise<void> {
@@ -91,7 +97,7 @@ export class ServicesBase<
   }
   emitEventAndReturn<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       true,
       false
@@ -105,7 +111,7 @@ export class ServicesBase<
   }
   emitEventAndReturnTimed<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       true,
       true

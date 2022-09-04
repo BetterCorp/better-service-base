@@ -1,7 +1,7 @@
-const assert = require('assert');
-const crypto = require('crypto');
+import { expect } from 'chai';
+import {randomUUID} from 'crypto';
 
-const randomName = () => crypto.randomUUID();
+const randomName = () => randomUUID();
 
 exports.default = (genNewPlugin, maxTimeoutToExpectAResponse) => describe('Emit', async function() {
   this.timeout(maxTimeoutToExpectAResponse + 10);

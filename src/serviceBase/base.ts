@@ -5,6 +5,10 @@ import { IPluginConfig } from "../interfaces/config";
 import { IServiceEvents } from "../interfaces/events";
 import { RegisteredPlugin } from "../service/serviceClient";
 import { IPluginLogger } from "../interfaces/logger";
+import {
+  DynamicallyReferencedMethod,
+  DynamicallyReferencedMethodType,
+} from "@bettercorp/tools/lib/Interfaces";
 
 export class SBBase {
   static setupPlugin<PluginConfigType extends IPluginConfig = any>(
@@ -26,46 +30,59 @@ export class SBBase {
         return await config.getAppMappedPluginState(plugin.pluginName);
       };
   }
+
   static setupServicePluginSpecific<
     PluginConfigType extends IPluginConfig = any
   >(
     plugin:
       | ServicesBase<PluginConfigType>
-      | RegisteredPlugin<any, any, any, any>,
-    events: IServiceEvents<any, any>
+      | RegisteredPlugin<any, any, any, any, any, any>,
+    events: IServiceEvents<any, any, any, any>
   ): void {
-    (plugin as unknown as IServiceEvents<any, any>).emitEvent =
+    (plugin as unknown as IServiceEvents<any, any, any, any>).emitEvent =
       events.emitEvent;
-    (plugin as unknown as IServiceEvents<any, any>).onEvent = events.onEvent;
-    (plugin as unknown as IServiceEvents<any, any>).emitEventAndReturnTimed =
+    (plugin as unknown as IServiceEvents<any, any, any, any>).onEvent = events.onEvent;
+    (plugin as unknown as IServiceEvents<any, any, any, any>).emitEventAndReturnTimed =
       events.emitEventAndReturnTimed;
-    (plugin as unknown as IServiceEvents<any, any>).emitEventAndReturn =
+    (plugin as unknown as IServiceEvents<any, any, any, any>).emitEventAndReturn =
       events.emitEventAndReturn;
-    (plugin as unknown as IServiceEvents<any, any>).onReturnableEvent =
+    (plugin as unknown as IServiceEvents<any, any, any, any>).onReturnableEvent =
       events.onReturnableEvent;
-    (plugin as unknown as IServiceEvents<any, any>).receiveStream =
+    (plugin as unknown as IServiceEvents<any, any, any, any>).receiveStream =
       events.receiveStream;
-    (plugin as unknown as IServiceEvents<any, any>).sendStream =
+    (plugin as unknown as IServiceEvents<any, any, any, any>).sendStream =
       events.sendStream;
   }
   static setupServicePlugin<PluginConfigType extends IPluginConfig = any>(
     plugin: ServicesBase<PluginConfigType>,
-    events: IServiceEvents<any, any>,
+    events: IServiceEvents<any, any, any, any>,
     config: ConfigBase<PluginConfigType>,
     cwd: string,
     generateEventsForService: (
       pluginName: string,
       mappedPluginName: string
-    ) => IServiceEvents<any, any>,
-    generateLoggerForPlugin: { (pluginName: string): IPluginLogger }
+    ) => IServiceEvents<any, any, any, any>,
+    generateLoggerForPlugin: { (pluginName: string): IPluginLogger },
+    log: IPluginLogger,
+    callPluginMethod: {
+      (pluginName: string, method: string, args: Array<any>): Promise<any>;
+    }
   ): void {
     SBBase.setupServicePluginSpecific(plugin, events);
     (plugin as unknown as ServicesBase<any, any>).registerPluginClient = async (
       pluginName: string
-    ): Promise<RegisteredPlugin<any, any, any, any>> => {
+    ): Promise<RegisteredPlugin<any, any, any, any, any, any>> => {
       let mappedPluginName = await config.getAppPluginMappedName(pluginName);
-      let tPlugin = new RegisteredPlugin<any, any, any, any>(
-        mappedPluginName,
+      log.debug(
+        "Registering new plugin client in {callerPlugin} for {pluginName} as {mappedPluginName}",
+        {
+          callerPlugin: plugin.pluginName,
+          pluginName,
+          mappedPluginName,
+        }
+      );
+      let tPlugin = new RegisteredPlugin<any, any, any, any, any, any>(
+        pluginName,
         cwd,
         generateLoggerForPlugin(pluginName + "-client")
       );
@@ -73,6 +90,17 @@ export class SBBase {
         tPlugin,
         generateEventsForService(pluginName, mappedPluginName)
       );
+      (
+        tPlugin as unknown as RegisteredPlugin<any, any, any, any, any, any>
+      ).callPluginMethod = async <TA extends string>(
+        ...args: DynamicallyReferencedMethod<
+          DynamicallyReferencedMethodType<any>,
+          TA
+        >
+      ) => {
+        const method = args.splice(0, 1)[0] as string;
+        return await callPluginMethod(pluginName, method, args);
+      };
       return tPlugin;
     };
   }
