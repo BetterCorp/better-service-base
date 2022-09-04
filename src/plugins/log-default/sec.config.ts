@@ -6,7 +6,7 @@ export interface PluginConfig extends IPluginConfig {}
 export class Config extends SecConfig<PluginConfig> {
   migrate(
     mappedPluginName: string,
-    existingConfig: PluginConfig | null
+    existingConfig: PluginConfig
   ): PluginConfig {
     return {};
   }

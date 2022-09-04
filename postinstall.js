@@ -27,7 +27,7 @@ if (fs.existsSync(path.join(cwd, "./.bsb.local"))) {
     console.log("BSB Post Install: Bypass - cannot find service-base.");
     process.exit(0);
   }
-  const installer = require(path.join(bsbBase, "./lib/install.js")).default;
+  const installer = require(path.join(bsbBase, "./lib/postinstall.js")).default;
   //console.log(fs.readdirSync("./build/"));
   installer(cwd);
   console.log("BSB Post Install: Complete");

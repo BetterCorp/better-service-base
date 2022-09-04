@@ -75,7 +75,9 @@ export class Config extends ConfigBase<PluginConfig> {
       .enabled;
   }
 
-  public override async createAppConfig(): Promise<void> {
+  public override async createAppConfig(
+    listOfKnownPlugins: Array<string>
+  ): Promise<void> {
     const config = await this.getPluginConfig();
 
     this._secConfigFilePath =
@@ -101,6 +103,19 @@ export class Config extends ConfigBase<PluginConfig> {
         "! sec.config.json CAN`T BE FOUND ... we will try create one / work in memory! {secFile}",
         { secFile: this._secConfigFilePath }
       );
+    }
+
+    let existingDefinedPlugins = Object.keys(
+      defConfig.deploymentProfiles.default
+    );
+    let pluginsToAdd = listOfKnownPlugins.filter(
+      (x) => existingDefinedPlugins.indexOf(x) < 0
+    );
+    for (let pluginName of pluginsToAdd) {
+      defConfig.deploymentProfiles.default[pluginName] = {
+        mappedName: pluginName,
+        enabled: false,
+      };
     }
 
     this._appConfig = defConfig;

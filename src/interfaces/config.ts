@@ -16,7 +16,7 @@ export interface DeploymentProfile {
 }
 
 export interface IConfig {
-  createAppConfig(): Promise<void>;
+  createAppConfig(listOfKnownPlugins: Array<string>): Promise<void>;
   migrateAppPluginConfig(
     pluginName: string,
     mappedPluginName: string,

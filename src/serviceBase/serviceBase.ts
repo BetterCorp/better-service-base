@@ -196,7 +196,8 @@ export class ServiceBase {
       this._logger.generateLoggerForPlugin(configPluginName),
       this._appId,
       this._runningDebug,
-      this._runningLive
+      this._runningLive,
+      this.plugins
     );
     this.plugins = await this._config.mapPlugins(this.plugins);
     this._outputKeep(BOOT_STAT_KEYS.CONFIG);

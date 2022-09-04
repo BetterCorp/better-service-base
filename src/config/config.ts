@@ -15,7 +15,7 @@ extends DefaultBase<PluginConfigType> implements IConfig {
     super(pluginName, cwd, log);
     this._deploymentProfile = deploymentProfile;
   }
-  async createAppConfig(): Promise<void> {
+  async createAppConfig(listOfKnownPlugins: Array<string>): Promise<void> {
     throw ErrorMessages.ConfigNotImplementedProperly;
   }
   async migrateAppPluginConfig(

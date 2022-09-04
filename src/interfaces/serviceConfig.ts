@@ -4,7 +4,7 @@ import { IPluginConfig } from "./config";
 export class pluginConfig {
   static getConfig(
     pluginName: string,
-    existingConfig?: IPluginConfig
+    existingConfig: IPluginConfig
   ): IPluginConfig {
     throw ErrorMessages.PluginConfigNotSetupToGenerateConfig;
   }
@@ -13,7 +13,7 @@ export class pluginConfig {
 export class SecConfig<MyPluginConfig extends IPluginConfig = any> {
   public migrate(
     mappedPluginName: string,
-    existingConfig: MyPluginConfig | null
+    existingConfig: MyPluginConfig
   ): MyPluginConfig {
     throw ErrorMessages.BSBNotInit;
   }

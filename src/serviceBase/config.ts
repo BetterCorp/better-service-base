@@ -142,7 +142,8 @@ export class SBConfig {
     logger: IPluginLogger,
     appId: string,
     runningDebug: boolean,
-    runningLive: boolean
+    runningLive: boolean,
+    plugins: Array<IReadyPlugin>
   ): Promise<void> {
     let appConfig: ConfigBase | undefined = undefined;
 
@@ -184,7 +185,7 @@ export class SBConfig {
         return true;
       },
     } as any);
-    await appConfig.createAppConfig();
+    await appConfig.createAppConfig(plugins.map(x => x.name));
     this.appConfig = appConfig!;
     await appConfig.init();
     await this.log.info(`Config plugin ready: {name}`, {
