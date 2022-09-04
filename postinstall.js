@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 const process = require("process");
+
+if (`${process.env.BSB_CONTAINER || ''}` !== '') return console.warn('Building in BSB container, not running default setup process.');
+
 let cwd = process.cwd();
 let hardSetCWD = false;
 

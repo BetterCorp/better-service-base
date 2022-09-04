@@ -13,6 +13,7 @@ RUN mv ./.npmrc ~/.npmrc
 RUN echo "HOME: $(echo ~/)" 
 
 # Add package (from local)
+ENV BSB_CONTAINER=${BSB_VERSION}
 RUN mkdir /home/bsb-build
 COPY *.tgz /home/bsb-build/
 ADD .npmrc .npmrc
