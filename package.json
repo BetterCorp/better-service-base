@@ -18,6 +18,8 @@
   },
   "files": [
     "lib/**/*",
+    "development/**/*",
+    "tsconfig.json",
     "postinstall.js"
   ],
   "main": "lib/index.js",

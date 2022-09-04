@@ -39,7 +39,7 @@ export class Events extends EventsBase<PluginConfig> {
     event: string,
     args: Array<any>
   ): Promise<void> {
-    this.emit.emitEvent(callerPluginName, pluginName, event, args);
+    await this.emit.emitEvent(callerPluginName, pluginName, event, args);
   }
 
   public async onReturnableEvent(
@@ -48,7 +48,7 @@ export class Events extends EventsBase<PluginConfig> {
     event: string,
     listener: { (args: Array<any>): Promise<any> }
   ): Promise<void> {
-    this.ear.onReturnableEvent(callerPluginName, pluginName, event, listener);
+    await this.ear.onReturnableEvent(callerPluginName, pluginName, event, listener);
   }
   public async emitEventAndReturn(
     callerPluginName: string,
@@ -57,7 +57,7 @@ export class Events extends EventsBase<PluginConfig> {
     timeoutSeconds: number,
     args: Array<any>
   ): Promise<any> {
-    return this.ear.emitEventAndReturn(
+    return await this.ear.emitEventAndReturn(
       callerPluginName,
       pluginName,
       event,
