@@ -169,43 +169,45 @@
   }
 
   /* PLUGIN */
-  .plugin-filter-plugin .plugin-selector {
+  .plugin-filter-service .plugin-selector {
     background: #a200ff;
   }
 
-  .plugin-type-plugin .plugin-header::before {
-    content: "PLUGIN";
+  .plugin-type-service .plugin-header::before {
+    content: "SERVICE";
     background: #a200ff;
     color: white;
   }
 
-  .plugin-type-plugin .author-name {
+  .plugin-type-service .author-name,
+  .plugin-type-service .author-name svg {
     color: #a200ff;
+    fill: #a200ff;
   }
 
-  .plugin-type-plugin .action-button,
-  .plugin-type-plugin .action-button-style {
+  .plugin-type-service .action-button,
+  .plugin-type-service .action-button-style {
     background: #a200ff;
     color: white;
   }
 
-  .plugin-type-plugin {
+  .plugin-type-service {
     border-color: #a200ff;
     box-shadow: rgba(45, 45, 45, 0.2) 0px 4px 12px 0px;
   }
 
-  .plugin-type-plugin .action-button:hover,
-  .plugin-type-plugin .action-button-style:hover,
-  .plugin-type-plugin:hover,
-  .plugin-type-plugin-forced {
+  .plugin-type-service .action-button:hover,
+  .plugin-type-service .action-button-style:hover,
+  .plugin-type-service:hover,
+  .plugin-type-service-forced {
     box-shadow: rgba(45, 45, 45, 0.5) 0px 6px 14px 0px !important;
   }
 
-  .plugin-type-plugin .plugin-title {
+  .plugin-type-service .plugin-title {
     border-bottom: 1px solid rgba(45, 45, 45, 0.2);
   }
 
-  .plugin-type-plugin:hover .plugin-title {
+  .plugin-type-service:hover .plugin-title {
     border-bottom: 1px solid rgba(45, 45, 45, 0.5) !important;
   }
 
@@ -220,8 +222,10 @@
     color: white;
   }
 
-  .plugin-type-config .author-name {
+  .plugin-type-config .author-name, 
+  .plugin-type-config .author-name svg {
     color: #03A9F4;
+    fill: #03A9F4;
   }
 
   .plugin-type-config .action-button,
@@ -261,8 +265,10 @@
     color: white;
   }
 
-  .plugin-type-events .author-name {
+  .plugin-type-events .author-name,
+  .plugin-type-events .author-name svg {
     color: #FB8C00;
+    fill: #FB8C00;
   }
 
   .plugin-type-events .action-button,
@@ -302,8 +308,10 @@
     color: white;
   }
 
-  .plugin-type-log .author-name {
+  .plugin-type-log .author-name,
+  .plugin-type-log .author-name svg {
     color: #43A047;
+    fill: #43A047;
   }
 
   .plugin-type-logging .action-button,

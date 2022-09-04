@@ -23,7 +23,8 @@ See [Docker Deployment](/Deployment)  for deployment configurations
 
 [betterweb/service-base](https://hub.docker.com/r/betterweb/service-base)  
 
-This is the base docker image that is kept up to date with the basic event/config/logging plugins.
+This is the base docker image.  
+This image contains basically nothing except the default plugins (log-default, events-default, config-default)  
   
 ### Environment variables
 
@@ -95,4 +96,4 @@ An example docker compose file for a service.
 
 - run the docker image with the required configuration.  
 
-Look at [Plugins](/Plugins) for the already made list of plugins and how to use them
+Look at the [Market](/Market) for a list of active plugins and how to use them

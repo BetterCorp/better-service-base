@@ -3,7 +3,7 @@
     <div :class="`plugin-selector-container plugin-filter-${ filter.toLowerCase() }`">
       <div class="plugin-selector">
         <span :active="filter == 'ALL'" @click="filter = 'ALL'">ALL</span>
-        <span :active="filter == 'PLUGIN'" @click="filter = 'PLUGIN'">PLUGINS</span>
+        <span :active="filter == 'SERVICE'" @click="filter = 'SERVICE'">SERVICES</span>
         <span :active="filter == 'CONFIG'" @click="filter = 'CONFIG'">CONFIG</span>
         <span :active="filter == 'EVENTS'" @click="filter = 'EVENTS'">EVENTS</span>
         <span :active="filter == 'LOG'" @click="filter = 'LOG'">LOGGING</span>
@@ -42,8 +42,8 @@ export default {
       //this.pluginConfig = null;
       window.document.getElementsByClassName('page')[0].classList.add('notransition');
       switch (this.filter) {
-        case 'PLUGIN':
-          return this.$router.push('/Market/Plugin/');
+        case 'SERVICE':
+          return this.$router.push('/Market/Service/');
         case 'EVENTS':
           return this.$router.push('/Market/Events/');
         case 'CONFIG':
@@ -104,7 +104,7 @@ export default {
       let searchFilter = this.$route.path.split('Market/')[1];
       if (searchFilter.indexOf('/') > 0) {
         this.filter = searchFilter.split('/')[0].toUpperCase();
-        if (['PLUGIN', 'EVENTS', 'LOG', 'CONFIG'].indexOf(this.filter) < 0) {
+        if (['SERVICE', 'EVENTS', 'LOG', 'CONFIG'].indexOf(this.filter) < 0) {
           this.$router.replace('/Market/');
         }
       }
@@ -119,6 +119,14 @@ export default {
         //await (new Promise(r => setTimeout(r, 15000)));
         //return;
         self.pluginConfig = await x.json();
+        self.pluginConfig = self.pluginConfig.map(xi => {
+          xi.plugins = xi.plugins.map(xii => {
+            if (xii.type === 'plugin')
+              xii.type = 'service';
+            return xii;
+          });
+          return xi;
+        });
         window.localStorage.setItem('plugins', JSON.stringify(self.pluginConfig));
         window.localStorage.setItem('plugin-date', new Date().getTime());
         //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);

@@ -45,6 +45,10 @@ export default defineUserConfig({
         text: "Plugin Marketplace",
         link: "/Market/",
       },
+      {
+        text: "NPM",
+        link: "https://www.npmjs.com/package/@bettercorp/service-base",
+      },
     ],
   }),
   bundler: viteBundler({

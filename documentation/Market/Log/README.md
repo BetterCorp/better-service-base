@@ -8,4 +8,4 @@ sidebar: false
 
 # BSB Plugin Marketplace  
 
-<PluginsGrid filter="events" />
+<PluginsGrid filter="log" />
