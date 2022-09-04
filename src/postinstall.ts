@@ -8,5 +8,6 @@ const runApp = async () => {
   await SB.setupLogger();
   await SB.setupEvents();
   await SB.setupServices();
+  SB.dispose(0, "OK")
 };
 runApp();
