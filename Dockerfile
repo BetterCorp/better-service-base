@@ -12,6 +12,7 @@ ENV BSB_PLUGIN_DIR /mnt/bsb-plugins
 
 # NPM repo defaults
 RUN npm init -y
+RUN echo '{"deploymentProfiles":{"default":{}},"plugins":{}}' >> ./sec.config.json
 # RUN pushd /mnt/bsb-plugins && npm init -y && pushd
 
 # Add core BSB lib (from local)
