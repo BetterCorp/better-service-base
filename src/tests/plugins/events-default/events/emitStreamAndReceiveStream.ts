@@ -3,7 +3,7 @@ import * as crypto from "crypto";
 import { exec } from "child_process";
 import { pipeline } from "stream";
 import assert from "assert";
-import { Events } from '../../plugins/events-default/plugin';
+import { Events } from '../../../../plugins/events-default/plugin';
 
 const randomName = () => crypto.randomUUID();
 

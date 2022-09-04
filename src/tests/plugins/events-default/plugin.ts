@@ -1,10 +1,10 @@
 import assert from "assert";
 //import { Logger } from "./test-logger";
-import { Events as events } from "../plugins/events-default/plugin";
+import { Events as events } from "../../../plugins/events-default/plugin";
 import { emit } from "./events/emit";
 import { emitAndReturn } from "./events/emitAndReturn";
 import { emitStreamAndReceiveStream } from "./events/emitStreamAndReceiveStream";
-import { IPluginLogger } from "../interfaces/logger";
+import { IPluginLogger } from "../../../interfaces/logger";
 
 //const fakeCLogger = new Logger("test-plugin", process.cwd(), {} as any);
 //const debug = console.log;
@@ -30,7 +30,7 @@ const fakeLogger: IPluginLogger = {
   },
 };
 
-describe("Events", () => {
+describe("plugins/events-default", () => {
   emit(async () => {
     const refP = new events("test-plugin", process.cwd(), fakeLogger);
     if (refP.init !== undefined) await refP.init();

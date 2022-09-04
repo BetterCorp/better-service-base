@@ -1,8 +1,8 @@
 import { IPluginLogger } from "../../interfaces/logger";
 import { Readable } from "stream";
-import emit from "./emit";
-import emitAndReturn from "./emitAndReturn";
-import emitStreamAndReceiveStream from "./emitStreamAndReceiveStream";
+import emit from "./events/emit";
+import emitAndReturn from "./events/emitAndReturn";
+import emitStreamAndReceiveStream from "./events/emitStreamAndReceiveStream";
 import { EventsBase } from "../../events/events";
 import { PluginConfig } from "./sec.config";
 

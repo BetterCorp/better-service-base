@@ -1,6 +1,6 @@
 import assert from "assert";
 import { randomUUID } from "crypto";
-import { Events } from "../../plugins/events-default/plugin";
+import { Events } from "../../../../plugins/events-default/plugin";
 
 const randomName = () => randomUUID();
 

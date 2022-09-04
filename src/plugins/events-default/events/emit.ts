@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { IPluginLogger } from '../../interfaces/logger';
+import { IPluginLogger } from '../../../interfaces/logger';
 
 export default class emit extends EventEmitter {
   private log: IPluginLogger;
