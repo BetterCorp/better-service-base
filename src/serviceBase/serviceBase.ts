@@ -150,7 +150,7 @@ export class ServiceBase {
   public async setupPlugins(cwd: string): Promise<void> {
     this._startKeep(BOOT_STAT_KEYS.PLUGINS);
     this.log.info("INIT PLUGIN LOCATOR");
-    let dirsToSearch: Array<string> = [];
+    let dirsToSearch: Array<string> = [this.cwd];
     this.plugins = [];
     if (
       process.env.BSB_CONTAINER == "true" &&
