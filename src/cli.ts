@@ -3,7 +3,7 @@ const runApp = async () => {
   const CWD = process.env.APP_DIR || process.cwd();
   const SB = new ServiceBase(false, false, CWD);
   await SB.setupSelf();
-  await SB.setupPlugins(CWD);
+  await SB.setupPlugins(CWD, true);
   await SB.setupConfig();
   await SB.setupLogger();
   await SB.setupEvents();

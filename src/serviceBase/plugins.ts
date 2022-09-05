@@ -56,7 +56,7 @@ export class SBPlugins {
         );
         continue;
       }
-      
+
       let pluginFile = join(thisFullPath, "plugin.js");
       if (!existsSync(pluginFile)) pluginFile = join(thisFullPath, "plugin.ts");
 
@@ -222,8 +222,9 @@ export class SBPlugins {
 
   public static async findLocalPlugins(
     coreLogger: IPluginLogger,
-    cwd: string
+    cwd: string,
+    CLIONLY: boolean
   ): Promise<Array<IReadyPlugin>> {
-    return await SBPlugins.findPluginsInBase(coreLogger, cwd);
+    return await SBPlugins.findPluginsInBase(coreLogger, cwd, CLIONLY);
   }
 }

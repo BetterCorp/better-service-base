@@ -147,7 +147,7 @@ export class ServiceBase {
     this._outputKeep(BOOT_STAT_KEYS.SELF);
   }
 
-  public async setupPlugins(cwd: string): Promise<void> {
+  public async setupPlugins(cwd: string, CLIONLY = false): Promise<void> {
     this._startKeep(BOOT_STAT_KEYS.PLUGINS);
     this.log.info("INIT PLUGIN LOCATOR");
     let dirsToSearch: Array<string> = [this.cwd];
@@ -177,7 +177,7 @@ export class ServiceBase {
     }
     await this.log.info(`Performing a node_modules local search.`);
     this.plugins = this.plugins.concat(
-      await SBPlugins.findLocalPlugins(this.log, cwd)
+      await SBPlugins.findLocalPlugins(this.log, cwd, CLIONLY)
     );
 
     await this.log.info(`{len} plugins found`, {
