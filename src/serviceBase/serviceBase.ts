@@ -24,8 +24,8 @@ export enum BOOT_STAT_KEYS {
   RUN = "RUN",
 }
 
-const NS_PER_SEC = 1e9;
-const MS_PER_NS = 1e-6;
+export const NS_PER_SEC = 1e9;
+export const MS_PER_NS = 1e-6;
 const TIMEKEEPLOG = "[TIMER] {timerName} took ({nsTime}ns) ({msTime}ms)";
 
 export class ServiceBase {

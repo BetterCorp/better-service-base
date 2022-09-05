@@ -32,18 +32,20 @@ export class Service
   implements testCallable
 {
   async callableMethod(a: number, b: number): Promise<number> {
-    this.log.info("RECEIVED CALL ({a},{b})", { a, b });
+    this.log.warn("RECEIVED CALL ({a},{b})", { a, b });
     this.emitEvent("onEmittable", a, b);
     return a * b;
   }
   async init() {
     const self = this;
     this.onEvent("onReceivable", async (a: number, b: number) => {
-      self.log.info("received onReceivable:" + a + ":" + b);
+      self.log.warn("received onReceivable ({a},{b}", { a, b });
     });
     this.onReturnableEvent("onReturnable", async (a: number, b: number) => {
-      self.log.info("RECEIVED onReturnable ({a},{b})", { a, b });
-      return await self.emitEventAndReturn("onReverseReturnable", a, b);
+      self.log.warn("RECEIVED onReturnable ({a},{b})", { a, b });
+      let result = await self.emitEventAndReturn("onReverseReturnable", a, b);
+      self.log.warn("RETURNED onReverseReturnable ({result})", { result });
+      return result;
     });
   }
 }
@@ -66,22 +68,22 @@ export class testClient extends ServicesClient<
     await this._register();
     const self = this;
     this._plugin.onEvent("onEmittable", async (a: number, b: number) => {
-      self._plugin.log.info("onEmittable:{a},{b}", { a, b });
+      self._plugin.log.warn("onEmittable ({a},{b})", { a, b });
     });
     this._plugin.onReturnableEvent(
       "onReverseReturnable",
       async (a: number, b: number) => {
-        self._plugin.log.info("onReverseReturnable:{a},{b}", { a, b });
+        self._plugin.log.warn("onReverseReturnable ({a},{b})", { a, b });
         return a * b;
       }
     );
     this._plugin.emitEvent("onReceivable", 56, 7);
   }
   async abc(): Promise<void> {
-    this._plugin.log.info("TESTING ABC CALL = {result}", {
+    this._plugin.log.warn("TESTING ABC CALL ({result})", {
       result: await this._plugin.callPluginMethod("callableMethod", 5, 8),
     });
-    this._plugin.log.info("TESTING onReturnable = {result}", {
+    this._plugin.log.warn("TESTING onReturnable ({result})", {
       result: await this._plugin.emitEventAndReturn("onReturnable", 12, 8),
     });
   }
