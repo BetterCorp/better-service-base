@@ -1,5 +1,5 @@
 import { LoggerBase } from "../logger/logger";
-import { IPluginLogger } from "../interfaces/logger";
+import { IPluginLogger, LogMeta } from "../interfaces/logger";
 import { Logger as DefaultLogger } from "../plugins/log-default/plugin";
 import { SBBase } from "./base";
 import { ConfigBase } from "../config/config";
@@ -158,8 +158,16 @@ export class SBLogger {
       reportStat: async (key, value): Promise<void> => {},
       info: async (message, meta, hasPIData): Promise<void> => {},
       warn: async (message, meta, hasPIData): Promise<void> => {},
-      error: async (message, meta, hasPIData): Promise<void> => {},
-      fatal: async (message, meta, hasPIData): Promise<void> => {},
+      error: async (
+        message: any,
+        meta?: any,
+        hasPIData?: any
+      ): Promise<void> => {},
+      fatal: async (
+        message: any,
+        meta?: any,
+        hasPIData?: any
+      ): Promise<void> => {},
       debug: async (message, meta, hasPIData): Promise<void> => {},
     };
   }
@@ -186,17 +194,25 @@ export class SBLogger {
           meta,
           hasPIData,
         ]),
-      error: async (message, meta, hasPIData): Promise<void> =>
+      error: async (
+        messageOrError: string | Error,
+        meta?: LogMeta<any>,
+        hasPIData?: boolean
+      ): Promise<void> =>
         await self._loggerEvents.emitEvent("d", "l", "error", [
           pluginName,
-          message,
+          messageOrError,
           meta,
           hasPIData,
         ]),
-      fatal: async (message, meta, hasPIData): Promise<void> => {
+      fatal: async (
+        messageOrError: string | Error,
+        meta?: LogMeta<any>,
+        hasPIData?: boolean
+      ): Promise<void> => {
         await self._loggerEvents.emitEventAndReturn("d", "l", "fatal", 5, [
           pluginName,
-          message,
+          messageOrError,
           meta,
           hasPIData,
         ]);

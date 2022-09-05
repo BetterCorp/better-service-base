@@ -4,11 +4,11 @@ import { Events as events } from "../../../plugins/events-default/plugin";
 import { emit } from "./events/emit";
 import { emitAndReturn } from "./events/emitAndReturn";
 import { emitStreamAndReceiveStream } from "./events/emitStreamAndReceiveStream";
-import { IPluginLogger } from "../../../interfaces/logger";
+import { IPluginLogger, LogMeta } from "../../../interfaces/logger";
 
 //const fakeCLogger = new Logger("test-plugin", process.cwd(), {} as any);
 //const debug = console.log;
-const debug = (...a: any)=>{};
+const debug = (...a: any) => {};
 const fakeLogger: IPluginLogger = {
   reportStat: async (key, value): Promise<void> => {},
   info: async (message, meta, hasPIData): Promise<void> => {
@@ -17,13 +17,29 @@ const fakeLogger: IPluginLogger = {
   warn: async (message, meta, hasPIData): Promise<void> => {
     debug(message, meta);
   },
-  error: async (message, meta, hasPIData): Promise<void> => {
-    debug(message, meta);
-    assert.fail(new Error(message));
+  error: async (
+    messageOrError: string | Error,
+    meta?: LogMeta<any>,
+    hasPIData?: boolean
+  ): Promise<void> => {
+    debug(messageOrError, meta);
+    assert.fail(
+      typeof messageOrError === "string"
+        ? new Error(messageOrError)
+        : messageOrError
+    );
   },
-  fatal: async (message, meta, hasPIData): Promise<void> => {
-    debug(message, meta);
-    assert.fail(new Error(message));
+  fatal: async (
+    messageOrError: string | Error,
+    meta?: LogMeta<any>,
+    hasPIData?: boolean
+  ): Promise<void> => {
+    debug(messageOrError, meta);
+    assert.fail(
+      typeof messageOrError === "string"
+        ? new Error(messageOrError)
+        : messageOrError
+    );
   },
   debug: async (message, meta, hasPIData): Promise<void> => {
     debug(message, meta);

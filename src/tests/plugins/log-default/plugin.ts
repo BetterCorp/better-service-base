@@ -11,11 +11,31 @@ describe("plugins/log-default", () => {
     };
     const listOfConsoles = Object.keys(tempCCStore);
     let consoleEventCalled = -1;
-    const storeConsole = (expect: string, expectMessage?: Array<any>) => {
+    let consoleExpectMessageContent: any = null;
+    const storeConsole = (
+      expect: string,
+      expectMessage?: Array<any>,
+      expectMessageContent?: Array<any>
+    ) => {
       consoleEventCalled = 0;
       for (let consol of listOfConsoles)
         tempCCStore[consol] = (console as any)[consol];
-      if (expectMessage === undefined) {
+      if (expectMessageContent !== undefined) {
+        consoleExpectMessageContent = {
+          expectMessageContent,
+          logs: []
+        };
+        for (let consol of listOfConsoles.filter((x) => x !== expect))
+          (console as any)[consol] = () => {
+            consoleEventCalled = 1;
+            assert.fail("Invalid console called!: " + consol);
+          };
+        for (let consol of listOfConsoles.filter((x) => x === expect))
+          (console as any)[consol] = (...data: Array<any>) => {
+            consoleEventCalled = 1;
+            consoleExpectMessageContent.logs.push(data);
+          };
+      } else if (expectMessage === undefined) {
         consoleEventCalled = 1;
         for (let consol of listOfConsoles)
           (console as any)[consol] = () => {
@@ -42,7 +62,20 @@ describe("plugins/log-default", () => {
         (console as any)[consol] = tempCCStore[consol];
       if (consoleEventCalled === -1) assert.fail("Console not setup!");
       if (consoleEventCalled === 0) assert.fail("No console called!");
+      if (consoleEventCalled === 1 && consoleExpectMessageContent !== null ) {
+        for (let xx = 0; xx < consoleExpectMessageContent.expectMessageContent.length; xx++) {
+          let has = false;
+          for (let item of consoleExpectMessageContent.logs) {
+            if (item.toString().indexOf(consoleExpectMessageContent.expectMessageContent[xx]) >=0 ) {
+              has = true;
+              break;
+            }
+          }
+          assert.ok(has, `Does not contain '${consoleExpectMessageContent.expectMessageContent[xx]}': ${consoleExpectMessageContent.logs.join(',')}`);
+        }
+      }
       consoleEventCalled = -1;
+      consoleExpectMessageContent = null;
     };
     it("should console a stat event", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
@@ -172,11 +205,16 @@ describe("plugins/log-default", () => {
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = true;
       storeConsole("log");
-      await plugin.info("infW-DbG", "My Msg {che} and {chi} ({te})", {
-        che: "cHEESE",
-        chi: ["a", "b"],
-        te: 5,
-      }, true);
+      await plugin.info(
+        "infW-DbG",
+        "My Msg {che} and {chi} ({te})",
+        {
+          che: "cHEESE",
+          chi: ["a", "b"],
+          te: 5,
+        },
+        true
+      );
       restoreConsole();
     });
     it("running live, should not output PI warn", async () => {
@@ -184,11 +222,16 @@ describe("plugins/log-default", () => {
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = true;
       storeConsole("warn");
-      await plugin.warn("infW-DbG", "My Msg {che} and {chi} ({te})", {
-        che: "cHEESE",
-        chi: ["a", "b"],
-        te: 5,
-      }, true);
+      await plugin.warn(
+        "infW-DbG",
+        "My Msg {che} and {chi} ({te})",
+        {
+          che: "cHEESE",
+          chi: ["a", "b"],
+          te: 5,
+        },
+        true
+      );
       restoreConsole();
     });
     it("running live, should not output PI error", async () => {
@@ -196,11 +239,27 @@ describe("plugins/log-default", () => {
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = true;
       storeConsole("error");
-      await plugin.error("infW-DbG", "My Msg {che} and {chi} ({te})", {
-        che: "cHEESE",
-        chi: ["a", "b"],
-        te: 5,
-      }, true);
+      await plugin.error(
+        "infW-DbG",
+        "My Msg {che} and {chi} ({te})",
+        {
+          che: "cHEESE",
+          chi: ["a", "b"],
+          te: 5,
+        },
+        true
+      );
+      restoreConsole();
+    });
+    it("Stack report", async () => {
+      const plugin = new Logger("default-logger", "./", null as any);
+      (plugin as any).runningDebug = true;
+      (plugin as any).runningLive = false;
+      storeConsole("error", undefined, [
+        "test-error",
+        "src/tests/plugins/log-default/plugin.ts:",
+      ]);
+      await plugin.error("infW-DbG", new Error("test-error"));
       restoreConsole();
     });
   });

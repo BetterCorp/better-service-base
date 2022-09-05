@@ -32,8 +32,10 @@ export class Logger extends LoggerBase<PluginConfig> {
     let formattedMessage = this.formatLog<T>(message, meta);
     formattedMessage = `[${plugin.toUpperCase()}] ${formattedMessage}`;
     let func: any = console.debug;
-    if (level === LogLevels.STAT) formattedMessage = `[STAT] ${formattedMessage}`;
-    if (level === LogLevels.DEBUG) formattedMessage = `[DEBUG] ${formattedMessage}`;
+    if (level === LogLevels.STAT)
+      formattedMessage = `[STAT] ${formattedMessage}`;
+    if (level === LogLevels.DEBUG)
+      formattedMessage = `[DEBUG] ${formattedMessage}`;
     if (level === LogLevels.INFO) {
       formattedMessage = `[INFO] ${formattedMessage}`;
       func = console.log;
@@ -56,7 +58,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     value: number
   ): Promise<void> {
     if (!this.runningDebug) return;
-    this.logEvent(LogLevels.STAT, plugin, "[{key}={value}]", {key, value})
+    this.logEvent(LogLevels.STAT, plugin, "[{key}={value}]", { key, value });
   }
   public async debug<T extends string>(
     plugin: string,
@@ -65,7 +67,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     hasPIData?: boolean
   ): Promise<void> {
     if (!this.runningDebug) return;
-    this.logEvent<T>(LogLevels.DEBUG, plugin, message as T, meta)
+    this.logEvent<T>(LogLevels.DEBUG, plugin, message as T, meta);
   }
   public async info<T extends string>(
     plugin: string,
@@ -74,7 +76,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     hasPIData?: boolean
   ): Promise<void> {
     if (this.runningLive && hasPIData === true) return;
-    this.logEvent<T>(LogLevels.INFO, plugin, message as T, meta)
+    this.logEvent<T>(LogLevels.INFO, plugin, message as T, meta);
   }
   public async warn<T extends string>(
     plugin: string,
@@ -83,15 +85,32 @@ export class Logger extends LoggerBase<PluginConfig> {
     hasPIData?: boolean
   ): Promise<void> {
     if (this.runningLive && hasPIData === true) return;
-    this.logEvent<T>(LogLevels.WARN, plugin, message as T, meta)
+    this.logEvent<T>(LogLevels.WARN, plugin, message as T, meta);
   }
   public async error<T extends string>(
     plugin: string,
     message: T,
     meta?: LogMeta<T>,
     hasPIData?: boolean
+  ): Promise<void>;
+  public async error(plugin: string, error: Error): Promise<void>;
+  public async error<T extends string>(
+    plugin: string,
+    messageOrError: T | Error,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
   ): Promise<void> {
+    let message =
+      typeof messageOrError === "string"
+        ? messageOrError
+        : messageOrError.message;
     if (this.runningLive && hasPIData === true) return;
-    this.logEvent<T>(LogLevels.ERROR, plugin, message as T, meta)
+    this.logEvent<T>(LogLevels.ERROR, plugin, message as T, meta);
+    if (
+      typeof messageOrError !== "string" &&
+      messageOrError.stack !== undefined
+    ) {
+      console.error(messageOrError.stack.toString());
+    }
   }
 }

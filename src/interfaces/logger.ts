@@ -17,21 +17,23 @@ export interface IPluginLogger {
     meta?: LogMeta<T>,
     hasPIData?: boolean
   ): Promise<void>;
-  error<T extends string>(
-    message: T,
-    meta?: LogMeta<T>,
-    hasPIData?: boolean
-  ): Promise<void>;
-  fatal<T extends string>(
-    message: T,
-    meta?: LogMeta<T>,
-    hasPIData?: boolean
-  ): Promise<void>;
   debug<T extends string>(
     message: T,
     meta?: LogMeta<T>,
     hasPIData?: boolean
   ): Promise<void>;
+  error<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void>;
+  error(error: Error): Promise<void>;
+  fatal<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void>;
+  fatal(error: Error): Promise<void>;
 }
 
 export interface ILogger {
@@ -55,6 +57,7 @@ export interface ILogger {
     meta?: LogMeta<T>,
     hasPIData?: boolean
   ): Promise<void>;
+  error(plugin: string, error: Error): Promise<void>;
   debug<T extends string>(
     plugin: string,
     message: T,
