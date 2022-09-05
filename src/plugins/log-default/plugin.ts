@@ -1,5 +1,6 @@
 import { IPluginLogger, LogMeta } from "../../interfaces/logger";
 import { LoggerBase } from "../../logger/logger";
+import { ConsoleColours } from './colours';
 import { PluginConfig } from "./sec.config";
 
 export enum LogLevels {
@@ -32,24 +33,32 @@ export class Logger extends LoggerBase<PluginConfig> {
     let formattedMessage = this.formatLog<T>(message, meta);
     formattedMessage = `[${plugin.toUpperCase()}] ${formattedMessage}`;
     let func: any = console.debug;
-    if (level === LogLevels.STAT)
+    let colour: Array<ConsoleColours> = [ConsoleColours.BgBlack, ConsoleColours.FgWhite];
+    if (level === LogLevels.STAT) {
       formattedMessage = `[STAT] ${formattedMessage}`;
-    if (level === LogLevels.DEBUG)
+      colour = [ConsoleColours.BgYellow, ConsoleColours.FgBlack];
+    }
+    if (level === LogLevels.DEBUG) {
       formattedMessage = `[DEBUG] ${formattedMessage}`;
+      colour = [ConsoleColours.BgBlue, ConsoleColours.FgWhite];
+    }
     if (level === LogLevels.INFO) {
       formattedMessage = `[INFO] ${formattedMessage}`;
       func = console.log;
+      colour = [];
     }
     if (level === LogLevels.WARN) {
       formattedMessage = `[WARN] ${formattedMessage}`;
       func = console.warn;
+      colour = [ConsoleColours.BgBlack, ConsoleColours.FgRed];
     }
     if (level === LogLevels.ERROR) {
       formattedMessage = `[ERROR] ${formattedMessage}`;
       func = console.error;
+      colour = [ConsoleColours.BgRed, ConsoleColours.FgBlack];
     }
     if (this._mockConsole) return this._mockedConsole!(level, formattedMessage);
-    func(formattedMessage);
+    func(colour.join('')+'%s'+ConsoleColours.Reset, formattedMessage);
   }
 
   public async reportStat(

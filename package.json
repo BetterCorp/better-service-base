@@ -5,7 +5,7 @@
     "url": "https://gitlab.com/BetterCorp/public/service-base"
   },
   "scripts": {
-    "dev": "nodemon -L --watch src/**/*.ts --watch plugins/**/*.ts --exec ts-node src/dev.ts",
+    "dev": "nodemon --config ./nodemon.json",
     "start": "node lib/cli.js",
     "build": "tsc",
     "postinstall": "node ./postinstall.js",

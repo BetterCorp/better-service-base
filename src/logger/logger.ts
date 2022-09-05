@@ -21,7 +21,8 @@ export class LoggerBase<PluginConfigType extends IPluginConfig = any>
         removedVar[0]
       );
       //console.log(`:${removedVar[0]}:${referencedVar}`, meta);
-      if (Tools.isArray(referencedVar))
+      if (Tools.isNullOrUndefined(referencedVar)) referencedVar = "*null/undefined*";
+      else if (Tools.isArray(referencedVar))
         referencedVar = (referencedVar as Array<any>)
           .map((x) =>
             Tools.isSimpleType(x) ? x.toString() : JSON.stringify(x)
@@ -29,9 +30,14 @@ export class LoggerBase<PluginConfigType extends IPluginConfig = any>
           .join(",");
       else if (Tools.isDate(referencedVar))
         referencedVar = (referencedVar as Date).toISOString();
-      else if (Tools.isObject(referencedVar))
+      else if (
+        Tools.isObject(referencedVar) ||
+        !Tools.isFunction(referencedVar.toString)
+      )
         referencedVar = JSON.stringify(referencedVar);
-      else referencedVar = referencedVar.toString();
+      else {
+        referencedVar = referencedVar.toString();
+      }
       outString += referencedVar + removedVar[1];
     }
     return outString;

@@ -39,7 +39,7 @@ export class Service
   async init() {
     const self = this;
     this.onEvent("onReceivable", async (a: number, b: number) => {
-      console.log("received onReceivable:" + a + ":" + b);
+      self.log.info("received onReceivable:" + a + ":" + b);
     });
     this.onReturnableEvent("onReturnable", async (a: number, b: number) => {
       self.log.info("RECEIVED onReturnable ({a},{b})", { a, b });
@@ -56,6 +56,7 @@ export class testClient extends ServicesClient<
   testCallable,
   any
 > {
+  public readonly _pluginName: string = "service-default1";
   constructor(
     self: ServicesBase<testEvents, testRetEvents, testCallable, any>
   ) {

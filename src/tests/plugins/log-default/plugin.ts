@@ -52,8 +52,10 @@ describe("plugins/log-default", () => {
           (console as any)[consol] = (...data: Array<any>) => {
             consoleEventCalled = 1;
             assert.equal(data.length, expectMessage.length);
-            for (let xx = 0; xx < expectMessage.length; xx++)
+            for (let xx = 0; xx < expectMessage.length; xx++) {
+              if (expectMessage[xx] === null) continue;
               assert.equal(data[xx], expectMessage[xx]);
+            }
           };
       }
     };
@@ -79,19 +81,19 @@ describe("plugins/log-default", () => {
     };
     it("should console a stat event", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("debug", ["[STAT] [DEFAULT-STAT] [val=2]"]);
+      storeConsole("debug", [null,"[STAT] [DEFAULT-STAT] [val=2]"]);
       await plugin.reportStat("default-stat", "val", 2);
       restoreConsole();
     });
     it("should console a debug event", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("debug", ["[DEBUG] [DEFAULT-DBG] My Msg"]);
+      storeConsole("debug", [null,"[DEBUG] [DEFAULT-DBG] My Msg"]);
       await plugin.debug("default-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a debug event (meta)", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("debug", [
+      storeConsole("debug", [null,
         "[DEBUG] [DEFAULT-DBG] My Msg cHEESE and a,b (5)",
       ]);
       await plugin.debug("default-DbG", "My Msg {che} and {chi} ({te})", {
@@ -104,13 +106,13 @@ describe("plugins/log-default", () => {
 
     it("should console a info event", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("log", ["[INFO] [INFO-DBG] My Msg"]);
+      storeConsole("log", [null,"[INFO] [INFO-DBG] My Msg"]);
       await plugin.info("info-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a info event (meta)", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("log", ["[INFO] [INFO-DBG] My Msg cHEESE and a,b (5)"]);
+      storeConsole("log", [null,"[INFO] [INFO-DBG] My Msg cHEESE and a,b (5)"]);
       await plugin.info("info-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -121,13 +123,13 @@ describe("plugins/log-default", () => {
 
     it("should console a error event", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("error", ["[ERROR] [INFEE-DBG] My Msg"]);
+      storeConsole("error", [null,"[ERROR] [INFEE-DBG] My Msg"]);
       await plugin.error("infee-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a error event (meta)", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("error", ["[ERROR] [INFE-DBG] My Msg cHEESE and a,b (5)"]);
+      storeConsole("error", [null,"[ERROR] [INFE-DBG] My Msg cHEESE and a,b (5)"]);
       await plugin.error("infe-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -138,13 +140,13 @@ describe("plugins/log-default", () => {
 
     it("should console a warn event", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("warn", ["[WARN] [INFOW-DBG] My Msg"]);
+      storeConsole("warn", [null,"[WARN] [INFOW-DBG] My Msg"]);
       await plugin.warn("infoW-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a warn event (meta)", async () => {
       const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("warn", ["[WARN] [INFW-DBG] My Msg cHEESE and a,b (5)"]);
+      storeConsole("warn", [null,"[WARN] [INFW-DBG] My Msg cHEESE and a,b (5)"]);
       await plugin.warn("infW-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -157,7 +159,7 @@ describe("plugins/log-default", () => {
       const plugin = new Logger("default-logger", "./", null as any);
       (plugin as any).runningDebug = true;
       (plugin as any).runningLive = false;
-      storeConsole("debug", [
+      storeConsole("debug", [null,
         "[DEBUG] [DEFAULT-DBG] My Msg cHEESE and a,b (5)",
       ]);
       await plugin.debug("default-DbG", "My Msg {che} and {chi} ({te})", {

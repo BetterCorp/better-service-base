@@ -25,7 +25,12 @@ export class SBServices {
     appConfig: ConfigBase,
     ImportAndMigratePluginConfig: { (plugin: IReadyPlugin): Promise<any> },
     generateEventsForService: {
-      (pluginName: string, mappedPluginName: string): IServiceEvents<any, any, any, any>;
+      (pluginName: string, mappedPluginName: string): IServiceEvents<
+        any,
+        any,
+        any,
+        any
+      >;
     },
     generateLoggerForPlugin: { (pluginName: string): IPluginLogger }
   ) {
@@ -77,6 +82,10 @@ export class SBServices {
               return await (plugin as any)[method](...args);
             }
           }
+          self.log.error(
+            "Enable {pluginName} in order to call ({method}) from it",
+            { pluginName, method }
+          );
           throw ErrorMessages.ServicePluginNotCallableMethod;
         }
       );

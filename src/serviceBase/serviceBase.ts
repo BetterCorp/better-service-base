@@ -297,18 +297,17 @@ export class ServiceBase {
             : extraData.toString(),
         }
       );
-    else
+    else {
       await this.log.error(
-        "Disposing service: {appId} code {eCode} ({reason}): {extraMsg}",
+        "Disposing service: {appId} code {eCode} ({reason})",
         {
           appId: this._appId,
           eCode,
           reason,
-          extraMsg: Tools.isNullOrUndefined(extraData)
-            ? ""
-            : extraData.toString(),
         }
       );
+      if (!Tools.isNullOrUndefined(extraData)) await this.log.error(extraData);
+    }
     clearInterval(this._heartbeat);
     try {
       await this.log.warn("Disposing services");
