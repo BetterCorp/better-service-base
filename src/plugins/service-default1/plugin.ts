@@ -56,7 +56,6 @@ export class testClient extends ServicesClient<
   testCallable,
   any
 > {
-  public readonly _pluginName: string = "service-default";
   constructor(
     self: ServicesBase<testEvents, testRetEvents, testCallable, any>
   ) {
