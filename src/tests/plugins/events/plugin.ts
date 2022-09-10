@@ -8,6 +8,7 @@ import { IPluginLogger, LogMeta } from "../../../interfaces/logger";
 
 //const fakeCLogger = new Logger("test-plugin", process.cwd(), {} as any);
 //const debug = console.log;
+//const debug = console.log;
 const debug = (...a: any) => {};
 const fakeLogger: IPluginLogger = {
   reportStat: async (key, value): Promise<void> => {},
@@ -46,19 +47,26 @@ const fakeLogger: IPluginLogger = {
   },
 };
 
+const getPluginConfig = async () => {
+  return {};
+}
+
 describe("plugins/events-default", () => {
   emit(async () => {
     const refP = new events("test-plugin", process.cwd(), fakeLogger);
+    (refP as any).getPluginConfig = getPluginConfig;
     if (refP.init !== undefined) await refP.init();
     return refP;
   }, 10);
   emitAndReturn(async () => {
     const refP = new events("test-plugin", process.cwd(), fakeLogger);
+    (refP as any).getPluginConfig = getPluginConfig;
     if (refP.init !== undefined) await refP.init();
     return refP;
   }, 10);
   emitStreamAndReceiveStream(async () => {
     const refP = new events("test-plugin", process.cwd(), fakeLogger);
+    (refP as any).getPluginConfig = getPluginConfig;
     if (refP.init !== undefined) await refP.init();
     //refP.eas.staticCommsTimeout = 25;
     return refP;

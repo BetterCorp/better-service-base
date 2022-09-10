@@ -3,15 +3,15 @@ import * as crypto from "crypto";
 import { exec } from "child_process";
 import { pipeline } from "stream";
 import assert from "assert";
-import { Events } from '../../../../plugins/events-default/plugin';
+import { EventsBase } from '../../../../events/events';
 
 const randomName = () => crypto.randomUUID();
 
 const mockBareFakeStream = () => {
   let obj: any = {
     listeners: {},
-    emit: (name: any) => {
-      if (obj.listeners[name] !== undefined) obj.listeners[name]();
+    emit: (name: any, data?: any) => {
+      if (obj.listeners[name] !== undefined) obj.listeners[name](data);
     },
     on: (name: any, listn: any) => {
       obj.listeners[name] = listn;
@@ -73,66 +73,65 @@ const convertBytes = (
 };
 
 export function emitStreamAndReceiveStream(
-  genNewPlugin: { (): Promise<Events>},
+  genNewPlugin: { (): Promise<EventsBase> },
   maxTimeoutToExpectAResponse: number
 ) {
+  let emitter: EventsBase;
+  beforeEach(async () => {
+    emitter = await genNewPlugin();
+  });
+  afterEach(function () {
+    emitter.dispose();
+  });
   describe("EmitStreamAndReceiveStream", async () => {
     //this.timeout(maxTimeoutToExpectAResponse + 20);
     //this.afterEach(done => setTimeout(done, maxTimeoutToExpectAResponse));
     const timermaxTimeoutToExpectAResponse = maxTimeoutToExpectAResponse + 10;
-    describe("receiveStream creates an ID", async () => {
-      it("should generate a valid string", async () => {
-        const thisCaller = randomName();
-        const emitter = await genNewPlugin();
-        let uuid = await emitter.receiveStream(
-          thisCaller,
-          async () => {},
-          maxTimeoutToExpectAResponse
-        );
-        assert.ok(`${uuid}`.length >= 10, "Not a valid unique ID for stream");
-        emitter.dispose();
-      });
+    it("receiveStream creates a should generate a valid string", async () => {
+      const thisCaller = randomName();
+
+      let uuid = await emitter.receiveStream(
+        thisCaller,
+        async () => {},
+        maxTimeoutToExpectAResponse
+      );
+      assert.ok(`${uuid}`.length >= 10, "Not a valid unique ID for stream");
     });
-    describe("sendStream triggers timeout when no receiveStream setup", async () => {
-      it("timeout and generate an exception", async () => {
-        const thisCaller = randomName();
-        const thisEvent = randomName();
-        const emitter = await genNewPlugin();
-        try {
-          await emitter.sendStream(thisCaller, thisEvent, mockBareFakeStream());
-          assert.fail("Timeout not called");
-        } catch (xc) {
-          assert.ok(true, "Timeout called exception");
-        }
-        emitter.dispose();
-      });
+    it("sendStream triggers timeout when no receiveStream setup", async () => {
+      const thisCaller = randomName();
+      const thisEvent = randomName();
+
+      try {
+        await emitter.sendStream(thisCaller, thisEvent, mockBareFakeStream());
+        assert.fail("Timeout not called");
+      } catch (xc) {
+        assert.ok(true, "Timeout called exception");
+      }
     });
-    describe("sendStream triggers receiveStream listener", async () => {
-      it("should call the listener", async () => {
-        const thisCaller = randomName();
-        const emitter = await genNewPlugin();
-        const emitTimeout = setTimeout(() => {
-          assert.fail("Event not received");
-        }, timermaxTimeoutToExpectAResponse);
-        let uuid = await emitter.receiveStream(
-          thisCaller,
-          async (err: any, stream: { emit: (arg0: string) => void }) => {
-            clearTimeout(emitTimeout);
-            stream.emit("end");
-            assert.ok(true, "Listener called");
-          },
-          maxTimeoutToExpectAResponse
-        );
-        try {
-          await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
-        } catch (xx) {}
-        emitter.dispose();
-      });
+    it("sendStream triggers receiveStream listener", async () => {
+      const thisCaller = randomName();
+
+      const emitTimeout = setTimeout(() => {
+        assert.fail("Event not received");
+      }, timermaxTimeoutToExpectAResponse);
+      let uuid = await emitter.receiveStream(
+        thisCaller,
+        async (err: any, stream: { emit: (arg0: string) => void }) => {
+          clearTimeout(emitTimeout);
+          stream.emit("end");
+          assert.ok(true, "Listener called");
+        },
+        maxTimeoutToExpectAResponse
+      );
+      try {
+        await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
+        console.log('endededed')
+      } catch (xx) {}
     });
     describe("sendStream triggers receiveStream listener passing in the stream", async () => {
       it("should not call the listener with an error", async () => {
         const thisCaller = randomName();
-        const emitter = await genNewPlugin();
+
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
@@ -148,11 +147,10 @@ export function emitStreamAndReceiveStream(
         try {
           await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
         } catch (xx) {}
-        emitter.dispose();
       });
       it("should call the listener with a stream", async () => {
         const thisCaller = randomName();
-        const emitter = await genNewPlugin();
+
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
@@ -172,13 +170,13 @@ export function emitStreamAndReceiveStream(
         try {
           await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
         } catch (xx) {}
-        emitter.dispose();
       });
     });
     describe("sendStream triggers receiveStream files", function () {
       this.timeout(120000);
       const runTest = async (size: string, count = 1) => {
         it(`should be able to fully stream a file - ${size}`, async () => {
+          this.timeout(120000);
           const thisCaller = randomName();
           const now = new Date().getTime();
           let fileName = `./test-file-${size}`;
@@ -199,16 +197,17 @@ export function emitStreamAndReceiveStream(
             const fullBytes = convertBytes(fileBytes);
             console.log(` ${size} act size: ${fullBytes}`);
             let srcFileHash = await getFileHash(fileName);
-            const emitter = await genNewPlugin();
+
             const emitTimeout = setTimeout(() => {
               assert.fail("Event not received");
             }, timermaxTimeoutToExpectAResponse);
             let uuid = await emitter.receiveStream(
               thisCaller,
-              async (err: any, stream: any) => {
+              async (err: any, stream: any):Promise<any> => {
+                if (err) return assert.fail(err);
                 clearTimeout(emitTimeout);
-                pipeline(stream, fs.createWriteStream(fileNameOut), (err) => {
-                  if (err) assert.fail(err);
+                pipeline(stream, fs.createWriteStream(fileNameOut), (errf) => {
+                  if (errf) assert.fail(errf);
                 });
               },
               maxTimeoutToExpectAResponse
@@ -234,7 +233,6 @@ export function emitStreamAndReceiveStream(
                 ["bps", "kbps", "mbps", "gbps", "tbps"]
               )} in ${totalTimeMS}ms`
             );
-            emitter.dispose();
           } catch (xx: any) {
             if (fs.existsSync(fileName)) fs.unlinkSync(fileName);
             if (fs.existsSync(fileNameOut)) fs.unlinkSync(fileNameOut);
@@ -248,7 +246,9 @@ export function emitStreamAndReceiveStream(
       runTest("512KB");
       runTest("1MB");
       runTest("16MB");
+      runTest("128MB", 1);
       runTest("128MB", 4);
+
       //runTest('512MB', 16);
       //runTest('1GB', 32);
       //runTest('5GB', 160);
