@@ -1,3 +1,5 @@
+#! /usr/bin/env node
+
 import * as yargs from "yargs";
 import * as fs from "fs";
 import { cwd } from 'process';
@@ -8,7 +10,7 @@ const types: ReadonlyArray<PluginTypes> = ['plugin', 'logger', 'events'];
 
 (async () => {
   const SBBaseDir = path.join(cwd(), "./node_modules/@bettercorp/service-base");
-  const argv = await yargs(process.argv.slice(2))
+  const argv = await yargs.default(process.argv.slice(2))
     .option('type', {
       alias: 't',
       description: 'Type of plugin to create',

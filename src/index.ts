@@ -1,10 +1,14 @@
-import ServiceBase from "./ServiceBase";
-const runApp = async () => {
-  const CWD = process.env.APP_DIR || process.cwd();
-  const SB = new ServiceBase(CWD);
-  await SB.config();
-  await SB.construct();
-  await SB.init();
-  await SB.run();
-};
-runApp();
+export { SecConfig } from "./interfaces/serviceConfig";
+export {
+  ServiceConfig,
+  DeploymentProfiles,
+  DeploymentProfile,
+  IPluginConfig,
+} from "./interfaces/config";
+export { IPluginLogger, LogMeta } from "./interfaces/logger";
+export { ConfigBase } from "./config/config";
+export { EventsBase } from "./events/events";
+export { LoggerBase } from "./logger/logger";
+export { ServiceCallable } from "./service/base";
+export { ServicesBase } from "./service/service";
+export { ServicesClient } from "./service/serviceClient";

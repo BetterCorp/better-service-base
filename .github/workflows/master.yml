@@ -1,0 +1,167 @@
+name: Build and Publish (RC)
+
+on:
+  push:
+    branches:
+      - "master"
+
+jobs:
+  build_and_publish_rc:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x]
+        #experimental: [false]
+        #include:
+        #  - node-version: 19.x
+        #    experimental: true
+
+    #continue-on-error: ${{ matrix.experimental }}
+
+    outputs:
+      version: ${{ steps.semver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - run: npm i -g typescript ts-node
+      - run: tsc -v ; ts-node -v
+      - run: npm ci
+
+      - name: semver
+        id: semver
+        uses: paulhatch/semantic-version@v4.0.3
+        with:
+          tag_prefix: "v"
+          branch: master
+          major_pattern: "(MAJOR)"
+          minor_pattern: "(MINOR)"
+          format: "${major}.${minor}.${patch}-rc.${increment}"
+          change_path: "./"
+          bump_each_commit: true
+          namespace: ""
+
+      - run: rm -f ~/.npmrc ; rm -f ./.npmrc ; echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM2_TOKEN_PUB }}" > ./.npmrc
+      - run: |
+          git config user.name "${{ secrets.NPM_NAME }}";
+          git config user.email "${{ secrets.NPM_EMAIL }}";
+          echo "Hello $(git config --get user.name)";
+
+      - name: output version
+        run: |
+          echo "Setting version too: ${{ steps.semver.outputs.version }}";
+
+      - run: npm version ${{ steps.semver.outputs.version }}
+      - run: npm run build
+      - run: npm run test
+
+      - name: Test Report ${{ matrix.node-version }}
+        uses: dorny/test-reporter@v1.5.0
+        with:
+          name: Tests
+          path: junit.json
+          reporter: mocha-json
+
+      - name: Upload coverage reports to Codecov
+        if: contains(matrix.node-version, '18.x')
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: coverage
+
+      - run: npm publish --tag rc
+        if: contains(matrix.node-version, '18.x')
+
+      - run: npm pack
+        if: contains(matrix.node-version, '18.x')
+
+      - uses: actions/upload-artifact@v2
+        if: contains(matrix.node-version, '18.x')
+        with:
+          name: published-package
+          path: bettercorp-service-base-*.tgz
+
+      - name: cleanup
+        if: always()
+        run: rm -f ~/.npmrc ; rm -f ./.npmrc;
+
+  docker_build_rc:
+    needs: [build_and_publish_rc, docs_build_rc]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: published-package
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build
+        uses: docker/build-push-action@v2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: ./Dockerfile
+          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+          push: true
+          tags: |
+            betterweb/service-base:rc-latest
+            betterweb/service-base:${{ needs.build_and_publish_ea.outputs.version }}
+
+  docs_build_rc:
+    runs-on: ubuntu-latest
+    needs: [build_and_publish_rc]
+
+    strategy:
+      matrix:
+        node-version: [16.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+          
+      - run: npm ci
+        working-directory: documentation/
+
+      - run: npm run build
+        working-directory: documentation/
+
+      - name: Update site
+        uses: cloudflare/wrangler-action@2.0.0
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages publish documentation/.vuepress/dist --project-name=bsb-documentation --commit-dirty=true --branch=rc

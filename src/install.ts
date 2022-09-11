@@ -1,6 +1,6 @@
-import { Tools } from "@bettercorp/tools/lib/Tools";
+//import { Tools } from "@bettercorp/tools/lib/Tools";
 import * as fs from "fs";
-import * as crypto from "crypto";
+//import * as crypto from "crypto";
 import * as path from "path";
 import * as os from "os";
 export default (CWD: string) => {
@@ -12,7 +12,7 @@ export default (CWD: string) => {
 
   console.log(`INSTALL SCRIPT FOR @bettercorp/service-base in ${ CWD }`);
 
-  const srcDir = path.join(CWD, `./src`);
+  /*const srcDir = path.join(CWD, `./src`);
   if (!fs.existsSync(srcDir)) {
     console.log(`Creating src dir... (${ srcDir })`);
     fs.mkdirSync(srcDir);
@@ -92,9 +92,18 @@ export default (CWD: string) => {
         }
       }
     }
+  }*/
+
+  if (process.env.NODE_ENV === 'production') {
+    const packaggeJSONFile = path.join(CWD, "./package.json");
+    console.log(`Updating package scripts... (${ packaggeJSONFile })`);
+    const readPackageJsonFile = JSON.parse(fs.readFileSync(packaggeJSONFile).toString());
+    readPackageJsonFile.scripts = readPackageJsonFile.scripts || {};
+    readPackageJsonFile.scripts.start = "node node_modules/@bettercorp/service-base/lib/index.js";
+    fs.writeFileSync(packaggeJSONFile, JSON.stringify(readPackageJsonFile));
   }
 
-  const defaultScripts: any = {
+  /*const defaultScripts: any = {
     build: "tsc",
     dev: "nodemon --config node_modules/@bettercorp/service-base/build/nodemon.json",
     start: "ts-node node_modules/@bettercorp/service-base/lib/index.js",
@@ -170,7 +179,7 @@ export default (CWD: string) => {
       }
     }
     if (Tools.isNullOrUndefined(readPackageJsonFile.files)) {
-      readPackageJsonFile.files = ["lib/**/*"];
+      readPackageJsonFile.files = ["lib/**[REMOVE" "this]/*"];
       pakUpdates = true;
     }
     if (readPackageJsonFile.scripts.publish !== undefined && readPackageJsonFile.scripts.publish.indexOf("npm publish") >= 0) {
@@ -193,7 +202,7 @@ export default (CWD: string) => {
       console.log("Package install. ignoring app install script.");
       process.exit(0);
     }
-  }
+  }*/
 
   const configFile = path.join(CWD, "./sec.config.json");
   if (!fs.existsSync(configFile)) {
@@ -222,7 +231,7 @@ export default (CWD: string) => {
     console.log("");
     console.log("");
 
-    for (const todoItem of todoList) console.warn(todoItem);
+    //for (const todoItem of todoList) console.warn(todoItem);
     completedInstaller = true;
   }).catch((e: any) => {
     console.error(e);

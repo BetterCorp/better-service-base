@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 const process = require("process");
+
+if (`${process.env.BSB_CONTAINER || ''}` !== '') return console.warn('Building in BSB container, not running default setup process.');
+
 let cwd = process.cwd();
 let hardSetCWD = false;
 
@@ -27,7 +30,7 @@ if (fs.existsSync(path.join(cwd, "./.bsb.local"))) {
     console.log("BSB Post Install: Bypass - cannot find service-base.");
     process.exit(0);
   }
-  const installer = require(path.join(bsbBase, "./lib/install.js")).default;
+  const installer = require(path.join(bsbBase, "./lib/postinstall.js")).default;
   //console.log(fs.readdirSync("./build/"));
   installer(cwd);
   console.log("BSB Post Install: Complete");
