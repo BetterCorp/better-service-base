@@ -4,6 +4,10 @@
   "repository": {
     "url": "https://gitlab.com/BetterCorp/public/service-base"
   },
+  "engines" : { 
+    "npm" : ">=8.0.0",
+    "node" : ">=16.0.0"
+  },
   "scripts": {
     "dev": "nodemon --config ./nodemon.json",
     "start": "node lib/cli.js",

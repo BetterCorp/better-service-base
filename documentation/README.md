@@ -12,6 +12,24 @@ features:
 footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
 ---
 
+<div style="background: orange; color: black; padding: 5px 10px 5px 10px; border-radius: 5px; text-align: center; font-weight: 700;">THIS DOCUMENTATION IS A WORK IN PROGRESS</div>
+
+[![Docker Image Size](https://img.shields.io/docker/image-size/betterweb/service-base/latest)](https://hub.docker.com/repository/docker/betterweb/service-base) 
+[![Docker Pulls](https://img.shields.io/docker/pulls/betterweb/service-base)](https://hub.docker.com/repository/docker/betterweb/service-base) 
+[![Docker Image Version (latest semver)](https://img.shields.io/docker/v/betterweb/service-base?sort=semver)](https://hub.docker.com/repository/docker/betterweb/service-base) 
+[![GitHub](https://img.shields.io/github/license/BetterCorp/better-service-base)](https://github.com/BetterCorp/better-service-base) 
+[![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/m/bettercorp/better-service-base/develop)](https://github.com/BetterCorp/better-service-base) 
+[![GitHub last commit (branch)](https://img.shields.io/github/last-commit/bettercorp/better-service-base/develop)](https://github.com/BetterCorp/better-service-base) 
+[![GitHub Repo stars](https://img.shields.io/github/stars/BetterCorp/better-service-base)](https://github.com/BetterCorp/better-service-base) 
+[![GitHub pull requests](https://img.shields.io/github/issues-pr-raw/BetterCorp/better-service-base)](https://github.com/BetterCorp/better-service-base/pulls) 
+[![GitHub issues](https://img.shields.io/github/issues-raw/BetterCorp/better-service-base)](https://github.com/BetterCorp/better-service-base/issues) 
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/BetterCorp/better-service-base/Build%20and%20Publish%20Containers%20(LIVE))](https://github.com/BetterCorp/better-service-base/actions/workflows/tags.yml) 
+[![codecov](https://codecov.io/gh/BetterCorp/better-service-base/branch/master/graph/badge.svg)](https://codecov.io/gh/BetterCorp/better-service-base) 
+[![node-current (scoped)](https://img.shields.io/node/v/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base)  
+[![npm](https://img.shields.io/npm/dt/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base) 
+[![npm bundle size (scoped)](https://img.shields.io/bundlephobia/min/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base) 
+[![npm (scoped)](https://img.shields.io/npm/v/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base) 
+
 ## About
 
 BSB was designed to be a simple, expandable and server agnostic platform for simple, scalable microservice projects.  
