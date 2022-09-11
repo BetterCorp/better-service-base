@@ -8,6 +8,8 @@
 [![GitHub pull requests](https://img.shields.io/github/issues-pr-raw/BetterCorp/better-service-base)](https://github.com/BetterCorp/better-service-base/pulls) 
 [![GitHub issues](https://img.shields.io/github/issues-raw/BetterCorp/better-service-base)](https://github.com/BetterCorp/better-service-base/issues) 
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/BetterCorp/better-service-base/Build%20and%20Publish%20Containers%20(LIVE))](https://github.com/BetterCorp/better-service-base/actions/workflows/tags.yml) 
+[![Build and Publish (EA)](https://github.com/BetterCorp/better-service-base/actions/workflows/develop.yml/badge.svg?branch=develop)](https://github.com/BetterCorp/better-service-base/actions/workflows/develop.yml)
+[![Build and Publish (RC)](https://github.com/BetterCorp/better-service-base/actions/workflows/master.yml/badge.svg?branch=master)](https://github.com/BetterCorp/better-service-base/actions/workflows/master.yml)
 [![codecov](https://codecov.io/gh/BetterCorp/better-service-base/branch/master/graph/badge.svg)](https://codecov.io/gh/BetterCorp/better-service-base) 
 [![node-current (scoped)](https://img.shields.io/node/v/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base)  
 [![npm](https://img.shields.io/npm/dt/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base) 

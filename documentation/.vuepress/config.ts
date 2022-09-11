@@ -49,6 +49,10 @@ export default defineUserConfig({
         text: "NPM",
         link: "https://www.npmjs.com/package/@bettercorp/service-base",
       },
+      {
+        text: "Docker",
+        link: "https://hub.docker.com/repository/docker/betterweb/service-base",
+      },
     ],
   }),
   bundler: viteBundler({
