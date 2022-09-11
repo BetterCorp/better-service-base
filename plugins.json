@@ -1,94 +1,5 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-events-rabbitmq",
-    "version": "2.2.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
-    "plugins": [
-      {
-        "type": "events",
-        "name": "events-rabbitmq",
-        "def": {
-          "key": "events-rabbitmq",
-          "name": "RabbitMQ",
-          "icon": "events-rabbitmq.png",
-          "description": "RabbitMQ events plugin"
-        },
-        "config": {
-          "interfaceName": "IPluginConfig",
-          "definitions": {
-            "fatalOnDisconnect": {
-              "type": "boolean",
-              "required": true,
-              "name": "Disconnect on error",
-              "description": "Cause the bsb service to exit code 1 if the connection drops"
-            },
-            "prefetch": {
-              "type": "number",
-              "required": true,
-              "name": "Prefetch",
-              "description": "The RabbitMQ Prefetch amount"
-            },
-            "endpoint": {
-              "type": "string",
-              "required": false,
-              "name": "Endpoint",
-              "description": "The server endpoint - or use endpoints for a cluster"
-            },
-            "endpoints": {
-              "type": "Array<string>",
-              "required": false,
-              "name": "Endpoints",
-              "description": "The list of servers(cluster) to connect too - use Endpoint for a single server"
-            },
-            "credentials": {
-              "type": "IPluginConfig_Credentials",
-              "required": true,
-              "name": "Credentials for server authorization",
-              "description": null
-            },
-            "uniqueId": {
-              "type": "string",
-              "required": false,
-              "name": "Unique Client ID",
-              "description": "A static client Id - hostname is used when not set"
-            }
-          },
-          "extraDefinitions": {
-            "IPluginConfig_Credentials": {
-              "username": {
-                "type": "string",
-                "required": true,
-                "name": "Username",
-                "description": null
-              },
-              "password": {
-                "type": "string",
-                "required": true,
-                "name": "Password",
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "prefetch": 10,
-            "endpoint": "amqp://localhost",
-            "credentials": {
-              "username": "guest",
-              "password": "guest"
-            },
-            "uniqueId": null
-          }
-        },
-        "pluginLink": "rabbitmq.events.bsbcode.dev"
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-smtp-server",
     "version": "2.0.0",
     "author": {
@@ -386,5 +297,16 @@
         "pluginLink": "1password.config.bsbcode.dev"
       }
     ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-events-rabbitmq",
+    "version": "3.0.0-rc",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
+    "plugins": []
   }
 ]
