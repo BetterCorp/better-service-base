@@ -130,7 +130,7 @@ jobs:
           push: true
           tags: |
             betterweb/service-base:rc-latest
-            betterweb/service-base:${{ needs.build_and_publish_ea.outputs.version }}
+            betterweb/service-base:${{ needs.build_and_publish_rc.outputs.version }}
 
   docs_build_rc:
     runs-on: ubuntu-latest
