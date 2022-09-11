@@ -125,8 +125,8 @@ jobs:
           push: true
           tags: |
             betterweb/service-base:latest
-            betterweb/service-base:${{ needs.build_and_publish_ea.outputs.version }}
-            betterweb/service-base:v${{ needs.build_and_publish_ea.outputs.major }}
+            betterweb/service-base:${{ needs.build_and_publish_prod.outputs.version }}
+            betterweb/service-base:v${{ needs.build_and_publish_prod.outputs.major }}
 
   docs_build_prod:
     runs-on: ubuntu-latest
