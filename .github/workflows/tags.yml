@@ -61,7 +61,7 @@ jobs:
         run: |
           echo "Setting version too: ${{ steps.semver.outputs.version }}";
 
-      - run: npm version ${{ steps.semver.outputs.version }}
+      - run: npm version --no-git-tag-version ${{ steps.semver.outputs.version }}
       - run: npm run build
       - run: npm run test
 
