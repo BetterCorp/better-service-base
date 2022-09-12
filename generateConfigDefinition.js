@@ -8,7 +8,7 @@ exports.convert = (file, generatedFile) => {
     .split("\n")
     .map((x) => x.trim());
 
-  let indexStartForName = -1;
+  /*let indexStartForName = -1;
   let indexEndForName = -1;
   for (let index = 0; index < lines.length; index++) {
     if (indexStartForName !== -1) {
@@ -30,7 +30,18 @@ exports.convert = (file, generatedFile) => {
   let interfaceName = lines[indexEndForName]
     .split("):")[1]
     .split("=>")[0]
-    .trim();
+    .trim();*/
+
+  let interfaceName = '';
+  for (let line of lines) {
+    if (line.indexOf('export class Config extends SecConfig<') === 0) {
+      interfaceName = line.split('<')[1].split('>')[0];
+      break;
+    }
+  }
+
+  if (interfaceName === '')
+    throw 'Unknown default interface'
 
   const getDefinitions = (interfaceName) => {
     let indexStartForDef = -1;
@@ -101,10 +112,12 @@ exports.convert = (file, generatedFile) => {
     extraDefinitions[typeToFind] = getDefinitions(typeToFind);
   }
 
+  const requiredPlugin = require(generatedFile);
+  const requiredPluginConfig = (new requiredPlugin.Config());
   return {
     interfaceName,
     definitions,
     extraDefinitions,
-    defaultValues: require(generatedFile).default(),
+    defaultValues: requiredPluginConfig.migrate('default-name', {}),
   };
 };

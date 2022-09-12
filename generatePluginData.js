@@ -116,31 +116,39 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   if (fs.existsSync(tempDir))
     execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
   fs.mkdirSync(tempDir);
+  const temp_node_modules = fs.mkdtempSync(tempDir + "/");
+  const temp_node_modules_dir = path.join(temp_node_modules, "./node_modules");
+  execSync(
+    `cd ${temp_node_modules} && npm init -y && npm i --save @bettercorp/service-base`,
+    {
+      encoding: "utf-8",
+    }
+  );
   const knownPlugins = await getGithubRepos();
   // fs.writeFileSync("githubdata.json", JSON.stringify(knownPlugins, " ", 2));
   console.log(`Found ${knownPlugins.total_count} repositories`);
   for (let repo of knownPlugins.items) {
-    console.log(`${repo.full_name}: `);
-    if (repo.is_template !== false) {
-      console.warn(`${repo.full_name}: TEMPLATE / IGNORED`);
-      continue;
-    }
-    if (repo.archived !== false) {
-      console.warn(`  : ARCHIVED / IGNORED`);
-      continue;
-    }
-    if (repo.disabled !== false) {
-      console.warn(`  : DISABLED / IGNORED`);
-      continue;
-    }
-    if (repo.language !== "TypeScript") {
-      console.warn(`  : NOT TS / IGNORED`);
-      continue;
-    }
-    console.log(`  : Checking repo knowledge`);
-    const repoTempDir = fs.mkdtempSync(tempDir + "/");
-    const npmTempDir = fs.mkdtempSync(tempDir + "/");
     try {
+      console.log(`${repo.full_name}: `);
+      if (repo.is_template !== false) {
+        console.warn(`${repo.full_name}: TEMPLATE / IGNORED`);
+        continue;
+      }
+      if (repo.archived !== false) {
+        console.warn(`  : ARCHIVED / IGNORED`);
+        continue;
+      }
+      if (repo.disabled !== false) {
+        console.warn(`  : DISABLED / IGNORED`);
+        continue;
+      }
+      if (repo.language !== "TypeScript") {
+        console.warn(`  : NOT TS / IGNORED`);
+        continue;
+      }
+      console.log(`  : Checking repo knowledge`);
+      const repoTempDir = fs.mkdtempSync(tempDir + "/");
+      const npmTempDir = fs.mkdtempSync(tempDir + "/");
       console.log(`  : Downloading repo`);
       await downloadGithubRepo(
         repo.full_name,
@@ -152,18 +160,17 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
         encoding: "utf-8",
       });
       console.log(`  : Getting Package Config`);
+      const repoDirTemp = path.join(
+        repoTempDir,
+        `${repo.name}-${repo.default_branch}`
+      );
+
       const packgeJson = JSON.parse(
-        fs.readFileSync(
-          path.join(
-            repoTempDir,
-            `${repo.name}-${repo.default_branch}`,
-            "package.json"
-          )
-        )
+        fs.readFileSync(path.join(repoDirTemp, "package.json"))
       );
       console.log(`  : Getting NPM package`);
       execSync(
-        `cd ${npmTempDir} && npm pack ${packgeJson.name} && mv *.tgz Package.tar.gz`,
+        `cd ${npmTempDir} && npm pack ${packgeJson.name}@latest && mv *.tgz Package.tar.gz`,
         {
           encoding: "utf-8",
         }
@@ -172,6 +179,25 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
       execSync(`cd ${npmTempDir} && tar -xvf Package.tar.gz`, {
         encoding: "utf-8",
       });
+      execSync(
+        `cp -Rv ${temp_node_modules_dir} ${path.join(
+          repoDirTemp,
+          "./node_modules"
+        )}`,
+        {
+          encoding: "utf-8",
+        }
+      );
+      execSync(
+        `cp -Rv ${temp_node_modules_dir} ${path.join(
+          npmTempDir,
+          `package`,
+          "./node_modules"
+        )}`,
+        {
+          encoding: "utf-8",
+        }
+      );
       console.log(`  : Getting list of plugins`);
       let plugins = fs
         .readdirSync(path.join(npmTempDir, `package`, "lib/plugins/"))
@@ -241,23 +267,28 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
         path.join(npmTempDir, "./plugins.json"),
         JSON.stringify(plugins, " ", 2)
       );
-      availPlugins.push({
-        name: packgeJson.name,
-        version: packgeJson.version,
-        author: {
-          name: repo.owner.login,
-          url: repo.owner.html_url,
-          avatar: repo.owner.avatar_url,
-        },
-        github: repo.html_url,
-        plugins: plugins,
-      });
-      console.log(`  : Completed`);
+      if (plugins.length > 0) {
+        availPlugins.push({
+          name: packgeJson.name,
+          version: packgeJson.version,
+          author: {
+            name: repo.owner.login,
+            url: repo.owner.html_url,
+            avatar: repo.owner.avatar_url,
+          },
+          github: repo.html_url,
+          plugins: plugins,
+        });
+        console.log(`  : Completed`);
+      } else {
+        console.log(`  : No Plugins`);
+      }
     } catch (exc) {
       console.error(exc);
       console.warn(`  : IGNORED`);
     }
   }
+
   fs.writeFileSync("./plugins.json", JSON.stringify(availPlugins, " ", 2));
   if (fs.existsSync(tempDir))
     execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });

@@ -1,233 +1,5 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-smtp-server",
-    "version": "2.0.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-smtp-server",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "mail-server",
-        "def": {
-          "key": "mail-server",
-          "name": "NodeMailer",
-          "icon": "nodemailer.png",
-          "description": "NodeMailer mail sending plugin"
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "transport": {
-              "type": "SendmailTransport | SendmailTransport.Options",
-              "required": true,
-              "name": null,
-              "description": null
-            },
-            "defaults": {
-              "type": "SendmailTransport.Options",
-              "required": false,
-              "name": null,
-              "description": null
-            }
-          },
-          "extraDefinitions": {
-            "SendmailTransport | SendmailTransport.Options": {},
-            "SendmailTransport.Options": {}
-          },
-          "defaultValues": {
-            "transport": {
-              "sendmail": true,
-              "newline": "unix",
-              "path": "/usr/sbin/sendmail"
-            }
-          }
-        },
-        "pluginLink": null
-      },
-      {
-        "type": "plugin",
-        "name": "mail-server-mailgun",
-        "def": {
-          "key": "mail-server-mailgun",
-          "name": "Mailgun",
-          "icon": "mailgun.png",
-          "description": "Mailgun mail sending plugin"
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "region": {
-              "type": "MailgunRegion | null",
-              "required": true,
-              "name": "Region",
-              "description": "EU / US"
-            },
-            "templatesPath": {
-              "type": "string",
-              "required": true,
-              "name": "Templates Path",
-              "description": "Path on disk for the template files"
-            },
-            "mailgunDefaults": {
-              "type": "MailgunDefaults",
-              "required": false,
-              "name": "Mailgun Defaults",
-              "description": "Optional for default mailgun sender *depreciated*"
-            }
-          },
-          "extraDefinitions": {
-            "MailgunRegion | null": {},
-            "MailgunDefaults": {
-              "domain": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "apiKey": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "region": null,
-            "templatesPath": "/home/runner/work/better-service-base/better-service-base/node_modules/@bettercorp/service-base-plugin-smtp-server/content/html-templates"
-          }
-        },
-        "pluginLink": null
-      },
-      {
-        "type": "plugin",
-        "name": "smtp-server",
-        "def": {
-          "key": "smtp-server",
-          "name": "SMTP Server",
-          "icon": "smtp.png",
-          "description": "SMTP Server plugin"
-        },
-        "config": {
-          "interfaceName": "ISMTPServerConfig",
-          "definitions": {
-            "port": {
-              "type": "number",
-              "required": true,
-              "name": null,
-              "description": null
-            },
-            "banner": {
-              "type": "string | null",
-              "required": true,
-              "name": null,
-              "description": null
-            },
-            "domains": {
-              "type": "Array<string>",
-              "required": true,
-              "name": null,
-              "description": null
-            },
-            "serverOptions": {
-              "type": "any",
-              "required": true,
-              "name": null,
-              "description": null
-            },
-            "events": {
-              "type": "ISMTPServerEventsConfig",
-              "required": true,
-              "name": null,
-              "description": null
-            },
-            "spfOptions": {
-              "type": "any",
-              "required": true,
-              "name": null,
-              "description": null
-            }
-          },
-          "extraDefinitions": {
-            "string | null": {},
-            "ISMTPServerEventsConfig": {
-              "onAuth": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "onConnect": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "onClose": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "onMailFrom": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "onRcptTo": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "onError": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "onEmail": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "onEmailSpecific": {
-                "type": "Boolean",
-                "required": true,
-                "name": null,
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "port": 25,
-            "serverOptions": {},
-            "spfOptions": {},
-            "banner": null,
-            "domains": [],
-            "events": {
-              "onAuth": false,
-              "onConnect": false,
-              "onClose": false,
-              "onMailFrom": false,
-              "onRcptTo": false,
-              "onError": false,
-              "onEmail": false,
-              "onEmailSpecific": false
-            }
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-config-1password",
     "version": "3.0.0",
     "author": {
@@ -237,53 +9,6 @@
     },
     "github": "https://github.com/BetterCorp/service-base-config-1password",
     "plugins": [
-      {
-        "type": "plugin",
-        "name": "1password",
-        "def": {
-          "key": "1password",
-          "name": "1Password",
-          "icon": "1password.png",
-          "description": "1Password secrets automation"
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "serverUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Server URL",
-              "description": "The server URL for the 1password connect service"
-            },
-            "token": {
-              "type": "string",
-              "required": true,
-              "name": "Token",
-              "description": null
-            },
-            "vaultId": {
-              "type": "string",
-              "required": true,
-              "name": "Vault ID",
-              "description": null
-            },
-            "lockToVault": {
-              "type": "boolean",
-              "required": true,
-              "name": "Vault lock",
-              "description": "Lock access to a specific vault ID"
-            }
-          },
-          "extraDefinitions": {},
-          "defaultValues": {
-            "serverUrl": "http://localhost",
-            "token": "localhost",
-            "vaultId": "localhost",
-            "lockToVault": true
-          }
-        },
-        "pluginLink": "1password.plugin.bsbcode.dev"
-      },
       {
         "type": "config",
         "name": "config-1password",
@@ -307,6 +32,113 @@
       "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
     },
     "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
-    "plugins": []
+    "plugins": [
+      {
+        "type": "events",
+        "name": "events-rabbitmq",
+        "def": {
+          "key": "events-rabbitmq",
+          "name": "RabbitMQ",
+          "icon": "events-rabbitmq.png",
+          "description": "RabbitMQ events plugin",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-events-rabbitmq"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "PluginConfig",
+          "definitions": {
+            "fatalOnDisconnect": {
+              "type": "boolean",
+              "required": true,
+              "name": "Disconnect on error",
+              "description": "Cause the bsb service to exit code 1 if the connection drops"
+            },
+            "prefetch": {
+              "type": "number",
+              "required": true,
+              "name": "Prefetch",
+              "description": "The RabbitMQ Prefetch amount"
+            },
+            "endpoints": {
+              "type": "Array<string>",
+              "required": true,
+              "name": "Endpoints",
+              "description": "The list of servers(cluster) to connect too"
+            },
+            "credentials": {
+              "type": "IPluginConfig_Credentials",
+              "required": true,
+              "name": "Credentials for server authorization",
+              "description": null
+            },
+            "uniqueId": {
+              "type": "string",
+              "required": false,
+              "name": "Unique Client ID",
+              "description": "A static client Id - hostname is used when not set"
+            }
+          },
+          "extraDefinitions": {
+            "IPluginConfig_Credentials": {
+              "username": {
+                "type": "string",
+                "required": true,
+                "name": "Username",
+                "description": null
+              },
+              "password": {
+                "type": "string",
+                "required": true,
+                "name": "Password",
+                "description": null
+              }
+            }
+          },
+          "defaultValues": {
+            "fatalOnDisconnect": true,
+            "prefetch": 10,
+            "endpoints": [
+              "amqp://localhost"
+            ],
+            "credentials": {
+              "username": "guest",
+              "password": "guest"
+            }
+          }
+        },
+        "pluginLink": "rabbitmq.events.bsbcode.dev"
+      }
+    ]
   }
 ]
