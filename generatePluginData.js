@@ -293,8 +293,10 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   }
 
   fs.writeFileSync("./plugins.json", JSON.stringify(availPlugins, " ", 2));
-  if (fs.existsSync(tempDir))
-    execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    //execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
+  }
   const newHash = getFileHash("./plugins.json");
   console.log(
     `? changes: ${
