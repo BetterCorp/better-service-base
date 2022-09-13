@@ -6,7 +6,7 @@
         <span :active="filter == 'SERVICE'" @click="filter = 'SERVICE'">SERVICES</span>
         <span :active="filter == 'CONFIG'" @click="filter = 'CONFIG'">CONFIG</span>
         <span :active="filter == 'EVENTS'" @click="filter = 'EVENTS'">EVENTS</span>
-        <span :active="filter == 'LOG'" @click="filter = 'LOG'">LOGGING</span>
+        <span :active="filter == 'LOGGING'" @click="filter = 'LOGGING'">LOGGING</span>
       </div>
       <div class="plugin-selector search-bar" v-if="pluginConfig !== null && false">
         <span :active="!doSearch" @click="doSearch = true">SEARCH</span> <input v-if="doSearch" v-model="search"
@@ -48,7 +48,7 @@ export default {
           return this.$router.push('/Market/Events/');
         case 'CONFIG':
           return this.$router.push('/Market/Config/');
-        case 'LOG':
+        case 'LOGGING':
           return this.$router.push('/Market/Log/');
       }
       this.$router.push('/Market/');
@@ -104,7 +104,7 @@ export default {
       let searchFilter = this.$route.path.split('Market/')[1];
       if (searchFilter.indexOf('/') > 0) {
         this.filter = searchFilter.split('/')[0].toUpperCase();
-        if (['SERVICE', 'EVENTS', 'LOG', 'CONFIG'].indexOf(this.filter) < 0) {
+        if (['SERVICE', 'EVENTS', 'LOGGING', 'CONFIG'].indexOf(this.filter) < 0) {
           this.$router.replace('/Market/');
         }
       }
