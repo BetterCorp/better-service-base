@@ -1,68 +1,64 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-config-1password",
-    "version": "4.0.0",
+    "name": "@bettercorp/service-base-plugin-log-gelf",
+    "version": "4.0.1",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
       "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
     },
-    "github": "https://github.com/BetterCorp/service-base-plugin-1password",
+    "github": "https://github.com/BetterCorp/service-base-plugin-gelf",
     "plugins": [
       {
-        "type": "config",
-        "name": "config-1password",
+        "type": "logging",
+        "name": "log-gelf",
         "def": {
-          "key": "config-1password",
-          "name": "1Password",
-          "icon": "1password.png",
-          "description": "1Password events plugin"
-        },
-        "config": null,
-        "pluginLink": null
-      },
-      {
-        "type": "plugin",
-        "name": "service-1password",
-        "def": {
-          "key": "service-1password",
-          "name": "1Password",
-          "icon": "1password.png",
-          "description": "1Password secrets automation"
+          "key": "log-gelf",
+          "name": "Gelf/Graylog",
+          "icon": "log-gelf.png",
+          "description": "Gelf/Graylog log plugin",
+          "badges": [
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-log-gelf"
+            }
+          ]
         },
         "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "serverUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Server URL",
-              "description": "The server URL for the 1password connect service"
-            },
-            "token": {
-              "type": "string",
-              "required": true,
-              "name": "Token",
-              "description": null
-            },
-            "vaultId": {
-              "type": "string",
-              "required": true,
-              "name": "Vault ID",
-              "description": null
-            },
-            "lockToVault": {
-              "type": "boolean",
-              "required": true,
-              "name": "Vault lock",
-              "description": "Lock access to a specific vault ID"
-            }
-          },
+          "interfaceName": "PluginConfig",
+          "definitions": {},
           "extraDefinitions": {},
           "defaultValues": {
-            "serverUrl": "http://localhost",
-            "token": "localhost",
-            "vaultId": "localhost"
+            "adapterName": "udp",
+            "adapterOptions": {
+              "host": "127.0.0.1",
+              "port": 12201,
+              "family": 4,
+              "timeout": 10000
+            }
           }
         },
         "pluginLink": null
