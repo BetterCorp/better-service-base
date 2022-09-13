@@ -165,7 +165,7 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
         `${repo.name}-${repo.default_branch}`
       );
 
-      const packgeJson = JSON.parse(
+      let packgeJson = JSON.parse(
         fs.readFileSync(path.join(repoDirTemp, "package.json"))
       );
       console.log(`  : Getting NPM package`);
@@ -197,6 +197,9 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
         {
           encoding: "utf-8",
         }
+      );
+      packgeJson = JSON.parse(
+        fs.readFileSync(path.join(npmTempDir, `./package/`, "package.json"))
       );
       console.log(`  : Getting list of plugins`);
       let plugins = fs
