@@ -193,22 +193,22 @@
 
   .plugin-type-service {
     border-color: #a200ff;
-    box-shadow: rgba(45, 45, 45, 0.2) 0px 4px 12px 0px;
+    box-shadow: rgba(162, 0, 255, 0.2) 0px 4px 12px 0px;
   }
 
   .plugin-type-service .action-button:hover,
   .plugin-type-service .action-button-style:hover,
   .plugin-type-service:hover,
   .plugin-type-service-forced {
-    box-shadow: rgba(45, 45, 45, 0.5) 0px 6px 14px 0px !important;
+    box-shadow: rgba(162, 0, 255, 0.5) 0px 6px 14px 0px !important;
   }
 
   .plugin-type-service .plugin-title {
-    border-bottom: 1px solid rgba(45, 45, 45, 0.2);
+    border-bottom: 1px solid rgba(162, 0, 255, 0.2);
   }
 
   .plugin-type-service:hover .plugin-title {
-    border-bottom: 1px solid rgba(45, 45, 45, 0.5) !important;
+    border-bottom: 1px solid rgba(162, 0, 255, 0.5) !important;
   }
 
   /* CONFIG */

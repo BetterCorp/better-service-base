@@ -73,7 +73,7 @@
           </h2>
         </div>
         <div style="padding: 20px;">
-          <div style="display: inline-block;" v-for="badge of badges" v-bind:key="badge.url">
+          <div style="display: inline-block; margin-right: 5px;" v-for="badge of badges" v-bind:key="badge.url" >
             <a :href="badge.url" v-if="typeof badge.url === 'string'"><img :src="badge.img" /></a>
             <img v-else :src="badge.img" />
           </div>
