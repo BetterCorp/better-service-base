@@ -49,7 +49,7 @@ export default {
         case 'CONFIG':
           return this.$router.push('/Market/Config/');
         case 'LOGGING':
-          return this.$router.push('/Market/Log/');
+          return this.$router.push('/Market/Logging/');
       }
       this.$router.push('/Market/');
     }
