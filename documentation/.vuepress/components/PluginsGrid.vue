@@ -112,7 +112,7 @@ export default {
     if (self.pulledFromCache) return;
     fetch(
       //"https://raw.githubusercontent.com/BetterCorp/better-service-base/documentation/plugins.json"
-      "https://min.gitcdn.link/cdn/BetterCorp/better-service-base/documentation/plugins.json?time=" +
+      "https://cdn.bsbcode.dev/plugins.json?time=" +
       new Date().getTime()
     )
       .then(async (x) => {

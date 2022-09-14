@@ -46,3 +46,13 @@ jobs:
           message: "Updated known plugins"
           pull: ""
           push: true
+
+      - run: mkdir _tempCDN
+      - run: cp ./plugins.json _tempCDN/plugins.json
+
+      - name: Update site
+        uses: cloudflare/wrangler-action@2.0.0
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages publish _tempCDN --project-name=bsb-cdn --commit-dirty=true --branch=master
