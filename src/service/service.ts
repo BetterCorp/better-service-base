@@ -31,7 +31,9 @@ export class ServicesBase<
     IService<onEvents, emitEvents, onReturnableEvents, emitReturnableEvents>
 {
   public readonly initRequiredPlugins?: Array<string>;
+  public readonly initBeforePlugins?: Array<string>;
   public readonly runRequiredPlugins?: Array<string>;
+  public readonly runBeforePlugins?: Array<string>;
 
   async run(): Promise<void> {}
 
