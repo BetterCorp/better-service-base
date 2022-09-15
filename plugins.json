@@ -246,6 +246,77 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-netflow",
+    "version": "2.1.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-netflow",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-netflow",
+        "def": {
+          "key": "service-netflow",
+          "name": "Netflow",
+          "icon": "service-netflow.png",
+          "description": "Netflow traffic plugin",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-netflow",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-netflow/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-netflow"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-netflow"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-netflow"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-netflow/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-netflow/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-netflow"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-netflow"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-netflow"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-netflow"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "port": {
+              "type": "number",
+              "required": true,
+              "name": "Netflow Server Port",
+              "description": "The port to which to host the netflow server on"
+            }
+          },
+          "extraDefinitions": {},
+          "defaultValues": {
+            "port": 2055
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-config-1password",
     "version": "4.0.0",
     "author": {
