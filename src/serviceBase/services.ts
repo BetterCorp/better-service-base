@@ -105,10 +105,10 @@ export class SBServices {
   }
 
   public async servicesInit() {
-    let orderOfPlugins = this.makeRequired(this.makeBeforeRequired(this._activeServices.map((x) => {
+    let orderOfPlugins = this.makeAfterRequired(this.makeBeforeRequired(this._activeServices.map((x) => {
       return {
         name: x.pluginName,
-        requires: x.initRequiredPlugins || [],
+        after: x.initAfterPlugins || [],
         before: x.initBeforePlugins || [],
         ref: x,
       };
@@ -124,7 +124,7 @@ export class SBServices {
   public makeBeforeRequired(
     orderOfPlugins: {
       name: string;
-      requires: string[];
+      after: string[];
       before: string[];
       ref: ServicesBase;
     }[]
@@ -134,24 +134,24 @@ export class SBServices {
       for (let bPlugin of orderOfPlugins[i].before)
       for (let j = 0 ; j < orderOfPlugins.length ; j++) {
         if (orderOfPlugins[j].name == bPlugin) {
-          orderOfPlugins[j].requires.push(orderOfPlugins[i].name);
+          orderOfPlugins[j].after.push(orderOfPlugins[i].name);
         }
       }
     }
     return orderOfPlugins;
   }
-  public makeRequired(
+  public makeAfterRequired(
     orderOfPlugins: {
       name: string;
-      requires: string[];
+      after: string[];
       before: string[];
       ref: ServicesBase;
     }[]
   ) {
     for (let i = 0; i < orderOfPlugins.length - 1; i++) {
       for (let j = i + 1; j < orderOfPlugins.length; j++) {
-        if (orderOfPlugins[i].requires.indexOf(orderOfPlugins[j].name) >= 0) {
-          this.log.debug(`{plugin} run requires {reqName}`, {
+        if (orderOfPlugins[i].after.indexOf(orderOfPlugins[j].name) >= 0) {
+          this.log.debug(`{plugin} run after {reqName}`, {
             plugin: orderOfPlugins[i].name,
             reqName: orderOfPlugins[j].name,
           });
@@ -165,10 +165,10 @@ export class SBServices {
   }
 
   public async servicesRun() {
-    let orderOfPlugins = this.makeRequired(this.makeBeforeRequired(this._activeServices.map((x) => {
+    let orderOfPlugins = this.makeAfterRequired(this.makeBeforeRequired(this._activeServices.map((x) => {
       return {
         name: x.pluginName,
-        requires: x.runRequiredPlugins || [],
+        after: x.runAfterPlugins || [],
         before: x.runBeforePlugins || [],
         ref: x,
       };

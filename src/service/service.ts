@@ -30,10 +30,10 @@ export class ServicesBase<
   implements 
     IService<onEvents, emitEvents, onReturnableEvents, emitReturnableEvents>
 {
-  public readonly initRequiredPlugins?: Array<string>;
   public readonly initBeforePlugins?: Array<string>;
-  public readonly runRequiredPlugins?: Array<string>;
+  public readonly initAfterPlugins?: Array<string>;
   public readonly runBeforePlugins?: Array<string>;
+  public readonly runAfterPlugins?: Array<string>;
 
   async run(): Promise<void> {}
 
@@ -59,8 +59,10 @@ export class ServicesBase<
 
   constructor(pluginName: string, cwd: string, log: IPluginLogger) {
     super(pluginName, cwd, log);
-    if (Tools.isNullOrUndefined(this.initRequiredPlugins)) this.initRequiredPlugins = [];
-    if (Tools.isNullOrUndefined(this.runRequiredPlugins)) this.runRequiredPlugins = [];
+    if (Tools.isNullOrUndefined(this.initBeforePlugins)) this.initBeforePlugins = [];
+    if (Tools.isNullOrUndefined(this.initAfterPlugins)) this.initAfterPlugins = [];
+    if (Tools.isNullOrUndefined(this.runBeforePlugins)) this.runBeforePlugins = [];
+    if (Tools.isNullOrUndefined(this.runAfterPlugins)) this.runAfterPlugins = [];
   }
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,
