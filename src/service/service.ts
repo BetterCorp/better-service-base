@@ -4,7 +4,7 @@ import { IPluginLogger } from "../interfaces/logger";
 import { IService } from "../interfaces/service";
 import { Readable } from "stream";
 import { DefaultBase } from "../interfaces/base";
-import { RegisteredPlugin } from "./serviceClient";
+import { RegisteredPlugin, ServicesClient } from "./serviceClient";
 import { ErrorMessages } from "../interfaces/static";
 import {
   DynamicallyReferencedMethodType,
@@ -57,6 +57,7 @@ export class ServicesBase<
     throw ErrorMessages.BSBNotInit;
   }
 
+  protected _clients: Array<ServicesClient> = [];
   constructor(pluginName: string, cwd: string, log: IPluginLogger) {
     super(pluginName, cwd, log);
     if (Tools.isNullOrUndefined(this.initBeforePlugins)) this.initBeforePlugins = [];

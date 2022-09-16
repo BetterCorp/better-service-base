@@ -155,5 +155,6 @@ export class ServicesClient<
     (self as any).initAfterPlugins = self.initAfterPlugins!.concat(this.initAfterPlugins!);
     (self as any).runBeforePlugins = self.runBeforePlugins!.concat(this.runBeforePlugins!);
     (self as any).runAfterPlugins = self.runAfterPlugins!.concat(this.runAfterPlugins!);
+    (self as any)._clients.push(this);
   }
 }

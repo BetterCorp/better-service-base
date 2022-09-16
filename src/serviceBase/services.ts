@@ -20,6 +20,9 @@ export class SBServices {
   }
 
   async setupServicePlugins(
+    appId: string,
+    runningDebug: boolean,
+    runningLive: boolean,
     cwd: string,
     plugins: Array<IReadyPlugin>,
     appConfig: ConfigBase,
@@ -68,6 +71,7 @@ export class SBServices {
         pluginName: plugin.name,
       });
       const self = this;
+      SBBase.setupPlugin(appId, runningDebug, runningLive, servicePlugin, appConfig);
       await SBBase.setupServicePlugin(
         servicePlugin,
         await generateEventsForService(plugin.name, plugin.mappedName),
@@ -89,6 +93,26 @@ export class SBServices {
           throw ErrorMessages.ServicePluginNotCallableMethod;
         }
       );
+
+      await this.log.info(
+        "Setup {pluginName} ({mappedName}) referenced clients",
+        {
+          pluginName: plugin.name,
+          mappedName: plugin.mappedName,
+        }
+      );
+
+      for (let client of ((servicePlugin as any)._clients)) {
+        await this.log.info(
+          "Setup {pluginName} ({mappedName}) references {clientPlugin}",
+          {
+            pluginName: plugin.name,
+            mappedName: plugin.mappedName,
+            clientPlugin: client._pluginName
+          }
+        );
+        await client._register();
+      }
 
       await this.log.info(
         "Ready {pluginName} ({mappedName}) as new base service platform",

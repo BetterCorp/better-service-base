@@ -243,6 +243,9 @@ export class ServiceBase {
     this._startKeep(BOOT_STAT_KEYS.SERVICES);
     const self = this;
     await this._services.setupServicePlugins(
+      this._appId,
+      this._runningDebug,
+      this._runningLive,
       this.cwd,
       this.plugins,
       this._config.appConfig,
