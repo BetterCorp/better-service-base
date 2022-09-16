@@ -18,6 +18,7 @@ import {
   ServiceReturnableEvents,
   ServiceCallable,
 } from "./base";
+import { Tools } from '@bettercorp/tools/lib/Tools';
 
 export class RegisteredPlugin<
     onEvents,
@@ -116,6 +117,11 @@ export class ServicesClient<
   PluginClientConfigType extends IPluginConfig = any
 > {
   public readonly _pluginName!: string;
+  public readonly initBeforePlugins?: Array<string>;
+  public readonly initAfterPlugins?: Array<string>;
+  public readonly runBeforePlugins?: Array<string>;
+  public readonly runAfterPlugins?: Array<string>;
+
   private _referencedPlugin: ServicesBase<any, any, any, any>;
   protected _plugin!: RegisteredPlugin<
     onEvents,
@@ -140,5 +146,14 @@ export class ServicesClient<
 
   constructor(self: ServicesBase<any, any, any>) {
     this._referencedPlugin = self;
+    if (Tools.isNullOrUndefined(this.initBeforePlugins)) this.initBeforePlugins = [];
+    if (Tools.isNullOrUndefined(this.initAfterPlugins)) this.initAfterPlugins = [];
+    if (Tools.isNullOrUndefined(this.runBeforePlugins)) this.runBeforePlugins = [];
+    if (Tools.isNullOrUndefined(this.runAfterPlugins)) this.runAfterPlugins = [];
+    // We must add the inits/runs list to the referenced service in order to change the init and run order
+    (self as any).initBeforePlugins = self.initBeforePlugins!.concat(this.initBeforePlugins!);
+    (self as any).initAfterPlugins = self.initAfterPlugins!.concat(this.initAfterPlugins!);
+    (self as any).runBeforePlugins = self.runBeforePlugins!.concat(this.runBeforePlugins!);
+    (self as any).runAfterPlugins = self.runAfterPlugins!.concat(this.runAfterPlugins!);
   }
 }
