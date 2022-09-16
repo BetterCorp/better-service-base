@@ -36,7 +36,7 @@ export class Service
     this.emitEvent("onEmittable", a, b);
     return a * b;
   }
-  async init() {
+  public override async init() {
     const self = this;
     this.onEvent("onReceivable", async (a: number, b: number) => {
       self.log.warn("received onReceivable ({a},{b}", { a, b });
@@ -64,8 +64,7 @@ export class testClient extends ServicesClient<
   ) {
     super(self);
   }
-  public async register(): Promise<void> {
-    await this._register();
+  public async init(): Promise<void> {
     const self = this;
     this._plugin.onEvent("onEmittable", async (a: number, b: number) => {
       self._plugin.log.warn("onEmittable ({a},{b})", { a, b });
@@ -80,10 +79,10 @@ export class testClient extends ServicesClient<
     this._plugin.emitEvent("onReceivable", 56, 7);
   }
   async abc(): Promise<void> {
-    this._plugin.log.warn("TESTING ABC CALL ({result})", {
+    await this._plugin.log.warn("TESTING ABC CALL ({result})", {
       result: await this._plugin.callPluginMethod("callableMethod", 5, 8),
     });
-    this._plugin.log.warn("TESTING onReturnable ({result})", {
+    await this._plugin.log.warn("TESTING onReturnable ({result})", {
       result: await this._plugin.emitEventAndReturn("onReturnable", 12, 8),
     });
   }
