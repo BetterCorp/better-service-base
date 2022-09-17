@@ -11,7 +11,7 @@ on:
       - "**"
 
 jobs:
-  build-framework:
+  build-framework-nodejs:
     runs-on: ubuntu-latest
 
     strategy:
@@ -26,18 +26,24 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
+          cache-dependency-path: nodejs/package-lock.json
 
       - run: npm i -g typescript ts-node
+        working-directory: ./nodejs
       - run: tsc -v ; ts-node -v
+        working-directory: ./nodejs
       - run: npm ci
+        working-directory: ./nodejs
       - run: npm run build
+        working-directory: ./nodejs
       - run: npm run test
+        working-directory: ./nodejs
 
       - name: Test Report ${{ matrix.node-version }}
         uses: dorny/test-reporter@v1.5.0
         with:
           name: Tests
-          path: junit.json
+          path: nodejs/junit.json
           reporter: mocha-json
 
       - name: Upload coverage reports to Codecov
@@ -45,7 +51,7 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: coverage
+          directory: nodejs/coverage
 
       - name: cleanup
         if: always()
