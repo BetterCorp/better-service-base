@@ -68,8 +68,7 @@ exports.convert = (file, generatedFile) => {
       if (lines[index].indexOf(';') < 0) continue;
       if (lines[index].trim().indexOf('//') === 0) continue; // commented line
       if (lines[index].trim().indexOf('/*') === 0) {
-        commentActive = true;
-        continue; // commented block
+        commentActive = true; // commented block
       }
       if (commentActive) {
         if (lines[index].indexOf('*/') >= 0) 

@@ -107,7 +107,7 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
     });
   });
 
-(async () => {
+const defaultPlugins = ["@bettercorp/service-base", "bcrypt"](async () => {
   const reposConfig = JSON.parse(
     fs.readFileSync(path.join(process.cwd(), "repos.config.json"))
   );
@@ -119,7 +119,9 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   const temp_node_modules = fs.mkdtempSync(tempDir + "/");
   const temp_node_modules_dir = path.join(temp_node_modules, "./node_modules");
   execSync(
-    `cd ${temp_node_modules} && npm init -y && npm i --save @bettercorp/service-base`,
+    `cd ${temp_node_modules} && npm init -y && npm i --save ${defaultPlugins.join(
+      " "
+    )}`,
     {
       encoding: "utf-8",
     }
