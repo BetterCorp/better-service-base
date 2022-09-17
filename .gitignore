@@ -30,3 +30,4 @@ node_modules
 /dotnet/project.fragment.lock.json
 /dotnet/artifacts/
 /dotnet/**/Properties/launchSettings.json
+/rust/target
