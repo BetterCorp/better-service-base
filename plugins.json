@@ -789,8 +789,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$J04Qt7Z91LE1chJoil6XUu",
-            "secretKey": "$2b$08$oXXhaW7cR.HvTqn81LEZDu",
+            "authKey": "$2b$08$LcKmtFXWZi46NqnFEYHrQO",
+            "secretKey": "$2b$08$l/rCdrsIHVAlkINfL8TpsO",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
