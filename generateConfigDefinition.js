@@ -61,11 +61,23 @@ exports.convert = (file, generatedFile) => {
 
     let definitions = {};
     if (indexEndForDef === -1 || indexStartForDef === -1) return definitions;
+
+    let commentActive = false;
     for (let index = indexStartForDef; index <= indexEndForDef; index++) {
       if (lines[index].indexOf(':') < 0) continue;
       if (lines[index].indexOf(';') < 0) continue;
+      if (lines[index].trim().indexOf('//') === 0) continue; // commented line
+      if (lines[index].trim().indexOf('/*') === 0) {
+        commentActive = true;
+        continue; // commented block
+      }
+      if (commentActive) {
+        if (lines[index].indexOf('*/') >= 0) 
+          commentActive = false;
+        continue;
+      }
+
       let mainDef = lines[index].split(";", 2);
-      if (mainDef[0].indexOf("//") === 0) continue;
       let propDef = mainDef[0].trim().split(":", 2);
       let propName = propDef[0].trim();
       let required = true;
