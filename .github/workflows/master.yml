@@ -140,11 +140,11 @@ jobs:
           push: true
           tags: |
             betterweb/service-base:rc-latest
-            betterweb/service-base:${{ needs.build_and_publish_rc.outputs.version }}
+            betterweb/service-base:${{ needs.build_and_publish_rc_nodejs.outputs.version }}
 
   docs_build_rc:
     runs-on: ubuntu-latest
-    needs: [build_and_publish_rc]
+    needs: [build_and_publish_rc_nodejs]
 
     strategy:
       matrix:

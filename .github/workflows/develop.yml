@@ -140,11 +140,11 @@ jobs:
           push: true
           tags: |
             betterweb/service-base:ea-latest
-            betterweb/service-base:${{ needs.build_and_publish_ea.outputs.version }}
+            betterweb/service-base:${{ needs.build_and_publish_ea_nodejs.outputs.version }}
 
   docs_build_ea:
     runs-on: ubuntu-latest
-    needs: [build_and_publish_ea]
+    needs: [build_and_publish_ea_nodejs]
 
     strategy:
       matrix:

@@ -135,12 +135,12 @@ jobs:
           push: true
           tags: |
             betterweb/service-base:latest
-            betterweb/service-base:${{ needs.build_and_publish_prod.outputs.version }}
-            betterweb/service-base:v${{ needs.build_and_publish_prod.outputs.major }}
+            betterweb/service-base:${{ needs.build_and_publish_prod_nodejs.outputs.version }}
+            betterweb/service-base:v${{ needs.build_and_publish_prod_nodejs.outputs.major }}
 
   docs_build_prod:
     runs-on: ubuntu-latest
-    needs: [build_and_publish_prod]
+    needs: [build_and_publish_prod_nodejs]
 
     strategy:
       matrix:
