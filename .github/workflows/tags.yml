@@ -99,7 +99,7 @@ jobs:
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
 
   docker_build_prod_nodejs:
-    needs: [build_and_publish_prod, docs_build_prod]
+    needs: [build_and_publish_prod_nodejs, docs_build_prod]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

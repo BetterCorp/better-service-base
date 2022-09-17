@@ -104,7 +104,7 @@ jobs:
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
 
   docker_build_ea_nodejs:
-    needs: [build_and_publish_ea, docs_build_ea]
+    needs: [build_and_publish_ea_nodejs, docs_build_ea]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
