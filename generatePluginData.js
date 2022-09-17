@@ -107,7 +107,8 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
     });
   });
 
-const defaultPlugins = ["@bettercorp/service-base", "bcrypt"](async () => {
+const defaultPlugins = ["@bettercorp/service-base", "bcrypt"];
+(async () => {
   const reposConfig = JSON.parse(
     fs.readFileSync(path.join(process.cwd(), "repos.config.json"))
   );
