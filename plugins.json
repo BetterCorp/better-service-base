@@ -388,7 +388,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-web-server",
-    "version": "5.0.1",
+    "version": "5.0.2",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -668,6 +668,215 @@
                 "timeWindow": "15 minute"
               }
             }
+          }
+        },
+        "pluginLink": null
+      },
+      {
+        "type": "plugin",
+        "name": "service-webjwt",
+        "def": {
+          "key": "service-webjwt",
+          "name": "WebJWT",
+          "icon": "web-jwt.png",
+          "description": "WebJWT NodeJS plugin",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-web-server",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-web-server/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-web-server"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-web-server"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-web-server"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-web-server/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-web-server/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-web-server"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-web-server"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-web-server"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-web-server"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "IEJWTPluginConfig",
+          "definitions": {
+            "keyUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Key URL",
+              "description": "JWT Signing key url"
+            },
+            "bearerStr": {
+              "type": "string",
+              "required": true,
+              "name": "Bearer String",
+              "description": "Changes auth header 'Bearer (token)' value"
+            },
+            "authKey": {
+              "type": "string",
+              "required": true,
+              "name": "Auth Key",
+              "description": "For using secret key signing"
+            },
+            "secretKey": {
+              "type": "string",
+              "required": true,
+              "name": "Secret Key",
+              "description": "Signing key"
+            },
+            "authType": {
+              "type": "IEJWTPluginAuthType",
+              "required": true,
+              "name": "Auth Type",
+              "description": "Type of signing to do"
+            },
+            "queryKey": {
+              "type": "string",
+              "required": true,
+              "name": "Query Key",
+              "description": "For WebServers to use query string auth instead of header auth"
+            },
+            "options": {
+              "type": "VerifyOptions",
+              "required": true,
+              "name": "Options",
+              "description": "Signing options"
+            },
+            "tokenLifespanMinutes": {
+              "type": "number",
+              "required": true,
+              "name": "Token Lifespan",
+              "description": "Token lifespan in minutes"
+            },
+            "defaultTokenType": {
+              "type": "EJWTTokenType",
+              "required": true,
+              "name": "Default Token Type",
+              "description": "The default web server token validation type"
+            },
+            "allowedTokenTypes": {
+              "type": "Array<EJWTTokenType>",
+              "required": true,
+              "name": "Allowed Token Types",
+              "description": "If clients should only use certain types of tokens (header/query etc...)"
+            }
+          },
+          "extraDefinitions": {
+            "IEJWTPluginAuthType": {},
+            "VerifyOptions": {
+              "algorithms": {
+                "type": "Algorithm[] | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "audience": {
+                "type": "string | RegExp | Array<string | RegExp> | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "clockTimestamp": {
+                "type": "number | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "clockTolerance": {
+                "type": "number | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "complete": {
+                "type": "boolean | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "issuer": {
+                "type": "string | string[] | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "ignoreExpiration": {
+                "type": "boolean | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "ignoreNotBefore": {
+                "type": "boolean | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "jwtid": {
+                "type": "string | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "nonce": {
+                "type": "string | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "subject": {
+                "type": "string | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              },
+              "maxAge": {
+                "type": "string | number | undefined",
+                "required": false,
+                "name": null,
+                "description": null
+              }
+            },
+            "EJWTTokenType": {}
+          },
+          "defaultValues": {
+            "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
+            "bearerStr": "Bearer",
+            "authKey": "$2b$08$SK.ADAN1ipPDbfFu60qxG.",
+            "secretKey": "$2b$08$blhnayCPs6UmW/3J3k6o9e",
+            "queryKey": "passtk",
+            "authType": "JWTCERTS",
+            "options": {
+              "algorithms": [
+                "RS256"
+              ],
+              "issuer": "/auth/realms/RealmName",
+              "audience": "account"
+            },
+            "tokenLifespanMinutes": 60,
+            "defaultTokenType": "reqOrQuery",
+            "allowedTokenTypes": [
+              "reqOrQuery",
+              "req",
+              "query"
+            ]
           }
         },
         "pluginLink": null
