@@ -8,3 +8,5 @@ node_modules
 /coverage
 /junit.json
 /sec.config.json
+/nodejs/junit.json
+/nodejs/sec.config.json
