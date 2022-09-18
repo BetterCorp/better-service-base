@@ -4,11 +4,14 @@
       <h2 class="plugin-title">
         <Loader v-if="plugin === null" :width="300" />
         <template v-else>
-          <img class="plugin-img plugin-img-author" :src="plugin.ref.author.avatar" />
-          <img class="plugin-img plugin-img-icon"
-            :src="plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon" />
-          <div>
+          <span class="plugin-img plugin-img-author" :style="`background-image: url(${plugin.ref.author.avatar})`" />
+          <span class="plugin-img plugin-img-icon"
+            :style="`background-image: url(${plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon})`" />
+          <div class="plugin-title-name" v-if="plugin.def.name.length <= 18">
             {{ plugin.def.name }}
+          </div>
+          <div v-else class="plugin-title-name">
+            {{ plugin.def.name.substring(0, 15) }}...
           </div>
         </template>
       </h2>
@@ -73,7 +76,7 @@
           </h2>
         </div>
         <div style="padding: 20px;">
-          <div style="display: inline-block; margin-right: 5px;" v-for="badge of badges" v-bind:key="badge.url" >
+          <div style="display: inline-block; margin-right: 5px;" v-for="badge of badges" v-bind:key="badge.url">
             <a :href="badge.url" v-if="typeof badge.url === 'string'"><img :src="badge.img" /></a>
             <img v-else :src="badge.img" />
           </div>

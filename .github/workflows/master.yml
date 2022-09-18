@@ -6,7 +6,7 @@ on:
       - "master"
 
 jobs:
-  build_and_publish_rc:
+  build_and_publish_rc_nodejs:
     runs-on: ubuntu-latest
 
     strategy:
@@ -31,10 +31,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
+          cache-dependency-path: nodejs/package-lock.json
 
       - run: npm i -g typescript ts-node
+        working-directory: ./nodejs
       - run: tsc -v ; ts-node -v
+        working-directory: ./nodejs
       - run: npm ci
+        working-directory: ./nodejs
 
       - name: semver
         id: semver
@@ -50,6 +54,7 @@ jobs:
           namespace: ""
 
       - run: rm -f ~/.npmrc ; rm -f ./.npmrc ; echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM2_TOKEN_PUB }}" > ./.npmrc
+        working-directory: ./nodejs
       - run: |
           git config user.name "${{ secrets.NPM_NAME }}";
           git config user.email "${{ secrets.NPM_EMAIL }}";
@@ -60,14 +65,17 @@ jobs:
           echo "Setting version too: ${{ steps.semver.outputs.version }}";
 
       - run: npm version ${{ steps.semver.outputs.version }}
+        working-directory: ./nodejs
       - run: npm run build
+        working-directory: ./nodejs
       - run: npm run test
+        working-directory: ./nodejs
 
       - name: Test Report ${{ matrix.node-version }}
         uses: dorny/test-reporter@v1.5.0
         with:
           name: Tests
-          path: junit.json
+          path: nodejs/junit.json
           reporter: mocha-json
 
       - name: Upload coverage reports to Codecov
@@ -75,26 +83,28 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: coverage
+          directory: nodejs/coverage
 
       - run: npm publish --tag rc
+        working-directory: ./nodejs
         if: contains(matrix.node-version, '18.x')
 
       - run: npm pack
+        working-directory: ./nodejs
         if: contains(matrix.node-version, '18.x')
 
       - uses: actions/upload-artifact@v2
         if: contains(matrix.node-version, '18.x')
         with:
           name: published-package
-          path: bettercorp-service-base-*.tgz
+          path: nodejs/bettercorp-service-base-*.tgz
 
       - name: cleanup
         if: always()
         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
 
-  docker_build_rc:
-    needs: [build_and_publish_rc, docs_build_rc]
+  docker_build_rc_nodejs:
+    needs: [build_and_publish_rc_nodejs, docs_build_rc]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -103,6 +113,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: published-package
+          path: ./nodejs
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
@@ -124,17 +135,17 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           builder: ${{ steps.buildx.outputs.name }}
-          context: .
-          file: ./Dockerfile
+          context: ./nodejs/
+          file: ./nodejs/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: true
           tags: |
             betterweb/service-base:rc-latest
-            betterweb/service-base:${{ needs.build_and_publish_rc.outputs.version }}
+            betterweb/service-base:${{ needs.build_and_publish_rc_nodejs.outputs.version }}
 
   docs_build_rc:
     runs-on: ubuntu-latest
-    needs: [build_and_publish_rc]
+    needs: [build_and_publish_rc_nodejs]
 
     strategy:
       matrix:
@@ -152,6 +163,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
+          cache-dependency-path: documentation/package-lock.json
           
       - run: npm ci
         working-directory: documentation/
