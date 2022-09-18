@@ -162,6 +162,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
+          cache-dependency-path: documentation/package-lock.json
           
       - run: npm ci
         working-directory: documentation/
