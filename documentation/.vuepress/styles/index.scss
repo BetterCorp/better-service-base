@@ -104,6 +104,10 @@
     background: white;
     border: 3px solid white;
     box-shadow: rgb(0 0 0 / 20%) 0px 4px 12px 0px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    display: inline-block;
   }
 
   .plugin-img-icon {
@@ -168,7 +172,7 @@
     margin-left: -10px;
   }
 
-  /* PLUGIN */
+  /* SERVICE */
   .plugin-filter-service .plugin-selector {
     background: #a200ff;
   }
@@ -180,6 +184,7 @@
   }
 
   .plugin-type-service .author-name,
+  .plugin-type-service .plugin-title-name,
   .plugin-type-service .author-name svg {
     color: #a200ff;
     fill: #a200ff;
@@ -222,7 +227,8 @@
     color: white;
   }
 
-  .plugin-type-config .author-name, 
+  .plugin-type-config .author-name,
+  .plugin-type-config .plugin-title-name,
   .plugin-type-config .author-name svg {
     color: #03A9F4;
     fill: #03A9F4;
@@ -266,6 +272,7 @@
   }
 
   .plugin-type-events .author-name,
+  .plugin-type-events .plugin-title-name,
   .plugin-type-events .author-name svg {
     color: #FB8C00;
     fill: #FB8C00;
@@ -309,6 +316,7 @@
   }
 
   .plugin-type-logging .author-name,
+  .plugin-type-logging .plugin-title-name,
   .plugin-type-logging .author-name svg {
     color: #43A047;
     fill: #43A047;
