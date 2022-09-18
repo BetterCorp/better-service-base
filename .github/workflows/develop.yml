@@ -113,6 +113,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: published-package
+          working-directory: nodejs
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
@@ -135,6 +136,7 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./nodejs/
+          build-contexts: ./nodejs/
           file: ./nodejs/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: true
