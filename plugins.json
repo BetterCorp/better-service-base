@@ -671,8 +671,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$B4y3Cvf3ZW40pKFXR2S49u",
-            "secretKey": "$2b$08$krCroScrNcus0FcdkqTAVe",
+            "authKey": "$2b$08$UIgDpUcEl0Yia1cduwM89e",
+            "secretKey": "$2b$08$BhnDkgSmwjmWSMJE2AglF.",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -929,7 +929,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JE5BM3hlWkpUa0dVRVJ1d2g5QkdGNGUkMmIkMDQkTkEzeGVaSlRrR1VFUnV3aDlCR0Y0ZSQyYiQwNCROQTN4ZVpKVGtHVUVSdXdoOUJHRjRl",
+            "clientEndpointKey": "JDJiJDA0JHRWc0JlRks0dUJyRWFWNXZRQW41YS4kMmIkMDQkdFZzQmVGSzR1QnJFYVY1dlFBbjVhLiQyYiQwNCR0VnNCZUZLNHVCckVhVjV2UUFuNWEu",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
