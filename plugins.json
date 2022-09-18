@@ -727,8 +727,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$WurjBuIAizaRSGHMdJz03e",
-            "secretKey": "$2b$08$BfoiJLmnxd9gdiwsk6xubO",
+            "authKey": "$2b$08$GxYu2k5bwzXUAZKqQJiIsO",
+            "secretKey": "$2b$08$JpzsJRqiRh2uBFGshaSGw.",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -929,7 +929,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGdZMlo5UmhzWkcxTUU3V016T2tZTHUkMmIkMDQkZ1kyWjlSaHNaRzFNRTdXTXpPa1lMdSQyYiQwNCRnWTJaOVJoc1pHMU1FN1dNek9rWUx1",
+            "clientEndpointKey": "JDJiJDA0JG9JQzd0VHNSWlRjQUxhQS9yQ2VXbk8kMmIkMDQkb0lDN3RUc1JaVGNBTGFBL3JDZVduTyQyYiQwNCRvSUM3dFRzUlpUY0FMYUEvckNlV25P",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1002,6 +1002,91 @@
             "serverUrl": "http://localhost",
             "token": "localhost",
             "vaultId": "localhost"
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-syslog",
+    "version": "2.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-syslog",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-syslog-server",
+        "def": {
+          "key": "service-syslog-server",
+          "name": "rSyslog Server",
+          "icon": "rsyslog-server.png",
+          "description": "syslog server",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-syslog",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-syslog/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-syslog"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "port": {
+              "type": "number",
+              "required": true,
+              "name": "Port",
+              "description": "The port to bind the server on"
+            },
+            "address": {
+              "type": "string",
+              "required": true,
+              "name": "Address",
+              "description": "127.0.0.1/0.0.0.0 address to bind the server too."
+            },
+            "exclusive": {
+              "type": "boolean",
+              "required": true,
+              "name": "Exclusive",
+              "description": "Is it exclusive"
+            }
+          },
+          "extraDefinitions": {},
+          "defaultValues": {
+            "port": 514,
+            "address": "0.0.0.0",
+            "exclusive": false
           }
         },
         "pluginLink": null
