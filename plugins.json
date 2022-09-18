@@ -137,120 +137,64 @@
     ]
   },
   {
-    "name": "@bettercorp/service-base-plugin-events-rabbitmq",
-    "version": "3.0.0",
+    "name": "@bettercorp/service-base-plugin-adbud",
+    "version": "2.0.1",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
       "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
     },
-    "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
+    "github": "https://github.com/BetterCorp/service-base-service-adbud",
     "plugins": [
       {
-        "type": "events",
-        "name": "events-rabbitmq",
+        "type": "plugin",
+        "name": "service-adbud",
         "def": {
-          "key": "events-rabbitmq",
-          "name": "RabbitMQ",
-          "icon": "events-rabbitmq.png",
-          "description": "RabbitMQ events plugin",
+          "key": "service-adbud",
+          "name": "ADBud.io service",
+          "icon": "service-adbud.png",
+          "description": "ADbud.io service plugin",
           "badges": [
             {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq/branch/master/graph/badge.svg"
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-adbud",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-adbud/branch/master/graph/badge.svg"
             },
             {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-events-rabbitmq"
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-adbud"
             },
             {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-events-rabbitmq"
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-adbud"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/develop.yml/badge.svg?branch=develop"
+              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/develop.yml/badge.svg?branch=develop"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/master.yml/badge.svg?branch=master"
+              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/master.yml/badge.svg?branch=master"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
             },
             {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-events-rabbitmq"
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-adbud"
             },
             {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-events-rabbitmq"
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-adbud"
             },
             {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-events-rabbitmq"
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-adbud"
             }
           ]
         },
         "config": {
-          "interfaceName": "PluginConfig",
-          "definitions": {
-            "fatalOnDisconnect": {
-              "type": "boolean",
-              "required": true,
-              "name": "Disconnect on error",
-              "description": "Cause the bsb service to exit code 1 if the connection drops"
-            },
-            "prefetch": {
-              "type": "number",
-              "required": true,
-              "name": "Prefetch",
-              "description": "The RabbitMQ Prefetch amount"
-            },
-            "endpoints": {
-              "type": "Array<string>",
-              "required": true,
-              "name": "Endpoints",
-              "description": "The list of servers(cluster) to connect too"
-            },
-            "credentials": {
-              "type": "IPluginConfig_Credentials",
-              "required": true,
-              "name": "Credentials for server authorization",
-              "description": null
-            },
-            "uniqueId": {
-              "type": "string",
-              "required": false,
-              "name": "Unique Client ID",
-              "description": "A static client Id - hostname is used when not set"
-            }
-          },
-          "extraDefinitions": {
-            "IPluginConfig_Credentials": {
-              "username": {
-                "type": "string",
-                "required": true,
-                "name": "Username",
-                "description": null
-              },
-              "password": {
-                "type": "string",
-                "required": true,
-                "name": "Password",
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "fatalOnDisconnect": true,
-            "prefetch": 10,
-            "endpoints": [
-              "amqp://localhost"
-            ],
-            "credentials": {
-              "username": "guest",
-              "password": "guest"
-            }
-          }
+          "interfaceName": "MyPluginConfig",
+          "definitions": {},
+          "extraDefinitions": {},
+          "defaultValues": {}
         },
-        "pluginLink": "rabbitmq.events.bsbcode.dev"
+        "pluginLink": null
       }
     ]
   },
@@ -727,8 +671,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$RJn9AAzxlzUpxPOrD4RB.u",
-            "secretKey": "$2b$08$DGaUXtbj7DdWJ3mN4/LC0.",
+            "authKey": "$2b$08$DPdchWSziP5kBcJJyNRMI.",
+            "secretKey": "$2b$08$3oE0ZiGLili3F/hea8vTnu",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -752,64 +696,120 @@
     ]
   },
   {
-    "name": "@bettercorp/service-base-plugin-adbud",
-    "version": "2.0.1",
+    "name": "@bettercorp/service-base-plugin-events-rabbitmq",
+    "version": "3.0.0",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
       "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
     },
-    "github": "https://github.com/BetterCorp/service-base-service-adbud",
+    "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
     "plugins": [
       {
-        "type": "plugin",
-        "name": "service-adbud",
+        "type": "events",
+        "name": "events-rabbitmq",
         "def": {
-          "key": "service-adbud",
-          "name": "ADBud.io service",
-          "icon": "service-adbud.png",
-          "description": "ADbud.io service plugin",
+          "key": "events-rabbitmq",
+          "name": "RabbitMQ",
+          "icon": "events-rabbitmq.png",
+          "description": "RabbitMQ events plugin",
           "badges": [
             {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-adbud",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-adbud/branch/master/graph/badge.svg"
+              "url": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq/branch/master/graph/badge.svg"
             },
             {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-adbud"
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-events-rabbitmq"
             },
             {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-adbud"
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-events-rabbitmq"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/develop.yml/badge.svg?branch=develop"
+              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/develop.yml/badge.svg?branch=develop"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/master.yml/badge.svg?branch=master"
+              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/master.yml/badge.svg?branch=master"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
             },
             {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-adbud"
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-events-rabbitmq"
             },
             {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-adbud"
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-events-rabbitmq"
             },
             {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-adbud"
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-events-rabbitmq"
             }
           ]
         },
         "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {},
-          "extraDefinitions": {},
-          "defaultValues": {}
+          "interfaceName": "PluginConfig",
+          "definitions": {
+            "fatalOnDisconnect": {
+              "type": "boolean",
+              "required": true,
+              "name": "Disconnect on error",
+              "description": "Cause the bsb service to exit code 1 if the connection drops"
+            },
+            "prefetch": {
+              "type": "number",
+              "required": true,
+              "name": "Prefetch",
+              "description": "The RabbitMQ Prefetch amount"
+            },
+            "endpoints": {
+              "type": "Array<string>",
+              "required": true,
+              "name": "Endpoints",
+              "description": "The list of servers(cluster) to connect too"
+            },
+            "credentials": {
+              "type": "IPluginConfig_Credentials",
+              "required": true,
+              "name": "Credentials for server authorization",
+              "description": null
+            },
+            "uniqueId": {
+              "type": "string",
+              "required": false,
+              "name": "Unique Client ID",
+              "description": "A static client Id - hostname is used when not set"
+            }
+          },
+          "extraDefinitions": {
+            "IPluginConfig_Credentials": {
+              "username": {
+                "type": "string",
+                "required": true,
+                "name": "Username",
+                "description": null
+              },
+              "password": {
+                "type": "string",
+                "required": true,
+                "name": "Password",
+                "description": null
+              }
+            }
+          },
+          "defaultValues": {
+            "fatalOnDisconnect": true,
+            "prefetch": 10,
+            "endpoints": [
+              "amqp://localhost"
+            ],
+            "credentials": {
+              "username": "guest",
+              "password": "guest"
+            }
+          }
         },
-        "pluginLink": null
+        "pluginLink": "rabbitmq.events.bsbcode.dev"
       }
     ]
   },
@@ -929,7 +929,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHZTTEsyOTAwb01HTVhmSkQzTDFZQWUkMmIkMDQkdlNMSzI5MDBvTUdNWGZKRDNMMVlBZSQyYiQwNCR2U0xLMjkwMG9NR01YZkpEM0wxWUFl",
+            "clientEndpointKey": "JDJiJDA0JFlrMmdzYXp2LjlOcmNDVlhuVVhXQi4kMmIkMDQkWWsyZ3NhenYuOU5yY0NWWG5VWFdCLiQyYiQwNCRZazJnc2F6di45TnJjQ1ZYblVYV0Iu",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
