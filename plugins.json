@@ -71,6 +71,91 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-syslog",
+    "version": "2.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-syslog",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-syslog-server",
+        "def": {
+          "key": "service-syslog-server",
+          "name": "rSyslog Server",
+          "icon": "rsyslog-server.png",
+          "description": "syslog server",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-syslog",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-syslog/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-syslog"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "port": {
+              "type": "number",
+              "required": true,
+              "name": "Port",
+              "description": "The port to bind the server on"
+            },
+            "address": {
+              "type": "string",
+              "required": true,
+              "name": "Address",
+              "description": "127.0.0.1/0.0.0.0 address to bind the server too."
+            },
+            "exclusive": {
+              "type": "boolean",
+              "required": true,
+              "name": "Exclusive",
+              "description": "Is it exclusive"
+            }
+          },
+          "extraDefinitions": {},
+          "defaultValues": {
+            "port": 514,
+            "address": "0.0.0.0",
+            "exclusive": false
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-log-gelf",
     "version": "4.0.1",
     "author": {
@@ -609,8 +694,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$4/TFDkn9gVn6XKqe/dUUsu",
-            "secretKey": "$2b$08$USNJBJ.VnDawmc3SenTzK.",
+            "authKey": "$2b$08$o0450xnrZUweiVjhx64fxO",
+            "secretKey": "$2b$08$IsgRy77R2movQgRDz4S3SO",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -696,84 +781,194 @@
     ]
   },
   {
-    "name": "@bettercorp/service-base-plugin-syslog",
-    "version": "2.0.0",
+    "name": "@bettercorp/service-base-plugin-splynx",
+    "version": "2.0.2",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
       "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
     },
-    "github": "https://github.com/BetterCorp/service-base-plugin-syslog",
+    "github": "https://github.com/BetterCorp/service-base-plugin-splynx",
     "plugins": [
       {
         "type": "plugin",
-        "name": "service-syslog-server",
+        "name": "service-splynx",
         "def": {
-          "key": "service-syslog-server",
-          "name": "rSyslog Server",
-          "icon": "rsyslog-server.png",
-          "description": "syslog server",
+          "key": "service-splynx",
+          "name": "Splynx",
+          "icon": "splynx.png",
+          "description": "Splynx ISP CRM",
           "badges": [
             {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-syslog",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-syslog/branch/master/graph/badge.svg"
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-splynx",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-splynx/branch/master/graph/badge.svg"
             },
             {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-syslog"
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-splynx"
             },
             {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-syslog"
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-splynx"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-splynx"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/develop.yml/badge.svg?branch=develop"
+              "img": "https://github.com/BetterCorp/service-base-service-splynx/actions/workflows/develop.yml/badge.svg?branch=develop"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/master.yml/badge.svg?branch=master"
+              "img": "https://github.com/BetterCorp/service-base-service-splynx/actions/workflows/master.yml/badge.svg?branch=master"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-splynx"
             },
             {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-syslog"
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-splynx"
             },
             {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-syslog"
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-splynx"
             },
             {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-syslog"
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-splynx"
             }
           ]
         },
         "config": {
-          "interfaceName": "MyPluginConfig",
+          "interfaceName": "ISplynxPluginConfig",
           "definitions": {
-            "port": {
-              "type": "number",
-              "required": true,
-              "name": "Port",
-              "description": "The port to bind the server on"
-            },
-            "address": {
-              "type": "string",
-              "required": true,
-              "name": "Address",
-              "description": "127.0.0.1/0.0.0.0 address to bind the server too."
-            },
-            "exclusive": {
+            "webhooks": {
               "type": "boolean",
               "required": true,
-              "name": "Exclusive",
-              "description": "Is it exclusive"
+              "name": "Webhooks",
+              "description": "Enable inbound webhooks (Not available yet)"
+            },
+            "clientEndpointKey": {
+              "type": "string",
+              "required": true,
+              "name": "Client Key",
+              "description": "Inbound URL key for WebHooks"
+            },
+            "multiTenant": {
+              "type": "boolean",
+              "required": true,
+              "name": "Multi-Tenant Mode",
+              "description": "If false, Client Key is used to lock down webhooks"
+            },
+            "myHost": {
+              "type": "string",
+              "required": true,
+              "name": "My Host",
+              "description": "My hosts URL"
+            },
+            "serverConfig": {
+              "type": "IServerConfig",
+              "required": false,
+              "name": "Server Config",
+              "description": "If not running in multi-tenant config, you can define the splynx details here"
+            }
+          },
+          "extraDefinitions": {
+            "IServerConfig": {
+              "hostname": {
+                "type": "string",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "version": {
+                "type": "ISplynxAPIVersion",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "username": {
+                "type": "string",
+                "required": true,
+                "name": null,
+                "description": null
+              },
+              "password": {
+                "type": "string",
+                "required": true,
+                "name": null,
+                "description": null
+              }
+            }
+          },
+          "defaultValues": {
+            "webhooks": false,
+            "clientEndpointKey": "JDJiJDA0JHQ1UzZ0cmdEVC8yTE1wOGlwVy5oVmUkMmIkMDQkdDVTNnRyZ0RULzJMTXA4aXBXLmhWZSQyYiQwNCR0NVM2dHJnRFQvMkxNcDhpcFcuaFZl",
+            "multiTenant": false,
+            "myHost": "http://localhost"
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-config-1password",
+    "version": "4.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-1password",
+    "plugins": [
+      {
+        "type": "config",
+        "name": "config-1password",
+        "def": {
+          "key": "config-1password",
+          "name": "1Password",
+          "icon": "1password.png",
+          "description": "1Password events plugin"
+        },
+        "config": null,
+        "pluginLink": null
+      },
+      {
+        "type": "plugin",
+        "name": "service-1password",
+        "def": {
+          "key": "service-1password",
+          "name": "1Password",
+          "icon": "1password.png",
+          "description": "1Password secrets automation"
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "serverUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Server URL",
+              "description": "The server URL for the 1password connect service"
+            },
+            "token": {
+              "type": "string",
+              "required": true,
+              "name": "Token",
+              "description": null
+            },
+            "vaultId": {
+              "type": "string",
+              "required": true,
+              "name": "Vault ID",
+              "description": null
+            },
+            "lockToVault": {
+              "type": "boolean",
+              "required": true,
+              "name": "Vault lock",
+              "description": "Lock access to a specific vault ID"
             }
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "port": 514,
-            "address": "0.0.0.0",
-            "exclusive": false
+            "serverUrl": "http://localhost",
+            "token": "localhost",
+            "vaultId": "localhost"
           }
         },
         "pluginLink": null
@@ -895,201 +1090,6 @@
           }
         },
         "pluginLink": "rabbitmq.events.bsbcode.dev"
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-splynx",
-    "version": "2.0.2",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-splynx",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-splynx",
-        "def": {
-          "key": "service-splynx",
-          "name": "Splynx",
-          "icon": "splynx.png",
-          "description": "Splynx ISP CRM",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-splynx",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-splynx/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-splynx/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-splynx/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-splynx"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "ISplynxPluginConfig",
-          "definitions": {
-            "webhooks": {
-              "type": "boolean",
-              "required": true,
-              "name": "Webhooks",
-              "description": "Enable inbound webhooks (Not available yet)"
-            },
-            "clientEndpointKey": {
-              "type": "string",
-              "required": true,
-              "name": "Client Key",
-              "description": "Inbound URL key for WebHooks"
-            },
-            "multiTenant": {
-              "type": "boolean",
-              "required": true,
-              "name": "Multi-Tenant Mode",
-              "description": "If false, Client Key is used to lock down webhooks"
-            },
-            "myHost": {
-              "type": "string",
-              "required": true,
-              "name": "My Host",
-              "description": "My hosts URL"
-            },
-            "serverConfig": {
-              "type": "IServerConfig",
-              "required": false,
-              "name": "Server Config",
-              "description": "If not running in multi-tenant config, you can define the splynx details here"
-            }
-          },
-          "extraDefinitions": {
-            "IServerConfig": {
-              "hostname": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "version": {
-                "type": "ISplynxAPIVersion",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "username": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "password": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JERUZnZXUjZCeC5ibmYvMmQ5czBBeGUkMmIkMDQkRFRmdldSNkJ4LmJuZi8yZDlzMEF4ZSQyYiQwNCREVGZ2V1I2QnguYm5mLzJkOXMwQXhl",
-            "multiTenant": false,
-            "myHost": "http://localhost"
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-config-1password",
-    "version": "4.0.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-1password",
-    "plugins": [
-      {
-        "type": "config",
-        "name": "config-1password",
-        "def": {
-          "key": "config-1password",
-          "name": "1Password",
-          "icon": "1password.png",
-          "description": "1Password events plugin"
-        },
-        "config": null,
-        "pluginLink": null
-      },
-      {
-        "type": "plugin",
-        "name": "service-1password",
-        "def": {
-          "key": "service-1password",
-          "name": "1Password",
-          "icon": "1password.png",
-          "description": "1Password secrets automation"
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "serverUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Server URL",
-              "description": "The server URL for the 1password connect service"
-            },
-            "token": {
-              "type": "string",
-              "required": true,
-              "name": "Token",
-              "description": null
-            },
-            "vaultId": {
-              "type": "string",
-              "required": true,
-              "name": "Vault ID",
-              "description": null
-            },
-            "lockToVault": {
-              "type": "boolean",
-              "required": true,
-              "name": "Vault lock",
-              "description": "Lock access to a specific vault ID"
-            }
-          },
-          "extraDefinitions": {},
-          "defaultValues": {
-            "serverUrl": "http://localhost",
-            "token": "localhost",
-            "vaultId": "localhost"
-          }
-        },
-        "pluginLink": null
       }
     ]
   }
