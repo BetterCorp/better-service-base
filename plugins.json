@@ -271,9 +271,94 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JC5wMXR4dnZBRFouWHBUYml0NENvamUkMmIkMDQkLnAxdHh2dkFEWi5YcFRiaXQ0Q29qZSQyYiQwNCQucDF0eHZ2QURaLlhwVGJpdDRDb2pl",
+            "clientEndpointKey": "JDJiJDA0JDlVWm9yemt1cGRJR0ZNZjBHd2ZFVS4kMmIkMDQkOVVab3J6a3VwZElHRk1mMEd3ZkVVLiQyYiQwNCQ5VVpvcnprdXBkSUdGTWYwR3dmRVUu",
             "multiTenant": false,
             "myHost": "http://localhost"
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-snmp",
+    "version": "0.1.1",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-snmp",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-snmp-client",
+        "def": {
+          "key": "service-snmp",
+          "name": "SNMP Client",
+          "icon": "snmp.png",
+          "description": "SNMP Client",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-snmp",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-snmp/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-snmp"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-snmp"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-snmp"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-snmp/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-snmp/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-snmp"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-snmp"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-snmp"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-snmp"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "maxSessions": {
+              "type": "number",
+              "required": true,
+              "name": "Max Sessions",
+              "description": "The maximum amount of sessions to keep"
+            },
+            "maxSessionTimeout": {
+              "type": "number",
+              "required": true,
+              "name": "Max Session Timeout",
+              "description": "The maximum time in MS before a session is autoclosed"
+            },
+            "maxSessionTimer": {
+              "type": "number",
+              "required": true,
+              "name": "Max Session Interval",
+              "description": "The time in MS to run the cleanup"
+            }
+          },
+          "extraDefinitions": {},
+          "defaultValues": {
+            "maxSessions": 50,
+            "maxSessionTimeout": 120000,
+            "maxSessionTimer": 60000
           }
         },
         "pluginLink": null
@@ -403,91 +488,6 @@
           "definitions": {},
           "extraDefinitions": {},
           "defaultValues": {}
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-snmp",
-    "version": "0.1.1",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-snmp",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-snmp-client",
-        "def": {
-          "key": "service-snmp",
-          "name": "SNMP Client",
-          "icon": "snmp.png",
-          "description": "SNMP Client",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-snmp",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-snmp/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-snmp"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-snmp"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-snmp"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-snmp/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-snmp/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-snmp"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-snmp"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-snmp"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-snmp"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "maxSessions": {
-              "type": "number",
-              "required": true,
-              "name": "Max Sessions",
-              "description": "The maximum amount of sessions to keep"
-            },
-            "maxSessionTimeout": {
-              "type": "number",
-              "required": true,
-              "name": "Max Session Timeout",
-              "description": "The maximum time in MS before a session is autoclosed"
-            },
-            "maxSessionTimer": {
-              "type": "number",
-              "required": true,
-              "name": "Max Session Interval",
-              "description": "The time in MS to run the cleanup"
-            }
-          },
-          "extraDefinitions": {},
-          "defaultValues": {
-            "maxSessions": 50,
-            "maxSessionTimeout": 120000,
-            "maxSessionTimer": 60000
-          }
         },
         "pluginLink": null
       }
@@ -1154,8 +1154,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$nefArUaecE4ZIwGq0cqDvO",
-            "secretKey": "$2b$08$XibBGDxuja17FKH77qQRzu",
+            "authKey": "$2b$08$qGf/wbydG54/OxY1rbJuCO",
+            "secretKey": "$2b$08$agVq4mBFpeTaAW6LGc8dmu",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
