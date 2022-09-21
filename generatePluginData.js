@@ -108,6 +108,21 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
   });
 
 const defaultPlugins = ["@bettercorp/service-base", "bcrypt"];
+const setupDefaultPackages = (temp_node_modules, plugins) => {
+  if (!fs.existsSync(path.join(temp_node_modules, "./node_modules"))) {
+    execSync(`cd ${temp_node_modules} && npm init -y`, {
+      encoding: "utf-8",
+    });
+  }
+  execSync(
+    `cd ${temp_node_modules} && npm init -y && npm i --save ${plugins.join(
+      " "
+    )}`,
+    {
+      encoding: "utf-8",
+    }
+  );
+};
 (async () => {
   const reposConfig = JSON.parse(
     fs.readFileSync(path.join(process.cwd(), "repos.config.json"))
@@ -119,6 +134,7 @@ const defaultPlugins = ["@bettercorp/service-base", "bcrypt"];
   fs.mkdirSync(tempDir);
   const temp_node_modules = fs.mkdtempSync(tempDir + "/");
   const temp_node_modules_dir = path.join(temp_node_modules, "./node_modules");
+  setupDefaultPackages(temp_node_modules, defaultPlugins);
   execSync(
     `cd ${temp_node_modules} && npm init -y && npm i --save ${defaultPlugins.join(
       " "
@@ -191,16 +207,20 @@ const defaultPlugins = ["@bettercorp/service-base", "bcrypt"];
           encoding: "utf-8",
         }
       );
-      execSync(
-        `cp -Rv ${temp_node_modules_dir} ${path.join(
+      const updateNodeModules = () => {
+        const destNodeModDir = path.join(
           npmTempDir,
           `package`,
           "./node_modules"
-        )}`,
-        {
-          encoding: "utf-8",
+        );
+        if (fs.existsSync(destNodeModDir)) {
+          fs.unlinkSync(destNodeModDir);
         }
-      );
+        execSync(`cp -Rv ${temp_node_modules_dir} ${destNodeModDir}`, {
+          encoding: "utf-8",
+        });
+      };
+      updateNodeModules();
       packgeJson = JSON.parse(
         fs.readFileSync(path.join(npmTempDir, `./package/`, "package.json"))
       );
@@ -225,20 +245,34 @@ const defaultPlugins = ["@bettercorp/service-base", "bcrypt"];
             if (x.indexOf("events-") === 0) pluginType = "events";
             if (x.indexOf("log-") === 0) pluginType = "logging";
             if (x.indexOf("config-") === 0) pluginType = "config";
+            let definition = JSON.parse(
+              fs.readFileSync(
+                path.join(
+                  repoTempDir,
+                  `${repo.name}-${repo.default_branch}`,
+                  "src/plugins/",
+                  x,
+                  "plugin.config.json"
+                )
+              )
+            );
+
+            if (
+              definition.requiredPackagesForConfig !== undefined &&
+              definition.requiredPackagesForConfig !== null &&
+              definition.requiredPackagesForConfig.length !== null
+            ) {
+              setupDefaultPackages(
+                temp_node_modules,
+                definition.requiredPackagesForConfig
+              );
+              destNodeModDir();
+            }
+
             return {
               type: pluginType,
               name: x,
-              def: JSON.parse(
-                fs.readFileSync(
-                  path.join(
-                    repoTempDir,
-                    `${repo.name}-${repo.default_branch}`,
-                    "src/plugins/",
-                    x,
-                    "plugin.config.json"
-                  )
-                )
-              ),
+              def: definition,
               config:
                 pluginType === "config"
                   ? null
