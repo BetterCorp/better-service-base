@@ -110,10 +110,12 @@ const downloadGithubRepo = (ownerRepo, branch, cwd) =>
 const defaultPlugins = ["@bettercorp/service-base", "bcrypt"];
 const setupDefaultPackages = (temp_node_modules, plugins) => {
   if (!fs.existsSync(path.join(temp_node_modules, "./node_modules"))) {
+    console.log("Setup temp node_modules");
     execSync(`cd ${temp_node_modules} && npm init -y`, {
       encoding: "utf-8",
     });
   }
+  console.log("Setup temp node_modules packages: " + plugins.join(","));
   execSync(
     `cd ${temp_node_modules} && npm init -y && npm i --save ${plugins.join(
       " "
@@ -207,20 +209,20 @@ const setupDefaultPackages = (temp_node_modules, plugins) => {
           encoding: "utf-8",
         }
       );
-      const updateNodeModules = () => {
+      const updateNodeModules = (temp_node_modules_dr, npmTempDr) => {
         const destNodeModDir = path.join(
-          npmTempDir,
+          npmTempDr,
           `package`,
           "./node_modules"
         );
         if (fs.existsSync(destNodeModDir)) {
-          fs.unlinkSync(destNodeModDir);
+          fs.rmSync(destNodeModDir, { recursive: true, force: true });
         }
-        execSync(`cp -Rv ${temp_node_modules_dir} ${destNodeModDir}`, {
+        execSync(`cp -Rv ${temp_node_modules_dr} ${destNodeModDir}`, {
           encoding: "utf-8",
         });
       };
-      updateNodeModules();
+      updateNodeModules(temp_node_modules_dir, npmTempDir);
       packgeJson = JSON.parse(
         fs.readFileSync(path.join(npmTempDir, `./package/`, "package.json"))
       );
@@ -266,7 +268,7 @@ const setupDefaultPackages = (temp_node_modules, plugins) => {
                 temp_node_modules,
                 definition.requiredPackagesForConfig
               );
-              destNodeModDir();
+              updateNodeModules(temp_node_modules_dir, npmTempDir);
             }
 
             return {
