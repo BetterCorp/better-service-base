@@ -131,8 +131,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "f5c6180e54ec1d8f7a5551df8b119639",
-            "commsTokenIV": "9ef96384f9e853d8f1c395ab2e532bf5",
+            "commsToken": "105f994f6c7b26a616f565d42b4afd90",
+            "commsTokenIV": "0b4abac61d8b4a85af9792f11ba6f627",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -768,8 +768,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$TPmRO.9oRz8/g4Z8kCjZpu",
-            "secretKey": "$2b$08$u.mKEnmVih3y.FebPu7jcu",
+            "authKey": "$2b$08$.4PdAYO6Z.Oh7w4YWQOGT.",
+            "secretKey": "$2b$08$B77jq5eVERl2n9w3mPPdr.",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1199,6 +1199,108 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-push",
+    "version": "3.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-push",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-push-server",
+        "def": {
+          "key": "service-push-server",
+          "name": "Web Push Server",
+          "icon": "push-server.png",
+          "description": "Web Push Protocol Server",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-push",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-push/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-push"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-push"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-push"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-push/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-push/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-push"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-push"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-push"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-push"
+            }
+          ],
+          "requiredPackagesForConfig": [
+            "web-push"
+          ]
+        },
+        "config": {
+          "interfaceName": "IPushPluginConfig",
+          "definitions": {
+            "publicKey": {
+              "type": "string",
+              "required": true,
+              "name": "VAPID Public Key",
+              "description": null
+            },
+            "privateKey": {
+              "type": "string",
+              "required": true,
+              "name": "VAPID Private Key",
+              "description": null
+            },
+            "email": {
+              "type": "string",
+              "required": true,
+              "name": "Company Email",
+              "description": null
+            },
+            "host": {
+              "type": "string",
+              "required": true,
+              "name": "My Host",
+              "description": null
+            },
+            "serviceWorkerJSPath": {
+              "type": "string",
+              "required": true,
+              "name": "Service worker path",
+              "description": "The /sw.js path on the client app"
+            }
+          },
+          "extraDefinitions": {},
+          "defaultValues": {
+            "publicKey": "BFzr2_Sa7f7TTd22oo3rnwwCF96_zugrHL3UovjlfzKMk9ncWEWa3rjRjo6Nx7o9f0o2AIDuSmfz93JGykbr8gw",
+            "privateKey": "6ElLoT09ppIFKnct3dPDx-31Xi3VzXn-cQ9yH0gRni4",
+            "email": "test@example.com",
+            "host": "http://localhost",
+            "serviceWorkerJSPath": "/sw.js"
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-splynx",
     "version": "2.0.2",
     "author": {
@@ -1314,7 +1416,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JEF0LnZPVU9Md0s5VTUvdk1zYkZiZXUkMmIkMDQkQXQudk9VT0x3SzlVNS92TXNiRmJldSQyYiQwNCRBdC52T1VPTHdLOVU1L3ZNc2JGYmV1",
+            "clientEndpointKey": "JDJiJDA0JERzTXA1SlcwVWo5MHUxNUI0RFlTdGUkMmIkMDQkRHNNcDVKVzBVajkwdTE1QjREWVN0ZSQyYiQwNCREc01wNUpXMFVqOTB1MTVCNERZU3Rl",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1421,8 +1523,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "6e56076969ba73833d23f016ceccbb93",
-            "commsTokenIV": "f6df7cee0c795fc11ed7cd90a8e7a92d",
+            "commsToken": "5f304799da301e772489e3553c900576",
+            "commsTokenIV": "adaffe454d171e61bd6d3c90595ff7f5",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
