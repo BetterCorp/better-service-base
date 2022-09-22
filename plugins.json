@@ -131,8 +131,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "105f994f6c7b26a616f565d42b4afd90",
-            "commsTokenIV": "0b4abac61d8b4a85af9792f11ba6f627",
+            "commsToken": "7b996f94b110d7102f840ac83124fc24",
+            "commsTokenIV": "f79566c9dec4937bf4200b59a28f4f80",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -768,8 +768,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$.4PdAYO6Z.Oh7w4YWQOGT.",
-            "secretKey": "$2b$08$B77jq5eVERl2n9w3mPPdr.",
+            "authKey": "$2b$08$iA/ugq4Lf7H5ouJEFgs15u",
+            "secretKey": "$2b$08$NNokzlKfH.BDvnorgNuXSu",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1289,8 +1289,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BFzr2_Sa7f7TTd22oo3rnwwCF96_zugrHL3UovjlfzKMk9ncWEWa3rjRjo6Nx7o9f0o2AIDuSmfz93JGykbr8gw",
-            "privateKey": "6ElLoT09ppIFKnct3dPDx-31Xi3VzXn-cQ9yH0gRni4",
+            "publicKey": "BO3xg9lSXRZGZsMmSdQxJkSBn3AmVa986badyP_UZPYf_DuJRQUS-dp0r3VOVwQdL39PUGvrANoEgCD3MATWnTw",
+            "privateKey": "jLd8qZPs-hua86YXdfuQE25l4mriVJwTGaN-0SB0a9w",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1416,7 +1416,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JERzTXA1SlcwVWo5MHUxNUI0RFlTdGUkMmIkMDQkRHNNcDVKVzBVajkwdTE1QjREWVN0ZSQyYiQwNCREc01wNUpXMFVqOTB1MTVCNERZU3Rl",
+            "clientEndpointKey": "JDJiJDA0JFZuZTZ1U0JZY1pFZWI3TUxGaWFudmUkMmIkMDQkVm5lNnVTQlljWkVlYjdNTEZpYW52ZSQyYiQwNCRWbmU2dVNCWWNaRWViN01MRmlhbnZl",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1523,8 +1523,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "5f304799da301e772489e3553c900576",
-            "commsTokenIV": "adaffe454d171e61bd6d3c90595ff7f5",
+            "commsToken": "3a0bbdf6d7bda9b00e93f8e854b965a0",
+            "commsTokenIV": "464152dc4379c140986d6e91b13d1f0e",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
