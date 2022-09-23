@@ -85,6 +85,72 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-log-gelf",
+    "version": "4.0.1",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-gelf",
+    "plugins": [
+      {
+        "type": "logging",
+        "name": "log-gelf",
+        "def": {
+          "key": "log-gelf",
+          "name": "Gelf/Graylog",
+          "icon": "log-gelf.png",
+          "description": "Gelf/Graylog log plugin",
+          "badges": [
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-log-gelf"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "PluginConfig",
+          "definitions": {},
+          "extraDefinitions": {},
+          "defaultValues": {
+            "adapterName": "udp",
+            "adapterOptions": {
+              "host": "127.0.0.1",
+              "port": 12201,
+              "family": 4,
+              "timeout": 10000
+            }
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-payfast",
     "version": "4.0.0",
     "author": {
@@ -216,78 +282,12 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "8a319dfe8ef1b6377e087da0875fa2ed",
-            "commsTokenIV": "7c1f804dfeb85e55d3d5c627595c83c6",
+            "commsToken": "a8fc323551bd59549c856cc3d9006d6d",
+            "commsTokenIV": "1ddbb181d2ada899550454dcb8891cc2",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
               "passphrase": "uh_toot6RAID1gnup"
-            }
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-log-gelf",
-    "version": "4.0.1",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-gelf",
-    "plugins": [
-      {
-        "type": "logging",
-        "name": "log-gelf",
-        "def": {
-          "key": "log-gelf",
-          "name": "Gelf/Graylog",
-          "icon": "log-gelf.png",
-          "description": "Gelf/Graylog log plugin",
-          "badges": [
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-log-gelf"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-log-gelf"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-log-gelf"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-log-gelf"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-log-gelf"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "PluginConfig",
-          "definitions": {},
-          "extraDefinitions": {},
-          "defaultValues": {
-            "adapterName": "udp",
-            "adapterOptions": {
-              "host": "127.0.0.1",
-              "port": 12201,
-              "family": 4,
-              "timeout": 10000
             }
           }
         },
@@ -722,8 +722,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BH9pm0AVqOzr0XpZ0E5P9J1JOcwy36OKYXlF8TWPDJ1TvGcPItMapOJFzj5SeEeYc64sp7JCMB15qzCSFCYrq8A",
-            "privateKey": "53Silk9qDLr6q3Ync7GNq4hyPrOf-D8dWnAXyMLJl2k",
+            "publicKey": "BLena4w2hRQIUiNBdu3WazgulmV6ykS4n1QQ9Bl6m3osJC2aMmOljAF5cW2KITcz9WhtlyS36RYNcMO0qQthJME",
+            "privateKey": "YerlrqNQHkKCoA8L6SF964_5lZGEJdL4tzlSyLPZlpA",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1276,8 +1276,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$ugIMGdPxllrrt6k/mM.Wz.",
-            "secretKey": "$2b$08$Hn5X5yp.2ioIzVG8xgw9AO",
+            "authKey": "$2b$08$DQ5rplx534A5hQdI5sQvIe",
+            "secretKey": "$2b$08$diLXzP8lr1iuHOtoDB7G/e",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1416,7 +1416,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JG1UQUpDTU1TRExjWkhrcEtLb2RrM3UkMmIkMDQkbVRBSkNNTVNETGNaSGtwS0tvZGszdSQyYiQwNCRtVEFKQ01NU0RMY1pIa3BLS29kazN1",
+            "clientEndpointKey": "JDJiJDA0JGNacE9GTnpMOTZUTWwvdzNGTkRuY08kMmIkMDQkY1pwT0ZOekw5NlRNbC93M0ZORG5jTyQyYiQwNCRjWnBPRk56TDk2VE1sL3czRk5EbmNP",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1523,8 +1523,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "445e63342ec6f3aaa400a97106005a24",
-            "commsTokenIV": "cc6ac975797c077f87ca2b25f59be022",
+            "commsToken": "4a8ad65e43fbdf22a7088350b2a1f455",
+            "commsTokenIV": "9387ae5f0e4586ed55f7d31fd832839a",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
