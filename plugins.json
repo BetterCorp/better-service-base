@@ -623,8 +623,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$YYRmoakeC.PTsy36D6EVzu",
-            "secretKey": "$2b$08$mWW3lm.QwJ1nlQYNB204pO",
+            "authKey": "$2b$08$fpz12nvCTIAuJW8G3wBux.",
+            "secretKey": "$2b$08$wCUWp7QRwLBrk1mgbix2HO",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1044,8 +1044,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "add4b93da0bbf6e2cffc4d4407da1e33",
-            "commsTokenIV": "5ce99fc7959364c0b9319d0ac2b18907",
+            "commsToken": "5f6f77e9318e51ebb4b7f3382ea07f5d",
+            "commsTokenIV": "6107e087a935fe1e55d6f0de1e58f330",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -1243,7 +1243,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGo2cTZidDNZYUFaNkVNc3Z4VjRTbnUkMmIkMDQkajZxNmJ0M1lhQVo2RU1zdnhWNFNudSQyYiQwNCRqNnE2YnQzWWFBWjZFTXN2eFY0U251",
+            "clientEndpointKey": "JDJiJDA0JE1pR3dDY2o3elFXV2FuTmJvMndUdmUkMmIkMDQkTWlHd0Njajd6UVdXYW5OYm8yd1R2ZSQyYiQwNCRNaUd3Q2NqN3pRV1dhbk5ibzJ3VHZl",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1350,8 +1350,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "96993464c360ba395239b0cc39a0ca79",
-            "commsTokenIV": "d088441828b855d3c40e748c7eeed3cc",
+            "commsToken": "83edcfb8f4614b91d99cbc7d72d71164",
+            "commsTokenIV": "6be61ffcafb9dbb8f258ee0e37f2a96b",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
@@ -1453,8 +1453,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BG3_k19ahPAQryxvf1csvK-VgqfKivlgSX03AXl8_pcN-Xs5LcsIqT7ZN1E8jAYMjtVQh2BSfSmTt6hJDk559uM",
-            "privateKey": "kEC0a0DtNHo_6McOs0pHEndsoxWfjpF8gXxQPFbkrvc",
+            "publicKey": "BLmvelN_8pOW4BkxyykwgHimjsQ5xlJ3mkEavvr9q58Y6buA1-CuyuKpXOab_Oyfimj4_ra4N0WzvqX98-LWHPQ",
+            "privateKey": "MVcrDmBK16bZbkyN8UIDD6sl51fSDobgyeUOOzJlNj0",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
