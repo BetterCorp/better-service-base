@@ -197,8 +197,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "0918d1daa9465ca4a6bba7bf24036326",
-            "commsTokenIV": "43d9496c58829ddd5dbe1120225e1221",
+            "commsToken": "b8d9169e28d9ec3c52ba8c201d49269c",
+            "commsTokenIV": "62905d7f2c2c78f2c2a73419bc763316",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -410,68 +410,6 @@
           }
         },
         "pluginLink": "rabbitmq.events.bsbcode.dev"
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-adbud",
-    "version": "2.0.1",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-service-adbud",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-adbud",
-        "def": {
-          "key": "service-adbud",
-          "name": "ADBud.io service",
-          "icon": "service-adbud.png",
-          "description": "ADbud.io service plugin",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-adbud",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-adbud/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-adbud"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {},
-          "extraDefinitions": {},
-          "defaultValues": {}
-        },
-        "pluginLink": null
       }
     ]
   },
@@ -1033,8 +971,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$.Z.dsNQyqvKZb7n2cG1OiO",
-            "secretKey": "$2b$08$GYr3.lShoRd/9kw2ISIWuO",
+            "authKey": "$2b$08$V.0gjCEsnkYhwSzCF8dCZu",
+            "secretKey": "$2b$08$in1eVeP.cRzuNfMA/UcP.u",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1052,6 +990,68 @@
               "query"
             ]
           }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-adbud",
+    "version": "2.0.1",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-service-adbud",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-adbud",
+        "def": {
+          "key": "service-adbud",
+          "name": "ADBud.io service",
+          "icon": "service-adbud.png",
+          "description": "ADbud.io service plugin",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-adbud",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-adbud/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-adbud"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {},
+          "extraDefinitions": {},
+          "defaultValues": {}
         },
         "pluginLink": null
       }
@@ -1243,7 +1243,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHFIUTJCMWU0SlJLRlhBSEIxMW91VS4kMmIkMDQkcUhRMkIxZTRKUktGWEFIQjExb3VVLiQyYiQwNCRxSFEyQjFlNEpSS0ZYQUhCMTFvdVUu",
+            "clientEndpointKey": "JDJiJDA0JGFGMHM0aS9Lc0QyZzhFVHNDZEdmUi4kMmIkMDQkYUYwczRpL0tzRDJnOEVUc0NkR2ZSLiQyYiQwNCRhRjBzNGkvS3NEMmc4RVRzQ2RHZlIu",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1350,8 +1350,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "35bec29d0a6afe4c2a1c61098b9342ff",
-            "commsTokenIV": "76762e99cc62880cd891558319a9c192",
+            "commsToken": "11311df06896315b6788bd8b73a11af4",
+            "commsTokenIV": "9456c0954b1f2725640d98dda5686cfe",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
@@ -1453,8 +1453,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BDVpnyChgCpyvJk9pXOFmPLuaYheGXPCm5ZWeMqO92_VRB9Qfra1gsR44exVs_qm1agymiBaZASuvRU_fxqhiLQ",
-            "privateKey": "VIy9EBSY97pi5SvWz_s5LVz-fJ9mqs00a-cPl1JQfBY",
+            "publicKey": "BE7JcoUw3qmUEvbhcII58TBtGLhjSdZIttTRP9uuGf359gwKDD8MQfddY2XBAzShLfhGL7Pklf3kR4oHAxOnuLo",
+            "privateKey": "vik4hukeUxGsh494g1RY3GCKjdvWz4m6V-yX0ISgQr0",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
