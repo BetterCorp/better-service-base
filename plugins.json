@@ -1,150 +1,5 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-payfast",
-    "version": "4.0.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-payfast",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-payfast",
-        "def": {
-          "key": "service-payfast",
-          "name": "PayFast",
-          "icon": "payfast.png",
-          "description": "PayFast payment gateway",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-payfast",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-payfast/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-payfast"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-payfast"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-payfast"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-payfast"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-payfast"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "PayfastPluginConfig",
-          "definitions": {
-            "adhocUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Payfast Adhoc URL",
-              "description": null
-            },
-            "liveUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Payfast Live URL",
-              "description": null
-            },
-            "sandboxUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Payfast Sandbox URL",
-              "description": null
-            },
-            "commsToken": {
-              "type": "string",
-              "required": true,
-              "name": "Comms Token",
-              "description": "** Special encryption token"
-            },
-            "commsTokenIV": {
-              "type": "string",
-              "required": true,
-              "name": "Comms Token IV",
-              "description": "** Special encryption token"
-            },
-            "myHost": {
-              "type": "string",
-              "required": true,
-              "name": "My Host",
-              "description": "like https"
-            },
-            "itnPath": {
-              "type": "string",
-              "required": true,
-              "name": "My ITN Path",
-              "description": "Allows you to change the ITN path"
-            },
-            "sandboxConfig": {
-              "type": "PayfastSandboxConfig",
-              "required": true,
-              "name": "Sandbox Config",
-              "description": "Default/test config"
-            }
-          },
-          "extraDefinitions": {
-            "PayfastSandboxConfig": {
-              "merchantId": {
-                "type": "string",
-                "required": true,
-                "name": "Merchant ID",
-                "description": null
-              },
-              "merchantKey": {
-                "type": "string",
-                "required": true,
-                "name": "Merchant Key",
-                "description": null
-              },
-              "passphrase": {
-                "type": "string",
-                "required": false,
-                "name": "Passphrase / Secret Key",
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "adhocUrl": "https://api.payfast.co.za/subscriptions/{TOKEN}/adhoc",
-            "liveUrl": "https://www.payfast.co.za/eng/process",
-            "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
-            "myHost": "http://localhost",
-            "itnPath": "/Payfast/ITN",
-            "commsToken": "360f451825afbabdfa2c3c30be4cadce",
-            "commsTokenIV": "e1596a4c34a3e8357acf2f063c22c679",
-            "sandboxConfig": {
-              "merchantId": "10021844",
-              "merchantKey": "5fua4woj28gkh",
-              "passphrase": "uh_toot6RAID1gnup"
-            }
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-log-gelf",
     "version": "4.0.1",
     "author": {
@@ -289,209 +144,6 @@
             "maxSessions": 50,
             "maxSessionTimeout": 120000,
             "maxSessionTimer": 60000
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-events-rabbitmq",
-    "version": "3.0.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
-    "plugins": [
-      {
-        "type": "events",
-        "name": "events-rabbitmq",
-        "def": {
-          "key": "events-rabbitmq",
-          "name": "RabbitMQ",
-          "icon": "events-rabbitmq.png",
-          "description": "RabbitMQ events plugin",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-events-rabbitmq"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-events-rabbitmq"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-events-rabbitmq"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-events-rabbitmq"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-events-rabbitmq"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "PluginConfig",
-          "definitions": {
-            "fatalOnDisconnect": {
-              "type": "boolean",
-              "required": true,
-              "name": "Disconnect on error",
-              "description": "Cause the bsb service to exit code 1 if the connection drops"
-            },
-            "prefetch": {
-              "type": "number",
-              "required": true,
-              "name": "Prefetch",
-              "description": "The RabbitMQ Prefetch amount"
-            },
-            "endpoints": {
-              "type": "Array<string>",
-              "required": true,
-              "name": "Endpoints",
-              "description": "The list of servers(cluster) to connect too"
-            },
-            "credentials": {
-              "type": "IPluginConfig_Credentials",
-              "required": true,
-              "name": "Credentials for server authorization",
-              "description": null
-            },
-            "uniqueId": {
-              "type": "string",
-              "required": false,
-              "name": "Unique Client ID",
-              "description": "A static client Id - hostname is used when not set"
-            }
-          },
-          "extraDefinitions": {
-            "IPluginConfig_Credentials": {
-              "username": {
-                "type": "string",
-                "required": true,
-                "name": "Username",
-                "description": null
-              },
-              "password": {
-                "type": "string",
-                "required": true,
-                "name": "Password",
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "fatalOnDisconnect": true,
-            "prefetch": 10,
-            "endpoints": [
-              "amqp://localhost"
-            ],
-            "credentials": {
-              "username": "guest",
-              "password": "guest"
-            }
-          }
-        },
-        "pluginLink": "rabbitmq.events.bsbcode.dev"
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-syslog",
-    "version": "2.0.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-syslog",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-syslog-server",
-        "def": {
-          "key": "service-syslog-server",
-          "name": "rSyslog Server",
-          "icon": "rsyslog-server.png",
-          "description": "syslog server",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-syslog",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-syslog/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-syslog"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "port": {
-              "type": "number",
-              "required": true,
-              "name": "Port",
-              "description": "The port to bind the server on"
-            },
-            "address": {
-              "type": "string",
-              "required": true,
-              "name": "Address",
-              "description": "127.0.0.1/0.0.0.0 address to bind the server too."
-            },
-            "exclusive": {
-              "type": "boolean",
-              "required": true,
-              "name": "Exclusive",
-              "description": "Is it exclusive"
-            }
-          },
-          "extraDefinitions": {},
-          "defaultValues": {
-            "port": 514,
-            "address": "0.0.0.0",
-            "exclusive": false
           }
         },
         "pluginLink": null
@@ -971,8 +623,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$Mnu0FQBysqB4ShQDGv8aoe",
-            "secretKey": "$2b$08$YUEm6VMElmg09jMngpDD3u",
+            "authKey": "$2b$08$WPdl0xOz6MQc8T1ll6N1Oe",
+            "secretKey": "$2b$08$s.zKgo6NTTkbi49Jl3MOeu",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1054,6 +706,354 @@
           "defaultValues": {}
         },
         "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-syslog",
+    "version": "2.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-syslog",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-syslog-server",
+        "def": {
+          "key": "service-syslog-server",
+          "name": "rSyslog Server",
+          "icon": "rsyslog-server.png",
+          "description": "syslog server",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-syslog",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-syslog/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-syslog"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-syslog"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "port": {
+              "type": "number",
+              "required": true,
+              "name": "Port",
+              "description": "The port to bind the server on"
+            },
+            "address": {
+              "type": "string",
+              "required": true,
+              "name": "Address",
+              "description": "127.0.0.1/0.0.0.0 address to bind the server too."
+            },
+            "exclusive": {
+              "type": "boolean",
+              "required": true,
+              "name": "Exclusive",
+              "description": "Is it exclusive"
+            }
+          },
+          "extraDefinitions": {},
+          "defaultValues": {
+            "port": 514,
+            "address": "0.0.0.0",
+            "exclusive": false
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-payfast",
+    "version": "4.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-payfast",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-payfast",
+        "def": {
+          "key": "service-payfast",
+          "name": "PayFast",
+          "icon": "payfast.png",
+          "description": "PayFast payment gateway",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-payfast",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-payfast/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-payfast"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-payfast"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-payfast"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-payfast"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-payfast"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "PayfastPluginConfig",
+          "definitions": {
+            "adhocUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Payfast Adhoc URL",
+              "description": null
+            },
+            "liveUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Payfast Live URL",
+              "description": null
+            },
+            "sandboxUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Payfast Sandbox URL",
+              "description": null
+            },
+            "commsToken": {
+              "type": "string",
+              "required": true,
+              "name": "Comms Token",
+              "description": "** Special encryption token"
+            },
+            "commsTokenIV": {
+              "type": "string",
+              "required": true,
+              "name": "Comms Token IV",
+              "description": "** Special encryption token"
+            },
+            "myHost": {
+              "type": "string",
+              "required": true,
+              "name": "My Host",
+              "description": "like https"
+            },
+            "itnPath": {
+              "type": "string",
+              "required": true,
+              "name": "My ITN Path",
+              "description": "Allows you to change the ITN path"
+            },
+            "sandboxConfig": {
+              "type": "PayfastSandboxConfig",
+              "required": true,
+              "name": "Sandbox Config",
+              "description": "Default/test config"
+            }
+          },
+          "extraDefinitions": {
+            "PayfastSandboxConfig": {
+              "merchantId": {
+                "type": "string",
+                "required": true,
+                "name": "Merchant ID",
+                "description": null
+              },
+              "merchantKey": {
+                "type": "string",
+                "required": true,
+                "name": "Merchant Key",
+                "description": null
+              },
+              "passphrase": {
+                "type": "string",
+                "required": false,
+                "name": "Passphrase / Secret Key",
+                "description": null
+              }
+            }
+          },
+          "defaultValues": {
+            "adhocUrl": "https://api.payfast.co.za/subscriptions/{TOKEN}/adhoc",
+            "liveUrl": "https://www.payfast.co.za/eng/process",
+            "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
+            "myHost": "http://localhost",
+            "itnPath": "/Payfast/ITN",
+            "commsToken": "d032f6051a7a6b99bc3f28145150ea5b",
+            "commsTokenIV": "fabcc7271aacc52307d97bbc6f1c27ed",
+            "sandboxConfig": {
+              "merchantId": "10021844",
+              "merchantKey": "5fua4woj28gkh",
+              "passphrase": "uh_toot6RAID1gnup"
+            }
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-events-rabbitmq",
+    "version": "3.0.0",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-events-rabbitmq",
+    "plugins": [
+      {
+        "type": "events",
+        "name": "events-rabbitmq",
+        "def": {
+          "key": "events-rabbitmq",
+          "name": "RabbitMQ",
+          "icon": "events-rabbitmq.png",
+          "description": "RabbitMQ events plugin",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-events-rabbitmq/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-events-rabbitmq/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-events-rabbitmq"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-events-rabbitmq"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "PluginConfig",
+          "definitions": {
+            "fatalOnDisconnect": {
+              "type": "boolean",
+              "required": true,
+              "name": "Disconnect on error",
+              "description": "Cause the bsb service to exit code 1 if the connection drops"
+            },
+            "prefetch": {
+              "type": "number",
+              "required": true,
+              "name": "Prefetch",
+              "description": "The RabbitMQ Prefetch amount"
+            },
+            "endpoints": {
+              "type": "Array<string>",
+              "required": true,
+              "name": "Endpoints",
+              "description": "The list of servers(cluster) to connect too"
+            },
+            "credentials": {
+              "type": "IPluginConfig_Credentials",
+              "required": true,
+              "name": "Credentials for server authorization",
+              "description": null
+            },
+            "uniqueId": {
+              "type": "string",
+              "required": false,
+              "name": "Unique Client ID",
+              "description": "A static client Id - hostname is used when not set"
+            }
+          },
+          "extraDefinitions": {
+            "IPluginConfig_Credentials": {
+              "username": {
+                "type": "string",
+                "required": true,
+                "name": "Username",
+                "description": null
+              },
+              "password": {
+                "type": "string",
+                "required": true,
+                "name": "Password",
+                "description": null
+              }
+            }
+          },
+          "defaultValues": {
+            "fatalOnDisconnect": true,
+            "prefetch": 10,
+            "endpoints": [
+              "amqp://localhost"
+            ],
+            "credentials": {
+              "username": "guest",
+              "password": "guest"
+            }
+          }
+        },
+        "pluginLink": "rabbitmq.events.bsbcode.dev"
       }
     ]
   },
@@ -1218,8 +1218,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BExpngJ6pPBLQ3g9UyuLwZ7JNfsdAjcStw8el-eixmycRLl4uaLyknz3aztM5LxnT3LFh6eTREHzMAdphhY1Hz4",
-            "privateKey": "EpAhGfI0iPPzpl92mCe-6E3gNTBsmRLF3Bw4O2dYvHI",
+            "publicKey": "BCJLphyqRA3e6GWYNlcnNtTJSq5jx8zc90KNCKBeGK6dXcGHgU_qie_Rhy4q8t0wAzjtO5fm1QKtqy7BGikZkbY",
+            "privateKey": "YCUYXu70U7nsQoSwCv3w21rORG1m07e-cfw58lReCbs",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1416,7 +1416,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JEx4ZjlZZkRDQzBWcXAxSzVWQjNjNC4kMmIkMDQkTHhmOVlmRENDMFZxcDFLNVZCM2M0LiQyYiQwNCRMeGY5WWZEQ0MwVnFwMUs1VkIzYzQu",
+            "clientEndpointKey": "JDJiJDA0JHdKaFNMNkRqYjU3OFlaVDdBTWh2N3UkMmIkMDQkd0poU0w2RGpiNTc4WVpUN0FNaHY3dSQyYiQwNCR3SmhTTDZEamI1NzhZWlQ3QU1odjd1",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1523,8 +1523,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "205cb880e84aab0419edffab0da4993c",
-            "commsTokenIV": "f6f7a85b0ebdc215fb0880e19dd647c6",
+            "commsToken": "b1a7cd35511b0d0920abeccd0a7fa8d0",
+            "commsTokenIV": "edf2317cf31ec0f0dd8a4e38367cca90",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
