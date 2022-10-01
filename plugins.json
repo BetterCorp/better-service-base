@@ -1,63 +1,142 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-log-gelf",
-    "version": "4.0.1",
+    "name": "@bettercorp/service-base-plugin-payfast",
+    "version": "4.0.0",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
       "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
     },
-    "github": "https://github.com/BetterCorp/service-base-plugin-gelf",
+    "github": "https://github.com/BetterCorp/service-base-plugin-payfast",
     "plugins": [
       {
-        "type": "logging",
-        "name": "log-gelf",
+        "type": "plugin",
+        "name": "service-payfast",
         "def": {
-          "key": "log-gelf",
-          "name": "Gelf/Graylog",
-          "icon": "log-gelf.png",
-          "description": "Gelf/Graylog log plugin",
+          "key": "service-payfast",
+          "name": "PayFast",
+          "icon": "payfast.png",
+          "description": "PayFast payment gateway",
           "badges": [
             {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-log-gelf"
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-payfast",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-payfast/branch/master/graph/badge.svg"
             },
             {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-log-gelf"
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-payfast"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-payfast"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/develop.yml/badge.svg?branch=develop"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/master.yml/badge.svg?branch=master"
+              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/develop.yml/badge.svg?branch=develop"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/master.yml/badge.svg?branch=master"
             },
             {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-log-gelf"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
             },
             {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-log-gelf"
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-payfast"
             },
             {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-log-gelf"
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-payfast"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-payfast"
             }
           ]
         },
         "config": {
-          "interfaceName": "PluginConfig",
-          "definitions": {},
-          "extraDefinitions": {},
+          "interfaceName": "PayfastPluginConfig",
+          "definitions": {
+            "adhocUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Payfast Adhoc URL",
+              "description": null
+            },
+            "liveUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Payfast Live URL",
+              "description": null
+            },
+            "sandboxUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Payfast Sandbox URL",
+              "description": null
+            },
+            "commsToken": {
+              "type": "string",
+              "required": true,
+              "name": "Comms Token",
+              "description": "** Special encryption token"
+            },
+            "commsTokenIV": {
+              "type": "string",
+              "required": true,
+              "name": "Comms Token IV",
+              "description": "** Special encryption token"
+            },
+            "myHost": {
+              "type": "string",
+              "required": true,
+              "name": "My Host",
+              "description": "like https"
+            },
+            "itnPath": {
+              "type": "string",
+              "required": true,
+              "name": "My ITN Path",
+              "description": "Allows you to change the ITN path"
+            },
+            "sandboxConfig": {
+              "type": "PayfastSandboxConfig",
+              "required": true,
+              "name": "Sandbox Config",
+              "description": "Default/test config"
+            }
+          },
+          "extraDefinitions": {
+            "PayfastSandboxConfig": {
+              "merchantId": {
+                "type": "string",
+                "required": true,
+                "name": "Merchant ID",
+                "description": null
+              },
+              "merchantKey": {
+                "type": "string",
+                "required": true,
+                "name": "Merchant Key",
+                "description": null
+              },
+              "passphrase": {
+                "type": "string",
+                "required": false,
+                "name": "Passphrase / Secret Key",
+                "description": null
+              }
+            }
+          },
           "defaultValues": {
-            "adapterName": "udp",
-            "adapterOptions": {
-              "host": "127.0.0.1",
-              "port": 12201,
-              "family": 4,
-              "timeout": 10000
+            "adhocUrl": "https://api.payfast.co.za/subscriptions/{TOKEN}/adhoc",
+            "liveUrl": "https://www.payfast.co.za/eng/process",
+            "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
+            "myHost": "http://localhost",
+            "itnPath": "/Payfast/ITN",
+            "commsToken": "3bc5fdeaa62d55928670269390ed320f",
+            "commsTokenIV": "2fe9b913e15405bb6a0254b074c98b70",
+            "sandboxConfig": {
+              "merchantId": "10021844",
+              "merchantKey": "5fua4woj28gkh",
+              "passphrase": "uh_toot6RAID1gnup"
             }
           }
         },
@@ -145,6 +224,68 @@
             "maxSessionTimeout": 120000,
             "maxSessionTimer": 60000
           }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-adbud",
+    "version": "2.0.1",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-service-adbud",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-adbud",
+        "def": {
+          "key": "service-adbud",
+          "name": "ADBud.io service",
+          "icon": "service-adbud.png",
+          "description": "ADbud.io service plugin",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-adbud",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-adbud/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-adbud"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-adbud"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {},
+          "extraDefinitions": {},
+          "defaultValues": {}
         },
         "pluginLink": null
       }
@@ -623,8 +764,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$RQrW2e1j8zXIkQkmUVei4e",
-            "secretKey": "$2b$08$CPNFlezEEiS1p90u0dq/bO",
+            "authKey": "$2b$08$Q4PI2hMQxc7JbmmqBaC1kO",
+            "secretKey": "$2b$08$hbZTcl4VGCRGNTUEBQ69He",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -641,153 +782,6 @@
               "req",
               "query"
             ]
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-adbud",
-    "version": "2.0.1",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-service-adbud",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-adbud",
-        "def": {
-          "key": "service-adbud",
-          "name": "ADBud.io service",
-          "icon": "service-adbud.png",
-          "description": "ADbud.io service plugin",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-adbud",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-adbud/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-adbud"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {},
-          "extraDefinitions": {},
-          "defaultValues": {}
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-syslog",
-    "version": "2.0.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-syslog",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-syslog-server",
-        "def": {
-          "key": "service-syslog-server",
-          "name": "rSyslog Server",
-          "icon": "rsyslog-server.png",
-          "description": "syslog server",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-syslog",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-syslog/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-syslog"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-syslog"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "port": {
-              "type": "number",
-              "required": true,
-              "name": "Port",
-              "description": "The port to bind the server on"
-            },
-            "address": {
-              "type": "string",
-              "required": true,
-              "name": "Address",
-              "description": "127.0.0.1/0.0.0.0 address to bind the server too."
-            },
-            "exclusive": {
-              "type": "boolean",
-              "required": true,
-              "name": "Exclusive",
-              "description": "Is it exclusive"
-            }
-          },
-          "extraDefinitions": {},
-          "defaultValues": {
-            "port": 514,
-            "address": "0.0.0.0",
-            "exclusive": false
           }
         },
         "pluginLink": null
@@ -913,143 +907,149 @@
     ]
   },
   {
-    "name": "@bettercorp/service-base-plugin-payfast",
-    "version": "4.0.0",
+    "name": "@bettercorp/service-base-plugin-syslog",
+    "version": "2.0.0",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
       "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
     },
-    "github": "https://github.com/BetterCorp/service-base-plugin-payfast",
+    "github": "https://github.com/BetterCorp/service-base-plugin-syslog",
     "plugins": [
       {
         "type": "plugin",
-        "name": "service-payfast",
+        "name": "service-syslog-server",
         "def": {
-          "key": "service-payfast",
-          "name": "PayFast",
-          "icon": "payfast.png",
-          "description": "PayFast payment gateway",
+          "key": "service-syslog-server",
+          "name": "rSyslog Server",
+          "icon": "rsyslog-server.png",
+          "description": "syslog server",
           "badges": [
             {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-payfast",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-payfast/branch/master/graph/badge.svg"
+              "url": "https://codecov.io/gh/BetterCorp/service-base-service-syslog",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-service-syslog/branch/master/graph/badge.svg"
             },
             {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-payfast"
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-syslog"
             },
             {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-payfast"
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-syslog"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/develop.yml/badge.svg?branch=develop"
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/develop.yml/badge.svg?branch=develop"
             },
             {
-              "img": "https://github.com/BetterCorp/service-base-service-payfast/actions/workflows/master.yml/badge.svg?branch=master"
+              "img": "https://github.com/BetterCorp/service-base-service-syslog/actions/workflows/master.yml/badge.svg?branch=master"
             },
             {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-payfast"
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-syslog"
             },
             {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-payfast"
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-syslog"
             },
             {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-payfast"
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-syslog"
             },
             {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-payfast"
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-syslog"
             }
           ]
         },
         "config": {
-          "interfaceName": "PayfastPluginConfig",
+          "interfaceName": "MyPluginConfig",
           "definitions": {
-            "adhocUrl": {
+            "port": {
+              "type": "number",
+              "required": true,
+              "name": "Port",
+              "description": "The port to bind the server on"
+            },
+            "address": {
               "type": "string",
               "required": true,
-              "name": "Payfast Adhoc URL",
-              "description": null
+              "name": "Address",
+              "description": "127.0.0.1/0.0.0.0 address to bind the server too."
             },
-            "liveUrl": {
-              "type": "string",
+            "exclusive": {
+              "type": "boolean",
               "required": true,
-              "name": "Payfast Live URL",
-              "description": null
-            },
-            "sandboxUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Payfast Sandbox URL",
-              "description": null
-            },
-            "commsToken": {
-              "type": "string",
-              "required": true,
-              "name": "Comms Token",
-              "description": "** Special encryption token"
-            },
-            "commsTokenIV": {
-              "type": "string",
-              "required": true,
-              "name": "Comms Token IV",
-              "description": "** Special encryption token"
-            },
-            "myHost": {
-              "type": "string",
-              "required": true,
-              "name": "My Host",
-              "description": "like https"
-            },
-            "itnPath": {
-              "type": "string",
-              "required": true,
-              "name": "My ITN Path",
-              "description": "Allows you to change the ITN path"
-            },
-            "sandboxConfig": {
-              "type": "PayfastSandboxConfig",
-              "required": true,
-              "name": "Sandbox Config",
-              "description": "Default/test config"
+              "name": "Exclusive",
+              "description": "Is it exclusive"
             }
           },
-          "extraDefinitions": {
-            "PayfastSandboxConfig": {
-              "merchantId": {
-                "type": "string",
-                "required": true,
-                "name": "Merchant ID",
-                "description": null
-              },
-              "merchantKey": {
-                "type": "string",
-                "required": true,
-                "name": "Merchant Key",
-                "description": null
-              },
-              "passphrase": {
-                "type": "string",
-                "required": false,
-                "name": "Passphrase / Secret Key",
-                "description": null
-              }
-            }
-          },
+          "extraDefinitions": {},
           "defaultValues": {
-            "adhocUrl": "https://api.payfast.co.za/subscriptions/{TOKEN}/adhoc",
-            "liveUrl": "https://www.payfast.co.za/eng/process",
-            "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
-            "myHost": "http://localhost",
-            "itnPath": "/Payfast/ITN",
-            "commsToken": "3087140c19af98108f7713e641c24178",
-            "commsTokenIV": "277a1efc403205cfeaa03902a2d526c5",
-            "sandboxConfig": {
-              "merchantId": "10021844",
-              "merchantKey": "5fua4woj28gkh",
-              "passphrase": "uh_toot6RAID1gnup"
+            "port": 514,
+            "address": "0.0.0.0",
+            "exclusive": false
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-log-gelf",
+    "version": "4.0.1",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-gelf",
+    "plugins": [
+      {
+        "type": "logging",
+        "name": "log-gelf",
+        "def": {
+          "key": "log-gelf",
+          "name": "Gelf/Graylog",
+          "icon": "log-gelf.png",
+          "description": "Gelf/Graylog log plugin",
+          "badges": [
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-log-gelf/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-log-gelf"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-log-gelf"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "PluginConfig",
+          "definitions": {},
+          "extraDefinitions": {},
+          "defaultValues": {
+            "adapterName": "udp",
+            "adapterOptions": {
+              "host": "127.0.0.1",
+              "port": 12201,
+              "family": 4,
+              "timeout": 10000
             }
           }
         },
@@ -1218,8 +1218,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BP3qv4llQ4Hg5lcNdI4nVXYBWEvMR8s5031z4KMII4eSLM5wS7wx-lG3e9ZpW6IRLXXSlHk2RVcTtKEruG40AN8",
-            "privateKey": "EJuK_HQKMrq7_tGFr_5DibKGEZBE7qtSi5hUiiD9J84",
+            "publicKey": "BGNpyoe626yKSTabTo-oet0mrMyNm9JySr2Ma1K6aPfB7Q6EV7SLVrsFfjA5ddBPAEzdiBajsyz1rERHtmL3Gew",
+            "privateKey": "Yo4hcSNl55x32LSpUV1x1S6fJALjp7xkvNZsy3Xl36M",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1416,7 +1416,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGZxLjhQNlBuV3lKLlluYlBVTEFTNU8kMmIkMDQkZnEuOFA2UG5XeUouWW5iUFVMQVM1TyQyYiQwNCRmcS44UDZQbld5Si5ZbmJQVUxBUzVP",
+            "clientEndpointKey": "JDJiJDA0JGdQMklmRVk0RDlkMnpEM3BrNy5hT08kMmIkMDQkZ1AySWZFWTREOWQyekQzcGs3LmFPTyQyYiQwNCRnUDJJZkVZNEQ5ZDJ6RDNwazcuYU9P",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1523,8 +1523,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "e636c9eb858922821acd1b5ce9e39f93",
-            "commsTokenIV": "ef9e07ca358c8ab0e4b87c12ec54b2a9",
+            "commsToken": "d066a6564847c0407df75f31fc715444",
+            "commsTokenIV": "ffd40181f8ca73a9764652a8481ce56a",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
