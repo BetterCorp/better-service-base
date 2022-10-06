@@ -32,16 +32,15 @@ exports.convert = (file, generatedFile) => {
     .split("=>")[0]
     .trim();*/
 
-  let interfaceName = '';
+  let interfaceName = "";
   for (let line of lines) {
-    if (line.indexOf('export class Config extends SecConfig<') === 0) {
-      interfaceName = line.split('<')[1].split('>')[0];
+    if (line.indexOf("export class Config extends SecConfig<") === 0) {
+      interfaceName = line.split("<")[1].split(">")[0];
       break;
     }
   }
 
-  if (interfaceName === '')
-    throw 'Unknown default interface'
+  if (interfaceName === "") throw "Unknown default interface";
 
   const getDefinitions = (interfaceName) => {
     let indexStartForDef = -1;
@@ -64,15 +63,14 @@ exports.convert = (file, generatedFile) => {
 
     let commentActive = false;
     for (let index = indexStartForDef; index <= indexEndForDef; index++) {
-      if (lines[index].indexOf(':') < 0) continue;
-      if (lines[index].indexOf(';') < 0) continue;
-      if (lines[index].trim().indexOf('//') === 0) continue; // commented line
-      if (lines[index].trim().indexOf('/*') === 0) {
+      if (lines[index].indexOf(":") < 0) continue;
+      if (lines[index].indexOf(";") < 0) continue;
+      if (lines[index].trim().indexOf("//") === 0) continue; // commented line
+      if (lines[index].trim().indexOf("/*") === 0) {
         commentActive = true; // commented block
       }
       if (commentActive) {
-        if (lines[index].indexOf('*/') >= 0) 
-          commentActive = false;
+        if (lines[index].indexOf("*/") >= 0) commentActive = false;
         continue;
       }
 
@@ -126,11 +124,11 @@ exports.convert = (file, generatedFile) => {
   }
 
   const requiredPlugin = require(generatedFile);
-  const requiredPluginConfig = (new requiredPlugin.Config());
+  const requiredPluginConfig = new requiredPlugin.Config();
   return {
     interfaceName,
     definitions,
     extraDefinitions,
-    defaultValues: requiredPluginConfig.migrate('default-name', {}),
+    defaultValues: requiredPluginConfig.migrate("default-name", {}),
   };
 };

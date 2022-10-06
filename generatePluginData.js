@@ -1,5 +1,4 @@
 const fs = require("fs");
-const crypto = require("crypto");
 const https = require("https");
 const path = require("path");
 const execSync = require("child_process").execSync;
@@ -7,14 +6,6 @@ const generateConfigDefinition =
   require("./generateConfigDefinition.js").convert;
 
 const tempDir = path.join(process.cwd(), "_temp");
-
-const getFileHash = (file) => {
-  const fileBuffer = fs.readFileSync(file);
-  const hashSum = crypto.createHash("sha256");
-  hashSum.update(fileBuffer);
-
-  return hashSum.digest("hex");
-};
 
 const getGithubRepos = () =>
   new Promise(async (resolve, reject) => {
@@ -129,7 +120,9 @@ const setupDefaultPackages = (temp_node_modules, plugins) => {
   const reposConfig = JSON.parse(
     fs.readFileSync(path.join(process.cwd(), "repos.config.json"))
   );
-  const existingHashOfFile = getFileHash("./plugins.json");
+  const existingConfig = JSON.parse(
+    fs.readFileSync("./plugins.json").toString()
+  );
   let availPlugins = [];
   if (fs.existsSync(tempDir))
     execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
@@ -331,16 +324,190 @@ const setupDefaultPackages = (temp_node_modules, plugins) => {
     }
   }
 
+  availPlugins = availPlugins.sort((a, b) => a.name.localeCompare(b.name));
   fs.writeFileSync("./plugins.json", JSON.stringify(availPlugins, " ", 2));
   if (fs.existsSync(tempDir)) {
     fs.rmSync(tempDir, { recursive: true, force: true });
     //execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
   }
-  const newHash = getFileHash("./plugins.json");
-  console.log(
-    `? changes: ${
-      newHash !== existingHashOfFile
-    } (e:${existingHashOfFile}|n:${newHash})`
-  );
-  console.log(`::set-output name=changes::${newHash !== existingHashOfFile}`);
+  let changes = existingConfig.length !== availPlugins.length;
+
+  if (changes) {
+    console.log("Changes detected");
+  } else {
+    console.log("Changes ?");
+    for (let repoIndex = 0; repoIndex < existingConfig.length; repoIndex++) {
+      if (existingConfig[repoIndex].name !== availPlugins[repoIndex].name) {
+        console.log(
+          `[repos-name] ${existingConfig[repoIndex].name} !== ${availPlugins[repoIndex].name}`
+        );
+        changes = true;
+        break;
+      }
+      if (
+        existingConfig[repoIndex].version !== availPlugins[repoIndex].version
+      ) {
+        console.log(
+          `[repos-version] ${existingConfig[repoIndex].version} !== ${availPlugins[repoIndex].version}`
+        );
+        changes = true;
+        break;
+      }
+      if (existingConfig[repoIndex].github !== availPlugins[repoIndex].github) {
+        console.log(
+          `[repos-github] ${existingConfig[repoIndex].github} !== ${availPlugins[repoIndex].github}`
+        );
+        changes = true;
+        break;
+      }
+      if (
+        existingConfig[repoIndex].author.name !==
+        availPlugins[repoIndex].author.name
+      ) {
+        console.log(
+          `[repos-author-name] ${existingConfig[repoIndex].author.name} !== ${availPlugins[repoIndex].author.name}`
+        );
+        changes = true;
+        break;
+      }
+      if (
+        existingConfig[repoIndex].author.avatar !==
+        availPlugins[repoIndex].author.avatar
+      ) {
+        console.log(
+          `[repos-author-avatar] ${existingConfig[repoIndex].author.avatar} !== ${availPlugins[repoIndex].author.avatar}`
+        );
+        changes = true;
+        break;
+      }
+
+      if (
+        existingConfig[repoIndex].plugins.length !==
+        availPlugins[repoIndex].plugins.length
+      ) {
+        console.log(
+          `[repos-plugins] ${existingConfig[repoIndex].plugins.length} !== ${availPlugins[repoIndex].plugins.length}`
+        );
+        changes = true;
+        break;
+      }
+
+      console.log(
+        `${existingConfig[repoIndex].name} [plugins] ${availPlugins[repoIndex].name}`
+      );
+      for (
+        let pluginIndex = 0;
+        pluginIndex < existingConfig[repoIndex].plugins.length;
+        pluginIndex++
+      ) {
+        if (
+          existingConfig[repoIndex].plugins[pluginIndex].type !==
+          availPlugins[repoIndex].plugins[pluginIndex].type
+        ) {
+          console.log(
+            `${existingConfig[repoIndex].name} [plugins-type] ${existingConfig[repoIndex].plugins[pluginIndex].type} !== ${availPlugins[repoIndex].plugins[pluginIndex].type}`
+          );
+          changes = true;
+          break;
+        }
+        if (
+          existingConfig[repoIndex].plugins[pluginIndex].name !==
+          availPlugins[repoIndex].plugins[pluginIndex].name
+        ) {
+          console.log(
+            `${existingConfig[repoIndex].name} [plugins-name] ${existingConfig[repoIndex].plugins[pluginIndex].name} !== ${availPlugins[repoIndex].plugins[pluginIndex].name}`
+          );
+          changes = true;
+          break;
+        }
+        if (
+          existingConfig[repoIndex].plugins[pluginIndex].icon !==
+          availPlugins[repoIndex].plugins[pluginIndex].icon
+        ) {
+          console.log(
+            `${existingConfig[repoIndex].name} [plugins-icon] ${existingConfig[repoIndex].plugins[pluginIndex].icon} !== ${availPlugins[repoIndex].plugins[pluginIndex].icon}`
+          );
+          changes = true;
+          break;
+        }
+        if (
+          existingConfig[repoIndex].plugins[pluginIndex].description !==
+          availPlugins[repoIndex].plugins[pluginIndex].description
+        ) {
+          console.log(
+            `${existingConfig[repoIndex].name} [plugins-description] ${existingConfig[repoIndex].plugins[pluginIndex].description} !== ${availPlugins[repoIndex].plugins[pluginIndex].description}`
+          );
+          changes = true;
+          break;
+        }
+        if (
+          existingConfig[repoIndex].plugins[pluginIndex].pluginLink !==
+          availPlugins[repoIndex].plugins[pluginIndex].pluginLink
+        ) {
+          console.log(
+            `${existingConfig[repoIndex].name} [plugins-pluginLink] ${existingConfig[repoIndex].plugins[pluginIndex].pluginLink} !== ${availPlugins[repoIndex].plugins[pluginIndex].pluginLink}`
+          );
+          changes = true;
+          break;
+        }
+        if (
+          existingConfig[repoIndex].plugins[pluginIndex].badges !==
+          availPlugins[repoIndex].plugins[pluginIndex].badges
+        ) {
+          console.log(
+            `${existingConfig[repoIndex].name} [plugins-badges] ${availPlugins[repoIndex].plugins[pluginIndex].badges} !== ${availPlugins[repoIndex].plugins[pluginIndex].badges}`
+          );
+          changes = true;
+          break;
+        }
+        if (
+          (existingConfig[repoIndex].plugins[pluginIndex].config || {})
+            .interfaceName !==
+          (availPlugins[repoIndex].plugins[pluginIndex].config || {})
+            .interfaceName
+        ) {
+          console.log(
+            `${existingConfig[repoIndex].name} [plugins-interfaceName] ${
+              (existingConfig[repoIndex].plugins[pluginIndex].config || {})
+                .interfaceName
+            } !== ${
+              (availPlugins[repoIndex].plugins[pluginIndex].config || {})
+                .interfaceName
+            }`
+          );
+          changes = true;
+          break;
+        }
+        if (
+          JSON.stringify(
+            (existingConfig[repoIndex].plugins[pluginIndex].config || {})
+              .definitions || {}
+          ) !==
+          JSON.stringify(
+            (availPlugins[repoIndex].plugins[pluginIndex].config || {})
+              .definitions || {}
+          )
+        ) {
+          console.log(
+            `${
+              existingConfig[repoIndex].name
+            } [plugins-definitions] ${JSON.stringify(
+              (existingConfig[repoIndex].plugins[pluginIndex].config || {})
+                .definitions
+            )} != ${JSON.stringify(
+              (availPlugins[repoIndex].plugins[pluginIndex].config || {})
+                .definitions
+            )}`
+          );
+          changes = true;
+          break;
+        }
+      }
+
+      if (changes) break;
+    }
+  }
+  //const newHash = getFileHash("./plugins.json");
+  console.log(`? changes: ${changes}`);
+  console.log(`::set-output name=changes::${changes}`);
 })();
