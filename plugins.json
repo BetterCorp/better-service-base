@@ -62,6 +62,84 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-betterportal",
+    "version": "1.0.1",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-betterportal",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-betterportal",
+        "def": {
+          "key": "service-betterportal",
+          "name": "BetterPortal",
+          "icon": "betterportal.png",
+          "description": "BetterPortal server plugin",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-betterportal",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-betterportal/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-betterportal"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-betterportal"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-betterportal"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-betterportal/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-betterportal/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-betterportal"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-betterportal"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-betterportal"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-betterportal"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "issuer": {
+              "type": "string",
+              "required": true,
+              "name": "Auth Issuer URL",
+              "description": null
+            },
+            "certsUrl": {
+              "type": "string",
+              "required": true,
+              "name": "Auth Issuer JWT Certs URL",
+              "description": null
+            }
+          },
+          "extraDefinitions": {},
+          "defaultValues": {
+            "issuer": "https://auth-za.betterportal.cloud/auth",
+            "certsUrl": "https://auth-za.betterportal.cloud/auth/json"
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-config-1password",
     "version": "4.0.0",
     "author": {
@@ -518,8 +596,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "bd7e17274bbbcc226d4393dc901024a5",
-            "commsTokenIV": "8d7a2733b622e312ae697ba520f208bf",
+            "commsToken": "13d62a5b8e08832b4ce577e50569d192",
+            "commsTokenIV": "4893829f1e2e54692a802e190b1f17bf",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -622,8 +700,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BOf02oku0QeJSPoa_OEjjzO4LclSeFkaL758eo2qyu5Jukutrl4Ej9_juFAAp9kzBc7dlHp2Op_MAjcTNisliIs",
-            "privateKey": "F2KtMCTCuu6EfMQoXCLVGwoK89sLn9u8LSNBjB45RLI",
+            "publicKey": "BIEu1C31HMMSqH_E0gYdvF1iN6K--0b4-YKJR3e4PTZkk_IZUeCUpa642PEvg8vneAiNclHIRXz3U3aQzhy9nzg",
+            "privateKey": "c9tyOZ-LVsvfBdGlVm5KMQyGRWZAOVPVqdauTdXNnOk",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -834,7 +912,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGRpRWdwdXdTdXgxbUtMWDBnOFdvWWUkMmIkMDQkZGlFZ3B1d1N1eDFtS0xYMGc4V29ZZSQyYiQwNCRkaUVncHV3U3V4MW1LTFgwZzhXb1ll",
+            "clientEndpointKey": "JDJiJDA0JGQ3SkwwRTdIUDVMWW02RjI3ZDFhV08kMmIkMDQkZDdKTDBFN0hQNUxZbTZGMjdkMWFXTyQyYiQwNCRkN0pMMEU3SFA1TFltNkYyN2QxYVdP",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1401,8 +1479,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$05zSP7G.AYteHjPYYg6xDO",
-            "secretKey": "$2b$08$ficqfqLwS86wBXxhZHAoCO",
+            "authKey": "$2b$08$DqalXUo51Gb/XQ5g.0Tg/O",
+            "secretKey": "$2b$08$dWi0cRCqsrf7KaduEzPZA.",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1523,8 +1601,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "cafaef0712ab5d3701a73bd3611302df",
-            "commsTokenIV": "b80d87ad3132c7d0217bbb70a4ba59e1",
+            "commsToken": "5226b6715f52aaa9b72d740ffae0e34c",
+            "commsTokenIV": "366658206f71934266c8e68a749973f3",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
