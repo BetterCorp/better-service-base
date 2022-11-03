@@ -3,8 +3,13 @@ import { IPluginLogger, LogMeta } from "../interfaces/logger";
 import { LoggerBase } from "../logger/logger";
 
 export class Logger extends LoggerBase<any> {
-  constructor(pluginName: string, cwd: string, defaultLogger: IPluginLogger) {
-    super(pluginName, cwd, defaultLogger);
+  constructor(
+    pluginName: string,
+    cwd: string,
+    pluginCwd: string,
+    defaultLogger: IPluginLogger
+  ) {
+    super(pluginName, cwd, pluginCwd, defaultLogger);
   }
 
   public async reportStat(

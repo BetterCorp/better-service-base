@@ -160,6 +160,7 @@ export class SBConfig {
     appConfig = new (importedPlugin.Config as unknown as typeof ConfigBase)(
       this.configPlugin.plugin.name,
       this.cwd,
+      this.configPlugin.plugin.pluginDir,
       logger,
       this.configPlugin.deploymentProfile
     );

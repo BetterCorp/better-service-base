@@ -5,8 +5,8 @@ import { testClient } from "../service-default1/plugin";
 export class Service extends ServicesBase {
   public override initAfterPlugins: string[] = ["service-default1"];
   private testClient: testClient;
-  constructor(pluginName: string, cwd: string, log: IPluginLogger) {
-    super(pluginName, cwd, log);
+  constructor(pluginName: string, cwd: string, pluginCwd: string, log: IPluginLogger) {
+    super(pluginName, cwd, pluginCwd, log);
     this.testClient = new testClient(this);
   }
   public override async init() {

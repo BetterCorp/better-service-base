@@ -54,6 +54,7 @@ export class SBServices {
         new (importedPlugin.Service as unknown as typeof ServicesBase)(
           plugin.name,
           cwd,
+          plugin.pluginDir,
           generateLoggerForPlugin(plugin.mappedName)
         );
       await this.log.debug(`Create service plugin: {name}`, {
@@ -77,6 +78,7 @@ export class SBServices {
         await generateEventsForService(plugin.name, plugin.mappedName),
         appConfig,
         cwd,
+        plugin.pluginDir,
         generateEventsForService,
         generateLoggerForPlugin,
         this.log,

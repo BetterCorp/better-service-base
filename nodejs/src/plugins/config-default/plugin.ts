@@ -20,10 +20,11 @@ export class Config extends ConfigBase<PluginConfig> {
   constructor(
     pluginName: string,
     cwd: string,
+    pluginCwd: string,
     log: IPluginLogger,
     deploymentProfile: string
   ) {
-    super(pluginName, cwd, log, deploymentProfile);
+    super(pluginName, cwd, pluginCwd, log, deploymentProfile);
   }
   private get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile> {
     return (this._appConfig.deploymentProfiles as IDictionary)[

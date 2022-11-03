@@ -58,6 +58,7 @@ export class SBBase {
     events: IServiceEvents<any, any, any, any>,
     config: ConfigBase<PluginConfigType>,
     cwd: string,
+    pluginCwd: string,
     generateEventsForService: (
       pluginName: string,
       mappedPluginName: string
@@ -84,6 +85,7 @@ export class SBBase {
       let tPlugin = new RegisteredPlugin<any, any, any, any, any, any>(
         pluginName,
         cwd,
+        pluginCwd,
         generateLoggerForPlugin(pluginName + "-client")
       );
       SBBase.setupServicePluginSpecific(

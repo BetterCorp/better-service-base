@@ -6,16 +6,16 @@ import { Readable } from "stream";
 import { DefaultBase } from "../interfaces/base";
 import { RegisteredPlugin, ServicesClient } from "./serviceClient";
 import { ErrorMessages } from "../interfaces/static";
-import {
-  DynamicallyReferencedMethodType,
-} from "@bettercorp/tools/lib/Interfaces";
+import { DynamicallyReferencedMethodType } from "@bettercorp/tools/lib/Interfaces";
 import {
   DynamicallyReferencedMethodOnIEvents,
   DynamicallyReferencedMethodEmitIEvents,
   DynamicallyReferencedMethodEmitEARIEvents,
 } from "../interfaces/events";
 import {
-  ServiceCallable, ServiceEvents, ServiceReturnableEvents,
+  ServiceCallable,
+  ServiceEvents,
+  ServiceReturnableEvents,
 } from "./base";
 
 export class ServicesBase<
@@ -27,7 +27,7 @@ export class ServicesBase<
     pluginConfigType extends IPluginConfig = any
   >
   extends DefaultBase<pluginConfigType>
-  implements 
+  implements
     IService<onEvents, emitEvents, onReturnableEvents, emitReturnableEvents>
 {
   public readonly initBeforePlugins?: Array<string>;
@@ -38,32 +38,43 @@ export class ServicesBase<
   async run(): Promise<void> {}
 
   public registerPluginClient<
-    pluginClientOnEvents ,
-    pluginClientEmitEvents ,
-    pluginClientOnReturnableEvents ,
-    pluginClientEmitReturnableEvents ,
-    pluginCallableMethods,
-    pluginClientConfigType extends IPluginConfig
-  >(
-    pluginName: string
-  ): Promise<RegisteredPlugin<
     pluginClientOnEvents,
     pluginClientEmitEvents,
     pluginClientOnReturnableEvents,
     pluginClientEmitReturnableEvents,
     pluginCallableMethods,
-    pluginClientConfigType
-  >> {
+    pluginClientConfigType extends IPluginConfig
+  >(
+    pluginName: string
+  ): Promise<
+    RegisteredPlugin<
+      pluginClientOnEvents,
+      pluginClientEmitEvents,
+      pluginClientOnReturnableEvents,
+      pluginClientEmitReturnableEvents,
+      pluginCallableMethods,
+      pluginClientConfigType
+    >
+  > {
     throw ErrorMessages.BSBNotInit;
   }
 
   protected _clients: Array<ServicesClient> = [];
-  constructor(pluginName: string, cwd: string, log: IPluginLogger) {
-    super(pluginName, cwd, log);
-    if (Tools.isNullOrUndefined(this.initBeforePlugins)) this.initBeforePlugins = [];
-    if (Tools.isNullOrUndefined(this.initAfterPlugins)) this.initAfterPlugins = [];
-    if (Tools.isNullOrUndefined(this.runBeforePlugins)) this.runBeforePlugins = [];
-    if (Tools.isNullOrUndefined(this.runAfterPlugins)) this.runAfterPlugins = [];
+  constructor(
+    pluginName: string,
+    cwd: string,
+    pluginCwd: string,
+    log: IPluginLogger
+  ) {
+    super(pluginName, cwd, pluginCwd, log);
+    if (Tools.isNullOrUndefined(this.initBeforePlugins))
+      this.initBeforePlugins = [];
+    if (Tools.isNullOrUndefined(this.initAfterPlugins))
+      this.initAfterPlugins = [];
+    if (Tools.isNullOrUndefined(this.runBeforePlugins))
+      this.runBeforePlugins = [];
+    if (Tools.isNullOrUndefined(this.runAfterPlugins))
+      this.runAfterPlugins = [];
   }
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,

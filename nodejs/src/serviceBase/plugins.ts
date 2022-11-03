@@ -18,7 +18,8 @@ export class SBPlugins {
     coreLogger: IPluginLogger,
     path: string,
     version: string,
-    libOnly = false
+    libOnly = false,
+    pluginDir: string
   ): Promise<Array<IReadyPlugin>> {
     const arrOfPlugins: Array<IReadyPlugin> = [];
 
@@ -88,6 +89,7 @@ export class SBPlugins {
         version: version,
         pluginFile,
         installerFile: pluginInstallerFile,
+        pluginDir: pluginDir
       });
     }
 
@@ -141,7 +143,8 @@ export class SBPlugins {
       coreLogger,
       innerPluginLibPlugin,
       packageVersion,
-      libOnly
+      libOnly,
+      path
     );
   }
 

@@ -21,7 +21,8 @@ export class LoggerBase<PluginConfigType extends IPluginConfig = any>
         removedVar[0]
       );
       //console.log(`:${removedVar[0]}:${referencedVar}`, meta);
-      if (Tools.isNullOrUndefined(referencedVar)) referencedVar = "*null/undefined*";
+      if (Tools.isNullOrUndefined(referencedVar))
+        referencedVar = "*null/undefined*";
       else if (Tools.isArray(referencedVar))
         referencedVar = (referencedVar as Array<any>)
           .map((x) =>
@@ -43,8 +44,13 @@ export class LoggerBase<PluginConfigType extends IPluginConfig = any>
     return outString;
   }
 
-  constructor(pluginName: string, cwd: string, defaultLogger: IPluginLogger) {
-    super(pluginName, cwd, defaultLogger);
+  constructor(
+    pluginName: string,
+    cwd: string,
+    pluginCwd: string,
+    defaultLogger: IPluginLogger
+  ) {
+    super(pluginName, cwd, pluginCwd, defaultLogger);
   }
 
   public async reportStat(

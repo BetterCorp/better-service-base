@@ -11,8 +11,13 @@ export class Events extends EventsBase<PluginConfig> {
   protected ear!: emitAndReturn;
   protected eas!: emitStreamAndReceiveStream;
 
-  constructor(pluginName: string, cwd: string, log: IPluginLogger) {
-    super(pluginName, cwd, log);
+  constructor(
+    pluginName: string,
+    cwd: string,
+    pluginCwd: string,
+    log: IPluginLogger
+  ) {
+    super(pluginName, cwd, pluginCwd, log);
 
     this.emit = new emit(log);
     this.ear = new emitAndReturn(log);
@@ -48,7 +53,12 @@ export class Events extends EventsBase<PluginConfig> {
     event: string,
     listener: { (args: Array<any>): Promise<any> }
   ): Promise<void> {
-    await this.ear.onReturnableEvent(callerPluginName, pluginName, event, listener);
+    await this.ear.onReturnableEvent(
+      callerPluginName,
+      pluginName,
+      event,
+      listener
+    );
   }
   public async emitEventAndReturn(
     callerPluginName: string,

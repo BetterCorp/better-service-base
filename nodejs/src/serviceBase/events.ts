@@ -47,6 +47,7 @@ export class SBEvents {
       new (importedPlugin.Events as unknown as typeof EventsBase)(
         plugin.name,
         cwd,
+        plugin.pluginDir,
         pluginLog
       );
     await this.log.debug(`Create events plugin: {name}`, {

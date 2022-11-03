@@ -17,7 +17,7 @@ export class SBLogger {
     runningLive: boolean,
     CORE_PLUGIN_NAME: string
   ) {
-    this._logger = new DefaultLogger("default-logger", "./", undefined!);
+    this._logger = new DefaultLogger("default-logger", "./", "./", undefined!);
     SBBase.setupPlugin(
       appId,
       runningDebug,
@@ -27,6 +27,7 @@ export class SBLogger {
     );
     this._loggerEvents = new DefaultEvents(
       "default-logger-events",
+      "./",
       "./",
       this.generateNullLoggerForPlugin()
     );
@@ -125,6 +126,7 @@ export class SBLogger {
       new (importedPlugin.Logger as unknown as typeof LoggerBase)(
         plugin.name,
         cwd,
+        plugin.pluginDir,
         this.generateLoggerForPlugin(plugin.mappedName)
       );
     await this.log.debug(`Create logging plugin: {name}`, {

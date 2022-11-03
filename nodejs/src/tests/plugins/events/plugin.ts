@@ -53,19 +53,19 @@ const getPluginConfig = async () => {
 
 describe("plugins/events-default", () => {
   emit(async () => {
-    const refP = new events("test-plugin", process.cwd(), fakeLogger);
+    const refP = new events("test-plugin", process.cwd(), process.cwd(), fakeLogger);
     (refP as any).getPluginConfig = getPluginConfig;
     if (refP.init !== undefined) await refP.init();
     return refP;
   }, 10);
   emitAndReturn(async () => {
-    const refP = new events("test-plugin", process.cwd(), fakeLogger);
+    const refP = new events("test-plugin", process.cwd(), process.cwd(), fakeLogger);
     (refP as any).getPluginConfig = getPluginConfig;
     if (refP.init !== undefined) await refP.init();
     return refP;
   }, 10);
   emitStreamAndReceiveStream(async () => {
-    const refP = new events("test-plugin", process.cwd(), fakeLogger);
+    const refP = new events("test-plugin", process.cwd(), process.cwd(), fakeLogger);
     (refP as any).getPluginConfig = getPluginConfig;
     if (refP.init !== undefined) await refP.init();
     //refP.eas.staticCommsTimeout = 25;

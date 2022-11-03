@@ -7,8 +7,8 @@ import { ErrorMessages } from "../interfaces/static";
 export class EventsBase<PluginConfigType extends IPluginConfig = any>
   extends DefaultBase<PluginConfigType>
 {
-  constructor(pluginName: string, cwd: string, log: IPluginLogger) {
-    super(pluginName, cwd, log);
+  constructor(pluginName: string, cwd: string,pluginCwd: string, log: IPluginLogger) {
+    super(pluginName, cwd, pluginCwd, log);
   }
   public async onEvent(
     callerPluginName: string,

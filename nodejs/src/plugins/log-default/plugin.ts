@@ -1,6 +1,6 @@
 import { IPluginLogger, LogMeta } from "../../interfaces/logger";
 import { LoggerBase } from "../../logger/logger";
-import { ConsoleColours } from './colours';
+import { ConsoleColours } from "./colours";
 import { PluginConfig } from "./sec.config";
 
 export enum LogLevels {
@@ -16,10 +16,11 @@ export class Logger extends LoggerBase<PluginConfig> {
   constructor(
     pluginName: string,
     cwd: string,
+    pluginCwd: string,
     defaultLogger: IPluginLogger,
     mockConsole?: { (level: number, message: string): void }
   ) {
-    super(pluginName, cwd, defaultLogger);
+    super(pluginName, cwd, pluginCwd, defaultLogger);
     this._mockedConsole = mockConsole;
     if (this._mockedConsole !== undefined) this._mockConsole = true;
   }
@@ -33,7 +34,10 @@ export class Logger extends LoggerBase<PluginConfig> {
     let formattedMessage = this.formatLog<T>(message, meta);
     formattedMessage = `[${plugin.toUpperCase()}] ${formattedMessage}`;
     let func: any = console.debug;
-    let colour: Array<ConsoleColours> = [ConsoleColours.BgBlack, ConsoleColours.FgWhite];
+    let colour: Array<ConsoleColours> = [
+      ConsoleColours.BgBlack,
+      ConsoleColours.FgWhite,
+    ];
     if (level === LogLevels.STAT) {
       formattedMessage = `[STAT] ${formattedMessage}`;
       colour = [ConsoleColours.BgYellow, ConsoleColours.FgBlack];
@@ -58,7 +62,7 @@ export class Logger extends LoggerBase<PluginConfig> {
       colour = [ConsoleColours.BgRed, ConsoleColours.FgBlack];
     }
     if (this._mockConsole) return this._mockedConsole!(level, formattedMessage);
-    func(colour.join('')+'%s'+ConsoleColours.Reset, formattedMessage);
+    func(colour.join("") + "%s" + ConsoleColours.Reset, formattedMessage);
   }
 
   public async reportStat(

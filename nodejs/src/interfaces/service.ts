@@ -30,5 +30,6 @@ export interface IReadyPlugin {
   mappedName: string;
   version: string;
   pluginFile: string;
+  pluginDir: string;
   installerFile: string | null;
 }

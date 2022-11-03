@@ -17,10 +17,17 @@ export class DefaultBaseCore {
   public readonly pluginName: string;
   public log: IPluginLogger;
   protected cwd: string;
+  protected pluginCwd: string;
 
-  constructor(pluginName: string, cwd: string, log: IPluginLogger) {
+  constructor(
+    pluginName: string,
+    cwd: string,
+    pluginCwd: string,
+    log: IPluginLogger
+  ) {
     this.pluginName = pluginName;
     this.cwd = cwd;
+    this.pluginCwd = pluginCwd;
     this.log = log;
   }
 

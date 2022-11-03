@@ -23,7 +23,7 @@ describe("plugins/log-default", () => {
       if (expectMessageContent !== undefined) {
         consoleExpectMessageContent = {
           expectMessageContent,
-          logs: []
+          logs: [],
         };
         for (let consol of listOfConsoles.filter((x) => x !== expect))
           (console as any)[consol] = () => {
@@ -64,36 +64,52 @@ describe("plugins/log-default", () => {
         (console as any)[consol] = tempCCStore[consol];
       if (consoleEventCalled === -1) assert.fail("Console not setup!");
       if (consoleEventCalled === 0) assert.fail("No console called!");
-      if (consoleEventCalled === 1 && consoleExpectMessageContent !== null ) {
-        for (let xx = 0; xx < consoleExpectMessageContent.expectMessageContent.length; xx++) {
+      if (consoleEventCalled === 1 && consoleExpectMessageContent !== null) {
+        for (
+          let xx = 0;
+          xx < consoleExpectMessageContent.expectMessageContent.length;
+          xx++
+        ) {
           let has = false;
           for (let item of consoleExpectMessageContent.logs) {
-            if (item.toString().indexOf(consoleExpectMessageContent.expectMessageContent[xx]) >=0 ) {
+            if (
+              item
+                .toString()
+                .indexOf(
+                  consoleExpectMessageContent.expectMessageContent[xx]
+                ) >= 0
+            ) {
               has = true;
               break;
             }
           }
-          assert.ok(has, `Does not contain '${consoleExpectMessageContent.expectMessageContent[xx]}': ${consoleExpectMessageContent.logs.join(',')}`);
+          assert.ok(
+            has,
+            `Does not contain '${
+              consoleExpectMessageContent.expectMessageContent[xx]
+            }': ${consoleExpectMessageContent.logs.join(",")}`
+          );
         }
       }
       consoleEventCalled = -1;
       consoleExpectMessageContent = null;
     };
     it("should console a stat event", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("debug", [null,"[STAT] [DEFAULT-STAT] [val=2]"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("debug", [null, "[STAT] [DEFAULT-STAT] [val=2]"]);
       await plugin.reportStat("default-stat", "val", 2);
       restoreConsole();
     });
     it("should console a debug event", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("debug", [null,"[DEBUG] [DEFAULT-DBG] My Msg"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("debug", [null, "[DEBUG] [DEFAULT-DBG] My Msg"]);
       await plugin.debug("default-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a debug event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("debug", [null,
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("debug", [
+        null,
         "[DEBUG] [DEFAULT-DBG] My Msg cHEESE and a,b (5)",
       ]);
       await plugin.debug("default-DbG", "My Msg {che} and {chi} ({te})", {
@@ -105,14 +121,17 @@ describe("plugins/log-default", () => {
     });
 
     it("should console a info event", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("log", [null,"[INFO] [INFO-DBG] My Msg"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("log", [null, "[INFO] [INFO-DBG] My Msg"]);
       await plugin.info("info-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a info event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("log", [null,"[INFO] [INFO-DBG] My Msg cHEESE and a,b (5)"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("log", [
+        null,
+        "[INFO] [INFO-DBG] My Msg cHEESE and a,b (5)",
+      ]);
       await plugin.info("info-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -122,14 +141,17 @@ describe("plugins/log-default", () => {
     });
 
     it("should console a error event", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("error", [null,"[ERROR] [INFEE-DBG] My Msg"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("error", [null, "[ERROR] [INFEE-DBG] My Msg"]);
       await plugin.error("infee-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a error event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("error", [null,"[ERROR] [INFE-DBG] My Msg cHEESE and a,b (5)"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("error", [
+        null,
+        "[ERROR] [INFE-DBG] My Msg cHEESE and a,b (5)",
+      ]);
       await plugin.error("infe-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -139,14 +161,17 @@ describe("plugins/log-default", () => {
     });
 
     it("should console a warn event", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("warn", [null,"[WARN] [INFOW-DBG] My Msg"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("warn", [null, "[WARN] [INFOW-DBG] My Msg"]);
       await plugin.warn("infoW-DbG", "My Msg");
       restoreConsole();
     });
     it("should console a warn event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
-      storeConsole("warn", [null,"[WARN] [INFW-DBG] My Msg cHEESE and a,b (5)"]);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("warn", [
+        null,
+        "[WARN] [INFW-DBG] My Msg cHEESE and a,b (5)",
+      ]);
       await plugin.warn("infW-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -156,10 +181,11 @@ describe("plugins/log-default", () => {
     });
 
     it("running debug, should debug everything", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = true;
       (plugin as any).runningLive = false;
-      storeConsole("debug", [null,
+      storeConsole("debug", [
+        null,
         "[DEBUG] [DEFAULT-DBG] My Msg cHEESE and a,b (5)",
       ]);
       await plugin.debug("default-DbG", "My Msg {che} and {chi} ({te})", {
@@ -170,7 +196,7 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
     it("running non-debug, should not debug anything", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = false;
       storeConsole("debug");
@@ -182,7 +208,7 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
     it("running live-debug, should not debug anything", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = true;
       storeConsole("debug");
@@ -195,7 +221,7 @@ describe("plugins/log-default", () => {
     });
 
     it("running non-debug, should not stat anything", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = false;
       storeConsole("debug");
@@ -203,7 +229,7 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
     it("running live, should not output PI info", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = true;
       storeConsole("log");
@@ -220,7 +246,7 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
     it("running live, should not output PI warn", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = true;
       storeConsole("warn");
@@ -237,7 +263,7 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
     it("running live, should not output PI error", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = true;
       storeConsole("error");
@@ -254,7 +280,7 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
     it("Stack report", async () => {
-      const plugin = new Logger("default-logger", "./", null as any);
+      const plugin = new Logger("default-logger", "./", "./", null as any);
       (plugin as any).runningDebug = true;
       (plugin as any).runningLive = false;
       storeConsole("error", undefined, [
@@ -275,6 +301,7 @@ describe("plugins/log-default", () => {
       const plugin = new Logger(
         "default-logger",
         "./",
+        "./",
         null as any,
         fakeLogFunc
       );
@@ -289,6 +316,7 @@ describe("plugins/log-default", () => {
 
       const plugin = new Logger(
         "default-logger",
+        "./",
         "./",
         null as any,
         fakeLogFunc
@@ -306,6 +334,7 @@ describe("plugins/log-default", () => {
 
       const plugin = new Logger(
         "default-logger",
+        "./",
         "./",
         null as any,
         fakeLogFunc
@@ -326,6 +355,7 @@ describe("plugins/log-default", () => {
       const plugin = new Logger(
         "default-logger",
         "./",
+        "./",
         null as any,
         fakeLogFunc
       );
@@ -339,6 +369,7 @@ describe("plugins/log-default", () => {
 
       const plugin = new Logger(
         "default-logger",
+        "./",
         "./",
         null as any,
         fakeLogFunc
@@ -359,6 +390,7 @@ describe("plugins/log-default", () => {
       const plugin = new Logger(
         "default-logger",
         "./",
+        "./",
         null as any,
         fakeLogFunc
       );
@@ -372,6 +404,7 @@ describe("plugins/log-default", () => {
 
       const plugin = new Logger(
         "default-logger",
+        "./",
         "./",
         null as any,
         fakeLogFunc
@@ -392,6 +425,7 @@ describe("plugins/log-default", () => {
       const plugin = new Logger(
         "default-logger",
         "./",
+        "./",
         null as any,
         fakeLogFunc
       );
@@ -405,6 +439,7 @@ describe("plugins/log-default", () => {
 
       const plugin = new Logger(
         "default-logger",
+        "./",
         "./",
         null as any,
         fakeLogFunc

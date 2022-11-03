@@ -11,8 +11,8 @@ import { ErrorMessages } from '../interfaces/static';
 export class ConfigBase<PluginConfigType extends IPluginConfig = any>
 extends DefaultBase<PluginConfigType> implements IConfig {
   readonly _deploymentProfile: string;
-  constructor(pluginName: string, cwd: string, log: IPluginLogger, deploymentProfile: string) {
-    super(pluginName, cwd, log);
+  constructor(pluginName: string, cwd: string, pluginCwd: string, log: IPluginLogger, deploymentProfile: string) {
+    super(pluginName, cwd, pluginCwd, log);
     this._deploymentProfile = deploymentProfile;
   }
   async createAppConfig(listOfKnownPlugins: Array<string>): Promise<void> {
