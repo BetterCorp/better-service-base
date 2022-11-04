@@ -63,7 +63,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-betterportal",
-    "version": "1.0.1",
+    "version": "1.2.8",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -127,10 +127,17 @@
               "required": true,
               "name": "Auth Issuer JWT Certs URL",
               "description": null
+            },
+            "BPUI": {
+              "type": "boolean",
+              "required": true,
+              "name": "Enable BP UI host",
+              "description": "Serve the BetterPortal UI Assets"
             }
           },
           "extraDefinitions": {},
           "defaultValues": {
+            "BPUI": true,
             "issuer": "https://auth-za.betterportal.cloud/auth",
             "certsUrl": "https://auth-za.betterportal.cloud/auth/json"
           }
@@ -596,8 +603,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "13d62a5b8e08832b4ce577e50569d192",
-            "commsTokenIV": "4893829f1e2e54692a802e190b1f17bf",
+            "commsToken": "326316f125db7f802b119bd453a7beb9",
+            "commsTokenIV": "5404a5c03cdc26e6b2dba1310531347b",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -700,8 +707,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BIEu1C31HMMSqH_E0gYdvF1iN6K--0b4-YKJR3e4PTZkk_IZUeCUpa642PEvg8vneAiNclHIRXz3U3aQzhy9nzg",
-            "privateKey": "c9tyOZ-LVsvfBdGlVm5KMQyGRWZAOVPVqdauTdXNnOk",
+            "publicKey": "BF7iWyHw4msyUDBJO1svF9UYAGiCLGGgVv_I9xbx9q0PaMcFr--Q9BnQnc7McWC1V-3o7Zr8-Ev7sNFw_I_SKg4",
+            "privateKey": "Vd5nip21Va1jV463K2WloZllM4kdZn1nY2XdgVzX7Jw",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -912,7 +919,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGQ3SkwwRTdIUDVMWW02RjI3ZDFhV08kMmIkMDQkZDdKTDBFN0hQNUxZbTZGMjdkMWFXTyQyYiQwNCRkN0pMMEU3SFA1TFltNkYyN2QxYVdP",
+            "clientEndpointKey": "JDJiJDA0JHZYUVFEei9nRjBjc21BZG04NXBYcS4kMmIkMDQkdlhRUUR6L2dGMGNzbUFkbTg1cFhxLiQyYiQwNCR2WFFRRHovZ0YwY3NtQWRtODVwWHEu",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1479,8 +1486,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$DqalXUo51Gb/XQ5g.0Tg/O",
-            "secretKey": "$2b$08$dWi0cRCqsrf7KaduEzPZA.",
+            "authKey": "$2b$08$QHyQNOH8.N/OFN0.pD1G/.",
+            "secretKey": "$2b$08$fkOb6O.9IEpNhqbHYiJUmu",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1601,8 +1608,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "5226b6715f52aaa9b72d740ffae0e34c",
-            "commsTokenIV": "366658206f71934266c8e68a749973f3",
+            "commsToken": "716297aea25fd03bd51861ee66bd8624",
+            "commsTokenIV": "d65f28d1213c7c22493a4e9bd2ecd931",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
