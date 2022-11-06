@@ -12,6 +12,9 @@ import { IPluginLogger, LogMeta } from "../../../interfaces/logger";
 const debug = (...a: any) => {};
 const fakeLogger: IPluginLogger = {
   reportStat: async (key, value): Promise<void> => {},
+  reportTextStat: async (message, meta, hasPIData): Promise<void> => {
+    debug(message, meta);
+  },
   info: async (message, meta, hasPIData): Promise<void> => {
     debug(message, meta);
   },

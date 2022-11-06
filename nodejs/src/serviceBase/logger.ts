@@ -53,6 +53,14 @@ export class SBLogger {
         );
       }
     );
+    this._loggerEvents.onEvent("d", "l", "textStat", async (args: Array<any>) => {
+      await (self._activeLogger || self._logger).reportTextStat(
+        args[0],
+        args[1],
+        args[2],
+        args[3]
+      );
+    });
     this._loggerEvents.onEvent("d", "l", "debug", async (args: Array<any>) => {
       await (self._activeLogger || self._logger).debug(
         args[0],
@@ -158,6 +166,7 @@ export class SBLogger {
   private generateNullLoggerForPlugin(): IPluginLogger {
     return {
       reportStat: async (key, value): Promise<void> => {},
+      reportTextStat: async (message, meta, hasPIData): Promise<void> => {},
       info: async (message, meta, hasPIData): Promise<void> => {},
       warn: async (message, meta, hasPIData): Promise<void> => {},
       error: async (
@@ -181,6 +190,13 @@ export class SBLogger {
           pluginName,
           key,
           value,
+        ]),
+      reportTextStat: async (message, meta, hasPIData): Promise<void> =>
+        await self._loggerEvents.emitEvent("d", "l", "textStat", [
+          pluginName,
+          message,
+          meta,
+          hasPIData,
         ]),
       info: async (message, meta, hasPIData): Promise<void> =>
         await self._loggerEvents.emitEvent("d", "l", "info", [

@@ -4,6 +4,7 @@ import { ConsoleColours } from "./colours";
 import { PluginConfig } from "./sec.config";
 
 export enum LogLevels {
+  TSTAT = -3,
   STAT = -2,
   DEBUG = -1,
   INFO = 0,
@@ -42,6 +43,10 @@ export class Logger extends LoggerBase<PluginConfig> {
       formattedMessage = `[STAT] ${formattedMessage}`;
       colour = [ConsoleColours.BgYellow, ConsoleColours.FgBlack];
     }
+    if (level === LogLevels.TSTAT) {
+      formattedMessage = `[STAT] ${formattedMessage}`;
+      colour = [ConsoleColours.BgCyan, ConsoleColours.FgWhite];
+    }
     if (level === LogLevels.DEBUG) {
       formattedMessage = `[DEBUG] ${formattedMessage}`;
       colour = [ConsoleColours.BgBlue, ConsoleColours.FgWhite];
@@ -72,6 +77,15 @@ export class Logger extends LoggerBase<PluginConfig> {
   ): Promise<void> {
     if (!this.runningDebug) return;
     this.logEvent(LogLevels.STAT, plugin, "[{key}={value}]", { key, value });
+  }
+  public async reportTextStat<T extends string>(
+    plugin: string,
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void> {
+    if (!this.runningDebug) return;
+    this.logEvent<T>(LogLevels.TSTAT, plugin, message as T, meta);
   }
   public async debug<T extends string>(
     plugin: string,

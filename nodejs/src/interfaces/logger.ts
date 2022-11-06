@@ -7,6 +7,10 @@ export type LogMeta<T extends string> = Record<
 
 export interface IPluginLogger {
   reportStat(key: string, value: number): Promise<void>;
+  reportTextStat<T extends string>(
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean): Promise<void>;
   info<T extends string>(
     message: T,
     meta?: LogMeta<T>,
@@ -39,6 +43,11 @@ export interface IPluginLogger {
 export interface ILogger {
   init?(): Promise<void>;
   reportStat(plugin: string, key: string, value: number): Promise<void>;
+  reportTextStat<T extends string>(
+    plugin: string,
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean): Promise<void>;
   info<T extends string>(
     plugin: string,
     message: T,

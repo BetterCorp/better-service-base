@@ -60,6 +60,14 @@ export class LoggerBase<PluginConfigType extends IPluginConfig = any>
   ): Promise<void> {
     throw ErrorMessages.LoggerNotImplementedProperly;
   }
+  public async reportTextStat<T extends string>(
+    plugin: string,
+    message: T,
+    meta?: LogMeta<T>,
+    hasPIData?: boolean
+  ): Promise<void> {
+    throw ErrorMessages.LoggerNotImplementedProperly;
+  }
   public async debug<T extends string>(
     plugin: string,
     message: T,

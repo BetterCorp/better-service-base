@@ -100,6 +100,12 @@ describe("plugins/log-default", () => {
       await plugin.reportStat("default-stat", "val", 2);
       restoreConsole();
     });
+    it("should console a text stat event", async () => {
+      const plugin = new Logger("default-logger", "./", "./", null as any);
+      storeConsole("debug", [null, "[STAT] [DEFAULT-DBG] My Msg"]);
+      await plugin.reportTextStat("default-DbG", "My Msg");
+      restoreConsole();
+    });
     it("should console a debug event", async () => {
       const plugin = new Logger("default-logger", "./", "./", null as any);
       storeConsole("debug", [null, "[DEBUG] [DEFAULT-DBG] My Msg"]);
