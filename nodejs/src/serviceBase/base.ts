@@ -101,7 +101,7 @@ export class SBBase {
         >
       ) => {
         const method = args.splice(0, 1)[0] as string;
-        return await callPluginMethod(pluginName, method, args);
+        return await callPluginMethod(mappedPluginName, method, args);
       };
       return tPlugin;
     };
