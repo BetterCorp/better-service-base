@@ -63,7 +63,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-betterportal",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -603,8 +603,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "4fd883dd1c424c43344ddccc99ddf698",
-            "commsTokenIV": "ef78113859e42898941a5579c7f11d10",
+            "commsToken": "50eb74e521cbf4ed912b19020de2f963",
+            "commsTokenIV": "1d4c0e32a42283192cbbda24fe4fa4ff",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -707,8 +707,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BLADReQn7gSieZMp9hTdLuAE8JJnPF9w_7vK0FV93S89DWq_jpl7uXD80H1wuUk-ilw2A85yykGNgva__fzrS1g",
-            "privateKey": "TjMs3E4fgmhUdyzreNJWX7ZxL4h3pOUSe6w4mvJu99E",
+            "publicKey": "BOJzeR4Y0G6W1gH2gHqKzUIWntvxfn4Bq81l9mpMYPaHBqJISXsuZ4EqGOt8frPjeBlLAjZSofXKSGiF61UzzFU",
+            "privateKey": "zcC111ulf2MQQ-kUrB_Y9xpmbUXxVUs1L635860m4IQ",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -919,7 +919,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JFJlaDhCU2RJRGR5UEtYQ09CajI4VE8kMmIkMDQkUmVoOEJTZElEZHlQS1hDT0JqMjhUTyQyYiQwNCRSZWg4QlNkSURkeVBLWENPQmoyOFRP",
+            "clientEndpointKey": "JDJiJDA0JEMyWk9FeWVLQWJlVFFNL0ouRGljQ2UkMmIkMDQkQzJaT0V5ZUtBYmVUUU0vSi5EaWNDZSQyYiQwNCRDMlpPRXllS0FiZVRRTS9KLkRpY0Nl",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1015,7 +1015,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-web-server",
-    "version": "5.2.1",
+    "version": "5.2.2",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1500,8 +1500,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$VpcY3r.QrFdN07VuVUHvD.",
-            "secretKey": "$2b$08$/YKefZZQvuQA04BTw0NT4u",
+            "authKey": "$2b$08$uFEE5DM0Pk3PlCCO9OLHc.",
+            "secretKey": "$2b$08$Ihhb9gx0lLFS1uR3385bOu",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1622,8 +1622,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "04be9e6f1e2701d17f8ff88f1a448ba7",
-            "commsTokenIV": "e7fdb5e6292ca330ba0281a0b88ec4a1",
+            "commsToken": "e13ea13a1f205999a7b3786db4687fd0",
+            "commsTokenIV": "1e1e5a2cece26dd19793bad8f3cc9dc0",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
