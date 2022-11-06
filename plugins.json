@@ -63,7 +63,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-betterportal",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -603,8 +603,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "77dc9a337eeaa66cf85b8a8b444c1bc6",
-            "commsTokenIV": "9829b1a52f3fb7c259149a1862a4a463",
+            "commsToken": "4fd883dd1c424c43344ddccc99ddf698",
+            "commsTokenIV": "ef78113859e42898941a5579c7f11d10",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -707,8 +707,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BFqvYogvBbkJKi2Jy-3WC3uyEiF1PkIFgV9eKT96JnmhtaQFZNWoNful7yVkCGEFZWpTmn8aYGL_SXYrol1Uh24",
-            "privateKey": "JGjiaU4nE_V8mSiveqYQ0nPDYaa1TtiYYRAeashrNYs",
+            "publicKey": "BLADReQn7gSieZMp9hTdLuAE8JJnPF9w_7vK0FV93S89DWq_jpl7uXD80H1wuUk-ilw2A85yykGNgva__fzrS1g",
+            "privateKey": "TjMs3E4fgmhUdyzreNJWX7ZxL4h3pOUSe6w4mvJu99E",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -919,7 +919,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHdWdjhNRzk5RUdtVElMSlEzUkpUNS4kMmIkMDQkd1Z2OE1HOTlFR21USUxKUTNSSlQ1LiQyYiQwNCR3VnY4TUc5OUVHbVRJTEpRM1JKVDUu",
+            "clientEndpointKey": "JDJiJDA0JFJlaDhCU2RJRGR5UEtYQ09CajI4VE8kMmIkMDQkUmVoOEJTZElEZHlQS1hDT0JqMjhUTyQyYiQwNCRSZWg4QlNkSURkeVBLWENPQmoyOFRP",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1015,7 +1015,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-web-server",
-    "version": "5.0.5",
+    "version": "5.2.1",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1172,6 +1172,18 @@
         "config": {
           "interfaceName": "FastifyWebServerConfig",
           "definitions": {
+            "health": {
+              "type": "boolean",
+              "required": true,
+              "name": "Enable /health endpoint",
+              "description": "Used to monitoring"
+            },
+            "usingCloudflareWarpTraefikPlugin": {
+              "type": "boolean",
+              "required": true,
+              "name": "CloudflareWARP Traefik plugin",
+              "description": "github.com/BetterCorp/cloudflarewarp is in front of this service"
+            },
             "cors": {
               "type": "FastifyCors",
               "required": true,
@@ -1266,6 +1278,8 @@
             "string | null": {}
           },
           "defaultValues": {
+            "health": false,
+            "usingCloudflareWarpTraefikPlugin": false,
             "host": "0.0.0.0",
             "httpPort": 80,
             "ipRewrite": true,
@@ -1486,8 +1500,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$ToiC5dO7GrCCMXZq67ss9O",
-            "secretKey": "$2b$08$tc0.0ZJQvjSNaDKdRzksgO",
+            "authKey": "$2b$08$VpcY3r.QrFdN07VuVUHvD.",
+            "secretKey": "$2b$08$/YKefZZQvuQA04BTw0NT4u",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1608,8 +1622,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "572e8e43c6b4b0c82220043650bf2d8c",
-            "commsTokenIV": "089af07b35e48b34983b2f7423fd3feb",
+            "commsToken": "04be9e6f1e2701d17f8ff88f1a448ba7",
+            "commsTokenIV": "e7fdb5e6292ca330ba0281a0b88ec4a1",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
