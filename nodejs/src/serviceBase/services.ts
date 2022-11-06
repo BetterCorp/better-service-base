@@ -52,7 +52,7 @@ export class SBServices {
 
       let servicePlugin =
         new (importedPlugin.Service as unknown as typeof ServicesBase)(
-          plugin.name,
+          plugin.mappedName,
           cwd,
           plugin.pluginDir,
           generateLoggerForPlugin(plugin.mappedName)

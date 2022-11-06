@@ -124,7 +124,7 @@ export class SBLogger {
 
     let loggerPlugin =
       new (importedPlugin.Logger as unknown as typeof LoggerBase)(
-        plugin.name,
+        plugin.mappedName,
         cwd,
         plugin.pluginDir,
         this.generateLoggerForPlugin(plugin.mappedName)

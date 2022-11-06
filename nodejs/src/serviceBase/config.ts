@@ -158,7 +158,7 @@ export class SBConfig {
     });
 
     appConfig = new (importedPlugin.Config as unknown as typeof ConfigBase)(
-      this.configPlugin.plugin.name,
+      this.configPlugin.plugin.mappedName,
       this.cwd,
       this.configPlugin.plugin.pluginDir,
       logger,

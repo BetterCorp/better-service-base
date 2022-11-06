@@ -45,7 +45,7 @@ export class SBEvents {
 
     let eventsPlugin =
       new (importedPlugin.Events as unknown as typeof EventsBase)(
-        plugin.name,
+        plugin.mappedName,
         cwd,
         plugin.pluginDir,
         pluginLog

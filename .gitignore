@@ -16,6 +16,9 @@ node_modules
 /sec.config.json
 /nodejs/junit.json
 /nodejs/sec.config.json
+/nodejs/node_modules
+/nodejs/.nyc_output
+/nodejs/lib
 /dotnet/[Dd]ebug/
 /dotnet/[Dd]ebugPublic/
 /dotnet/[Rr]elease/
