@@ -1,67 +1,5 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-adbud",
-    "version": "2.0.1",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-service-adbud",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-adbud",
-        "def": {
-          "key": "service-adbud",
-          "name": "ADBud.io service",
-          "icon": "service-adbud.png",
-          "description": "ADbud.io service plugin",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-adbud",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-adbud/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-adbud/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-adbud"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-adbud"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {},
-          "extraDefinitions": {},
-          "defaultValues": {}
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-betterportal",
     "version": "1.4.4",
     "author": {
@@ -603,8 +541,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "4a80ad6c604a391351d1b829980a4434",
-            "commsTokenIV": "b4a493c4271e6833710a1dbb4d7a2fa0",
+            "commsToken": "6a2af423eb677340902a3df585f8e809",
+            "commsTokenIV": "0f66d7fcdc2344ca1b79d9d26c5e8d27",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -707,8 +645,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BKrchTa_Pbsm2FKlpW0ABnu1WUV59Q0wBYX1kagFP8cMUNeBt9H2UWtXgzq1goX_YuSxMcwc7XuceqpMj1MSJ0g",
-            "privateKey": "3v4q_ocWyhRDdw6Wpy0aF39IdF_m_DANt2F4oOje0zo",
+            "publicKey": "BO2pb1itwx46QEtpJujYV3hGFMyY3Cely0VRMf_gPIpTc5-razRROorEnkd-3FPFm2JJlOMgQHDjMmFSbLOwQII",
+            "privateKey": "FPg5z32lm7mhjyMLlLGObKuo47iiMbyjQYinqOiA7zE",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -919,7 +857,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JG1TQ2RsbW9pUDUwV2xaRTNGZGllN3UkMmIkMDQkbVNDZGxtb2lQNTBXbFpFM0ZkaWU3dSQyYiQwNCRtU0NkbG1vaVA1MFdsWkUzRmRpZTd1",
+            "clientEndpointKey": "JDJiJDA0JEFoaUVZVjBIYks2RmIwN3dBR3FyN3UkMmIkMDQkQWhpRVlWMEhiSzZGYjA3d0FHcXI3dSQyYiQwNCRBaGlFWVYwSGJLNkZiMDd3QUdxcjd1",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1500,8 +1438,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$DSTwS.TUFMvOhp6vpPFq.e",
-            "secretKey": "$2b$08$owuKy0LDByfbPAOqO/jmF.",
+            "authKey": "$2b$08$5BjdhQYLpCrV4DJ1cUuEOu",
+            "secretKey": "$2b$08$3GRwG7cW70g8Q32rJaJAYO",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1622,8 +1560,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "543d433dc481d8bc5a06b9acd54a947c",
-            "commsTokenIV": "a0acaf02208f3dbd5178deb57e380cca",
+            "commsToken": "eddae80f15ba83142333e64628fd9abb",
+            "commsTokenIV": "6d5aca716585b571aba16ab69ae40b23",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
