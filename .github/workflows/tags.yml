@@ -136,6 +136,7 @@ jobs:
           push: true
           tags: |
             betterweb/service-base:latest-node
+            betterweb/service-base:node
             betterweb/service-base:node-${{ needs.build_and_publish_prod_nodejs.outputs.version }}
             betterweb/service-base:node-v${{ needs.build_and_publish_prod_nodejs.outputs.major }}
 
