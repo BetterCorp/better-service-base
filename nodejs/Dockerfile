@@ -38,4 +38,4 @@ RUN chmod -R 650 /home/bsb
 RUN chown node:node /home/bsb/sec.config.json
 
 ENTRYPOINT [ "/root/entrypoint.sh" ]
-CMD ts-node node_modules/@bettercorp/service-base/lib/cli.js
+CMD node node_modules/@bettercorp/service-base/lib/cli.js
