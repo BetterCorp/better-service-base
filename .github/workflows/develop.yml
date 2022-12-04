@@ -140,8 +140,8 @@ jobs:
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: true
           tags: |
-            betterweb/service-base:ea-latest
-            betterweb/service-base:${{ needs.build_and_publish_ea_nodejs.outputs.version }}
+            betterweb/service-base:ea-latest-node
+            betterweb/service-base:node-${{ needs.build_and_publish_ea_nodejs.outputs.version }}
 
   docs_build_ea:
     runs-on: ubuntu-latest

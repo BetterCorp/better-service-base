@@ -135,9 +135,9 @@ jobs:
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           push: true
           tags: |
-            betterweb/service-base:latest
-            betterweb/service-base:${{ needs.build_and_publish_prod_nodejs.outputs.version }}
-            betterweb/service-base:v${{ needs.build_and_publish_prod_nodejs.outputs.major }}
+            betterweb/service-base:latest-node
+            betterweb/service-base:node-${{ needs.build_and_publish_prod_nodejs.outputs.version }}
+            betterweb/service-base:node-v${{ needs.build_and_publish_prod_nodejs.outputs.major }}
 
   docs_build_prod:
     runs-on: ubuntu-latest
