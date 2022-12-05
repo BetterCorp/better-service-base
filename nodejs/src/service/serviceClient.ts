@@ -18,7 +18,6 @@ import {
   ServiceReturnableEvents,
   ServiceCallable,
 } from "./base";
-import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class RegisteredPlugin<
     onEvents,
