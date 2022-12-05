@@ -27,12 +27,12 @@ for (let plugin of (process.env.BSB_PLUGINS || "").split(",")) {
   if (existingPlugin === null) {
     console.log("INSTALL PLUGIN: " + installString);
     // not found, we need to install
-    execSync(`time install --save ${installString}`, { encoding: "utf-8" });
+    execSync(`time install ${installString}`, { encoding: "utf-8" });
   } else {
     if (pluginString.length > 1 && pluginString[1] !== existingPlugin) {
       console.log("UPDATE PLUGIN: " + installString);
       // version specific, so lets see if we need to update
-      execSync(`time install --save ${installString}`, { encoding: "utf-8" });
+      execSync(`time install ${installString}`, { encoding: "utf-8" });
     }
   }
 }
@@ -42,7 +42,11 @@ for (let plugin of (process.env.BSB_PLUGINS || "").split(",")) {
   execSync(`time pnpm i`, { encoding: "utf-8" });
 }*/
 
-if (process.env.BSB_PLUGIN_UPDATE !== "false") {
+if (
+  ["yes", "y", "true"].indexOf(
+    (process.env.BSB_PLUGIN_UPDATE || "").toLowerCase()
+  )
+) {
   console.log("UPDATE PLUGINS");
-  execSync(`time npm update --save`, { encoding: "utf-8" });
+  execSync(`time npm update`, { encoding: "utf-8" });
 }
