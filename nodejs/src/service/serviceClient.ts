@@ -138,22 +138,18 @@ export class ServicesClient<
   >;
   protected async _register(): Promise<void> {
     // We must add the inits/runs list to the referenced service in order to change the init and run order
-    (this._referencedPlugin as any).initBeforePlugins =
-      this._referencedPlugin.initBeforePlugins!.concat(
-        this.initBeforePlugins || []
-      );
-    (this._referencedPlugin as any).initAfterPlugins =
-      this._referencedPlugin.initAfterPlugins!.concat(
-        this.initAfterPlugins || []
-      );
-    (this._referencedPlugin as any).runBeforePlugins =
-      this._referencedPlugin.runBeforePlugins!.concat(
-        this.runBeforePlugins || []
-      );
-    (this._referencedPlugin as any).runAfterPlugins =
-      this._referencedPlugin.runAfterPlugins!.concat(
-        this.runAfterPlugins || []
-      );
+    (this._referencedPlugin as any).initBeforePlugins = (
+      this._referencedPlugin.initBeforePlugins || []
+    ).concat(this.initBeforePlugins || []);
+    (this._referencedPlugin as any).initAfterPlugins = (
+      this._referencedPlugin.initAfterPlugins || []
+    ).concat(this.initAfterPlugins || []);
+    (this._referencedPlugin as any).runBeforePlugins = (
+      this._referencedPlugin.runBeforePlugins || []
+    ).concat(this.runBeforePlugins || []);
+    (this._referencedPlugin as any).runAfterPlugins = (
+      this._referencedPlugin.runAfterPlugins || []
+    ).concat(this.runAfterPlugins || []);
     if (this._plugin === undefined) {
       this._plugin = await this._referencedPlugin.registerPluginClient<
         onEvents,
