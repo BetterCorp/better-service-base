@@ -151,7 +151,7 @@ export class SBServices {
       )
     );
     this.log.debug("Services init order: {initOrder}", {
-      initOrder: orderOfPlugins.map((x) => x.name).join(","),
+      initOrder: orderOfPlugins.map((x) => `[(${x.after.join(',')})${x.name}(${x.before.join(',')})]`).join(","),
     });
     for (let service of orderOfPlugins) {
       this.log.debug(`{plugin} init`, {
@@ -219,7 +219,7 @@ export class SBServices {
       )
     );
     this.log.debug("Services run order: {initOrder}", {
-      initOrder: orderOfPlugins.map((x) => x.name).join(","),
+      initOrder: orderOfPlugins.map((x) => `[${x.after.join(',')}=>${x.name}=>${x.before.join(',')}]`).join(","),
     });
     for (let service of orderOfPlugins) {
       this.log.debug(`{plugin} run`, {
