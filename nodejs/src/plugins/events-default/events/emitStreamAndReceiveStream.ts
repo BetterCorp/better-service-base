@@ -16,13 +16,13 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
     this.removeAllListeners();
   }
 
-  receiveStream(
+  async receiveStream(
     callerPluginName: string,
     listener: { (error: Error | null, stream: Readable): Promise<void> },
     timeoutSeconds: number = 60
   ): Promise<string> {
     const streamId = `${randomUUID()}=${timeoutSeconds}`;
-    this.log.debug(
+    await this.log.debug(
       "receiveStream: {callerPluginName} listening to {streamId}",
       {
         callerPluginName,
@@ -52,13 +52,13 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
     });
   }
 
-  sendStream(
+  async sendStream(
     callerPluginName: string,
     streamId: string,
     stream: Readable
   ): Promise<void> {
     const self = this;
-    this.log.debug(
+    await this.log.debug(
       "sendStream: {callerPluginName} emitting _self-{streamId}",
       { callerPluginName, streamId }
     );

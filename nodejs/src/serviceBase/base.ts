@@ -78,7 +78,7 @@ export class SBBase {
       pluginName: string
     ): Promise<RegisteredPlugin<any, any, any, any, any, any>> => {
       let mappedPluginName = await config.getAppPluginMappedName(pluginName);
-      log.debug(
+      await log.debug(
         "Registering new plugin client in {callerPlugin} for {pluginName} as {mappedPluginName}",
         {
           callerPlugin: plugin.pluginName,

@@ -18,7 +18,7 @@ export default class emitAndReturn extends EventEmitter {
     event: string,
     listener: { (args: Array<any>): Promise<any> }
   ): Promise<void> {
-    this.log.debug(
+    await this.log.debug(
       "onReturnableEvent: {callerPluginName} listening to {pluginName}-{event}",
       { callerPluginName, pluginName, event }
     );
@@ -38,7 +38,7 @@ export default class emitAndReturn extends EventEmitter {
     timeoutSeconds: number,
     args: Array<any>
   ): Promise<any> {
-    this.log.debug(
+    await this.log.debug(
       "emitReturnableEvent: {callerPluginName} emitting {pluginName}-{event}",
       { callerPluginName, pluginName, event }
     );

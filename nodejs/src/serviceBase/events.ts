@@ -111,7 +111,7 @@ export class SBEvents {
                 `on-event-${mappedPluginName}-${args[0]}`,
                 -1
               );
-              self.log.error(exc);
+              await self.log.error(exc);
               throw exc;
             }
           }
@@ -157,7 +157,7 @@ export class SBEvents {
                 `on-revent-${mappedPluginName}-${args[0]}`,
                 -1
               );
-              self.log.error(exc);
+              await self.log.error(exc);
               throw exc;
             }
           }
@@ -192,7 +192,7 @@ export class SBEvents {
             `emit-revent-${mappedPluginName}-${args[0]}`,
             -1
           );
-          self.log.error(exc);
+          await self.log.error(exc);
           throw exc;
         }
       },
@@ -226,7 +226,7 @@ export class SBEvents {
             `emit-rtevent-${mappedPluginName}-${args[0]}`,
             -1
           );
-          self.log.error(exc);
+          await self.log.error(exc);
           throw exc;
         }
       },
@@ -249,7 +249,7 @@ export class SBEvents {
           return data;
         } catch (exc: any) {
           await self.log.reportStat(`receive-stream-${mappedPluginName}`, -1);
-          self.log.error(exc);
+          await self.log.error(exc);
           throw exc;
         }
       },
@@ -269,7 +269,7 @@ export class SBEvents {
           return;
         } catch (exc: any) {
           await self.log.reportStat(`receive-stream-${mappedPluginName}`, -1);
-          self.log.error(exc);
+          await self.log.error(exc);
           throw exc;
         }
       },

@@ -30,7 +30,7 @@ export class SBConfig {
       deploymentProfile = process.env.BSB_PROFILE!;
     }
 
-    this.log.info(
+    await this.log.info(
       "config load with profile: {deploymentProfile}, against {len} plugins",
       {
         deploymentProfile,
@@ -124,7 +124,7 @@ export class SBConfig {
         return plugin;
       }
     }
-    this.log.fatal(
+    await this.log.fatal(
       "Cannot find plugin type {type} or default {defaultPlugin}",
       {
         type,

@@ -73,7 +73,7 @@ describe("serviceBase/services", () => {
         ref: {} as any,
       },
     ];
-    plugins = services.makeAfterRequired(plugins);
+    plugins = await services.makeAfterRequired(plugins);
     services.dispose();
     assert.equal(plugins[0].name, "plugin2");
     assert.equal(plugins[1].name, "plugin1");
@@ -112,7 +112,7 @@ describe("serviceBase/services", () => {
     assert.equal(plugins[0].after[1], "plugin3");
     assert.equal(plugins[1].after.length, 0);
     assert.equal(plugins[2].after.length, 0);
-    plugins = services.makeAfterRequired(plugins);
+    plugins = await services.makeAfterRequired(plugins);
     services.dispose();
     assert.equal(plugins[0].name, "plugin2");
     assert.equal(plugins[1].name, "plugin3");
@@ -152,7 +152,7 @@ describe("serviceBase/services", () => {
       },
     ];
     plugins = services.makeBeforeRequired(plugins);
-    plugins = services.makeAfterRequired(plugins);
+    plugins = await services.makeAfterRequired(plugins);
     services.dispose();
     assert.equal(plugins[3].name, "plugin1", "plugin 1 not last");
     assert.equal(plugins[3].after.length, 3, "length of after does not match");

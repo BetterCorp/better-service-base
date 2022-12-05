@@ -114,11 +114,11 @@ export class ServiceBase {
     this._services = new SBServices(
       this._logger.generateLoggerForPlugin(this._CORE_PLUGIN_NAME + "-services")
     );
-    this.log.info("BOOT IN: {local}", { local: this.cwd });
+    await this.log.info("BOOT IN: {local}", { local: this.cwd });
 
     this._packJsonFile = path.join(this.cwd, "./package.json");
     if (!fs.existsSync(this._packJsonFile)) {
-      this.log.fatal("PACKAGE.JSON FILE NOT FOUND IN {cwd}", { cwd: this.cwd });
+      await this.log.fatal("PACKAGE.JSON FILE NOT FOUND IN {cwd}", { cwd: this.cwd });
       return;
     }
     this._appVersion = JSON.parse(
@@ -135,7 +135,7 @@ export class ServiceBase {
       ).version;
     }
 
-    this.log.info(
+    await this.log.info(
       `BOOT UP: @{version} with BSB@{BSBVersion} and debugging {debugMode} while running {runningLive}`,
       {
         version: this._appVersion,
@@ -149,7 +149,7 @@ export class ServiceBase {
 
   public async setupPlugins(cwd: string, CLIONLY = false): Promise<void> {
     this._startKeep(BOOT_STAT_KEYS.PLUGINS);
-    this.log.info("INIT PLUGIN LOCATOR");
+    await this.log.info("INIT PLUGIN LOCATOR");
     let dirsToSearch: Array<string> = [this.cwd];
     this.plugins = [];
     if (
@@ -180,9 +180,16 @@ export class ServiceBase {
       await SBPlugins.findLocalPlugins(this.log, cwd, CLIONLY)
     );
 
-    await this.log.info(`{len} plugins found`, {
+    await this.log.info(`{len} plugins found: {plugins}`, {
       len: this.plugins.length,
+      plugins: this.plugins.map((x) => x.name).join(","),
     });
+    for (let plugin of this.plugins) {
+      await this.log.debug(`Plugin {pluginName}: {pluginDir}`, {
+        pluginName: plugin.name,
+        pluginDir: plugin.pluginDir,
+      });
+    }
 
     this._outputKeep(BOOT_STAT_KEYS.PLUGINS);
     this.cwd = cwd;

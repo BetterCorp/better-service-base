@@ -32,19 +32,19 @@ export class Service
   implements testCallable
 {
   async callableMethod(a: number, b: number): Promise<number> {
-    this.log.warn("RECEIVED CALL ({a},{b})", { a, b });
+    await this.log.warn("RECEIVED CALL ({a},{b})", { a, b });
     this.emitEvent("onEmittable", a, b);
     return a * b;
   }
   public override async init() {
     const self = this;
     this.onEvent("onReceivable", async (a: number, b: number) => {
-      self.log.warn("received onReceivable ({a},{b}", { a, b });
+      await self.log.warn("received onReceivable ({a},{b}", { a, b });
     });
     this.onReturnableEvent("onReturnable", async (a: number, b: number) => {
-      self.log.warn("RECEIVED onReturnable ({a},{b})", { a, b });
+      await self.log.warn("RECEIVED onReturnable ({a},{b})", { a, b });
       let result = await self.emitEventAndReturn("onReverseReturnable", a, b);
-      self.log.warn("RETURNED onReverseReturnable ({result})", { result });
+      await self.log.warn("RETURNED onReverseReturnable ({result})", { result });
       return result;
     });
   }
@@ -67,12 +67,12 @@ export class testClient extends ServicesClient<
   public async init(): Promise<void> {
     const self = this;
     this._plugin.onEvent("onEmittable", async (a: number, b: number) => {
-      self._plugin.log.warn("onEmittable ({a},{b})", { a, b });
+      await self._plugin.log.warn("onEmittable ({a},{b})", { a, b });
     });
     this._plugin.onReturnableEvent(
       "onReverseReturnable",
       async (a: number, b: number) => {
-        self._plugin.log.warn("onReverseReturnable ({a},{b})", { a, b });
+        await self._plugin.log.warn("onReverseReturnable ({a},{b})", { a, b });
         return a * b;
       }
     );

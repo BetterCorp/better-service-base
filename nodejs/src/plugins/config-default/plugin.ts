@@ -51,7 +51,7 @@ export class Config extends ConfigBase<PluginConfig> {
       )
         return this.activeDeploymentProfile[dpPlugin];
     }
-    this.log.fatal("Cannot find mapped plugin {mappedPluginName}", {
+    await this.log.fatal("Cannot find mapped plugin {mappedPluginName}", {
       mappedPluginName,
     });
     return undefined as any; // will not reach
@@ -100,7 +100,7 @@ export class Config extends ConfigBase<PluginConfig> {
       defConfig.deploymentProfiles.default =
         defConfig.deploymentProfiles.default || {};
     } else {
-      this.log.debug(
+      await this.log.debug(
         "! sec.config.json CAN`T BE FOUND ... we will try create one / work in memory! {secFile}",
         { secFile: this._secConfigFilePath }
       );
@@ -130,7 +130,7 @@ export class Config extends ConfigBase<PluginConfig> {
         );
         this._canWriteChanges = true;
       } catch (e) {
-        this.log.warn(
+        await this.log.warn(
           "We're running non-production, but {secFile} is not writable, not we're not going to create it.",
           { secFile: this._secConfigFilePath }
         );
@@ -155,11 +155,11 @@ export class Config extends ConfigBase<PluginConfig> {
     this._appConfig.plugins[mappedPluginName] = config;
     if (!this._canWriteChanges) {
       if (!this.runningLive)
-        return this.log.warn(
+        return await this.log.warn(
           "We're running non-production, but {secFile} is not writable, not we're not going to change it.",
           { secFile: this._secConfigFilePath }
         );
-      return this.log.debug(
+      return await this.log.debug(
         "We're running production, we're not going to write to {secFile}.",
         { secFile: this._secConfigFilePath }
       );

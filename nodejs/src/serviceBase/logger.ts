@@ -113,7 +113,7 @@ export class SBLogger {
         self._loggerEvents.emitEvent("d", "l", "fatal-e", []);
       }
     );
-    this.log.info("Logger event core ready.");
+    await this.log.info("Logger event core ready.");
   }
 
   async setupLogger(

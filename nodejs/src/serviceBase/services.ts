@@ -94,7 +94,7 @@ export class SBServices {
               return await (plugin as any)[method](...args);
             }
           }
-          self.log.error(
+          await self.log.error(
             "Enable {pluginName} in order to call ({method}) from it",
             { pluginName, method }
           );
@@ -137,8 +137,8 @@ export class SBServices {
   }
 
   public async servicesInit() {
-    this.log.info("Init all services");
-    let orderOfPlugins = this.makeAfterRequired(
+    await this.log.info("Init all services");
+    let orderOfPlugins = await this.makeAfterRequired(
       this.makeBeforeRequired(
         this._activeServices.map((x) => {
           return {
@@ -150,7 +150,7 @@ export class SBServices {
         })
       )
     );
-    this.log.debug("Services init default order: {initOrder}", {
+    await this.log.debug("Services init default order: {initOrder}", {
       initOrder: this._activeServices
         .map(
           (x) =>
@@ -160,13 +160,13 @@ export class SBServices {
         )
         .join(","),
     });
-    this.log.debug("Services init order: {initOrder}", {
+    await this.log.debug("Services init order: {initOrder}", {
       initOrder: orderOfPlugins
         .map((x) => `[(${x.after.join(",")})${x.name}(${x.before.join(",")})]`)
         .join(","),
     });
     for (let service of orderOfPlugins) {
-      this.log.debug(`{plugin} init`, {
+      await this.log.debug(`{plugin} init`, {
         plugin: service.name,
       });
       await service.ref.init();
@@ -192,7 +192,7 @@ export class SBServices {
     }
     return orderOfPlugins;
   }
-  public makeAfterRequired(
+  public async makeAfterRequired(
     orderOfPlugins: {
       name: string;
       after: string[];
@@ -203,7 +203,7 @@ export class SBServices {
     for (let i = 0; i < orderOfPlugins.length - 1; i++) {
       for (let j = i + 1; j < orderOfPlugins.length; j++) {
         if (orderOfPlugins[i].after.indexOf(orderOfPlugins[j].name) >= 0) {
-          this.log.debug(`{plugin} run after {reqName}`, {
+          await this.log.debug(`{plugin} run after {reqName}`, {
             plugin: orderOfPlugins[i].name,
             reqName: orderOfPlugins[j].name,
           });
@@ -217,8 +217,8 @@ export class SBServices {
   }
 
   public async servicesRun() {
-    this.log.info("Run all services");
-    let orderOfPlugins = this.makeAfterRequired(
+    await this.log.info("Run all services");
+    let orderOfPlugins = await this.makeAfterRequired(
       this.makeBeforeRequired(
         this._activeServices.map((x) => {
           return {
@@ -230,7 +230,7 @@ export class SBServices {
         })
       )
     );
-    this.log.debug("Services run default order: {initOrder}", {
+    await this.log.debug("Services run default order: {initOrder}", {
       initOrder: this._activeServices
         .map(
           (x) =>
@@ -240,13 +240,13 @@ export class SBServices {
         )
         .join(","),
     });
-    this.log.debug("Services run order: {initOrder}", {
+    await this.log.debug("Services run order: {initOrder}", {
       initOrder: orderOfPlugins
         .map((x) => `[${x.after.join(",")}=>${x.name}=>${x.before.join(",")}]`)
         .join(","),
     });
     for (let service of orderOfPlugins) {
-      this.log.debug(`{plugin} run`, {
+      await this.log.debug(`{plugin} run`, {
         plugin: service.name,
       });
       await service.ref.run();
