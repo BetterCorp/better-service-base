@@ -45,7 +45,7 @@ for (let plugin of (process.env.BSB_PLUGINS || "").split(",")) {
 if (
   ["yes", "y", "true"].indexOf(
     (process.env.BSB_PLUGIN_UPDATE || "").toLowerCase()
-  )
+  ) >= 0
 ) {
   console.log("UPDATE PLUGINS");
   execSync(`time npm update`, { encoding: "utf-8" });
