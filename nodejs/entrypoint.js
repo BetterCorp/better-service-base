@@ -27,12 +27,12 @@ for (let plugin of (process.env.BSB_PLUGINS || "").split(",")) {
   if (existingPlugin === null) {
     console.log("INSTALL PLUGIN: " + installString);
     // not found, we need to install
-    execSync(`time install ${installString}`, { encoding: "utf-8" });
+    execSync(`time npm install ${installString}`, { encoding: "utf-8" });
   } else {
     if (pluginString.length > 1 && pluginString[1] !== existingPlugin) {
       console.log("UPDATE PLUGIN: " + installString);
       // version specific, so lets see if we need to update
-      execSync(`time install ${installString}`, { encoding: "utf-8" });
+      execSync(`time npm install ${installString}`, { encoding: "utf-8" });
     }
   }
 }
