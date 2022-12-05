@@ -37,6 +37,11 @@ for (let plugin of (process.env.BSB_PLUGINS || "").split(",")) {
   }
 }
 
+if ((process.env.BSB_PLUGINS || "").length > 3) {
+  console.log("INSTALL PLUGINS: DEPS");
+  execSync(`time pnpm i`, { encoding: "utf-8" });
+}
+
 if (process.env.BSB_PLUGIN_UPDATE !== "false") {
   console.log("UPDATE PLUGINS");
   execSync(`time pnpm update`, { encoding: "utf-8" });
