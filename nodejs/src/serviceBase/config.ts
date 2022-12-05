@@ -186,7 +186,7 @@ export class SBConfig {
         return true;
       },
     } as any);
-    await appConfig.createAppConfig(plugins.map(x => x.name));
+    await appConfig.createAppConfig(plugins.map((x) => x.name));
     this.appConfig = appConfig!;
     await appConfig.init();
     await this.log.info(`Config plugin ready: {name}`, {

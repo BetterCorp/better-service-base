@@ -83,13 +83,13 @@ export class SBPlugins {
         { dirPluginFolderName, thisFullPath }
       );
       arrOfPlugins.push({
-        pluginDefinition:pluginDef,
+        pluginDefinition: pluginDef,
         name: dirPluginFolderName,
         mappedName: dirPluginFolderName,
         version: version,
         pluginFile,
         installerFile: pluginInstallerFile,
-        pluginDir: pluginDir
+        pluginDir: pluginDir,
       });
     }
 

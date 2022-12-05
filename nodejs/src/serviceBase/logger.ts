@@ -53,14 +53,19 @@ export class SBLogger {
         );
       }
     );
-    this._loggerEvents.onEvent("d", "l", "textStat", async (args: Array<any>) => {
-      await (self._activeLogger || self._logger).reportTextStat(
-        args[0],
-        args[1],
-        args[2],
-        args[3]
-      );
-    });
+    this._loggerEvents.onEvent(
+      "d",
+      "l",
+      "textStat",
+      async (args: Array<any>) => {
+        await (self._activeLogger || self._logger).reportTextStat(
+          args[0],
+          args[1],
+          args[2],
+          args[3]
+        );
+      }
+    );
     this._loggerEvents.onEvent("d", "l", "debug", async (args: Array<any>) => {
       await (self._activeLogger || self._logger).debug(
         args[0],

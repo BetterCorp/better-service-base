@@ -41,13 +41,17 @@ export class SBBase {
   ): void {
     (plugin as unknown as IServiceEvents<any, any, any, any>).emitEvent =
       events.emitEvent;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).onEvent = events.onEvent;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).emitEventAndReturnTimed =
-      events.emitEventAndReturnTimed;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).emitEventAndReturn =
-      events.emitEventAndReturn;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).onReturnableEvent =
-      events.onReturnableEvent;
+    (plugin as unknown as IServiceEvents<any, any, any, any>).onEvent =
+      events.onEvent;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any>
+    ).emitEventAndReturnTimed = events.emitEventAndReturnTimed;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any>
+    ).emitEventAndReturn = events.emitEventAndReturn;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any>
+    ).onReturnableEvent = events.onReturnableEvent;
     (plugin as unknown as IServiceEvents<any, any, any, any>).receiveStream =
       events.receiveStream;
     (plugin as unknown as IServiceEvents<any, any, any, any>).sendStream =

@@ -67,14 +67,6 @@ export class ServicesBase<
     log: IPluginLogger
   ) {
     super(pluginName, cwd, pluginCwd, log);
-    if (Tools.isNullOrUndefined(this.initBeforePlugins))
-      this.initBeforePlugins = [];
-    if (Tools.isNullOrUndefined(this.initAfterPlugins))
-      this.initAfterPlugins = [];
-    if (Tools.isNullOrUndefined(this.runBeforePlugins))
-      this.runBeforePlugins = [];
-    if (Tools.isNullOrUndefined(this.runAfterPlugins))
-      this.runAfterPlugins = [];
   }
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,

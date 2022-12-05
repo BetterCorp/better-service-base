@@ -18,7 +18,7 @@ import {
   ServiceReturnableEvents,
   ServiceCallable,
 } from "./base";
-import { Tools } from '@bettercorp/tools/lib/Tools';
+import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class RegisteredPlugin<
     onEvents,
@@ -29,7 +29,13 @@ export class RegisteredPlugin<
     PluginConfigType extends IPluginConfig
   >
   extends DefaultBase<PluginConfigType>
-  implements IServiceEvents<emitEvents, onEvents, emitReturnableEvents, onReturnableEvents>
+  implements
+    IServiceEvents<
+      emitEvents,
+      onEvents,
+      emitReturnableEvents,
+      onReturnableEvents
+    >
 {
   receiveStream(
     listener: (error: Error | null, stream: Readable) => Promise<void>,
@@ -132,6 +138,23 @@ export class ServicesClient<
     PluginClientConfigType
   >;
   protected async _register(): Promise<void> {
+    // We must add the inits/runs list to the referenced service in order to change the init and run order
+    (this._referencedPlugin as any).initBeforePlugins =
+      this._referencedPlugin.initBeforePlugins!.concat(
+        this.initBeforePlugins || []
+      );
+    (this._referencedPlugin as any).initAfterPlugins =
+      this._referencedPlugin.initAfterPlugins!.concat(
+        this.initAfterPlugins || []
+      );
+    (this._referencedPlugin as any).runBeforePlugins =
+      this._referencedPlugin.runBeforePlugins!.concat(
+        this.runBeforePlugins || []
+      );
+    (this._referencedPlugin as any).runAfterPlugins =
+      this._referencedPlugin.runAfterPlugins!.concat(
+        this.runAfterPlugins || []
+      );
     if (this._plugin === undefined) {
       this._plugin = await this._referencedPlugin.registerPluginClient<
         onEvents,
@@ -146,15 +169,6 @@ export class ServicesClient<
 
   constructor(self: ServicesBase<any, any, any>) {
     this._referencedPlugin = self;
-    if (Tools.isNullOrUndefined(this.initBeforePlugins)) this.initBeforePlugins = [];
-    if (Tools.isNullOrUndefined(this.initAfterPlugins)) this.initAfterPlugins = [];
-    if (Tools.isNullOrUndefined(this.runBeforePlugins)) this.runBeforePlugins = [];
-    if (Tools.isNullOrUndefined(this.runAfterPlugins)) this.runAfterPlugins = [];
-    // We must add the inits/runs list to the referenced service in order to change the init and run order
-    (self as any).initBeforePlugins = self.initBeforePlugins!.concat(this.initBeforePlugins!);
-    (self as any).initAfterPlugins = self.initAfterPlugins!.concat(this.initAfterPlugins!);
-    (self as any).runBeforePlugins = self.runBeforePlugins!.concat(this.runBeforePlugins!);
-    (self as any).runAfterPlugins = self.runAfterPlugins!.concat(this.runAfterPlugins!);
     (self as any)._clients.push(this);
   }
 }
