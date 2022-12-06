@@ -131,7 +131,7 @@ export default {
       // docker-default
       badgs.push(
         {
-          url: "https://hub.docker.com/repository/docker/betterweb/service-base",
+          url: "https://hub.docker.com/r/betterweb/service-base",
           img: "https://img.shields.io/docker/image-size/betterweb/service-base/latest"
         }
       );

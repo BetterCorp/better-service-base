@@ -20,25 +20,30 @@ There are 4 types of plugins for BSB.
 These are the plugins where you'd normally write your code to do stuff.  
 From connecting with other service plugins or other services themselves (apis etc).  
 
-Inside the plugins `dir/`, you'd name them `service-{pluginname}`.
+Inside the `plugins/` dir, you'd name them `service-{pluginname}`.  
+
+For services, you create client plugins for easy use/communication with the plugin.  
+Inside the `clients/` dir, you'd name them `service-{pluginname}`.  
+  
+*In the future, we'd like to find a way where clients don't have to be build/maintained, however for now it's the middleground chosen.*
 
 ### Events
 
 These plugins handle inter-plugin communication.  
 
-Inside the plugins `dir/`, you'd name them `events-{pluginname}`.
+Inside the `plugins/` dir, you'd name them `events-{pluginname}`.
 
 ### Logging
 
 These plugins handle logging of the app, so instead of to console, you can send the logs to a log aggregator.  
 
-Inside the plugins `dir/`, you'd name them `log-{pluginname}`.
+Inside the `plugins/` dir, you'd name them `log-{pluginname}`.
 
 ### Config
 
 These plugins handle the app/plugin config as well as what plugins/events to use.  
 
-Inside the plugins `dir/`, you'd name them `config-{pluginname}`.
+Inside the `plugins/` dir, you'd name them `config-{pluginname}`.
 
 ## Marketplace
 
@@ -46,7 +51,7 @@ You can view all the public plugins available at the [Plugin Marketplace](/Marke
 
 ## Notes
 
-Some packages could have multiple plugin types built into a npm package.  
+Some packages could have multiple plugin types built into a single npm package.  
 An example would be `@bettercorp/service-base-plugin-config-1password` - it has the config plugin type (`config-1password`), and a standard plugin type (`service-1password`).  
 The config plugin type defines the configuration for deployment whereas the standard plugin type allows other plugins to read/write 1password vaults.
 
@@ -55,6 +60,9 @@ The config plugin type defines the configuration for deployment whereas the stan
 
 ```fs
 src/  
+  clients/  
+    {plugintype}-{pluginname}/
+      plugin.ts  
   plugins/  
     {plugintype}-{pluginname}/
       plugin.ts  
@@ -64,6 +72,9 @@ src/
 Once compiled down:  
 ```fs
 lib/  
+  clients/  
+    {plugintype}-{pluginname}/
+      plugin.js  
   plugins/  
     {plugintype}-{pluginname}/
       plugin.js  

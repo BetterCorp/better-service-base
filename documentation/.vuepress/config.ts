@@ -18,7 +18,7 @@ export default defineUserConfig({
         link: "/",
       },
       {
-        text: "Get Started",
+        text: "Development",
         link: "/Development",
       },
       {
@@ -51,7 +51,7 @@ export default defineUserConfig({
       },
       {
         text: "Docker",
-        link: "https://hub.docker.com/repository/docker/betterweb/service-base",
+        link: "https://hub.docker.com/r/betterweb/service-base",
       },
     ],
   }),
