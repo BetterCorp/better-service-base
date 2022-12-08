@@ -12,7 +12,7 @@ const getGithubRepos = () =>
     let options = {
       method: "GET",
       hostname: "api.github.com",
-      path: "/search/repositories?q=topic:bsb-plugin",
+      path: "/search/repositories?q=topic:bsb-plugin&noonce="+(new Date().getTime()).toString(),
       headers: {
         Accept: "application/vnd.github.text-match+json",
         "User-Agent": "BetterServiceBase Documentation",
