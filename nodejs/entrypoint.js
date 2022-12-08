@@ -11,7 +11,9 @@ if (!fs.existsSync("./package.json")) {
 
 const packageConfig = JSON.parse(fs.readFileSync("./package.json").toString());
 
-for (let plugin of (process.env.BSB_PLUGINS || "").split(",")) {
+for (let plugin of (process.env.BSB_PLUGINS || "")
+  .split(",")
+  .filter((x) => x != "")) {
   console.log("INSTALL PLUGIN?: " + plugin);
   let pluginString = plugin.split(":");
   let existingPlugin = null;
