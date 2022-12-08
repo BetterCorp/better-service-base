@@ -541,8 +541,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "73840dbbc187bb49abd695249b9e2777",
-            "commsTokenIV": "7cfdece858af848098593a9aecf1ecc6",
+            "commsToken": "5d076055ae770461dd4c5604f4c23b7c",
+            "commsTokenIV": "88d0c77462aa7c4001e9417cab36108c",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -645,11 +645,125 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BL7mntXyMS4X1iyAqkfQ3Ut1VjQ1_vsRVKTS4Q9nI_izu02ohWD_SYNVvFQuHNYV8HZT4XdOIFb1mH4IhI1BIEs",
-            "privateKey": "pcv79ALA53XXvLFf8bPx-OnyS3MBHXNRM_Jque1wLzg",
+            "publicKey": "BIfy-Kao5DnQLXAz2-LdKfGB8htiUPU-mvFpgmJv8fN20Uvz6nnEn4atgma-6eFGjCMOtj4lIldtpzjKp6D7JtQ",
+            "privateKey": "tMJcKPrTWMb1cV9zf0O8Kk9IF03t1xHPAU9_PtCcKuQ",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-serial",
+    "version": "0.0.1",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-serial",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-serial-port",
+        "def": {
+          "key": "service-serial-port",
+          "name": "Serial Port",
+          "icon": "serial-port.png",
+          "description": "Serial communication",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-serial",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-serial/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-serial"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-serial"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-serial"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-serial/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-serial/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-serial"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-serial"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-serial"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-serial"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "port": {
+              "type": "string",
+              "required": true,
+              "name": "Port",
+              "description": "The port to bind too"
+            },
+            "autoConnect": {
+              "type": "boolean",
+              "required": true,
+              "name": "Auto Connect",
+              "description": "Connect and hold the connection option"
+            },
+            "baudRate": {
+              "type": "number",
+              "required": true,
+              "name": "Baud Rate",
+              "description": null
+            },
+            "dataBits": {
+              "type": "5 | 6 | 7 | 8",
+              "required": false,
+              "name": "Data Bits",
+              "description": null
+            },
+            "stopBits": {
+              "type": "2 | 1 | 1.5",
+              "required": false,
+              "name": "Stop Bits",
+              "description": null
+            },
+            "parity": {
+              "type": "\"none\" | \"even\" | \"odd\" | \"mark\" | \"space\"",
+              "required": false,
+              "name": "Parity",
+              "description": null
+            },
+            "messageBuffer": {
+              "type": "boolean",
+              "required": true,
+              "name": "Send Buffer",
+              "description": "OnMessage returns buffer instead of a parsed string"
+            }
+          },
+          "extraDefinitions": {
+            "5 | 6 | 7 | 8": {},
+            "2 | 1 | 1.5": {},
+            "\"none\" | \"even\" | \"odd\" | \"mark\" | \"space\"": {}
+          },
+          "defaultValues": {
+            "port": "COM1",
+            "autoConnect": false,
+            "messageBuffer": false,
+            "baudRate": 115200
           }
         },
         "pluginLink": null
@@ -857,7 +971,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JEJyZ0U5N1l6R2E5Lmpva2NPeThSWC4kMmIkMDQkQnJnRTk3WXpHYTkuam9rY095OFJYLiQyYiQwNCRCcmdFOTdZekdhOS5qb2tjT3k4Ulgu",
+            "clientEndpointKey": "JDJiJDA0JDE5dGdHRHhUejlKcnJnRlJmTFNBZU8kMmIkMDQkMTl0Z0dEeFR6OUpycmdGUmZMU0FlTyQyYiQwNCQxOXRnR0R4VHo5SnJyZ0ZSZkxTQWVP",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1438,8 +1552,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$gQNc3LAYB74Qdqu1w3cT1u",
-            "secretKey": "$2b$08$QTlwvoJoEwfeEy.xOCUQPO",
+            "authKey": "$2b$08$crJ0Z6CmnLUy7xJNhWACKe",
+            "secretKey": "$2b$08$tQqzRxRe/ZU/GG5MKq8XEO",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1560,8 +1674,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "7958fe04b72af1a18f080a462103c5c0",
-            "commsTokenIV": "9a6820c7c8ad49fe9fa3d58acb04dd01",
+            "commsToken": "b90767467d8f6e23da59f6aff68c8b3e",
+            "commsTokenIV": "8cccac6f24e1752e55702dd960844378",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
