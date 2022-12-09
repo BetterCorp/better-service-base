@@ -634,8 +634,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "4864ed163713d0c5daa2f969599c3a7a",
-            "commsTokenIV": "0e17ae586a5f728068194505f7f6a004",
+            "commsToken": "c35ca4afc8ce769252432eb54ee6c3fa",
+            "commsTokenIV": "dcfe56071a0ba74b9551acda07b1d27b",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -738,8 +738,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BFqjnfrcRLe3wzyYTfCS8HPLluEt0wH-t8iEnuICRBXxHM3WEnIVZ5nhel7sRvdwJH_zP4-3eoqWNgJqrftYi9Y",
-            "privateKey": "ZAncogQIEdeqqO_j-ZxWdp5RJx4mIsr7HgnunJOdBcc",
+            "publicKey": "BBAeN7jp2QeThQmT4phLfjUDwBCuvkEVxgZ6qwfcW3JL2emcT8V6QKG7Y-ueWjGtFMUNd0JKUcSLKS1oScA3bhc",
+            "privateKey": "gp-5IjrSi3bLFflEGdZUSqt57U9_CwXAK2ariDbZ8pc",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -751,7 +751,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-raspverry-pi-gpio",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -873,7 +873,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-serial",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1186,7 +1186,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JFh5OXFkTkVHM0c3S2xkZktoRGgxQXUkMmIkMDQkWHk5cWRORUczRzdLbGRmS2hEaDFBdSQyYiQwNCRYeTlxZE5FRzNHN0tsZGZLaERoMUF1",
+            "clientEndpointKey": "JDJiJDA0JDdFUTltbXdqN09QbUx6UGNJalFrQy4kMmIkMDQkN0VROW1td2o3T1BtTHpQY0lqUWtDLiQyYiQwNCQ3RVE5bW13ajdPUG1MelBjSWpRa0Mu",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1767,8 +1767,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$1oom/hAUUqxEGGqygeBNou",
-            "secretKey": "$2b$08$tIbzhMifSoepEGQDLI/jxO",
+            "authKey": "$2b$08$m.JpIJXyEJK1HPuhL6GLP.",
+            "secretKey": "$2b$08$qC.RkwM1pYg/uZ3.J43OUe",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1889,8 +1889,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "51e25ad98178017c16ffae224e8817d7",
-            "commsTokenIV": "d8dffe03d5c105861b4243821ad80675",
+            "commsToken": "a3b1aeac72fe47ea7624d74475528ce9",
+            "commsTokenIV": "39944fe3247b3756c2075b236ea4f1ab",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
