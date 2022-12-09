@@ -155,6 +155,99 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-event-relay-webhooks",
+    "version": "0.0.5",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/better-service-base-plugin-event-relay-webhooks",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-event-relay-webhooks",
+        "def": {
+          "key": "service-event-relay-webhooks",
+          "name": "Event Relay Webhooks",
+          "icon": "event-relay-webhooks.png",
+          "description": "Transfer events to webhook URLs",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-event-relay-webhooks",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-event-relay-webhooks/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-event-relay-webhooks/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-event-relay-webhooks/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-event-relay-webhooks"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "events": {
+              "type": "Array<PluginEvent>",
+              "required": true,
+              "name": "Events",
+              "description": null
+            },
+            "apiOn": {
+              "type": "boolean",
+              "required": true,
+              "name": "API Available",
+              "description": null
+            }
+          },
+          "extraDefinitions": {
+            "PluginEvent": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "name": "Event Name",
+                "description": "The event to listen too"
+              },
+              "webhookUrl": {
+                "type": "string",
+                "required": true,
+                "name": "Webhook URL",
+                "description": "The URL to POST to on event"
+              }
+            }
+          },
+          "defaultValues": {
+            "events": [],
+            "apiOn": false
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-events-rabbitmq",
     "version": "3.0.0",
     "author": {
@@ -541,8 +634,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "21c2b766a39f3861600b6407e6a7a1f6",
-            "commsTokenIV": "bc4896d4e8fd7cb465a131965612257b",
+            "commsToken": "4864ed163713d0c5daa2f969599c3a7a",
+            "commsTokenIV": "0e17ae586a5f728068194505f7f6a004",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -645,8 +738,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BNHv4NCfO8OIf6XjC0VULJIgGMPdSdGm-YXpcBSQqI8aKbJxM3W1C8o_LqkDwE7qmiILjvqKIuwQnhPZuBoHMOk",
-            "privateKey": "3VPGFcqBkdV0EVNwWXNFfqwavHtAgBmol0PRWGqVSSo",
+            "publicKey": "BFqjnfrcRLe3wzyYTfCS8HPLluEt0wH-t8iEnuICRBXxHM3WEnIVZ5nhel7sRvdwJH_zP4-3eoqWNgJqrftYi9Y",
+            "privateKey": "ZAncogQIEdeqqO_j-ZxWdp5RJx4mIsr7HgnunJOdBcc",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -657,8 +750,130 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-raspverry-pi-gpio",
+    "version": "0.0.5",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/better-service-base-plugin-raspberry-pi-gpio",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-raspverry-pi-gpio",
+        "def": {
+          "key": "service-raspverry-pi-gpio",
+          "name": "Raspberry PI GPIO",
+          "icon": "raspverry-pi-gpio.png",
+          "description": "Transfer events to webhook URLs",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-raspverry-pi-gpio",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-raspverry-pi-gpio/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-raspverry-pi-gpio"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-raspverry-pi-gpio"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-raspverry-pi-gpio"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-raspverry-pi-gpio/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-raspverry-pi-gpio/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-raspverry-pi-gpio"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-raspverry-pi-gpio"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-raspverry-pi-gpio"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-raspverry-pi-gpio"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "pins": {
+              "type": "Array<PluginPins>",
+              "required": true,
+              "name": "PINs",
+              "description": null
+            },
+            "rpioOptions": {
+              "type": "PluginRPIOOptions",
+              "required": true,
+              "name": "Options",
+              "description": null
+            }
+          },
+          "extraDefinitions": {
+            "PluginPins": {
+              "pin": {
+                "type": "number",
+                "required": true,
+                "name": "PIN",
+                "description": "GPIO Pin"
+              },
+              "type": {
+                "type": "PinType",
+                "required": true,
+                "name": "PIN Type",
+                "description": null
+              },
+              "pullDown": {
+                "type": "PinPullDown",
+                "required": true,
+                "name": "Pulldown Type",
+                "description": null
+              },
+              "defaultState": {
+                "type": "PinState",
+                "required": false,
+                "name": "PIN Default State",
+                "description": null
+              }
+            },
+            "PluginRPIOOptions": {
+              "gpiomem": {
+                "type": "boolean",
+                "required": true,
+                "name": "Use GPIO MEM",
+                "description": "Use /dev/gpiomem"
+              },
+              "mapping": {
+                "type": "PluginRPIOOptionsMapping",
+                "required": true,
+                "name": "Mapping",
+                "description": "Use the P1-P40 numbering scheme"
+              }
+            }
+          },
+          "defaultValues": {
+            "pins": [],
+            "rpioOptions": {
+              "gpiomem": true,
+              "mapping": "physical"
+            }
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-serial",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -971,7 +1186,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JC9RMTRULjJyRDVybVJMRU0ycWF1NWUkMmIkMDQkL1ExNFQuMnJENXJtUkxFTTJxYXU1ZSQyYiQwNCQvUTE0VC4yckQ1cm1STEVNMnFhdTVl",
+            "clientEndpointKey": "JDJiJDA0JFh5OXFkTkVHM0c3S2xkZktoRGgxQXUkMmIkMDQkWHk5cWRORUczRzdLbGRmS2hEaDFBdSQyYiQwNCRYeTlxZE5FRzNHN0tsZGZLaERoMUF1",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1552,8 +1767,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$5kv5Aw47PeJfk1.DJGn3J.",
-            "secretKey": "$2b$08$HEydH/pzrLBr2lvi3B7aMe",
+            "authKey": "$2b$08$1oom/hAUUqxEGGqygeBNou",
+            "secretKey": "$2b$08$tIbzhMifSoepEGQDLI/jxO",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1674,8 +1889,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "bb5be180855bf605a5d582eec9d33f1f",
-            "commsTokenIV": "71e772560542245fd0131210283a24bf",
+            "commsToken": "51e25ad98178017c16ffae224e8817d7",
+            "commsTokenIV": "d8dffe03d5c105861b4243821ad80675",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
