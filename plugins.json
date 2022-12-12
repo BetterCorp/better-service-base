@@ -634,8 +634,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "c35ca4afc8ce769252432eb54ee6c3fa",
-            "commsTokenIV": "dcfe56071a0ba74b9551acda07b1d27b",
+            "commsToken": "3250356d55d901a2de9acbf9f0ad204b",
+            "commsTokenIV": "664a17b34767f6c4130a15c5f6f8c842",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -738,8 +738,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BBAeN7jp2QeThQmT4phLfjUDwBCuvkEVxgZ6qwfcW3JL2emcT8V6QKG7Y-ueWjGtFMUNd0JKUcSLKS1oScA3bhc",
-            "privateKey": "gp-5IjrSi3bLFflEGdZUSqt57U9_CwXAK2ariDbZ8pc",
+            "publicKey": "BD21NyW5FL8dEAT7gluaBG5xPr7CYnM23pa7hksUNVO1Qu383Bveig8RDOJQIBujhEcVuSAaxmP8GLIEOyAbFc8",
+            "privateKey": "tAA7I2jt9h55oXpjBeUOPaRTXeO26tu5ZoBR_34E7oU",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -751,7 +751,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-raspverry-pi-gpio",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -815,6 +815,12 @@
               "required": true,
               "name": "Options",
               "description": null
+            },
+            "disposeAllLow": {
+              "type": "boolean",
+              "required": true,
+              "name": "Dispose Low",
+              "description": "Switch all output pins LOW when disconnecting"
             }
           },
           "extraDefinitions": {
@@ -861,6 +867,7 @@
           },
           "defaultValues": {
             "pins": [],
+            "disposeAllLow": true,
             "rpioOptions": {
               "gpiomem": true,
               "mapping": "physical"
@@ -873,7 +880,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-serial",
-    "version": "0.0.4",
+    "version": "0.0.6",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -938,6 +945,12 @@
               "name": "Auto Connect",
               "description": "Connect and hold the connection option"
             },
+            "autoReConnect": {
+              "type": "boolean",
+              "required": true,
+              "name": "Auto re-Connect",
+              "description": "When auto-connect is enabled, we'll try reconnect automatically if the connection closes/times out. If it failes, we'll throw a fatal"
+            },
             "baudRate": {
               "type": "number",
               "required": true,
@@ -977,6 +990,7 @@
           "defaultValues": {
             "port": "COM1",
             "autoConnect": false,
+            "autoReConnect": false,
             "messageBuffer": false,
             "baudRate": 115200
           }
@@ -1186,7 +1200,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JDdFUTltbXdqN09QbUx6UGNJalFrQy4kMmIkMDQkN0VROW1td2o3T1BtTHpQY0lqUWtDLiQyYiQwNCQ3RVE5bW13ajdPUG1MelBjSWpRa0Mu",
+            "clientEndpointKey": "JDJiJDA0JGNFcjIwYmpqZnJBRHkzS2dZZEs1RU8kMmIkMDQkY0VyMjBiampmckFEeTNLZ1lkSzVFTyQyYiQwNCRjRXIyMGJqamZyQUR5M0tnWWRLNUVP",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1767,8 +1781,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$m.JpIJXyEJK1HPuhL6GLP.",
-            "secretKey": "$2b$08$qC.RkwM1pYg/uZ3.J43OUe",
+            "authKey": "$2b$08$moRI7UC/CBvfr38Kcnimb.",
+            "secretKey": "$2b$08$CuxbtfPOWIXWMRGajIw38O",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1889,8 +1903,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "a3b1aeac72fe47ea7624d74475528ce9",
-            "commsTokenIV": "39944fe3247b3756c2075b236ea4f1ab",
+            "commsToken": "64c0469ce3639a850dfec2630978f25b",
+            "commsTokenIV": "eec1344dbfd03696f5caeb4f3a76dfd1",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
