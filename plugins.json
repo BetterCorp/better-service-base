@@ -162,6 +162,99 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-event-relay-webhooks",
+    "version": "0.0.5",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/better-service-base-plugin-event-relay-webhooks",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-event-relay-webhooks",
+        "def": {
+          "key": "service-event-relay-webhooks",
+          "name": "Event Relay Webhooks",
+          "icon": "event-relay-webhooks.png",
+          "description": "Transfer events to webhook URLs",
+          "badges": [
+            {
+              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-event-relay-webhooks",
+              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-event-relay-webhooks/branch/master/graph/badge.svg"
+            },
+            {
+              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-event-relay-webhooks/actions/workflows/develop.yml/badge.svg?branch=develop"
+            },
+            {
+              "img": "https://github.com/BetterCorp/service-base-plugin-event-relay-webhooks/actions/workflows/master.yml/badge.svg?branch=master"
+            },
+            {
+              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-event-relay-webhooks"
+            },
+            {
+              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-event-relay-webhooks"
+            }
+          ]
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "events": {
+              "type": "Array<PluginEvent>",
+              "required": true,
+              "name": "Events",
+              "description": null
+            },
+            "apiOn": {
+              "type": "boolean",
+              "required": true,
+              "name": "API Available",
+              "description": null
+            }
+          },
+          "extraDefinitions": {
+            "PluginEvent": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "name": "Event Name",
+                "description": "The event to listen too"
+              },
+              "webhookUrl": {
+                "type": "string",
+                "required": true,
+                "name": "Webhook URL",
+                "description": "The URL to POST to on event"
+              }
+            }
+          },
+          "defaultValues": {
+            "events": [],
+            "apiOn": false
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-events-rabbitmq",
     "version": "3.0.0",
     "author": {
@@ -548,8 +641,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "9b1ecf2d88bb2a237fe75147641cc451",
-            "commsTokenIV": "fa879e20e8c8ca6b0b9c21a60117006b",
+            "commsToken": "0319cc4a477799526f27d6fe691cc1e1",
+            "commsTokenIV": "ffb6ee293324eec516331fafd0b708b4",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -652,8 +745,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BAmpY1kW4G5sOJHi93HAOi_8KBWyET_zXfvyVZfPYeQHB4bN2NZfydi6TVMkfTa39EbpISU2lyVId8LhqbwF_9A",
-            "privateKey": "nOiNjQXP1DWfw0H6QHcYQAhY7VQR3G3Sd1eBEJwpnHk",
+            "publicKey": "BMaIrS-m3uN4SmG6oHwtlmsO1GEjXBQ5tyqLLdrgD6EaojhJocjOvt_aFzJAbJOfwgGv-RJgfoWI3XWetkvpfV4",
+            "privateKey": "jCLhz3KxWenyqKn1DKUOfjPzZqH1wRCWa0NJBH3pLKc",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1114,7 +1207,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JElTRG45S3dHT3VoU3hzNWs5YzRSMS4kMmIkMDQkSVNEbjlLd0dPdWhTeHM1azljNFIxLiQyYiQwNCRJU0RuOUt3R091aFN4czVrOWM0UjEu",
+            "clientEndpointKey": "JDJiJDA0JHdpZ0F4dXlUaDVjVzA4bkpCb3VlMHUkMmIkMDQkd2lnQXh1eVRoNWNXMDhuSkJvdWUwdSQyYiQwNCR3aWdBeHV5VGg1Y1cwOG5KQm91ZTB1",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1695,8 +1788,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$C.93HaOqEBT9JMUU5CqQlO",
-            "secretKey": "$2b$08$iZihlkL/zW8vweH/UhBtFu",
+            "authKey": "$2b$08$sIp5S6x.534Zgi8lfmgwT.",
+            "secretKey": "$2b$08$MgbDvdhAYhTH14bYcwkYOO",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1817,8 +1910,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "1ad198f251df19724b7260e20c39bad3",
-            "commsTokenIV": "e40a47ed69f3e0dc55183af8e18c0e3a",
+            "commsToken": "0396e33758d61f9791c04b20c936d873",
+            "commsTokenIV": "81c51e467b6513bd7488843fa0d8628c",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
