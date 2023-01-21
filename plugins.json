@@ -162,99 +162,6 @@
     ]
   },
   {
-    "name": "@bettercorp/service-base-plugin-event-relay-webhooks",
-    "version": "0.0.5",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/better-service-base-plugin-event-relay-webhooks",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-event-relay-webhooks",
-        "def": {
-          "key": "service-event-relay-webhooks",
-          "name": "Event Relay Webhooks",
-          "icon": "event-relay-webhooks.png",
-          "description": "Transfer events to webhook URLs",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-event-relay-webhooks",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-event-relay-webhooks/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-event-relay-webhooks"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-event-relay-webhooks"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-event-relay-webhooks"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-event-relay-webhooks/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-event-relay-webhooks/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-event-relay-webhooks"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-event-relay-webhooks"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-event-relay-webhooks"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-event-relay-webhooks"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "events": {
-              "type": "Array<PluginEvent>",
-              "required": true,
-              "name": "Events",
-              "description": null
-            },
-            "apiOn": {
-              "type": "boolean",
-              "required": true,
-              "name": "API Available",
-              "description": null
-            }
-          },
-          "extraDefinitions": {
-            "PluginEvent": {
-              "name": {
-                "type": "string",
-                "required": true,
-                "name": "Event Name",
-                "description": "The event to listen too"
-              },
-              "webhookUrl": {
-                "type": "string",
-                "required": true,
-                "name": "Webhook URL",
-                "description": "The URL to POST to on event"
-              }
-            }
-          },
-          "defaultValues": {
-            "events": [],
-            "apiOn": false
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-events-rabbitmq",
     "version": "3.0.0",
     "author": {
@@ -641,8 +548,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "0319cc4a477799526f27d6fe691cc1e1",
-            "commsTokenIV": "ffb6ee293324eec516331fafd0b708b4",
+            "commsToken": "b708d8b1110a078bfc58773f874d41ae",
+            "commsTokenIV": "1bc06a6b01adffd5b74dcdae8cb01c17",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -745,8 +652,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BMaIrS-m3uN4SmG6oHwtlmsO1GEjXBQ5tyqLLdrgD6EaojhJocjOvt_aFzJAbJOfwgGv-RJgfoWI3XWetkvpfV4",
-            "privateKey": "jCLhz3KxWenyqKn1DKUOfjPzZqH1wRCWa0NJBH3pLKc",
+            "publicKey": "BKr8ov11R4GCOPSSJDXfhjIzHmvXT4YtIJYecUS-7vHEFeTiCki4v_JHtb92WrlFX8PbeKtP6q-Sw6SG-TbfIhc",
+            "privateKey": "AraDoFOuTITRvDK4R4Cw3xl31B7kQGrvVhFRTCzeK9I",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1207,7 +1114,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHdpZ0F4dXlUaDVjVzA4bkpCb3VlMHUkMmIkMDQkd2lnQXh1eVRoNWNXMDhuSkJvdWUwdSQyYiQwNCR3aWdBeHV5VGg1Y1cwOG5KQm91ZTB1",
+            "clientEndpointKey": "JDJiJDA0JHZHeFZkQWIvWW1tY3VhSkhvSkVzT2UkMmIkMDQkdkd4VmRBYi9ZbW1jdWFKSG9KRXNPZSQyYiQwNCR2R3hWZEFiL1ltbWN1YUpIb0pFc09l",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1303,7 +1210,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-web-server",
-    "version": "6.3.0",
+    "version": "6.3.1",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1788,8 +1695,8 @@
           "defaultValues": {
             "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$sIp5S6x.534Zgi8lfmgwT.",
-            "secretKey": "$2b$08$MgbDvdhAYhTH14bYcwkYOO",
+            "authKey": "$2b$08$QSAfXwpdsU.oniNIBQitYu",
+            "secretKey": "$2b$08$ZYNScgonmPmj7Ywy0eottu",
             "queryKey": "passtk",
             "authType": "JWTCERTS",
             "options": {
@@ -1910,8 +1817,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "0396e33758d61f9791c04b20c936d873",
-            "commsTokenIV": "81c51e467b6513bd7488843fa0d8628c",
+            "commsToken": "92aa9329050a794fccaee36ae4f6d1f4",
+            "commsTokenIV": "00915b67f2bb3461e4a7b93abcec8a74",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
