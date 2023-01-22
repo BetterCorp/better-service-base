@@ -12,7 +12,9 @@ const getGithubRepos = () =>
     let options = {
       method: "GET",
       hostname: "api.github.com",
-      path: "/search/repositories?q=topic:bsb-plugin&noonce="+(new Date().getTime()).toString(),
+      path:
+        "/search/repositories?q=topic:bsb-plugin&noonce=" +
+        new Date().getTime().toString(),
       headers: {
         Accept: "application/vnd.github.text-match+json",
         "User-Agent": "BetterServiceBase Documentation",
@@ -156,7 +158,10 @@ const setupDefaultPackages = (temp_node_modules, plugins) => {
         console.warn(`  : DISABLED / IGNORED`);
         continue;
       }
-      if (repo.language !== "TypeScript") {
+      if (
+        repo.language !== "TypeScript" &&
+        repo.topics.indexOf("bsb-plugin-node") < 0
+      ) {
         console.warn(`  : NOT TS / IGNORED`);
         continue;
       }
