@@ -641,8 +641,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "48b8bceff1cbf7dd037c689f892362ee",
-            "commsTokenIV": "4e8b127e9f61222a495e2cd4467eee5a",
+            "commsToken": "ff58c516548daef646902ded3b002458",
+            "commsTokenIV": "598fed00541afbd05def2d8b4367a038",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -745,8 +745,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BFfiElwmytEiWCi-Ye5ZpbN-VPJ_eUyW7kntQDzq6cEX1twKqj0lA-gpRcFE2R9KERy6x6HwpO2GUH7J_xUx7ts",
-            "privateKey": "TmoqG1qh40qgmn42gTiNgwbfkaFokDs278UUf-sBf5g",
+            "publicKey": "BNkJ9iRUirFnPyAGgWs5k3n8fUzZBdwlEUFAdLtUcFRFWtOWtPU8bnMAkk-xp4w7HVBCvOr9JnF_ikm42X9-cdI",
+            "privateKey": "MVhueZ5y_Tv8gUqMCc0K7FO7eWppj_IOoVLM8B1R4Ak",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1207,7 +1207,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGU0cGxkc01kNnJ3WXlTcElub0RJbGUkMmIkMDQkZTRwbGRzTWQ2cndZeVNwSW5vRElsZSQyYiQwNCRlNHBsZHNNZDZyd1l5U3BJbm9ESWxl",
+            "clientEndpointKey": "JDJiJDA0JGs2ZkVjOUUvd3YwcVNDQ05TN1RHL2UkMmIkMDQkazZmRWM5RS93djBxU0NDTlM3VEcvZSQyYiQwNCRrNmZFYzlFL3d2MHFTQ0NOUzdURy9l",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1295,6 +1295,60 @@
             "port": 514,
             "address": "0.0.0.0",
             "exclusive": false
+          }
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
+    "name": "@bettercorp/service-base-plugin-uisp",
+    "version": "4.0.2",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-uisp",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-uisp",
+        "def": {
+          "key": "service-uisp",
+          "name": "UISP",
+          "icon": "uisp.png",
+          "description": "Ubiquiti UISP (UCRM/UNMS) Service"
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "supportedServices": {
+              "type": "Array<SupportedService>",
+              "required": true,
+              "name": "Supported services",
+              "description": "Array of supported services"
+            },
+            "myHost": {
+              "type": "string",
+              "required": true,
+              "name": "My Host",
+              "description": null
+            },
+            "webhooks": {
+              "type": "boolean",
+              "required": true,
+              "name": "Enable webhooks",
+              "description": null
+            }
+          },
+          "extraDefinitions": {
+            "SupportedService": {}
+          },
+          "defaultValues": {
+            "supportedServices": [],
+            "myHost": "http://localhost.never",
+            "webhooks": false
           }
         },
         "pluginLink": null
@@ -1789,9 +1843,9 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$.sJgI/KXzykuX5LbLVw/n.",
+            "authKey": "$2b$08$MmXHXHB4thQh7r.P7.IJ9O",
             "privateKey": null,
-            "secretKey": "$2b$08$ZBr1c0OjDirM5PXFp0ssbu",
+            "secretKey": "$2b$08$ZlVerycnCwTx2Jp7ZXhguO",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -1911,8 +1965,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "bdb4e505c573fe6fdafdefc820090a58",
-            "commsTokenIV": "803f906163301f667a5d164e58d22456",
+            "commsToken": "fb8229204f7b191d60bacbe8d0b68248",
+            "commsTokenIV": "b3fee72bf03ef836402f897e854d6052",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
