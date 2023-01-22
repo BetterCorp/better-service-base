@@ -1,7 +1,7 @@
 [
   {
     "name": "@bettercorp/service-base-plugin-betterportal",
-    "version": "1.6.7",
+    "version": "1.7.0",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -641,8 +641,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "f55fd943809c78d22f59a21d2e293b7c",
-            "commsTokenIV": "e92022fefc44c44309e99f819d46c267",
+            "commsToken": "48b8bceff1cbf7dd037c689f892362ee",
+            "commsTokenIV": "4e8b127e9f61222a495e2cd4467eee5a",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -745,8 +745,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BO79aNJAA-HjLd_0pofnaZ3Jzokr9gvvjHPfoEjMUzhDr3RcRglIveBfGr21wPK7wbC1SzSBkyFiiz94dbKCYTE",
-            "privateKey": "6Bdi47j8FsBNbpC6h5815ZGBu5kfRvpuw9kguuOe39o",
+            "publicKey": "BFfiElwmytEiWCi-Ye5ZpbN-VPJ_eUyW7kntQDzq6cEX1twKqj0lA-gpRcFE2R9KERy6x6HwpO2GUH7J_xUx7ts",
+            "privateKey": "TmoqG1qh40qgmn42gTiNgwbfkaFokDs278UUf-sBf5g",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1207,7 +1207,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHNUcExndzlZU21ZVC50R1h5WS94RmUkMmIkMDQkc1RwTGd3OVlTbVlULnRHWHlZL3hGZSQyYiQwNCRzVHBMZ3c5WVNtWVQudEdYeVkveEZl",
+            "clientEndpointKey": "JDJiJDA0JGU0cGxkc01kNnJ3WXlTcElub0RJbGUkMmIkMDQkZTRwbGRzTWQ2cndZeVNwSW5vRElsZSQyYiQwNCRlNHBsZHNNZDZyd1l5U3BJbm9ESWxl",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1303,7 +1303,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-web-server",
-    "version": "6.3.1",
+    "version": "6.5.0",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1646,8 +1646,20 @@
         "config": {
           "interfaceName": "IEJWTPluginConfig",
           "definitions": {
+            "privateKey": {
+              "type": "string | null",
+              "required": true,
+              "name": "Private Key",
+              "description": "Private signing key"
+            },
+            "secretKey": {
+              "type": "string | null",
+              "required": true,
+              "name": "Secret Key",
+              "description": "Signing secret key"
+            },
             "keyUrl": {
-              "type": "string",
+              "type": "string | null",
               "required": true,
               "name": "Key URL",
               "description": "JWT Signing key url"
@@ -1664,18 +1676,6 @@
               "name": "Auth Key",
               "description": "For using secret key signing"
             },
-            "secretKey": {
-              "type": "string",
-              "required": true,
-              "name": "Secret Key",
-              "description": "Signing key"
-            },
-            "authType": {
-              "type": "IEJWTPluginAuthType",
-              "required": true,
-              "name": "Auth Type",
-              "description": "Type of signing to do"
-            },
             "queryKey": {
               "type": "string",
               "required": true,
@@ -1689,7 +1689,7 @@
               "description": "Signing options"
             },
             "tokenLifespanMinutes": {
-              "type": "number",
+              "type": "number | null",
               "required": true,
               "name": "Token Lifespan",
               "description": "Token lifespan in minutes"
@@ -1708,7 +1708,7 @@
             }
           },
           "extraDefinitions": {
-            "IEJWTPluginAuthType": {},
+            "string | null": {},
             "VerifyOptions": {
               "algorithms": {
                 "type": "Algorithm[] | undefined",
@@ -1783,15 +1783,16 @@
                 "description": null
               }
             },
+            "number | null": {},
             "EJWTTokenType": {}
           },
           "defaultValues": {
-            "keyUrl": "/auth/realms/RealmName/protocol/openid-connect/certs",
+            "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$ONW74tdbTHgxUuwla7KJP.",
-            "secretKey": "$2b$08$luD8ZA1q2diz2v8IZ6mYZe",
+            "authKey": "$2b$08$.sJgI/KXzykuX5LbLVw/n.",
+            "privateKey": null,
+            "secretKey": "$2b$08$ZBr1c0OjDirM5PXFp0ssbu",
             "queryKey": "passtk",
-            "authType": "JWTCERTS",
             "options": {
               "algorithms": [
                 "RS256"
@@ -1910,8 +1911,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "3a4a7227b54653247bdd808224105aec",
-            "commsTokenIV": "338dfb58ec4c70fd83b7e319f634ccfe",
+            "commsToken": "bdb4e505c573fe6fdafdefc820090a58",
+            "commsTokenIV": "803f906163301f667a5d164e58d22456",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
