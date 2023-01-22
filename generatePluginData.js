@@ -311,6 +311,7 @@ const setupDefaultPackages = (temp_node_modules, plugins) => {
         availPlugins.push({
           name: packgeJson.name,
           version: packgeJson.version,
+          lang: 'node',
           author: {
             name: repo.owner.login,
             url: repo.owner.html_url,
