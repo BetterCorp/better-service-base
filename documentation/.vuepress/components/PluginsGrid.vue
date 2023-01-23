@@ -40,7 +40,7 @@ export default {
   watch: {
     filter() {
       //this.pluginConfig = null;
-      window.document.getElementsByClassName('page')[0].classList.add('notransition');
+      //window.document.getElementsByClassName('page')[0].classList.add('notransition');
       switch (this.filter) {
         case 'SERVICE':
           return this.$router.push('/Market/Service/');
@@ -86,7 +86,7 @@ export default {
       return self.reparsedPlugins.filter(x => filterAsLower === x.type).filter(filterFunc);
     },
   },
-  created() {
+  /*created() {
     const self = this;
     let time = 0;
     let lastPD = window.localStorage.getItem('plugin-date') || '';
@@ -97,7 +97,7 @@ export default {
       self.$data.pluginConfig = JSON.parse(window.localStorage.getItem('plugins'));
       self.pulledFromCache = true;
     }
-  },
+  },*/
   mounted() {
     const self = this;
     if (this.$route.path.indexOf('/Market/') === 0) {
@@ -111,8 +111,8 @@ export default {
     }
     if (self.pulledFromCache) return;
     fetch(
-      "https://raw.githubusercontent.com/BetterCorp/better-service-base/documentation/plugins.json"
-      //"https://cdn.bsbcode.dev/plugins.json?time=" + new Date().getTime()
+      //"https://raw.githubusercontent.com/BetterCorp/better-service-base/documentation/plugins.json"
+      "https://cdn.bsbcode.dev/plugins.json?time=" + new Date().getTime()
     )
       .then(async (x) => {
         //await (new Promise(r => setTimeout(r, 15000)));
@@ -126,8 +126,8 @@ export default {
           });
           return xi;
         });
-        window.localStorage.setItem('plugins', JSON.stringify(self.pluginConfig));
-        window.localStorage.setItem('plugin-date', new Date().getTime());
+        //window.localStorage.setItem('plugins', JSON.stringify(self.pluginConfig));
+        //window.localStorage.setItem('plugin-date', new Date().getTime());
         //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
         //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
         //self.pluginConfig = self.pluginConfig.concat(self.pluginConfig);
