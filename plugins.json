@@ -1,99 +1,8 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-betterportal",
-    "version": "1.7.0",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-betterportal",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-betterportal",
-        "def": {
-          "key": "service-betterportal",
-          "name": "BetterPortal",
-          "icon": "betterportal.png",
-          "description": "BetterPortal server plugin",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-betterportal",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-betterportal/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-betterportal/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-betterportal/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-betterportal"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "canCache": {
-              "type": "boolean",
-              "required": true,
-              "name": "Allow caching to occur",
-              "description": "Useful to disable during development"
-            },
-            "issuer": {
-              "type": "string",
-              "required": true,
-              "name": "Auth Issuer URL",
-              "description": null
-            },
-            "certsUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Auth Issuer JWT Certs URL",
-              "description": null
-            },
-            "BPUI": {
-              "type": "boolean",
-              "required": true,
-              "name": "Enable BP UI host",
-              "description": "Serve the BetterPortal UI Assets"
-            }
-          },
-          "extraDefinitions": {},
-          "defaultValues": {
-            "canCache": true,
-            "BPUI": true,
-            "issuer": "https://auth-za.betterportal.cloud/auth",
-            "certsUrl": "https://auth-za.betterportal.cloud/auth/json"
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-config-1password",
     "version": "4.0.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -164,6 +73,7 @@
   {
     "name": "@bettercorp/service-base-plugin-event-relay-webhooks",
     "version": "0.0.5",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -257,6 +167,7 @@
   {
     "name": "@bettercorp/service-base-plugin-events-rabbitmq",
     "version": "3.0.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -375,6 +286,7 @@
   {
     "name": "@bettercorp/service-base-plugin-log-gelf",
     "version": "4.0.1",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -441,6 +353,7 @@
   {
     "name": "@bettercorp/service-base-plugin-netflow",
     "version": "2.1.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -512,6 +425,7 @@
   {
     "name": "@bettercorp/service-base-plugin-payfast",
     "version": "4.0.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -641,8 +555,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "ff58c516548daef646902ded3b002458",
-            "commsTokenIV": "598fed00541afbd05def2d8b4367a038",
+            "commsToken": "cdcd0930e8e83c734c9c2bfb3b291eb0",
+            "commsTokenIV": "d2c9bd92c3fdeedbfcc6497cd1c37c62",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -657,6 +571,7 @@
   {
     "name": "@bettercorp/service-base-plugin-push",
     "version": "3.0.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -745,8 +660,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BNkJ9iRUirFnPyAGgWs5k3n8fUzZBdwlEUFAdLtUcFRFWtOWtPU8bnMAkk-xp4w7HVBCvOr9JnF_ikm42X9-cdI",
-            "privateKey": "MVhueZ5y_Tv8gUqMCc0K7FO7eWppj_IOoVLM8B1R4Ak",
+            "publicKey": "BCEREnWDhuwRvLupX-vKCJQKX8frWWOvedtu7sCzmyWHgPCWK0Uwg6-NmbubXSNijTILO9nFjaKnxS4Xewm8B2E",
+            "privateKey": "WOsmWzV9aGpzpDLvlgDvYt1r8wEcCB-Fx2a3oqyorD8",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -759,6 +674,7 @@
   {
     "name": "@bettercorp/service-base-plugin-raspverry-pi-gpio",
     "version": "0.0.7",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -888,6 +804,7 @@
   {
     "name": "@bettercorp/service-base-plugin-serial",
     "version": "0.0.6",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1009,6 +926,7 @@
   {
     "name": "@bettercorp/service-base-plugin-snmp",
     "version": "0.1.1",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1094,6 +1012,7 @@
   {
     "name": "@bettercorp/service-base-plugin-splynx",
     "version": "2.0.2",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1207,7 +1126,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGs2ZkVjOUUvd3YwcVNDQ05TN1RHL2UkMmIkMDQkazZmRWM5RS93djBxU0NDTlM3VEcvZSQyYiQwNCRrNmZFYzlFL3d2MHFTQ0NOUzdURy9l",
+            "clientEndpointKey": "JDJiJDA0JDlWZE1ZUFBCTGhJQlIxRk5WRkxxc2UkMmIkMDQkOVZkTVlQUEJMaElCUjFGTlZGTHFzZSQyYiQwNCQ5VmRNWVBQQkxoSUJSMUZOVkZMcXNl",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1219,6 +1138,7 @@
   {
     "name": "@bettercorp/service-base-plugin-syslog",
     "version": "2.0.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1304,6 +1224,7 @@
   {
     "name": "@bettercorp/service-base-plugin-uisp",
     "version": "4.0.2",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1358,6 +1279,7 @@
   {
     "name": "@bettercorp/service-base-plugin-web-server",
     "version": "6.5.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1843,9 +1765,9 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$MmXHXHB4thQh7r.P7.IJ9O",
+            "authKey": "$2b$08$gxddS2su/Gvp1MdDBI58Le",
             "privateKey": null,
-            "secretKey": "$2b$08$ZlVerycnCwTx2Jp7ZXhguO",
+            "secretKey": "$2b$08$HoIJe9Jx5er2rc3ezHNjeu",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -1870,6 +1792,7 @@
   {
     "name": "@bettercorp/service-base-plugin-yoco",
     "version": "4.0.0",
+    "lang": "node",
     "author": {
       "name": "BetterCorp",
       "url": "https://github.com/BetterCorp",
@@ -1965,8 +1888,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "fb8229204f7b191d60bacbe8d0b68248",
-            "commsTokenIV": "b3fee72bf03ef836402f897e854d6052",
+            "commsToken": "f2288635a9e0cb3d8ac32f31384c64a6",
+            "commsTokenIV": "2af716db947ee8401a63cce64a36fa44",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
