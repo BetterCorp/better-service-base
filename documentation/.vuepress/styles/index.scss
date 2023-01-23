@@ -390,4 +390,24 @@
     top: 57px;
     left: 0px;
   }
+
+  .lang-header::before {
+    position: absolute;
+    padding: 5px 10px 5px 10px;
+    border-radius: 15px;
+    margin-top: -15px;
+    margin-left: 80px;
+  }
+
+  .plugin-type-logging .lang-header::before {
+    margin-left: 90px;
+  }
+
+  /* LANG: Node */
+
+  .plugin-lang-node .plugin-header .lang-header::before {
+    content: "NODE JS";
+    background: #026e00;
+    color: white;
+  }
 }

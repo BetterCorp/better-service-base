@@ -111,9 +111,8 @@ export default {
     }
     if (self.pulledFromCache) return;
     fetch(
-      //"https://raw.githubusercontent.com/BetterCorp/better-service-base/documentation/plugins.json"
-      "https://cdn.bsbcode.dev/plugins.json?time=" +
-      new Date().getTime()
+      "https://raw.githubusercontent.com/BetterCorp/better-service-base/documentation/plugins.json"
+      //"https://cdn.bsbcode.dev/plugins.json?time=" + new Date().getTime()
     )
       .then(async (x) => {
         //await (new Promise(r => setTimeout(r, 15000)));

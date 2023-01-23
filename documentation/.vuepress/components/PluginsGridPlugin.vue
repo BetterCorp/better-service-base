@@ -1,12 +1,14 @@
 <template>
-  <div :class="`plugin-card plugin-type-${ plugin === null ? 'grey' : plugin.type }`">
+  <div
+    :class="`plugin-card plugin-type-${ plugin === null ? 'grey' : plugin.type } plugin-lang-${ plugin === null ? 'grey' : plugin.ref.lang || 'grey' }`">
     <div class="plugin-header">
+      <div class="lang-header"></div>
       <h2 class="plugin-title">
         <Loader v-if="plugin === null" :width="300" />
         <template v-else>
-          <span class="plugin-img plugin-img-author" :style="`background-image: url(${plugin.ref.author.avatar})`" />
+          <span class="plugin-img plugin-img-author" :style="`background-image: url(${ plugin.ref.author.avatar })`" />
           <span class="plugin-img plugin-img-icon"
-            :style="`background-image: url(${plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon})`" />
+            :style="`background-image: url(${ plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon })`" />
           <div class="plugin-title-name" v-if="plugin.def.name.length <= 18">
             {{ plugin.def.name }}
           </div>
@@ -21,7 +23,7 @@
         <span> - </span>
         <span>By </span>
         <a class="author-name" :href="plugin.ref.author.url" rel="nofollow" style="font-weight: 600;"> {{
-        plugin.ref.author.name
+          plugin.ref.author.name
         }} <svg style="max-height: 10px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
             <!-- Font Awesome Pro 5.15.4 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) -->
             <path
@@ -67,7 +69,8 @@
               :src="plugin.ref.github + '/raw/' + (plugin.ref.branch || 'master') + '/bsb-' + plugin.def.icon" /> Quick
             Start with <a class="author-name"
               :href="plugin.pluginLink !== null ? `https://${ plugin.pluginLink }` : plugin.ref.github"
-              :rel="plugin.pluginLink !== null ? 'external' : 'nofollow'" style="font-weight: 600;">{{ plugin.def.name
+              :rel="plugin.pluginLink !== null ? 'external' : 'nofollow'" style="font-weight: 600;">{{
+                plugin.def.name
               }} <svg style="max-height: 15px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
                 <!-- Font Awesome Pro 5.15.4 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) -->
                 <path
