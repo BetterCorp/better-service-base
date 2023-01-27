@@ -136,10 +136,12 @@ export class SBServices {
     }
   }
 
-  public async servicesInit() {
+  public async servicesInit(config: ConfigBase) {
     await this.log.info("Init all services");
     let orderOfPlugins = await this.makeAfterRequired(
-      this.makeBeforeRequired(
+      config,
+      await this.makeBeforeRequired(
+        config,
         this._activeServices.map((x) => {
           return {
             name: x.pluginName,
@@ -173,7 +175,8 @@ export class SBServices {
     }
   }
 
-  public makeBeforeRequired(
+  public async makeBeforeRequired(
+    config: ConfigBase,
     orderOfPlugins: {
       name: string;
       after: string[];
@@ -183,7 +186,10 @@ export class SBServices {
   ) {
     for (let i = 0; i < orderOfPlugins.length; i++) {
       if (orderOfPlugins[i].before.length === 0) continue;
-      for (let bPlugin of orderOfPlugins[i].before)
+      for (let bPlugin of await this.parsePluginNamesToMappedNames(
+        config,
+        orderOfPlugins[i].before
+      ))
         for (let j = 0; j < orderOfPlugins.length; j++) {
           if (orderOfPlugins[j].name == bPlugin) {
             orderOfPlugins[j].after.push(orderOfPlugins[i].name);
@@ -192,7 +198,17 @@ export class SBServices {
     }
     return orderOfPlugins;
   }
+  private async parsePluginNamesToMappedNames(
+    config: ConfigBase,
+    plugins: Array<string>
+  ): Promise<Array<string>> {
+    for (let pIndex = 0; pIndex < plugins.length; pIndex++) {
+      plugins[pIndex] = await config.getAppPluginMappedName(plugins[pIndex]);
+    }
+    return plugins;
+  }
   public async makeAfterRequired(
+    config: ConfigBase,
     orderOfPlugins: {
       name: string;
       after: string[];
@@ -202,7 +218,14 @@ export class SBServices {
   ) {
     for (let i = 0; i < orderOfPlugins.length - 1; i++) {
       for (let j = i + 1; j < orderOfPlugins.length; j++) {
-        if (orderOfPlugins[i].after.indexOf(orderOfPlugins[j].name) >= 0) {
+        if (
+          (
+            await this.parsePluginNamesToMappedNames(
+              config,
+              orderOfPlugins[i].after
+            )
+          ).indexOf(orderOfPlugins[j].name) >= 0
+        ) {
           await this.log.debug(`{plugin} run after {reqName}`, {
             plugin: orderOfPlugins[i].name,
             reqName: orderOfPlugins[j].name,
@@ -216,10 +239,12 @@ export class SBServices {
     return orderOfPlugins;
   }
 
-  public async servicesRun() {
+  public async servicesRun(config: ConfigBase) {
     await this.log.info("Run all services");
     let orderOfPlugins = await this.makeAfterRequired(
-      this.makeBeforeRequired(
+      config,
+      await this.makeBeforeRequired(
+        config,
         this._activeServices.map((x) => {
           return {
             name: x.pluginName,

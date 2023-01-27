@@ -265,13 +265,13 @@ export class ServiceBase {
 
   public async initPlugins() {
     this._startKeep(BOOT_STAT_KEYS.INIT);
-    await this._services.servicesInit();
+    await this._services.servicesInit(this._config.appConfig);
     this._outputKeep(BOOT_STAT_KEYS.INIT);
   }
 
   public async runPlugins() {
     this._startKeep(BOOT_STAT_KEYS.RUN);
-    await this._services.servicesRun();
+    await this._services.servicesRun(this._config.appConfig);
     this._outputKeep(BOOT_STAT_KEYS.RUN);
   }
 
