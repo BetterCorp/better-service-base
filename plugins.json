@@ -648,8 +648,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "350e720819e31f5c5c3a0bae516e98a0",
-            "commsTokenIV": "605ca5920d2eecb744f236c04d5c2496",
+            "commsToken": "2afb6d3a69eefd1cb86d6c7b87946da5",
+            "commsTokenIV": "22f427d1e6e2213f14ee784b78a4f44e",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -753,8 +753,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BP98n2jiBdIir_1GR7SWNRTLl0sp4l0n7OtlxSkZrzrQP8R4OdNpFnc8JGR0c5snF3iO7gXoOcBirJxiO6OBjK0",
-            "privateKey": "39LcQKaZarbMqMIi6ioeUPg9WQFJuECM0Fay7sydkBo",
+            "publicKey": "BI4AagGkoQtRSrmN19nYFJRQP-mdqi31W4L4WHyOd1QRRgBOUHJjgWHNkKA2TeOw0QreqlEkUSsgx3fXc0a77eU",
+            "privateKey": "OXIKjcTcDEs9cxjoCHbPM9FlCUKcILW-NnaYMub5P-Q",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1017,6 +1017,45 @@
     ]
   },
   {
+    "name": "@bettercorp/service-base-plugin-sms",
+    "version": "3.0.1",
+    "lang": "node",
+    "author": {
+      "name": "BetterCorp",
+      "url": "https://github.com/BetterCorp",
+      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
+    },
+    "github": "https://github.com/BetterCorp/service-base-plugin-sms",
+    "plugins": [
+      {
+        "type": "plugin",
+        "name": "service-sms-portal",
+        "def": {
+          "key": "service-sms-portal",
+          "name": "SMS Portal",
+          "icon": "sms-portal.png",
+          "description": "SMSPortal.com integration"
+        },
+        "config": {
+          "interfaceName": "MyPluginConfig",
+          "definitions": {
+            "let newConfig": {
+              "type": "any = {}",
+              "required": true,
+              "name": null,
+              "description": null
+            }
+          },
+          "extraDefinitions": {
+            "any = {}": {}
+          },
+          "defaultValues": {}
+        },
+        "pluginLink": null
+      }
+    ]
+  },
+  {
     "name": "@bettercorp/service-base-plugin-snmp",
     "version": "0.1.1",
     "lang": "node",
@@ -1219,7 +1258,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JGd0aGhvbGVqVVFEeEdDSGt3NkQvNHUkMmIkMDQkZ3RoaG9sZWpVUUR4R0NIa3c2RC80dSQyYiQwNCRndGhob2xlalVRRHhHQ0hrdzZELzR1",
+            "clientEndpointKey": "JDJiJDA0JFRDMi8wbjl3clNzT2xuSnlxV2ZqaS4kMmIkMDQkVEMyLzBuOXdyU3NPbG5KeXFXZmppLiQyYiQwNCRUQzIvMG45d3JTc09sbkp5cVdmamku",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1858,9 +1897,9 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$X58TSGU22llAs58si4TRHu",
+            "authKey": "$2b$08$ceT7jO7mYDA9ncEcDL2sl.",
             "privateKey": null,
-            "secretKey": "$2b$08$dFpMBTXB5ZupIQoM/PC88.",
+            "secretKey": "$2b$08$X6n3w.oZzSYY4t45BJaPzu",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -1981,8 +2020,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "5c91a6a89cc1f3e0fb38e49af85a9ac8",
-            "commsTokenIV": "e119193d38a3b820b1d9293d1d5ad53f",
+            "commsToken": "7afe74a11827240d5f593826b1572b0f",
+            "commsTokenIV": "504362a1c8307100ae6f7546d82a26cb",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
