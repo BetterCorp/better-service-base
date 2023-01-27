@@ -54,6 +54,15 @@ export class RegisteredPlugin<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
+  onEventSpecific<TA extends string>(serverId: string,
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<emitEvents>,
+      TA,
+      false
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
   emitEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<onEvents>,
@@ -62,7 +71,24 @@ export class RegisteredPlugin<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
+  emitEventSpecific<TA extends string>(serverId: string,
+    ...args: DynamicallyReferencedMethodEmitIEvents<
+      DynamicallyReferencedMethodType<onEvents>,
+      TA
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
   onReturnableEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
+      TA,
+      true
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  onReturnableEventSpecific<TA extends string>(serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
@@ -85,7 +111,35 @@ export class RegisteredPlugin<
   > {
     throw ErrorMessages.BSBNotInit;
   }
+  emitEventAndReturnSpecific<TA extends string>(serverId: string,
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true,
+      false
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<emitReturnableEvents>,
+    TA,
+    false
+  > {
+    throw ErrorMessages.BSBNotInit;
+  }
   emitEventAndReturnTimed<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true,
+      true
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<emitReturnableEvents>,
+    TA,
+    false
+  > {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitEventAndReturnTimedSpecific<TA extends string>(serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
       TA,

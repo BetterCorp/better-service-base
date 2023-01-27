@@ -117,6 +117,37 @@ export class SBEvents {
           }
         );
       },
+      onEventSpecific: async <TA extends string>(serverId: string,
+        ...args: DynamicallyReferencedMethodOnIEvents<
+          DynamicallyReferencedMethodType<any>,
+          TA,
+          false
+        >
+      ): Promise<void> => {
+        await self._activeEvents!.onEvent(
+          pluginName,
+          `${mappedPluginName}-${serverId}`,
+          args[0],
+          async (iargs: Array<any>) => {
+            const start = process.hrtime();
+            try {
+              await args[1](...iargs);
+              let diff = process.hrtime(start);
+              await self.log.reportStat(
+                `on-event-${mappedPluginName}-${serverId}-${args[0]}`,
+                (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+              );
+            } catch (exc: any) {
+              await self.log.reportStat(
+                `on-event-${mappedPluginName}-${serverId}-${args[0]}`,
+                -1
+              );
+              await self.log.error(exc);
+              throw exc;
+            }
+          }
+        );
+      },
       emitEvent: async <TA extends string>(
         ...args: DynamicallyReferencedMethodEmitIEvents<
           DynamicallyReferencedMethodType<any>,
@@ -127,6 +158,20 @@ export class SBEvents {
         await self._activeEvents!.emitEvent(
           pluginName,
           mappedPluginName,
+          event,
+          args
+        );
+      },
+      emitEventSpecific: async <TA extends string>(serverId: string,
+        ...args: DynamicallyReferencedMethodEmitIEvents<
+          DynamicallyReferencedMethodType<any>,
+          TA
+        >
+      ): Promise<void> => {
+        let event = args.splice(0, 1)[0] as string;
+        await self._activeEvents!.emitEvent(
+          pluginName,
+          `${mappedPluginName}-${serverId}`,
           event,
           args
         );
@@ -155,6 +200,38 @@ export class SBEvents {
             } catch (exc: any) {
               await self.log.reportStat(
                 `on-revent-${mappedPluginName}-${args[0]}`,
+                -1
+              );
+              await self.log.error(exc);
+              throw exc;
+            }
+          }
+        );
+      },
+      onReturnableEventSpecific: async <TA extends string>(serverId: string,
+        ...args: DynamicallyReferencedMethodOnIEvents<
+          DynamicallyReferencedMethodType<any>,
+          TA,
+          true
+        >
+      ): Promise<void> => {
+        this._activeEvents!.onReturnableEvent(
+          pluginName,
+          `${mappedPluginName}-${serverId}`,
+          args[0],
+          async (iargs: Array<any>) => {
+            const start = process.hrtime();
+            try {
+              const data = await args[1](...iargs);
+              let diff = process.hrtime(start);
+              await self.log.reportStat(
+                `on-revent-${mappedPluginName}-${serverId}-${args[0]}`,
+                (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+              );
+              return data;
+            } catch (exc: any) {
+              await self.log.reportStat(
+                `on-revent-${mappedPluginName}-${serverId}-${args[0]}`,
                 -1
               );
               await self.log.error(exc);
@@ -196,6 +273,39 @@ export class SBEvents {
           throw exc;
         }
       },
+      emitEventAndReturnSpecific: async <TA extends string>(serverId: string,
+        ...args: DynamicallyReferencedMethodEmitEARIEvents<
+          DynamicallyReferencedMethodType<any>,
+          TA,
+          true,
+          false
+        >
+      ): Promise<any> => {
+        const start = process.hrtime();
+        try {
+          let event = args.splice(0, 1)[0] as string;
+          const data = this._activeEvents!.emitEventAndReturn(
+            pluginName,
+            `${mappedPluginName}-${serverId}`,
+            event,
+            15,
+            args
+          );
+          let diff = process.hrtime(start);
+          await self.log.reportStat(
+            `emit-revent-${mappedPluginName}-${serverId}-${args[0]}`,
+            (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+          );
+          return data;
+        } catch (exc: any) {
+          await self.log.reportStat(
+            `emit-revent-${mappedPluginName}-${serverId}-${args[0]}`,
+            -1
+          );
+          await self.log.error(exc);
+          throw exc;
+        }
+      },
       emitEventAndReturnTimed: async <TA extends string>(
         ...args: DynamicallyReferencedMethodEmitEARIEvents<
           DynamicallyReferencedMethodType<any>,
@@ -224,6 +334,40 @@ export class SBEvents {
         } catch (exc: any) {
           await self.log.reportStat(
             `emit-rtevent-${mappedPluginName}-${args[0]}`,
+            -1
+          );
+          await self.log.error(exc);
+          throw exc;
+        }
+      },
+      emitEventAndReturnTimedSpecific: async <TA extends string>(serverId: string,
+        ...args: DynamicallyReferencedMethodEmitEARIEvents<
+          DynamicallyReferencedMethodType<any>,
+          TA,
+          true,
+          true
+        >
+      ): Promise<any> => {
+        const start = process.hrtime();
+        try {
+          let event = args.splice(0, 1)[0] as string;
+          let timeoutSeconds = args.splice(0, 1)[0] as number;
+          const data = this._activeEvents!.emitEventAndReturn(
+            pluginName,
+            `${mappedPluginName}-${serverId}`,
+            event,
+            timeoutSeconds,
+            args
+          );
+          let diff = process.hrtime(start);
+          await self.log.reportStat(
+            `emit-rtevent-${mappedPluginName}-${serverId}-${args[0]}`,
+            (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+          );
+          return data;
+        } catch (exc: any) {
+          await self.log.reportStat(
+            `emit-rtevent-${mappedPluginName}-${serverId}-${args[0]}`,
             -1
           );
           await self.log.error(exc);

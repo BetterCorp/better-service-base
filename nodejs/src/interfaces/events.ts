@@ -58,13 +58,33 @@ export interface IServiceEvents<
       false
     >
   ): Promise<void>;
+  onEventSpecific<TA extends string>(serverId: string,
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onEvents>,
+      TA,
+      false
+    >
+  ): Promise<void>;
   emitEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<emitEvents>,
       TA
     >
   ): Promise<void>;
+  emitEventSpecific<TA extends string>(serverId: string,
+    ...args: DynamicallyReferencedMethodEmitIEvents<
+      DynamicallyReferencedMethodType<emitEvents>,
+      TA
+    >
+  ): Promise<void>;
   onReturnableEvent<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onReturnableEvents>,
+      TA,
+      true
+    >
+  ): Promise<void>;
+  onReturnableEventSpecific<TA extends string>(serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
       TA,
@@ -83,7 +103,31 @@ export interface IServiceEvents<
     TA,
     false
   >;
+  emitEventAndReturnSpecific<TA extends string>(serverId: string,
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
+      TA,
+      true,
+      false
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<onReturnableEvents>,
+    TA,
+    false
+  >;
   emitEventAndReturnTimed<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitEARIEvents<
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
+      TA,
+      true,
+      true
+    >
+  ): DynamicallyReferencedMethodEmitEARIEvents<
+    DynamicallyReferencedMethodType<onReturnableEvents>,
+    TA,
+    false
+  >;
+  emitEventAndReturnTimedSpecific<TA extends string>(serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
