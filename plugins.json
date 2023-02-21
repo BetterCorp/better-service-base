@@ -1,98 +1,5 @@
 [
   {
-    "name": "@bettercorp/service-base-plugin-betterportal",
-    "version": "1.7.0",
-    "lang": "node",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-betterportal",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-betterportal",
-        "def": {
-          "key": "service-betterportal",
-          "name": "BetterPortal",
-          "icon": "betterportal.png",
-          "description": "BetterPortal server plugin",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-betterportal",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-betterportal/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-betterportal/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-betterportal/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-betterportal"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-betterportal"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "canCache": {
-              "type": "boolean",
-              "required": true,
-              "name": "Allow caching to occur",
-              "description": "Useful to disable during development"
-            },
-            "issuer": {
-              "type": "string",
-              "required": true,
-              "name": "Auth Issuer URL",
-              "description": null
-            },
-            "certsUrl": {
-              "type": "string",
-              "required": true,
-              "name": "Auth Issuer JWT Certs URL",
-              "description": null
-            },
-            "BPUI": {
-              "type": "boolean",
-              "required": true,
-              "name": "Enable BP UI host",
-              "description": "Serve the BetterPortal UI Assets"
-            }
-          },
-          "extraDefinitions": {},
-          "defaultValues": {
-            "canCache": true,
-            "BPUI": true,
-            "issuer": "https://auth-za.betterportal.cloud/auth",
-            "certsUrl": "https://auth-za.betterportal.cloud/auth/json"
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-config-1password",
     "version": "4.0.0",
     "lang": "node",
@@ -696,8 +603,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "85087d5a15ba90b91b55062b11ff6c84",
-            "commsTokenIV": "f170c74e0c8eab04c8092e1ca1211032",
+            "commsToken": "251a7e6c227d71f2c1bcda3c87f4cc75",
+            "commsTokenIV": "f56ae5b74bfed0520ff8039d781f8250",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -801,8 +708,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BOB_lcbj2lWT29nA3uNMp2a6QM-7lBeAFu5vCunPJ8LMDCEmODLBPfLSDqAAmeh8vCq3iIratEt049TCGO2FR24",
-            "privateKey": "2xDdjud_XtI7nNfxfofxquh8s6NhWhb87r1lnpiDzx8",
+            "publicKey": "BH-lfJwQohHafZ2N-7S2L-WkSU0Kq3LExNyG5xL97buB0AXdQWMDS_EA8Z6nyOzFGHDJUUmKBeb6LstF8dQ05Sw",
+            "privateKey": "Isor8_El6zxPpgf7ry5slzpvBf0BiN95NoTeENl3b-U",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1306,7 +1213,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JEFicFZnNno0d2VIazJlUGZpZC9kZWUkMmIkMDQkQWJwVmc2ejR3ZUhrMmVQZmlkL2RlZSQyYiQwNCRBYnBWZzZ6NHdlSGsyZVBmaWQvZGVl",
+            "clientEndpointKey": "JDJiJDA0JFVLNzZtdXhzcUpuT0VCZEVULzRXZnUkMmIkMDQkVUs3Nm11eHNxSm5PRUJkRVQvNFdmdSQyYiQwNCRVSzc2bXV4c3FKbk9FQmRFVC80V2Z1",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1945,9 +1852,9 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$6GaMCOusXAX6ZxykJZsku.",
+            "authKey": "$2b$08$ngc8EdkA/GbCUHeUW6Zj..",
             "privateKey": null,
-            "secretKey": "$2b$08$8RBq14cA35OuZU0rxH2VUO",
+            "secretKey": "$2b$08$3mqAym2d5.t/VvrmLGfZUu",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -2068,8 +1975,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "929837c2f0f575432134fa905a685c00",
-            "commsTokenIV": "c1ed8497dab0e0111f23c2c57f71163a",
+            "commsToken": "5ef5fdac56f4cfabc2a118587b8db410",
+            "commsTokenIV": "e3892f61a4a37962d43a3600ad6ff9b3",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
