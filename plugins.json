@@ -1,7 +1,7 @@
 [
   {
     "name": "@bettercorp/service-base-plugin-betterportal",
-    "version": "1.8.2",
+    "version": "1.8.3",
     "lang": "node",
     "author": {
       "name": "BetterCorp",
@@ -696,8 +696,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "5e89628df919c489f823c3858f2aed9c",
-            "commsTokenIV": "9941a085cd8a480341e8d0c1a273eafb",
+            "commsToken": "e7dfde777716d803c50f08abf04cf988",
+            "commsTokenIV": "3ec11c7c7337e51742b37e7574027109",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -801,8 +801,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BLOJGj3QfXfZgxSYhxfNe-CvTKGtwfs2vHEoyUogBxQQ1rT6u2Ves2lb9f75kCQFHZPynNd7s5vNgWElFupPZSc",
-            "privateKey": "fZT7D8W88tCwuW1oBjEHFVLvx4aPTgJ6BO7BR6KKgd8",
+            "publicKey": "BOQu8bnagnMKl55VvtzhB4LvZcDjR_S87qAAzLw--irTp6OrEoozI375XUbSPTyBEe-Q3T_VC4V2wsfot9AN4RY",
+            "privateKey": "0rqlibWRM3QUi-R1vTvLhLwDR6rnK73XXmYNDNBJbmk",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1306,7 +1306,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JDFGTVlOVk4wM25mbHpRV3UzOEV1Y08kMmIkMDQkMUZNWU5WTjAzbmZselFXdTM4RXVjTyQyYiQwNCQxRk1ZTlZOMDNuZmx6UVd1MzhFdWNP",
+            "clientEndpointKey": "JDJiJDA0JENSNmU2d0xhUGl3ay85dkJEdHRpUC4kMmIkMDQkQ1I2ZTZ3TGFQaXdrLzl2QkR0dGlQLiQyYiQwNCRDUjZlNndMYVBpd2svOXZCRHR0aVAu",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1945,9 +1945,9 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$YZUuFBEyQljAyG7RIzON2.",
+            "authKey": "$2b$08$8kqnhoq8wRX1Az2CJCLhu.",
             "privateKey": null,
-            "secretKey": "$2b$08$ilIujRuST1oMMR85vglGr.",
+            "secretKey": "$2b$08$.sl9RDd.dCT3LIkwgjpaO.",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -2068,8 +2068,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "53b0708cca32927884eb385acbf1be3a",
-            "commsTokenIV": "82296a38ea39f291414807951e9656db",
+            "commsToken": "a32cb8bb87de65bb6aa51fd145a6d750",
+            "commsTokenIV": "5c63d5c505c65c8dc5a8d1cf8f2893d6",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
