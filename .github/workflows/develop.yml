@@ -85,6 +85,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: nodejs/coverage
 
+      - run: cp README.md ./nodejs/README.md
+
       - run: npm publish --tag ea
         working-directory: ./nodejs
         if: contains(matrix.node-version, '18.x')

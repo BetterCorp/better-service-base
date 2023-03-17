@@ -80,6 +80,8 @@ jobs:
           path: nodejs/junit.json
           reporter: mocha-json
 
+      - run: cp README.md ./nodejs/README.md
+
       - run: npm publish
         working-directory: ./nodejs
         if: contains(matrix.node-version, '18.x')

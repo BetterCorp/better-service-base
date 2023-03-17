@@ -25,7 +25,7 @@
     "development/**/*",
     "tsconfig.json",
     "postinstall.js",
-    "../README.md"
+    "README.md"
   ],
   "main": "lib/index.js",
   "version": "8.0.0-rc",
