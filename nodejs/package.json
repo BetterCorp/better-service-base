@@ -2,7 +2,7 @@
   "name": "@bettercorp/service-base",
   "license": "AGPL-3.0-only",
   "repository": {
-    "url": "https://gitlab.com/BetterCorp/public/service-base"
+    "url": "https://github.com/BetterCorp/better-service-base"
   },
   "engines": {
     "npm": ">=8.0.0",
@@ -24,7 +24,8 @@
     "lib/**/*",
     "development/**/*",
     "tsconfig.json",
-    "postinstall.js"
+    "postinstall.js",
+    "../README.md"
   ],
   "main": "lib/index.js",
   "version": "8.0.0-rc",
