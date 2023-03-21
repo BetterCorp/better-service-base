@@ -25,6 +25,7 @@
     "development/**/*",
     "tsconfig.json",
     "postinstall.js",
+    "build-lib-clients.js",
     "README.md"
   ],
   "main": "lib/index.js",
