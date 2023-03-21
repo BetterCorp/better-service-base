@@ -53,7 +53,7 @@ for (let client of clients) {
   pkgg.files = ["lib/**/*"];
   pkgg.bin = {};
   pkgg.bsb_project = undefined;
-  pkgg.name = `@bsb/${client}`;
+  pkgg.name = `@bsb-client/${client}`;
   fs.writeFileSync(dstPkgJSONFile, JSON.stringify(pkgg, null, 2));
 }
 
