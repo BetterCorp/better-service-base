@@ -34,9 +34,9 @@ for (let client of clients) {
   let clientDir = path.join(clientsDir, client);
   let clientDistDir = path.join(distDir, client);
   fs.mkdirSync(clientDistDir);
-  if (indexDTS)
-    fs.copyFileSync(indexDTS, path.join(clientDistDir, "index.d.ts"));
   let clientsDistLibDir = path.join(clientDistDir, "lib");
+  if (indexDTS)
+    fs.copyFileSync(indexDTS, path.join(clientsDistLibDir, "index.d.ts"));
   fs.mkdirSync(clientsDistLibDir);
   let clientsDistLibClientsDir = path.join(clientsDistLibDir, "clients");
   fs.mkdirSync(clientsDistLibClientsDir);
@@ -50,6 +50,7 @@ for (let client of clients) {
   fs.cpSync(pkgJSONPath, dstPkgJSONFile);
   let pkgg = JSON.parse(fs.readFileSync(dstPkgJSONFile, "utf-8").toString());
   pkgg.scripts = {};
+  pkgg.main = `lib/clients/${client}/plugin.js`;
   pkgg.files = ["lib/**/*"];
   pkgg.bin = {};
   pkgg.bsb_project = undefined;
