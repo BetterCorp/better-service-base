@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": { "*": ["types/*"] },
+    "paths": { 
+      "@/*": ["./src/*"],
+      "*": ["types/*"] 
+    },
     "module": "commonjs",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
@@ -14,7 +17,7 @@
   },
   "linterOptions": {
     "exclude": [
-        "src/plugins/-*/*.*"
+      "src/plugins/-*/*.*"
     ]
   },
   "compileOnSave": true,

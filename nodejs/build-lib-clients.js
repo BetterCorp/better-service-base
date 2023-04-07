@@ -35,9 +35,9 @@ for (let client of clients) {
   let clientDistDir = path.join(distDir, client);
   fs.mkdirSync(clientDistDir);
   let clientsDistLibDir = path.join(clientDistDir, "lib");
+  fs.mkdirSync(clientsDistLibDir);
   if (indexDTS)
     fs.copyFileSync(indexDTS, path.join(clientsDistLibDir, "index.d.ts"));
-  fs.mkdirSync(clientsDistLibDir);
   let clientsDistLibClientsDir = path.join(clientsDistLibDir, "clients");
   fs.mkdirSync(clientsDistLibClientsDir);
   let clientsDistLibClientsClientDir = path.join(
