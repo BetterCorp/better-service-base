@@ -1,22 +1,32 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": { 
-      "*": ["types/*"] 
+    "paths": {
+      "*": ["types/*"]
     },
     "module": "commonjs",
+    "noImplicitAny": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
     "noImplicitReturns": true,
     "noUnusedLocals": true,
+    "sourceMap": false,
     "outDir": "lib",
     "rootDir": "src",
-    "sourceMap": true,
     "strict": true,
-    "target": "es2017",
-    "declaration": true
+    "target": "es2021",
+    "lib": ["es2021"],
+    "declaration": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node"
   },
   "linterOptions": {
     "exclude": [
-      "src/plugins/-*/*.*"
+      "src/plugins/-*/**/*.*"
     ]
   },
   "compileOnSave": true,
@@ -25,6 +35,8 @@
   ],
   "exclude": [
     "node_modules/**",
-    "src/plugins/-*/*.*"
+    "src/plugins/*-test*/**/*.*",
+    "src/plugins/-*/**/*.*",
+    "src/plugins/service-*/**/*.*"
   ]
 }
