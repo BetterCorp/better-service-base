@@ -172,8 +172,7 @@ export class ServicesClient<
   emitEvents = ServiceEvents,
   onReturnableEvents = ServiceReturnableEvents,
   emitReturnableEvents = ServiceReturnableEvents,
-  callableMethods = ServiceCallable,
-  PluginClientConfigType extends IPluginConfig = any
+  callableMethods = ServiceCallable
 > {
   public readonly _pluginName!: string;
   public readonly initBeforePlugins?: Array<string>;
@@ -188,7 +187,7 @@ export class ServicesClient<
     onReturnableEvents,
     emitReturnableEvents,
     callableMethods,
-    PluginClientConfigType
+    any
   >;
   protected async _register(): Promise<void> {
     // We must add the inits/runs list to the referenced service in order to change the init and run order
@@ -211,7 +210,7 @@ export class ServicesClient<
         onReturnableEvents,
         emitReturnableEvents,
         callableMethods,
-        PluginClientConfigType
+        any
       >(this._pluginName);
     }
   }
