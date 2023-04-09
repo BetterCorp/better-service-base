@@ -34,9 +34,9 @@ if (!fs.existsSync(sharedDir)) {
 const indexExts = [".js", ".d.ts"];
 for (let client of clients) {
   let indexFile = path.join(libDir, "./index." + client);
-  let indexIsMain = true;
+  let indexIsMain = false;
   if (!fs.existsSync(indexFile + indexExts[0])) {
-    indexIsMain = false;
+    indexIsMain = true;
     indexFile = path.join(libDir, "./index");
   }
   if (!fs.existsSync(indexFile + indexExts[0])) indexFile = false;
@@ -90,12 +90,6 @@ for (let client of clients) {
       : `lib/clients/${client}/plugin.js`;
   console.log(`Setting main entrypoint to: ${pkgg.main}`);
   pkgg.files = ["lib/**/*"];
-  if (indexFile !== false) {
-    pkgg.files.push("index.js");
-  }
-  if (sharedDir !== false) {
-    pkgg.files.push("shared/**/*");
-  }
   pkgg.bin = {};
   pkgg.bsb_project = undefined;
   pkgg.name = `@bsb-client/${client}`;
