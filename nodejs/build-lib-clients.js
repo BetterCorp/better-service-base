@@ -27,7 +27,9 @@ let distDir = path.join(cwd, "./dist-clients");
 if (fs.existsSync(distDir)) fs.rmSync(distDir, { recursive: true });
 fs.mkdirSync(distDir);
 let indexDTS = path.join(libDir, "./index.d.ts");
+let indexJS = path.join(libDir, "./index.js");
 if (!fs.existsSync(indexDTS)) indexDTS = false;
+if (!fs.existsSync(indexJS)) indexJS = false;
 
 for (let client of clients) {
   console.log(`Building client: ${client}...`);
@@ -38,6 +40,8 @@ for (let client of clients) {
   fs.mkdirSync(clientsDistLibDir);
   if (indexDTS)
     fs.copyFileSync(indexDTS, path.join(clientsDistLibDir, "index.d.ts"));
+  if (indexJS)
+    fs.copyFileSync(indexJS, path.join(clientsDistLibDir, "index.js"));
   let clientsDistLibClientsDir = path.join(clientsDistLibDir, "clients");
   fs.mkdirSync(clientsDistLibClientsDir);
   let clientsDistLibClientsClientDir = path.join(
