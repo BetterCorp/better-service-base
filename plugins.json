@@ -696,8 +696,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "c4787ff78fe685bff64847e154a8d345",
-            "commsTokenIV": "49ca7279a6e8d1c4dcaade21497af39a",
+            "commsToken": "783d60ec681eee06942ddc35b42bcb02",
+            "commsTokenIV": "f2ed8f50f07a59472b1a633f51538021",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -801,8 +801,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BOcc4FJY7XkWgYSHLCPwHqO0xJjyeKBPpritse1Hlid9bvbqoSH_Rq_-TyE45WZr8yUskcKEU6fUB4tdPJl2xGA",
-            "privateKey": "TwBrLVLGaPPpYP1-MObBjaLWe7tlpKyPYCXaCVcN5yY",
+            "publicKey": "BHVG1KT16DwkR0ClK4zHlctJSfUCvzyub8iHi6R7Kh1PdwslwWLrztBJEPHyde6Q1KDDTruoLEIvQHbViWkqt5w",
+            "privateKey": "sGUXB03jr4PaBR9c2rI9UQRlCWy3nctd1E3VItmsC1w",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1191,7 +1191,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-splynx",
-    "version": "2.1.0",
+    "version": "2.1.2",
     "lang": "node",
     "author": {
       "name": "BetterCorp",
@@ -1306,7 +1306,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHZhamFwTGVXSGJqRUZPTlhoZEVkTC4kMmIkMDQkdmFqYXBMZVdIYmpFRk9OWGhkRWRMLiQyYiQwNCR2YWphcExlV0hiakVGT05YaGRFZEwu",
+            "clientEndpointKey": "JDJiJDA0JEc1dWJhOVBwYTBDZU10T1BUSUZ5aWUkMmIkMDQkRzV1YmE5UHBhMENlTXRPUFRJRnlpZSQyYiQwNCRHNXViYTlQcGEwQ2VNdE9QVElGeWll",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1458,7 +1458,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-web-server",
-    "version": "6.5.3",
+    "version": "6.5.4",
     "lang": "node",
     "author": {
       "name": "BetterCorp",
@@ -1951,10 +1951,10 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$UPT.oY7lpPWuj6q61531ge",
+            "authKey": "$2b$08$e3E79F5Wcwe.IcEcF.0rEe",
             "privateKey": null,
             "publicKey": null,
-            "secretKey": "$2b$08$uxUQwV/2ahZumm8vbnYbyO",
+            "secretKey": "$2b$08$8QRA2KKIHhnBj1guGPO0Wu",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -2075,8 +2075,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "f91df8ea30ffe00aa0bda20436da5602",
-            "commsTokenIV": "31c950a7b7f80b79966daf7356edd7b6",
+            "commsToken": "95accbcb098409187401cb284e50fbe2",
+            "commsTokenIV": "de2649565de551c613cf50298d625ade",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
