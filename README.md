@@ -23,3 +23,6 @@ This base allows for easy distributed service platform development.
 ## Getting started
 
 View the docs here: [https://bsbcode.dev/](https://bsbcode.dev/)
+
+
+This project is tested with BrowserStack.
