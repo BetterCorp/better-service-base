@@ -696,8 +696,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "b2cb8503e5a80b624ea88705a2180094",
-            "commsTokenIV": "b39ba94201545a1183ef931aa3447ce8",
+            "commsToken": "e2265f5dc27ded976c7c134506bf8af9",
+            "commsTokenIV": "7e1dfb742f3fb9ca0438148583731033",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -801,8 +801,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BIXNmfthAsYTgzgOeJuByanqilFm4a6Whkr6fLkHHF7855ZaHbMRqlQ7hmYssL_g93KltvGQX0zR7-e3aBqZXGg",
-            "privateKey": "-a-aGYVT13ql5TlscY_tl4gX60JqhbSiW9sJ3XD5gl4",
+            "publicKey": "BFsdMXS5IYQUHCuxtqpqZh9sPXO9c46DPReY4bhZXEAGo1GdEoKamquYfsoHgyI3UlMQApewjhU_n5T93BxxuUE",
+            "privateKey": "2C9RrVoXTVvYrLhVpt03n232AzDMnS4MeMRAoTuTn6A",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -943,128 +943,6 @@
     ]
   },
   {
-    "name": "@bettercorp/service-base-plugin-serial",
-    "version": "0.0.6",
-    "lang": "node",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-serial",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-serial-port",
-        "def": {
-          "key": "service-serial-port",
-          "name": "Serial Port",
-          "icon": "serial-port.png",
-          "description": "Serial communication",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-plugin-serial",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-plugin-serial/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-plugin-serial"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-plugin-serial"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-serial"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-serial/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-plugin-serial/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-plugin-serial"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-plugin-serial"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-plugin-serial"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-plugin-serial"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "MyPluginConfig",
-          "definitions": {
-            "port": {
-              "type": "string",
-              "required": true,
-              "name": "Port",
-              "description": "The port to bind too"
-            },
-            "autoConnect": {
-              "type": "boolean",
-              "required": true,
-              "name": "Auto Connect",
-              "description": "Connect and hold the connection option"
-            },
-            "autoReConnect": {
-              "type": "boolean",
-              "required": true,
-              "name": "Auto re-Connect",
-              "description": "When auto-connect is enabled, we'll try reconnect automatically if the connection closes/times out. If it failes, we'll throw a fatal"
-            },
-            "baudRate": {
-              "type": "number",
-              "required": true,
-              "name": "Baud Rate",
-              "description": null
-            },
-            "dataBits": {
-              "type": "5 | 6 | 7 | 8",
-              "required": false,
-              "name": "Data Bits",
-              "description": null
-            },
-            "stopBits": {
-              "type": "2 | 1 | 1.5",
-              "required": false,
-              "name": "Stop Bits",
-              "description": null
-            },
-            "parity": {
-              "type": "\"none\" | \"even\" | \"odd\" | \"mark\" | \"space\"",
-              "required": false,
-              "name": "Parity",
-              "description": null
-            },
-            "messageBuffer": {
-              "type": "boolean",
-              "required": true,
-              "name": "Send Buffer",
-              "description": "OnMessage returns buffer instead of a parsed string"
-            }
-          },
-          "extraDefinitions": {
-            "5 | 6 | 7 | 8": {},
-            "2 | 1 | 1.5": {},
-            "\"none\" | \"even\" | \"odd\" | \"mark\" | \"space\"": {}
-          },
-          "defaultValues": {
-            "port": "COM1",
-            "autoConnect": false,
-            "autoReConnect": false,
-            "messageBuffer": false,
-            "baudRate": 115200
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
     "name": "@bettercorp/service-base-plugin-sms",
     "version": "3.0.1",
     "lang": "node",
@@ -1183,132 +1061,6 @@
             "maxSessions": 50,
             "maxSessionTimeout": 120000,
             "maxSessionTimer": 60000
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-splynx",
-    "version": "2.1.2",
-    "lang": "node",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-splynx",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-splynx",
-        "def": {
-          "key": "service-splynx",
-          "name": "Splynx",
-          "icon": "splynx.png",
-          "description": "Splynx ISP CRM",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-splynx",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-splynx/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-splynx/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-splynx/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-splynx"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-splynx"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "ISplynxPluginConfig",
-          "definitions": {
-            "webhooks": {
-              "type": "boolean",
-              "required": true,
-              "name": "Webhooks",
-              "description": "Enable inbound webhooks (Not available yet)"
-            },
-            "clientEndpointKey": {
-              "type": "string",
-              "required": true,
-              "name": "Client Key",
-              "description": "Inbound URL key for WebHooks"
-            },
-            "multiTenant": {
-              "type": "boolean",
-              "required": true,
-              "name": "Multi-Tenant Mode",
-              "description": "If false, Client Key is used to lock down webhooks"
-            },
-            "myHost": {
-              "type": "string",
-              "required": true,
-              "name": "My Host",
-              "description": "My hosts URL"
-            },
-            "serverConfig": {
-              "type": "IServerConfig",
-              "required": false,
-              "name": "Server Config",
-              "description": "If not running in multi-tenant config, you can define the splynx details here"
-            }
-          },
-          "extraDefinitions": {
-            "IServerConfig": {
-              "hostname": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "version": {
-                "type": "ISplynxAPIVersion",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "username": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              },
-              "password": {
-                "type": "string",
-                "required": true,
-                "name": null,
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHFUeEczbnFlbDJTWlRHcC5wb1FiOXUkMmIkMDQkcVR4RzNucWVsMlNaVEdwLnBvUWI5dSQyYiQwNCRxVHhHM25xZWwyU1pUR3AucG9RYjl1",
-            "multiTenant": false,
-            "myHost": "http://localhost"
           }
         },
         "pluginLink": null
@@ -1951,10 +1703,10 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$gLRv3c0/PBBsb/Okj6L3XO",
+            "authKey": "$2b$08$GpvjKKXw2wUgFyH.NzO9xe",
             "privateKey": null,
             "publicKey": null,
-            "secretKey": "$2b$08$joDB6dbuwbTept2egKgDxu",
+            "secretKey": "$2b$08$LEeM.RvYoKfSuyQK8zl1LO",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -1970,117 +1722,6 @@
               "req",
               "query"
             ]
-          }
-        },
-        "pluginLink": null
-      }
-    ]
-  },
-  {
-    "name": "@bettercorp/service-base-plugin-yoco",
-    "version": "4.1.3",
-    "lang": "node",
-    "author": {
-      "name": "BetterCorp",
-      "url": "https://github.com/BetterCorp",
-      "avatar": "https://avatars.githubusercontent.com/u/22332366?v=4"
-    },
-    "github": "https://github.com/BetterCorp/service-base-plugin-yoco",
-    "plugins": [
-      {
-        "type": "plugin",
-        "name": "service-yoco",
-        "def": {
-          "key": "service-yoco",
-          "name": "Yoco",
-          "icon": "yoco.png",
-          "description": "Yoco payment gateway",
-          "badges": [
-            {
-              "url": "https://codecov.io/gh/BetterCorp/service-base-service-yoco",
-              "img": "https://codecov.io/gh/BetterCorp/service-base-service-yoco/branch/master/graph/badge.svg"
-            },
-            {
-              "img": "https://img.shields.io/github/license/BetterCorp/service-base-service-yoco"
-            },
-            {
-              "img": "https://img.shields.io/snyk/vulnerabilities/github/BetterCorp/service-base-service-yoco"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-yoco"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-yoco/actions/workflows/develop.yml/badge.svg?branch=develop"
-            },
-            {
-              "img": "https://github.com/BetterCorp/service-base-service-yoco/actions/workflows/master.yml/badge.svg?branch=master"
-            },
-            {
-              "img": "https://img.shields.io/github/issues-raw/BetterCorp/service-base-service-yoco"
-            },
-            {
-              "img": "https://img.shields.io/npm/dt/@bettercorp/service-base-service-yoco"
-            },
-            {
-              "img": "https://img.shields.io/bundlephobia/min/@bettercorp/service-base-service-yoco"
-            },
-            {
-              "img": "https://img.shields.io/npm/v/@bettercorp/service-base-service-yoco"
-            }
-          ]
-        },
-        "config": {
-          "interfaceName": "YocoPluginConfig",
-          "definitions": {
-            "myHost": {
-              "type": "string",
-              "required": true,
-              "name": "My Host",
-              "description": "like https"
-            },
-            "commsToken": {
-              "type": "string",
-              "required": true,
-              "name": "Comms Token",
-              "description": "** Special encryption token"
-            },
-            "commsTokenIV": {
-              "type": "string",
-              "required": true,
-              "name": "Comms Token IV",
-              "description": "** Special encryption token"
-            },
-            "sandboxConfig": {
-              "type": "YocoSandboxConfig",
-              "required": true,
-              "name": "Sandbox Config",
-              "description": "Default/test config"
-            }
-          },
-          "extraDefinitions": {
-            "YocoSandboxConfig": {
-              "publicKey": {
-                "type": "string",
-                "required": true,
-                "name": "Public Key",
-                "description": null
-              },
-              "secretKey": {
-                "type": "string",
-                "required": true,
-                "name": "Secret Key",
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "myHost": "http://localhost",
-            "commsToken": "55c823989de2dd9c8353d399b6d70e4c",
-            "commsTokenIV": "ea13e9807c8880f1f4b78f36d5df24c4",
-            "sandboxConfig": {
-              "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
-              "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
-            }
           }
         },
         "pluginLink": null
