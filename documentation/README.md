@@ -46,3 +46,10 @@ See [Docker Deployment](/Deployment)  for deployment configurations
 - run the docker image with the required configuration.  
 
 Look at the [Market](/Market) for a list of active plugins and how to use them
+
+
+## Sponsors  
+
+[BetterCorp](https://www.bettercorp.dev)  
+[Docker](https://www.docker.com)  
+[BrowserStack](https://www.browserstack.com/)  
