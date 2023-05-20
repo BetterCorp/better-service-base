@@ -29,7 +29,7 @@
     "README.md"
   ],
   "main": "lib/index.js",
-  "version": "8.0.0-rc",
+  "version": "8.4.0-rc",
   "devDependencies": {
     "@types/assert": "^1.5.6",
     "@types/chai": "^4.3.3",
