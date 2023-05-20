@@ -36,50 +36,62 @@ export class SBBase {
   >(
     plugin:
       | ServicesBase<PluginConfigType>
-      | RegisteredPlugin<any, any, any, any, any, any>,
-    events: IServiceEvents<any, any, any, any>
+      | RegisteredPlugin<any, any, any, any, any, any, any, any>,
+    events: IServiceEvents<any, any, any, any, any, any>
   ): void {
-    (plugin as unknown as IServiceEvents<any, any, any, any>).emitEvent =
-      events.emitEvent;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).emitEventSpecific =
-      events.emitEventSpecific;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).onEvent =
-      events.onEvent;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).onEventSpecific =
-      events.onEventSpecific;
     (
-      plugin as unknown as IServiceEvents<any, any, any, any>
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).emitBroadcast = events.emitBroadcast;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).onBroadcast = events.onBroadcast;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).emitEvent = events.emitEvent;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).emitEventSpecific = events.emitEventSpecific;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).onEvent = events.onEvent;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).onEventSpecific = events.onEventSpecific;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
     ).emitEventAndReturnTimed = events.emitEventAndReturnTimed;
     (
-      plugin as unknown as IServiceEvents<any, any, any, any>
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
     ).emitEventAndReturnTimedSpecific = events.emitEventAndReturnTimedSpecific;
     (
-      plugin as unknown as IServiceEvents<any, any, any, any>
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
     ).emitEventAndReturn = events.emitEventAndReturn;
     (
-      plugin as unknown as IServiceEvents<any, any, any, any>
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
     ).emitEventAndReturnSpecific = events.emitEventAndReturnSpecific;
     (
-      plugin as unknown as IServiceEvents<any, any, any, any>
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
     ).onReturnableEvent = events.onReturnableEvent;
     (
-      plugin as unknown as IServiceEvents<any, any, any, any>
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
     ).onReturnableEventSpecific = events.onReturnableEventSpecific;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).receiveStream =
-      events.receiveStream;
-    (plugin as unknown as IServiceEvents<any, any, any, any>).sendStream =
-      events.sendStream;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).receiveStream = events.receiveStream;
+    (
+      plugin as unknown as IServiceEvents<any, any, any, any, any, any>
+    ).sendStream = events.sendStream;
   }
   static setupServicePlugin<PluginConfigType extends IPluginConfig = any>(
     plugin: ServicesBase<PluginConfigType>,
-    events: IServiceEvents<any, any, any, any>,
+    events: IServiceEvents<any, any, any, any, any, any>,
     config: ConfigBase<PluginConfigType>,
     cwd: string,
     pluginCwd: string,
     generateEventsForService: (
       pluginName: string,
       mappedPluginName: string
-    ) => IServiceEvents<any, any, any, any>,
+    ) => IServiceEvents<any, any, any, any, any, any>,
     generateLoggerForPlugin: { (pluginName: string): IPluginLogger },
     log: IPluginLogger,
     callPluginMethod: {
@@ -89,7 +101,7 @@ export class SBBase {
     SBBase.setupServicePluginSpecific(plugin, events);
     (plugin as unknown as ServicesBase<any, any>).registerPluginClient = async (
       pluginName: string
-    ): Promise<RegisteredPlugin<any, any, any, any, any, any>> => {
+    ): Promise<RegisteredPlugin<any, any, any, any, any, any, any, any>> => {
       let mappedPluginName = await config.getAppPluginMappedName(pluginName);
       await log.debug(
         "Registering new plugin client in {callerPlugin} for {pluginName} as {mappedPluginName}",
@@ -99,7 +111,16 @@ export class SBBase {
           mappedPluginName,
         }
       );
-      let tPlugin = new RegisteredPlugin<any, any, any, any, any, any>(
+      let tPlugin = new RegisteredPlugin<
+        any,
+        any,
+        any,
+        any,
+        any,
+        any,
+        any,
+        any
+      >(
         pluginName,
         cwd,
         pluginCwd,
@@ -110,7 +131,16 @@ export class SBBase {
         generateEventsForService(pluginName, mappedPluginName)
       );
       (
-        tPlugin as unknown as RegisteredPlugin<any, any, any, any, any, any>
+        tPlugin as unknown as RegisteredPlugin<
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any,
+          any
+        >
       ).callPluginMethod = async <TA extends string>(
         ...args: DynamicallyReferencedMethod<
           DynamicallyReferencedMethodType<any>,

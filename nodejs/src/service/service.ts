@@ -14,6 +14,7 @@ import {
 import {
   ServiceCallable,
   ServiceEvents,
+  ServiceBroadcasts,
   ServiceReturnableEvents,
 } from "./base";
 
@@ -23,11 +24,20 @@ export class ServicesBase<
     onReturnableEvents = ServiceReturnableEvents,
     emitReturnableEvents = ServiceReturnableEvents,
     callableMethods = ServiceCallable,
-    pluginConfigType extends IPluginConfig = any
+    pluginConfigType extends IPluginConfig = any,
+    onBroadcast = ServiceBroadcasts,
+    emitBroadcast = ServiceBroadcasts
   >
   extends DefaultBase<pluginConfigType>
   implements
-    IService<onEvents, emitEvents, onReturnableEvents, emitReturnableEvents>
+    IService<
+      onEvents,
+      emitEvents,
+      onReturnableEvents,
+      emitReturnableEvents,
+      onBroadcast,
+      emitBroadcast
+    >
 {
   public readonly initBeforePlugins?: Array<string>;
   public readonly initAfterPlugins?: Array<string>;
@@ -42,7 +52,9 @@ export class ServicesBase<
     pluginClientOnReturnableEvents,
     pluginClientEmitReturnableEvents,
     pluginCallableMethods,
-    pluginClientConfigType extends IPluginConfig
+    pluginClientConfigType extends IPluginConfig,
+    pluginClientOnBroadcast,
+    pluginClientEmitBroadcast
   >(
     pluginName: string
   ): Promise<
@@ -52,7 +64,9 @@ export class ServicesBase<
       pluginClientOnReturnableEvents,
       pluginClientEmitReturnableEvents,
       pluginCallableMethods,
-      pluginClientConfigType
+      pluginClientConfigType,
+      pluginClientOnBroadcast,
+      pluginClientEmitBroadcast
     >
   > {
     throw ErrorMessages.BSBNotInit;
@@ -76,6 +90,23 @@ export class ServicesBase<
   sendStream(streamId: string, stream: Readable): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
+  onBroadcast<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onBroadcast>,
+      TA,
+      false
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitBroadcast<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitIEvents<
+      DynamicallyReferencedMethodType<emitBroadcast>,
+      TA
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
   onEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onEvents>,
@@ -85,7 +116,8 @@ export class ServicesBase<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
-  onEventSpecific<TA extends string>(serverId: string,
+  onEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onEvents>,
       TA,
@@ -102,7 +134,8 @@ export class ServicesBase<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
-  emitEventSpecific<TA extends string>(serverId: string,
+  emitEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<emitEvents>,
       TA
@@ -119,7 +152,8 @@ export class ServicesBase<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
-  onReturnableEventSpecific<TA extends string>(serverId: string,
+  onReturnableEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
       TA,
@@ -142,7 +176,8 @@ export class ServicesBase<
   > {
     throw ErrorMessages.BSBNotInit;
   }
-  emitEventAndReturnSpecific<TA extends string>(serverId: string,
+  emitEventAndReturnSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
@@ -170,7 +205,8 @@ export class ServicesBase<
   > {
     throw ErrorMessages.BSBNotInit;
   }
-  emitEventAndReturnTimedSpecific<TA extends string>(serverId: string,
+  emitEventAndReturnTimedSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,

@@ -1,6 +1,7 @@
 import assert from "assert";
 //import { Logger } from "./test-logger";
 import { Events as events } from "../../../plugins/events-default/plugin";
+import { broadcast } from "./events/broadcast";
 import { emit } from "./events/emit";
 import { emitAndReturn } from "./events/emitAndReturn";
 import { emitStreamAndReceiveStream } from "./events/emitStreamAndReceiveStream";
@@ -55,6 +56,12 @@ const getPluginConfig = async () => {
 }
 
 describe("plugins/events-default", () => {
+  broadcast(async () => {
+    const refP = new events("test-plugin", process.cwd(), process.cwd(), fakeLogger);
+    (refP as any).getPluginConfig = getPluginConfig;
+    if (refP.init !== undefined) await refP.init();
+    return refP;
+  }, 10);
   emit(async () => {
     const refP = new events("test-plugin", process.cwd(), process.cwd(), fakeLogger);
     (refP as any).getPluginConfig = getPluginConfig;
