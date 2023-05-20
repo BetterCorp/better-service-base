@@ -4,12 +4,16 @@ export interface IService<
   onEvents,
   emitEvents,
   onReturnableEvents,
-  emitReturnableEvents
+  emitReturnableEvents,
+  onBroadcast,
+  emitBroadcast
 > extends IServiceEvents<
     onEvents,
     emitEvents,
     onReturnableEvents,
-    emitReturnableEvents
+    emitReturnableEvents,
+    onBroadcast,
+    emitBroadcast
   > {
   initIndex?: number;
   init?(): Promise<void>;

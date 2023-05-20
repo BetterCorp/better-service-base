@@ -10,6 +10,22 @@ export class EventsBase<PluginConfigType extends IPluginConfig = any>
   constructor(pluginName: string, cwd: string,pluginCwd: string, log: IPluginLogger) {
     super(pluginName, cwd, pluginCwd, log);
   }
+  public async onBroadcast(
+    callerPluginName: string,
+    pluginName: string,
+    event: string,
+    listener: { (args: Array<any>): Promise<void> }
+  ): Promise<void> {
+    throw ErrorMessages.EventsNotImplementedProperly;
+  }
+  public async emitBroadcast(
+    callerPluginName: string,
+    pluginName: string,
+    event: string,
+    args: Array<any>
+  ): Promise<void> {
+    throw ErrorMessages.EventsNotImplementedProperly;
+  }
   public async onEvent(
     callerPluginName: string,
     pluginName: string,
@@ -18,19 +34,19 @@ export class EventsBase<PluginConfigType extends IPluginConfig = any>
   ): Promise<void> {
     throw ErrorMessages.EventsNotImplementedProperly;
   }
-  public async onReturnableEvent(
-    callerPluginName: string,
-    pluginName: string,
-    event: string,
-    listener: { (args: Array<any>): Promise<any> }
-  ): Promise<void> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
   public async emitEvent(
     callerPluginName: string,
     pluginName: string,
     event: string,
     args: Array<any>
+  ): Promise<void> {
+    throw ErrorMessages.EventsNotImplementedProperly;
+  }
+  public async onReturnableEvent(
+    callerPluginName: string,
+    pluginName: string,
+    event: string,
+    listener: { (args: Array<any>): Promise<any> }
   ): Promise<void> {
     throw ErrorMessages.EventsNotImplementedProperly;
   }

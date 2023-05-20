@@ -5,8 +5,10 @@ import emitAndReturn from "./events/emitAndReturn";
 import emitStreamAndReceiveStream from "./events/emitStreamAndReceiveStream";
 import { EventsBase } from "../../events/events";
 import { PluginConfig } from "./sec.config";
+import broadcast from './events/broadcast';
 
 export class Events extends EventsBase<PluginConfig> {
+  protected broadcast!: broadcast;
   protected emit!: emit;
   protected ear!: emitAndReturn;
   protected eas!: emitStreamAndReceiveStream;
@@ -19,15 +21,34 @@ export class Events extends EventsBase<PluginConfig> {
   ) {
     super(pluginName, cwd, pluginCwd, log);
 
+    this.broadcast = new broadcast(log);
     this.emit = new emit(log);
     this.ear = new emitAndReturn(log);
     this.eas = new emitStreamAndReceiveStream(log);
   }
 
   public dispose() {
+    this.broadcast.dispose();
     this.emit.dispose();
     this.ear.dispose();
     this.eas.dispose();
+  }
+
+  public async onBroadcast(
+    callerPluginName: string,
+    pluginName: string,
+    event: string,
+    listener: { (args: Array<any>): Promise<void> }
+  ): Promise<void> {
+    await this.broadcast.onBroadcast(callerPluginName, pluginName, event, listener);
+  }
+  public async emitBroadcast(
+    callerPluginName: string,
+    pluginName: string,
+    event: string,
+    args: Array<any>
+  ): Promise<void> {
+    await this.broadcast.emitBroadcast(callerPluginName, pluginName, event, args);
   }
 
   public async onEvent(

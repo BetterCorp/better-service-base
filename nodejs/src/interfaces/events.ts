@@ -49,8 +49,23 @@ export interface IServiceEvents<
   onEvents,
   emitEvents,
   onReturnableEvents,
-  emitReturnableEvents
+  emitReturnableEvents,
+  onBroadcast,
+  emitBroadcast,
 > {
+  onBroadcast<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<onBroadcast>,
+      TA,
+      false
+    >
+  ): Promise<void>;
+  emitBroadcast<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitIEvents<
+      DynamicallyReferencedMethodType<emitBroadcast>,
+      TA
+    >
+  ): Promise<void>;
   onEvent<TA extends string>(
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onEvents>,
