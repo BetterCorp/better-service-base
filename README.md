@@ -24,5 +24,8 @@ This base allows for easy distributed service platform development.
 
 View the docs here: [https://bsbcode.dev/](https://bsbcode.dev/)
 
+## Sponsors  
 
-This project is tested with BrowserStack.
+[BetterCorp](https://www.bettercorp.dev)  
+[Docker](https://www.docker.com)  
+[BrowserStack](https://www.browserstack.com/)  
