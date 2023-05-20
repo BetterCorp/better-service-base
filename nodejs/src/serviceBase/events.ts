@@ -83,9 +83,54 @@ export class SBEvents {
   generateEventsForService(
     pluginName: string,
     mappedPluginName: string
-  ): IServiceEvents<any, any, any, any> {
+  ): IServiceEvents<any, any, any, any, any, any> {
     const self = this;
     return {
+      onBroadcast: async <TA extends string>(
+        ...args: DynamicallyReferencedMethodOnIEvents<
+          DynamicallyReferencedMethodType<any>,
+          TA,
+          false
+        >
+      ): Promise<void> => {
+        await self._activeEvents!.onBroadcast(
+          pluginName,
+          mappedPluginName,
+          args[0],
+          async (iargs: Array<any>) => {
+            const start = process.hrtime();
+            try {
+              await args[1](...iargs);
+              let diff = process.hrtime(start);
+              await self.log.reportStat(
+                `on-broadcast-${mappedPluginName}-${args[0]}`,
+                (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+              );
+            } catch (exc: any) {
+              await self.log.reportStat(
+                `on-broadcast-${mappedPluginName}-${args[0]}`,
+                -1
+              );
+              await self.log.error(exc);
+              throw exc;
+            }
+          }
+        );
+      },
+      emitBroadcast: async <TA extends string>(
+        ...args: DynamicallyReferencedMethodEmitIEvents<
+          DynamicallyReferencedMethodType<any>,
+          TA
+        >
+      ): Promise<void> => {
+        let event = args.splice(0, 1)[0] as string;
+        await self._activeEvents!.emitBroadcast(
+          pluginName,
+          mappedPluginName,
+          event,
+          args
+        );
+      },
       onEvent: async <TA extends string>(
         ...args: DynamicallyReferencedMethodOnIEvents<
           DynamicallyReferencedMethodType<any>,

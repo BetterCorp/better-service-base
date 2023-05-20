@@ -17,6 +17,7 @@ import {
   ServiceEvents,
   ServiceReturnableEvents,
   ServiceCallable,
+  ServiceBroadcasts,
 } from "./base";
 
 export class RegisteredPlugin<
@@ -25,7 +26,9 @@ export class RegisteredPlugin<
     onReturnableEvents,
     emitReturnableEvents,
     callableMethods,
-    PluginConfigType extends IPluginConfig
+    PluginConfigType extends IPluginConfig,
+    onBroadcast,
+    emitBroadcast
   >
   extends DefaultBase<PluginConfigType>
   implements
@@ -33,7 +36,9 @@ export class RegisteredPlugin<
       emitEvents,
       onEvents,
       emitReturnableEvents,
-      onReturnableEvents
+      onReturnableEvents,
+      emitBroadcast,
+      onBroadcast
     >
 {
   receiveStream(
@@ -43,6 +48,23 @@ export class RegisteredPlugin<
     throw ErrorMessages.BSBNotInit;
   }
   sendStream(streamId: string, stream: Readable): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  onBroadcast<TA extends string>(
+    ...args: DynamicallyReferencedMethodOnIEvents<
+      DynamicallyReferencedMethodType<emitBroadcast>,
+      TA,
+      false
+    >
+  ): Promise<void> {
+    throw ErrorMessages.BSBNotInit;
+  }
+  emitBroadcast<TA extends string>(
+    ...args: DynamicallyReferencedMethodEmitIEvents<
+      DynamicallyReferencedMethodType<onBroadcast>,
+      TA
+    >
+  ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
   onEvent<TA extends string>(
@@ -172,7 +194,9 @@ export class ServicesClient<
   emitEvents = ServiceEvents,
   onReturnableEvents = ServiceReturnableEvents,
   emitReturnableEvents = ServiceReturnableEvents,
-  callableMethods = ServiceCallable
+  callableMethods = ServiceCallable,
+  onBroadcast = ServiceBroadcasts,
+  emitBroadcast = ServiceBroadcasts
 > {
   public readonly _pluginName!: string;
   public readonly initBeforePlugins?: Array<string>;
@@ -187,7 +211,9 @@ export class ServicesClient<
     onReturnableEvents,
     emitReturnableEvents,
     callableMethods,
-    any
+    any,
+    onBroadcast,
+    emitBroadcast
   >;
   protected async _register(): Promise<void> {
     // We must add the inits/runs list to the referenced service in order to change the init and run order
@@ -210,7 +236,9 @@ export class ServicesClient<
         onReturnableEvents,
         emitReturnableEvents,
         callableMethods,
-        any
+        any,
+        onBroadcast,
+        emitBroadcast
       >(this._pluginName);
     }
   }
