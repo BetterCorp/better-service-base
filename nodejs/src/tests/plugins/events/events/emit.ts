@@ -1,4 +1,4 @@
-import { EventsBase } from '../../../../events/events';
+import { EventsBase } from "../../../../events/events";
 import assert from "assert";
 import { randomUUID } from "crypto";
 
@@ -25,21 +25,18 @@ export function emit(
         const thisPlugin = randomName();
         const thisEvent = randomName();
         //console.log(emitter)
-        let emitTimeout: NodeJS.Timeout | null = setTimeout(() => {
-          assert.fail("Event not received");
+        let receiveCounter = 0;
+        setTimeout(() => {
+          if (receiveCounter === 1) return assert.ok(receiveCounter);
+          if (receiveCounter === 0) return assert.fail("Event not received");
+          assert.fail("Received " + receiveCounter + " events");
         }, maxTimeoutToExpectAResponse);
         await emitter.onEvent(
           thisCaller,
           thisPlugin,
           thisEvent,
           async (data: any) => {
-            if (emitTimeout === null) {
-              assert.fail("Event received twice");
-              return;
-            }
-            clearTimeout(emitTimeout);
-            emitTimeout = null;
-            assert.ok(data[0]);
+            receiveCounter++;
           }
         );
         await emitter.onEvent(
@@ -47,13 +44,7 @@ export function emit(
           thisPlugin,
           thisEvent,
           async (data: any) => {
-            if (emitTimeout === null) {
-              assert.fail("Event received twice");
-              return;
-            }
-            clearTimeout(emitTimeout);
-            emitTimeout = null;
-            assert.ok(data[0]);
+            receiveCounter++;
           }
         );
         await emitter.emitEvent(thisCaller, thisPlugin, thisEvent, [emitData]);
@@ -91,7 +82,7 @@ export function emit(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.ok(data);
+            assert.ok(data[0]);
           }
         );
         await emitter.emitEvent(thisCaller, thisCaller, thisEvent, [emitData]);
@@ -110,7 +101,10 @@ export function emit(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.equal(data, [0, 1, 2, 3]);
+            assert.deepEqual(data[0], 0);
+            assert.deepEqual(data[1], 1);
+            assert.deepEqual(data[2], 2);
+            assert.deepEqual(data[3], 3);
           }
         );
         await emitter.emitEvent(
@@ -179,7 +173,7 @@ export function emit(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.strictEqual(data, emitData);
+            assert.deepEqual(data[0], emitData);
           }
         );
         await emitter.emitEvent(thisCaller, thisPlugin, thisEvent, [emitData]);
@@ -198,7 +192,7 @@ export function emit(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.strictEqual(data, emitData);
+            assert.deepEqual(data[0], emitData);
           }
         );
         await emitter.emitEvent(thisCaller, thisCaller, thisEvent, [emitData]);
@@ -287,7 +281,7 @@ export function emit(
       },
     ];
     for (let typeToTest of typesToTest)
-      describe(`emit ${typeToTest.name}`, async () => {
+      describe(`emitEvent ${typeToTest.name}`, async () => {
         it("should be able to emit to events with plugin name defined", async () => {
           const thisCaller = randomName();
           const thisPlugin = randomName();
@@ -303,7 +297,7 @@ export function emit(
             async (data: any) => {
               clearTimeout(emitTimeout);
 
-              assert.strictEqual(data, typeToTest.data);
+              assert.deepEqual(data[0], typeToTest.data);
             }
           );
           await emitter.emitEvent(thisCaller, thisPlugin, thisEvent, [
@@ -324,7 +318,7 @@ export function emit(
             async (data: any) => {
               clearTimeout(emitTimeout);
 
-              assert.strictEqual(data, typeToTest.data);
+              assert.deepEqual(data[0], typeToTest.data);
             }
           );
           await emitter.emitEvent(thisCaller, thisCaller, thisEvent, [
