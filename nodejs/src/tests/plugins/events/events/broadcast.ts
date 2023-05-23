@@ -15,7 +15,7 @@ export function broadcast(
   afterEach(function () {
     emitter.dispose();
   });
-  describe("Emit", async function () {
+  describe("EmitBroadcast", async function () {
     this.timeout(maxTimeoutToExpectAResponse + 10);
     this.afterEach((done) => setTimeout(done, maxTimeoutToExpectAResponse));
     describe("emitBroadcast", async () => {
@@ -27,10 +27,11 @@ export function broadcast(
         //console.log(emitter)
         let receiveCounter = 0;
         setTimeout(() => {
-          if (receiveCounter !== 2) assert.fail("Event not received");
-          else assert.ok(receiveCounter);
+          if (receiveCounter === 2) return  assert.ok(receiveCounter);
+          if (receiveCounter === 0) return assert.fail("Event not received");
+          assert.fail("Received " + receiveCounter + " events");
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(
+        await emitter.onBroadcast(
           thisCaller,
           thisPlugin,
           thisEvent,
@@ -38,7 +39,7 @@ export function broadcast(
             receiveCounter++;
           }
         );
-        await emitter.onEvent(
+        await emitter.onBroadcast(
           thisCaller,
           thisPlugin,
           thisEvent,
@@ -46,7 +47,7 @@ export function broadcast(
             receiveCounter++;
           }
         );
-        await emitter.emitEvent(thisCaller, thisPlugin, thisEvent, [emitData]);
+        await emitter.emitBroadcast(thisCaller, thisPlugin, thisEvent, [emitData]);
       });
       it("should be able to emit to events with plugin name defined", async () => {
         const thisCaller = randomName();
@@ -83,7 +84,7 @@ export function broadcast(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.ok(data);
+            assert.ok(data[0]);
           }
         );
         await emitter.emitBroadcast(thisCaller, thisCaller, thisEvent, [
@@ -104,7 +105,10 @@ export function broadcast(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.equal(data, [0, 1, 2, 3]);
+            assert.deepEqual(data[0], 0);
+            assert.deepEqual(data[1], 1);
+            assert.deepEqual(data[2], 2);
+            assert.deepEqual(data[3], 3);
           }
         );
         await emitter.emitBroadcast(
@@ -177,7 +181,7 @@ export function broadcast(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.strictEqual(data, emitData);
+            assert.deepEqual(data[0], emitData);
           }
         );
         await emitter.emitBroadcast(thisCaller, thisPlugin, thisEvent, [
@@ -198,7 +202,7 @@ export function broadcast(
           async (data: any) => {
             clearTimeout(emitTimeout);
 
-            assert.strictEqual(data, emitData);
+            assert.deepEqual(data[0], emitData);
           }
         );
         await emitter.emitBroadcast(thisCaller, thisCaller, thisEvent, [
@@ -293,7 +297,7 @@ export function broadcast(
       },
     ];
     for (let typeToTest of typesToTest)
-      describe(`emit ${typeToTest.name}`, async () => {
+      describe(`emitBroadcast ${typeToTest.name}`, async () => {
         it("should be able to emit to events with plugin name defined", async () => {
           const thisCaller = randomName();
           const thisPlugin = randomName();
@@ -309,7 +313,7 @@ export function broadcast(
             async (data: any) => {
               clearTimeout(emitTimeout);
 
-              assert.strictEqual(data, typeToTest.data);
+              assert.deepEqual(data[0], typeToTest.data);
             }
           );
           await emitter.emitBroadcast(thisCaller, thisPlugin, thisEvent, [
@@ -330,7 +334,7 @@ export function broadcast(
             async (data: any) => {
               clearTimeout(emitTimeout);
 
-              assert.strictEqual(data, typeToTest.data);
+              assert.deepEqual(data[0], typeToTest.data);
             }
           );
           await emitter.emitBroadcast(thisCaller, thisCaller, thisEvent, [
