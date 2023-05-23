@@ -1,0 +1,27 @@
+{
+  "name": "@bettercorp/bsb",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "url": "https://github.com/BetterCorp/better-service-base/tree/setup-nodejs"
+  },
+  "type": "module",
+  "version": "1.0.4",
+  "description": "BSB Install NPX package",
+  "scripts": {},
+  "keywords": [
+    "bsb",
+    "npx"
+  ],
+  "files": [
+    "README.md",
+    "bin.js"
+  ],
+  "author": "BetterCorp <support@bettercorp.dev>",
+  "bin": "./bin.js",
+  "dependencies": {
+    "axios": "^1.3.3",
+    "fs-extra": "^11.1.0",
+    "inquirer": "^9.1.4",
+    "yargs": "^17.7.0"
+  }
+}
