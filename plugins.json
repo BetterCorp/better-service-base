@@ -703,8 +703,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "c052b0387a70c46fcd12f82cabe3bb91",
-            "commsTokenIV": "90a2a0731443d627879316628e32cb90",
+            "commsToken": "db27a236275f81eb48f9d12bf6bfb151",
+            "commsTokenIV": "46c748b00cb69f9bba5c6ad0be93d288",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -808,8 +808,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BC7JIRkmZ5f6ywNUH0KAqf9aJqGmopMsO9npqVDdAz07ZNXdkR2Wl8FyKojOg-6aiQx018tLmYNtp-gf6j9xcHQ",
-            "privateKey": "mg_AJ4-zDtSg76YFPiAIgS4SgadWyHra_faTXDQlcqY",
+            "publicKey": "BJPFblBqxybt07BrMMjfqvrO744KQVUJm3gKcEfnRf_pmT48iZLcxObyvtpQUvavUzA_2VEvBlkZflSc_5KBOiE",
+            "privateKey": "C6L0VJJZQ92YI4CvvbfeyqF1SED8uIvCX5Qd_A-X_Zw",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1321,7 +1321,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JFFuNlBuaVVIdlI3Q0hQdkRsa1YvM3UkMmIkMDQkUW42UG5pVUh2UjdDSFB2RGxrVi8zdSQyYiQwNCRRbjZQbmlVSHZSN0NIUHZEbGtWLzN1",
+            "clientEndpointKey": "JDJiJDA0JFFUeHRIR1gyd3MuYm5yNy5zaUVrZmUkMmIkMDQkUVR4dEhHWDJ3cy5ibnI3LnNpRWtmZSQyYiQwNCRRVHh0SEdYMndzLmJucjcuc2lFa2Zl",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1473,7 +1473,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-web-server",
-    "version": "6.5.4",
+    "version": "6.5.5",
     "lang": "node",
     "author": {
       "name": "BetterCorp",
@@ -1637,12 +1637,6 @@
               "name": "Enable /health endpoint",
               "description": "Used to monitoring"
             },
-            "usingCloudflareWarpTraefikPlugin": {
-              "type": "boolean",
-              "required": true,
-              "name": "CloudflareWARP Traefik plugin",
-              "description": "github.com/BetterCorp/cloudflarewarp is in front of this service"
-            },
             "cors": {
               "type": "FastifyCors",
               "required": true,
@@ -1656,10 +1650,10 @@
               "description": null
             },
             "ipRewrite": {
-              "type": "boolean",
+              "type": "IPReWrite",
               "required": true,
               "name": "Rewrite the IP",
-              "description": "For Cloudflare and proxies"
+              "description": "For proxies"
             },
             "host": {
               "type": "string",
@@ -1733,15 +1727,48 @@
                 "description": null
               }
             },
+            "IPReWrite": {
+              "enabled": {
+                "type": "boolean",
+                "required": true,
+                "name": "Enabled",
+                "description": "If IP rewriting is enabled"
+              },
+              "usingCloudflareWarpTraefikPlugin": {
+                "type": "boolean",
+                "required": true,
+                "name": "CloudflareWARP Traefik plugin",
+                "description": "github.com/BetterCorp/cloudflarewarp is in front of this service"
+              },
+              "trustedIPs": {
+                "type": "Array<string>",
+                "required": true,
+                "name": "Trusted Proxies",
+                "description": "List of trusted proxy ips (x.x.x.x/x or x.x.x.x) (IPv4/IPv6)"
+              },
+              "acceptedHeaders": {
+                "type": "Array<string>",
+                "required": true,
+                "name": "Accepted Headers",
+                "description": "List of accepted headers to check for the IP"
+              }
+            },
             "IWebServerConfigServer": {},
             "string | null": {}
           },
           "defaultValues": {
             "health": false,
-            "usingCloudflareWarpTraefikPlugin": false,
             "host": "0.0.0.0",
             "httpPort": 80,
-            "ipRewrite": true,
+            "ipRewrite": {
+              "enabled": false,
+              "usingCloudflareWarpTraefikPlugin": false,
+              "trustedIPs": [],
+              "acceptedHeaders": [
+                "cf-connecting-ip",
+                "x-forwarded-for"
+              ]
+            },
             "server": "http",
             "httpToHttpsRedirect": true,
             "httpsPort": 443,
@@ -1966,10 +1993,10 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$eF0Pu0ycGt8TpgHxeKrzcO",
+            "authKey": "$2b$08$Dc9Xf.dPcxciE7DetmWs0.",
             "privateKey": null,
             "publicKey": null,
-            "secretKey": "$2b$08$sTlZBC7pR.v/e7Ir8TRzwO",
+            "secretKey": "$2b$08$.PVZnDHjsQe/Tg5thumYIe",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -2039,7 +2066,7 @@
           "defaultValues": {
             "endpoint": "ws://localhost/ws",
             "token": null,
-            "identity": "fv-az790-56"
+            "identity": "fv-az574-482"
           }
         },
         "pluginLink": null
@@ -2202,8 +2229,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "cc6fc2b211e34637bbc434b7f712f1d1",
-            "commsTokenIV": "e0222423a7530da5582be57fede873dc",
+            "commsToken": "efa6f9946bacdd24395ccc0e43d72fc0",
+            "commsTokenIV": "25ca77266cf9d08e894f67151defbe3d",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
