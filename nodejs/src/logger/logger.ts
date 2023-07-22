@@ -30,7 +30,7 @@ export class LoggerBase<PluginConfigType extends IPluginConfig = any>
           )
           .join(",");
       else if (Tools.isDate(referencedVar))
-        referencedVar = (referencedVar as Date).toISOString();
+        referencedVar = referencedVar.toISOString();
       else if (
         Tools.isObject(referencedVar) ||
         !Tools.isFunction(referencedVar.toString)

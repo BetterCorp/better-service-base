@@ -1,6 +1,6 @@
-import { CPlugin, CPluginClient } from "@bettercorp/service-base/lib/interfaces/plugins";
+import { ServicesClient } from '../src/index' //"@bettercorp/service-base";
 
-export class demo extends CPluginClient {
+export class demo extends ServicesClient {
   public readonly pluginName: string = "demo";
 
   async triggerServerOnEvent(data: any): Promise<void> {

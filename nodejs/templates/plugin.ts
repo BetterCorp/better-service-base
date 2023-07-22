@@ -1,7 +1,7 @@
-import { CPlugin, CPluginClient } from "@bettercorp/service-base/lib/interfaces/plugins";
+import { ServicesBase } from '../src/index' //"@bettercorp/service-base";
 import { PluginConfig } from './sec.config';
 
-export class Plugin extends CPlugin<PluginConfig> {
+export class Plugin extends ServicesBase<PluginConfig> {
   async init(): Promise<void> {
     await this.onEvent(null, "exampleOnEvent", x => self.exampleOnEvent(x));
     await this.onReturnableEvent(null, "exampleServerMethod", self.exampleServerMethod);
