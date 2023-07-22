@@ -46,7 +46,7 @@ export class ServicesBase<
 
   async run(): Promise<void> {}
 
-  public registerPluginClient<
+  public initPluginClient<
     pluginClientOnEvents,
     pluginClientEmitEvents,
     pluginClientOnReturnableEvents,

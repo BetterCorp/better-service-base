@@ -9,9 +9,6 @@ export class Service extends ServicesBase {
     super(pluginName, cwd, pluginCwd, log);
     this.testClient = new testClient(this);
   }
-  public override async init() {
-    await this.testClient.init();
-  }
   public override async run() {
     await this.testClient.abc();
   }

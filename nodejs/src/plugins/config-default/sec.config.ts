@@ -14,7 +14,7 @@ export class Config extends SecConfig<PluginConfig> {
       ConfigFile:
       existingConfig.ConfigFile ||
         process.env.BSB_SEC_JSON ||
-        "./sec.config.json",
+        "./sec.config.yaml",
     };
   }
 }

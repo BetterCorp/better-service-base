@@ -1,18 +1,7 @@
 import { CPlugin, CPluginClient } from "@bettercorp/service-base/lib/interfaces/plugins";
-import { MyPluginConfig } from './sec.config';
+import { PluginConfig } from './sec.config';
 
-export class demo extends CPluginClient<any> {
-  public readonly _pluginName: string = "demo";
-
-  async triggerServerOnEvent(data: any): Promise<void> {
-    await this.emitEvent("exampleOnEvent", data);
-  }
-  async triggerServerMethod(data: any): Promise<any> {
-    return this.emitEventAndReturn("exampleServerMethod", data);
-  }
-}
-
-export class Plugin extends CPlugin<MyPluginConfig> {
+export class Plugin extends CPlugin<PluginConfig> {
   async init(): Promise<void> {
     await this.onEvent(null, "exampleOnEvent", x => self.exampleOnEvent(x));
     await this.onReturnableEvent(null, "exampleServerMethod", self.exampleServerMethod);

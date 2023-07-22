@@ -32,11 +32,7 @@ export type DynamicallyReferencedMethodEmitEARIEvents<
 > = ArgsReference extends true
   ? Interface[Method] extends (...a: infer Arguments) => infer Return
     ? ShowTimeout extends true
-      ? [
-          event: Method,
-          timeoutSeconds?: number,
-          ...a: Arguments
-        ]
+      ? [event: Method, timeoutSeconds?: number, ...a: Arguments]
       : [event: Method, ...a: Arguments]
     : [event: Method, noMatchingEvent: never]
   : Interface[Method] extends (...a: infer Arguments) => infer Return
@@ -51,7 +47,7 @@ export interface IServiceEvents<
   onReturnableEvents,
   emitReturnableEvents,
   onBroadcast,
-  emitBroadcast,
+  emitBroadcast
 > {
   onBroadcast<TA extends string>(
     ...args: DynamicallyReferencedMethodOnIEvents<
@@ -73,7 +69,8 @@ export interface IServiceEvents<
       false
     >
   ): Promise<void>;
-  onEventSpecific<TA extends string>(serverId: string,
+  onEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onEvents>,
       TA,
@@ -86,7 +83,8 @@ export interface IServiceEvents<
       TA
     >
   ): Promise<void>;
-  emitEventSpecific<TA extends string>(serverId: string,
+  emitEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<emitEvents>,
       TA
@@ -99,7 +97,8 @@ export interface IServiceEvents<
       true
     >
   ): Promise<void>;
-  onReturnableEventSpecific<TA extends string>(serverId: string,
+  onReturnableEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
       TA,
@@ -118,7 +117,8 @@ export interface IServiceEvents<
     TA,
     false
   >;
-  emitEventAndReturnSpecific<TA extends string>(serverId: string,
+  emitEventAndReturnSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
@@ -142,7 +142,8 @@ export interface IServiceEvents<
     TA,
     false
   >;
-  emitEventAndReturnTimedSpecific<TA extends string>(serverId: string,
+  emitEventAndReturnTimedSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,

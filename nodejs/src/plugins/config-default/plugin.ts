@@ -10,6 +10,7 @@ import { IPluginLogger } from "../../interfaces/logger";
 import { ConfigBase } from "../../config/config";
 import { PluginConfig } from "./sec.config";
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
+import { parse, stringify } from "yaml";
 
 export class Config extends ConfigBase<PluginConfig> {
   public readonly hehe = "I am a string";
@@ -92,16 +93,16 @@ export class Config extends ConfigBase<PluginConfig> {
       plugins: {},
     };
     if (fs.existsSync(this._secConfigFilePath)) {
-      defConfig = JSON.parse(
-        fs.readFileSync(this._secConfigFilePath, "utf8").toString()
-      ) as ServiceConfig;
-      defConfig.plugins = defConfig.plugins || {};
-      defConfig.deploymentProfiles = defConfig.deploymentProfiles || {};
+      let tdefConfig =
+        parse(fs.readFileSync(this._secConfigFilePath, "utf8").toString()) ??
+        ({} as ServiceConfig);
+      defConfig.plugins = tdefConfig.plugins ?? {};
+      defConfig.deploymentProfiles = tdefConfig.deploymentProfiles ?? {};
       defConfig.deploymentProfiles.default =
-        defConfig.deploymentProfiles.default || {};
+        defConfig.deploymentProfiles.default ?? {};
     } else {
       await this.log.debug(
-        "! sec.config.json CAN`T BE FOUND ... we will try create one / work in memory! {secFile}",
+        "! sec.config.yaml CAN`T BE FOUND ... we will try create one / work in memory! {secFile}",
         { secFile: this._secConfigFilePath }
       );
     }
@@ -124,10 +125,7 @@ export class Config extends ConfigBase<PluginConfig> {
       try {
         if (fs.existsSync(this._secConfigFilePath))
           fs.accessSync(this._secConfigFilePath, fs.constants.W_OK);
-        fs.writeFileSync(
-          this._secConfigFilePath,
-          JSON.stringify(this._appConfig, "" as any, 2) // todo: replace this with typesafe formatting version
-        );
+        fs.writeFileSync(this._secConfigFilePath, stringify(this._appConfig));
         this._canWriteChanges = true;
       } catch (e) {
         await this.log.warn(
@@ -166,7 +164,7 @@ export class Config extends ConfigBase<PluginConfig> {
     }
     fs.writeFileSync(
       this._secConfigFilePath,
-      JSON.stringify(this._appConfig, "" as any, 2) // todo: replace this with typesafe formatting version
+      stringify(this._appConfig) // todo: replace this with typesafe formatting version
     );
   }
 }

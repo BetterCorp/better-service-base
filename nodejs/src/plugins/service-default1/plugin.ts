@@ -58,13 +58,8 @@ export class testClient extends ServicesClient<
   testCallable,
   any
 > {
-  public readonly _pluginName: string = "service-default1";
-  constructor(
-    self: ServicesBase<testEvents, testRetEvents, testCallable, any>
-  ) {
-    super(self);
-  }
-  public async init(): Promise<void> {
+  public override readonly pluginName: string = "service-default1";
+  public override async init(): Promise<void> {
     const self = this;
     this._plugin.onEvent("onEmittable", async (a: number, b: number) => {
       await self._plugin.log.warn("onEmittable ({a},{b})", { a, b });

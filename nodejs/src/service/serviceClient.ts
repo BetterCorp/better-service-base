@@ -19,6 +19,7 @@ import {
   ServiceCallable,
   ServiceBroadcasts,
 } from "./base";
+import { Tools } from '@bettercorp/tools';
 
 export class RegisteredPlugin<
     onEvents,
@@ -76,7 +77,8 @@ export class RegisteredPlugin<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
-  onEventSpecific<TA extends string>(serverId: string,
+  onEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<emitEvents>,
       TA,
@@ -93,7 +95,8 @@ export class RegisteredPlugin<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
-  emitEventSpecific<TA extends string>(serverId: string,
+  emitEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<onEvents>,
       TA
@@ -110,7 +113,8 @@ export class RegisteredPlugin<
   ): Promise<void> {
     throw ErrorMessages.BSBNotInit;
   }
-  onReturnableEventSpecific<TA extends string>(serverId: string,
+  onReturnableEventSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
@@ -133,7 +137,8 @@ export class RegisteredPlugin<
   > {
     throw ErrorMessages.BSBNotInit;
   }
-  emitEventAndReturnSpecific<TA extends string>(serverId: string,
+  emitEventAndReturnSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
       TA,
@@ -161,7 +166,8 @@ export class RegisteredPlugin<
   > {
     throw ErrorMessages.BSBNotInit;
   }
-  emitEventAndReturnTimedSpecific<TA extends string>(serverId: string,
+  emitEventAndReturnTimedSpecific<TA extends string>(
+    serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
       TA,
@@ -198,7 +204,7 @@ export class ServicesClient<
   onBroadcast = ServiceBroadcasts,
   emitBroadcast = ServiceBroadcasts
 > {
-  public readonly _pluginName!: string;
+  public readonly pluginName!: string;
   public readonly initBeforePlugins?: Array<string>;
   public readonly initAfterPlugins?: Array<string>;
   public readonly runBeforePlugins?: Array<string>;
@@ -215,7 +221,12 @@ export class ServicesClient<
     onBroadcast,
     emitBroadcast
   >;
-  protected async _register(): Promise<void> {
+
+  public async _init(): Promise<void> {
+    if (!Tools.isString(this.pluginName) || this.pluginName === "") {
+      throw 'pluginName is not set in this client. Please update the clients definition '
+    }
+
     // We must add the inits/runs list to the referenced service in order to change the init and run order
     (this._referencedPlugin as any).initBeforePlugins = (
       this._referencedPlugin.initBeforePlugins || []
@@ -229,8 +240,9 @@ export class ServicesClient<
     (this._referencedPlugin as any).runAfterPlugins = (
       this._referencedPlugin.runAfterPlugins || []
     ).concat(this.runAfterPlugins || []);
+
     if (this._plugin === undefined) {
-      this._plugin = await this._referencedPlugin.registerPluginClient<
+      this._plugin = await this._referencedPlugin.initPluginClient<
         onEvents,
         emitEvents,
         onReturnableEvents,
@@ -239,8 +251,11 @@ export class ServicesClient<
         any,
         onBroadcast,
         emitBroadcast
-      >(this._pluginName);
+      >(this.pluginName);
     }
+  }
+  
+  public async init(): Promise<void> {
   }
 
   constructor(self: ServicesBase<any, any, any>) {

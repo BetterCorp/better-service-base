@@ -5,8 +5,8 @@
     "url": "https://github.com/BetterCorp/better-service-base"
   },
   "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=16.0.0"
+    "npm": ">=9.0.0",
+    "node": ">=18.0.0"
   },
   "scripts": {
     "dev": "nodemon --config ./nodemon.json",
@@ -29,7 +29,7 @@
     "README.md"
   ],
   "main": "lib/index.js",
-  "version": "8.4.0-rc",
+  "version": "9.0.0-rc0",
   "devDependencies": {
     "@types/assert": "^1.5.6",
     "@types/chai": "^4.3.3",
@@ -46,7 +46,8 @@
     "yargs": "^17.5.1"
   },
   "dependencies": {
-    "@bettercorp/tools": "^2.0.20220714140658"
+    "@bettercorp/tools": "^2.0.20220714140658",
+    "yaml": "^2.3.1"
   },
   "bsb_project": true
 }

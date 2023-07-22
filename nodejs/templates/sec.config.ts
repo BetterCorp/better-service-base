@@ -1,9 +1,9 @@
-export interface MyPluginConfig {
+export interface PluginConfig {
 
 }
 
-export default (pluginName: string, existingPluginConfig: any): MyPluginConfig => {
-  let newConfig: MyPluginConfig = {
+export default (pluginName: string, existingPluginConfig: any): PluginConfig => {
+  let newConfig: PluginConfig = {
 
   };
   return newConfig;

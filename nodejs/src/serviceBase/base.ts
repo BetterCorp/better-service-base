@@ -99,7 +99,7 @@ export class SBBase {
     }
   ): void {
     SBBase.setupServicePluginSpecific(plugin, events);
-    (plugin as unknown as ServicesBase<any, any>).registerPluginClient = async (
+    (plugin as unknown as ServicesBase<any, any>).initPluginClient = async (
       pluginName: string
     ): Promise<RegisteredPlugin<any, any, any, any, any, any, any, any>> => {
       let mappedPluginName = await config.getAppPluginMappedName(pluginName);

@@ -5,6 +5,7 @@ import { SBBase } from "./base";
 import { ServicesBase } from "../service/service";
 import { ConfigBase } from "../config/config";
 import { ErrorMessages } from "../interfaces/static";
+import { ServicesClient } from '../';
 
 export class SBServices {
   private _activeServices: Array<ServicesBase> = [];
@@ -112,16 +113,19 @@ export class SBServices {
         }
       );
 
-      for (let client of (servicePlugin as any)._clients) {
+      for (let client of ((servicePlugin as any)._clients as Array<ServicesClient>)) {
         await this.log.info(
           "Setup {pluginName} ({mappedName}) references {clientPlugin}",
           {
             pluginName: plugin.name,
             mappedName: plugin.mappedName,
-            clientPlugin: client._pluginName,
+            clientPlugin: client.pluginName,
           }
         );
-        await client._register();
+        await client._init();
+        (client as any)._init = undefined; // specifically remove this method from the client so it cannot be re-called / removes from ram
+        await client.init();
+        (client as any).init = undefined; // specifically remove this method from the client so it cannot be re-called / removes from ram
       }
 
       await this.log.info(
