@@ -1,19 +1,3 @@
----
-home: true
-heroText: Better-Service-Base
-tagline: A simple yet scalable microservice base
-featuresx:
-- title: Start Simple
-  details: Get started quickly, expand infinitely
-- title: Event Based
-  details: BSB is completely event based.  Choose the event broker that suites your needs, or build one if it doesn't exist yet.
-- title: Scalable
-  details: Services are designed to be containerized and scaled to meet demand.
-footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
----
-
-<div style="background: rgb(68, 204, 17); color: black; padding: 5px 10px 5px 10px; border-radius: 5px; text-align: center; font-weight: 700;">BSB v9 DOCUMENTATION</div>
-
 # About
 
 BSB (Better-Service-Base) is an event-bus based microservice framework.  
