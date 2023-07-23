@@ -332,6 +332,44 @@ const setupDefaultPackages = (temp_node_modules, plugins) => {
 
   availPlugins = availPlugins.sort((a, b) => a.name.localeCompare(b.name));
   fs.writeFileSync("./plugins.json", JSON.stringify(availPlugins, " ", 2));
+  fs.writeFileSync("./plugin-stats.json", JSON.stringify({
+    total: availPlugins.length,
+    nodejs: {
+      total: availPlugins.filter(x => x.lang === 'node').length,
+      logging: availPlugins.filter(x => x.lang === 'node').filter(x => x.plugins.filter(y => y.type === 'logging').length > 0).length,
+      events: availPlugins.filter(x => x.lang === 'node').filter(x => x.plugins.filter(y => y.type === 'events').length > 0).length,
+      config: availPlugins.filter(x => x.lang === 'node').filter(x => x.plugins.filter(y => y.type === 'config').length > 0).length,
+      services: availPlugins.filter(x => x.lang === 'node').filter(x => x.plugins.filter(y => y.type === 'plugin').length > 0).length,
+    },
+    dotnet: {
+      total: availPlugins.filter(x => x.lang === 'dotnet').length,
+      logging: availPlugins.filter(x => x.lang === 'dotnet').filter(x => x.plugins.filter(y => y.type === 'logging').length > 0).length,
+      events: availPlugins.filter(x => x.lang === 'dotnet').filter(x => x.plugins.filter(y => y.type === 'events').length > 0).length,
+      config: availPlugins.filter(x => x.lang === 'dotnet').filter(x => x.plugins.filter(y => y.type === 'config').length > 0).length,
+      services: availPlugins.filter(x => x.lang === 'dotnet').filter(x => x.plugins.filter(y => y.type === 'plugin').length > 0).length,
+    },
+    go: {
+      total: availPlugins.filter(x => x.lang === 'go').length,
+      logging: availPlugins.filter(x => x.lang === 'go').filter(x => x.plugins.filter(y => y.type === 'logging').length > 0).length,
+      events: availPlugins.filter(x => x.lang === 'go').filter(x => x.plugins.filter(y => y.type === 'events').length > 0).length,
+      config: availPlugins.filter(x => x.lang === 'go').filter(x => x.plugins.filter(y => y.type === 'config').length > 0).length,
+      services: availPlugins.filter(x => x.lang === 'go').filter(x => x.plugins.filter(y => y.type === 'plugin').length > 0).length,
+    },
+    rust: {
+      total: availPlugins.filter(x => x.lang === 'rust').length,
+      logging: availPlugins.filter(x => x.lang === 'rust').filter(x => x.plugins.filter(y => y.type === 'logging').length > 0).length,
+      events: availPlugins.filter(x => x.lang === 'rust').filter(x => x.plugins.filter(y => y.type === 'events').length > 0).length,
+      config: availPlugins.filter(x => x.lang === 'rust').filter(x => x.plugins.filter(y => y.type === 'config').length > 0).length,
+      services: availPlugins.filter(x => x.lang === 'rust').filter(x => x.plugins.filter(y => y.type === 'plugin').length > 0).length,
+    },
+    python: {
+      total: availPlugins.filter(x => x.lang === 'python').length,
+      logging: availPlugins.filter(x => x.lang === 'python').filter(x => x.plugins.filter(y => y.type === 'logging').length > 0).length,
+      events: availPlugins.filter(x => x.lang === 'python').filter(x => x.plugins.filter(y => y.type === 'events').length > 0).length,
+      config: availPlugins.filter(x => x.lang === 'python').filter(x => x.plugins.filter(y => y.type === 'config').length > 0).length,
+      services: availPlugins.filter(x => x.lang === 'python').filter(x => x.plugins.filter(y => y.type === 'plugin').length > 0).length,
+    }
+  }, " ", 2));
   if (fs.existsSync(tempDir)) {
     fs.rmSync(tempDir, { recursive: true, force: true });
     //execSync(`rm -rfv ${tempDir}`, { encoding: "utf-8" });
