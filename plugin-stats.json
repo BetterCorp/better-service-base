@@ -1,1 +1,38 @@
-{}
+{
+  "total": 19,
+  "nodejs": {
+    "total": 19,
+    "logging": 1,
+    "events": 1,
+    "config": 1,
+    "services": 17
+  },
+  "dotnet": {
+    "total": 0,
+    "logging": 0,
+    "events": 0,
+    "config": 0,
+    "services": 0
+  },
+  "go": {
+    "total": 0,
+    "logging": 0,
+    "events": 0,
+    "config": 0,
+    "services": 0
+  },
+  "rust": {
+    "total": 0,
+    "logging": 0,
+    "events": 0,
+    "config": 0,
+    "services": 0
+  },
+  "python": {
+    "total": 0,
+    "logging": 0,
+    "events": 0,
+    "config": 0,
+    "services": 0
+  }
+}
