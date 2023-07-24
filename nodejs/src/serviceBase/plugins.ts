@@ -1,7 +1,14 @@
-import { readdirSync, statSync, existsSync, readFileSync } from "fs";
+import {
+  readdirSync,
+  statSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+} from "fs";
 import { join } from "path";
 import { IPluginLogger } from "../interfaces/logger";
 import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
+import { Tools } from "@bettercorp/tools";
 
 export class SBPlugins {
   public static getPluginType(name: string): IPluginDefinition | null {
@@ -95,11 +102,100 @@ export class SBPlugins {
 
     return arrOfPlugins;
   }
+
+  private static async findDependentPlugins(
+    plugin: string,
+    coreLogger: IPluginLogger,
+    pluginJson: any,
+    npmPluginsDir: string,
+    knownDependencies: Record<string, boolean> = {}
+  ) {
+    let arrOfPlugins: Array<IReadyPlugin> = [];
+    for (let dependency of Object.keys(pluginJson.dependencies || {})) {
+      if (knownDependencies[dependency] !== undefined) {
+        await coreLogger.info(
+          `FIND: CHECK [{plugin}] DEPENDENCY [{dependency}] IGNORED BECAUSE [{reason}]`,
+          {
+            dependency,
+            plugin,
+            reason:
+              knownDependencies[dependency] === true ? "EXISTS" : "INVALID",
+          }
+        );
+
+        continue;
+      }
+      await coreLogger.info(
+        `FIND: CHECK [{plugin}] DEPENDENCY [{dependency}]`,
+        { dependency, plugin }
+      );
+      let path = dependency.split("/");
+      let dependencyPath = join(npmPluginsDir, ...path);
+      await coreLogger.debug(`FIND: CHECK [{dependency}] {dependencyPath}`, {
+        dependency,
+        dependencyPath,
+      });
+      if (statSync(dependencyPath).isDirectory()) {
+        let response = await SBPlugins.findPluginsInBase(
+          coreLogger,
+          dependencyPath,
+          true,
+          npmPluginsDir,
+          knownDependencies
+        );
+        if (Tools.isArray(response)) {
+          knownDependencies[dependency] = false;
+          arrOfPlugins = arrOfPlugins.concat(
+            response as any as Array<IReadyPlugin>
+          );
+        } else {
+          knownDependencies[dependency] = response.plugins.length > 0;
+          arrOfPlugins = arrOfPlugins.concat(response.plugins);
+          knownDependencies = {
+            ...knownDependencies,
+            ...(response.knownDependencies ?? {}),
+          };
+        }
+      }
+    }
+
+    return {
+      plugins: arrOfPlugins,
+      knownDependencies: knownDependencies,
+    };
+  }
+
   private static async findPluginsInBase(
     coreLogger: IPluginLogger,
     path: string,
-    libOnly = false
-  ): Promise<Array<IReadyPlugin>> {
+    libOnly: boolean
+  ): Promise<Array<IReadyPlugin>>;
+  private static async findPluginsInBase(
+    coreLogger: IPluginLogger,
+    path: string,
+    libOnly: boolean,
+    findLinkedPluginsNpmDir: string,
+    knownDependencies: Record<string, boolean>
+  ): Promise<
+    | {
+        plugins: Array<IReadyPlugin>;
+        knownDependencies: Record<string, boolean>;
+      }
+    | Array<IReadyPlugin>
+  >;
+  private static async findPluginsInBase(
+    coreLogger: IPluginLogger,
+    path: string,
+    libOnly = false,
+    findLinkedPluginsNpmDir?: string,
+    knownDependencies?: Record<string, boolean>
+  ): Promise<
+    | Array<IReadyPlugin>
+    | {
+        plugins: Array<IReadyPlugin>;
+        knownDependencies: Record<string, boolean>;
+      }
+  > {
     const pluginJson = JSON.parse(
       readFileSync(join(path, "./package.json"), "utf8").toString()
     );
@@ -139,27 +235,45 @@ export class SBPlugins {
     }
 
     const packageVersion = pluginJson.version;
-    return await SBPlugins.findPluginsFiles(
+    let returnableListOfPlugins = await SBPlugins.findPluginsFiles(
       coreLogger,
       innerPluginLibPlugin,
       packageVersion,
       libOnly,
       path
     );
+    if (Tools.isString(findLinkedPluginsNpmDir)) {
+      let response = await SBPlugins.findDependentPlugins(
+        pluginJson.name,
+        coreLogger,
+        pluginJson,
+        findLinkedPluginsNpmDir,
+        knownDependencies
+      );
+      returnableListOfPlugins = returnableListOfPlugins.concat(
+        response.plugins
+      );
+      return {
+        plugins: returnableListOfPlugins,
+        knownDependencies: response.knownDependencies ?? {},
+      };
+    }
+
+    return returnableListOfPlugins;
   }
 
   public static async findNPMPlugins(
     coreLogger: IPluginLogger,
     cwd: string
   ): Promise<Array<IReadyPlugin>> {
-    let arrOfPlugins: Array<IReadyPlugin> = [];
-
-    if (!existsSync(join(cwd, "./package.json"))) {
+    const pkgJsonFile = join(cwd, "./package.json");
+    if (!existsSync(pkgJsonFile)) {
       await coreLogger.error(`Unable to find package.json in {pakDir}`, {
-        pakDir: join(cwd, "./package.json"),
+        pakDir: pkgJsonFile,
       });
       return [];
     }
+    const pluginJson = JSON.parse(readFileSync(pkgJsonFile, "utf8").toString());
 
     const npmPluginsDir = join(cwd, "./node_modules");
     await coreLogger.info(`FIND: NPM plugins in: {npmPluginsDir}`, {
@@ -172,52 +286,59 @@ export class SBPlugins {
       );
       return [];
     }
-    for (const dirFileWhat of readdirSync(npmPluginsDir)) {
+    const knownDependenciesCacheFile = join(
+      npmPluginsDir,
+      "./.bsb-known-dependencies.json"
+    );
+
+    let arrOfPlugins: Array<IReadyPlugin> = [];
+    if (existsSync(knownDependenciesCacheFile)) {
       try {
-        const pluginPath = join(npmPluginsDir, dirFileWhat);
-        if (dirFileWhat.indexOf(".") === 0) {
-          continue;
-        }
-        if (dirFileWhat.indexOf("@") === 0) {
-          await coreLogger.debug(`FIND: GROUP [{dirFileWhat}] {pluginPath}`, {
-            dirFileWhat,
-            pluginPath,
-          });
-          for (const groupPluginName of readdirSync(pluginPath)) {
-            if (groupPluginName.indexOf(".") === 0) {
+        let knownDependencies = JSON.parse(
+          readFileSync(knownDependenciesCacheFile, "utf8").toString()
+        );
+        if (Object.keys(knownDependencies).length > 0) {
+          for (let dependency of Object.keys(knownDependencies)) {
+            if (knownDependencies[dependency] !== true) {
               continue;
             }
-            const groupPluginPath = join(pluginPath, groupPluginName);
-            await coreLogger.debug(
-              `FIND: CHECK [{dirFileWhat}/{groupPluginName}] {groupPluginPath}`,
-              { dirFileWhat, groupPluginName, groupPluginPath }
+            let response = await SBPlugins.findPluginsInBase(
+              coreLogger,
+              join(npmPluginsDir, dependency),
+              true
             );
-            if (statSync(groupPluginPath).isDirectory()) {
-              arrOfPlugins = arrOfPlugins.concat(
-                await SBPlugins.findPluginsInBase(
-                  coreLogger,
-                  groupPluginPath,
-                  true
-                )
-              );
-            }
-          }
-        } else {
-          await coreLogger.debug(`FIND: CHECK [{dirFileWhat}] {pluginPath}`, {
-            dirFileWhat,
-            pluginPath,
-          });
-          if (statSync(pluginPath).isDirectory()) {
-            arrOfPlugins = arrOfPlugins.concat(
-              await SBPlugins.findPluginsInBase(coreLogger, pluginPath, true)
-            );
+            arrOfPlugins = arrOfPlugins.concat(response);
           }
         }
-      } catch (err: any) {
-        await coreLogger.error("{message}", {
-          message: err.message || err.toString(),
-        });
+      } catch (e: any) {
+        await coreLogger.error(
+          `Cannot read known dependencies: {knownDependenciesCacheFile}`,
+          { knownDependenciesCacheFile }
+        );
       }
+    }
+    if (arrOfPlugins.length === 0) {
+      let response = await SBPlugins.findDependentPlugins(
+        "self",
+        coreLogger,
+        pluginJson,
+        npmPluginsDir,
+        {}
+      );
+      setTimeout(async () => {
+        try {
+          writeFileSync(
+            knownDependenciesCacheFile,
+            JSON.stringify(response.knownDependencies, null, 2)
+          );
+        } catch (e: any) {
+          await coreLogger.warn(
+            `Cannot cache known dependencies: {knownDependenciesCacheFile}`,
+            { knownDependenciesCacheFile }
+          );
+        }
+      }, 1000);
+      arrOfPlugins = response.plugins;
     }
 
     return arrOfPlugins;
