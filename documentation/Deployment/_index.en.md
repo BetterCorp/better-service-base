@@ -1,8 +1,8 @@
 ---
-lang: en-US
-title: Deployment
-description: BSB Deployment
-footer: Copyright © 2016-present BetterCorp (PTY) Ltd - All rights reserved
+title: "Deployment"
+date: 2018-12-29T11:02:05+06:00
+weight: 2
+draft: false
 ---
 
 # BSB Deployment  

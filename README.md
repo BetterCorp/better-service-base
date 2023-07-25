@@ -41,7 +41,7 @@ Simplicity, flexibility and expandability were the key points when developing th
 
 
 ## Sponsors  
-[![Static Badge](https://img.shields.io/badge/BetterCorp-Open%20Source%20Initiative-19b5fe?logo=browserstack)](https://bettercorp.dev/?ref=better-service-base-s-os) 
+[![Static Badge](https://img.shields.io/badge/BetterCorp-Open%20Source%20Initiative-19b5fe?logo)](https://bettercorp.dev/?ref=better-service-base-s-os) 
 [![Static Badge](https://img.shields.io/badge/Docker-Sponsored%20Open%20Source-0db7ed)](https://hub.docker.com/r/betterweb/service-base?ref=better-service-base-s-os) 
 [![Static Badge](https://img.shields.io/badge/BrowserStack-Sponsored%20Open%20Source-0070F0?logo=browserstack)](https://www.browserstack.com/?ref=better-service-base-s-os) 
 
