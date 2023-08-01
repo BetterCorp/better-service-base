@@ -29,7 +29,7 @@
     "README.md"
   ],
   "main": "lib/index.js",
-  "version": "9.0.0-rc0",
+  "version": "9.0.0-alpha",
   "devDependencies": {
     "@types/assert": "^1.5.6",
     "@types/chai": "^4.3.3",
@@ -79,7 +79,7 @@
         "start": "ts-node node_modules/@bettercorp/service-base/lib/cli.js",
         "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
         "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
-        "testDev": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts'",
+        "testDev": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts'"
       },
       "main": "lib/index.js"
     },
