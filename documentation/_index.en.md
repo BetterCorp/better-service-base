@@ -26,12 +26,12 @@ banner_button :
 # call to action
 call_to_action :
   enable : true
-  title : "Still not sure?"
+  title : "Simplicity over complexity"
   image : "images/AdobeStock_587427658.svg"
-  content : "Just give it a bash and see what you think!"
+  content : "Think of kubernetes vs nomad, we're nomad for simplicity"
 
   button :
     enable : "true"
-    label : "Just have a peek"
+    label : "Get started"
     link : "get-started/"
 ---

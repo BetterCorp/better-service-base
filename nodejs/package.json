@@ -49,5 +49,71 @@
     "@bettercorp/tools": "^2.0.20220714140658",
     "yaml": "^2.3.1"
   },
-  "bsb_project": true
+  "bsb_project": true,
+  "bsbInit": {
+    "project": {
+      "dependencies": {
+        "@bettercorp/tools": "latest"
+      },
+      "devDependencies": {
+        "@types/assert": "^1.5.6",
+        "@types/chai": "^4.3.3",
+        "@types/mocha": "^9.1.1",
+        "@types/node": "^18.7.16",
+        "@typescript-eslint/eslint-plugin": "^5.31.0",
+        "@typescript-eslint/parser": "^5.31.0",
+        "eslint": "^8.20.0",
+        "mocha": "^10.0.0",
+        "nyc": "^15.1.0",
+        "ts-node": "^10.9.1",
+        "typescript": "^4.7.4"
+      },
+      "files": [
+        "lib/**/*"
+      ],
+      "scripts": {
+        "build": "npm run build-plugin && npm run build-clients",
+        "build-plugin": "rm -rfv ./lib && tsc",
+        "build-clients": "node node_modules/@bettercorp/service-base/build-lib-clients.js",
+        "dev": "nodemon --config node_modules/@bettercorp/service-base/development/nodemon.json",
+        "start": "ts-node node_modules/@bettercorp/service-base/lib/cli.js",
+        "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
+        "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
+        "testDev": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts'",
+      },
+      "main": "lib/index.js"
+    },
+    "gitignore": [
+      "/lib",
+      "/node_modules",
+      "/sec.config.json",
+      "/junit.xml",
+      "/test-file-*",
+      "/dist-clients"
+    ],
+    "files": [
+      {
+        "src": "tsconfig.json",
+        "dst": "tsconfig.json",
+        "canOverwrite": true
+      },
+      {
+        "src": "eslintrc.js",
+        "dst": ".eslintrc.js",
+        "canOverwrite": true
+      },
+      {
+        "src": "eslintignore",
+        "dst": ".eslintignore",
+        "canOverwrite": true
+      }
+    ],
+    "directories": [
+      "src",
+      "src/clients",
+      "src/plugins",
+      "src/shared",
+      "src/tests"
+    ]
+  }
 }
