@@ -1,25 +1,27 @@
 import { IPluginLogger, LogMeta } from "../../interfaces/logger";
 import { LoggerBase } from "../../logger/logger";
-import { ConsoleColours } from "./colours";
+import { CONSOLE_COLOURS, ConsoleColours } from "./colours";
 import { PluginConfig } from "./sec.config";
 
-export enum LogLevels {
-  TSTAT = -3,
-  STAT = -2,
-  DEBUG = -1,
-  INFO = 0,
-  WARN = 1,
-  ERROR = 2,
-}
+export const LOG_LEVELS = {
+  TSTAT: "Text Statistic",
+  STAT: "Statistic",
+  DEBUG: "Debug",
+  INFO: "Info",
+  WARN: "Warn",
+  ERROR: "Error",
+} as const;
+export type LogLevels = (typeof LOG_LEVELS)[keyof typeof LOG_LEVELS];
+
 export class Logger extends LoggerBase<PluginConfig> {
-  private _mockedConsole?: { (level: number, message: string): void };
+  private _mockedConsole?: { (level: LogLevels, message: string): void };
   private _mockConsole: boolean = false;
   constructor(
     pluginName: string,
     cwd: string,
     pluginCwd: string,
     defaultLogger: IPluginLogger,
-    mockConsole?: { (level: number, message: string): void }
+    mockConsole?: { (level: LogLevels, message: string): void }
   ) {
     super(pluginName, cwd, pluginCwd, defaultLogger);
     this._mockedConsole = mockConsole;
@@ -36,38 +38,38 @@ export class Logger extends LoggerBase<PluginConfig> {
     formattedMessage = `[${plugin.toUpperCase()}] ${formattedMessage}`;
     let func: any = console.debug;
     let colour: Array<ConsoleColours> = [
-      ConsoleColours.BgBlack,
-      ConsoleColours.FgWhite,
+      CONSOLE_COLOURS.BgBlack,
+      CONSOLE_COLOURS.FgWhite,
     ];
-    if (level === LogLevels.STAT) {
+    if (level === LOG_LEVELS.STAT) {
       formattedMessage = `[STAT] ${formattedMessage}`;
-      colour = [ConsoleColours.BgYellow, ConsoleColours.FgBlack];
+      colour = [CONSOLE_COLOURS.BgYellow, CONSOLE_COLOURS.FgBlack];
     }
-    if (level === LogLevels.TSTAT) {
+    if (level === LOG_LEVELS.TSTAT) {
       formattedMessage = `[STAT] ${formattedMessage}`;
-      colour = [ConsoleColours.BgCyan, ConsoleColours.FgWhite];
+      colour = [CONSOLE_COLOURS.BgCyan, CONSOLE_COLOURS.FgWhite];
     }
-    if (level === LogLevels.DEBUG) {
+    if (level === LOG_LEVELS.DEBUG) {
       formattedMessage = `[DEBUG] ${formattedMessage}`;
-      colour = [ConsoleColours.BgBlue, ConsoleColours.FgWhite];
+      colour = [CONSOLE_COLOURS.BgBlue, CONSOLE_COLOURS.FgWhite];
     }
-    if (level === LogLevels.INFO) {
+    if (level === LOG_LEVELS.INFO) {
       formattedMessage = `[INFO] ${formattedMessage}`;
       func = console.log;
       colour = [];
     }
-    if (level === LogLevels.WARN) {
+    if (level === LOG_LEVELS.WARN) {
       formattedMessage = `[WARN] ${formattedMessage}`;
       func = console.warn;
-      colour = [ConsoleColours.BgBlack, ConsoleColours.FgRed];
+      colour = [CONSOLE_COLOURS.BgBlack, CONSOLE_COLOURS.FgRed];
     }
-    if (level === LogLevels.ERROR) {
+    if (level === LOG_LEVELS.ERROR) {
       formattedMessage = `[ERROR] ${formattedMessage}`;
       func = console.error;
-      colour = [ConsoleColours.BgRed, ConsoleColours.FgBlack];
+      colour = [CONSOLE_COLOURS.BgRed, CONSOLE_COLOURS.FgBlack];
     }
     if (this._mockConsole) return this._mockedConsole!(level, formattedMessage);
-    func(colour.join("") + "%s" + ConsoleColours.Reset, formattedMessage);
+    func(colour.join("") + "%s" + CONSOLE_COLOURS.Reset, formattedMessage);
   }
 
   public async reportStat(
@@ -76,7 +78,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     value: number
   ): Promise<void> {
     if (!this.runningDebug) return;
-    this.logEvent(LogLevels.STAT, plugin, "[{key}={value}]", { key, value });
+    this.logEvent(LOG_LEVELS.STAT, plugin, "[{key}={value}]", { key, value });
   }
   public async reportTextStat<T extends string>(
     plugin: string,
@@ -85,7 +87,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     hasPIData?: boolean
   ): Promise<void> {
     if (!this.runningDebug) return;
-    this.logEvent<T>(LogLevels.TSTAT, plugin, message as T, meta);
+    this.logEvent<T>(LOG_LEVELS.TSTAT, plugin, message as T, meta);
   }
   public async debug<T extends string>(
     plugin: string,
@@ -94,7 +96,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     hasPIData?: boolean
   ): Promise<void> {
     if (!this.runningDebug) return;
-    this.logEvent<T>(LogLevels.DEBUG, plugin, message as T, meta);
+    this.logEvent<T>(LOG_LEVELS.DEBUG, plugin, message as T, meta);
   }
   public async info<T extends string>(
     plugin: string,
@@ -103,7 +105,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     hasPIData?: boolean
   ): Promise<void> {
     if (this.runningLive && hasPIData === true) return;
-    this.logEvent<T>(LogLevels.INFO, plugin, message as T, meta);
+    this.logEvent<T>(LOG_LEVELS.INFO, plugin, message as T, meta);
   }
   public async warn<T extends string>(
     plugin: string,
@@ -112,7 +114,7 @@ export class Logger extends LoggerBase<PluginConfig> {
     hasPIData?: boolean
   ): Promise<void> {
     if (this.runningLive && hasPIData === true) return;
-    this.logEvent<T>(LogLevels.WARN, plugin, message as T, meta);
+    this.logEvent<T>(LOG_LEVELS.WARN, plugin, message as T, meta);
   }
   public async error<T extends string>(
     plugin: string,
@@ -132,7 +134,7 @@ export class Logger extends LoggerBase<PluginConfig> {
         ? messageOrError
         : messageOrError.message;
     if (this.runningLive && hasPIData === true) return;
-    this.logEvent<T>(LogLevels.ERROR, plugin, message as T, meta);
+    this.logEvent<T>(LOG_LEVELS.ERROR, plugin, message as T, meta);
     if (
       typeof messageOrError !== "string" &&
       messageOrError.stack !== undefined

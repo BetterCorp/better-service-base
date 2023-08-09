@@ -1,5 +1,5 @@
 import assert from "assert";
-import { Logger, LogLevels } from "../../../plugins/log-default/plugin";
+import { Logger, LOG_LEVELS, LogLevels } from "../../../plugins/log-default/plugin";
 
 describe("plugins/log-default", () => {
   describe("console.x", () => {
@@ -299,8 +299,8 @@ describe("plugins/log-default", () => {
   });
   describe("console mocked/overriden", () => {
     it("should mocked a stat event", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.STAT) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.STAT) return assert.fail(new Error(message));
         assert.equal(message, "[STAT] [DEFAULT-STAT] [val=2]");
       };
 
@@ -315,8 +315,8 @@ describe("plugins/log-default", () => {
     });
 
     it("should mocked a debug event", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.DEBUG) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.DEBUG) return assert.fail(new Error(message));
         assert.equal(message, "[DEBUG] [DEFAULT-DBG] My Msg");
       };
 
@@ -330,8 +330,8 @@ describe("plugins/log-default", () => {
       await plugin.debug("default-DbG", "My Msg");
     });
     it("should mocked a debug event (meta)", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.DEBUG) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.DEBUG) return assert.fail(new Error(message));
         assert.equal(
           message,
           "[DEBUG] [DEFAULT-DBG] My Msg cHEESE and a,b (5)"
@@ -353,8 +353,8 @@ describe("plugins/log-default", () => {
     });
 
     it("should mocked a info event", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.INFO) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.INFO) return assert.fail(new Error(message));
         assert.equal(message, "[INFO] [INFO-DBG] My Msg");
       };
 
@@ -368,8 +368,8 @@ describe("plugins/log-default", () => {
       await plugin.info("info-DbG", "My Msg");
     });
     it("should mocked a info event (meta)", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.INFO) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.INFO) return assert.fail(new Error(message));
         assert.equal(message, "[INFO] [INFO-DBG] My Msg cHEESE and a,b (5)");
       };
 
@@ -388,8 +388,8 @@ describe("plugins/log-default", () => {
     });
 
     it("should mocked a error event", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.ERROR) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.ERROR) return assert.fail(new Error(message));
         assert.equal(message, "[ERROR] [INFEE-DBG] My Msg");
       };
 
@@ -403,8 +403,8 @@ describe("plugins/log-default", () => {
       await plugin.error("infee-DbG", "My Msg");
     });
     it("should mocked a error event (meta)", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.ERROR) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.ERROR) return assert.fail(new Error(message));
         assert.equal(message, "[ERROR] [INFE-DBG] My Msg cHEESE and a,b (5)");
       };
 
@@ -423,8 +423,8 @@ describe("plugins/log-default", () => {
     });
 
     it("should mocked a warn event", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.WARN) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.WARN) return assert.fail(new Error(message));
         assert.equal(message, "[WARN] [INFOW-DBG] My Msg");
       };
 
@@ -438,8 +438,8 @@ describe("plugins/log-default", () => {
       await plugin.warn("infoW-DbG", "My Msg");
     });
     it("should mocked a warn event (meta)", async () => {
-      const fakeLogFunc = (level: number, message: string): any => {
-        if (level !== LogLevels.WARN) return assert.fail(new Error(message));
+      const fakeLogFunc = (level: LogLevels, message: string): any => {
+        if (level !== LOG_LEVELS.WARN) return assert.fail(new Error(message));
         assert.equal(message, "[WARN] [INFW-DBG] My Msg cHEESE and a,b (5)");
       };
 

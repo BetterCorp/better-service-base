@@ -1,6 +1,6 @@
 import { IPluginLogger, LogMeta } from "../interfaces/logger";
 import { SBLogger } from "./logger";
-import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
+import { PluginDefinitions, IReadyPlugin } from "../interfaces/service";
 import { SBPlugins } from "./plugins";
 import { SBServices } from "./services";
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
@@ -12,17 +12,18 @@ import { randomUUID } from "crypto";
 import { hostname } from "os";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 
-export enum BOOT_STAT_KEYS {
-  BSB = "BSB",
-  SELF = "SELF",
-  PLUGINS = "PLUGINS",
-  CONFIG = "CONFIG",
-  LOGGER = "LOGGER",
-  EVENTS = "EVENTS",
-  SERVICES = "SERVICES",
-  INIT = "INIT",
-  RUN = "RUN",
-}
+export const BOOT_STAT_KEYS = {
+  BSB: "BSB",
+  SELF: "SELF",
+  PLUGINS: "PLUGINS",
+  CONFIG: "CONFIG",
+  LOGGER: "LOGGER",
+  EVENTS: "EVENTS",
+  SERVICES: "SERVICES",
+  INIT: "INIT",
+  RUN: "RUN",
+} as const;
+export type BootStatKeys = (typeof BOOT_STAT_KEYS)[keyof typeof BOOT_STAT_KEYS];
 
 export const NS_PER_SEC = 1e9;
 export const MS_PER_NS = 1e-6;
@@ -50,12 +51,12 @@ export class ServiceBase {
 
   private _keeps: IDictionary<[number, number]> = {};
   private _heartbeat!: NodeJS.Timer;
-  private _startKeep(stepName: BOOT_STAT_KEYS) {
+  private _startKeep(stepName: BootStatKeys) {
     if (this.log !== undefined)
       this.log.debug("Starting timer for {log}", { log: stepName });
     this._keeps[stepName] = process.hrtime();
   }
-  private async _outputKeep(stepName: BOOT_STAT_KEYS) {
+  private async _outputKeep(stepName: BootStatKeys) {
     let diff = process.hrtime(this._keeps[stepName] || undefined);
     let logMeta: LogMeta<typeof TIMEKEEPLOG> = {
       nsTime: diff[0] * NS_PER_SEC + diff[1],
@@ -118,7 +119,9 @@ export class ServiceBase {
 
     this._packJsonFile = path.join(this.cwd, "./package.json");
     if (!fs.existsSync(this._packJsonFile)) {
-      await this.log.fatal("PACKAGE.JSON FILE NOT FOUND IN {cwd}", { cwd: this.cwd });
+      await this.log.fatal("PACKAGE.JSON FILE NOT FOUND IN {cwd}", {
+        cwd: this.cwd,
+      });
       return;
     }
     this._appVersion = JSON.parse(
@@ -214,7 +217,7 @@ export class ServiceBase {
     let loggingPlugin = await this._config.findPluginByType(
       this.plugins,
       "log-default",
-      IPluginDefinition.logging
+      PluginDefinitions.logging
     );
     await this._config.ImportAndMigratePluginConfig(loggingPlugin);
     await this._logger.setupLogger(
@@ -232,7 +235,7 @@ export class ServiceBase {
     let eventsPlugin = await this._config.findPluginByType(
       this.plugins,
       "events-default",
-      IPluginDefinition.events
+      PluginDefinitions.events
     );
     await this._config.ImportAndMigratePluginConfig(eventsPlugin);
     await this._events.setupEvents(

@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "nodemon --config ./nodemon.json",
     "start": "node lib/cli.js",
-    "build": "tsc",
+    "build": "tsc && npm run testDev",
     "postinstall": "node ./postinstall.js",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
@@ -93,17 +93,17 @@
     ],
     "files": [
       {
-        "src": "tsconfig.json",
+        "src": "build/tsconfig.json",
         "dst": "tsconfig.json",
         "canOverwrite": true
       },
       {
-        "src": "eslintrc.js",
+        "src": "build/eslintrc.js",
         "dst": ".eslintrc.js",
         "canOverwrite": true
       },
       {
-        "src": "eslintignore",
+        "src": "build/eslintignore",
         "dst": ".eslintignore",
         "canOverwrite": true
       }

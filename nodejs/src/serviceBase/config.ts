@@ -1,7 +1,7 @@
 import { Tools } from "@bettercorp/tools/lib/Tools";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
+import { PluginDefinitions, IReadyPlugin, PluginDefinition } from "../interfaces/service";
 import { IPluginLogger } from "../interfaces/logger";
 import { ConfigBase } from "../config/config";
 import { SecConfig } from "../interfaces/serviceConfig";
@@ -52,7 +52,7 @@ export class SBConfig {
       pluginName,
     });
     for (const plugin of plugins) {
-      if (plugin.pluginDefinition === IPluginDefinition.config) {
+      if (plugin.pluginDefinition === PluginDefinitions.config) {
         if (pluginName !== plugin.name) continue;
         await this.log.info(`PLUGIN {name}v{version}`, {
           name: plugin.name,
@@ -79,15 +79,15 @@ export class SBConfig {
     let mappedPlugins: Array<IReadyPlugin> = [];
 
     for (let plugin of _plugins) {
-      if (plugin.pluginDefinition !== IPluginDefinition.config) continue;
+      if (plugin.pluginDefinition !== PluginDefinitions.config) continue;
       if (plugin.name !== this.configPlugin.plugin.name) continue;
       mappedPlugins.push(plugin);
     }
 
     for (let plugin of _plugins) {
       if (
-        plugin.pluginDefinition === IPluginDefinition.config ||
-        plugin.pluginDefinition === IPluginDefinition.service
+        plugin.pluginDefinition === PluginDefinitions.config ||
+        plugin.pluginDefinition === PluginDefinitions.service
       )
         continue;
       //if (!await this.appConfig.getAppPluginState(plugin.name)) continue;
@@ -98,7 +98,7 @@ export class SBConfig {
     }
 
     for (let plugin of _plugins) {
-      if (plugin.pluginDefinition !== IPluginDefinition.service) continue;
+      if (plugin.pluginDefinition !== PluginDefinitions.service) continue;
       if (!(await this.appConfig.getAppPluginState(plugin.name))) continue;
       plugin.mappedName = await this.appConfig.getAppPluginMappedName(
         plugin.name
@@ -112,7 +112,7 @@ export class SBConfig {
   public async findPluginByType(
     plugins: Array<IReadyPlugin>,
     defaultPlugin: string,
-    type: IPluginDefinition
+    type: PluginDefinition
   ): Promise<IReadyPlugin> {
     for (const plugin of plugins) {
       if (plugin.pluginDefinition === type) {

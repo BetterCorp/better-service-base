@@ -21,15 +21,17 @@ export interface IService<
   loaded?(): Promise<void>;
 }
 
-export enum IPluginDefinition {
-  config = "config",
-  events = "events",
-  logging = "logging",
-  service = "service",
-}
+export const PluginDefinitions = {
+  config: "config",
+  events: "events",
+  logging: "logging",
+  service: "service",
+} as const;
+export type PluginDefinition =
+  (typeof PluginDefinitions)[keyof typeof PluginDefinitions];
 
 export interface IReadyPlugin {
-  pluginDefinition: IPluginDefinition;
+  pluginDefinition: PluginDefinition;
   name: string;
   mappedName: string;
   version: string;

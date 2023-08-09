@@ -7,17 +7,17 @@ import {
 } from "fs";
 import { join } from "path";
 import { IPluginLogger } from "../interfaces/logger";
-import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
+import { PluginDefinitions, IReadyPlugin, PluginDefinition } from "../interfaces/service";
 import { Tools } from "@bettercorp/tools";
 
 export class SBPlugins {
-  public static getPluginType(name: string): IPluginDefinition | null {
+  public static getPluginType(name: string): PluginDefinition | null {
     const pluginLow = name.toLowerCase();
-    if (pluginLow.indexOf("service-") === 0) return IPluginDefinition.service;
-    if (pluginLow.indexOf("config-") === 0) return IPluginDefinition.config;
-    if (pluginLow.indexOf("events-") === 0) return IPluginDefinition.events;
+    if (pluginLow.indexOf("service-") === 0) return PluginDefinitions.service;
+    if (pluginLow.indexOf("config-") === 0) return PluginDefinitions.config;
+    if (pluginLow.indexOf("events-") === 0) return PluginDefinitions.events;
     if (pluginLow.indexOf("log-") === 0 || pluginLow.indexOf("logs-") === 0)
-      return IPluginDefinition.logging;
+      return PluginDefinitions.logging;
     return null;
   }
 

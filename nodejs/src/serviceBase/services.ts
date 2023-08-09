@@ -1,5 +1,5 @@
 import { IPluginLogger } from "../interfaces/logger";
-import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
+import { PluginDefinitions, IReadyPlugin } from "../interfaces/service";
 import { IServiceEvents } from "../interfaces/events";
 import { SBBase } from "./base";
 import { ServicesBase } from "../service/service";
@@ -41,7 +41,7 @@ export class SBServices {
     generateLoggerForPlugin: { (pluginName: string): IPluginLogger }
   ) {
     for (let plugin of plugins) {
-      if (plugin.pluginDefinition !== IPluginDefinition.service) continue;
+      if (plugin.pluginDefinition !== PluginDefinitions.service) continue;
 
       await this.log.debug(`Import service plugin: {name} from {file}`, {
         name: plugin.name,
