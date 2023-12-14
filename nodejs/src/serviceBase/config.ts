@@ -5,7 +5,10 @@ import { SBLogging } from "./logging";
 import { PluginLogger } from "../base/PluginLogger";
 import { BSBConfig } from "../base/config";
 import { Tools } from "@bettercorp/tools";
-import { SmartFunctionCallSync, SmartFunctionCallAsync } from "../base/functions";
+import {
+  SmartFunctionCallSync,
+  SmartFunctionCallAsync,
+} from "../base/functions";
 import {
   EventsConfig,
   LoggingConfig,
@@ -65,44 +68,44 @@ export class SBConfig {
     SmartFunctionCallSync(this.configPlugin, this.configPlugin.dispose);
   }
 
-  private loggerPackage: string | undefined;
-  private loggerPlugin = "config-default";
+  private configPackage: string | undefined;
+  private configPluginName = "config-default";
 
   public async init(): Promise<void> {
     if (
       Tools.isString(process.env.BSB_LOGGER_PLUGIN) &&
       process.env.BSB_LOGGER_PLUGIN.startsWith("config-")
     ) {
-      this.loggerPlugin = process.env.BSB_LOGGER_PLUGIN;
+      this.configPluginName = process.env.BSB_LOGGER_PLUGIN;
       if (Tools.isString(process.env.BSB_LOGGER_PLUGIN_PACKAGE)) {
-        this.loggerPackage = process.env.BSB_LOGGER_PLUGIN_PACKAGE;
+        this.configPackage = process.env.BSB_LOGGER_PLUGIN_PACKAGE;
       }
     }
     this.log.debug("Add config {name} from ({package})", {
-      package: this.loggerPackage ?? "this project",
-      name: this.loggerPlugin,
+      package: this.configPackage ?? "this project",
+      name: this.configPluginName,
     });
-    if (this.loggerPlugin === "config-default") {
+    if (this.configPluginName === "config-default") {
       await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init);
       return;
     }
     this.log.debug(`Import config plugin: {name} from ({package})`, {
-      package: this.loggerPackage ?? "this project",
-      name: this.loggerPlugin,
+      package: this.configPackage ?? "this project",
+      name: this.configPluginName,
     });
 
     const newPlugin = await this.sbPlugins.loadPlugin<"config">(
       this.log,
-      this.loggerPackage ?? null,
-      this.loggerPlugin,
-      this.loggerPlugin
+      this.configPackage ?? null,
+      this.configPluginName,
+      this.configPluginName
     );
     if (newPlugin === null) {
       this.log.error(
         "Failed to import config plugin: {name} from ({package})",
         {
-          package: this.loggerPackage ?? "this project",
-          name: this.loggerPlugin,
+          package: this.configPackage ?? "this project",
+          name: this.configPluginName,
         }
       );
       return;
@@ -121,21 +124,12 @@ export class SBConfig {
     });
 
     this.log.debug(`Init: {name}`, {
-      name: this.loggerPlugin,
+      name: this.configPluginName,
     });
     await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init);
 
     this.log.info(`Init: {name}: OK`, {
-      name: this.loggerPlugin,
-    });
-
-    this.log.debug(`Run: {name}`, {
-      name: this.loggerPlugin,
-    });
-    await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.run);
-
-    this.log.info(`Run: {name}: OK`, {
-      name: this.loggerPlugin,
+      name: this.configPluginName,
     });
   }
 }

@@ -3,6 +3,7 @@ import { join } from "path";
 import { PluginType, PluginTypeDefinitionRef } from "../interfaces/plugins";
 import { IPluginLogger } from "../interfaces/logging";
 import { BSBError } from "../base/errorMessages";
+import { BSBServiceConfig, BSBServiceConfigRef } from "../interfaces";
 
 export class SBPlugins {
   protected cwd: string;
@@ -34,13 +35,14 @@ export class SBPlugins {
     name: string;
     ref: string;
     version: string;
-    pluginFile: string;
-    installerFile: string | null;
+    serviceConfig: BSBServiceConfig<any> | null;
+    //pluginFile: string;
+    //installerFile: string | null;
     plugin: ClassType;
     pluginCWD: string;
     pluginPath: string;
   } | null> {
-    log.info(`PLUGIN {name} from {package} try load as {pluginName}`, {
+    log.debug(`PLUGIN {name} from {package} try load as {pluginName}`, {
       name: plugin,
       pluginName: name,
       package: npmPackage ?? "self",
@@ -75,41 +77,59 @@ export class SBPlugins {
       return null;
     }
 
-    log.info(`Plugin {name}: attempt to load from {path} as {pluginName}`, {
+    log.debug(`Plugin {name}: attempt to load from {path} as {pluginName}`, {
       name: plugin,
       path: pluginPath,
       pluginName: name,
     });
 
     let pluginFile = join(pluginPath, "./plugin.js");
-    let installerFile: string | null = null;
-    if (this.devMode) {
-      const tsPluginFile = join(pluginPath, "./plugin.ts");
-      if (existsSync(tsPluginFile)) {
-        log.debug("PLUGIN {pluginName} running in development mode", {
-          pluginName: name,
-        });
-        pluginFile = tsPluginFile;
-      }
-      // sec.config.ts
-      installerFile = join(pluginPath, "./sec.config.js");
-      const tsInstallerFile = join(pluginPath, "./sec.config.ts");
-      if (existsSync(tsInstallerFile)) {
-        log.debug("PLUGIN {pluginName} running development mode installer", {
-          pluginName: name,
-        });
-        installerFile = tsInstallerFile;
-      } else if (!existsSync(installerFile)) {
-        log.debug("PLUGIN {pluginName} does not have an installer file", {
-          pluginName: name,
-        });
-        installerFile = null;
-      } else {
-        log.debug("PLUGIN {pluginName} does not have an installer file", {
-          pluginName: name,
-        });
-      }
+    let configDefFile: string | null = null;
+    let serviceConfigDef: BSBServiceConfig<any> | null = null;
+    //if (this.devMode) {
+    const tsPluginFile = join(pluginPath, "./plugin.ts");
+    if (existsSync(tsPluginFile)) {
+      log.debug("PLUGIN {pluginName} running in development mode", {
+        pluginName: name,
+      });
+      pluginFile = tsPluginFile;
     }
+    // sec-.ts
+    configDefFile = join(pluginPath, "./sec-config.js");
+    const tsInstallerFile = join(pluginPath, "./sec-config.ts");
+    if (existsSync(tsInstallerFile)) {
+      log.debug("PLUGIN {pluginName} running development mode installer", {
+        pluginName: name,
+      });
+      configDefFile = tsInstallerFile;
+    } else if (!existsSync(configDefFile)) {
+      log.debug("PLUGIN {pluginName} does not have an installer file", {
+        pluginName: name,
+      });
+      configDefFile = null;
+    } else {
+      log.debug("PLUGIN {pluginName} does not have an installer file", {
+        pluginName: name,
+      });
+    }
+
+    if (configDefFile !== null) {
+      const importedConfig = await import(configDefFile);
+      if (importedConfig.Config === undefined)
+        throw new BSBError(
+          "PLUGIN {pluginName} sec-config.ts/js does not export a Config class - so possibly not a valid BSB Plugin Config",
+          {
+            pluginName: name,
+          }
+        );
+      serviceConfigDef =
+        new (importedConfig.Config as typeof BSBServiceConfigRef)(
+          this.cwd,
+          pluginCWD,
+          name
+        );
+    }
+    //}
 
     if (!existsSync(pluginFile))
       throw new BSBError("PLUGIN {pluginName} not found at {location}", {
@@ -131,8 +151,7 @@ export class SBPlugins {
       name: name,
       ref: plugin,
       version: version,
-      pluginFile,
-      installerFile: installerFile,
+      serviceConfig: serviceConfigDef,
       plugin: importedPlugin.Plugin,
       pluginCWD: pluginCWD,
       pluginPath: pluginPath,

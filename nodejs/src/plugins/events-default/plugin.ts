@@ -4,18 +4,16 @@ import emitAndReturn from "./events/emitAndReturn";
 import emitStreamAndReceiveStream from "./events/emitStreamAndReceiveStream";
 import broadcast from "./events/broadcast";
 import { BSBEvents, BSBEventsConstructor } from "../../base/events";
+import { BSBConfigDefinition } from "../../";
 
-export class Plugin extends BSBEvents<any> {
+export class Plugin extends BSBEvents<BSBConfigDefinition> {
   init?(): void;
-  run?(): void;
   protected broadcast!: broadcast;
   protected emit!: emit;
   protected ear!: emitAndReturn;
   protected eas!: emitStreamAndReceiveStream;
 
-  constructor(
-    config: BSBEventsConstructor
-  ) {
+  constructor(config: BSBEventsConstructor) {
     super(config);
 
     this.broadcast = new broadcast(this.createNewLogger("broadcast"));

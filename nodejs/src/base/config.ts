@@ -25,6 +25,12 @@ export abstract class BSBConfig extends BaseWithLogging {
     super(appId, mode, pluginName, cwd, pluginCwd, logging);
   }
   /**
+   * This function is never used for events plugins.
+   * @ignore @deprecated
+   */
+  public run() {}
+
+  /**
    * Returns the logging plugins configuration.
    * @returns Promise resolving to an object containing the logging configuration for each plugin.
    */
@@ -46,7 +52,9 @@ export abstract class BSBConfig extends BaseWithLogging {
    * Returns a mapped plugin name and whether the plugin is enabled or not
    * @returns string of the plugin name and if it is enabled or not
    */
-  abstract getServicePluginDefinition(pluginName: string): Promise<{name:string,enabled:boolean}>;
+  abstract getServicePluginDefinition(
+    pluginName: string
+  ): Promise<{ name: string; enabled: boolean }>;
 
   /**
    * Returns the configuration for a specific plugin.
@@ -79,7 +87,9 @@ export class BSBConfigRef extends BSBConfig {
   ): Promise<object | null> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getPluginConfig");
   }
-  getServicePluginDefinition(pluginName: string): Promise<{name:string,enabled:boolean}> {
+  getServicePluginDefinition(
+    pluginName: string
+  ): Promise<{ name: string; enabled: boolean }> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED(
       "BSBConfigRef",
       "getServicePluginName"
@@ -87,5 +97,4 @@ export class BSBConfigRef extends BSBConfig {
   }
   dispose?(): void;
   init?(): void;
-  run?(): void;
 }

@@ -2,6 +2,7 @@ import { BSBLogging, BSBLoggingConstructor } from "../../base/logging";
 import { LogMeta } from "../../interfaces/logging";
 import { CONSOLE_COLOURS, ConsoleColours } from "./colours";
 import { LogFormatter } from "../../base/logFormatter";
+import { BSBConfigDefinition } from '../../';
 
 export const LOG_LEVELS = {
   TSTAT: "Text Statistic",
@@ -13,10 +14,9 @@ export const LOG_LEVELS = {
 } as const;
 export type LogLevels = (typeof LOG_LEVELS)[keyof typeof LOG_LEVELS];
 
-export class Plugin extends BSBLogging<undefined> {
+export class Plugin extends BSBLogging<BSBConfigDefinition> {
   dispose?(): void;
   init?(): void;
-  run?(): void;
   private _mockedConsole?: { (level: LogLevels, message: string): void };
   private _mockConsole: boolean = false;
   private logFormatter: LogFormatter = new LogFormatter();

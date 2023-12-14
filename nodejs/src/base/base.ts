@@ -2,6 +2,7 @@ import { DEBUG_MODE, IPluginLogger } from "../interfaces/logging";
 import { PluginLogger } from "./PluginLogger";
 import { SBLogging } from "../serviceBase/logging";
 import { z } from "zod";
+import { BSBServiceConfig } from "./serviceConfig";
 
 export abstract class MainBase {
   /**
@@ -108,7 +109,8 @@ export abstract class Base extends MainBase {
  *  a: z.string(),
  * });
  */
-export type BSBConfigDefinition = z.AnyZodObject | undefined;
+export type BSBConfigType = z.AnyZodObject | undefined;
+export type BSBConfigDefinition = BSBServiceConfig<z.AnyZodObject>;
 /**
  * Config migration handler, allows for config migrations when the plugin version changes or a new plugin setup is done
  * @example simple version change and basic setup
@@ -130,14 +132,14 @@ export type BSBConfigDefinition = z.AnyZodObject | undefined;
  * }
  * return existingConfig;
  */
-export type BSBConfigMigration<T extends BSBConfigDefinition> = (
+export type BSBConfigMigration<T extends BSBConfigType> = (
   versionFrom: string | null,
   versionTo: string,
   existingConfig?: z.infer<Exclude<T, undefined>>
 ) => Promise<z.infer<Exclude<T, undefined>>>;
 
 export type BSBConfigDefintionReference<
-  T extends BSBConfigDefinition,
+  T extends BSBConfigType,
   AS = undefined
 > = T extends undefined ? AS : z.infer<Exclude<T, undefined>>;
 
@@ -151,7 +153,7 @@ export abstract class BaseWithConfig<
    * @readonly
    */
   protected readonly config: BSBConfigDefintionReference<
-    ReferencedConfig,
+    ReferencedConfig["validationSchema"],
     null
   >;
 

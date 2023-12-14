@@ -4,6 +4,7 @@ import {
   BSBServiceTypes,
 } from "../../base/service";
 import { testClient } from "../service-default1/plugin";
+import { Config } from "./sec-config";
 
 export interface ServiceTypes extends BSBServiceTypes {
   methods: {
@@ -18,7 +19,7 @@ export interface ServiceTypes extends BSBServiceTypes {
   emitBroadcast: {};
   onBroadcast: {};
 }
-export class Plugin extends BSBService<any, ServiceTypes> {
+export class Plugin extends BSBService<Config, ServiceTypes> {
   public initBeforePlugins?: string[] | undefined;
   //public initAfterPlugins: string[] = ["service-default3"];
   public initAfterPlugins?: string[] | undefined;
@@ -39,6 +40,11 @@ export class Plugin extends BSBService<any, ServiceTypes> {
   public async run() {
     this.log.info("aa");
     this.events.emitEvent("test", "test", "test");
-    await this.testClient.abc(1, 5, 2, 6);
+    await this.testClient.abc(
+      this.config.testa,
+      this.config.testb,
+      this.config.testa,
+      this.config.testb
+    );
   }
 }

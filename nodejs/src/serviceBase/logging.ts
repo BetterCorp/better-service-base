@@ -230,6 +230,29 @@ export class SBLogging {
     }
   }
 
+  public async run() {
+    if (this.loggers.length === 1) return;
+    // we want to see if any plugins (ignore logging-default) are listening to all logs - it so, there is no reason to keep the logging-default plugin, so we can dispose and remove it
+    const pluginsListeningToAll = this.loggers.filter((logger) => {
+      if (Tools.isNullOrUndefined(logger.on)) return false;
+      if (logger.onTypeof === "all") return true;
+      return false;
+    });
+    if (pluginsListeningToAll.length > 0) {
+      const loggerIndex = this.loggers.findIndex((logger) => {
+        return logger.plugin.pluginName === "logging-default";
+      });
+      if (loggerIndex !== -1) {
+        if (this.loggers[loggerIndex].plugin.dispose !== undefined)
+          SmartFunctionCallSync(
+            this.loggers[loggerIndex].plugin,
+            this.loggers[loggerIndex].plugin.dispose
+          );
+        this.loggers.splice(loggerIndex, 1);
+      }
+    }
+  }
+
   private async addLogger(
     sbConfig: SBConfig,
     plugin: IPluginDefinition,
@@ -269,7 +292,14 @@ export class SBLogging {
       name: plugin.name,
     });
 
-    const pluginConfig = await sbConfig.getPluginConfig("logging", plugin.name);
+    let pluginConfig = await sbConfig.getPluginConfig("logging", plugin.name);
+
+    if (newPlugin.serviceConfig !== null) {
+      pluginConfig =
+        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
+    } else if (pluginConfig === null) {
+      pluginConfig = {};
+    }
 
     this.log.debug(`Construct logging plugin: {name}`, {
       name: plugin.name,

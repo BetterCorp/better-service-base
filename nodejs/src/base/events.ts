@@ -28,6 +28,13 @@ export abstract class BSBEvents<
       config.sbLogging
     );
   }
+
+  /**
+   * This function is never used for events plugins.
+   * @ignore @deprecated
+   */
+  public run() {}
+
   /**
    * Listens for events that are emitted by other plugins
    * Broadcast events are emitted and received by all plugins
@@ -246,5 +253,4 @@ export class BSBEventsRef extends BSBEvents {
   }
   dispose?(): void;
   init?(): void | Promise<void>;
-  run?(): void | Promise<void>;
 }

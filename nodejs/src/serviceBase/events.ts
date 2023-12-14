@@ -159,6 +159,23 @@ export class SBEvents {
       onTypeof: "all",
     });
   }
+  public async run() {
+    if (this.events.length === 1) return;
+    // we want to see if any plugins (ignore events-default) are listening to all events - it so, there is no reason to keep the events-default plugin, so we can dispose and remove it
+    const events = this.events.filter((x) => x.name !== "events-default");
+    const allEvents = events.filter((x) => x.onTypeof === "all");
+    if (allEvents.length > 0) {
+      const defaultEvents = this.events.find((x) => x.name === "events-default");
+      if (defaultEvents !== undefined) {
+        if (defaultEvents.plugin.dispose !== undefined)
+          SmartFunctionCallSync(
+            defaultEvents.plugin,
+            defaultEvents.plugin.dispose
+          );
+        this.events = this.events.filter((x) => x.name !== "events-default");
+      }
+    }
+  }
 
   private async addEvents(
     sbConfig: SBConfig,
@@ -200,7 +217,14 @@ export class SBEvents {
       name: plugin.name,
     });
 
-    const pluginConfig = await sbConfig.getPluginConfig("events", plugin.name);
+    let pluginConfig = await sbConfig.getPluginConfig("events", plugin.name);
+
+    if (newPlugin.serviceConfig !== null) {
+      pluginConfig =
+        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
+    } else if (pluginConfig === null) {
+      pluginConfig = {};
+    }
 
     this.log.debug(`Construct events plugin: {name}`, {
       name: plugin.name,

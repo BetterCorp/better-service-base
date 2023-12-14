@@ -158,6 +158,8 @@ export class ServiceBase {
 
   public async run() {
     this._startKeep(BOOT_STAT_KEYS.RUN);
+    await this.logging.run();
+    await this.events.run();
     await this.services.run(this.config);
     this.log.info("Disposing config for memory cleanup and safety");
     this.config.dispose();

@@ -4,7 +4,10 @@ import { IPluginLogger } from "../interfaces/logging";
 import { DEBUG_MODE } from "../interfaces/logging";
 import { SBConfig } from "./config";
 import { SBEvents } from "./events";
-import { SmartFunctionCallAsync, SmartFunctionCallSync } from "../base/functions";
+import {
+  SmartFunctionCallAsync,
+  SmartFunctionCallSync,
+} from "../base/functions";
 import { SBLogging } from "./logging";
 import { SBPlugins } from "./plugins";
 import { IPluginDefinition } from "../interfaces/plugins";
@@ -162,7 +165,14 @@ export class SBServices {
       name: plugin.name,
     });
 
-    const pluginConfig = await sbConfig.getPluginConfig("service", plugin.name);
+    let pluginConfig = await sbConfig.getPluginConfig("service", plugin.name);
+
+    if (newPlugin.serviceConfig !== null) {
+      pluginConfig =
+        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
+    } else if (pluginConfig === null) {
+      pluginConfig = {};
+    }
 
     this.log.debug(`Construct service plugin: {name}`, {
       name: plugin.name,
@@ -178,12 +188,12 @@ export class SBServices {
       sbLogging: sbLogging,
       sbEvents: sbEvents,
     });
-    this.log.info("Adding {pluginName} as service", {
+    this.log.debug("Adding {pluginName} as service", {
       pluginName: plugin.name,
     });
 
     for (let client of servicePlugin._clients) {
-      this.log.info("Construct {pluginName} client {clientName}", {
+      this.log.debug("Construct {pluginName} client {clientName}", {
         pluginName: plugin.name,
         clientName: client.pluginName,
       });
@@ -194,7 +204,7 @@ export class SBServices {
         servicePlugin,
         client
       );
-      this.log.info(
+      this.log.debug(
         "Setup {pluginName} client {asOriginalPluginName} as {clientName}",
         {
           pluginName: plugin.name,
@@ -265,7 +275,7 @@ export class SBServices {
   public async init(sbConfig: SBConfig) {
     this.log.info("Init all services");
     for (let service of this._activeServices) {
-      this.log.info("Mapping required plugins list for {plugin}", {
+      this.log.debug("Mapping required plugins list for {plugin}", {
         plugin: service.pluginName,
       });
       (service as any).initBeforePlugins = await this.mapServicePlugins(
@@ -360,7 +370,7 @@ export class SBServices {
   public async run(sbConfig: SBConfig) {
     this.log.info("Run all services");
     for (let service of this._activeServices) {
-      this.log.info("Mapping required plugins list for {plugin}", {
+      this.log.debug("Mapping required plugins list for {plugin}", {
         plugin: service.pluginName,
       });
       (service as any).runBeforePlugins = await this.mapServicePlugins(

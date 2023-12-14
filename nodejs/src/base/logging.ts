@@ -1,6 +1,5 @@
-import { BaseWithConfig } from "./base";
+import { BSBConfigDefinition, BaseWithConfig } from "./base";
 import { DEBUG_MODE, LogMeta } from "../interfaces/logging";
-import { z } from "zod";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
 
 export interface BSBLoggingConstructor {
@@ -13,7 +12,7 @@ export interface BSBLoggingConstructor {
 }
 
 export abstract class BSBLogging<
-  ReferencedConfig extends z.AnyZodObject | undefined
+  ReferencedConfig extends BSBConfigDefinition
 > extends BaseWithConfig<ReferencedConfig> {
   constructor(config: BSBLoggingConstructor) {
     super(
@@ -25,6 +24,13 @@ export abstract class BSBLogging<
       config.config
     );
   }
+
+  /**
+   * This function is never used for events plugins.
+   * @ignore @deprecated
+   */
+  public run() {}
+
   /**
    * Report stat
    * Reports a value(number) to the logging system
@@ -138,7 +144,7 @@ export abstract class BSBLogging<
 /**
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
-export class BSBLoggingRef extends BSBLogging<undefined> {
+export class BSBLoggingRef extends BSBLogging<BSBConfigDefinition> {
   public reportStat(plugin: string, key: string, value: number): void {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBLoggingRef", "reportStat");
   }
@@ -179,5 +185,4 @@ export class BSBLoggingRef extends BSBLogging<undefined> {
   }
   dispose?(): void;
   init?(): void;
-  run?(): void;
 }

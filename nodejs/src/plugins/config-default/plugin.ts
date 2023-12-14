@@ -117,12 +117,11 @@ export class Plugin extends BSBConfig {
     let configKey: "services" | "logging" | "events" = "services";
     if (pluginType === PluginTypes.events) configKey = "events";
     if (pluginType === PluginTypes.logging) configKey = "logging";
-    return this._appConfig[this._deploymentProfile][configKey][plugin];
+    return this._appConfig[this._deploymentProfile][configKey][plugin].config ?? null;
   }
   dispose() {
     this._appConfig = undefined!;
   }
-  run?(): void;
   private _appConfig!: ConfigDefinition;
   private _secConfigFilePath: string;
   private _deploymentProfile: string = "default";

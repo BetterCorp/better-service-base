@@ -60,11 +60,13 @@ export interface DeploymentProfiles<T> extends Record<string, T> {
    */
   default: T;
 }
-
+export interface ExtendedConfig {
+  config: any | undefined;
+}
 export interface ConfigProfile {
-  logging: Record<PluginName, LoggingConfig>;
-  events: Record<PluginName, EventsConfig>;
-  services: Record<PluginName, ServiceConfig>;
+  logging: Record<PluginName, LoggingConfig & ExtendedConfig>;
+  events: Record<PluginName, EventsConfig & ExtendedConfig>;
+  services: Record<PluginName, ServiceConfig & ExtendedConfig>;
 }
 export interface DefaultProfile {
   default: ConfigProfile;
@@ -73,10 +75,10 @@ export interface ConfigDefinition
   extends Record<string, ConfigProfile>,
     DefaultProfile {}
 
-export interface PluginConfig<INCLCONF extends boolean> {
-  package?: string | null;
-  plugin: string;
-  name: string;
-  enabled: boolean;
-  config: INCLCONF extends true ? any : never;
-}
+// export interface PluginConfig<INCLCONF extends boolean> {
+//   package?: string | null;
+//   plugin: string;
+//   name: string;
+//   enabled: boolean;
+//   config: INCLCONF extends true ? any : never;
+// }
