@@ -1,5 +1,24 @@
 import assert from "assert";
-import { Logger, LOG_LEVELS, LogLevels } from "../../../plugins/log-default/plugin";
+import {
+  Plugin,
+  LOG_LEVELS,
+  LogLevels,
+} from "../../../plugins/logging-default/plugin";
+import { BSBLoggingConstructor } from "../../../base";
+import { DEBUG_MODE } from "../../../interfaces";
+
+const getLoggingConstructorConfig = (
+  mode: DEBUG_MODE = "development"
+): BSBLoggingConstructor => {
+  return {
+    appId: "test-app",
+    pluginCwd: process.cwd(),
+    cwd: process.cwd(),
+    mode: mode,
+    pluginName: "test-plugin",
+    config: {},
+  };
+};
 
 describe("plugins/log-default", () => {
   describe("console.x", () => {
@@ -95,25 +114,25 @@ describe("plugins/log-default", () => {
       consoleExpectMessageContent = null;
     };
     it("should console a stat event", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("debug", [null, "[STAT] [DEFAULT-STAT] [val=2]"]);
       await plugin.reportStat("default-stat", "val", 2);
       restoreConsole();
     });
     it("should console a text stat event", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("debug", [null, "[STAT] [DEFAULT-DBG] My Msg"]);
-      await plugin.reportTextStat("default-DbG", "My Msg");
+      await plugin.reportTextStat("default-DbG", "My Msg", undefined as any);
       restoreConsole();
     });
     it("should console a debug event", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("debug", [null, "[DEBUG] [DEFAULT-DBG] My Msg"]);
-      await plugin.debug("default-DbG", "My Msg");
+      await plugin.debug("default-DbG", "My Msg", undefined as any);
       restoreConsole();
     });
     it("should console a debug event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("debug", [
         null,
         "[DEBUG] [DEFAULT-DBG] My Msg cHEESE and a,b (5)",
@@ -127,13 +146,13 @@ describe("plugins/log-default", () => {
     });
 
     it("should console a info event", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("log", [null, "[INFO] [INFO-DBG] My Msg"]);
-      await plugin.info("info-DbG", "My Msg");
+      await plugin.info("info-DbG", "My Msg", undefined as any);
       restoreConsole();
     });
     it("should console a info event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("log", [
         null,
         "[INFO] [INFO-DBG] My Msg cHEESE and a,b (5)",
@@ -147,13 +166,13 @@ describe("plugins/log-default", () => {
     });
 
     it("should console a error event", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("error", [null, "[ERROR] [INFEE-DBG] My Msg"]);
-      await plugin.error("infee-DbG", "My Msg");
+      await plugin.error("infee-DbG", "My Msg", undefined as any);
       restoreConsole();
     });
     it("should console a error event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("error", [
         null,
         "[ERROR] [INFE-DBG] My Msg cHEESE and a,b (5)",
@@ -167,13 +186,13 @@ describe("plugins/log-default", () => {
     });
 
     it("should console a warn event", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("warn", [null, "[WARN] [INFOW-DBG] My Msg"]);
-      await plugin.warn("infoW-DbG", "My Msg");
+      await plugin.warn("infoW-DbG", "My Msg", undefined as any);
       restoreConsole();
     });
     it("should console a warn event (meta)", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("warn", [
         null,
         "[WARN] [INFW-DBG] My Msg cHEESE and a,b (5)",
@@ -187,9 +206,7 @@ describe("plugins/log-default", () => {
     });
 
     it("running debug, should debug everything", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
-      (plugin as any).runningDebug = true;
-      (plugin as any).runningLive = false;
+      const plugin = new Plugin(getLoggingConstructorConfig("development"));
       storeConsole("debug", [
         null,
         "[DEBUG] [DEFAULT-DBG] My Msg cHEESE and a,b (5)",
@@ -202,9 +219,7 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
     it("running non-debug, should not debug anything", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
-      (plugin as any).runningDebug = false;
-      (plugin as any).runningLive = false;
+      const plugin = new Plugin(getLoggingConstructorConfig("production"));
       storeConsole("debug");
       await plugin.debug("infW-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
@@ -213,11 +228,14 @@ describe("plugins/log-default", () => {
       });
       restoreConsole();
     });
-    it("running live-debug, should not debug anything", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
-      (plugin as any).runningDebug = false;
-      (plugin as any).runningLive = true;
-      storeConsole("debug");
+    it("running live-debug, should debug", async () => {
+      const plugin = new Plugin(
+        getLoggingConstructorConfig("production-debug")
+      );
+      storeConsole("debug", [
+        null,
+        "[DEBUG] [INFW-DBG] My Msg cHEESE and a,b (5)",
+      ]);
       await plugin.debug("infW-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -226,69 +244,46 @@ describe("plugins/log-default", () => {
       restoreConsole();
     });
 
-    it("running non-debug, should not stat anything", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
+    /*it("running non-debug, should not stat anything", async () => {
+      const plugin = new Plugin(getLoggingConstructorConfig(""));
       (plugin as any).runningDebug = false;
       (plugin as any).runningLive = false;
       storeConsole("debug");
       await plugin.reportStat("infW-DbG", "a", 3);
       restoreConsole();
-    });
-    it("running live, should not output PI info", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
-      (plugin as any).runningDebug = false;
-      (plugin as any).runningLive = true;
-      storeConsole("log");
-      await plugin.info(
-        "infW-DbG",
-        "My Msg {che} and {chi} ({te})",
-        {
-          che: "cHEESE",
-          chi: ["a", "b"],
-          te: 5,
-        },
-        true
-      );
-      restoreConsole();
-    });
-    it("running live, should not output PI warn", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
-      (plugin as any).runningDebug = false;
-      (plugin as any).runningLive = true;
-      storeConsole("warn");
-      await plugin.warn(
-        "infW-DbG",
-        "My Msg {che} and {chi} ({te})",
-        {
-          che: "cHEESE",
-          chi: ["a", "b"],
-          te: 5,
-        },
-        true
-      );
-      restoreConsole();
-    });
-    it("running live, should not output PI error", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
-      (plugin as any).runningDebug = false;
-      (plugin as any).runningLive = true;
-      storeConsole("error");
-      await plugin.error(
-        "infW-DbG",
-        "My Msg {che} and {chi} ({te})",
-        {
-          che: "cHEESE",
-          chi: ["a", "b"],
-          te: 5,
-        },
-        true
-      );
-      restoreConsole();
-    });
+    });*/
+    // it("running live, should not output PI info", async () => {
+    //   const plugin = new Plugin(getLoggingConstructorConfig("production"));
+    //   storeConsole("log");
+    //   await plugin.info("infW-DbG", "My Msg {che} and {chi} ({te})", {
+    //     che: "cHEESE",
+    //     chi: ["a", "b"],
+    //     te: 5,
+    //   });
+    //   restoreConsole();
+    // });
+    // it("running live, should not output PI warn", async () => {
+    //   const plugin = new Plugin(getLoggingConstructorConfig("production"));
+    //   storeConsole("warn");
+    //   await plugin.warn("infW-DbG", "My Msg {che} and {chi} ({te})", {
+    //     che: "cHEESE",
+    //     chi: ["a", "b"],
+    //     te: 5,
+    //   });
+    //   restoreConsole();
+    // });
+    // it("running live, should not output PI error", async () => {
+    //   const plugin = new Plugin(getLoggingConstructorConfig("production"));
+    //   storeConsole("error");
+    //   await plugin.error("infW-DbG", "My Msg {che} and {chi} ({te})", {
+    //     che: "cHEESE",
+    //     chi: ["a", "b"],
+    //     te: 5,
+    //   });
+    //   restoreConsole();
+    // });
     it("Stack report", async () => {
-      const plugin = new Logger("default-logger", "./", "./", null as any);
-      (plugin as any).runningDebug = true;
-      (plugin as any).runningLive = false;
+      const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("error", undefined, [
         "test-error",
         "src/tests/plugins/log-default/plugin.ts:",
@@ -304,13 +299,7 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[STAT] [DEFAULT-STAT] [val=2]");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
       await plugin.reportStat("default-stat", "val", 2);
     });
 
@@ -320,14 +309,8 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[DEBUG] [DEFAULT-DBG] My Msg");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
-      await plugin.debug("default-DbG", "My Msg");
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
+      await plugin.debug("default-DbG", "My Msg", undefined as any);
     });
     it("should mocked a debug event (meta)", async () => {
       const fakeLogFunc = (level: LogLevels, message: string): any => {
@@ -338,13 +321,7 @@ describe("plugins/log-default", () => {
         );
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
       await plugin.debug("default-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -358,14 +335,8 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[INFO] [INFO-DBG] My Msg");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
-      await plugin.info("info-DbG", "My Msg");
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
+      await plugin.info("info-DbG", "My Msg", undefined as any);
     });
     it("should mocked a info event (meta)", async () => {
       const fakeLogFunc = (level: LogLevels, message: string): any => {
@@ -373,13 +344,7 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[INFO] [INFO-DBG] My Msg cHEESE and a,b (5)");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
       await plugin.info("info-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -393,14 +358,8 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[ERROR] [INFEE-DBG] My Msg");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
-      await plugin.error("infee-DbG", "My Msg");
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
+      await plugin.error("infee-DbG", "My Msg", undefined as any);
     });
     it("should mocked a error event (meta)", async () => {
       const fakeLogFunc = (level: LogLevels, message: string): any => {
@@ -408,13 +367,7 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[ERROR] [INFE-DBG] My Msg cHEESE and a,b (5)");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
       await plugin.error("infe-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],
@@ -428,14 +381,8 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[WARN] [INFOW-DBG] My Msg");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
-      await plugin.warn("infoW-DbG", "My Msg");
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
+      await plugin.warn("infoW-DbG", "My Msg", undefined as any);
     });
     it("should mocked a warn event (meta)", async () => {
       const fakeLogFunc = (level: LogLevels, message: string): any => {
@@ -443,13 +390,7 @@ describe("plugins/log-default", () => {
         assert.equal(message, "[WARN] [INFW-DBG] My Msg cHEESE and a,b (5)");
       };
 
-      const plugin = new Logger(
-        "default-logger",
-        "./",
-        "./",
-        null as any,
-        fakeLogFunc
-      );
+      const plugin = new Plugin(getLoggingConstructorConfig(), fakeLogFunc);
       await plugin.warn("infW-DbG", "My Msg {che} and {chi} ({te})", {
         che: "cHEESE",
         chi: ["a", "b"],

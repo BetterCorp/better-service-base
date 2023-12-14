@@ -1,95 +1,80 @@
-import { IPluginLogger } from "../../interfaces/logger";
 import { Readable } from "stream";
 import emit from "./events/emit";
 import emitAndReturn from "./events/emitAndReturn";
 import emitStreamAndReceiveStream from "./events/emitStreamAndReceiveStream";
-import { EventsBase } from "../../events/events";
-import { PluginConfig } from "./sec.config";
-import broadcast from './events/broadcast';
+import broadcast from "./events/broadcast";
+import { BSBEvents, BSBEventsConstructor } from "../../base/events";
 
-export class Events extends EventsBase<PluginConfig> {
+export class Plugin extends BSBEvents<any> {
+  init?(): void;
+  run?(): void;
   protected broadcast!: broadcast;
   protected emit!: emit;
   protected ear!: emitAndReturn;
   protected eas!: emitStreamAndReceiveStream;
 
   constructor(
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    log: IPluginLogger
+    config: BSBEventsConstructor
   ) {
-    super(pluginName, cwd, pluginCwd, log);
+    super(config);
 
-    this.broadcast = new broadcast(log);
-    this.emit = new emit(log);
-    this.ear = new emitAndReturn(log);
-    this.eas = new emitStreamAndReceiveStream(log);
+    this.broadcast = new broadcast(this.createNewLogger("broadcast"));
+    this.emit = new emit(this.createNewLogger("emit"));
+    this.ear = new emitAndReturn(this.createNewLogger("emitAndReturn"));
+    this.eas = new emitStreamAndReceiveStream(this.createNewLogger("stream"));
   }
 
-  public override dispose() {
+  public dispose() {
     this.broadcast.dispose();
     this.emit.dispose();
     this.ear.dispose();
     this.eas.dispose();
   }
 
-  public override async onBroadcast(
-    callerPluginName: string,
+  public async onBroadcast(
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<void> }
   ): Promise<void> {
-    await this.broadcast.onBroadcast(callerPluginName, pluginName, event, listener);
+    await this.broadcast.onBroadcast(pluginName, event, listener);
   }
-  public override async emitBroadcast(
-    callerPluginName: string,
+  public async emitBroadcast(
     pluginName: string,
     event: string,
     args: Array<any>
   ): Promise<void> {
-    await this.broadcast.emitBroadcast(callerPluginName, pluginName, event, args);
+    await this.broadcast.emitBroadcast(pluginName, event, args);
   }
 
-  public override async onEvent(
-    callerPluginName: string,
+  public async onEvent(
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<void> }
   ): Promise<void> {
-    await this.emit.onEvent(callerPluginName, pluginName, event, listener);
+    await this.emit.onEvent(pluginName, event, listener);
   }
-  public override async emitEvent(
-    callerPluginName: string,
+  public async emitEvent(
     pluginName: string,
     event: string,
     args: Array<any>
   ): Promise<void> {
-    await this.emit.emitEvent(callerPluginName, pluginName, event, args);
+    await this.emit.emitEvent(pluginName, event, args);
   }
 
-  public override async onReturnableEvent(
-    callerPluginName: string,
+  public async onReturnableEvent(
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<any> }
   ): Promise<void> {
-    await this.ear.onReturnableEvent(
-      callerPluginName,
-      pluginName,
-      event,
-      listener
-    );
+    await this.ear.onReturnableEvent(pluginName, event, listener);
   }
-  public override async emitEventAndReturn(
-    callerPluginName: string,
+  public async emitEventAndReturn(
     pluginName: string,
     event: string,
     timeoutSeconds: number,
     args: Array<any>
   ): Promise<any> {
     return await this.ear.emitEventAndReturn(
-      callerPluginName,
       pluginName,
       event,
       timeoutSeconds,
@@ -97,18 +82,18 @@ export class Events extends EventsBase<PluginConfig> {
     );
   }
 
-  public override async receiveStream(
-    callerPluginName: string,
+  public async receiveStream(
+    event: string,
     listener: { (error: Error | null, stream: Readable): Promise<void> },
     timeoutSeconds?: number
   ): Promise<string> {
-    return this.eas.receiveStream(callerPluginName, listener, timeoutSeconds);
+    return this.eas.receiveStream(event, listener, timeoutSeconds);
   }
-  public override async sendStream(
-    callerPluginName: string,
+  public async sendStream(
+    event: string,
     streamId: string,
     stream: Readable
   ): Promise<void> {
-    return this.eas.sendStream(callerPluginName, streamId, stream);
+    return this.eas.sendStream(event, streamId, stream);
   }
 }

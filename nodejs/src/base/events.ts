@@ -1,19 +1,32 @@
-import { IPluginLogger } from "../interfaces/logger";
 import { Readable } from "stream";
-import { IPluginConfig } from "../interfaces/config";
-import { DefaultBase } from "../interfaces/base";
-import { ErrorMessages } from "../interfaces/static";
+import { BSBConfigDefinition, BaseWithLoggingAndConfig } from "./base";
+import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
+import { DEBUG_MODE } from '../interfaces';
+import { SBLogging } from '../serviceBase';
 
-export class EventsBase<
-  PluginConfigType extends IPluginConfig = any
-> extends DefaultBase<PluginConfigType> {
-  constructor(
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    log: IPluginLogger
-  ) {
-    super(pluginName, cwd, pluginCwd, log);
+export interface BSBEventsConstructor {
+  appId: string;
+  mode: DEBUG_MODE;
+  pluginName: string;
+  cwd: string;
+  pluginCwd: string;
+  config: any;
+  sbLogging: SBLogging;
+}
+
+export abstract class BSBEvents<
+  PluginConfigType extends BSBConfigDefinition = any
+> extends BaseWithLoggingAndConfig<PluginConfigType> {
+  constructor(config: BSBEventsConstructor) {
+    super(
+      config.appId,
+      config.mode,
+      config.pluginName,
+      config.cwd,
+      config.pluginCwd,
+      config.config,
+      config.sbLogging
+    );
   }
   /**
    * Listens for events that are emitted by other plugins
@@ -28,14 +41,12 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  public async onBroadcast(
-    callerPluginName: string,
+  public abstract onBroadcast(
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<void> }
-  ): Promise<void> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
+  ): Promise<void>;
+
   /**
    * Emits an event that is received by all plugins
    *
@@ -48,14 +59,11 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  public async emitBroadcast(
-    callerPluginName: string,
+  public abstract emitBroadcast(
     pluginName: string,
     event: string,
     args: Array<any>
-  ): Promise<void> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
+  ): Promise<void>;
 
   /**
    * Listens for events that are emitted by other plugins
@@ -71,14 +79,12 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link  https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  public async onEvent(
-    callerPluginName: string,
+  public abstract onEvent(
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<void> }
-  ): Promise<void> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
+  ): Promise<void>;
+
   /**
    * Emits an event that is received by a single plugin
    * Make sure to use the built in tests
@@ -92,14 +98,11 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  public async emitEvent(
-    callerPluginName: string,
+  public abstract emitEvent(
     pluginName: string,
     event: string,
     args: Array<any>
-  ): Promise<void> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
+  ): Promise<void>;
 
   /**
    * Listens for events that are emitted by other plugins and return a value
@@ -115,14 +118,12 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  public async onReturnableEvent(
-    callerPluginName: string,
+  public abstract onReturnableEvent(
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<any> }
-  ): Promise<void> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
+  ): Promise<void>;
+
   /**
    * Emits an event that is received by a single plugin and returns a value
    * Make sure to use the built in tests
@@ -137,15 +138,12 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  public async emitEventAndReturn(
-    callerPluginName: string,
+  public abstract emitEventAndReturn(
     pluginName: string,
     event: string,
     timeoutSeconds: number,
     args: Array<any>
-  ): Promise<any> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
+  ): Promise<any>;
 
   /**
    * Sets up a receive stream to receive a stream from another plugin
@@ -158,13 +156,12 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  public async receiveStream(
-    callerPluginName: string,
+  public abstract receiveStream(
+    event: string,
     listener: (error: Error | null, stream: Readable) => Promise<void>,
     timeoutSeconds?: number
-  ): Promise<string> {
-    throw ErrorMessages.EventsNotImplementedProperly;
-  }
+  ): Promise<string>;
+
   /**
    * Sets up a send stream to send a stream to another plugin that created a receive stream
    *
@@ -176,11 +173,78 @@ export class EventsBase<
    * @see BSB events-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
    */
-  sendStream(
-    callerPluginName: string,
+  public abstract sendStream(
+    event: string,
+    streamId: string,
+    stream: Readable
+  ): Promise<void>;
+}
+
+/**
+ * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
+ */
+export class BSBEventsRef extends BSBEvents {
+  public onBroadcast(
+    pluginName: string,
+    event: string,
+    listener: (args: any[]) => Promise<void>
+  ): Promise<void> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onBroadcast");
+  }
+  public emitBroadcast(
+    pluginName: string,
+    event: string,
+    args: any[]
+  ): Promise<void> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "emitBroadcast");
+  }
+  public onEvent(
+    pluginName: string,
+    event: string,
+    listener: (args: any[]) => Promise<void>
+  ): Promise<void> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onEvent");
+  }
+  public emitEvent(
+    pluginName: string,
+    event: string,
+    args: any[]
+  ): Promise<void> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "emitEvent");
+  }
+  public onReturnableEvent(
+    pluginName: string,
+    event: string,
+    listener: (args: any[]) => Promise<any>
+  ): Promise<void> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onReturnableEvent");
+  }
+  public emitEventAndReturn(
+    pluginName: string,
+    event: string,
+    timeoutSeconds: number,
+    args: any[]
+  ): Promise<any> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED(
+      "BSBEventsRef",
+      "emitEventAndReturn"
+    );
+  }
+  public receiveStream(
+    event: string,
+    listener: (error: Error | null, stream: Readable) => Promise<void>,
+    timeoutSeconds?: number | undefined
+  ): Promise<string> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "receiveStream");
+  }
+  public sendStream(
+    event: string,
     streamId: string,
     stream: Readable
   ): Promise<void> {
-    throw ErrorMessages.EventsNotImplementedProperly;
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "sendStream");
   }
+  dispose?(): void;
+  init?(): void | Promise<void>;
+  run?(): void | Promise<void>;
 }

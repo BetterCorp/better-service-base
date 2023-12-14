@@ -11,7 +11,8 @@
   "scripts": {
     "dev": "nodemon --config ./nodemon.json",
     "start": "node lib/cli.js",
-    "build": "tsc && npm run testDev",
+    "build": "rm -rfv ./lib && tsc && npm run testDev",
+    "build-release": "rm -rfv ./lib && tsc && npm run test && rm -rfv ./lib && tsc --p ./tsconfig-release.json",
     "postinstall": "node ./postinstall.js",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
@@ -34,10 +35,11 @@
     "@types/assert": "^1.5.6",
     "@types/chai": "^4.3.3",
     "@types/mocha": "^9.1.1",
-    "@types/node": "^18.7.16",
+    "@types/node": "^18.19.3",
     "@types/yargs": "^17.0.12",
     "@typescript-eslint/eslint-plugin": "^5.31.0",
     "@typescript-eslint/parser": "^5.31.0",
+    "chai": "^4.3.10",
     "eslint": "^8.20.0",
     "mocha": "^10.0.0",
     "nyc": "^15.1.0",
@@ -47,7 +49,8 @@
   },
   "dependencies": {
     "@bettercorp/tools": "^2.0.20220714140658",
-    "yaml": "^2.3.1"
+    "yaml": "^2.3.1",
+    "zod": "^3.21.4"
   },
   "bsb_project": true,
   "bsbInit": {

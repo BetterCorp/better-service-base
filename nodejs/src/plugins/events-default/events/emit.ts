@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { IPluginLogger } from "../../../interfaces/logger";
+import { IPluginLogger } from "../../../interfaces/logging";
 import { randomUUID } from "crypto";
 
 export default class emit extends EventEmitter {
@@ -22,15 +22,14 @@ export default class emit extends EventEmitter {
   }
 
   public async onEvent(
-    callerPluginName: string,
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<void> }
   ): Promise<void> {
-    await this.log.debug(
-      "onEvent: {callerPluginName} listening to {pluginName}-{event}",
-      { callerPluginName, pluginName, event }
-    );
+    this.log.debug("onEvent: listening to {pluginName}-{event}", {
+      pluginName,
+      event,
+    });
     this.on(`${pluginName}-${event}`, (args: any) => {
       if (this._lastReceivedMessageIds.includes(args.msgID)) {
         return;
@@ -41,15 +40,14 @@ export default class emit extends EventEmitter {
   }
 
   public async emitEvent(
-    callerPluginName: string,
     pluginName: string,
     event: string,
     args: Array<any>
   ): Promise<void> {
-    await this.log.debug(
-      "emitEvent: {callerPluginName} emitting {pluginName}-{event}",
-      { callerPluginName, pluginName, event }
-    );
+    this.log.debug("emitEvent: emitting {pluginName}-{event}", {
+      pluginName,
+      event,
+    });
     this.emit(`${pluginName}-${event}`, {
       msgID: randomUUID(),
       data: args,

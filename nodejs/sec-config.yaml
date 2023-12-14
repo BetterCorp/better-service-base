@@ -1,0 +1,20 @@
+default:
+  logging:
+  events:
+    rabbit:
+      plugin: events-rabbitMQ
+      package: "@bettercorp/bsb-rabbitmq"
+      enabled: false
+  services:
+    service-default0X:
+      plugin: service-default0
+      enabled: false
+    service-default1X:
+      plugin: service-default1
+      enabled: false
+    service-default2X:
+      plugin: service-default2
+      enabled: false
+    service-default3X:
+      plugin: service-default3
+      enabled: false

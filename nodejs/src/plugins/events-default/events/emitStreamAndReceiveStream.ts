@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { Readable } from "stream";
 import { randomUUID } from "crypto";
-import { IPluginLogger } from '../../../interfaces/logger';
+import { IPluginLogger } from "../../../interfaces/logging";
 
 export default class emitStreamAndReceiveStream extends EventEmitter {
   // If we try receive or send a stream and the other party is not ready for some reason, we will automatically timeout in 5s.
@@ -17,18 +17,14 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
   }
 
   async receiveStream(
-    callerPluginName: string,
+    event: string,
     listener: { (error: Error | null, stream: Readable): Promise<void> },
     timeoutSeconds: number = 60
   ): Promise<string> {
     const streamId = `${randomUUID()}=${timeoutSeconds}`;
-    await this.log.debug(
-      "receiveStream: {callerPluginName} listening to {streamId}",
-      {
-        callerPluginName,
-        streamId,
-      }
-    );
+    this.log.debug("receiveStream: listening to {streamId}", {
+      streamId,
+    });
     const self = this;
     return new Promise((resolve) => {
       let receiptTimeoutHandler: NodeJS.Timeout = setTimeout(() => {
@@ -53,15 +49,12 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
   }
 
   async sendStream(
-    callerPluginName: string,
+    event: string,
     streamId: string,
     stream: Readable
   ): Promise<void> {
     const self = this;
-    await this.log.debug(
-      "sendStream: {callerPluginName} emitting _self-{streamId}",
-      { callerPluginName, streamId }
-    );
+    this.log.debug("sendStream: emitting _self-{streamId}", { streamId });
     return new Promise((resolve, rejectI) => {
       const timeout = Number.parseInt(streamId.split("=")[1]);
       const clearSessions = (e?: Error) => {

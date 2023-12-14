@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { IPluginLogger } from '../../../interfaces/logger';
+import { IPluginLogger } from "../../../interfaces/logging";
 
 export default class broadcast extends EventEmitter {
   private log: IPluginLogger;
@@ -13,28 +13,26 @@ export default class broadcast extends EventEmitter {
   }
 
   public async onBroadcast(
-    callerPluginName: string,
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<void> }
   ): Promise<void> {
-    await this.log.debug(
-      "onBroadcast: {callerPluginName} listening to {pluginName}-{event}",
-      { callerPluginName, pluginName, event }
-    );
+    this.log.debug("onBroadcast:listening to {pluginName}-{event}", {
+      pluginName,
+      event,
+    });
     this.on(`${pluginName}-${event}`, listener);
   }
 
   public async emitBroadcast(
-    callerPluginName: string,
     pluginName: string,
     event: string,
     args: Array<any>
   ): Promise<void> {
-    await this.log.debug(
-      "emitBroadcast: {callerPluginName} emitting {pluginName}-{event}",
-      { callerPluginName, pluginName, event }
-    );
+    this.log.debug("emitBroadcast: emitting {pluginName}-{event}", {
+      pluginName,
+      event,
+    });
     this.emit(`${pluginName}-${event}`, args);
   }
 }

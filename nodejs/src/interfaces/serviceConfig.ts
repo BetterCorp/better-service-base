@@ -1,20 +1,13 @@
-import { ErrorMessages } from "./static";
-import { IPluginConfig } from "./config";
+import { z } from "zod";
 
-export class pluginConfig {
-  static getConfig(
-    pluginName: string,
-    existingConfig: IPluginConfig
-  ): IPluginConfig {
-    throw ErrorMessages.PluginConfigNotSetupToGenerateConfig;
-  }
-}
-
-export class SecConfig<MyPluginConfig extends IPluginConfig = any> {
-  public migrate(
-    mappedPluginName: string,
-    existingConfig: MyPluginConfig
-  ): MyPluginConfig {
-    throw ErrorMessages.BSBNotInit;
-  }
+export abstract class SecConfig<
+  MyPluginConfig extends any,
+  MyValidationSchema = z.ZodSchema<MyPluginConfig>
+> {
+  abstract validationSchema: MyValidationSchema;
+  abstract init(
+    cwd: string,
+    plugin: any,
+    existingConfig?: MyPluginConfig
+  ): MyPluginConfig;
 }

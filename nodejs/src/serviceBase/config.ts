@@ -1,260 +1,141 @@
-import { Tools } from "@bettercorp/tools/lib/Tools";
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
-import { PluginDefinitions, IReadyPlugin, PluginDefinition } from "../interfaces/service";
-import { IPluginLogger } from "../interfaces/logger";
-import { ConfigBase } from "../config/config";
-import { SecConfig } from "../interfaces/serviceConfig";
-import { SBBase } from "./base";
+import { DEBUG_MODE, IPluginLogger } from "../interfaces/logging";
+import { Plugin as Config } from "../plugins/config-default/plugin";
+import { SBPlugins } from "./plugins";
+import { SBLogging } from "./logging";
+import { PluginLogger } from "../base/PluginLogger";
+import { BSBConfig } from "../base/config";
+import { Tools } from "@bettercorp/tools";
+import { SmartFunctionCallSync, SmartFunctionCallAsync } from "../base/functions";
+import {
+  EventsConfig,
+  LoggingConfig,
+  PluginDefition,
+  PluginType,
+} from "../interfaces/plugins";
 
 export class SBConfig {
+  private mode: DEBUG_MODE = "development";
+  private appId: string;
+  private cwd: string;
+  private sbPlugins: SBPlugins;
+  private sbLogging: SBLogging;
   private log: IPluginLogger;
-  private cwd!: string;
-  private configPlugin!: {
-    plugin: IReadyPlugin;
-    deploymentProfile: string;
-  };
-  public appConfig!: ConfigBase;
-  constructor(log: IPluginLogger, cwd: string) {
-    this.log = log;
-    this.cwd = cwd;
-  }
-
-  public dispose() {
-    this.appConfig.dispose();
-  }
-
-  public async findConfigPlugin(plugins: Array<IReadyPlugin>): Promise<void> {
-    let deploymentProfile = "default";
-    if (!Tools.isNullOrUndefined(process.env.BSB_PROFILE)) {
-      deploymentProfile = process.env.BSB_PROFILE!;
-    }
-
-    await this.log.info(
-      "config load with profile: {deploymentProfile}, against {len} plugins",
-      {
-        deploymentProfile,
-        len: plugins.length,
-      }
-    );
-    let pluginName = "config-default";
-    if (
-      (!Tools.isNullOrUndefined(process.env.BSB_CONFIG_PLUGIN) &&
-        process.env.BSB_CONFIG_PLUGIN !== "") ||
-      existsSync(join(this.cwd, "./BSB_CONFIG_PLUGIN"))
-    ) {
-      pluginName =
-        process.env.BSB_CONFIG_PLUGIN ||
-        readFileSync(join(this.cwd, "./BSB_CONFIG_PLUGIN")).toString() ||
-        "config-default";
-    }
-    await this.log.info(`PLUGIN {pluginName} check`, {
-      pluginName,
-    });
-    for (const plugin of plugins) {
-      if (plugin.pluginDefinition === PluginDefinitions.config) {
-        if (pluginName !== plugin.name) continue;
-        await this.log.info(`PLUGIN {name}v{version}`, {
-          name: plugin.name,
-          version: plugin.version,
-        });
-        this.configPlugin = {
-          deploymentProfile,
-          plugin,
-        };
-        await this.log.info(`PLUGIN {name}v{version} [SETUP FOR CONFIG]`, {
-          name: plugin!.name,
-          version: plugin.version,
-        });
-        return;
-      }
-    }
-
-    await this.log.fatal("Unable to setup default config plugin.");
-  }
-
-  public async mapPlugins(
-    _plugins: Array<IReadyPlugin>
-  ): Promise<Array<IReadyPlugin>> {
-    let mappedPlugins: Array<IReadyPlugin> = [];
-
-    for (let plugin of _plugins) {
-      if (plugin.pluginDefinition !== PluginDefinitions.config) continue;
-      if (plugin.name !== this.configPlugin.plugin.name) continue;
-      mappedPlugins.push(plugin);
-    }
-
-    for (let plugin of _plugins) {
-      if (
-        plugin.pluginDefinition === PluginDefinitions.config ||
-        plugin.pluginDefinition === PluginDefinitions.service
-      )
-        continue;
-      //if (!await this.appConfig.getAppPluginState(plugin.name)) continue;
-      plugin.mappedName = await this.appConfig.getAppPluginMappedName(
-        plugin.name
-      );
-      mappedPlugins.push(plugin);
-    }
-
-    for (let plugin of _plugins) {
-      if (plugin.pluginDefinition !== PluginDefinitions.service) continue;
-      if (!(await this.appConfig.getAppPluginState(plugin.name))) continue;
-      plugin.mappedName = await this.appConfig.getAppPluginMappedName(
-        plugin.name
-      );
-      mappedPlugins.push(plugin);
-    }
-
-    return mappedPlugins;
-  }
-
-  public async findPluginByType(
-    plugins: Array<IReadyPlugin>,
-    defaultPlugin: string,
-    type: PluginDefinition
-  ): Promise<IReadyPlugin> {
-    for (const plugin of plugins) {
-      if (plugin.pluginDefinition === type) {
-        if (await this.appConfig.getAppPluginState(plugin.name)) return plugin;
-      }
-    }
-    for (const plugin of plugins) {
-      if (plugin.name === defaultPlugin) {
-        return plugin;
-      }
-    }
-    await this.log.fatal(
-      "Cannot find plugin type {type} or default {defaultPlugin}",
-      {
-        type,
-        defaultPlugin,
-      }
-    );
-    return undefined as any; // should not reach this
-  }
-
-  public getPluginName(): string {
-    return this.configPlugin.plugin.name;
-  }
-
-  public async setupConfigPlugin(
-    logger: IPluginLogger,
+  private configPlugin: BSBConfig;
+  constructor(
     appId: string,
-    runningDebug: boolean,
-    runningLive: boolean,
-    plugins: Array<IReadyPlugin>
-  ): Promise<void> {
-    let appConfig: ConfigBase | undefined = undefined;
-
-    await this.log.debug(`Import config plugin: {name} from {file}`, {
-      name: this.configPlugin.plugin.name,
-      file: this.configPlugin.plugin!.pluginFile,
-    });
-    const importedPlugin = await import(this.configPlugin.plugin!.pluginFile);
-
-    await this.log.debug(`Construct config plugin: {name}`, {
-      name: this.configPlugin.plugin.name,
-    });
-
-    appConfig = new (importedPlugin.Config as unknown as typeof ConfigBase)(
-      this.configPlugin.plugin.mappedName,
-      this.cwd,
-      this.configPlugin.plugin.pluginDir,
-      logger,
-      this.configPlugin.deploymentProfile
+    mode: DEBUG_MODE,
+    cwd: string,
+    sbLogging: SBLogging,
+    sbPlugins: SBPlugins
+  ) {
+    this.appId = appId;
+    this.mode = mode;
+    this.cwd = cwd;
+    this.sbLogging = sbLogging;
+    this.sbPlugins = sbPlugins;
+    this.log = new PluginLogger(mode, "sb-config", sbLogging);
+    this.configPlugin = new Config(
+      appId,
+      mode,
+      "sb-config",
+      cwd,
+      cwd,
+      sbLogging
     );
-    await this.log.debug(`Create config plugin: {name}`, {
-      name: this.configPlugin.plugin.name,
-    });
+  }
 
-    let pluginInstaller: SecConfig<any> | null =
-      await this.ImportAndCreatePluginConfig(this.configPlugin.plugin);
-    let pluginConfig = {};
-    if (pluginInstaller !== null) {
-      pluginConfig = pluginInstaller.migrate(
-        this.configPlugin.plugin.name,
-        pluginConfig
-      );
+  public async getPluginConfig(pluginType: PluginType, name: string) {
+    return await this.configPlugin.getPluginConfig(pluginType, name);
+  }
+  public async getServicePlugins(): Promise<Record<string, PluginDefition>> {
+    return await this.configPlugin.getServicePlugins();
+  }
+  public async getEventsPlugins(): Promise<Record<string, EventsConfig>> {
+    return await this.configPlugin.getEventsPlugins();
+  }
+  public async getLoggingPlugins(): Promise<Record<string, LoggingConfig>> {
+    return await this.configPlugin.getLoggingPlugins();
+  }
+  public async getServicePluginDefinition(
+    pluginName: string
+  ): Promise<{ name: string; enabled: boolean }> {
+    return await this.configPlugin.getServicePluginDefinition(pluginName);
+  }
+  public dispose() {
+    SmartFunctionCallSync(this.configPlugin, this.configPlugin.dispose);
+  }
+
+  private loggerPackage: string | undefined;
+  private loggerPlugin = "config-default";
+
+  public async init(): Promise<void> {
+    if (
+      Tools.isString(process.env.BSB_LOGGER_PLUGIN) &&
+      process.env.BSB_LOGGER_PLUGIN.startsWith("config-")
+    ) {
+      this.loggerPlugin = process.env.BSB_LOGGER_PLUGIN;
+      if (Tools.isString(process.env.BSB_LOGGER_PLUGIN_PACKAGE)) {
+        this.loggerPackage = process.env.BSB_LOGGER_PLUGIN_PACKAGE;
+      }
     }
-
-    SBBase.setupPlugin(appId, runningDebug, runningLive, appConfig, {
-      getAppMappedPluginConfig: async () => {
-        return pluginConfig;
-      },
-      getAppMappedPluginState: async () => {
-        return true;
-      },
-    } as any);
-    await appConfig.createAppConfig(plugins.map((x) => x.name));
-    this.appConfig = appConfig!;
-    await appConfig.init();
-    await this.log.info(`Config plugin ready: {name}`, {
-      name: this.configPlugin.plugin.name,
+    this.log.debug("Add config {name} from ({package})", {
+      package: this.loggerPackage ?? "this project",
+      name: this.loggerPlugin,
     });
-  }
+    if (this.loggerPlugin === "config-default") {
+      await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init);
+      return;
+    }
+    this.log.debug(`Import config plugin: {name} from ({package})`, {
+      package: this.loggerPackage ?? "this project",
+      name: this.loggerPlugin,
+    });
 
-  public async ImportAndMigratePluginConfig(plugin: IReadyPlugin) {
-    let existingConfig = await this.appConfig.getAppMappedPluginConfig(
-      plugin.mappedName
+    const newPlugin = await this.sbPlugins.loadPlugin<"config">(
+      this.log,
+      this.loggerPackage ?? null,
+      this.loggerPlugin,
+      this.loggerPlugin
     );
-    let secConfig = await this.ImportAndCreatePluginConfig(plugin);
-    let config =
-      secConfig !== null
-        ? secConfig.migrate(plugin.mappedName, existingConfig || {})
-        : {};
-    await this.appConfig.migrateAppPluginConfig(
-      plugin.name,
-      plugin.mappedName,
-      config
-    );
-    return config;
-  }
-
-  private async ImportAndCreatePluginConfig(
-    plugin: IReadyPlugin
-  ): Promise<SecConfig | null> {
-    let config: SecConfig | null = null;
-
-    if (plugin.installerFile !== null && existsSync(plugin.installerFile)) {
-      await this.log.debug(
-        `Import plugin config (sec.config.ts/js): {name} -> {installerFile}`,
+    if (newPlugin === null) {
+      this.log.error(
+        "Failed to import config plugin: {name} from ({package})",
         {
-          name: plugin.name,
-          installerFile: plugin.installerFile,
+          package: this.loggerPackage ?? "this project",
+          name: this.loggerPlugin,
         }
       );
-      const importedInstaller = await import(plugin.installerFile);
-      await this.log.debug(`Create plugin config (sec.config.ts/js): {name}`, {
-        name: plugin.name,
-      });
-      config = new (importedInstaller.Config as unknown as typeof SecConfig)();
-    } else {
-      await this.log.debug(`No plugin config (sec.config.ts/js): {name}`, {
-        name: plugin.name,
-      });
+      return;
     }
-    return config;
-  }
 
-  /*public async configAllPlugins(): Promise<void> {
-    await this._coreLogger.info(`CONFIG: {length} plugins`, {
-      length: this._plugins.length,
+    this.configPlugin = new newPlugin.plugin(
+      this.appId,
+      this.mode,
+      newPlugin.name,
+      this.cwd,
+      newPlugin.pluginCWD,
+      this.sbLogging
+    );
+    this.log.info("Adding {pluginName} as config", {
+      pluginName: newPlugin.name,
     });
-    for (const plugin of this._plugins) {
-      if (plugin.pluginDefinition === IPluginDefinition.config) continue;
-      const mappedPlugin = await this._appConfig.getMappedPluginName(
-        plugin.name
-      );
-      await this._coreLogger.info(
-        `CONFIG: PLUGIN {name}v{version} AS {mappedPlugin}`,
-        { name: plugin.name, version: plugin.version, mappedPlugin }
-      );
-      this.getReadyPluginConfig(plugin.pluginDefinition, plugin, mappedPlugin);
-      await this._coreLogger.info(
-        `CONFIG: PLUGIN {name}v{version} [CONFIGURED]`,
-        { name: plugin!.name, version: plugin.version }
-      );
-    }
-  }*/
+
+    this.log.debug(`Init: {name}`, {
+      name: this.loggerPlugin,
+    });
+    await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init);
+
+    this.log.info(`Init: {name}: OK`, {
+      name: this.loggerPlugin,
+    });
+
+    this.log.debug(`Run: {name}`, {
+      name: this.loggerPlugin,
+    });
+    await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.run);
+
+    this.log.info(`Run: {name}: OK`, {
+      name: this.loggerPlugin,
+    });
+  }
 }

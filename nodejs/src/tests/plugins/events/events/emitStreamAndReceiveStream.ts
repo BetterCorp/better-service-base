@@ -3,7 +3,7 @@ import * as crypto from "crypto";
 import { exec } from "child_process";
 import { pipeline } from "stream";
 import assert from "assert";
-import { EventsBase } from '../../../../events/events';
+import { BSBEvents, SmartFunctionCallSync } from "../../../../";
 
 const randomName = () => crypto.randomUUID();
 
@@ -73,15 +73,15 @@ const convertBytes = (
 };
 
 export function emitStreamAndReceiveStream(
-  genNewPlugin: { (): Promise<EventsBase> },
+  genNewPlugin: { (): Promise<BSBEvents> },
   maxTimeoutToExpectAResponse: number
 ) {
-  let emitter: EventsBase;
+  let emitter: BSBEvents;
   beforeEach(async () => {
     emitter = await genNewPlugin();
   });
   afterEach(function () {
-    emitter.dispose();
+    SmartFunctionCallSync(emitter, emitter.dispose);
   });
   describe("EmitStreamAndReceiveStream", async () => {
     //this.timeout(maxTimeoutToExpectAResponse + 20);
@@ -125,7 +125,7 @@ export function emitStreamAndReceiveStream(
       );
       try {
         await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
-        console.log('endededed')
+        console.log("endededed");
       } catch (xx) {}
     });
     describe("sendStream triggers receiveStream listener passing in the stream", async () => {
@@ -203,7 +203,7 @@ export function emitStreamAndReceiveStream(
             }, timermaxTimeoutToExpectAResponse);
             let uuid = await emitter.receiveStream(
               thisCaller,
-              async (err: any, stream: any):Promise<any> => {
+              async (err: any, stream: any): Promise<any> => {
                 if (err) return assert.fail(err);
                 clearTimeout(emitTimeout);
                 pipeline(stream, fs.createWriteStream(fileNameOut), (errf) => {
@@ -247,7 +247,7 @@ export function emitStreamAndReceiveStream(
       runTest("1MB");
       runTest("16MB");
       //runTest("128MB", 1);
-      
+
       //runTest("128MB", 4);
       //runTest('512MB', 16);
       //runTest('1GB', 32);
