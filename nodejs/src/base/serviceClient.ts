@@ -47,3 +47,23 @@ export abstract class BSBServiceClient<
   public abstract init?(): Promise<void>;
   public abstract run?(): Promise<void>;
 }
+
+/**
+ * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
+ */
+export class BSBServiceClientRef extends BSBServiceClient<any> {
+  public pluginName: string = "";
+  public initBeforePlugins?: string[] | undefined;
+  public initAfterPlugins?: string[] | undefined;
+  public runBeforePlugins?: string[] | undefined;
+  public runAfterPlugins?: string[] | undefined;
+  public dispose?(): void {
+    throw new Error("Method not implemented.");
+  }
+  public init?(): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+  public run?(): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+}

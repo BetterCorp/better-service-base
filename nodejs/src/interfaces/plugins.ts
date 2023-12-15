@@ -5,6 +5,7 @@ import { BSBConfig, BSBConfigRef } from "../base/config";
 import { EventsEventTypes } from "./events";
 import { BSBEvents } from "../base/events";
 import { BSBEventsRef } from "../base/events";
+import { BSBServiceConfig } from ".";
 
 export const PluginTypes = {
   config: "config",
@@ -15,9 +16,13 @@ export const PluginTypes = {
 export type PluginType = (typeof PluginTypes)[keyof typeof PluginTypes];
 
 export type DeepReadonly<T> = {
-  readonly [P in keyof T]: T[P] extends (infer R)[] ? DeepReadonlyArray<R> :
-    T[P] extends Function ? T[P] :
-    T[P] extends object ? DeepReadonly<T[P]> : T[P];
+  readonly [P in keyof T]: T[P] extends (infer R)[]
+    ? DeepReadonlyArray<R>
+    : T[P] extends Function
+    ? T[P]
+    : T[P] extends object
+    ? DeepReadonly<T[P]>
+    : T[P];
 };
 export interface DeepReadonlyArray<T> extends ReadonlyArray<DeepReadonly<T>> {}
 export interface IPluginDefinition {
@@ -92,3 +97,16 @@ export interface EventsConfig extends PluginDefition {
 }
 export type FilterOnType = // see EventsFilter and LoggingFilter for more details
   "all" | "events" | "eventsState" | "eventsPlugins" | "eventsDetailed";
+
+export interface LoadedPlugin<
+  NamedType extends PluginType,
+  ClassType extends PluginTypeDefinitionRef<NamedType> = PluginTypeDefinitionRef<NamedType>
+> {
+  name: string;
+  ref: string;
+  version: string;
+  serviceConfig: BSBServiceConfig<any> | null;
+  plugin: ClassType;
+  pluginCWD: string;
+  pluginPath: string;
+}

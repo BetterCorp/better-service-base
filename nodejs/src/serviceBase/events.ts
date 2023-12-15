@@ -22,6 +22,7 @@ import { BSBError } from "../base/errorMessages";
 import { NS_PER_SEC, MS_PER_NS } from "./serviceBase";
 import { BSBService } from "../base/service";
 import { BSBServiceClient } from "../base/serviceClient";
+import { LoadedPlugin } from "../interfaces";
 
 export class SBEvents {
   private events: Array<{
@@ -165,7 +166,9 @@ export class SBEvents {
     const events = this.events.filter((x) => x.name !== "events-default");
     const allEvents = events.filter((x) => x.onTypeof === "all");
     if (allEvents.length > 0) {
-      const defaultEvents = this.events.find((x) => x.name === "events-default");
+      const defaultEvents = this.events.find(
+        (x) => x.name === "events-default"
+      );
       if (defaultEvents !== undefined) {
         if (defaultEvents.plugin.dispose !== undefined)
           SmartFunctionCallSync(
@@ -177,66 +180,28 @@ export class SBEvents {
     }
   }
 
-  private async addEvents(
-    sbConfig: SBConfig,
+  public async addPlugin(
     sbLogging: SBLogging,
     plugin: IPluginDefinition,
+    reference: LoadedPlugin<"events">,
+    config: object | null,
     filter?: EventsFilter
   ) {
-    this.log.debug("Add events {name} from ({package}){file}", {
-      package: plugin.package ?? "this project",
-      name: plugin.name,
-      file: plugin.plugin,
-    });
-    if (plugin.name === "events-default") return;
-    this.log.debug(`Import events plugin: {name} from ({package}){file}`, {
-      package: plugin.package ?? "this project",
-      name: plugin.name,
-      file: plugin.plugin,
-    });
-
-    const newPlugin = await this.sbPlugins.loadPlugin<"events">(
-      this.log,
-      plugin.package ?? null,
-      plugin.plugin,
-      plugin.name
-    );
-    if (newPlugin === null) {
-      this.log.error(
-        "Failed to import events plugin: {name} from ({package}){file}",
-        {
-          package: plugin.package ?? "this project",
-          name: plugin.name,
-          file: plugin.plugin,
-        }
-      );
-      return;
-    }
-
     this.log.debug(`Get plugin config: {name}`, {
       name: plugin.name,
     });
-
-    let pluginConfig = await sbConfig.getPluginConfig("events", plugin.name);
-
-    if (newPlugin.serviceConfig !== null) {
-      pluginConfig =
-        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
-    } else if (pluginConfig === null) {
-      pluginConfig = {};
-    }
 
     this.log.debug(`Construct events plugin: {name}`, {
       name: plugin.name,
     });
 
-    let eventsPlugin = new newPlugin.plugin({
+    let eventsPlugin = new reference.plugin({
       appId: this.appId,
       mode: this.mode,
-      pluginName: newPlugin.name,
+      pluginName: reference.name,
       cwd: this.cwd,
-      pluginCwd: newPlugin.pluginCWD,
-      config: pluginConfig,
+      pluginCwd: reference.pluginCWD,
+      config: config,
       sbLogging,
     });
     this.log.info("Adding {pluginName} as events with filter: ", {
@@ -277,6 +242,56 @@ export class SBEvents {
     });
 
     await SmartFunctionCallAsync(eventsPlugin, eventsPlugin.init);
+
+    return eventsPlugin;
+  }
+
+  private async addEvents(
+    sbConfig: SBConfig,
+    sbLogging: SBLogging,
+    plugin: IPluginDefinition,
+    filter?: EventsFilter
+  ) {
+    this.log.debug("Add events {name} from ({package}){file}", {
+      package: plugin.package ?? "this project",
+      name: plugin.name,
+      file: plugin.plugin,
+    });
+    if (plugin.name === "events-default") return;
+    this.log.debug(`Import events plugin: {name} from ({package}){file}`, {
+      package: plugin.package ?? "this project",
+      name: plugin.name,
+      file: plugin.plugin,
+    });
+
+    const newPlugin = await this.sbPlugins.loadPlugin<"events">(
+      this.log,
+      plugin.package ?? null,
+      plugin.plugin,
+      plugin.name
+    );
+    if (newPlugin === null) {
+      this.log.error(
+        "Failed to import events plugin: {name} from ({package}){file}",
+        {
+          package: plugin.package ?? "this project",
+          name: plugin.name,
+          file: plugin.plugin,
+        }
+      );
+      return;
+    }
+
+    let pluginConfig = await sbConfig.getPluginConfig("events", plugin.name);
+
+    if (newPlugin.serviceConfig !== null) {
+      pluginConfig =
+        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
+    } else if (pluginConfig === null) {
+      pluginConfig = {};
+    }
+
+    await this.addPlugin(sbLogging, plugin, newPlugin, pluginConfig, filter);
   }
 
   private async handleOnBroadcast(

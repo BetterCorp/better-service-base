@@ -11,6 +11,7 @@ import {
 } from "../base/functions";
 import {
   EventsConfig,
+  LoadedPlugin,
   LoggingConfig,
   PluginDefition,
   PluginType,
@@ -71,6 +72,31 @@ export class SBConfig {
   private configPackage: string | undefined;
   private configPluginName = "config-default";
 
+  public async setConfigPlugin(reference: LoadedPlugin<"config">) {
+    this.configPlugin = new reference.plugin(
+      this.appId,
+      this.mode,
+      reference.name,
+      this.cwd,
+      reference.pluginCWD,
+      this.sbLogging
+    );
+    this.log.info("Adding {pluginName} as config", {
+      pluginName: reference.name,
+    });
+
+    this.log.debug(`Init: {name}`, {
+      name: this.configPluginName,
+    });
+    await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init);
+
+    this.log.info(`Init: {name}: OK`, {
+      name: this.configPluginName,
+    });
+
+    return this.configPlugin;
+  }
+
   public async init(): Promise<void> {
     if (
       Tools.isString(process.env.BSB_LOGGER_PLUGIN) &&
@@ -111,25 +137,6 @@ export class SBConfig {
       return;
     }
 
-    this.configPlugin = new newPlugin.plugin(
-      this.appId,
-      this.mode,
-      newPlugin.name,
-      this.cwd,
-      newPlugin.pluginCWD,
-      this.sbLogging
-    );
-    this.log.info("Adding {pluginName} as config", {
-      pluginName: newPlugin.name,
-    });
-
-    this.log.debug(`Init: {name}`, {
-      name: this.configPluginName,
-    });
-    await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init);
-
-    this.log.info(`Init: {name}: OK`, {
-      name: this.configPluginName,
-    });
+    await this.setConfigPlugin(newPlugin);
   }
 }

@@ -14,6 +14,7 @@ import { IPluginDefinition } from "../interfaces/plugins";
 import { BSBError } from "../base/errorMessages";
 import { BSBServiceClient } from "../base/serviceClient";
 import { PluginEvents } from "../base/PluginEvents";
+import { LoadedPlugin } from "../interfaces";
 
 export class SBServices {
   private _activeServices: Array<BSBService> = [];
@@ -126,6 +127,64 @@ export class SBServices {
     }
     return outlist;
   }
+  public async addPlugin(
+    sbConfig: SBConfig,
+    sbLogging: SBLogging,
+    sbEvents: SBEvents,
+    plugin: IPluginDefinition,
+    reference: LoadedPlugin<"service">,
+    config: object | null
+  ) {
+    this.log.debug(`Construct service plugin: {name}`, {
+      name: plugin.name,
+    });
+
+    let servicePlugin = new reference.plugin({
+      appId: this.appId,
+      mode: this.mode,
+      pluginName: reference.name,
+      cwd: this.cwd,
+      pluginCwd: reference.pluginCWD,
+      config: config,
+      sbLogging: sbLogging,
+      sbEvents: sbEvents,
+    });
+    this.log.debug("Adding {pluginName} as service", {
+      pluginName: plugin.name,
+    });
+
+    for (let client of servicePlugin._clients) {
+      this.log.debug("Construct {pluginName} client {clientName}", {
+        pluginName: plugin.name,
+        clientName: client.pluginName,
+      });
+      await this.setupPluginClient(
+        sbConfig,
+        sbLogging,
+        sbEvents,
+        servicePlugin,
+        client
+      );
+      this.log.debug(
+        "Setup {pluginName} client {asOriginalPluginName} as {clientName}",
+        {
+          pluginName: plugin.name,
+          clientName: client.pluginName,
+          asOriginalPluginName: (client as any)._pluginName,
+        }
+      );
+    }
+
+    this._activeServices.push(servicePlugin);
+
+    this.log.info("Ready {pluginName} ({mappedName})", {
+      pluginName: plugin.plugin,
+      mappedName: plugin.name,
+    });
+
+    return servicePlugin;
+  }
+
   private async addService(
     sbConfig: SBConfig,
     sbLogging: SBLogging,
@@ -174,52 +233,14 @@ export class SBServices {
       pluginConfig = {};
     }
 
-    this.log.debug(`Construct service plugin: {name}`, {
-      name: plugin.name,
-    });
-
-    let servicePlugin = new newPlugin.plugin({
-      appId: this.appId,
-      mode: this.mode,
-      pluginName: newPlugin.name,
-      cwd: this.cwd,
-      pluginCwd: newPlugin.pluginCWD,
-      config: pluginConfig,
-      sbLogging: sbLogging,
-      sbEvents: sbEvents,
-    });
-    this.log.debug("Adding {pluginName} as service", {
-      pluginName: plugin.name,
-    });
-
-    for (let client of servicePlugin._clients) {
-      this.log.debug("Construct {pluginName} client {clientName}", {
-        pluginName: plugin.name,
-        clientName: client.pluginName,
-      });
-      await this.setupPluginClient(
-        sbConfig,
-        sbLogging,
-        sbEvents,
-        servicePlugin,
-        client
-      );
-      this.log.debug(
-        "Setup {pluginName} client {asOriginalPluginName} as {clientName}",
-        {
-          pluginName: plugin.name,
-          clientName: client.pluginName,
-          asOriginalPluginName: (client as any)._pluginName,
-        }
-      );
-    }
-
-    this._activeServices.push(servicePlugin);
-
-    this.log.info("Ready {pluginName} ({mappedName})", {
-      pluginName: plugin.plugin,
-      mappedName: plugin.name,
-    });
+    await this.addPlugin(
+      sbConfig,
+      sbLogging,
+      sbEvents,
+      plugin,
+      newPlugin,
+      pluginConfig
+    );
   }
 
   private initPluginClient = async (

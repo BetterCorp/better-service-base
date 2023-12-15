@@ -23,6 +23,7 @@ import {
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
 } from "../base/functions";
+import { LoadedPlugin } from "../interfaces";
 
 export class SBLogging {
   private loggers: Array<{
@@ -253,6 +254,65 @@ export class SBLogging {
     }
   }
 
+  public async addPlugin(
+    plugin: IPluginDefinition,
+    reference: LoadedPlugin<"logging">,
+    config: object | null,
+    filter?: LoggingFilter
+  ) {
+    this.log.debug(`Construct logging plugin: {name}`, {
+      name: plugin.name,
+    });
+
+    let loggerPlugin = new reference.plugin({
+      appId: this.appId,
+      mode: this.mode,
+      pluginName: reference.name,
+      cwd: this.cwd,
+      pluginCwd: reference.pluginCWD,
+      config: config,
+    });
+    this.log.info("Adding {pluginName} as logger with filter: ", {
+      pluginName: plugin.name,
+      //filters: filter
+    });
+    let logAsType: FilterOnType = "all";
+
+    if (filter) {
+      if (Array.isArray(filter)) {
+        logAsType = "events";
+      } else if (typeof filter === "object") {
+        const methods = Object.keys(LoggingEventTypesBase);
+        for (let method of methods) {
+          if (filter.hasOwnProperty(method)) {
+            const methodValue = filter[method as keyof typeof filter];
+            if (typeof methodValue === "boolean") {
+              logAsType = "eventsState";
+            } else if (Array.isArray(methodValue)) {
+              logAsType = "eventsPlugins";
+            } else if (typeof methodValue === "object") {
+              logAsType = "eventsDetailed";
+            }
+          }
+        }
+      }
+    }
+    this.loggers.push({
+      plugin: loggerPlugin,
+      on: filter,
+      onTypeof: logAsType,
+    });
+
+    this.log.info("Ready {pluginName} ({mappedName})", {
+      pluginName: plugin.plugin,
+      mappedName: plugin.name,
+    });
+
+    await SmartFunctionCallAsync(loggerPlugin, loggerPlugin.init);
+
+    return loggerPlugin;
+  }
+
   private async addLogger(
     sbConfig: SBConfig,
     plugin: IPluginDefinition,
@@ -301,54 +361,6 @@ export class SBLogging {
       pluginConfig = {};
     }
 
-    this.log.debug(`Construct logging plugin: {name}`, {
-      name: plugin.name,
-    });
-
-    let loggerPlugin = new newPlugin.plugin({
-      appId: this.appId,
-      mode: this.mode,
-      pluginName: newPlugin.name,
-      cwd: this.cwd,
-      pluginCwd: newPlugin.pluginCWD,
-      config: pluginConfig,
-    });
-    this.log.info("Adding {pluginName} as logger with filter: ", {
-      pluginName: plugin.name,
-      //filters: filter
-    });
-    let logAsType: FilterOnType = "all";
-
-    if (filter) {
-      if (Array.isArray(filter)) {
-        logAsType = "events";
-      } else if (typeof filter === "object") {
-        const methods = Object.keys(LoggingEventTypesBase);
-        for (let method of methods) {
-          if (filter.hasOwnProperty(method)) {
-            const methodValue = filter[method as keyof typeof filter];
-            if (typeof methodValue === "boolean") {
-              logAsType = "eventsState";
-            } else if (Array.isArray(methodValue)) {
-              logAsType = "eventsPlugins";
-            } else if (typeof methodValue === "object") {
-              logAsType = "eventsDetailed";
-            }
-          }
-        }
-      }
-    }
-    this.loggers.push({
-      plugin: loggerPlugin,
-      on: filter,
-      onTypeof: logAsType,
-    });
-
-    this.log.info("Ready {pluginName} ({mappedName})", {
-      pluginName: plugin.plugin,
-      mappedName: plugin.name,
-    });
-
-    await SmartFunctionCallAsync(loggerPlugin, loggerPlugin.init);
+    await this.addPlugin(plugin, newPlugin, pluginConfig, filter);
   }
 }

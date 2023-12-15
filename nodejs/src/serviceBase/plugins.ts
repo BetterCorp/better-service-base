@@ -3,7 +3,11 @@ import { join } from "path";
 import { PluginType, PluginTypeDefinitionRef } from "../interfaces/plugins";
 import { IPluginLogger } from "../interfaces/logging";
 import { BSBError } from "../base/errorMessages";
-import { BSBServiceConfig, BSBServiceConfigRef } from "../interfaces";
+import {
+  BSBServiceConfig,
+  BSBServiceConfigRef,
+  LoadedPlugin,
+} from "../interfaces";
 
 export class SBPlugins {
   protected cwd: string;
@@ -31,17 +35,7 @@ export class SBPlugins {
     npmPackage: string | null,
     plugin: string,
     name: string
-  ): Promise<{
-    name: string;
-    ref: string;
-    version: string;
-    serviceConfig: BSBServiceConfig<any> | null;
-    //pluginFile: string;
-    //installerFile: string | null;
-    plugin: ClassType;
-    pluginCWD: string;
-    pluginPath: string;
-  } | null> {
+  ): Promise<LoadedPlugin<NamedType, ClassType> | null> {
     log.debug(`PLUGIN {name} from {package} try load as {pluginName}`, {
       name: plugin,
       pluginName: name,

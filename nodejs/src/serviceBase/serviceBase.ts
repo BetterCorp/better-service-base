@@ -4,20 +4,23 @@ import { SBPlugins } from "./plugins";
 import { SBServices } from "./services";
 import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
 import { SBConfig } from "./config";
-//import { SBEvents } from "./events";
 import { randomUUID } from "crypto";
 import { hostname } from "os";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 import { PluginLogger } from "../base/PluginLogger";
 import { SmartFunctionCallSync } from "../base/functions";
 import { SBEvents } from "./events";
+import { PluginTypeDefinitionRef } from "../interfaces";
+import { BSBConfig, BSBError, BSBLogging } from "../base";
+import { BSBEvents } from "../base";
+import { BSBService } from "../base";
 
 export const BOOT_STAT_KEYS = {
   BSB: "BSB",
   SELF: "SELF",
   PLUGINS: "PLUGINS",
   CONFIG: "CONFIG",
-  LOGGER: "LOGGER",
+  LOGGING: "LOGGER",
   EVENTS: "EVENTS",
   SERVICES: "SERVICES",
   INIT: "INIT",
@@ -30,11 +33,6 @@ export const MS_PER_NS = 1e-6;
 const TIMEKEEPLOG = "[TIMER] {timerName} took ({nsTime}ns) ({msTime}ms)";
 
 export class ServiceBase {
-  /*private _packJsonFile!: string;
-  private _bsbPackJsonFile!: string;
-  private _appVersion: string = "0.0.1-debug";
-  private _bsbVersion: string = "0.0.1-debug";*/
-
   private mode: DEBUG_MODE = "development";
 
   private readonly _CORE_PLUGIN_NAME = "core";
@@ -100,7 +98,7 @@ export class ServiceBase {
       this.logging,
       this.plugins
     );
-    
+
     this.log = new PluginLogger(
       this.mode,
       this._CORE_PLUGIN_NAME,
@@ -140,9 +138,9 @@ export class ServiceBase {
     this._startKeep(BOOT_STAT_KEYS.CONFIG);
     await this.config.init();
     this._outputKeep(BOOT_STAT_KEYS.CONFIG);
-    this._startKeep(BOOT_STAT_KEYS.LOGGER);
+    this._startKeep(BOOT_STAT_KEYS.LOGGING);
     await this.logging.init(this.config);
-    this._outputKeep(BOOT_STAT_KEYS.LOGGER);
+    this._outputKeep(BOOT_STAT_KEYS.LOGGING);
     this._startKeep(BOOT_STAT_KEYS.EVENTS);
     await this.events.init(this.config, this.logging);
     this._outputKeep(BOOT_STAT_KEYS.EVENTS);
@@ -226,6 +224,117 @@ export class ServiceBase {
 
     console.warn("BSB Disposed successfully. exiting code " + eCode);
     process.exit(eCode);
+  }
+
+  public async setConfigPlugin(name: string, reference: typeof BSBConfig) {
+    if (this._keeps[BOOT_STAT_KEYS.CONFIG] !== undefined)
+      throw new BSBError(
+        "Cannot add config plugin as config already initialized",
+        {}
+      );
+    return this.config.setConfigPlugin({
+      serviceConfig: null,
+      plugin: reference as unknown as PluginTypeDefinitionRef<"config">,
+      pluginCWD: this.cwd,
+      pluginPath: "",
+      version: "0.0.0",
+      ref: name,
+      name,
+    });
+  }
+
+  public async addService(
+    name: string,
+    plugin: typeof BSBService<any, any>,
+    config: object | any
+  ) {
+    if (this._keeps[BOOT_STAT_KEYS.SERVICES] !== undefined)
+      throw new BSBError(
+        "Cannot add service plugin as service already called",
+        {}
+      );
+    return await this.services.addPlugin(
+      this.config,
+      this.logging,
+      this.events,
+      {
+        name,
+        plugin: name,
+        package: null,
+        version: "0.0.0",
+      },
+      {
+        serviceConfig: config,
+        plugin: plugin as unknown as PluginTypeDefinitionRef<"service">,
+        pluginCWD: this.cwd,
+        pluginPath: "",
+        version: "0.0.0",
+        ref: name,
+        name,
+      },
+      config
+    );
+  }
+
+  public async addEvents(
+    name: string,
+    plugin: typeof BSBEvents<any>,
+    config: object | any
+  ) {
+    if (this._keeps[BOOT_STAT_KEYS.EVENTS] !== undefined)
+      throw new BSBError(
+        "Cannot add events plugin as events already initialized",
+        {}
+      );
+    return await this.events.addPlugin(
+      this.logging,
+      {
+        name,
+        plugin: name,
+        package: null,
+        version: "0.0.0",
+      },
+      {
+        serviceConfig: config,
+        plugin: plugin as unknown as PluginTypeDefinitionRef<"events">,
+        pluginCWD: this.cwd,
+        pluginPath: "",
+        version: "0.0.0",
+        ref: name,
+        name,
+      },
+      config
+    );
+  }
+
+  public async addLogging(
+    name: string,
+    plugin: typeof BSBLogging<any>,
+    config: object | any
+  ) {
+    if (this._keeps[BOOT_STAT_KEYS.LOGGING] !== undefined)
+      throw new BSBError(
+        "Cannot add logging plugin as logging already initialized",
+        {}
+      );
+    return await this.logging.addPlugin(
+      {
+        name,
+        plugin: name,
+        package: null,
+        version: "0.0.0",
+      },
+      {
+        serviceConfig: config,
+        plugin: plugin as unknown as PluginTypeDefinitionRef<"logging">,
+        pluginCWD: this.cwd,
+        pluginPath: "",
+        version: "0.0.0",
+        ref: name,
+        name,
+      },
+      config
+    );
   }
 }
 export default ServiceBase;
