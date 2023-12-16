@@ -28,7 +28,7 @@
     "README.md"
   ],
   "main": "lib/index.js",
-  "version": "9.0.2-beta",
+  "version": "9.0.3-beta",
   "devDependencies": {
     "@types/assert": "^1.5.6",
     "@types/chai": "^4.3.3",

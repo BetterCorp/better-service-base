@@ -109,7 +109,7 @@ export abstract class Base extends MainBase {
  *  a: z.string(),
  * });
  */
-export type BSBConfigType = z.AnyZodObject | undefined;
+export type BSBConfigType = z.ZodTypeAny | undefined;
 export type BSBConfigDefinition = BSBServiceConfig<z.AnyZodObject>;
 /**
  * Config migration handler, allows for config migrations when the plugin version changes or a new plugin setup is done
