@@ -1,9 +1,14 @@
 version: 2
 updates:
-- package-ecosystem: npm
-  directory: "/ui"
-  target-branch: "develop"
-  schedule:
-    interval: monthly
-    time: "03:00"
-  open-pull-requests-limit: 10
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "04:00"
+  - package-ecosystem: npm
+    directory: "/nodejs"
+    target-branch: "develop"
+    schedule:
+      interval: weekly
+      time: "03:00"
+    open-pull-requests-limit: 3

@@ -18,10 +18,10 @@ export class SBPlugins {
     this.cwd = cwd;
     this.devMode = devMode;
     if (
-      typeof process.env.PLUGIN_DIR == "string" &&
-      process.env.PLUGIN_DIR.length > 3
+      typeof process.env.BSB_PLUGIN_DIR == "string" &&
+      process.env.BSB_PLUGIN_DIR.length > 3
     ) {
-      this.pluginDir = process.env.PLUGIN_DIR;
+      this.pluginDir = process.env.BSB_PLUGIN_DIR;
     } else {
       this.pluginDir = join(this.cwd, "./node_modules/");
     }

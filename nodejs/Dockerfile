@@ -12,27 +12,31 @@ ENV BSB_PLUGIN_DIR /mnt/bsb-plugins
 
 # NPM repo defaults
 #RUN pnpm config set auto-install-peers true
-RUN npm init -y
-RUN echo '{"deploymentProfiles":{"default":{}},"plugins":{}}' >> ./sec.config.json
+#RUN npm init -y
+#RUN echo '{"deploymentProfiles":{"default":{}},"plugins":{}}' >> ./sec.config.json
 # RUN pushd /mnt/bsb-plugins && npm init -y && pushd
 
 # Add core BSB lib (from local)
-RUN mkdir /home/bsb-build
-COPY *.tgz /home/bsb-build/
+ADD package.json /home/bsb/package.json
+ADD package-lock.json /home/bsb/package-lock.json
+ADD lib/ /home/bsb/lib/
+
+#RUN mkdir /home/bsb-build
+#COPY *.tgz /home/bsb-build/
 COPY entrypoint.sh /root/entrypoint.sh
-COPY entrypoint.js /root/entrypoint.js
-RUN chmod 550 /root/entrypoint.sh
+#COPY entrypoint.js /root/entrypoint.js
+#RUN chmod 550 /root/entrypoint.sh
 
 # Default plugins/setup
-RUN ls -la /home/bsb-build/
-RUN pnpm add "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz | head -1)"
+#RUN ls -la /home/bsb-build/
+#RUN pnpm add "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz | head -1)"
 # RUN pnpm i --prod --fix-lockfile "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz | head -1)"
-RUN node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
+#RUN node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 
-RUN cat ./package.json
+#RUN cat ./package.json
 
 # Cleanup
-RUN rm -rfv /home/bsb-build
+#RUN rm -rfv /home/bsb-build
 
 RUN chown -R root:node /home/bsb
 RUN chmod -R 650 /home/bsb

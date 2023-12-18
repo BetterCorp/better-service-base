@@ -1,0 +1,85 @@
+# name: Build Framework
+
+# on:
+#   pull_request:
+#   push:
+#     branches:
+#       - "**"
+#       - "!develop"
+#       - "!master"
+#     tags-ignore:
+#       - "**"
+
+# jobs:
+#   build-framework-nodejs:
+#     runs-on: ubuntu-latest
+
+#     strategy:
+#       matrix:
+#         node-version: [18.x, 20.x]
+
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: Use Node.js ${{ matrix.node-version }}
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: ${{ matrix.node-version }}
+#           cache: "npm"
+#           cache-dependency-path: nodejs/package-lock.json
+
+#       - run: npm i -g typescript ts-node
+#         working-directory: ./nodejs
+#       - run: tsc -v ; ts-node -v
+#         working-directory: ./nodejs
+#       - run: npm ci
+#         working-directory: ./nodejs
+#       - run: npm run build
+#         working-directory: ./nodejs
+#       - run: npm run test
+#         working-directory: ./nodejs
+
+#       - name: Test Report ${{ matrix.node-version }}
+#         uses: dorny/test-reporter@v1.5.0
+#         with:
+#           name: Tests
+#           path: nodejs/junit.json
+#           reporter: mocha-json
+
+#       - name: Upload coverage reports to Codecov
+#         if: contains(matrix.node-version, '20.x')
+#         uses: codecov/codecov-action@v3
+#         with:
+#           token: ${{ secrets.CODECOV_TOKEN }}
+#           directory: nodejs/coverage
+
+#       - name: cleanup
+#         if: always()
+#         run: rm -f ~/.npmrc ; rm -f ./.npmrc;
+
+#   docs_build_:
+#     runs-on: ubuntu-latest
+
+#     strategy:
+#       matrix:
+#         node-version: [20.x]
+#         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Use Node.js ${{ matrix.node-version }}
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: ${{ matrix.node-version }}
+#           cache: "npm"
+#           cache-dependency-path: documentation/package-lock.json
+          
+#       - run: npm ci
+#         working-directory: documentation/
+
+#       - run: npm run build
+#         working-directory: documentation/
