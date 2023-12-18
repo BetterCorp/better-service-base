@@ -1,4 +1,4 @@
-FROM betterweb/node:latest
+FROM node:20-bullseye
 # RUN npm i -g typescript ts-node
 
 VOLUME /mnt/bsb-plugins
@@ -40,7 +40,8 @@ COPY entrypoint.sh /root/entrypoint.sh
 
 RUN chown -R root:node /home/bsb
 RUN chmod -R 650 /home/bsb
-RUN chown node:node /home/bsb/sec.config.json
+RUN touch /home/bsb/sec-config.yaml
+RUN chown node:node /home/bsb/sec-config.yaml
 
 ENTRYPOINT [ "/root/entrypoint.sh" ]
 CMD node node_modules/@bettercorp/service-base/lib/cli.js
