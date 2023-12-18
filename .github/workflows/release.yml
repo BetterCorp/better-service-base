@@ -29,7 +29,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - run: ./ci-build-dist
+      - run: mkdir ./ci-build-dist
         working-directory: ./nodejs
 
       - name: Download artifact
