@@ -49,7 +49,7 @@ export class Plugin extends BSBService<any, ServiceTypes> {
       "onReturnable",
       async (a: number, b: number) => {
         this.log.warn("RECEIVED onReturnable ({a},{b})", { a, b });
-        let result = await this.events.emitEventAndReturn(
+        const result = await this.events.emitEventAndReturn(
           "onReverseReturnable",
           5,
           a,

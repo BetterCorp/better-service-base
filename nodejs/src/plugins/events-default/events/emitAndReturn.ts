@@ -42,7 +42,7 @@ export default class emitAndReturn extends EventEmitter {
     });
     const self = this;
     return new Promise((resolve, reject) => {
-      let timeoutHandler = setTimeout(() => {
+      const timeoutHandler = setTimeout(() => {
         reject("Timeout");
       }, timeoutSeconds * 1000);
       self.emit(

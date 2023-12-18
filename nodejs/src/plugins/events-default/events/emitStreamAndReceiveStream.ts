@@ -27,7 +27,7 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
     });
     const self = this;
     return new Promise((resolve) => {
-      let receiptTimeoutHandler: NodeJS.Timeout = setTimeout(() => {
+      const receiptTimeoutHandler: NodeJS.Timeout = setTimeout(() => {
         const err = new Error("Receive Receipt Timeout");
         listener(err, null!);
         self.emit(`${streamId}-error`, err);
@@ -73,7 +73,7 @@ export default class emitStreamAndReceiveStream extends EventEmitter {
       let receiptTimeoutHandler: NodeJS.Timeout | null = setTimeout(() => {
         reject(new Error("Send Receipt Timeout"));
       }, self.staticCommsTimeout);
-      let timeoutHandler = setTimeout(() => {
+      const timeoutHandler = setTimeout(() => {
         reject(new Error("Stream Timeout"));
       }, timeout * 1000);
       self.once(`${streamId}-emit`, () => {

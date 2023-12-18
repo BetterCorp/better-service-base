@@ -55,8 +55,8 @@ export class ServiceBase {
     this._keeps[stepName] = process.hrtime();
   }
   private async _outputKeep(stepName: BootStatKeys) {
-    let diff = process.hrtime(this._keeps[stepName] || undefined);
-    let logMeta: LogMeta<typeof TIMEKEEPLOG> = {
+    const diff = process.hrtime(this._keeps[stepName] || undefined);
+    const logMeta: LogMeta<typeof TIMEKEEPLOG> = {
       nsTime: diff[0] * NS_PER_SEC + diff[1],
       msTime: (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS,
       timerName: stepName,

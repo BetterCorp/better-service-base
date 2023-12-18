@@ -4,6 +4,7 @@ node_modules
 lib
 _exports
 src/plugins/-*/*.*
+src/tests/**/*.*
 templates
 docker
 build

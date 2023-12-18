@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { DEBUG_MODE } from "../interfaces/logging";
 import { SBLogging } from "../serviceBase/logging";
 import {

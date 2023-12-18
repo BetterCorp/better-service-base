@@ -14,7 +14,7 @@ export class LogFormatter {
     return dataFromKeyVP;
   }
   private formatData(meta: any, key: string) {
-    let referencedVar = this.getSafeData(meta, key);
+    const referencedVar = this.getSafeData(meta, key);
     if (Tools.isNullOrUndefined(referencedVar)) return "*null/undefined*";
     if (Tools.isDate(referencedVar)) return referencedVar.toISOString();
     if (Tools.isString(referencedVar)) return referencedVar;
@@ -39,10 +39,10 @@ export class LogFormatter {
     //console.log(`_${message}:${Tools.isObject(meta)}`);
     if (!Tools.isObject(meta)) return message;
 
-    let dataToParse = message.split("{");
+    const dataToParse = message.split("{");
     let outString = dataToParse[0];
     for (let i = 1; i < dataToParse.length; i++) {
-      let removedVar = dataToParse[i].split("}");
+      const removedVar = dataToParse[i].split("}");
       outString += this.formatData(meta, removedVar[0]) + removedVar[1];
     }
     return outString;

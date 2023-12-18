@@ -173,7 +173,7 @@ export class SBLogging {
     messageOrKey: T | string,
     metaOrValue: LogMeta<T> | number
   ): Promise<void> {
-    for (let logger of this.getPluginsMatchingLogEvent(logAs, plugin)) {
+    for (const logger of this.getPluginsMatchingLogEvent(logAs, plugin)) {
       if (logAs === "reportStat") {
         await this.triggerLogEventReportStat(
           logger.plugin,
@@ -216,8 +216,8 @@ export class SBLogging {
   }
   public async init(sbConfig: SBConfig) {
     this.log.debug("INIT SBLogging");
-    let plugins = await sbConfig.getLoggingPlugins();
-    for (let plugin of Object.keys(plugins)) {
+    const plugins = await sbConfig.getLoggingPlugins();
+    for (const plugin of Object.keys(plugins)) {
       await this.addLogger(
         sbConfig,
         {
@@ -264,7 +264,7 @@ export class SBLogging {
       name: plugin.name,
     });
 
-    let loggerPlugin = new reference.plugin({
+    const loggerPlugin = new reference.plugin({
       appId: this.appId,
       mode: this.mode,
       pluginName: reference.name,
@@ -283,8 +283,10 @@ export class SBLogging {
         logAsType = "events";
       } else if (typeof filter === "object") {
         const methods = Object.keys(LoggingEventTypesBase);
-        for (let method of methods) {
-          if (filter.hasOwnProperty(method)) {
+        for (const method of methods) {
+          if (
+            (filter as unknown as Record<string, any>)[method] !== undefined
+          ) {
             const methodValue = filter[method as keyof typeof filter];
             if (typeof methodValue === "boolean") {
               logAsType = "eventsState";

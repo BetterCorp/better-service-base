@@ -54,7 +54,7 @@ export class Plugin extends BSBConfig {
     );
   }
   async getLoggingPlugins(): Promise<Record<string, LoggingConfig>> {
-    let plugins = Object.keys(
+    const plugins = Object.keys(
       this._appConfig[this._deploymentProfile].logging ?? {}
     ).filter((x) => {
       return (
@@ -73,7 +73,7 @@ export class Plugin extends BSBConfig {
     }, {} as Record<string, LoggingConfig>);
   }
   async getEventsPlugins(): Promise<Record<string, EventsConfig>> {
-    let plugins = Object.keys(
+    const plugins = Object.keys(
       this._appConfig[this._deploymentProfile].events ?? {}
     ).filter((x) => {
       return (
@@ -92,7 +92,7 @@ export class Plugin extends BSBConfig {
     }, {} as Record<string, EventsConfig>);
   }
   async getServicePlugins(): Promise<Record<string, PluginDefition>> {
-    let plugins = Object.keys(
+    const plugins = Object.keys(
       this._appConfig[this._deploymentProfile].services ?? {}
     ).filter((x) => {
       return (

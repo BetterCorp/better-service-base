@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BSBConfigDefinition, BaseWithLoggingAndConfig } from "./base";
 import { ServiceEventsBase, ServiceEventsDefault } from "../interfaces/service";
 import { DEBUG_MODE } from "../interfaces/logging";

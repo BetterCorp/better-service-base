@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BSBConfigDefinition, BaseWithConfig } from "./base";
 import { DEBUG_MODE, LogMeta } from "../interfaces/logging";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
@@ -145,6 +146,7 @@ export abstract class BSBLogging<
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
 export class BSBLoggingRef extends BSBLogging<BSBConfigDefinition> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public reportStat(plugin: string, key: string, value: number): void {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBLoggingRef", "reportStat");
   }

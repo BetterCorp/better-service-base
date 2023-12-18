@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Readable } from "stream";
 import { BSBConfigDefinition, BaseWithLoggingAndConfig } from "./base";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
-import { DEBUG_MODE } from '../interfaces';
-import { SBLogging } from '../serviceBase';
+import { DEBUG_MODE } from "../interfaces";
+import { SBLogging } from "../serviceBase";
 
 export interface BSBEventsConstructor {
   appId: string;

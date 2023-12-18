@@ -6,6 +6,7 @@ export type DynamicallyReferencedMethodCallable<
   ArgsReference extends boolean = true
   //ShowTimeout extends boolean = true
 > = ArgsReference extends true
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
   ? Interface[Method] extends (...a: infer Arguments) => infer Return
     ? [event: Method, ...a: Arguments]
     : [event: Method, noMatchingEvent: never]
@@ -33,6 +34,7 @@ export type DynamicallyReferencedMethodOnIEvents<
 export type DynamicallyReferencedMethodEmitIEvents<
   Interface extends DynamicallyReferencedMethodBase,
   Method extends string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 > = Interface[Method] extends (...a: infer Arguments) => infer Return
   ? [event: Method, ...a: Arguments]
   : [noMatchingEvent: never];
@@ -43,6 +45,7 @@ export type DynamicallyReferencedMethodEmitEARIEvents<
   ArgsReference extends boolean = true
   //ShowTimeout extends boolean = true
 > = ArgsReference extends true
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
   ? Interface[Method] extends (...a: infer Arguments) => infer Return
     ? //? ShowTimeout extends true
       [event: Method, timeoutSeconds?: number, ...a: Arguments]

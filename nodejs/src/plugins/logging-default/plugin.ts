@@ -120,7 +120,7 @@ export class Plugin extends BSBLogging<BSBConfigDefinition> {
     messageOrError: T | Error,
     meta?: LogMeta<T>
   ): void {
-    let message =
+    const message =
       typeof messageOrError === "string"
         ? messageOrError
         : messageOrError.message;

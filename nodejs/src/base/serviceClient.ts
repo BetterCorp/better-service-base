@@ -18,6 +18,7 @@ export abstract class BSBServiceClient<
     Events["onBroadcast"]
   >;
   public callMethod<TA extends string>(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: DynamicallyReferencedMethodCallable<
       DynamicallyReferencedMethodType<Events["methods"]>,
       TA

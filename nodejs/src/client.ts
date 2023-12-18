@@ -94,7 +94,9 @@ export class FakeServiceConfig extends BSBConfig {
     return { name: pluginName, enabled: false };
   }
   async getPluginConfig(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     pluginType: PluginType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     plugin: string
   ): Promise<object | null> {
     return null;

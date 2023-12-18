@@ -40,9 +40,9 @@ export class SBServices {
   }
 
   public dispose() {
-    for (let service of this._activeServices) {
+    for (const service of this._activeServices) {
       this.log.warn("disposing {service}", { service: service.pluginName });
-      for (let client of service._clients) {
+      for (const client of service._clients) {
         SmartFunctionCallSync(client, client.dispose);
       }
       SmartFunctionCallSync(service, service.dispose);
@@ -55,8 +55,8 @@ export class SBServices {
     sbEvents: SBEvents
   ) {
     this.log.debug("SETUP SBServices");
-    let plugins = await sbConfig.getServicePlugins();
-    for (let plugin of Object.keys(plugins)) {
+    const plugins = await sbConfig.getServicePlugins();
+    for (const plugin of Object.keys(plugins)) {
       await this.addService(sbConfig, sbLogging, sbEvents, {
         name: plugin,
         package: plugins[plugin].package,
@@ -109,9 +109,9 @@ export class SBServices {
     referencedPluginName: string,
     ...sourcePluginsList: Array<Array<string> | undefined>
   ): Promise<Array<string>> {
-    let outlist = [];
-    for (let pluginArr of sourcePluginsList.filter((x) => x !== undefined)) {
-      for (let plugin of pluginArr!) {
+    const outlist = [];
+    for (const pluginArr of sourcePluginsList.filter((x) => x !== undefined)) {
+      for (const plugin of pluginArr!) {
         const pluginDef = await sbConfig.getServicePluginDefinition(plugin);
         if (pluginDef.enabled !== true)
           throw new BSBError(
@@ -139,7 +139,7 @@ export class SBServices {
       name: plugin.name,
     });
 
-    let servicePlugin = new reference.plugin({
+    const servicePlugin = new reference.plugin({
       appId: this.appId,
       mode: this.mode,
       pluginName: reference.name,
@@ -153,7 +153,7 @@ export class SBServices {
       pluginName: plugin.name,
     });
 
-    for (let client of servicePlugin._clients) {
+    for (const client of servicePlugin._clients) {
       this.log.debug("Construct {pluginName} client {clientName}", {
         pluginName: plugin.name,
         clientName: client.pluginName,
@@ -295,7 +295,7 @@ export class SBServices {
 
   public async init(sbConfig: SBConfig) {
     this.log.info("Init all services");
-    for (let service of this._activeServices) {
+    for (const service of this._activeServices) {
       this.log.debug("Mapping required plugins list for {plugin}", {
         plugin: service.pluginName,
       });
@@ -311,7 +311,7 @@ export class SBServices {
       );
     }
     this.log.info("Defining service order");
-    let orderOfPlugins = await this.makeAfterRequired(
+    const orderOfPlugins = await this.makeAfterRequired(
       await this.makeBeforeRequired(
         this._activeServices.map((x) => {
           return {
@@ -338,11 +338,11 @@ export class SBServices {
         .map((x) => `[(${x.after.join(",")})${x.name}(${x.before.join(",")})]`)
         .join(","),
     });
-    for (let service of orderOfPlugins) {
+    for (const service of orderOfPlugins) {
       this.log.debug(`Init {plugin}`, {
         plugin: service.name,
       });
-      for (let client of service.ref._clients) {
+      for (const client of service.ref._clients) {
         await this.initPluginClient(sbConfig, client);
       }
       SmartFunctionCallAsync(service.ref, service.ref.init);
@@ -359,7 +359,7 @@ export class SBServices {
   ) {
     for (let i = 0; i < orderOfPlugins.length; i++) {
       if (orderOfPlugins[i].before.length === 0) continue;
-      for (let bPlugin of orderOfPlugins[i].before)
+      for (const bPlugin of orderOfPlugins[i].before)
         for (let j = 0; j < orderOfPlugins.length; j++) {
           if (orderOfPlugins[j].name == bPlugin) {
             orderOfPlugins[j].after.push(orderOfPlugins[i].name);
@@ -390,7 +390,7 @@ export class SBServices {
 
   public async run(sbConfig: SBConfig) {
     this.log.info("Run all services");
-    for (let service of this._activeServices) {
+    for (const service of this._activeServices) {
       this.log.debug("Mapping required plugins list for {plugin}", {
         plugin: service.pluginName,
       });
@@ -406,7 +406,7 @@ export class SBServices {
       );
     }
     this.log.info("Defining service order");
-    let orderOfPlugins = await this.makeAfterRequired(
+    const orderOfPlugins = await this.makeAfterRequired(
       await this.makeBeforeRequired(
         this._activeServices.map((x) => {
           return {
@@ -433,11 +433,11 @@ export class SBServices {
         .map((x) => `[(${x.after.join(",")})${x.name}(${x.before.join(",")})]`)
         .join(","),
     });
-    for (let service of orderOfPlugins) {
+    for (const service of orderOfPlugins) {
       this.log.debug(`Run {plugin}`, {
         plugin: service.name,
       });
-      for (let client of service.ref._clients) {
+      for (const client of service.ref._clients) {
         SmartFunctionCallAsync(client, client.run);
       }
       SmartFunctionCallAsync(service.ref, service.ref.run);

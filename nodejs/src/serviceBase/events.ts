@@ -116,7 +116,7 @@ export class SBEvents {
     pluginName: string;
     plugin: BSBEvents<any>;
   } {
-    let matchingEvent = this.getPluginsMatchingTriggerEvent(eventAs, plugin);
+    const matchingEvent = this.getPluginsMatchingTriggerEvent(eventAs, plugin);
     if (matchingEvent === undefined)
       throw new BSBError(
         "SBEvents-triggerEvent",
@@ -130,8 +130,8 @@ export class SBEvents {
   }
   public async init(sbConfig: SBConfig, sbLogging: SBLogging) {
     this.log.debug("INIT SBEvents");
-    let plugins = await sbConfig.getEventsPlugins();
-    for (let plugin of Object.keys(plugins)) {
+    const plugins = await sbConfig.getEventsPlugins();
+    for (const plugin of Object.keys(plugins)) {
       await this.addEvents(
         sbConfig,
         sbLogging,
@@ -195,7 +195,7 @@ export class SBEvents {
       name: plugin.name,
     });
 
-    let eventsPlugin = new reference.plugin({
+    const eventsPlugin = new reference.plugin({
       appId: this.appId,
       mode: this.mode,
       pluginName: reference.name,
@@ -215,8 +215,10 @@ export class SBEvents {
         eventAsType = "events";
       } else if (typeof filter === "object") {
         const methods = Object.keys(EventsEventTypesBase);
-        for (let method of methods) {
-          if (filter.hasOwnProperty(method)) {
+        for (const method of methods) {
+          if (
+            (filter as unknown as Record<string, any>)[method] !== undefined
+          ) {
             const methodValue = filter[method as keyof typeof filter];
             if (typeof methodValue === "boolean") {
               eventAsType = "eventsState";
@@ -305,7 +307,7 @@ export class SBEvents {
     const start = process.hrtime();
     try {
       await SmartFunctionCallAsync(context, listener, ...iargs);
-      let diff = process.hrtime(start);
+      const diff = process.hrtime(start);
       this.log.reportStat(
         `on-broadcast-${eventsPluginName}-${pluginName}-${event}`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
@@ -381,7 +383,7 @@ export class SBEvents {
     try {
       //console.log("CALL ON EVENT", context, listener, iargs);
       await SmartFunctionCallAsync(context, listener, ...iargs);
-      let diff = process.hrtime(start);
+      const diff = process.hrtime(start);
       this.log.reportStat(
         `on-event-${eventsPluginName}-${pluginName}-${event}`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
@@ -491,7 +493,7 @@ export class SBEvents {
     const start = process.hrtime();
     try {
       const resp = await SmartFunctionCallAsync(context, listener, ...iargs);
-      let diff = process.hrtime(start);
+      const diff = process.hrtime(start);
       this.log.reportStat(
         `on-returnableevent-${eventsPluginName}-${pluginName}-${event}`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
@@ -584,7 +586,7 @@ export class SBEvents {
         timeoutSeconds,
         args
       );
-      let diff = process.hrtime(start);
+      const diff = process.hrtime(start);
       this.log.reportStat(
         `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
@@ -623,7 +625,7 @@ export class SBEvents {
         timeoutSeconds,
         args
       );
-      let diff = process.hrtime(start);
+      const diff = process.hrtime(start);
       this.log.reportStat(
         `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}-${serverId}`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
@@ -658,7 +660,7 @@ export class SBEvents {
         error,
         stream
       );
-      let diff = process.hrtime(start);
+      const diff = process.hrtime(start);
       this.log.reportStat(
         `receivestream-${eventsPluginName}-${pluginName}-${event}`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
@@ -724,7 +726,7 @@ export class SBEvents {
         streamId,
         stream
       );
-      let diff = process.hrtime(start);
+      const diff = process.hrtime(start);
       this.log.reportStat(
         `sendstream-${plugin.pluginName}-${pluginName}-${event}`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
