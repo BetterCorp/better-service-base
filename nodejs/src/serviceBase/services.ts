@@ -15,6 +15,7 @@ import { BSBError } from "../base/errorMessages";
 import { BSBServiceClient } from "../base/serviceClient";
 import { PluginEvents } from "../base/PluginEvents";
 import { LoadedPlugin } from "../interfaces";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class SBServices {
   private _activeServices: Array<BSBService> = [];
@@ -226,10 +227,15 @@ export class SBServices {
 
     let pluginConfig = await sbConfig.getPluginConfig("service", plugin.name);
 
-    if (newPlugin.serviceConfig !== null) {
+    if (
+      !Tools.isNullOrUndefined(newPlugin) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
+      Tools.isObject(newPlugin.serviceConfig) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
+    ) {
       pluginConfig =
         newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
-    } else if (pluginConfig === null) {
+    } else if (Tools.isNullOrUndefined(pluginConfig)) {
       pluginConfig = {};
     }
 

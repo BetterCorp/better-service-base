@@ -18,12 +18,12 @@ import {
 } from "../interfaces/plugins";
 import { SBPlugins } from "./plugins";
 import { SBConfig } from "./config";
-import { Tools } from "@bettercorp/tools";
 import {
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
 } from "../base/functions";
 import { LoadedPlugin } from "../interfaces";
+import { Tools } from '@bettercorp/tools/lib/Tools';
 
 export class SBLogging {
   private loggers: Array<{
@@ -356,10 +356,15 @@ export class SBLogging {
 
     let pluginConfig = await sbConfig.getPluginConfig("logging", plugin.name);
 
-    if (newPlugin.serviceConfig !== null) {
+    if (
+      !Tools.isNullOrUndefined(newPlugin) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
+      Tools.isObject(newPlugin.serviceConfig) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
+    ) {
       pluginConfig =
         newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
-    } else if (pluginConfig === null) {
+    } else if (Tools.isNullOrUndefined(pluginConfig)) {
       pluginConfig = {};
     }
 

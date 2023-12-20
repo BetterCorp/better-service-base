@@ -10,13 +10,15 @@ import {
   PluginType,
   PluginTypes,
 } from "../../interfaces/plugins";
-import { Tools } from "@bettercorp/tools";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 import { SBLogging } from "../../serviceBase/logging";
 import { DEBUG_MODE } from "../../interfaces/logging";
 import { BSBError } from "../../base/errorMessages";
 
 export class Plugin extends BSBConfig {
-  async getServicePluginDefinition(pluginName: string): Promise<{name:string,enabled:boolean}> {
+  async getServicePluginDefinition(
+    pluginName: string
+  ): Promise<{ name: string; enabled: boolean }> {
     const keydPlugins = Object.keys(
       this._appConfig[this._deploymentProfile].services ?? {}
     );
@@ -117,7 +119,9 @@ export class Plugin extends BSBConfig {
     let configKey: "services" | "logging" | "events" = "services";
     if (pluginType === PluginTypes.events) configKey = "events";
     if (pluginType === PluginTypes.logging) configKey = "logging";
-    return this._appConfig[this._deploymentProfile][configKey][plugin].config ?? null;
+    return (
+      this._appConfig[this._deploymentProfile][configKey][plugin].config ?? null
+    );
   }
   dispose() {
     this._appConfig = undefined!;

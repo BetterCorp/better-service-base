@@ -1,8 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "6C02A27v8AIrUk/f091ZNYiEh48VbXOUQkuaEttX9wfVc34nMPwErZXuzusJkAClEFjsHwfoNcI7Ft7y/aamYw==",
+  "dgSpecHash": "SW8YGRI76SDK6Rzixpf1lnLQTQcTM4BP9qYzPPFryONlPOp6Z3dM/zeNTcfSTKfEQFHXckkCwaRCXWRcRxgYCA==",
   "success": true,
-  "projectFilePath": "/home/mitchellr/_repos/BetterCorp/better-service-base/service-base/dotnet/BetterServiceBase/BetterServiceBase.csproj",
-  "expectedPackageFiles": [],
+  "projectFilePath": "/home/mitchellr/_repos/BSB-BetterPortal/BSB/_base/service-base/dotnet/BetterServiceBase/BetterServiceBase.csproj",
+  "expectedPackageFiles": [
+    "/home/mitchellr/.nuget/packages/microsoft.netcore.app.ref/6.0.25/microsoft.netcore.app.ref.6.0.25.nupkg.sha512",
+    "/home/mitchellr/.nuget/packages/microsoft.aspnetcore.app.ref/6.0.25/microsoft.aspnetcore.app.ref.6.0.25.nupkg.sha512",
+    "/home/mitchellr/.nuget/packages/microsoft.netcore.app.host.linux-x64/6.0.25/microsoft.netcore.app.host.linux-x64.6.0.25.nupkg.sha512"
+  ],
   "logs": []
 }

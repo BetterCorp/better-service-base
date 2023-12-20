@@ -1,4 +1,4 @@
-import { Tools } from "@bettercorp/tools";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 import { LogMeta, SafeLogData, UnsafeLogData } from "../interfaces/logging";
 
 export class LogFormatter {

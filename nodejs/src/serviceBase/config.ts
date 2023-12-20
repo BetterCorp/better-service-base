@@ -4,7 +4,6 @@ import { SBPlugins } from "./plugins";
 import { SBLogging } from "./logging";
 import { PluginLogger } from "../base/PluginLogger";
 import { BSBConfig } from "../base/config";
-import { Tools } from "@bettercorp/tools";
 import {
   SmartFunctionCallSync,
   SmartFunctionCallAsync,
@@ -16,6 +15,7 @@ import {
   PluginDefition,
   PluginType,
 } from "../interfaces/plugins";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class SBConfig {
   private mode: DEBUG_MODE = "development";

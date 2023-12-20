@@ -10,7 +10,6 @@ import {
 } from "../interfaces/plugins";
 import { SBPlugins } from "./plugins";
 import { SBConfig } from "./config";
-import { Tools } from "@bettercorp/tools";
 import {
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
@@ -23,6 +22,7 @@ import { NS_PER_SEC, MS_PER_NS } from "./serviceBase";
 import { BSBService } from "../base/service";
 import { BSBServiceClient } from "../base/serviceClient";
 import { LoadedPlugin } from "../interfaces";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class SBEvents {
   private events: Array<{
@@ -286,10 +286,15 @@ export class SBEvents {
 
     let pluginConfig = await sbConfig.getPluginConfig("events", plugin.name);
 
-    if (newPlugin.serviceConfig !== null) {
+    if (
+      !Tools.isNullOrUndefined(newPlugin) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
+      Tools.isObject(newPlugin.serviceConfig) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
+    ) {
       pluginConfig =
         newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
-    } else if (pluginConfig === null) {
+    } else if (Tools.isNullOrUndefined(pluginConfig)) {
       pluginConfig = {};
     }
 
