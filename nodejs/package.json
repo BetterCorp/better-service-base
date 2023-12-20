@@ -12,7 +12,7 @@
     "dev": "nodemon --config ./nodemon.json",
     "start": "node lib/cli.js",
     "build": "rm -rfv ./lib && tsc && npm run testDev",
-    "build-release": "rm -rfv ./lib && tsc --p ./development/tsconfig-release.json",
+    "build-release": "rm -rfv ./lib && tsc --p ./tsconfig-release.json",
     "xZpostinstall": "node ./postinstall.js",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
