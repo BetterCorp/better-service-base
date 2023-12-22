@@ -30,9 +30,9 @@ ENV BSB_LIVE true
 ENV BSB_CONTAINER true
 ENV BSB_PLUGIN_DIR /mnt/bsb-plugins
 
-COPY entrypoint.sh /home/bsb/entrypoint.s
+COPY entrypoint.sh /home/bsb/entrypoint.sh
 
-RUN addgroup node dialout && touch /home/bsb/sec-config.yaml && chown -R root:node /home/bsb && chmod -R 650 /home/bsb && chown node:node /home/bsb/sec-config.yaml && chmod +x /root/entrypoint.sh
+RUN addgroup node dialout && chown -R node:node /home/bsb && chmod -R 440 /home/bsb && chmod +x /home/bsb/entrypoint.sh
 
 ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]
 CMD lib/cli.js
