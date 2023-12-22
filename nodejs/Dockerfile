@@ -32,7 +32,7 @@ ADD lib/ /home/bsb/lib/
 
 COPY entrypoint.sh /root/entrypoint.sh
 
-RUN addgroup node dialout && touch /home/bsb/sec-config.yaml && chown -R root:node /home/bsb && chmod -R 650 /home/bsb && chown node:node /home/bsb/sec-config.yaml && chmod +x /root/entrypoint.sh && npm ci
+RUN addgroup node dialout && touch /home/bsb/sec-config.yaml && chown -R root:node /home/bsb && chmod -R 650 /home/bsb && chown node:node /home/bsb/sec-config.yaml && chmod +x /root/entrypoint.sh
 
 ENTRYPOINT [ "/root/entrypoint.sh" ]
 CMD node lib/cli.js
