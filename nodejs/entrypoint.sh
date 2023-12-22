@@ -7,8 +7,6 @@
 #   # node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 # fi
 
-addgroup node dialout;
-
 chown -R root:node /home/bsb
 chmod -R 650 /home/bsb
 mkdir /home/bsb/.temp
@@ -17,4 +15,5 @@ chown node:node /home/bsb/sec-config.yaml
 chown -R root:node /mnt/bsb-plugins
 chmod -R 660 /mnt/bsb-plugins
 
+#exec gosu node "$@"
 exec gosu node "$@"

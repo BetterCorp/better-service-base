@@ -69,7 +69,7 @@ jobs:
           file: ./nodejs/Dockerfile
           #platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           # amd64, arm32v6, arm32v7, arm64v8, ppc64le, s390x
-          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8
           push: true
           tags: |
             betterweb/service-base:node-${{ needs.build_nodejs_plugin_release.outputs.tag }}
@@ -82,7 +82,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./nodejs/
           file: ./nodejs/Dockerfile
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8
           push: true
           tags: |
             betterweb/service-base:node
