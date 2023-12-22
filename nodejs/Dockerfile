@@ -1,5 +1,6 @@
 # BSB Build
-FROM betterweb/node:20 as builder
+# Using 18 until nodejs fixes a bug with v20 - https://github.com/nodejs/docker-node/issues/1829
+FROM betterweb/node:18 as builder
 
 ARG BSB_VERSION=0.0.0
 
@@ -14,7 +15,7 @@ ADD src/ /home/bsb/src/
 RUN npm ci && npm version $BSB_VERSION --allow-same-version --no-git-tag-version && npm run build-release
 
 # Final image
-FROM betterweb/node:20
+FROM betterweb/node:18
 
 COPY --from=builder /home/bsb/lib /home/bsb/lib
 COPY --from=builder /home/bsb/node_modules /home/bsb/node_modules
