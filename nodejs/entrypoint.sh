@@ -7,13 +7,15 @@
 #   # node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 # fi
 
-chown -R node:node /home/bsb
-chmod -R 440 /home/bsb
 mkdir /home/bsb/.temp
-chmod -R 440 /home/bsb/.temp
-chown node:node /home/bsb/sec-config.yaml
+
+chown -R node:node /home/bsb
 chown -R node:node /mnt/bsb-plugins
-chmod -R 440 /mnt/bsb-plugins
+
+chmod -R 444 /home/bsb
+chmod -R 644 /home/bsb/.temp
+chmod -R 444 /mnt/bsb-plugins
+chmod 600 /home/bsb/sec-config.yaml
 
 
-exec gosu node:node lib/cli.js
+exec gosu node:node node lib/cli.js
