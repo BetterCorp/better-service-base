@@ -32,7 +32,7 @@ ENV BSB_PLUGIN_DIR /mnt/bsb-plugins
 
 COPY entrypoint.sh /home/bsb/entrypoint.sh
 
-RUN addgroup node dialout && chown -R node:node /home/bsb && chmod -R 440 /home/bsb && chmod +x /home/bsb/entrypoint.sh
+RUN addgroup node dialout && chown -R node:node /home/bsb && chmod -R 440 /home/bsb && chmod 111 /home/bsb/entrypoint.sh
 
 ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]
-CMD lib/cli.js
+CMD -

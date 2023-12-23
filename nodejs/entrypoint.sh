@@ -15,5 +15,5 @@ chown node:node /home/bsb/sec-config.yaml
 chown -R node:node /mnt/bsb-plugins
 chmod -R 440 /mnt/bsb-plugins
 
-#exec gosu node "$@"
-exec gosu node "$@"
+
+exec gosu node:node lib/cli.js
