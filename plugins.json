@@ -307,7 +307,7 @@
   },
   {
     "name": "@bettercorp/service-base-plugin-events-rabbitmq",
-    "version": "3.0.0",
+    "version": "4.0.1",
     "lang": "node",
     "author": {
       "name": "BetterCorp",
@@ -358,75 +358,7 @@
             }
           ]
         },
-        "config": {
-          "interfaceName": "PluginConfig",
-          "definitions": {
-            "platformKey": {
-              "type": "string | null",
-              "required": true,
-              "name": "If you want to run multiple bsb platforms on a single rabbitmq",
-              "description": null
-            },
-            "fatalOnDisconnect": {
-              "type": "boolean",
-              "required": true,
-              "name": "Disconnect on error",
-              "description": "Cause the bsb service to exit code 1 if the connection drops"
-            },
-            "prefetch": {
-              "type": "number",
-              "required": true,
-              "name": "Prefetch",
-              "description": "The RabbitMQ Prefetch amount"
-            },
-            "endpoints": {
-              "type": "Array<string>",
-              "required": true,
-              "name": "Endpoints",
-              "description": "The list of servers(cluster) to connect too"
-            },
-            "credentials": {
-              "type": "IPluginConfig_Credentials",
-              "required": true,
-              "name": "Credentials for server authorization",
-              "description": null
-            },
-            "uniqueId": {
-              "type": "string",
-              "required": false,
-              "name": "Unique Client ID",
-              "description": "A static client Id - hostname is used when not set"
-            }
-          },
-          "extraDefinitions": {
-            "string | null": {},
-            "IPluginConfig_Credentials": {
-              "username": {
-                "type": "string",
-                "required": true,
-                "name": "Username",
-                "description": null
-              },
-              "password": {
-                "type": "string",
-                "required": true,
-                "name": "Password",
-                "description": null
-              }
-            }
-          },
-          "defaultValues": {
-            "fatalOnDisconnect": true,
-            "prefetch": 10,
-            "endpoints": [
-              "amqp://localhost"
-            ],
-            "credentials": {
-              "username": "guest",
-              "password": "guest"
-            }
-          }
-        },
+        "config": null,
         "pluginLink": "rabbitmq.events.bsbcode.dev"
       }
     ]
@@ -703,8 +635,8 @@
             "sandboxUrl": "https://sandbox.payfast.co.za/eng/process",
             "myHost": "http://localhost",
             "itnPath": "/Payfast/ITN",
-            "commsToken": "626bf07356b520285816f402e93778f6",
-            "commsTokenIV": "2c7f2366a9f1aa2bb80741f1af44c3c6",
+            "commsToken": "ba920de9b2f2452ff55ff48d50c3a037",
+            "commsTokenIV": "55bd15abd8eb9de18e9ad02c9d5911e4",
             "sandboxConfig": {
               "merchantId": "10021844",
               "merchantKey": "5fua4woj28gkh",
@@ -808,8 +740,8 @@
           },
           "extraDefinitions": {},
           "defaultValues": {
-            "publicKey": "BHtXHSigisBFvpWnbUguNC7OZfea_eT0XUzOGOET7zx3Ia_zb6CMGQiXdkeFcqmX_inNlKnOR8pn4dmVYU9qWRE",
-            "privateKey": "0OefiN_s7F-kGW-VDZitRY6Ms5SeajhmwzEs3r4iLcQ",
+            "publicKey": "BOZ7B3oBt6vFFbqwBPdMaM_U4a1gQC9xk4qBi80IfvJ3QEiOujxGq7CJErMNP7cjMfzrmk7rccUB2tMttTWZzow",
+            "privateKey": "_npS1uMmn2EzgCYhMXyTzaQTqw6wblDA_eoa1BW8EfU",
             "email": "test@example.com",
             "host": "http://localhost",
             "serviceWorkerJSPath": "/sw.js"
@@ -1321,7 +1253,7 @@
           },
           "defaultValues": {
             "webhooks": false,
-            "clientEndpointKey": "JDJiJDA0JHFkZldYTGh6aUhyUFB2dVNIU2YxQWUkMmIkMDQkcWRmV1hMaHppSHJQUHZ1U0hTZjFBZSQyYiQwNCRxZGZXWExoemlIclBQdnVTSFNmMUFl",
+            "clientEndpointKey": "JDJiJDA0JFVSRnl1bzlxWjh6LmxMRkgzdHZEVi4kMmIkMDQkVVJGeXVvOXFaOHoubExGSDN0dkRWLiQyYiQwNCRVUkZ5dW85cVo4ei5sTEZIM3R2RFYu",
             "multiTenant": false,
             "myHost": "http://localhost"
           }
@@ -1993,10 +1925,10 @@
           "defaultValues": {
             "keyUrl": null,
             "bearerStr": "Bearer",
-            "authKey": "$2b$08$3L.wwgcfXtbUNNoRZp8gY.",
+            "authKey": "$2b$08$5XxkfAfYIxekwrI/Y7GEHO",
             "privateKey": null,
             "publicKey": null,
-            "secretKey": "$2b$08$GPMQv9sLG/c.3u16ws41NO",
+            "secretKey": "$2b$08$bwT/oIajzR2rc8ngLaHbce",
             "queryKey": "passtk",
             "options": {
               "algorithms": [
@@ -2066,7 +1998,7 @@
           "defaultValues": {
             "endpoint": "ws://localhost/ws",
             "token": null,
-            "identity": "durmr01"
+            "identity": "fv-az975-901"
           }
         },
         "pluginLink": null
@@ -2229,8 +2161,8 @@
           },
           "defaultValues": {
             "myHost": "http://localhost",
-            "commsToken": "ca61d9be33769cab2bd601ea10106930",
-            "commsTokenIV": "513b6027e2c9a1d6eb971b3f0b07390e",
+            "commsToken": "897aa61581f868b503c69b42a31b7bfb",
+            "commsTokenIV": "673a90d06e38768efd83238fd3064f58",
             "sandboxConfig": {
               "publicKey": "pk_test_ed3c54a6gOol69qa7f45",
               "secretKey": "sk_test_960bfde0VBrLlpK098e4ffeb53e1"
