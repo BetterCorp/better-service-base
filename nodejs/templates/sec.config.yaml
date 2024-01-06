@@ -1,0 +1,14 @@
+deploymentProfiles:
+  default:
+    config-default:
+      mappedName: config-default
+      enabled: true
+    events-default:
+      mappedName: events-default
+      enabled: true
+    log-default:
+      mappedName: log-default
+      enabled: true
+plugins:
+  log-default: {}
+  events-default: {}

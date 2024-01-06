@@ -1,32 +1,69 @@
-import { CPlugin, CPluginClient } from "@bettercorp/service-base/lib/interfaces/plugins";
-import { MyPluginConfig } from './sec.config';
+import { ServicesBase } from "../src/index"; //"@bettercorp/service-base";
+import {
+  ServiceBroadcasts,
+  ServiceCallable,
+  ServiceEvents,
+  ServiceReturnableEvents,
+} from "../src/service/base";
+import { PluginConfig } from "./sec.config";
 
-export class demo extends CPluginClient<any> {
-  public readonly _pluginName: string = "demo";
+/// TODO: Move these interfaces to your index.ts file so your client plugins can reference them
+/// The reason for the index.ts file is if you are publishing any dist-clients, they will need to reference these interfaces
+export interface OnEvents extends ServiceEvents {}
+export interface EmitEvents extends ServiceEvents {}
+export interface OnReturnableEvents extends ServiceReturnableEvents {}
+export interface EmitReturnableEvents extends ServiceReturnableEvents {}
+export interface CallableMethods extends ServiceCallable {}
+export interface OnBroadcastEvents extends ServiceBroadcasts {}
+export interface EmitBroadcastEvents extends ServiceBroadcasts {}
+/// TODO: Move these interfaces to your index.ts file so your client plugins can reference them
 
-  async triggerServerOnEvent(data: any): Promise<void> {
-    await this.emitEvent("exampleOnEvent", data);
-  }
-  async triggerServerMethod(data: any): Promise<any> {
-    return this.emitEventAndReturn("exampleServerMethod", data);
-  }
-}
+export class Plugin
+  extends ServicesBase<
+    PluginConfig,
+    OnEvents,
+    EmitEvents,
+    OnReturnableEvents,
+    EmitReturnableEvents,
+    CallableMethods,
+    OnBroadcastEvents,
+    EmitBroadcastEvents
+  >
+  implements CallableMethods
+{
+  /**
+   * initAfterPlugins is a list of plugins that must be initialized before this plugin
+   * This is useful if you need to initialize a plugin before/after another plugin
+   * For example, if you have a plugin that requires a database connection, you can
+   * add the database plugin to this list so that it is initialized before your plugin
+   * is initialized
+   */
+  public override initAfterPlugins: string[] = [];
+  /**
+   * initBeforePlugins is a list of plugins that must be initialized after this plugin
+   * This is useful if you need to initialize a plugin before/after another plugin
+   * For example, another plugin may require your plugin to be initialized before it
+   * is initialized
+   */
+  public override initBeforePlugins: string[] = [];
+  /**
+   * runAfterPlugins is a list of plugins that must be run before this plugin
+   */
+  public override runAfterPlugins: string[] = [];
+  /**
+   * runBeforePlugins is a list of plugins that must be run after this plugin
+   */
+  public override runBeforePlugins: string[] = [];
 
-export class Plugin extends CPlugin<MyPluginConfig> {
-  async init(): Promise<void> {
-    await this.onEvent(null, "exampleOnEvent", x => self.exampleOnEvent(x));
-    await this.onReturnableEvent(null, "exampleServerMethod", self.exampleServerMethod);
-  }
+  /**
+   * This method is called to setup the plugin
+   * Add all your on event handlers here
+   * Init is called before run
+   */
+  public override async init(): Promise<void> {}
 
-  async exampleOnEvent(data: any): Promise<void> {
-    this.log.info("Received exampleOnEvent");
-  }
-
-  async exampleServerMethod(data: any): Promise<any> {
-    return data;
-  };
-
-  async loaded(): Promise<void> {
-    await this.emitEvent('another-plugin-name', 'another-plugin-on-event', '0');
-  }
+  /**
+   * This method is called once the plugin is loaded and ready to run
+   */
+  public override async run(): Promise<void> {}
 }

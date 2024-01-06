@@ -1,233 +1,125 @@
-import { readdirSync, statSync, existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { IPluginLogger } from "../interfaces/logger";
-import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
+import {
+  PluginType,
+  PluginTypeDefinitionRef,
+  IPluginLogger,
+  BSBError,
+  LoadedPlugin,
+  BSBPluginConfig,
+  BSBPluginConfigRef,
+} from "../";
 
 export class SBPlugins {
-  public static getPluginType(name: string): IPluginDefinition | null {
-    const pluginLow = name.toLowerCase();
-    if (pluginLow.indexOf("service-") === 0) return IPluginDefinition.service;
-    if (pluginLow.indexOf("config-") === 0) return IPluginDefinition.config;
-    if (pluginLow.indexOf("events-") === 0) return IPluginDefinition.events;
-    if (pluginLow.indexOf("log-") === 0 || pluginLow.indexOf("logs-") === 0)
-      return IPluginDefinition.logging;
-    return null;
+  protected cwd: string;
+  protected pluginDir: string;
+  protected devMode: boolean;
+
+  constructor(cwd: string, devMode: boolean) {
+    this.cwd = cwd;
+    this.devMode = devMode;
+    if (
+      typeof process.env.BSB_PLUGIN_DIR == "string" &&
+      process.env.BSB_PLUGIN_DIR.length > 3
+    ) {
+      this.pluginDir = process.env.BSB_PLUGIN_DIR;
+    } else {
+      this.pluginDir = join(this.cwd, "./node_modules/");
+    }
   }
 
-  private static async findPluginsFiles(
-    coreLogger: IPluginLogger,
-    path: string,
-    version: string,
-    libOnly = false,
-    pluginDir: string
-  ): Promise<Array<IReadyPlugin>> {
-    const arrOfPlugins: Array<IReadyPlugin> = [];
-
-    await coreLogger.debug(`FIND: FIND plugins in [{path}]`, { path });
-    for (const dirPluginFolderName of readdirSync(path)) {
-      const thisFullPath = join(path, dirPluginFolderName);
-      if (!statSync(thisFullPath).isDirectory()) {
-        await coreLogger.debug(`FIND: IGNORE [{thisFullPath}] Not a DIR`, {
-          thisFullPath,
-        });
-        continue;
-      }
-      if (dirPluginFolderName.indexOf("-") === 0) {
-        await coreLogger.debug(
-          `FIND: IGNORE [{thisFullPath}] Defined disabled`,
-          { thisFullPath }
-        );
-        continue;
-      }
-      if (libOnly) {
-        if (dirPluginFolderName.indexOf("-test") >= 0) {
-          await coreLogger.debug(
-            `FIND: IGNORE [{thisFullPath}] Defined test plugin to ignore`,
-            { thisFullPath }
-          );
-          continue;
-        }
-      }
-
-      let pluginDef = SBPlugins.getPluginType(dirPluginFolderName);
-      if (pluginDef === null) {
-        await coreLogger.debug(
-          `FIND: NOT VALID [{dirPluginFolderName}] in: {thisFullPath}`,
-          { dirPluginFolderName, thisFullPath }
-        );
-        continue;
-      }
-
-      let pluginFile = join(thisFullPath, "plugin.js");
-      if (!existsSync(pluginFile)) pluginFile = join(thisFullPath, "plugin.ts");
-
-      if (!existsSync(pluginFile)) {
-        await coreLogger.debug(
-          `FIND: IGNORE [{thisFullPath}] Not a valid plugin`,
-          { thisFullPath }
-        );
-        continue;
-      }
-
-      let pluginInstallerFile: string | null = join(
-        thisFullPath,
-        "sec.config.js"
-      );
-
-      if (!existsSync(pluginInstallerFile))
-        pluginInstallerFile = join(thisFullPath, "sec.config.ts");
-
-      if (!existsSync(pluginInstallerFile)) pluginInstallerFile = null;
-      await coreLogger.debug(
-        `FIND: READY [{dirPluginFolderName}] in: {thisFullPath}`,
-        { dirPluginFolderName, thisFullPath }
-      );
-      arrOfPlugins.push({
-        pluginDefinition: pluginDef,
-        name: dirPluginFolderName,
-        mappedName: dirPluginFolderName,
-        version: version,
-        pluginFile,
-        installerFile: pluginInstallerFile,
-        pluginDir: pluginDir,
-      });
-    }
-
-    return arrOfPlugins;
-  }
-  private static async findPluginsInBase(
-    coreLogger: IPluginLogger,
-    path: string,
-    libOnly = false
-  ): Promise<Array<IReadyPlugin>> {
-    const pluginJson = JSON.parse(
-      readFileSync(join(path, "./package.json"), "utf8").toString()
-    );
-    if (pluginJson.bsb_project !== true) {
-      await coreLogger.debug("FIND: IGNORE AS NOT BSB PROJECT");
-      return [];
-    }
-
-    let innerPluginLib = join(path, "./src");
-    if (
-      libOnly ||
-      !existsSync(innerPluginLib) ||
-      !statSync(innerPluginLib).isDirectory()
-    ) {
-      innerPluginLib = join(path, "./lib");
-    }
-    if (
-      !existsSync(innerPluginLib) ||
-      !statSync(innerPluginLib).isDirectory()
-    ) {
-      await coreLogger.debug(
-        `FIND: IGNORE [{innerPluginLib}] No src/lib dir in package`,
-        { innerPluginLib }
-      );
-      return [];
-    }
-    const innerPluginLibPlugin = join(innerPluginLib, "./plugins");
-    if (
-      !existsSync(innerPluginLibPlugin) ||
-      !statSync(innerPluginLibPlugin).isDirectory()
-    ) {
-      await coreLogger.debug(
-        `FIND: IGNORE [{innerPluginLibPlugin}] No inner plugins dir`,
-        { innerPluginLibPlugin }
-      );
-      return [];
-    }
-
-    const packageVersion = pluginJson.version;
-    return await SBPlugins.findPluginsFiles(
-      coreLogger,
-      innerPluginLibPlugin,
-      packageVersion,
-      libOnly,
-      path
-    );
-  }
-
-  public static async findNPMPlugins(
-    coreLogger: IPluginLogger,
-    cwd: string
-  ): Promise<Array<IReadyPlugin>> {
-    let arrOfPlugins: Array<IReadyPlugin> = [];
-
-    if (!existsSync(join(cwd, "./package.json"))) {
-      await coreLogger.error(`Unable to find package.json in {pakDir}`, {
-        pakDir: join(cwd, "./package.json"),
-      });
-      return [];
-    }
-
-    const npmPluginsDir = join(cwd, "./node_modules");
-    await coreLogger.info(`FIND: NPM plugins in: {npmPluginsDir}`, {
-      npmPluginsDir,
+  public async loadPlugin<
+    NamedType extends PluginType,
+    ClassType extends PluginTypeDefinitionRef<NamedType> = PluginTypeDefinitionRef<NamedType>
+  >(
+    log: IPluginLogger,
+    npmPackage: string | null,
+    plugin: string,
+    name: string
+  ): Promise<LoadedPlugin<NamedType, ClassType> | null> {
+    log.debug(`PLUGIN {name} from {package} try load as {pluginName}`, {
+      name: plugin,
+      pluginName: name,
+      package: npmPackage ?? "self",
     });
-    if (!existsSync(npmPluginsDir)) {
-      await coreLogger.error(
-        `FIND: NPM plugins dir does not exist: {npmPluginsDir}`,
-        { npmPluginsDir }
-      );
-      return [];
-    }
-    for (const dirFileWhat of readdirSync(npmPluginsDir)) {
-      try {
-        const pluginPath = join(npmPluginsDir, dirFileWhat);
-        if (dirFileWhat.indexOf(".") === 0) {
-          continue;
-        }
-        if (dirFileWhat.indexOf("@") === 0) {
-          await coreLogger.debug(`FIND: GROUP [{dirFileWhat}] {pluginPath}`, {
-            dirFileWhat,
-            pluginPath,
-          });
-          for (const groupPluginName of readdirSync(pluginPath)) {
-            if (groupPluginName.indexOf(".") === 0) {
-              continue;
-            }
-            const groupPluginPath = join(pluginPath, groupPluginName);
-            await coreLogger.debug(
-              `FIND: CHECK [{dirFileWhat}/{groupPluginName}] {groupPluginPath}`,
-              { dirFileWhat, groupPluginName, groupPluginPath }
-            );
-            if (statSync(groupPluginPath).isDirectory()) {
-              arrOfPlugins = arrOfPlugins.concat(
-                await SBPlugins.findPluginsInBase(
-                  coreLogger,
-                  groupPluginPath,
-                  true
-                )
-              );
-            }
-          }
-        } else {
-          await coreLogger.debug(`FIND: CHECK [{dirFileWhat}] {pluginPath}`, {
-            dirFileWhat,
-            pluginPath,
-          });
-          if (statSync(pluginPath).isDirectory()) {
-            arrOfPlugins = arrOfPlugins.concat(
-              await SBPlugins.findPluginsInBase(coreLogger, pluginPath, true)
-            );
-          }
-        }
-      } catch (err: any) {
-        await coreLogger.error("{message}", {
-          message: err.message || err.toString(),
-        });
+    const nodeModulesLib = npmPackage !== null;
+    let pluginPath = "";
+    let pluginCWD = this.cwd;
+    let version = "0.0.0";
+    if (!nodeModulesLib) {
+      if (this.devMode) {
+        pluginPath = join(this.cwd, "./src/plugins/" + plugin);
+        if (!existsSync(pluginPath)) pluginPath = "";
       }
+      if (pluginPath == "") {
+        pluginPath = join(this.cwd, "./lib/plugins/" + plugin);
+      }
+    } else {
+      pluginCWD = join(this.pluginDir, npmPackage);
+      pluginPath = join(pluginCWD, "./lib/plugins/", plugin);
+
+      const packageJsonPath = join(pluginCWD, "./package.json");
+      const packageJSON = JSON.parse(
+        readFileSync(packageJsonPath, "utf-8").toString()
+      );
+      version = packageJSON.version;
+    }
+    if (!existsSync(pluginPath)) {
+      log.error(`PLUGIN {name} in {package} not found`, {
+        name: plugin,
+        package: npmPackage ?? "self",
+      });
+      return null;
     }
 
-    return arrOfPlugins;
-  }
+    log.debug(`Plugin {name}: attempt to load from {path} as {pluginName}`, {
+      name: plugin,
+      path: pluginPath,
+      pluginName: name,
+    });
 
-  public static async findLocalPlugins(
-    coreLogger: IPluginLogger,
-    cwd: string,
-    CLIONLY: boolean
-  ): Promise<Array<IReadyPlugin>> {
-    return await SBPlugins.findPluginsInBase(coreLogger, cwd, CLIONLY);
+    let pluginFile = join(pluginPath, "./plugin.js");
+    let serviceConfigDef: BSBPluginConfig<any> | null = null;
+    //if (this.devMode) {
+    const tsPluginFile = join(pluginPath, "./plugin.ts");
+    if (existsSync(tsPluginFile)) {
+      log.debug("PLUGIN {pluginName} running in development mode", {
+        pluginName: name,
+      });
+      pluginFile = tsPluginFile;
+    }
+
+    if (!existsSync(pluginFile))
+      throw new BSBError("PLUGIN {pluginName} not found at {location}", {
+        pluginName: name,
+        location: pluginFile,
+      });
+
+    const importedPlugin = await import(pluginFile);
+
+    if (importedPlugin.Plugin === undefined)
+      throw new BSBError(
+        "PLUGIN {pluginName} does not export a Plugin class - so possibly not a valid BSB Plugin",
+        {
+          pluginName: name,
+        }
+      );
+    if (importedPlugin.Config !== undefined)
+      serviceConfigDef =
+        new (importedPlugin.Config as typeof BSBPluginConfigRef)(
+          this.cwd,
+          pluginCWD,
+          name
+        );
+
+    return {
+      name: name,
+      ref: plugin,
+      version: version,
+      serviceConfig: serviceConfigDef,
+      plugin: importedPlugin.Plugin,
+      pluginCWD: pluginCWD,
+      pluginPath: pluginPath,
+    };
   }
 }

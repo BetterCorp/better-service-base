@@ -5,48 +5,120 @@
     "url": "https://github.com/BetterCorp/better-service-base"
   },
   "engines": {
-    "npm": ">=8.0.0",
-    "node": ">=16.0.0"
+    "npm": ">=9.0.0",
+    "node": ">=18.0.0"
   },
   "scripts": {
     "dev": "nodemon --config ./nodemon.json",
     "start": "node lib/cli.js",
-    "build": "tsc",
-    "postinstall": "node ./postinstall.js",
+    "build": "rm -rfv ./lib && tsc && npm run testDev",
+    "build-release": "rm -rfv ./lib && tsc --p ./tsconfig-release.json && npm run build-release-tsconfig",
+    "build-release-tsconfig": "rm -fv ./development/tsconfig.json && cp ./tsconfig.json ./development/tsconfig.json",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
     "testDev": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts'"
   },
   "bin": {
-    "bsb": "lib/bootstrap.js"
+    "bsb": "lib/cli.js"
   },
   "files": [
     "lib/**/*",
     "development/**/*",
-    "tsconfig.json",
-    "postinstall.js",
-    "build-lib-clients.js",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "main": "lib/index.js",
-  "version": "8.4.0-rc",
+  "version": "9.0.4-beta",
+  "bsb_project": true,
+  "bsbInit": {
+    "project": {
+      "dependencies": {
+        "@bettercorp/tools": "latest"
+      },
+      "devDependencies": {
+        "@types/assert": "^1.5.6",
+        "@types/chai": "^4.3.3",
+        "@types/mocha": "^9.1.1",
+        "@types/node": "^18.7.16",
+        "@typescript-eslint/eslint-plugin": "^5.31.0",
+        "@typescript-eslint/parser": "^5.31.0",
+        "eslint": "^8.20.0",
+        "mocha": "^10.0.0",
+        "nyc": "^15.1.0",
+        "ts-node": "^10.9.1",
+        "typescript": "^4.7.4"
+      },
+      "files": [
+        "lib/**/*"
+      ],
+      "scripts": {
+        "build": "npm run build-plugin && npm run build-clients",
+        "build-plugin": "rm -rfv ./lib && tsc",
+        "build-clients": "node node_modules/@bettercorp/service-base/build-lib-clients.js",
+        "dev": "nodemon --config node_modules/@bettercorp/service-base/development/nodemon.json",
+        "start": "ts-node node_modules/@bettercorp/service-base/lib/cli.js",
+        "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
+        "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
+        "testDev": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts'"
+      },
+      "main": "lib/index.js"
+    },
+    "gitignore": [
+      "/lib",
+      "/node_modules",
+      "/sec.config.json",
+      "/junit.xml",
+      "/test-file-*",
+      "/dist-clients"
+    ],
+    "files": [
+      {
+        "src": "build/tsconfig.json",
+        "dst": "tsconfig.json",
+        "canOverwrite": true
+      },
+      {
+        "src": "build/eslintrc.js",
+        "dst": ".eslintrc.js",
+        "canOverwrite": true
+      },
+      {
+        "src": "build/eslintignore",
+        "dst": ".eslintignore",
+        "canOverwrite": true
+      }
+    ],
+    "directories": [
+      "src",
+      "src/clients",
+      "src/plugins",
+      "src/shared",
+      "src/tests"
+    ]
+  },
   "devDependencies": {
-    "@types/assert": "^1.5.6",
-    "@types/chai": "^4.3.3",
-    "@types/mocha": "^9.1.1",
-    "@types/node": "^18.7.16",
-    "@types/yargs": "^17.0.12",
-    "@typescript-eslint/eslint-plugin": "^5.31.0",
-    "@typescript-eslint/parser": "^5.31.0",
-    "eslint": "^8.20.0",
-    "mocha": "^10.0.0",
+    "@ts-ast-parser/core": "^0.6.3",
+    "@types/assert": "^1.5.10",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.10.6",
+    "@types/yargs": "^17.0.32",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "chai": "^4.3.10",
+    "eslint": "^8.56.0",
+    "install": "^0.13.0",
+    "mocha": "^10.2.0",
+    "npm": "^10.2.5",
     "nyc": "^15.1.0",
-    "ts-node": "^10.9.1",
-    "typescript": "^4.7.4",
-    "yargs": "^17.5.1"
+    "ts-morph": "^21.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@bettercorp/tools": "^2.0.20220714140658"
-  },
-  "bsb_project": true
+    "@bettercorp/tools": "^3.7.0",
+    "yaml": "^2.3.4",
+    "yargs": "^17.7.2",
+    "zod": "^3.22.4"
+  }
 }

@@ -1,18 +1,72 @@
-import { IPluginLogger } from '../../interfaces/logger';
-import { ServicesBase } from "../../service/service";
-import { testClient } from "../service-default1/plugin";
+import { BSBService, BSBServiceConstructor, BSBPluginConfig } from "../../";
+import { testClient } from "../service-default1";
+import { z } from "zod";
 
-export class Service extends ServicesBase {
-  public override initAfterPlugins: string[] = ["service-default3"];
+export const secSchema = z.object({
+  testa: z.number(),
+  testb: z.number(),
+});
+export class Config extends BSBPluginConfig<typeof secSchema> {
+  validationSchema = secSchema;
+
+  migrate(
+    toVersion: string,
+    fromVersion: string | null,
+    fromConfig: any | null
+  ) {
+    if (fromConfig === null) {
+      // defaults
+      return {
+        testa: 1,
+        testb: 2,
+      };
+    } else {
+      // migrate
+      return {
+        testa: fromConfig.testa,
+        testb: fromConfig.testb,
+      };
+    }
+  }
+}
+
+export interface Events {
+  emitEvents: {
+    test: (a: string, b: string) => Promise<void>;
+  };
+  onEvents: {};
+  emitReturnableEvents: {};
+  onReturnableEvents: {};
+  emitBroadcast: {};
+  onBroadcast: {};
+}
+
+export class Plugin extends BSBService<Config, Events> {
+  public initBeforePlugins?: string[] | undefined;
+  //public initAfterPlugins: string[] = ["service-default3"];
+  public initAfterPlugins?: string[] | undefined;
+  public runBeforePlugins?: string[] | undefined;
+  public runAfterPlugins?: string[] | undefined;
+  public init?(): Promise<void>;
+  public dispose?(): void;
+  public readonly methods = {
+    abc: async () => {
+      console.log("abc called");
+    },
+  };
   private testClient: testClient;
-  constructor(pluginName: string, cwd: string, pluginCwd: string, log: IPluginLogger) {
-    super(pluginName, cwd, pluginCwd, log);
+  constructor(config: BSBServiceConstructor) {
+    super(config);
     this.testClient = new testClient(this);
   }
-  public override async init() {
-    await this.testClient.init();
-  }
-  public override async run() {
-    await this.testClient.abc();
+  public async run() {
+    this.log.info("aa");
+    this.events.emitEvent("test", "test", "test");
+    await this.testClient.abc(
+      this.config.testa,
+      this.config.testb,
+      this.config.testa,
+      this.config.testb
+    );
   }
 }

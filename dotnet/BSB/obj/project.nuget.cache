@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "m/mmZmgs6qi/4eqAiuSIdbou0BI1C15Z5VAJ274ZbPbs/O2jjmEhryyyoIOMW/uat6AecIhRT+0RvyiiWJABwQ==",
+  "success": true,
+  "projectFilePath": "/home/mitchellr/_repos/BSB-BetterPortal/BSB/_base/service-base/dotnet/BSB/BSB.csproj",
+  "expectedPackageFiles": [
+    "/home/mitchellr/.nuget/packages/microsoft.netcore.app.ref/6.0.25/microsoft.netcore.app.ref.6.0.25.nupkg.sha512",
+    "/home/mitchellr/.nuget/packages/microsoft.aspnetcore.app.ref/6.0.25/microsoft.aspnetcore.app.ref.6.0.25.nupkg.sha512"
+  ],
+  "logs": []
+}

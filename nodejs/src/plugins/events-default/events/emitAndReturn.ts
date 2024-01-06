@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
-import { IPluginLogger } from "../../../interfaces/logger";
+import { IPluginLogger } from "../../../";
 
-export default class emitAndReturn extends EventEmitter {
+export class emitAndReturn extends EventEmitter {
   private log: IPluginLogger;
 
   constructor(log: IPluginLogger) {
@@ -13,15 +13,14 @@ export default class emitAndReturn extends EventEmitter {
   }
 
   public async onReturnableEvent(
-    callerPluginName: string,
     pluginName: string,
     event: string,
     listener: { (args: Array<any>): Promise<any> }
   ): Promise<void> {
-    await this.log.debug(
-      "onReturnableEvent: {callerPluginName} listening to {pluginName}-{event}",
-      { callerPluginName, pluginName, event }
-    );
+    this.log.debug("onReturnableEvent: listening to {pluginName}-{event}", {
+      pluginName,
+      event,
+    });
     this.on(event, async (resolve, reject, data) => {
       try {
         resolve(await listener(data));
@@ -32,19 +31,18 @@ export default class emitAndReturn extends EventEmitter {
   }
 
   public async emitEventAndReturn(
-    callerPluginName: string,
     pluginName: string,
     event: string,
     timeoutSeconds: number,
     args: Array<any>
   ): Promise<any> {
-    await this.log.debug(
-      "emitReturnableEvent: {callerPluginName} emitting {pluginName}-{event}",
-      { callerPluginName, pluginName, event }
-    );
+    this.log.debug("emitReturnableEvent: emitting {pluginName}-{event}", {
+      pluginName,
+      event,
+    });
     const self = this;
     return new Promise((resolve, reject) => {
-      let timeoutHandler = setTimeout(() => {
+      const timeoutHandler = setTimeout(() => {
         reject("Timeout");
       }, timeoutSeconds * 1000);
       self.emit(

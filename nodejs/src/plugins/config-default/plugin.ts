@@ -1,172 +1,205 @@
 import * as path from "path";
 import * as fs from "fs";
+import { parse } from "yaml";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 import {
-  ServiceConfig,
-  DeploymentProfiles,
-  DeploymentProfile,
-  IPluginConfig,
-} from "../../interfaces/config";
-import { IPluginLogger } from "../../interfaces/logger";
-import { ConfigBase } from "../../config/config";
-import { PluginConfig } from "./sec.config";
-import { IDictionary } from "@bettercorp/tools/lib/Interfaces";
+  BSBConfig,
+  BSBConfigConstructor,
+  EventsConfig,
+  LoggingConfig,
+  PluginDefition,
+  PluginType,
+  PluginTypes,
+  BSBError,
+} from "../../";
+import { ConfigDefinition } from "./interfaces";
 
-export class Config extends ConfigBase<PluginConfig> {
-  public readonly hehe = "I am a string";
-  private _appConfig!: ServiceConfig;
-  private _secConfigFilePath!: string;
-  private _canWriteChanges: boolean = false;
-
-  constructor(
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    log: IPluginLogger,
-    deploymentProfile: string
-  ) {
-    super(pluginName, cwd, pluginCwd, log, deploymentProfile);
-  }
-  private get activeDeploymentProfile(): DeploymentProfiles<DeploymentProfile> {
-    return (this._appConfig.deploymentProfiles as IDictionary)[
-      this._deploymentProfile
-    ];
-  }
-  public override async getAppPluginDeploymentProfile(
+export class Plugin extends BSBConfig {
+  async getServicePluginDefinition(
     pluginName: string
-  ): Promise<DeploymentProfile> {
-    return this.activeDeploymentProfile[pluginName!];
-  }
-
-  public override async getAppMappedPluginConfig<T extends IPluginConfig>(
-    mappedPluginName: string
-  ): Promise<T> {
-    return (this._appConfig.plugins[mappedPluginName] || {}) as T;
-  }
-  public override async getAppMappedPluginDeploymentProfile(
-    mappedPluginName: string
-  ): Promise<DeploymentProfile> {
-    for (let dpPlugin of Object.keys(this.activeDeploymentProfile)) {
-      if (
-        this.activeDeploymentProfile[dpPlugin].mappedName === mappedPluginName
-      )
-        return this.activeDeploymentProfile[dpPlugin];
-    }
-    await this.log.fatal("Cannot find mapped plugin {mappedPluginName}", {
-      mappedPluginName,
+  ): Promise<{ name: string; enabled: boolean }> {
+    const keydPlugins = Object.keys(
+      this._appConfig[this._deploymentProfile].services ?? {}
+    );
+    const keydWithMap = keydPlugins.map((x) => {
+      return {
+        mappedName: x,
+        ...this._appConfig[this._deploymentProfile].services[x],
+      };
     });
-    return undefined as any; // will not reach
-  }
+    let plugin = keydWithMap.find((x) => {
+      return x.plugin === pluginName && x.enabled === true;
+    });
+    if (plugin !== undefined) {
+      return {
+        name: plugin.mappedName,
+        enabled: plugin.enabled,
+      };
+    }
+    plugin = keydWithMap.find((x) => {
+      return x.plugin === pluginName;
+    });
+    if (plugin !== undefined) {
+      return {
+        name: plugin.mappedName,
+        enabled: plugin.enabled,
+      };
+    }
 
-  public override async getAppPluginMappedName(
-    pluginName: string
-  ): Promise<string> {
-    return (
-      (this.activeDeploymentProfile[pluginName] || {}).mappedName || pluginName
+    throw new BSBError(
+      "DEFAULT_CONFIG_GET_SERVICE_PLUGIN_NAME",
+      "Cannot find the plugin {plugin} in the config",
+      {
+        plugin: pluginName,
+      }
     );
   }
-  public override async getAppPluginState(
-    pluginName: string
-  ): Promise<boolean> {
-    return (this.activeDeploymentProfile[pluginName] || {}).enabled || false;
+  async getLoggingPlugins(): Promise<Record<string, LoggingConfig>> {
+    const plugins = Object.keys(
+      this._appConfig[this._deploymentProfile].logging ?? {}
+    ).filter((x) => {
+      return (
+        this._appConfig[this._deploymentProfile].logging[x].enabled === true
+      );
+    });
+    return plugins.reduce((acc, x) => {
+      acc[x] = {
+        //name: this._appConfig[this._deploymentProfile].logging[x].name,
+        plugin: this._appConfig[this._deploymentProfile].logging[x].plugin,
+        package: this._appConfig[this._deploymentProfile].logging[x].package,
+        enabled: this._appConfig[this._deploymentProfile].logging[x].enabled,
+        filter: this._appConfig[this._deploymentProfile].logging[x].filter,
+      };
+      return acc;
+    }, {} as Record<string, LoggingConfig>);
   }
-  public override async getAppMappedPluginState(
-    mappedPluginName: string
-  ): Promise<boolean> {
-    return (await this.getAppMappedPluginDeploymentProfile(mappedPluginName))
-      .enabled;
+  async getEventsPlugins(): Promise<Record<string, EventsConfig>> {
+    const plugins = Object.keys(
+      this._appConfig[this._deploymentProfile].events ?? {}
+    ).filter((x) => {
+      return (
+        this._appConfig[this._deploymentProfile].events[x].enabled === true
+      );
+    });
+    return plugins.reduce((acc, x) => {
+      acc[x] = {
+        //name: this._appConfig[this._deploymentProfile].events[x].name,
+        plugin: this._appConfig[this._deploymentProfile].events[x].plugin,
+        package: this._appConfig[this._deploymentProfile].events[x].package,
+        enabled: this._appConfig[this._deploymentProfile].events[x].enabled,
+        filter: this._appConfig[this._deploymentProfile].events[x].filter,
+      };
+      return acc;
+    }, {} as Record<string, EventsConfig>);
+  }
+  async getServicePlugins(): Promise<Record<string, PluginDefition>> {
+    const plugins = Object.keys(
+      this._appConfig[this._deploymentProfile].services ?? {}
+    ).filter((x) => {
+      return (
+        this._appConfig[this._deploymentProfile].services[x].enabled === true
+      );
+    });
+    return plugins.reduce((acc, x) => {
+      acc[x] = {
+        //name: this._appConfig[this._deploymentProfile].services[x].name,
+        plugin: this._appConfig[this._deploymentProfile].services[x].plugin,
+        package: this._appConfig[this._deploymentProfile].services[x].package,
+        enabled: this._appConfig[this._deploymentProfile].services[x].enabled,
+      };
+      return acc;
+    }, {} as Record<string, PluginDefition>);
+  }
+  async getPluginConfig(
+    pluginType: PluginType,
+    plugin: string
+  ): Promise<object | null> {
+    if (pluginType === PluginTypes.config) return null;
+    let configKey: "services" | "logging" | "events" = "services";
+    if (pluginType === PluginTypes.events) configKey = "events";
+    if (pluginType === PluginTypes.logging) configKey = "logging";
+    return (
+      this._appConfig[this._deploymentProfile][configKey][plugin].config ?? null
+    );
+  }
+  dispose() {
+    this._appConfig = undefined!;
+  }
+  private _appConfig!: ConfigDefinition;
+  private _secConfigFilePath: string;
+  private _deploymentProfile: string = "default";
+
+  constructor(config: BSBConfigConstructor) {
+    super(config);
+    this._secConfigFilePath = path.join(this.cwd, "./sec-config.yaml");
   }
 
-  public override async createAppConfig(
-    listOfKnownPlugins: Array<string>
-  ): Promise<void> {
-    const config = await this.getPluginConfig();
-
-    this._secConfigFilePath =
-      config.ConfigFile.indexOf(".") === 0
-        ? path.join(this.cwd, config.ConfigFile)
-        : config.ConfigFile;
-    let defConfig: ServiceConfig = {
-      deploymentProfiles: {
-        default: {},
+  init(): void {
+    if (
+      Tools.isString(process.env.BSB_PROFILE) &&
+      process.env.BSB_PROFILE.length > 2
+    ) {
+      this._deploymentProfile = process.env.BSB_PROFILE!;
+    }
+    if (
+      Tools.isString(process.env.BSB_CONFIG_FILE) &&
+      process.env.BSB_CONFIG_FILE.length > 2
+    ) {
+      this._secConfigFilePath = process.env.BSB_CONFIG_FILE!;
+    }
+    this._appConfig = {
+      default: {
+        logging: {},
+        events: {},
+        services: {},
       },
-      plugins: {},
     };
     if (fs.existsSync(this._secConfigFilePath)) {
-      defConfig = JSON.parse(
-        fs.readFileSync(this._secConfigFilePath, "utf8").toString()
-      ) as ServiceConfig;
-      defConfig.plugins = defConfig.plugins || {};
-      defConfig.deploymentProfiles = defConfig.deploymentProfiles || {};
-      defConfig.deploymentProfiles.default =
-        defConfig.deploymentProfiles.default || {};
+      this._appConfig =
+        parse(fs.readFileSync(this._secConfigFilePath, "utf8").toString()) ??
+        this._appConfig;
     } else {
-      await this.log.debug(
-        "! sec.config.json CAN`T BE FOUND ... we will try create one / work in memory! {secFile}",
-        { secFile: this._secConfigFilePath }
+      throw new BSBError(
+        "DEFAULT_CONFIG_SETUP_CONFIG",
+        "Cannot find config file at {filepath}",
+        {
+          filepath: this._secConfigFilePath,
+        }
       );
     }
-
-    let existingDefinedPlugins = Object.keys(
-      defConfig.deploymentProfiles.default
-    );
-    let pluginsToAdd = listOfKnownPlugins.filter(
-      (x) => existingDefinedPlugins.indexOf(x) < 0
-    );
-    for (let pluginName of pluginsToAdd) {
-      defConfig.deploymentProfiles.default[pluginName] = {
-        mappedName: pluginName,
-        enabled: false,
-      };
+    if (Tools.isNullOrUndefined(this._appConfig[this._deploymentProfile])) {
+      throw new BSBError(
+        "DEFAULT_CONFIG_SETUP_DEFINITION",
+        "unknown deployment profile ({deploymentProfile}), please create it first.",
+        {
+          deploymentProfile: this._deploymentProfile,
+        }
+      );
     }
-
-    this._appConfig = defConfig;
-    if (!this.runningLive) {
-      try {
-        if (fs.existsSync(this._secConfigFilePath))
-          fs.accessSync(this._secConfigFilePath, fs.constants.W_OK);
-        fs.writeFileSync(
-          this._secConfigFilePath,
-          JSON.stringify(this._appConfig, "" as any, 2) // todo: replace this with typesafe formatting version
-        );
-        this._canWriteChanges = true;
-      } catch (e) {
-        await this.log.warn(
-          "We're running non-production, but {secFile} is not writable, not we're not going to create it.",
-          { secFile: this._secConfigFilePath }
-        );
-      }
-    }
+    this.log.debug("Config ready, using profile: {profile}", {
+      profile: this._deploymentProfile,
+    });
   }
-  public override async migrateAppPluginConfig(
-    pluginName: string,
-    mappedPluginName: string,
-    config: IPluginConfig
-  ): Promise<void> {
-    this._appConfig.deploymentProfiles[this._deploymentProfile][pluginName] =
-      this._appConfig.deploymentProfiles[this._deploymentProfile][
-        pluginName
-      ] || {
-        mappedName: mappedPluginName,
-        enabled: true,
-      };
-    this._appConfig.deploymentProfiles[this._deploymentProfile][
-      pluginName
-    ].enabled = true;
-    this._appConfig.plugins[mappedPluginName] = config;
-    if (!this._canWriteChanges) {
-      if (!this.runningLive)
-        return await this.log.warn(
-          "We're running non-production, but {secFile} is not writable, not we're not going to change it.",
-          { secFile: this._secConfigFilePath }
-        );
-      return await this.log.debug(
-        "We're running production, we're not going to write to {secFile}.",
-        { secFile: this._secConfigFilePath }
-      );
-    }
-    fs.writeFileSync(
-      this._secConfigFilePath,
-      JSON.stringify(this._appConfig, "" as any, 2) // todo: replace this with typesafe formatting version
+  async getPlugins(): Promise<
+    {
+      npmPackage: string | undefined | null;
+      plugin: string;
+      name: string;
+      enabled: boolean;
+    }[]
+  > {
+    return Object.keys(this._appConfig[this._deploymentProfile].services).map(
+      (x) => {
+        return {
+          npmPackage:
+            this._appConfig[this._deploymentProfile].services[x].package,
+          plugin: this._appConfig[this._deploymentProfile].services[x].plugin,
+          name: x,
+          enabled:
+            this._appConfig[this._deploymentProfile].services[x].enabled ===
+            true,
+        };
+      }
     );
   }
 }

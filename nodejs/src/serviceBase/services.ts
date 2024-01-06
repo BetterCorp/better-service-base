@@ -1,149 +1,325 @@
-import { IPluginLogger } from "../interfaces/logger";
-import { IPluginDefinition, IReadyPlugin } from "../interfaces/service";
-import { IServiceEvents } from "../interfaces/events";
-import { SBBase } from "./base";
-import { ServicesBase } from "../service/service";
-import { ConfigBase } from "../config/config";
-import { ErrorMessages } from "../interfaces/static";
+import {
+  BSBService,
+  PluginLogger,
+  IPluginLogger,
+  DEBUG_MODE,
+  SBConfig,
+  SBEvents,
+  SmartFunctionCallAsync,
+  SmartFunctionCallSync,
+  SBLogging,
+  SBPlugins,
+  IPluginDefinition,
+  BSBError,
+  BSBServiceClient,
+  PluginEvents,
+  LoadedPlugin,
+} from "../";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class SBServices {
-  private _activeServices: Array<ServicesBase> = [];
+  private _activeServices: Array<BSBService> = [];
+
+  private mode: DEBUG_MODE = "development";
+  private appId: string;
+  private cwd: string;
+  private sbPlugins: SBPlugins;
   private log: IPluginLogger;
-  constructor(log: IPluginLogger) {
-    this.log = log;
-  }
-  public dispose() {
-    for (let service of this._activeServices) {
-      this.log.warn("disposing {service}", { service: service.pluginName });
-      if (service !== undefined) service.dispose();
-    }
-  }
-
-  async setupServicePlugins(
+  constructor(
     appId: string,
-    runningDebug: boolean,
-    runningLive: boolean,
+    mode: DEBUG_MODE,
     cwd: string,
-    plugins: Array<IReadyPlugin>,
-    appConfig: ConfigBase,
-    ImportAndMigratePluginConfig: { (plugin: IReadyPlugin): Promise<any> },
-    generateEventsForService: {
-      (pluginName: string, mappedPluginName: string): IServiceEvents<
-        any,
-        any,
-        any,
-        any,
-        any,
-        any
-      >;
-    },
-    generateLoggerForPlugin: { (pluginName: string): IPluginLogger }
+    sbPlugins: SBPlugins,
+    sbLogging: SBLogging
   ) {
-    for (let plugin of plugins) {
-      if (plugin.pluginDefinition !== IPluginDefinition.service) continue;
+    this.appId = appId;
+    this.mode = mode;
+    this.cwd = cwd;
+    this.sbPlugins = sbPlugins;
+    const eventsPluginName = "core-services";
+    this.log = new PluginLogger(this.mode, eventsPluginName, sbLogging);
+  }
 
-      await this.log.debug(`Import service plugin: {name} from {file}`, {
-        name: plugin.name,
-        file: plugin.pluginFile,
-      });
-      const importedPlugin = await import(plugin.pluginFile);
-
-      await this.log.debug(`Construct service plugin: {name}`, {
-        name: plugin.name,
-      });
-
-      let servicePlugin =
-        new (importedPlugin.Service as unknown as typeof ServicesBase)(
-          plugin.mappedName,
-          cwd,
-          plugin.pluginDir,
-          generateLoggerForPlugin(plugin.mappedName)
-        );
-      await this.log.debug(`Create service plugin: {name}`, {
-        name: plugin.name,
-      });
-      //const importedPlugin = await import(plugin.pluginFile);
-      await this.log.info(
-        "Setting up {pluginName} ({mappedName}) as new base service platform",
-        {
-          pluginName: plugin.name,
-          mappedName: plugin.mappedName,
-        }
-      );
-      await this.log.info("Builing {pluginName} as new base service platform", {
-        pluginName: plugin.name,
-      });
-      const self = this;
-      SBBase.setupPlugin(
-        appId,
-        runningDebug,
-        runningLive,
-        servicePlugin,
-        appConfig
-      );
-      await SBBase.setupServicePlugin(
-        servicePlugin,
-        await generateEventsForService(plugin.name, plugin.mappedName),
-        appConfig,
-        cwd,
-        plugin.pluginDir,
-        generateEventsForService,
-        generateLoggerForPlugin,
-        this.log,
-        async (pluginName: string, method: string, args: Array<any>) => {
-          for (let plugin of self._activeServices) {
-            if (plugin.pluginName === pluginName) {
-              return await (plugin as any)[method](...args);
-            }
-          }
-          await self.log.error(
-            "Enable {pluginName} in order to call ({method}) from it",
-            { pluginName, method }
-          );
-          throw ErrorMessages.ServicePluginNotCallableMethod;
-        }
-      );
-
-      await this.log.info(
-        "Setup {pluginName} ({mappedName}) referenced clients",
-        {
-          pluginName: plugin.name,
-          mappedName: plugin.mappedName,
-        }
-      );
-
-      for (let client of (servicePlugin as any)._clients) {
-        await this.log.info(
-          "Setup {pluginName} ({mappedName}) references {clientPlugin}",
-          {
-            pluginName: plugin.name,
-            mappedName: plugin.mappedName,
-            clientPlugin: client._pluginName,
-          }
-        );
-        await client._register();
+  public dispose() {
+    for (const service of this._activeServices) {
+      this.log.warn("disposing {service}", { service: service.pluginName });
+      for (const client of service._clients) {
+        SmartFunctionCallSync(client, client.dispose);
       }
-
-      await this.log.info(
-        "Ready {pluginName} ({mappedName}) as new base service platform",
-        {
-          pluginName: plugin.name,
-          mappedName: plugin.mappedName,
-        }
-      );
-
-      await ImportAndMigratePluginConfig(plugin);
-
-      this._activeServices.push(servicePlugin);
+      SmartFunctionCallSync(service, service.dispose);
     }
   }
 
-  public async servicesInit(config: ConfigBase) {
-    await this.log.info("Init all services");
-    let orderOfPlugins = await this.makeAfterRequired(
-      config,
+  public async setup(
+    sbConfig: SBConfig,
+    sbLogging: SBLogging,
+    sbEvents: SBEvents
+  ) {
+    this.log.debug("SETUP SBServices");
+    const plugins = await sbConfig.getServicePlugins();
+    for (const plugin of Object.keys(plugins)) {
+      await this.addService(sbConfig, sbLogging, sbEvents, {
+        name: plugin,
+        package: plugins[plugin].package,
+        plugin: plugins[plugin].plugin,
+        version: "",
+      });
+    }
+    this.log.debug("SETUP SBServices: Completed");
+  }
+
+  private setupPluginClient = async (
+    sbConfig: SBConfig,
+    sbLogging: SBLogging,
+    sbEvents: SBEvents,
+    context: BSBService,
+    clientContext: BSBServiceClient<any>
+  ): Promise<void> => {
+    const contextPlugin = await sbConfig.getServicePluginDefinition(
+      clientContext.pluginName
+    );
+    (clientContext as any)._pluginName = clientContext.pluginName;
+    (clientContext as any).pluginName = contextPlugin.name;
+    (clientContext as any).pluginEnabled = contextPlugin.enabled;
+    (clientContext as any).log = new PluginLogger(
+      this.mode,
+      contextPlugin.name,
+      sbLogging
+    );
+    (clientContext as any).events = new PluginEvents(
+      this.mode,
+      sbEvents,
+      clientContext
+    );
+    (context as any).initBeforePlugins = (
+      context.initBeforePlugins ?? []
+    ).concat(clientContext.initBeforePlugins ?? []);
+    (context as any).initAfterPlugins = (context.initAfterPlugins ?? []).concat(
+      clientContext.initAfterPlugins ?? []
+    );
+    (context as any).runBeforePlugins = (context.runBeforePlugins ?? []).concat(
+      clientContext.runBeforePlugins ?? []
+    );
+    (context as any).runAfterPlugins = (context.runAfterPlugins ?? []).concat(
+      clientContext.runAfterPlugins ?? []
+    );
+  };
+
+  private async mapServicePlugins(
+    sbConfig: SBConfig,
+    referencedPluginName: string,
+    ...sourcePluginsList: Array<Array<string> | undefined>
+  ): Promise<Array<string>> {
+    const outlist = [];
+    for (const pluginArr of sourcePluginsList.filter((x) => x !== undefined)) {
+      for (const plugin of pluginArr!) {
+        const pluginDef = await sbConfig.getServicePluginDefinition(plugin);
+        if (pluginDef.enabled !== true)
+          throw new BSBError(
+            "PLUGIN_NOT_ENABLED",
+            "The plugin {plugin} is not enabled for {pluginNeeded} to work.",
+            {
+              plugin: plugin,
+              pluginNeeded: referencedPluginName,
+            }
+          );
+        outlist.push(pluginDef.name);
+      }
+    }
+    return outlist;
+  }
+  public async addPlugin(
+    sbConfig: SBConfig,
+    sbLogging: SBLogging,
+    sbEvents: SBEvents,
+    plugin: IPluginDefinition,
+    reference: LoadedPlugin<"service">,
+    config: any
+  ) {
+    this.log.debug(`Construct service plugin: {name}`, {
+      name: plugin.name,
+    });
+
+    const servicePlugin = new reference.plugin({
+      appId: this.appId,
+      mode: this.mode,
+      pluginName: reference.name,
+      cwd: this.cwd,
+      pluginCwd: reference.pluginCWD,
+      config: config,
+      sbLogging: sbLogging,
+      sbEvents: sbEvents,
+    });
+    this.log.debug("Adding {pluginName} as service", {
+      pluginName: plugin.name,
+    });
+
+    for (const client of servicePlugin._clients) {
+      this.log.debug("Construct {pluginName} client {clientName}", {
+        pluginName: plugin.name,
+        clientName: client.pluginName,
+      });
+      await this.setupPluginClient(
+        sbConfig,
+        sbLogging,
+        sbEvents,
+        servicePlugin,
+        client
+      );
+      this.log.debug(
+        "Setup {pluginName} client {asOriginalPluginName} as {clientName}",
+        {
+          pluginName: plugin.name,
+          clientName: client.pluginName,
+          asOriginalPluginName: (client as any)._pluginName,
+        }
+      );
+    }
+
+    this._activeServices.push(servicePlugin);
+
+    this.log.info("Ready {pluginName} ({mappedName})", {
+      pluginName: plugin.plugin,
+      mappedName: plugin.name,
+    });
+
+    return servicePlugin;
+  }
+
+  private async addService(
+    sbConfig: SBConfig,
+    sbLogging: SBLogging,
+    sbEvents: SBEvents,
+    plugin: IPluginDefinition
+  ) {
+    this.log.debug("Add service {name} from ({package}){file}", {
+      package: plugin.package ?? "this project",
+      name: plugin.name,
+      file: plugin.plugin,
+    });
+    this.log.debug(`Import service plugin: {name} from ({package}){file}`, {
+      package: plugin.package ?? "this project",
+      name: plugin.name,
+      file: plugin.plugin,
+    });
+
+    const newPlugin = await this.sbPlugins.loadPlugin<"service">(
+      this.log,
+      plugin.package ?? null,
+      plugin.plugin,
+      plugin.name
+    );
+    if (newPlugin === null) {
+      this.log.error(
+        "Failed to import service plugin: {name} from ({package}){file}",
+        {
+          package: plugin.package ?? "this project",
+          name: plugin.name,
+          file: plugin.plugin,
+        }
+      );
+      return;
+    }
+
+    this.log.debug(`Get plugin config: {name}`, {
+      name: plugin.name,
+    });
+
+    let pluginConfig =
+      (await sbConfig.getPluginConfig("service", plugin.name)) ?? null;
+
+    if (
+      this.mode !== "production" &&
+      !Tools.isNullOrUndefined(newPlugin) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
+      Tools.isObject(newPlugin.serviceConfig) &&
+      !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
+    ) {
+      this.log.debug("Validate plugin config: {name}", { name: plugin.name });
+      pluginConfig =
+        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
+    }
+
+    await this.addPlugin(
+      sbConfig,
+      sbLogging,
+      sbEvents,
+      plugin,
+      newPlugin,
+      pluginConfig
+    );
+  }
+
+  private initPluginClient = async (
+    sbConfig: SBConfig,
+    clientContext: BSBServiceClient<any>
+  ): Promise<void> => {
+    const contextPlugin = await sbConfig.getServicePluginDefinition(
+      (clientContext as any)._pluginName
+    );
+    if (contextPlugin.enabled) {
+      const referencedServiceContext = this._activeServices.find(
+        (x) => x.pluginName === contextPlugin.name
+      ) as BSBService;
+      if (referencedServiceContext === undefined) {
+        throw new BSBError(
+          "The plugin {plugin} is not enabled so you cannot call methods from it",
+          {
+            plugin: contextPlugin.name,
+          }
+        );
+      }
+      if (referencedServiceContext.methods === null) {
+        throw new BSBError(
+          "The plugin {plugin} does not have any callable methods",
+          {
+            plugin: contextPlugin.name,
+          }
+        );
+      }
+      (clientContext as any).callMethod = async (
+        method: string,
+        ...args: Array<any>
+      ) => {
+        if (referencedServiceContext.methods[method] === undefined) {
+          throw new BSBError(
+            "The plugin {plugin} does not have a method called {method}",
+            {
+              plugin: contextPlugin.name,
+              method,
+            }
+          );
+        }
+        return SmartFunctionCallAsync(
+          referencedServiceContext,
+          referencedServiceContext.methods[method],
+          ...args
+        );
+      };
+    }
+    await SmartFunctionCallSync(clientContext, clientContext.init);
+  };
+
+  public async init(sbConfig: SBConfig) {
+    this.log.info("Init all services");
+    for (const service of this._activeServices) {
+      this.log.debug("Mapping required plugins list for {plugin}", {
+        plugin: service.pluginName,
+      });
+      (service as any).initBeforePlugins = await this.mapServicePlugins(
+        sbConfig,
+        service.pluginName,
+        service.initBeforePlugins
+      );
+      (service as any).initAfterPlugins = await this.mapServicePlugins(
+        sbConfig,
+        service.pluginName,
+        service.initAfterPlugins ?? []
+      );
+    }
+    this.log.info("Defining service order");
+    const orderOfPlugins = await this.makeAfterRequired(
       await this.makeBeforeRequired(
-        config,
         this._activeServices.map((x) => {
           return {
             name: x.pluginName,
@@ -154,7 +330,7 @@ export class SBServices {
         })
       )
     );
-    await this.log.debug("Services init default order: {initOrder}", {
+    this.log.debug("Services init default order: {initOrder}", {
       initOrder: this._activeServices
         .map(
           (x) =>
@@ -164,34 +340,33 @@ export class SBServices {
         )
         .join(","),
     });
-    await this.log.debug("Services init order: {initOrder}", {
+    this.log.debug("Services init order: {initOrder}", {
       initOrder: orderOfPlugins
         .map((x) => `[(${x.after.join(",")})${x.name}(${x.before.join(",")})]`)
         .join(","),
     });
-    for (let service of orderOfPlugins) {
-      await this.log.debug(`{plugin} init`, {
+    for (const service of orderOfPlugins) {
+      this.log.debug(`Init {plugin}`, {
         plugin: service.name,
       });
-      await service.ref.init();
+      for (const client of service.ref._clients) {
+        await this.initPluginClient(sbConfig, client);
+      }
+      SmartFunctionCallAsync(service.ref, service.ref.init);
     }
   }
 
   public async makeBeforeRequired(
-    config: ConfigBase,
     orderOfPlugins: {
       name: string;
       after: string[];
       before: string[];
-      ref: ServicesBase;
+      ref: BSBService;
     }[]
   ) {
     for (let i = 0; i < orderOfPlugins.length; i++) {
       if (orderOfPlugins[i].before.length === 0) continue;
-      for (let bPlugin of await this.parsePluginNamesToMappedNames(
-        config,
-        orderOfPlugins[i].before
-      ))
+      for (const bPlugin of orderOfPlugins[i].before)
         for (let j = 0; j < orderOfPlugins.length; j++) {
           if (orderOfPlugins[j].name == bPlugin) {
             orderOfPlugins[j].after.push(orderOfPlugins[i].name);
@@ -200,38 +375,17 @@ export class SBServices {
     }
     return orderOfPlugins;
   }
-  private async parsePluginNamesToMappedNames(
-    config: ConfigBase,
-    plugins: Array<string>
-  ): Promise<Array<string>> {
-    for (let pIndex = 0; pIndex < plugins.length; pIndex++) {
-      plugins[pIndex] = await config.getAppPluginMappedName(plugins[pIndex]);
-    }
-    return plugins;
-  }
   public async makeAfterRequired(
-    config: ConfigBase,
     orderOfPlugins: {
       name: string;
       after: string[];
       before: string[];
-      ref: ServicesBase;
+      ref: BSBService;
     }[]
   ) {
     for (let i = 0; i < orderOfPlugins.length - 1; i++) {
       for (let j = i + 1; j < orderOfPlugins.length; j++) {
-        if (
-          (
-            await this.parsePluginNamesToMappedNames(
-              config,
-              orderOfPlugins[i].after
-            )
-          ).indexOf(orderOfPlugins[j].name) >= 0
-        ) {
-          await this.log.debug(`{plugin} run after {reqName}`, {
-            plugin: orderOfPlugins[i].name,
-            reqName: orderOfPlugins[j].name,
-          });
+        if (orderOfPlugins[i].after.indexOf(orderOfPlugins[j].name) >= 0) {
           const temp = orderOfPlugins[i];
           orderOfPlugins[i] = orderOfPlugins[j];
           orderOfPlugins[j] = temp;
@@ -241,42 +395,59 @@ export class SBServices {
     return orderOfPlugins;
   }
 
-  public async servicesRun(config: ConfigBase) {
-    await this.log.info("Run all services");
-    let orderOfPlugins = await this.makeAfterRequired(
-      config,
+  public async run(sbConfig: SBConfig) {
+    this.log.info("Run all services");
+    for (const service of this._activeServices) {
+      this.log.debug("Mapping required plugins list for {plugin}", {
+        plugin: service.pluginName,
+      });
+      (service as any).runBeforePlugins = await this.mapServicePlugins(
+        sbConfig,
+        service.pluginName,
+        service.runBeforePlugins ?? []
+      );
+      (service as any).runAfterPlugins = await this.mapServicePlugins(
+        sbConfig,
+        service.pluginName,
+        service.runAfterPlugins ?? []
+      );
+    }
+    this.log.info("Defining service order");
+    const orderOfPlugins = await this.makeAfterRequired(
       await this.makeBeforeRequired(
-        config,
         this._activeServices.map((x) => {
           return {
             name: x.pluginName,
-            after: x.runAfterPlugins || [],
-            before: x.runBeforePlugins || [],
+            after: x.runBeforePlugins || [],
+            before: x.runAfterPlugins || [],
             ref: x,
           };
         })
       )
     );
-    await this.log.debug("Services run default order: {initOrder}", {
-      initOrder: this._activeServices
+    this.log.debug("Services run default order: {runOrder}", {
+      runOrder: this._activeServices
         .map(
           (x) =>
-            `[(${(x.runAfterPlugins || []).join(",")})${x.pluginName}(${(
-              x.runBeforePlugins || []
+            `[(${(x.runBeforePlugins || []).join(",")})${x.pluginName}(${(
+              x.runAfterPlugins || []
             ).join(",")})]`
         )
         .join(","),
     });
-    await this.log.debug("Services run order: {initOrder}", {
-      initOrder: orderOfPlugins
-        .map((x) => `[${x.after.join(",")}=>${x.name}=>${x.before.join(",")}]`)
+    this.log.debug("Services run order: {runOrder}", {
+      runOrder: orderOfPlugins
+        .map((x) => `[(${x.after.join(",")})${x.name}(${x.before.join(",")})]`)
         .join(","),
     });
-    for (let service of orderOfPlugins) {
-      await this.log.debug(`{plugin} run`, {
+    for (const service of orderOfPlugins) {
+      this.log.debug(`Run {plugin}`, {
         plugin: service.name,
       });
-      await service.ref.run();
+      for (const client of service.ref._clients) {
+        SmartFunctionCallAsync(client, client.run);
+      }
+      SmartFunctionCallAsync(service.ref, service.ref.run);
     }
   }
 }

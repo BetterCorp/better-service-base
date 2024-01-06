@@ -1,8 +1,28 @@
-FROM betterweb/node:latest
-# RUN npm i -g typescript ts-node
+# BSB Build
+# Using 18 until nodejs fixes a bug with v20 - https://github.com/nodejs/docker-node/issues/1829
+FROM betterweb/node:18 as builder
+
+ARG BSB_VERSION=0.0.0
+
+RUN set -eux && mkdir /home/bsb && npm i -g typescript ts-node
+
+WORKDIR /home/bsb
+
+ADD tsconfig-release.json /home/bsb/tsconfig-release.json
+ADD package.json /home/bsb/package.json
+ADD package-lock.json /home/bsb/package-lock.json
+ADD src/ /home/bsb/src/
+RUN npm ci && npm version $BSB_VERSION --allow-same-version --no-git-tag-version && npm run build-release
+
+# Final image
+FROM betterweb/node:18
+
+COPY --from=builder /home/bsb/lib /home/bsb/lib
+COPY --from=builder /home/bsb/node_modules /home/bsb/node_modules
+COPY --from=builder /home/bsb/package.json /home/bsb/package.json
+COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
 
 VOLUME /mnt/bsb-plugins
-RUN mkdir /home/bsb
 WORKDIR /home/bsb
 
 ENV NODE_ENV production
@@ -10,33 +30,9 @@ ENV BSB_LIVE true
 ENV BSB_CONTAINER true
 ENV BSB_PLUGIN_DIR /mnt/bsb-plugins
 
-# NPM repo defaults
-#RUN pnpm config set auto-install-peers true
-RUN npm init -y
-RUN echo '{"deploymentProfiles":{"default":{}},"plugins":{}}' >> ./sec.config.json
-# RUN pushd /mnt/bsb-plugins && npm init -y && pushd
+COPY entrypoint.sh /home/bsb/entrypoint.sh
 
-# Add core BSB lib (from local)
-RUN mkdir /home/bsb-build
-COPY *.tgz /home/bsb-build/
-COPY entrypoint.sh /root/entrypoint.sh
-COPY entrypoint.js /root/entrypoint.js
-RUN chmod 550 /root/entrypoint.sh
+RUN addgroup node dialout && chown -R node:node /home/bsb && chmod -R 440 /home/bsb && chmod 111 /home/bsb/entrypoint.sh
 
-# Default plugins/setup
-RUN ls -la /home/bsb-build/
-RUN pnpm add "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz | head -1)"
-# RUN pnpm i --prod --fix-lockfile "/home/bsb-build/$(ls /home/bsb-build/ | grep .tgz | head -1)"
-RUN node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
-
-RUN cat ./package.json
-
-# Cleanup
-RUN rm -rfv /home/bsb-build
-
-RUN chown -R root:node /home/bsb
-RUN chmod -R 650 /home/bsb
-RUN chown node:node /home/bsb/sec.config.json
-
-ENTRYPOINT [ "/root/entrypoint.sh" ]
-CMD node node_modules/@bettercorp/service-base/lib/cli.js
+ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]
+CMD -

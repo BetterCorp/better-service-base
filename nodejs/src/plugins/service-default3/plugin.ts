@@ -1,18 +1,20 @@
-import { IPluginLogger } from '../../interfaces/logger';
-import { ServicesBase } from "../../service/service";
-import { testClient } from "../service-default1/plugin";
+import { BSBService, BSBServiceConstructor } from "../../";
+import { testClient } from "../service-default1";
 
-export class Service extends ServicesBase {
+export class Plugin extends BSBService<null> {
+  public initBeforePlugins?: string[] | undefined;
+  public runBeforePlugins?: string[] | undefined;
+  public runAfterPlugins?: string[] | undefined;
+  public methods = {};
+  dispose?(): void;
+  init?(): void | Promise<void>;
   public override initAfterPlugins: string[] = ["service-default2"];
   private testClient: testClient;
-  constructor(pluginName: string, cwd: string, pluginCwd: string, log: IPluginLogger) {
-    super(pluginName, cwd, pluginCwd, log);
+  constructor(config: BSBServiceConstructor) {
+    super(config);
     this.testClient = new testClient(this);
   }
-  public override async init() {
-    await this.testClient.init();
-  }
   public override async run() {
-    await this.testClient.abc();
+    await this.testClient.abc(18, 19, 20, 21);
   }
 }

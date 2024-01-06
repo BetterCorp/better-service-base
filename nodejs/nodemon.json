@@ -4,14 +4,14 @@
     ".git",
     "lib",
     "node_modules",
-    "src/plugins/-*/**/*.ts",
-    "sec.config.json"
+    "src/plugins/-*/**/*.ts"
   ],
   "delay": 2000,
   "signal": "SIGHUP",
-  "exec": "ts-node src/dev.ts",
+  "exec": "ts-node src/cli.ts",
   "watch": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "sec-config.yaml"
   ],
-  "ext": "ts,json"
+  "ext": "ts,json,yaml"
 }
