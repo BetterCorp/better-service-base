@@ -2,7 +2,7 @@
   "name": "@bettercorp/service-base",
   "license": "AGPL-3.0-only",
   "repository": {
-    "url": "https://github.com/BetterCorp/better-service-base"
+    "url": "git+https://github.com/BetterCorp/better-service-base.git"
   },
   "engines": {
     "npm": ">=9.0.0",
