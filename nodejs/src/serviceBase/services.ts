@@ -1,20 +1,20 @@
-import { BSBService } from "../base/service";
-import { PluginLogger } from "../base/PluginLogger";
-import { IPluginLogger } from "../interfaces/logging";
-import { DEBUG_MODE } from "../interfaces/logging";
-import { SBConfig } from "./config";
-import { SBEvents } from "./events";
 import {
+  BSBService,
+  PluginLogger,
+  IPluginLogger,
+  DEBUG_MODE,
+  SBConfig,
+  SBEvents,
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
-} from "../base/functions";
-import { SBLogging } from "./logging";
-import { SBPlugins } from "./plugins";
-import { IPluginDefinition } from "../interfaces/plugins";
-import { BSBError } from "../base/errorMessages";
-import { BSBServiceClient } from "../base/serviceClient";
-import { PluginEvents } from "../base/PluginEvents";
-import { LoadedPlugin } from "../interfaces";
+  SBLogging,
+  SBPlugins,
+  IPluginDefinition,
+  BSBError,
+  BSBServiceClient,
+  PluginEvents,
+  LoadedPlugin,
+} from "../";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class SBServices {
@@ -134,7 +134,7 @@ export class SBServices {
     sbEvents: SBEvents,
     plugin: IPluginDefinition,
     reference: LoadedPlugin<"service">,
-    config: object | null
+    config: any
   ) {
     this.log.debug(`Construct service plugin: {name}`, {
       name: plugin.name,
@@ -225,18 +225,19 @@ export class SBServices {
       name: plugin.name,
     });
 
-    let pluginConfig = await sbConfig.getPluginConfig("service", plugin.name);
+    let pluginConfig =
+      (await sbConfig.getPluginConfig("service", plugin.name)) ?? null;
 
     if (
+      this.mode !== "production" &&
       !Tools.isNullOrUndefined(newPlugin) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
       Tools.isObject(newPlugin.serviceConfig) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
     ) {
+      this.log.debug("Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
         newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
-    } else if (Tools.isNullOrUndefined(pluginConfig)) {
-      pluginConfig = {};
     }
 
     await this.addPlugin(
@@ -259,7 +260,7 @@ export class SBServices {
     if (contextPlugin.enabled) {
       const referencedServiceContext = this._activeServices.find(
         (x) => x.pluginName === contextPlugin.name
-      ) as BSBService<any, any>;
+      ) as BSBService;
       if (referencedServiceContext === undefined) {
         throw new BSBError(
           "The plugin {plugin} is not enabled so you cannot call methods from it",

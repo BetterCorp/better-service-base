@@ -1,11 +1,15 @@
-import { BSBService, BSBServiceRef } from "../base/service";
-import { LoggingEventTypes } from "./logging";
-import { BSBLogging, BSBLoggingRef } from "../base/logging";
-import { BSBConfig, BSBConfigRef } from "../base/config";
-import { EventsEventTypes } from "./events";
-import { BSBEvents } from "../base/events";
-import { BSBEventsRef } from "../base/events";
-import { BSBServiceConfig } from ".";
+import {
+  BSBService,
+  BSBLogging,
+  BSBConfig,
+  BSBEvents,
+  BSBServiceRef,
+  BSBLoggingRef,
+  BSBConfigRef,
+  BSBEventsRef,
+  BSBPluginConfig,
+} from "../base";
+import { LoggingEventTypes, EventsEventTypes } from "./index";
 
 export const PluginTypes = {
   config: "config",
@@ -105,7 +109,7 @@ export interface LoadedPlugin<
   name: string;
   ref: string;
   version: string;
-  serviceConfig: BSBServiceConfig<any> | null;
+  serviceConfig: BSBPluginConfig<any> | null;
   plugin: ClassType;
   pluginCWD: string;
   pluginPath: string;

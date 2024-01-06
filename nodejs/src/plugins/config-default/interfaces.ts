@@ -2,7 +2,7 @@ import {
   LoggingConfig,
   EventsConfig,
   PluginDefition as ServiceConfig,
-} from "../../interfaces/plugins";
+} from "../../";
 
 export interface DeploymentProfile {
   /**

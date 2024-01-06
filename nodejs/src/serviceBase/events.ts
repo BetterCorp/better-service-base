@@ -153,7 +153,7 @@ export class SBEvents {
         pluginName: "events-default",
         cwd: this.cwd,
         pluginCwd: this.cwd,
-        config: {},
+        config: null,
         sbLogging,
       }),
       on: undefined,
@@ -184,7 +184,7 @@ export class SBEvents {
     sbLogging: SBLogging,
     plugin: IPluginDefinition,
     reference: LoadedPlugin<"events">,
-    config: object | null,
+    config: any,
     filter?: EventsFilter
   ) {
     this.log.debug(`Get plugin config: {name}`, {
@@ -284,18 +284,19 @@ export class SBEvents {
       return;
     }
 
-    let pluginConfig = await sbConfig.getPluginConfig("events", plugin.name);
+    let pluginConfig =
+      (await sbConfig.getPluginConfig("events", plugin.name)) ?? null;
 
     if (
+      this.mode !== "production" &&
       !Tools.isNullOrUndefined(newPlugin) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
       Tools.isObject(newPlugin.serviceConfig) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
     ) {
+      this.log.debug("Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
         newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
-    } else if (Tools.isNullOrUndefined(pluginConfig)) {
-      pluginConfig = {};
     }
 
     await this.addPlugin(sbLogging, plugin, newPlugin, pluginConfig, filter);

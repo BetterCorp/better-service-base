@@ -1,5 +1,6 @@
 import {
   BSBConfig,
+  BSBConfigConstructor,
   BSBService,
   BSBServiceClient,
   BSBServiceConstructor,
@@ -9,9 +10,8 @@ import {
   EventsConfig,
   PluginDefition,
   PluginType,
-  DEBUG_MODE,
 } from "./interfaces";
-import { SBLogging, ServiceBase } from "./serviceBase";
+import { ServiceBase } from "./serviceBase";
 import { randomUUID } from "crypto";
 
 export class SBClient<Client extends BSBServiceClient> {
@@ -50,7 +50,7 @@ export class SBClient<Client extends BSBServiceClient> {
   }
 }
 
-export class FakeServiceClient extends BSBService<any> {
+export class FakeServiceClient extends BSBService<null> {
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
@@ -69,15 +69,8 @@ export class FakeServiceClient extends BSBService<any> {
 }
 
 export class FakeServiceConfig extends BSBConfig {
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    logging: SBLogging
-  ) {
-    super(appId, mode, pluginName, cwd, pluginCwd, logging);
+  constructor(config: BSBConfigConstructor) {
+    super(config);
   }
   async getLoggingPlugins(): Promise<Record<string, LoggingConfig>> {
     return {};

@@ -3,12 +3,12 @@ import * as crypto from "crypto";
 import { exec } from "child_process";
 import { pipeline } from "stream";
 import assert from "assert";
-import { BSBEvents, SmartFunctionCallSync } from "../../../../";
+import { BSBEvents, SmartFunctionCallSync } from "../../../..";
 
 const randomName = () => crypto.randomUUID();
 
 const mockBareFakeStream = () => {
-  let obj: any = {
+  const obj: any = {
     listeners: {},
     emit: (name: any, data?: any) => {
       if (obj.listeners[name] !== undefined) obj.listeners[name](data);
@@ -23,9 +23,9 @@ const mockBareFakeStream = () => {
 
 const getFileHash = (filename: any) =>
   new Promise((resolve, reject) => {
-    var fd = fs.createReadStream(filename);
+    const fd = fs.createReadStream(filename);
     // deepcode ignore InsecureHash/test: not production, just using to verify the files hash
-    var hash = crypto.createHash("sha1");
+    const hash = crypto.createHash("sha1");
     hash.setEncoding("hex");
 
     fd.on("error", reject);
@@ -90,7 +90,7 @@ export function emitStreamAndReceiveStream(
     it("receiveStream creates a should generate a valid string", async () => {
       const thisCaller = randomName();
 
-      let uuid = await emitter.receiveStream(
+      const uuid = await emitter.receiveStream(
         thisCaller,
         async () => {},
         maxTimeoutToExpectAResponse
@@ -114,7 +114,7 @@ export function emitStreamAndReceiveStream(
       const emitTimeout = setTimeout(() => {
         assert.fail("Event not received");
       }, timermaxTimeoutToExpectAResponse);
-      let uuid = await emitter.receiveStream(
+      const uuid = await emitter.receiveStream(
         thisCaller,
         async (err: any, stream: { emit: (arg0: string) => void }) => {
           clearTimeout(emitTimeout);
@@ -126,6 +126,7 @@ export function emitStreamAndReceiveStream(
       try {
         await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
         console.log("endededed");
+        // eslint-disable-next-line no-empty
       } catch (xx) {}
     });
     describe("sendStream triggers receiveStream listener passing in the stream", async () => {
@@ -135,7 +136,7 @@ export function emitStreamAndReceiveStream(
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
-        let uuid = await emitter.receiveStream(
+        const uuid = await emitter.receiveStream(
           thisCaller,
           async (err: any, stream: { emit: (arg0: string) => void }) => {
             clearTimeout(emitTimeout);
@@ -146,6 +147,7 @@ export function emitStreamAndReceiveStream(
         );
         try {
           await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
+          // eslint-disable-next-line no-empty
         } catch (xx) {}
       });
       it("should call the listener with a stream", async () => {
@@ -154,7 +156,7 @@ export function emitStreamAndReceiveStream(
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
-        let uuid = await emitter.receiveStream(
+        const uuid = await emitter.receiveStream(
           thisCaller,
           async (err: any, stream: { emit: (arg0: string) => void }) => {
             clearTimeout(emitTimeout);
@@ -169,6 +171,7 @@ export function emitStreamAndReceiveStream(
         );
         try {
           await emitter.sendStream(thisCaller, uuid, mockBareFakeStream());
+          // eslint-disable-next-line no-empty
         } catch (xx) {}
       });
     });
@@ -179,8 +182,8 @@ export function emitStreamAndReceiveStream(
           this.timeout(120000);
           const thisCaller = randomName();
           const now = new Date().getTime();
-          let fileName = `./test-file-${size}`;
-          let fileNameOut = fileName + "-out";
+          const fileName = `./test-file-${size}`;
+          const fileNameOut = fileName + "-out";
           try {
             await runCMD(
               `dd if=/dev/urandom of=${fileName} bs=${size} count=${count}`
@@ -196,12 +199,12 @@ export function emitStreamAndReceiveStream(
             const fileBytes = fs.statSync(fileName).size;
             const fullBytes = convertBytes(fileBytes);
             console.log(` ${size} act size: ${fullBytes}`);
-            let srcFileHash = await getFileHash(fileName);
+            const srcFileHash = await getFileHash(fileName);
 
             const emitTimeout = setTimeout(() => {
               assert.fail("Event not received");
             }, timermaxTimeoutToExpectAResponse);
-            let uuid = await emitter.receiveStream(
+            const uuid = await emitter.receiveStream(
               thisCaller,
               async (err: any, stream: any): Promise<any> => {
                 if (err) return assert.fail(err);

@@ -1,29 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { DEBUG_MODE } from "../interfaces/logging";
-import { SBLogging } from "../serviceBase/logging";
 import {
-  EventsConfig,
   LoggingConfig,
+  EventsConfig,
   PluginDefition,
   PluginType,
-} from "../interfaces/plugins";
-import { BaseWithLogging } from "./base";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
+} from "../interfaces";
+import {
+  BaseWithLogging,
+  BaseWithLoggingConfig,
+  BSB_ERROR_METHOD_NOT_IMPLEMENTED,
+} from "./index";
+
+export interface BSBConfigConstructor extends BaseWithLoggingConfig {}
 
 /**
  * Abstract class representing the configuration for the Better Service Base.
  * @template T - The type of config for the plugin
  */
 export abstract class BSBConfig extends BaseWithLogging {
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    logging: SBLogging
-  ) {
-    super(appId, mode, pluginName, cwd, pluginCwd, logging);
+  constructor(config: BSBConfigConstructor) {
+    super(config);
   }
   /**
    * This function is never used for events plugins.

@@ -1,10 +1,6 @@
-import { BSBService, BSBServiceTypes } from "../../base/service";
-import { BSBServiceClient } from "../../base/serviceClient";
+import { BSBService, BSBPluginEvents } from "../../";
 
-export interface ServiceTypes extends BSBServiceTypes {
-  methods: {
-    callableMethod(a: number, b: number): Promise<number>;
-  };
+export interface Events extends BSBPluginEvents {
   emitEvents: {
     onEmittable(a: number, b: number): Promise<void>;
   };
@@ -21,7 +17,7 @@ export interface ServiceTypes extends BSBServiceTypes {
   onBroadcast: {};
 }
 
-export class Plugin extends BSBService<any, ServiceTypes> {
+export class Plugin extends BSBService<null, Events> {
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
@@ -41,7 +37,7 @@ export class Plugin extends BSBService<any, ServiceTypes> {
     this.log.info("INIT SERVICE");
     this.events.onEvent("onReceivable", async (a: number, b: number) => {
       this.count++;
-      console.log('calledI: ' + this.count);
+      console.log("calledI: " + this.count);
       this.log.warn("received onReceivable ({a},{b}", { a, b });
       //process.exit(3);
     });
@@ -61,39 +57,5 @@ export class Plugin extends BSBService<any, ServiceTypes> {
         return result;
       }
     );
-  }
-}
-
-export class testClient extends BSBServiceClient<ServiceTypes> {
-  public initBeforePlugins?: string[] | undefined;
-  public initAfterPlugins?: string[] | undefined;
-  public runBeforePlugins?: string[] | undefined;
-  public runAfterPlugins?: string[] | undefined;
-  public dispose?(): void;
-  public run?(): Promise<void>;
-  public readonly pluginName: string = "service-default1";
-  private count = 0;
-  public async init(): Promise<void> {
-    this.events.onEvent("onEmittable", async (a: number, b: number) => {
-      this.log.warn("onEmittable ({a},{b})", { a, b });
-    });
-    this.events.onReturnableEvent(
-      "onReverseReturnable",
-      async (a: number, b: number) => {
-        this.count++;
-        console.log('called: ' + this.count);
-        this.log.warn("onReverseReturnable ({a},{b})", { a, b });
-        return a * b;
-      }
-    );
-    await this.events.emitEvent("onReceivable", 56, 7);
-  }
-  async abc(a: number, b: number, c: number, d: number): Promise<void> {
-    this.log.warn("TESTING ABC CALL ({result})", {
-      result: await this.callMethod("callableMethod", a, b),
-    });
-    this.log.warn("TESTING onReturnable ({result})", {
-      result: await this.events.emitEventAndReturn("onReturnable", 5, c, d),
-    });
   }
 }

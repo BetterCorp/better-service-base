@@ -1,33 +1,30 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Readable } from "stream";
-import { BSBConfigDefinition, BaseWithLoggingAndConfig } from "./base";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
-import { DEBUG_MODE } from "../interfaces";
-import { SBLogging } from "../serviceBase";
+import {
+  BaseWithLoggingAndConfig,
+  BaseWithLoggingAndConfigConfig,
+  BSBReferencePluginConfigType,
+  BSBReferencePluginConfigDefinition,
+  BSB_ERROR_METHOD_NOT_IMPLEMENTED,
+} from "./index";
 
-export interface BSBEventsConstructor {
-  appId: string;
-  mode: DEBUG_MODE;
-  pluginName: string;
-  cwd: string;
-  pluginCwd: string;
-  config: any;
-  sbLogging: SBLogging;
-}
+export interface BSBEventsConstructor<
+  ReferencedConfig extends BSBReferencePluginConfigType = any
+> extends BaseWithLoggingAndConfigConfig<
+    ReferencedConfig extends null
+      ? null
+      : BSBReferencePluginConfigDefinition<ReferencedConfig>
+  > {}
 
 export abstract class BSBEvents<
-  PluginConfigType extends BSBConfigDefinition = any
-> extends BaseWithLoggingAndConfig<PluginConfigType> {
-  constructor(config: BSBEventsConstructor) {
-    super(
-      config.appId,
-      config.mode,
-      config.pluginName,
-      config.cwd,
-      config.pluginCwd,
-      config.config,
-      config.sbLogging
-    );
+  ReferencedConfig extends BSBReferencePluginConfigType = any
+> extends BaseWithLoggingAndConfig<
+  ReferencedConfig extends null
+    ? null
+    : BSBReferencePluginConfigDefinition<ReferencedConfig>
+> {
+  constructor(config: BSBEventsConstructor<ReferencedConfig>) {
+    super(config);
   }
 
   /**

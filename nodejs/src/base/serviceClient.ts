@@ -1,30 +1,28 @@
-import { PluginEvents } from "./PluginEvents";
-import { IPluginLogger } from "../interfaces/logging";
-import { BSBService, BSBServiceTypes, BSBServiceTypesDefault } from "./service";
-import { DynamicallyReferencedMethodCallable } from "../interfaces/events";
+import {
+  IPluginLogger,
+  DynamicallyReferencedMethodCallable,
+} from "../interfaces";
+import { BSBService, BSBError, PluginEvents } from "./index";
 import { DynamicallyReferencedMethodType } from "@bettercorp/tools/lib/Interfaces";
-import { BSBError } from "./errorMessages";
 
-export abstract class BSBServiceClient<
-  Events extends BSBServiceTypes = BSBServiceTypesDefault
-> {
+export abstract class BSBServiceClient<Service extends BSBService = any> {
   protected readonly log!: IPluginLogger;
   protected readonly events!: PluginEvents<
-    Events["emitEvents"],
-    Events["onEvents"],
-    Events["emitReturnableEvents"],
-    Events["onReturnableEvents"],
-    Events["emitBroadcast"],
-    Events["onBroadcast"]
+    Service["_virtual_internal_events"]["emitEvents"],
+    Service["_virtual_internal_events"]["onEvents"],
+    Service["_virtual_internal_events"]["emitReturnableEvents"],
+    Service["_virtual_internal_events"]["onReturnableEvents"],
+    Service["_virtual_internal_events"]["emitBroadcast"],
+    Service["_virtual_internal_events"]["onBroadcast"]
   >;
   public callMethod<TA extends string>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: DynamicallyReferencedMethodCallable<
-      DynamicallyReferencedMethodType<Events["methods"]>,
+      DynamicallyReferencedMethodType<Service["methods"]>,
       TA
     >
   ): DynamicallyReferencedMethodCallable<
-    DynamicallyReferencedMethodType<Events["methods"]>,
+    DynamicallyReferencedMethodType<Service["methods"]>,
     TA,
     false
   > {
@@ -35,7 +33,7 @@ export abstract class BSBServiceClient<
       }
     );
   }
-  constructor(context: BSBService<any, any>) {
+  constructor(context: BSBService) {
     context._clients.push(this);
   }
   public abstract readonly pluginName: string;

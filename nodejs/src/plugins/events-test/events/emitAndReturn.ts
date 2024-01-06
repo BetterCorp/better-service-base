@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
-import { IPluginLogger } from "../../../";
+import { IPluginLogger } from "../../../interfaces/logging";
 
-export class emitAndReturn extends EventEmitter {
+export default class emitAndReturn extends EventEmitter {
   private log: IPluginLogger;
 
   constructor(log: IPluginLogger) {
@@ -17,10 +17,10 @@ export class emitAndReturn extends EventEmitter {
     event: string,
     listener: { (args: Array<any>): Promise<any> }
   ): Promise<void> {
-    this.log.debug("onReturnableEvent: listening to {pluginName}-{event}", {
-      pluginName,
-      event,
-    });
+    this.log.debug(
+      "onReturnableEvent: listening to {pluginName}-{event}",
+      { pluginName, event }
+    );
     this.on(event, async (resolve, reject, data) => {
       try {
         resolve(await listener(data));

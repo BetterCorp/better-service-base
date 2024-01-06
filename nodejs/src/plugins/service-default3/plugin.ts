@@ -1,7 +1,7 @@
-import { BSBService, BSBServiceConstructor } from "../../base/service";
-import { testClient } from "../service-default1/plugin";
+import { BSBService, BSBServiceConstructor } from "../../";
+import { testClient } from "../service-default1";
 
-export class Plugin extends BSBService<any> {
+export class Plugin extends BSBService<null> {
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;

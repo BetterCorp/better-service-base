@@ -1,15 +1,36 @@
-import {
-  BSBService,
-  BSBServiceConstructor,
-  BSBServiceTypes,
-} from "../../base/service";
-import { testClient } from "../service-default1/plugin";
-import { Config } from "./sec-config";
+import { BSBService, BSBServiceConstructor, BSBPluginConfig } from "../../";
+import { testClient } from "../service-default1";
+import { z } from "zod";
 
-export interface ServiceTypes extends BSBServiceTypes {
-  methods: {
-    abc: () => Promise<void>;
-  };
+export const secSchema = z.object({
+  testa: z.number(),
+  testb: z.number(),
+});
+export class Config extends BSBPluginConfig<typeof secSchema> {
+  validationSchema = secSchema;
+
+  migrate(
+    toVersion: string,
+    fromVersion: string | null,
+    fromConfig: any | null
+  ) {
+    if (fromConfig === null) {
+      // defaults
+      return {
+        testa: 1,
+        testb: 2,
+      };
+    } else {
+      // migrate
+      return {
+        testa: fromConfig.testa,
+        testb: fromConfig.testb,
+      };
+    }
+  }
+}
+
+export interface Events {
   emitEvents: {
     test: (a: string, b: string) => Promise<void>;
   };
@@ -19,7 +40,8 @@ export interface ServiceTypes extends BSBServiceTypes {
   emitBroadcast: {};
   onBroadcast: {};
 }
-export class Plugin extends BSBService<Config, ServiceTypes> {
+
+export class Plugin extends BSBService<Config, Events> {
   public initBeforePlugins?: string[] | undefined;
   //public initAfterPlugins: string[] = ["service-default3"];
   public initAfterPlugins?: string[] | undefined;

@@ -16,13 +16,13 @@ const getLoggingConstructorConfig = (
     cwd: process.cwd(),
     mode: mode,
     pluginName: "test-plugin",
-    config: {},
+    config: undefined,
   };
 };
 
-describe("plugins/log-default", () => {
+describe("plugins/logging-default", () => {
   describe("console.x", () => {
-    let tempCCStore: any = {
+    const tempCCStore: any = {
       log: null,
       error: null,
       warn: null,
@@ -37,37 +37,37 @@ describe("plugins/log-default", () => {
       expectMessageContent?: Array<any>
     ) => {
       consoleEventCalled = 0;
-      for (let consol of listOfConsoles)
+      for (const consol of listOfConsoles)
         tempCCStore[consol] = (console as any)[consol];
       if (expectMessageContent !== undefined) {
         consoleExpectMessageContent = {
           expectMessageContent,
           logs: [],
         };
-        for (let consol of listOfConsoles.filter((x) => x !== expect))
+        for (const consol of listOfConsoles.filter((x) => x !== expect))
           (console as any)[consol] = () => {
             consoleEventCalled = 1;
             assert.fail("Invalid console called!: " + consol);
           };
-        for (let consol of listOfConsoles.filter((x) => x === expect))
+        for (const consol of listOfConsoles.filter((x) => x === expect))
           (console as any)[consol] = (...data: Array<any>) => {
             consoleEventCalled = 1;
             consoleExpectMessageContent.logs.push(data);
           };
       } else if (expectMessage === undefined) {
         consoleEventCalled = 1;
-        for (let consol of listOfConsoles)
+        for (const consol of listOfConsoles)
           (console as any)[consol] = () => {
             consoleEventCalled = 0;
             assert.fail("Invalid console called!: " + consol);
           };
       } else {
-        for (let consol of listOfConsoles.filter((x) => x !== expect))
+        for (const consol of listOfConsoles.filter((x) => x !== expect))
           (console as any)[consol] = () => {
             consoleEventCalled = 1;
             assert.fail("Invalid console called!: " + consol);
           };
-        for (let consol of listOfConsoles.filter((x) => x === expect))
+        for (const consol of listOfConsoles.filter((x) => x === expect))
           (console as any)[consol] = (...data: Array<any>) => {
             consoleEventCalled = 1;
             assert.equal(data.length, expectMessage.length);
@@ -79,7 +79,7 @@ describe("plugins/log-default", () => {
       }
     };
     const restoreConsole = () => {
-      for (let consol of listOfConsoles as any)
+      for (const consol of listOfConsoles as any)
         (console as any)[consol] = tempCCStore[consol];
       if (consoleEventCalled === -1) assert.fail("Console not setup!");
       if (consoleEventCalled === 0) assert.fail("No console called!");
@@ -90,7 +90,7 @@ describe("plugins/log-default", () => {
           xx++
         ) {
           let has = false;
-          for (let item of consoleExpectMessageContent.logs) {
+          for (const item of consoleExpectMessageContent.logs) {
             if (
               item
                 .toString()
@@ -286,7 +286,7 @@ describe("plugins/log-default", () => {
       const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("error", undefined, [
         "test-error",
-        "src/tests/plugins/log-default/plugin.ts:",
+        "src/tests/plugins/logging-default/plugin.ts:",
       ]);
       await plugin.error("infW-DbG", new Error("test-error"));
       restoreConsole();

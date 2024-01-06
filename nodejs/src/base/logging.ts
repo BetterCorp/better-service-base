@@ -1,29 +1,30 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { BSBConfigDefinition, BaseWithConfig } from "./base";
-import { DEBUG_MODE, LogMeta } from "../interfaces/logging";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
+import { LogMeta } from "../interfaces";
+import {
+  BaseWithConfig,
+  BaseWithConfigConfig,
+  BSB_ERROR_METHOD_NOT_IMPLEMENTED,
+  BSBReferencePluginConfigDefinition,
+  BSBReferencePluginConfigType,
+} from "./index";
 
-export interface BSBLoggingConstructor {
-  appId: string;
-  mode: DEBUG_MODE;
-  pluginName: string;
-  cwd: string;
-  pluginCwd: string;
-  config: any;
-}
+export interface BSBLoggingConstructor<
+  ReferencedConfig extends BSBReferencePluginConfigType = any
+> extends BaseWithConfigConfig<
+    ReferencedConfig extends null
+      ? null
+      : BSBReferencePluginConfigDefinition<ReferencedConfig>
+  > {}
 
 export abstract class BSBLogging<
-  ReferencedConfig extends BSBConfigDefinition
-> extends BaseWithConfig<ReferencedConfig> {
-  constructor(config: BSBLoggingConstructor) {
-    super(
-      config.appId,
-      config.mode,
-      config.pluginName,
-      config.cwd,
-      config.pluginCwd,
-      config.config
-    );
+  ReferencedConfig extends BSBReferencePluginConfigType = any
+> extends BaseWithConfig<
+  ReferencedConfig extends null
+    ? null
+    : BSBReferencePluginConfigDefinition<ReferencedConfig>
+> {
+  constructor(config: BSBLoggingConstructor<ReferencedConfig>) {
+    super(config);
   }
 
   /**
@@ -145,7 +146,7 @@ export abstract class BSBLogging<
 /**
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
-export class BSBLoggingRef extends BSBLogging<BSBConfigDefinition> {
+export class BSBLoggingRef extends BSBLogging<null> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public reportStat(plugin: string, key: string, value: number): void {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBLoggingRef", "reportStat");

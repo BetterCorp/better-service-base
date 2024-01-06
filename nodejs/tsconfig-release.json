@@ -32,7 +32,8 @@
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src",
+    "src/tests/sb/**/*.*"
   ],
   "exclude": [
     "node_modules/**",

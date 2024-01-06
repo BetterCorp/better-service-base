@@ -1,5 +1,5 @@
-import { LogMeta } from "../interfaces/logging";
-import { LogFormatter } from "./logFormatter";
+import { LogFormatter } from "./index";
+import { LogMeta } from "../interfaces";
 
 export class BSBError<T extends string> extends Error {
   constructor(errorKey: string, message: T, meta: LogMeta<T>);

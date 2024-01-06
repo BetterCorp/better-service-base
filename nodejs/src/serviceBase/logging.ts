@@ -5,25 +5,21 @@ import {
   LoggingEventTypes,
   LoggingEventTypesBase,
   LoggingEventTypesExlReportStat,
-} from "../interfaces/logging";
-import { Plugin as DefaultLogger } from "../plugins/logging-default/plugin";
-import { BSBLogging } from "../base/logging";
-import { PluginLogger } from "../base/PluginLogger";
-import { EventEmitter } from "stream";
-import {
+  BSBLogging,
+  PluginLogger,
   FilterOnType,
   IPluginDefinition,
   LoggingFilter,
   LoggingFilterDetailed,
-} from "../interfaces/plugins";
-import { SBPlugins } from "./plugins";
-import { SBConfig } from "./config";
-import {
+  SBPlugins,
+  SBConfig,
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
-} from "../base/functions";
-import { LoadedPlugin } from "../interfaces";
-import { Tools } from '@bettercorp/tools/lib/Tools';
+  LoadedPlugin,
+} from "../";
+import { Plugin as DefaultLogger } from "../plugins/logging-default/plugin";
+import { EventEmitter } from "stream";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 
 export class SBLogging {
   private loggers: Array<{
@@ -55,7 +51,7 @@ export class SBLogging {
         pluginName: "logging-default",
         cwd: this.cwd,
         pluginCwd: this.cwd,
-        config: {},
+        config: null,
       }),
       onTypeof: "all",
     });
@@ -257,7 +253,7 @@ export class SBLogging {
   public async addPlugin(
     plugin: IPluginDefinition,
     reference: LoadedPlugin<"logging">,
-    config: object | null,
+    config: any,
     filter?: LoggingFilter
   ) {
     this.log.debug(`Construct logging plugin: {name}`, {
@@ -354,18 +350,19 @@ export class SBLogging {
       name: plugin.name,
     });
 
-    let pluginConfig = await sbConfig.getPluginConfig("logging", plugin.name);
+    let pluginConfig =
+      (await sbConfig.getPluginConfig("logging", plugin.name)) ?? null;
 
     if (
+      this.mode !== "production" &&
       !Tools.isNullOrUndefined(newPlugin) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
       Tools.isObject(newPlugin.serviceConfig) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
     ) {
+      this.log.debug("Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
         newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
-    } else if (Tools.isNullOrUndefined(pluginConfig)) {
-      pluginConfig = {};
     }
 
     await this.addPlugin(plugin, newPlugin, pluginConfig, filter);

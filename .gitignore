@@ -22,6 +22,7 @@ node_modules
 /nodejs/.nyc_output
 /nodejs/lib
 /nodejs/coverage
+/nodejs/development/tsconfig.json
 /dotnet/[Dd]ebug/
 /dotnet/[Dd]ebugPublic/
 /dotnet/[Rr]elease/

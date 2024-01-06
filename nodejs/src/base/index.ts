@@ -8,3 +8,4 @@ export * from "./PluginEvents";
 export * from "./PluginLogger";
 export * from "./service";
 export * from "./serviceClient";
+export * from "./pluginConfig";

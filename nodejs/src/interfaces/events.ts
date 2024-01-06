@@ -2,7 +2,7 @@ import { DynamicallyReferencedMethodBase } from "@bettercorp/tools/lib/Interface
 
 export type DynamicallyReferencedMethodCallable<
   Interface extends DynamicallyReferencedMethodBase,
-  Method extends string,
+  Method extends keyof Interface,
   ArgsReference extends boolean = true
   //ShowTimeout extends boolean = true
 > = ArgsReference extends true
@@ -18,7 +18,7 @@ export type DynamicallyReferencedMethodCallable<
 
 export type DynamicallyReferencedMethodOnIEvents<
   Interface extends DynamicallyReferencedMethodBase,
-  Method extends string,
+  Method extends keyof Interface,
   hasReturnable extends boolean = false
 > = Interface[Method] extends (...a: infer Arguments) => infer Return
   ? [
@@ -33,15 +33,15 @@ export type DynamicallyReferencedMethodOnIEvents<
 
 export type DynamicallyReferencedMethodEmitIEvents<
   Interface extends DynamicallyReferencedMethodBase,
-  Method extends string
+  Method extends keyof Interface
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 > = Interface[Method] extends (...a: infer Arguments) => infer Return
   ? [event: Method, ...a: Arguments]
-  : [noMatchingEvent: never];
+  : [event: Method, noMatchingEvent: never];
 
 export type DynamicallyReferencedMethodEmitEARIEvents<
   Interface extends DynamicallyReferencedMethodBase,
-  Method extends string,
+  Method extends keyof Interface,
   ArgsReference extends boolean = true
   //ShowTimeout extends boolean = true
 > = ArgsReference extends true

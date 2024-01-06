@@ -1,15 +1,23 @@
 import { Readable } from "stream";
-import {
-  DynamicallyReferencedMethodEmitEARIEvents,
-  DynamicallyReferencedMethodEmitIEvents,
-  DynamicallyReferencedMethodOnIEvents,
-} from "../interfaces/events";
-import { ServiceEventsBase } from "../interfaces/service";
-import { DEBUG_MODE } from "../interfaces/logging";
 import { DynamicallyReferencedMethodType } from "@bettercorp/tools/lib/Interfaces";
-import { SBEvents } from "../serviceBase/events";
-import { BSBService } from "./service";
-import { BSBServiceClient } from "./serviceClient";
+import { BSBService, BSBServiceClient } from "./index";
+import {
+  ServiceEventsBase,
+  DEBUG_MODE,
+  DynamicallyReferencedMethodOnIEvents,
+  DynamicallyReferencedMethodEmitIEvents,
+  DynamicallyReferencedMethodEmitEARIEvents,
+} from "../interfaces";
+import { SBEvents } from "../serviceBase";
+
+export abstract class BSBPluginEvents {
+  public abstract onEvents: ServiceEventsBase;
+  public abstract emitEvents: ServiceEventsBase;
+  public abstract onReturnableEvents: ServiceEventsBase;
+  public abstract emitReturnableEvents: ServiceEventsBase;
+  public abstract onBroadcast: ServiceEventsBase;
+  public abstract emitBroadcast: ServiceEventsBase;
+}
 
 export class PluginEvents<
   onEvents = ServiceEventsBase,
@@ -20,11 +28,11 @@ export class PluginEvents<
   emitBroadcast = ServiceEventsBase
 > {
   private events: SBEvents;
-  private service: BSBService | BSBServiceClient<any>;
+  private service: BSBService | BSBServiceClient;
   constructor(
     mode: DEBUG_MODE,
     events: SBEvents,
-    context: BSBService<any, any> | BSBServiceClient<any>
+    context: BSBService | BSBServiceClient
   ) {
     this.events = events;
     this.service = context;
@@ -49,7 +57,7 @@ export class PluginEvents<
    * });
    * ```
    */
-  public async onBroadcast<TA extends string>(
+  public async onBroadcast<TA extends keyof onBroadcast>(
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onBroadcast>,
       TA,
@@ -82,7 +90,7 @@ export class PluginEvents<
    *   /// Do something with the data
    * });
    */
-  async emitBroadcast<TA extends string>(
+  async emitBroadcast<TA extends keyof emitBroadcast>(
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<emitBroadcast>,
       TA
@@ -110,7 +118,7 @@ export class PluginEvents<
    *   /// Do something with the data
    * });
    */
-  public async onEvent<TA extends string>(
+  public async onEvent<TA extends keyof onEvents>(
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onEvents>,
       TA,
@@ -143,7 +151,7 @@ export class PluginEvents<
    *   /// Do something with the data
    * });
    */
-  public async emitEvent<TA extends string>(
+  public async emitEvent<TA extends keyof emitEvents>(
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<emitEvents>,
       TA
@@ -173,7 +181,7 @@ export class PluginEvents<
    *   /// Do something with the data
    * });
    */
-  public async onEventSpecific<TA extends string>(
+  public async onEventSpecific<TA extends keyof onEvents>(
     serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onEvents>,
@@ -210,7 +218,7 @@ export class PluginEvents<
    *   /// Do something with the data
    * });
    */
-  public async emitEventSpecific<TA extends string>(
+  public async emitEventSpecific<TA extends keyof emitEvents>(
     serverId: string,
     ...args: DynamicallyReferencedMethodEmitIEvents<
       DynamicallyReferencedMethodType<emitEvents>,
@@ -246,7 +254,7 @@ export class PluginEvents<
    *   return 'some result';
    * });
    */
-  public async onReturnableEvent<TA extends string>(
+  public async onReturnableEvent<TA extends keyof onReturnableEvents>(
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
       TA,
@@ -280,7 +288,7 @@ export class PluginEvents<
    *   return 'some result';
    * });
    */
-  public async emitEventAndReturn<TA extends string>(
+  public async emitEventAndReturn<TA extends keyof emitReturnableEvents>(
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
@@ -289,7 +297,7 @@ export class PluginEvents<
     >
   ): Promise<
     DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       false
     >
@@ -326,7 +334,7 @@ export class PluginEvents<
    *   return 'some result';
    * });
    */
-  public async onReturnableEventSpecific<TA extends string>(
+  public async onReturnableEventSpecific<TA extends keyof onReturnableEvents>(
     serverId: string,
     ...args: DynamicallyReferencedMethodOnIEvents<
       DynamicallyReferencedMethodType<onReturnableEvents>,
@@ -364,7 +372,9 @@ export class PluginEvents<
    *   return 'some result';
    * });
    */
-  public async emitEventAndReturnSpecific<TA extends string>(
+  public async emitEventAndReturnSpecific<
+    TA extends keyof emitReturnableEvents
+  >(
     serverId: string,
     ...args: DynamicallyReferencedMethodEmitEARIEvents<
       DynamicallyReferencedMethodType<emitReturnableEvents>,
@@ -374,7 +384,7 @@ export class PluginEvents<
     >
   ): Promise<
     DynamicallyReferencedMethodEmitEARIEvents<
-      DynamicallyReferencedMethodType<onReturnableEvents>,
+      DynamicallyReferencedMethodType<emitReturnableEvents>,
       TA,
       false
     >
@@ -473,4 +483,16 @@ export class PluginEvents<
       stream
     );
   }
+}
+
+/**
+ * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
+ */
+export class BSBPluginEventsRef extends BSBPluginEvents {
+  public onEvents: ServiceEventsBase = {};
+  public emitEvents: ServiceEventsBase = {};
+  public onReturnableEvents: ServiceEventsBase = {};
+  public emitReturnableEvents: ServiceEventsBase = {};
+  public onBroadcast: ServiceEventsBase = {};
+  public emitBroadcast: ServiceEventsBase = {};
 }

@@ -1,5 +1,5 @@
 import { Tools } from "@bettercorp/tools/lib/Tools";
-import { LogMeta, SafeLogData, UnsafeLogData } from "../interfaces/logging";
+import { LogMeta, SafeLogData, UnsafeLogData } from "../interfaces";
 
 export class LogFormatter {
   private isUnsafeLogData(value: any): value is UnsafeLogData {

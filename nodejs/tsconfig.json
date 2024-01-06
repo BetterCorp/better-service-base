@@ -25,14 +25,10 @@
     "moduleResolution": "node"
   },
   "linterOptions": {
-    "exclude": [
-      "src/plugins/-*/**/*.*"
-    ]
+    "exclude": ["src/plugins/-*/**/*.*"]
   },
   "compileOnSave": true,
-  "include": [
-    "src"
-  ],
+  "include": ["src"],
   "exclude": [
     "node_modules/**",
     "src/plugins/*-test*/**/*.*",

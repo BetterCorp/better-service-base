@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
-import { IPluginLogger } from "../../../";
+import { IPluginLogger } from "../../../interfaces/logging";
 
-export class broadcast extends EventEmitter {
+export default class broadcast extends EventEmitter {
   private log: IPluginLogger;
 
   constructor(log: IPluginLogger) {

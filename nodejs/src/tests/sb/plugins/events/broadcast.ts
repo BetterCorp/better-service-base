@@ -1,6 +1,6 @@
 import assert from "assert";
 import { randomUUID } from "crypto";
-import { BSBEvents, SmartFunctionCallSync } from "../../../../";
+import { BSBEvents, SmartFunctionCallSync } from "../../../..";
 
 const randomName = () => randomUUID();
 
@@ -30,10 +30,10 @@ export function broadcast(
           if (receiveCounter === 0) return assert.fail("Event not received");
           assert.fail("Received " + receiveCounter + " events");
         }, maxTimeoutToExpectAResponse);
-        await emitter.onBroadcast(thisPlugin, thisEvent, async (data: any) => {
+        await emitter.onBroadcast(thisPlugin, thisEvent, async () => {
           receiveCounter++;
         });
-        await emitter.onBroadcast(thisPlugin, thisEvent, async (data: any) => {
+        await emitter.onBroadcast(thisPlugin, thisEvent, async () => {
           receiveCounter++;
         });
         await emitter.emitBroadcast(thisPlugin, thisEvent, [emitData]);
@@ -90,7 +90,7 @@ export function broadcast(
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onBroadcast(thisPlugin, thisEvent, async (data: any) => {
+        await emitter.onBroadcast(thisPlugin, thisEvent, async () => {
           clearTimeout(emitTimeout);
 
           assert.fail("Event received");
@@ -105,7 +105,7 @@ export function broadcast(
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onBroadcast(thisCaller, thisEvent, async (data: any) => {
+        await emitter.onBroadcast(thisCaller, thisEvent, async () => {
           clearTimeout(emitTimeout);
 
           assert.fail("Event received");
@@ -151,7 +151,7 @@ export function broadcast(
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onBroadcast(thisPlugin, thisEvent, async (data: any) => {
+        await emitter.onBroadcast(thisPlugin, thisEvent, async () => {
           clearTimeout(emitTimeout);
 
           assert.fail("Event received");
@@ -166,7 +166,7 @@ export function broadcast(
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onBroadcast(thisCaller, thisEvent, async (data: any) => {
+        await emitter.onBroadcast(thisCaller, thisEvent, async () => {
           clearTimeout(emitTimeout);
 
           assert.fail("Event received");
@@ -215,7 +215,7 @@ export function broadcast(
         },
       },
     ];
-    for (let typeToTest of typesToTest)
+    for (const typeToTest of typesToTest)
       describe(`emitBroadcast ${typeToTest.name}`, async () => {
         it("should be able to emit to events with plugin name defined", async () => {
           const thisPlugin = randomName();
@@ -261,15 +261,11 @@ export function broadcast(
           const emitTimeout = setTimeout(() => {
             assert.ok(true);
           }, maxTimeoutToExpectAResponse);
-          await emitter.onBroadcast(
-            thisPlugin,
-            thisEvent,
-            async (data: any) => {
-              clearTimeout(emitTimeout);
+          await emitter.onBroadcast(thisPlugin, thisEvent, async () => {
+            clearTimeout(emitTimeout);
 
-              assert.fail("Event received");
-            }
-          );
+            assert.fail("Event received");
+          });
           await emitter.emitBroadcast(thisPlugin, thisEvent2, [
             typeToTest.data,
           ]);
@@ -282,15 +278,11 @@ export function broadcast(
           const emitTimeout = setTimeout(() => {
             assert.ok(true);
           }, maxTimeoutToExpectAResponse);
-          await emitter.onBroadcast(
-            thisCaller,
-            thisEvent,
-            async (data: any) => {
-              clearTimeout(emitTimeout);
+          await emitter.onBroadcast(thisCaller, thisEvent, async () => {
+            clearTimeout(emitTimeout);
 
-              assert.fail("Event received");
-            }
-          );
+            assert.fail("Event received");
+          });
           await emitter.emitBroadcast(thisCaller, thisEvent2, [
             typeToTest.data,
           ]);

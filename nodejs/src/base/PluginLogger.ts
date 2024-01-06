@@ -1,6 +1,5 @@
-import { DEBUG_MODE, SmartLogMeta } from "../interfaces/logging";
-import { IPluginLogger } from "../interfaces/logging";
-import { SBLogging } from "../serviceBase/logging";
+import { SBLogging } from "../serviceBase";
+import { DEBUG_MODE, SmartLogMeta, IPluginLogger } from "../interfaces";
 
 export class PluginLogger implements IPluginLogger {
   private logging: SBLogging;

@@ -1,9 +1,14 @@
-import { DEBUG_MODE, IPluginLogger } from "../interfaces/logging";
-import { PluginLogger } from "./PluginLogger";
-import { SBLogging } from "../serviceBase/logging";
-import { z } from "zod";
-import { BSBServiceConfig } from "./serviceConfig";
+import { DEBUG_MODE, IPluginLogger } from "../interfaces";
+import { SBLogging } from "../serviceBase";
+import { BSBReferenceConfigType, PluginLogger } from "./index";
 
+export interface MainBaseConfig {
+  appId: string;
+  mode: DEBUG_MODE;
+  pluginName: string;
+  cwd: string;
+  pluginCwd: string;
+}
 export abstract class MainBase {
   /**
    * The unique app id of the app that is running
@@ -35,18 +40,12 @@ export abstract class MainBase {
    */
   public readonly pluginName!: string;
 
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string
-  ) {
-    this.appId = appId;
-    this.mode = mode;
-    if (pluginName !== "") this.pluginName = pluginName;
-    this.cwd = cwd;
-    this.pluginCwd = pluginCwd;
+  constructor(config: MainBaseConfig) {
+    this.appId = config.appId;
+    this.mode = config.mode;
+    if (config.pluginName !== "") this.pluginName = config.pluginName;
+    this.cwd = config.cwd;
+    this.pluginCwd = config.pluginCwd;
   }
 
   /**
@@ -60,14 +59,8 @@ export abstract class MainBase {
 }
 
 export abstract class Base extends MainBase {
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string
-  ) {
-    super(appId, mode, pluginName, cwd, pluginCwd);
+  constructor(config: MainBaseConfig) {
+    super(config);
   }
 
   /**
@@ -102,113 +95,81 @@ export abstract class Base extends MainBase {
   abstract run?(): Promise<void> | void;
 }
 
-/**
- * The definition of the config with zod validation
- * @example
- * const configDefinition = z.object({
- *  a: z.string(),
- * });
- */
-export type BSBConfigType = z.ZodTypeAny | undefined;
-export type BSBConfigDefinition = BSBServiceConfig<z.ZodTypeAny>;
-/**
- * Config migration handler, allows for config migrations when the plugin version changes or a new plugin setup is done
- * @example simple version change and basic setup
- * const configMigration = async (versionFrom: string | null, versionTo: string, existingConfig?: z.infer<BSBConfigDefinition>) => {
- * if (versionFrom === null) {
- *  return {
- *   a: "a",
- *  };
- * }
- * return {
- *  a: "b",
- * };
- * @example basic setup and no version change handling
- * const configMigration = async (versionFrom: string | null, versionTo: string, existingConfig?: z.infer<BSBConfigDefinition>) => {
- * if (versionFrom === null || existingConfig === undefined) {
- *  return {
- *   a: "a",
- *  };
- * }
- * return existingConfig;
- */
-export type BSBConfigMigration<T extends BSBConfigType> = (
-  versionFrom: string | null,
-  versionTo: string,
-  existingConfig?: z.infer<Exclude<T, undefined>>
-) => Promise<z.infer<Exclude<T, undefined>>>;
+export type ConfigPropertyTypeSafe<
+  ReferencedConfig extends BSBReferenceConfigType
+> = ReferencedConfig extends undefined
+  ? undefined
+  : ReferencedConfig extends null
+  ? undefined
+  : ReferencedConfig;
 
-export type BSBConfigDefintionReference<
-  T extends BSBConfigType,
-  AS = undefined
-> = T extends undefined ? AS : z.infer<Exclude<T, undefined>>;
+export interface BaseWithConfigConfig<
+  ReferencedConfig extends BSBReferenceConfigType
+> extends MainBaseConfig {
+  config: ConfigPropertyTypeSafe<ReferencedConfig>;
+}
 
 // used by logging plugins (does not need events or logging since logging logs its own logs)
 export abstract class BaseWithConfig<
-  ReferencedConfig extends BSBConfigDefinition
+  ReferencedConfig extends BSBReferenceConfigType
 > extends Base {
   /**
    * The config of the plugin
    * @type {PluginConfig}
    * @readonly
    */
-  protected readonly config: BSBConfigDefintionReference<
-    ReferencedConfig["validationSchema"],
-    null
-  >;
+  protected readonly config: ConfigPropertyTypeSafe<ReferencedConfig>;
 
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    config: any
-  ) {
-    super(appId, mode, pluginName, cwd, pluginCwd);
-    this.config = config;
+  constructor(config: BaseWithConfigConfig<ReferencedConfig>) {
+    super(config);
+    this.config = config.config;
   }
 }
 
+export interface BaseWithLoggingConfig extends MainBaseConfig {
+  sbLogging: SBLogging;
+}
 // used by config plugins (does not need events)
 export abstract class BaseWithLogging extends Base {
   protected log: IPluginLogger;
   //protected createNewLogger: { (plugin: string): IPluginLogger };
 
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    sbLogging: SBLogging
-  ) {
-    super(appId, mode, pluginName, cwd, pluginCwd);
-    this.log = new PluginLogger(mode, pluginName, sbLogging);
+  constructor(config: BaseWithLoggingConfig) {
+    super(config);
+    this.log = new PluginLogger(
+      config.mode,
+      config.pluginName,
+      config.sbLogging
+    );
     /*this.createNewLogger = (plugin: string) =>
       new PluginLogger(mode, `${pluginName}-${plugin}`, sbLogging);*/
   }
 }
 
+export interface BaseWithLoggingAndConfigConfig<
+  ReferencedConfig extends BSBReferenceConfigType
+> extends BaseWithLoggingConfig,
+    BaseWithConfigConfig<ReferencedConfig> {}
+
 // used by events plugins (does not need events)
 export abstract class BaseWithLoggingAndConfig<
-  ReferencedConfig extends BSBConfigDefinition
+  ReferencedConfig extends BSBReferenceConfigType
 > extends BaseWithConfig<ReferencedConfig> {
   protected log: IPluginLogger;
   protected createNewLogger: { (plugin: string): IPluginLogger };
 
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    config: any,
-    sbLogging: SBLogging
-  ) {
-    super(appId, mode, pluginName, cwd, pluginCwd, config);
-    this.log = new PluginLogger(mode, pluginName, sbLogging);
+  constructor(config: BaseWithLoggingAndConfigConfig<ReferencedConfig>) {
+    super(config);
+    this.log = new PluginLogger(
+      config.mode,
+      config.pluginName,
+      config.sbLogging
+    );
     this.createNewLogger = (plugin: string) =>
-      new PluginLogger(mode, `${pluginName}-${plugin}`, sbLogging);
+      new PluginLogger(
+        config.mode,
+        `${config.pluginName}-${plugin}`,
+        config.sbLogging
+      );
   }
 }

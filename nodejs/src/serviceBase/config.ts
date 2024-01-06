@@ -1,5 +1,5 @@
 import { DEBUG_MODE, IPluginLogger } from "../interfaces/logging";
-import { Plugin as Config } from "../plugins/config-default/plugin";
+import { Plugin as DefaultConfig } from "../plugins/config-default/plugin";
 import { SBPlugins } from "./plugins";
 import { SBLogging } from "./logging";
 import { PluginLogger } from "../base/PluginLogger";
@@ -38,14 +38,14 @@ export class SBConfig {
     this.sbLogging = sbLogging;
     this.sbPlugins = sbPlugins;
     this.log = new PluginLogger(mode, "sb-config", sbLogging);
-    this.configPlugin = new Config(
+    this.configPlugin = new DefaultConfig({
       appId,
       mode,
-      "sb-config",
+      pluginName: "sb-config",
       cwd,
-      cwd,
-      sbLogging
-    );
+      pluginCwd: cwd,
+      sbLogging,
+    });
   }
 
   public async getPluginConfig(pluginType: PluginType, name: string) {
@@ -73,14 +73,14 @@ export class SBConfig {
   private configPluginName = "config-default";
 
   public async setConfigPlugin(reference: LoadedPlugin<"config">) {
-    this.configPlugin = new reference.plugin(
-      this.appId,
-      this.mode,
-      reference.name,
-      this.cwd,
-      reference.pluginCWD,
-      this.sbLogging
-    );
+    this.configPlugin = new reference.plugin({
+      appId: this.appId,
+      mode: this.mode,
+      pluginName: reference.name,
+      cwd: this.cwd,
+      pluginCwd: reference.pluginCWD,
+      sbLogging: this.sbLogging,
+    });
     this.log.info("Adding {pluginName} as config", {
       pluginName: reference.name,
     });

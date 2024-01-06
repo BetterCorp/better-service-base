@@ -1,19 +1,18 @@
 import * as path from "path";
 import * as fs from "fs";
-import { ConfigDefinition } from "./interfaces";
 import { parse } from "yaml";
-import { BSBConfig } from "../../base/config";
+import { Tools } from "@bettercorp/tools/lib/Tools";
 import {
+  BSBConfig,
+  BSBConfigConstructor,
   EventsConfig,
   LoggingConfig,
   PluginDefition,
   PluginType,
   PluginTypes,
-} from "../../interfaces/plugins";
-import { Tools } from "@bettercorp/tools/lib/Tools";
-import { SBLogging } from "../../serviceBase/logging";
-import { DEBUG_MODE } from "../../interfaces/logging";
-import { BSBError } from "../../base/errorMessages";
+  BSBError,
+} from "../../";
+import { ConfigDefinition } from "./interfaces";
 
 export class Plugin extends BSBConfig {
   async getServicePluginDefinition(
@@ -130,15 +129,8 @@ export class Plugin extends BSBConfig {
   private _secConfigFilePath: string;
   private _deploymentProfile: string = "default";
 
-  constructor(
-    appId: string,
-    mode: DEBUG_MODE,
-    pluginName: string,
-    cwd: string,
-    pluginCwd: string,
-    logging: SBLogging
-  ) {
-    super(appId, mode, pluginName, cwd, pluginCwd, logging);
+  constructor(config: BSBConfigConstructor) {
+    super(config);
     this._secConfigFilePath = path.join(this.cwd, "./sec-config.yaml");
   }
 

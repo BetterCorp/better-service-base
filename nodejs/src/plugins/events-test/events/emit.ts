@@ -1,8 +1,8 @@
 import { EventEmitter } from "events";
-import { IPluginLogger } from "../../../";
+import { IPluginLogger } from "../../../interfaces/logging";
 import { randomUUID } from "crypto";
 
-export class emit extends EventEmitter {
+export default class emit extends EventEmitter {
   private log: IPluginLogger;
   private _lastReceivedMessageIds: Array<string> = [];
   private set lastReceivedMessageIds(value: string) {

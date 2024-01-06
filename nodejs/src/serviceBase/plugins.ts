@@ -1,13 +1,14 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { PluginType, PluginTypeDefinitionRef } from "../interfaces/plugins";
-import { IPluginLogger } from "../interfaces/logging";
-import { BSBError } from "../base/errorMessages";
 import {
-  BSBServiceConfig,
-  BSBServiceConfigRef,
+  PluginType,
+  PluginTypeDefinitionRef,
+  IPluginLogger,
+  BSBError,
   LoadedPlugin,
-} from "../interfaces";
+  BSBPluginConfig,
+  BSBPluginConfigRef,
+} from "../";
 
 export class SBPlugins {
   protected cwd: string;
@@ -78,8 +79,7 @@ export class SBPlugins {
     });
 
     let pluginFile = join(pluginPath, "./plugin.js");
-    let configDefFile: string | null = null;
-    let serviceConfigDef: BSBServiceConfig<any> | null = null;
+    let serviceConfigDef: BSBPluginConfig<any> | null = null;
     //if (this.devMode) {
     const tsPluginFile = join(pluginPath, "./plugin.ts");
     if (existsSync(tsPluginFile)) {
@@ -88,42 +88,6 @@ export class SBPlugins {
       });
       pluginFile = tsPluginFile;
     }
-    // sec-.ts
-    configDefFile = join(pluginPath, "./sec-config.js");
-    const tsInstallerFile = join(pluginPath, "./sec-config.ts");
-    if (existsSync(tsInstallerFile)) {
-      log.debug("PLUGIN {pluginName} running development mode installer", {
-        pluginName: name,
-      });
-      configDefFile = tsInstallerFile;
-    } else if (!existsSync(configDefFile)) {
-      log.debug("PLUGIN {pluginName} does not have an installer file", {
-        pluginName: name,
-      });
-      configDefFile = null;
-    } else {
-      log.debug("PLUGIN {pluginName} does not have an installer file", {
-        pluginName: name,
-      });
-    }
-
-    if (configDefFile !== null) {
-      const importedConfig = await import(configDefFile);
-      if (importedConfig.Config === undefined)
-        throw new BSBError(
-          "PLUGIN {pluginName} sec-config.ts/js does not export a Config class - so possibly not a valid BSB Plugin Config",
-          {
-            pluginName: name,
-          }
-        );
-      serviceConfigDef =
-        new (importedConfig.Config as typeof BSBServiceConfigRef)(
-          this.cwd,
-          pluginCWD,
-          name
-        );
-    }
-    //}
 
     if (!existsSync(pluginFile))
       throw new BSBError("PLUGIN {pluginName} not found at {location}", {
@@ -140,6 +104,13 @@ export class SBPlugins {
           pluginName: name,
         }
       );
+    if (importedPlugin.Config !== undefined)
+      serviceConfigDef =
+        new (importedPlugin.Config as typeof BSBPluginConfigRef)(
+          this.cwd,
+          pluginCWD,
+          name
+        );
 
     return {
       name: name,

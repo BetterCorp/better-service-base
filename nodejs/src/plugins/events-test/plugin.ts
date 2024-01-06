@@ -1,11 +1,9 @@
 import { Readable } from "stream";
-import {
-  emit,
-  broadcast,
-  emitAndReturn,
-  emitStreamAndReceiveStream,
-} from "./events";
-import { BSBEvents, BSBEventsConstructor } from "../../";
+import emit from "./events/emit";
+import emitAndReturn from "./events/emitAndReturn";
+import emitStreamAndReceiveStream from "./events/emitStreamAndReceiveStream";
+import broadcast from "./events/broadcast";
+import { BSBEvents, BSBEventsConstructor } from "../../base/events";
 
 export class Plugin extends BSBEvents {
   init?(): void;
