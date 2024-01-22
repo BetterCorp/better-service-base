@@ -4,6 +4,19 @@ type SmartFunctionCallFunc = {
   [Symbol.toStringTag]?: string;
   (...args: any[]): any;
 };
+export function SmartFunctionCallThroughAsync<T extends SmartFunctionCallFunc>(
+  context: any,
+  input: T | undefined,
+  ...params: Parameters<T>
+): Promise<ReturnType<T> | void> | ReturnType<T> | void {
+  if (typeof input !== "function") return;
+  if (typeof context !== "object")
+    throw new BSBError(
+      "INCORRECT_REFERENCE",
+      "SmartFunctionCallThroughAsync: context is not an object"
+    );
+  return input.call(context, ...params);
+}
 export async function SmartFunctionCallAsync<T extends SmartFunctionCallFunc>(
   context: any,
   input: T | undefined,

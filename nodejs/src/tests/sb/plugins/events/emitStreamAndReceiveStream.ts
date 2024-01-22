@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 import { exec } from "child_process";
 import { pipeline } from "stream";
-import assert from "assert";
+import * as assert from "assert";
 import { BSBEvents, SmartFunctionCallSync } from "../../../..";
 
 const randomName = () => crypto.randomUUID();

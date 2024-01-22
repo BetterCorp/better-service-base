@@ -28,6 +28,9 @@ export class Plugin extends BSBService<null, Events> {
       this.events.emitEvent("onEmittable", a, b);
       return a * b;
     },
+    testMethod: (): boolean => {
+      return true;
+    },
   };
   dispose?(): void;
   run?(): void | Promise<void>;

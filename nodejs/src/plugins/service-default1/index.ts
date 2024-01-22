@@ -29,6 +29,9 @@ export class testClient extends BSBServiceClient<Plugin> {
     this.log.warn("TESTING ABC CALL ({result})", {
       result: await this.callMethod("callableMethod", a, b),
     });
+    this.log.warn("TESTING NON ASYNC CALL ({result})", {
+      result: this.callMethod("testMethod"),
+    });
     this.log.warn("TESTING onReturnable ({result})", {
       result: await this.events.emitEventAndReturn("onReturnable", 5, c, d),
     });

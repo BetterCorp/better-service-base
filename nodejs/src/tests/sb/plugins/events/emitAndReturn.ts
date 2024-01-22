@@ -1,5 +1,5 @@
 import { BSBEvents, SmartFunctionCallSync } from "../../../..";
-import assert from "assert";
+import * as assert from "assert";
 import { randomUUID } from "crypto";
 
 const randomName = () => randomUUID();

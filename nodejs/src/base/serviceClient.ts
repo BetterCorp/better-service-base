@@ -15,7 +15,7 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
     Service["_virtual_internal_events"]["emitBroadcast"],
     Service["_virtual_internal_events"]["onBroadcast"]
   >;
-  public callMethod<TA extends string>(
+  public callMethod<TA extends keyof Service["methods"]>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: DynamicallyReferencedMethodCallable<
       DynamicallyReferencedMethodType<Service["methods"]>,

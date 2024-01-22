@@ -14,6 +14,7 @@ import {
   BSBServiceClient,
   PluginEvents,
   LoadedPlugin,
+  SmartFunctionCallThroughAsync,
 } from "../";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 
@@ -277,7 +278,7 @@ export class SBServices {
           }
         );
       }
-      (clientContext as any).callMethod = async (
+      (clientContext as any).callMethod = (
         method: string,
         ...args: Array<any>
       ) => {
@@ -290,7 +291,7 @@ export class SBServices {
             }
           );
         }
-        return SmartFunctionCallAsync(
+        return SmartFunctionCallThroughAsync(
           referencedServiceContext,
           referencedServiceContext.methods[method],
           ...args
