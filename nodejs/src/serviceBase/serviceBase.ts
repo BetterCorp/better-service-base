@@ -110,7 +110,9 @@ export class ServiceBase {
       this._CORE_PLUGIN_NAME,
       this.logging
     );
-    this.log.info("Starting BSB");
+    this.log.info("Starting BSB [{mode}]", {
+      mode: this.mode,
+    });
     this.services = new services(
       this._appId,
       this.mode,
@@ -156,7 +158,7 @@ export class ServiceBase {
     this._outputKeep(BOOT_STAT_KEYS.SERVICES);
 
     this._startKeep(BOOT_STAT_KEYS.INIT);
-    await this.services.init(this.config);
+    await this.services.init();
     this._outputKeep(BOOT_STAT_KEYS.INIT);
   }
 
@@ -164,7 +166,7 @@ export class ServiceBase {
     this._startKeep(BOOT_STAT_KEYS.RUN);
     await this.logging.run();
     await this.events.run();
-    await this.services.run(this.config);
+    await this.services.run();
     this.log.info("Disposing config for memory cleanup and safety");
     this.config.dispose();
     this._outputKeep(BOOT_STAT_KEYS.RUN);
