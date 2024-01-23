@@ -21,7 +21,7 @@ export class emitAndReturn extends EventEmitter {
       pluginName,
       event,
     });
-    this.on(event, async (resolve, reject, data) => {
+    this.on(`${pluginName}-${event}`, async (resolve, reject, data) => {
       try {
         resolve(await listener(data));
       } catch (exc) {
@@ -46,7 +46,7 @@ export class emitAndReturn extends EventEmitter {
         reject("Timeout");
       }, timeoutSeconds * 1000);
       self.emit(
-        event,
+        `${pluginName}-${event}`,
         (args: any) => {
           clearTimeout(timeoutHandler);
           resolve(args);

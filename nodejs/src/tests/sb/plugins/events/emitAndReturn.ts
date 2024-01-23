@@ -20,6 +20,35 @@ export function emitAndReturn(
     describe("emitEventAndReturn", async () => {
       const emitData = true;
       const emitData2 = false;
+      it("should not respond to different listen events when same event name used with diff plugins", async () => {
+        const thisPlugin = randomName();
+        const thisPlugin2 = randomName();
+        const thisEvent = randomName();
+
+        const emitTimeout = setTimeout(() => {
+          assert.fail("Event not received");
+        }, timermaxTimeoutToExpectAResponse);
+        await emitter.onReturnableEvent(thisPlugin, thisEvent, async () => {
+          assert.fail("Received onEvent with diff plugin name");
+        });
+        await emitter.onReturnableEvent(thisPlugin2, thisEvent, async () => {
+          setTimeout(() => {
+            console.log("Received onEvent");
+            assert.ok(true, "Received onEvent");
+          }, 1);
+          return emitData2;
+        });
+        console.log("!!Received onEvent");
+        await emitter.emitEventAndReturn(
+          thisPlugin2,
+          thisEvent,
+          maxTimeoutToExpectAResponse / 1000,
+          []
+        );
+        console.log("++Received onEvent");
+        clearTimeout(emitTimeout);
+        assert.ok(true, "Received Response");
+      });
       it("should be able to emit to events with plugin name defined", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();

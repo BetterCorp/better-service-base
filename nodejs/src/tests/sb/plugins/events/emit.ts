@@ -38,6 +38,28 @@ export function emit(
         });
         await emitter.emitEvent(thisPlugin, thisEvent, [emitData]);
       });
+      it("diff plugin names should not receive same event", async () => {
+        const thisPlugin = randomName();
+        const thisPlugin2 = randomName();
+        const thisEvent = randomName();
+        //console.log(emitter)
+        let receiveCounter = 0;
+        setTimeout(() => {
+          if (receiveCounter === 1) return assert.ok(receiveCounter);
+          if (receiveCounter === 0) return assert.fail("Event not received");
+          assert.fail("Received " + receiveCounter + " events");
+        }, maxTimeoutToExpectAResponse);
+        await emitter.onEvent(thisPlugin, thisEvent, async () => {
+          assert.fail("Received on diff plugin name");
+        });
+        await emitter.onEvent(thisPlugin2, thisEvent, async () => {
+          receiveCounter++;
+        });
+        await emitter.onEvent(thisPlugin2, thisEvent, async () => {
+          receiveCounter++;
+        });
+        await emitter.emitEvent(thisPlugin2, thisEvent, [emitData]);
+      });
       it("should be able to emit to events with plugin name defined", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();
