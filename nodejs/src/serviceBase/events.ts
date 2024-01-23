@@ -323,9 +323,15 @@ export class SBEvents {
         `on-broadcast-${eventsPluginName}-${pluginName}-${event}`,
         -1
       );
-      this.log.error("handleOnBroadcast error occured: ${error}", {
-        error: exc.message ?? exc,
-      });
+      this.log.error(
+        "[{eventsPluginName}:{pluginName}:{event}:handleOnBroadcast] error occured: ${error}",
+        {
+          error: exc.message ?? exc,
+          eventsPluginName,
+          pluginName,
+          event,
+        }
+      );
       throw exc;
     }
   }
@@ -399,9 +405,15 @@ export class SBEvents {
         `on-event-${eventsPluginName}-${pluginName}-${event}`,
         -1
       );
-      this.log.error("handleOnEvent error occured: ${error}", {
-        error: exc.message ?? exc,
-      });
+      this.log.error(
+        "[{eventsPluginName}:{pluginName}:{event}:handleOnEvent] error occured: ${error}",
+        {
+          error: exc.message ?? exc,
+          eventsPluginName,
+          pluginName,
+          event,
+        }
+      );
       throw exc;
     }
   }
@@ -510,9 +522,15 @@ export class SBEvents {
         `on-returnableevent-${eventsPluginName}-${pluginName}-${event}`,
         -1
       );
-      this.log.error("handleOnReturnableEvent error occured: ${error}", {
-        error: exc.message ?? exc,
-      });
+      this.log.error(
+        "[{eventsPluginName}:{pluginName}:{event}:handleOnReturnableEvent] error occured: ${error}",
+        {
+          error: exc.message ?? exc,
+          eventsPluginName,
+          pluginName,
+          event,
+        }
+      );
       throw exc;
     }
   }
@@ -603,9 +621,15 @@ export class SBEvents {
         `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}`,
         -1
       );
-      this.log.error("emitEventAndReturn error occured: ${error}", {
-        error: exc.message ?? exc,
-      });
+      this.log.error(
+        "[{eventsPluginName}:{pluginName}:{event}:emitEventAndReturn] error occured: ${error}",
+        {
+          error: exc.message ?? exc,
+          eventsPluginName: plugin.pluginName,
+          pluginName,
+          event,
+        }
+      );
       throw exc;
     }
   }
@@ -642,9 +666,15 @@ export class SBEvents {
         `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}-${serverId}`,
         -1
       );
-      this.log.error("emitEventAndReturnSpecific error occured: ${error}", {
-        error: exc.message ?? exc,
-      });
+      this.log.error(
+        "[{eventsPluginName}:{pluginName}:{event}:emitEventAndReturnSpecific] error occured: ${error}",
+        {
+          error: exc.message ?? exc,
+          eventsPluginName: plugin.pluginName,
+          pluginName,
+          event,
+        }
+      );
       throw exc;
     }
   }
@@ -677,9 +707,15 @@ export class SBEvents {
         `receivestream-${eventsPluginName}-${pluginName}-${event}`,
         -1
       );
-      this.log.error("handleOnReceiveStream error occured: ${error}", {
-        error: exc.message ?? exc,
-      });
+      this.log.error(
+        "[{eventsPluginName}:{pluginName}:{event}:handleOnReceiveStream] error occured: ${error}",
+        {
+          error: exc.message ?? exc,
+          eventsPluginName,
+          pluginName,
+          event,
+        }
+      );
       throw exc;
     }
   }
@@ -742,9 +778,15 @@ export class SBEvents {
         `sendstream-${plugin.pluginName}-${pluginName}-${event}`,
         -1
       );
-      this.log.error("sendStream error occured: ${error}", {
-        error: exc.message ?? exc,
-      });
+      this.log.error(
+        "[{eventsPluginName}:{pluginName}:{streamId}:sendStream] error occured: ${error}",
+        {
+          error: exc.message ?? exc,
+          eventsPluginName: plugin.pluginName,
+          pluginName,
+          streamId,
+        }
+      );
       throw exc;
     }
   }
