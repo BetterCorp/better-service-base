@@ -1,4 +1,5 @@
 import { ParamsFromString } from "@bettercorp/tools/lib/Interfaces";
+import { BSBError } from "../base";
 
 export type DEBUG_MODE = "production" | "production-debug" | "development";
 
@@ -31,7 +32,16 @@ export interface IPluginLogger {
   info<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
   warn<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
   debug<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
-  error<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
+  error<T extends string>(
+    message: T,
+    ...meta: SmartLogMeta<T>
+  ): void;
+  error<T extends string>(
+    message: T,
+    error: Error,
+    ...meta: SmartLogMeta<T>
+  ): void;
+  error<T extends string>(error: BSBError<T>): void;
 }
 
 export const LoggingEventTypesBase = {

@@ -138,7 +138,8 @@ export abstract class BSBLogging<
    */
   public abstract error<T extends string>(
     plugin: string,
-    message: T,
+    messageOrError: T,
+    errorOrMeta?: Error | LogMeta<T>,
     meta?: LogMeta<T>
   ): Promise<void> | void;
 }
@@ -181,8 +182,9 @@ export class BSBLoggingRef extends BSBLogging<null> {
   }
   public error<T extends string>(
     plugin: string,
-    message: T,
-    meta?: LogMeta<T> | undefined
+    messageOrError: T,
+    errorOrMeta?: Error | LogMeta<T>,
+    meta?: LogMeta<T>
   ): void {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBLoggingRef", "error");
   }

@@ -37,7 +37,8 @@ export class Plugin extends BSBLogging {
     level: LogLevels,
     plugin: string,
     message: T,
-    meta?: LogMeta<T>
+    meta?: LogMeta<T>,
+    additionalToConsole?: any
   ) {
     let formattedMessage = this.logFormatter.formatLog<T>(message, meta);
     formattedMessage = `[${plugin.toUpperCase()}] ${formattedMessage}`;
@@ -74,6 +75,12 @@ export class Plugin extends BSBLogging {
       colour = [CONSOLE_COLOURS.BgRed, CONSOLE_COLOURS.FgBlack];
     }
     if (this._mockConsole) return this._mockedConsole!(level, formattedMessage);
+    if (additionalToConsole)
+      func(
+        colour.join("") + "%s" + CONSOLE_COLOURS.Reset,
+        formattedMessage,
+        additionalToConsole
+      );
     func(colour.join("") + "%s" + CONSOLE_COLOURS.Reset, formattedMessage);
   }
 
@@ -114,24 +121,18 @@ export class Plugin extends BSBLogging {
   public error<T extends string>(
     plugin: string,
     message: T,
-    meta: LogMeta<T>
-  ): void;
-  public error(plugin: string, error: Error): void;
-  public error<T extends string>(
-    plugin: string,
-    messageOrError: T | Error,
+    errorOrMeta?: Error | LogMeta<T>,
     meta?: LogMeta<T>
   ): void {
-    const message =
-      typeof messageOrError === "string"
-        ? messageOrError
-        : messageOrError.message;
-    this.logEvent<T>(LOG_LEVELS.ERROR, plugin, message as T, meta);
-    if (
-      typeof messageOrError !== "string" &&
-      messageOrError.stack !== undefined
-    ) {
-      console.error(messageOrError.stack.toString());
-    }
+    const hasErrorDefinition = meta !== undefined;
+    const inclStack = errorOrMeta instanceof Error && errorOrMeta.stack;
+
+    this.logEvent<T>(
+      LOG_LEVELS.ERROR,
+      plugin,
+      message as T,
+      hasErrorDefinition ? meta : (errorOrMeta as LogMeta<T>),
+      inclStack ? errorOrMeta.stack : undefined
+    );
   }
 }

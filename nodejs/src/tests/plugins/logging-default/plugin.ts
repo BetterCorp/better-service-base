@@ -286,9 +286,14 @@ describe("plugins/logging-default", () => {
       const plugin = new Plugin(getLoggingConstructorConfig());
       storeConsole("error", undefined, [
         "test-error",
+        "An error while stacking",
         "src/tests/plugins/logging-default/plugin.ts:",
       ]);
-      await plugin.error("infW-DbG", new Error("test-error"));
+      plugin.error(
+        "infW-DbG",
+        "An error while stacking",
+        new Error("test-error")
+      );
       restoreConsole();
     });
   });

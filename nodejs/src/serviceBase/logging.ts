@@ -75,9 +75,17 @@ export class SBLogging {
     this.logBus.on("warn", (plugin, message, meta) => {
       this.triggerLogEvent("warn", plugin, message, meta);
     });
-    this.logBus.on("error", (plugin, message, meta) => {
-      this.triggerLogEvent("error", plugin, message, meta);
-    });
+    this.logBus.on(
+      "error",
+      (
+        plugin,
+        message: string,
+        errorOrMeta: Error | LogMeta<string>,
+        meta?: LogMeta<string>
+      ) => {
+        this.triggerLogEvent("error", plugin, message, errorOrMeta, meta);
+      }
+    );
   }
 
   public dispose() {
@@ -161,13 +169,15 @@ export class SBLogging {
     logAs: LoggingEventTypesExlReportStat,
     plugin: string,
     message: T,
-    meta: LogMeta<T>
+    metaOrError: LogMeta<T> | Error,
+    meta?: LogMeta<T>
   ): Promise<void>;
   private async triggerLogEvent<T extends string>(
     logAs: LoggingEventTypes,
     plugin: string,
     messageOrKey: T | string,
-    metaOrValue: LogMeta<T> | number
+    metaOrValueOrError: LogMeta<T> | number | Error,
+    meta?: LogMeta<T>
   ): Promise<void> {
     for (const logger of this.getPluginsMatchingLogEvent(logAs, plugin)) {
       if (logAs === "reportStat") {
@@ -175,7 +185,7 @@ export class SBLogging {
           logger.plugin,
           plugin,
           messageOrKey as string,
-          metaOrValue as number
+          metaOrValueOrError as number
         );
         continue;
       }
@@ -195,7 +205,14 @@ export class SBLogging {
           method = logger.plugin.warn;
           break;
         case "error":
-          method = logger.plugin.error;
+          return await SmartFunctionCallAsync(
+            logger.plugin,
+            logger.plugin.error,
+            plugin,
+            messageOrKey as string,
+            metaOrValueOrError,
+            meta
+          );
           break;
       }
 
@@ -205,7 +222,7 @@ export class SBLogging {
           method,
           plugin,
           messageOrKey as string,
-          metaOrValue as LogMeta<T>
+          metaOrValueOrError as LogMeta<T>
         );
       }
     }
