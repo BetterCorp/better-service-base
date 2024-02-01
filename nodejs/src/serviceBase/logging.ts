@@ -205,7 +205,7 @@ export class SBLogging {
           method = logger.plugin.warn;
           break;
         case "error":
-          return await SmartFunctionCallAsync(
+          await SmartFunctionCallAsync(
             logger.plugin,
             logger.plugin.error,
             plugin,
@@ -213,7 +213,7 @@ export class SBLogging {
             metaOrValueOrError,
             meta
           );
-          break;
+          return;
       }
 
       if (method) {

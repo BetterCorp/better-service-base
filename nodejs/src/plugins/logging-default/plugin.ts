@@ -47,6 +47,7 @@ export class Plugin extends BSBLogging {
       CONSOLE_COLOURS.BgBlack,
       CONSOLE_COLOURS.FgWhite,
     ];
+    let colour2: Array<ConsoleColours> = [];
     if (level === LOG_LEVELS.STAT) {
       formattedMessage = `[STAT] ${formattedMessage}`;
       colour = [CONSOLE_COLOURS.BgYellow, CONSOLE_COLOURS.FgBlack];
@@ -73,14 +74,11 @@ export class Plugin extends BSBLogging {
       formattedMessage = `[ERROR] ${formattedMessage}`;
       func = console.error;
       colour = [CONSOLE_COLOURS.BgRed, CONSOLE_COLOURS.FgBlack];
+      colour2 = [CONSOLE_COLOURS.BgBlack, CONSOLE_COLOURS.FgRed];
     }
     if (this._mockConsole) return this._mockedConsole!(level, formattedMessage);
     if (additionalToConsole)
-      func(
-        colour.join("") + "%s" + CONSOLE_COLOURS.Reset,
-        formattedMessage,
-        additionalToConsole
-      );
+      formattedMessage += colour2.join("") + "\n" + additionalToConsole;
     func(colour.join("") + "%s" + CONSOLE_COLOURS.Reset, formattedMessage);
   }
 
@@ -132,7 +130,7 @@ export class Plugin extends BSBLogging {
       plugin,
       message as T,
       hasErrorDefinition ? meta : (errorOrMeta as LogMeta<T>),
-      inclStack ? errorOrMeta.stack : undefined
+      inclStack ? "Stack trace for: " + errorOrMeta.stack : undefined
     );
   }
 }

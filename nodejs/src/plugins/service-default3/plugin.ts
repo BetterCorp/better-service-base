@@ -16,5 +16,6 @@ export class Plugin extends BSBService<null> {
   }
   public override async run() {
     await this.testClient.abc(18, 19, 20, 21);
+    this.log.error("Error {a}", new Error("err"), { a: "b" });
   }
 }

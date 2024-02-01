@@ -24,13 +24,18 @@ export class PluginLogger implements IPluginLogger {
     message: T,
     ...meta: SmartLogMeta<T>
   ): void {
-    this.logging.logBus.emit("reportTextStat", this.pluginName, message, meta);
+    this.logging.logBus.emit(
+      "reportTextStat",
+      this.pluginName,
+      message,
+      ...meta
+    );
   }
   public info<T extends string>(message: T, ...meta: SmartLogMeta<T>): void {
-    this.logging.logBus.emit("info", this.pluginName, message, meta);
+    this.logging.logBus.emit("info", this.pluginName, message, ...meta);
   }
   public warn<T extends string>(message: T, ...meta: SmartLogMeta<T>): void {
-    this.logging.logBus.emit("warn", this.pluginName, message, meta);
+    this.logging.logBus.emit("warn", this.pluginName, message, ...meta);
   }
   public error<T extends string>(error: BSBError<T>): void;
   public error<T extends string>(
@@ -64,6 +69,12 @@ export class PluginLogger implements IPluginLogger {
       );
       return;
     }
-    this.logging.logBus.emit("error", this.pluginName, messageOrError, errorOrMeta, meta);
+    this.logging.logBus.emit(
+      "error",
+      this.pluginName,
+      messageOrError,
+      errorOrMeta,
+      meta
+    );
   }
 }
