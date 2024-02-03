@@ -12,6 +12,7 @@ const getLoggingConstructorConfig = (
 ): BSBLoggingConstructor => {
   return {
     appId: "test-app",
+    packageCwd: process.cwd(),
     pluginCwd: process.cwd(),
     cwd: process.cwd(),
     mode: mode,

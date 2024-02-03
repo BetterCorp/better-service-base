@@ -50,6 +50,7 @@ export class SBLogging {
         mode: this.mode,
         pluginName: "logging-default",
         cwd: this.cwd,
+        packageCwd: this.cwd,
         pluginCwd: this.cwd,
         config: null,
       }),
@@ -282,7 +283,8 @@ export class SBLogging {
       mode: this.mode,
       pluginName: reference.name,
       cwd: this.cwd,
-      pluginCwd: reference.pluginCWD,
+      packageCwd: reference.packageCwd,
+      pluginCwd: reference.pluginCwd,
       config: config,
     });
     this.log.info("Adding {pluginName} as logger with filter: ", {

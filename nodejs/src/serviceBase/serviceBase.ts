@@ -243,7 +243,8 @@ export class ServiceBase {
     return this.config.setConfigPlugin({
       serviceConfig: null,
       plugin: reference as unknown as PluginTypeDefinitionRef<"config">,
-      pluginCWD: this.cwd,
+      packageCwd: this.cwd,
+      pluginCwd: this.cwd,
       pluginPath: "",
       version: "0.0.0",
       ref: name,
@@ -274,7 +275,8 @@ export class ServiceBase {
       {
         serviceConfig: config,
         plugin: plugin as unknown as PluginTypeDefinitionRef<"service">,
-        pluginCWD: this.cwd,
+        packageCwd: this.cwd,
+        pluginCwd: this.cwd,
         pluginPath: "",
         version: "0.0.0",
         ref: name,
@@ -305,7 +307,8 @@ export class ServiceBase {
       {
         serviceConfig: config,
         plugin: plugin as unknown as PluginTypeDefinitionRef<"events">,
-        pluginCWD: this.cwd,
+        packageCwd: this.cwd,
+        pluginCwd: this.cwd,
         pluginPath: "",
         version: "0.0.0",
         ref: name,
@@ -335,7 +338,8 @@ export class ServiceBase {
       {
         serviceConfig: config,
         plugin: plugin as unknown as PluginTypeDefinitionRef<"logging">,
-        pluginCWD: this.cwd,
+        packageCwd: this.cwd,
+        pluginCwd: this.cwd,
         pluginPath: "",
         version: "0.0.0",
         ref: name,

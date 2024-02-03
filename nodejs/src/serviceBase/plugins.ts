@@ -44,7 +44,7 @@ export class SBPlugins {
     });
     const nodeModulesLib = npmPackage !== null;
     let pluginPath = "";
-    let pluginCWD = this.cwd;
+    let packageCwd = this.cwd;
     let version = "0.0.0";
     if (!nodeModulesLib) {
       if (this.devMode) {
@@ -55,10 +55,10 @@ export class SBPlugins {
         pluginPath = join(this.cwd, "./lib/plugins/" + plugin);
       }
     } else {
-      pluginCWD = join(this.pluginDir, npmPackage);
-      pluginPath = join(pluginCWD, "./lib/plugins/", plugin);
+      packageCwd = join(this.pluginDir, npmPackage);
+      pluginPath = join(packageCwd, "./lib/plugins/", plugin);
 
-      const packageJsonPath = join(pluginCWD, "./package.json");
+      const packageJsonPath = join(packageCwd, "./package.json");
       const packageJSON = JSON.parse(
         readFileSync(packageJsonPath, "utf-8").toString()
       );
@@ -108,7 +108,8 @@ export class SBPlugins {
       serviceConfigDef =
         new (importedPlugin.Config as typeof BSBPluginConfigRef)(
           this.cwd,
-          pluginCWD,
+          packageCwd,
+          pluginPath,
           name
         );
 
@@ -118,7 +119,8 @@ export class SBPlugins {
       version: version,
       serviceConfig: serviceConfigDef,
       plugin: importedPlugin.Plugin,
-      pluginCWD: pluginCWD,
+      packageCwd: packageCwd,
+      pluginCwd: pluginPath,
       pluginPath: pluginPath,
     };
   }

@@ -152,6 +152,7 @@ export class SBEvents {
         mode: this.mode,
         pluginName: "events-default",
         cwd: this.cwd,
+        packageCwd: this.cwd,
         pluginCwd: this.cwd,
         config: null,
         sbLogging,
@@ -200,7 +201,8 @@ export class SBEvents {
       mode: this.mode,
       pluginName: reference.name,
       cwd: this.cwd,
-      pluginCwd: reference.pluginCWD,
+      packageCwd: reference.packageCwd,
+      pluginCwd: reference.pluginCwd,
       config: config,
       sbLogging,
     });

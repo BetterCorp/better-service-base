@@ -31,6 +31,7 @@ export const getEventsConstructorConfig = (
 ): BSBEventsConstructor => {
   return {
     appId: "test-app",
+    packageCwd: process.cwd(),
     pluginCwd: process.cwd(),
     cwd: process.cwd(),
     mode: "development",

@@ -3,24 +3,24 @@
 // describe("EventsBase", function () {
 //   describe("Constructor", async function () {
 //     it("Should construct correctly [pluginName]", async () => {
-//       let myobj = new EventsBase("pluginNameX", "cwd", "pluginCwd", {} as any);
+//       let myobj = new EventsBase("pluginNameX", "cwd", "packageCwd", {} as any);
 //       assert.strictEqual(myobj.pluginName, "pluginNameX");
 //     });
 //     it("Should construct correctly [cwd]", async () => {
-//       let myobj = new EventsBase("pluginNameX", "cwdD", "pluginCwd", {} as any);
+//       let myobj = new EventsBase("pluginNameX", "cwdD", "packageCwd", {} as any);
 //       assert.strictEqual((myobj as any).cwd, "cwdD");
 //     });
-//     it("Should construct correctly [pluginCwd]", async () => {
+//     it("Should construct correctly [packageCwd]", async () => {
 //       let myobj = new EventsBase(
 //         "pluginNameX",
 //         "cwdD",
-//         "pluginCwdY",
+//         "packageCwdY",
 //         {} as any
 //       );
-//       assert.strictEqual((myobj as any).pluginCwd, "pluginCwdY");
+//       assert.strictEqual((myobj as any).packageCwd, "packageCwdY");
 //     });
 //     it("Should construct correctly [logger]", async () => {
-//       let myobj = new EventsBase("pluginNameX", "cwdD", "pluginCwdY", {
+//       let myobj = new EventsBase("pluginNameX", "cwdD", "packageCwdY", {
 //         alog: true,
 //       } as any);
 //       assert.strictEqual((myobj as any).log.alog, true);

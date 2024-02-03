@@ -111,6 +111,7 @@ export interface LoadedPlugin<
   version: string;
   serviceConfig: BSBPluginConfig<any> | null;
   plugin: ClassType;
-  pluginCWD: string;
+  packageCwd: string;
+  pluginCwd: string;
   pluginPath: string;
 }

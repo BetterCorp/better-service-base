@@ -60,7 +60,12 @@ export abstract class BSBPluginConfig<
   MyPluginConfig extends Exclude<BSBPluginConfigType, undefined> | null = null
 > {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  constructor(cwd: string, pluginCwd: string, pluginName: string) {}
+  constructor(
+    cwd: string,
+    packageCwd: string,
+    pluginCwd: string,
+    pluginName: string
+  ) {}
   public abstract validationSchema: MyPluginConfig;
   /**
    * Migrate the config from one version to another

@@ -43,6 +43,7 @@ export class SBConfig {
       mode,
       pluginName: "sb-config",
       cwd,
+      packageCwd: cwd,
       pluginCwd: cwd,
       sbLogging,
     });
@@ -78,7 +79,8 @@ export class SBConfig {
       mode: this.mode,
       pluginName: reference.name,
       cwd: this.cwd,
-      pluginCwd: reference.pluginCWD,
+      packageCwd: reference.packageCwd,
+      pluginCwd: reference.pluginCwd,
       sbLogging: this.sbLogging,
     });
     this.log.info("Adding {pluginName} as config", {

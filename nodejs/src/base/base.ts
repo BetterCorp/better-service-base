@@ -7,6 +7,7 @@ export interface MainBaseConfig {
   mode: DEBUG_MODE;
   pluginName: string;
   cwd: string;
+  packageCwd: string;
   pluginCwd: string;
 }
 export abstract class MainBase {
@@ -33,6 +34,10 @@ export abstract class MainBase {
   /**
    * The current working directory of the plugin
    */
+  protected readonly packageCwd: string;
+  /**
+   * The current working directory of the service
+   */
   protected readonly pluginCwd: string;
   /**
    * The name of the plugin
@@ -45,6 +50,7 @@ export abstract class MainBase {
     this.mode = config.mode;
     if (config.pluginName !== "") this.pluginName = config.pluginName;
     this.cwd = config.cwd;
+    this.packageCwd = config.packageCwd;
     this.pluginCwd = config.pluginCwd;
   }
 
