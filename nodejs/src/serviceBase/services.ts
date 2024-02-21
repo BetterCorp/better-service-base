@@ -405,13 +405,7 @@ export class SBServices {
         }
         if (!resolved.includes(beforePlugin)) {
           if (unresolved.includes(beforePlugin)) {
-            throw new BSBError(
-              "Circular dependency detected: {plugin1}<>{plugin2}",
-              {
-                plugin1: plugin.pluginName,
-                plugin2: beforePlugin.pluginName,
-              }
-            );
+            continue;
           }
           visitPlugin(beforePlugin, resolved, unresolved);
         }
