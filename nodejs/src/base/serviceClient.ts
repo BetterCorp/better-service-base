@@ -2,12 +2,16 @@ import {
   IPluginLogger,
   DynamicallyReferencedMethodCallable,
 } from "../interfaces";
-import { BSBService, BSBError, PluginEvents } from "./index";
+import { BSBService, BSBError, PluginEvents, BSBServiceRef } from "./index";
 import { DynamicallyReferencedMethodType } from "@bettercorp/tools/lib/Interfaces";
 
+/**
+ * @deprecated Use ServiceClient instead
+ * @description [NOT REALLY DEPRECATED] - ONLY USE THIS IF YOU NEED SPECIFIC CLIENT LOGIC, OTHERWISE USE ServiceClient
+ */
 export abstract class BSBServiceClient<Service extends BSBService = any> {
-  protected readonly log!: IPluginLogger;
-  protected readonly events!: PluginEvents<
+  protected declare readonly log: IPluginLogger;
+  protected declare readonly events: PluginEvents<
     Service["_virtual_internal_events"]["emitEvents"],
     Service["_virtual_internal_events"]["onEvents"],
     Service["_virtual_internal_events"]["emitReturnableEvents"],
@@ -15,7 +19,7 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
     Service["_virtual_internal_events"]["emitBroadcast"],
     Service["_virtual_internal_events"]["onBroadcast"]
   >;
-  public callMethod<TA extends keyof Service["methods"]>(
+  protected callMethod<TA extends keyof Service["methods"]>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: DynamicallyReferencedMethodCallable<
       DynamicallyReferencedMethodType<Service["methods"]>,
@@ -45,6 +49,48 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
   public abstract dispose?(): void;
   public abstract init?(): Promise<void>;
   public abstract run?(): Promise<void>;
+}
+
+export class ServiceClient<
+  Service extends BSBService,
+  ServiceT extends typeof BSBServiceRef = any
+> extends BSBServiceClient<Service> {
+  public readonly pluginName: string = "{UNSET SERVICE CLIENT PLUGIN NAME}";
+  public readonly initBeforePlugins?: Array<string>;
+  public readonly initAfterPlugins?: Array<string>;
+  public readonly runBeforePlugins?: Array<string>;
+  public readonly runAfterPlugins?: Array<string>;
+  public dispose?(): void;
+  public init?(): Promise<void>;
+  public run?(): Promise<void>;
+
+  public override callMethod<TA extends keyof Service["methods"]>(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: DynamicallyReferencedMethodCallable<
+      DynamicallyReferencedMethodType<Service["methods"]>,
+      TA
+    >
+  ): DynamicallyReferencedMethodCallable<
+    DynamicallyReferencedMethodType<Service["methods"]>,
+    TA,
+    false
+  > {
+    return this.callMethod(...args);
+  }
+
+  public declare events: PluginEvents<
+    Service["_virtual_internal_events"]["emitEvents"],
+    Service["_virtual_internal_events"]["onEvents"],
+    Service["_virtual_internal_events"]["emitReturnableEvents"],
+    Service["_virtual_internal_events"]["onReturnableEvents"],
+    Service["_virtual_internal_events"]["emitBroadcast"],
+    Service["_virtual_internal_events"]["onBroadcast"]
+  >;
+
+  constructor(service: ServiceT, context: BSBService) {
+    super(context);
+    this.pluginName = service.PLUGIN_NAME;
+  }
 }
 
 /**

@@ -36,7 +36,7 @@ export class Plugin extends BSBService<null, Events> {
   run?(): void | Promise<void>;
 
   private count = 0;
-  public override async init() {
+  public async init() {
     this.log.info("INIT SERVICE");
     this.events.onEvent("onReceivable", async (a: number, b: number) => {
       this.count++;

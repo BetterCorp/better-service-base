@@ -43,7 +43,7 @@ export abstract class MainBase {
    * The name of the plugin
    * This is also the mapped name, or the name defined in the config rather than it's original defined name
    */
-  public readonly pluginName!: string;
+  public declare readonly pluginName: string;
 
   constructor(config: MainBaseConfig) {
     this.appId = config.appId;

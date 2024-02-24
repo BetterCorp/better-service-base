@@ -9,7 +9,7 @@ default:
     service-default0X:
       plugin: service-default0
       enabled: true
-      config: 
+      config:
         testa: 5
         testb: 6
     service-default1X:
@@ -20,4 +20,7 @@ default:
       enabled: true
     service-default3X:
       plugin: service-default3
+      enabled: true
+    service-default4X:
+      plugin: service-default4
       enabled: true
