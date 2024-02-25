@@ -36,14 +36,14 @@ export abstract class BSBService<
   public abstract readonly runBeforePlugins?: Array<string>;
   public abstract readonly runAfterPlugins?: Array<string>;
   public abstract readonly methods: ServiceEventsBase;
-  public readonly _virtual_internal_events: {
+  public declare readonly _virtual_internal_events: {
     onEvents: Events["onEvents"];
     emitEvents: Events["emitEvents"];
     onReturnableEvents: Events["onReturnableEvents"];
     emitReturnableEvents: Events["emitReturnableEvents"];
     onBroadcast: Events["onBroadcast"];
     emitBroadcast: Events["emitBroadcast"];
-  } = {} as any;
+  };
   public readonly events: PluginEvents<
     Events["onEvents"],
     Events["emitEvents"],
@@ -63,7 +63,7 @@ export abstract class BSBService<
 /**
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
-export class BSBServiceRef extends BSBService<null> {
+export class BSBServiceRef extends BSBService<any> {
   public static PLUGIN_NAME = "BSBServiceRef";
   public methods = {};
   public initBeforePlugins?: string[] | undefined;

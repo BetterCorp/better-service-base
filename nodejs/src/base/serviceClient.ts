@@ -52,7 +52,7 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
 }
 
 export class ServiceClient<
-  Service extends BSBService,
+  Service extends BSBService<any>,
   ServiceT extends typeof BSBServiceRef = any
 > extends BSBServiceClient<Service> {
   public readonly pluginName: string = "{UNSET SERVICE CLIENT PLUGIN NAME}";
