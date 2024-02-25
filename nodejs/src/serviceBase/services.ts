@@ -19,14 +19,22 @@ import {
 import { Tools } from "@bettercorp/tools/lib/Tools";
 
 interface SortedPlugin {
-  type: "service" | "client";
   srcPluginName: string;
   pluginName: string;
-  initBeforePlugins?: string[];
-  initAfterPlugins?: string[];
-  runBeforePlugins?: string[];
-  runAfterPlugins?: string[];
-  reference: BSBService | BSBServiceClient<any>;
+  initBeforePlugins: string[];
+  initAfterPlugins: string[];
+  runBeforePlugins: string[];
+  runAfterPlugins: string[];
+  reference: BSBService;
+  clients: Array<{
+    srcPluginName: string;
+    pluginName: string;
+    initBeforePlugins: string[];
+    initAfterPlugins: string[];
+    runBeforePlugins: string[];
+    runAfterPlugins: string[];
+    reference: BSBServiceClient<any>;
+  }>;
 }
 
 export class SBServices {
@@ -137,10 +145,10 @@ export class SBServices {
     context: BSBService,
     clientContext: BSBServiceClient<any>
   ): Promise<void> => {
-    this.log.debug('Create plugin client {clientName} in {serviceName}', {
+    this.log.debug("Create plugin client {clientName} in {serviceName}", {
       clientName: clientContext.pluginName,
       serviceName: context.pluginName,
-    })
+    });
     const contextPlugin = await sbConfig.getServicePluginDefinition(
       clientContext.pluginName
     );
@@ -327,135 +335,70 @@ export class SBServices {
     );
   }
 
-  public async init() {
-    this.log.info("Init all services");
-    const list: Array<SortedPlugin> = [];
-    for (const service of this._activeServices) {
-      this.log.debug(
-        "Mapping required plugins list for {plugin} [initBeforePlugins:{initBeforePlugins}][initAfterPlugins:{initAfterPlugins}]",
-        {
-          plugin: service.pluginName,
-          initBeforePlugins: this.getTextReportedDeps(
-            service.initBeforePlugins
-          ),
-          initAfterPlugins: this.getTextReportedDeps(service.initAfterPlugins),
-        }
-      );
-      list.push({
-        type: "service",
-        srcPluginName: service.pluginName,
-        pluginName: service.pluginName,
-        initBeforePlugins: service.initBeforePlugins,
-        initAfterPlugins: service.initAfterPlugins,
-        runBeforePlugins: service.runBeforePlugins,
-        runAfterPlugins: service.runAfterPlugins,
-        reference: service,
-      });
-      for (const client of service._clients) {
-        this.log.debug(
-          " - {plugin} -> {client} [initBeforePlugins:{initBeforePlugins}][initAfterPlugins:{initAfterPlugins}]",
-          {
-            plugin: service.pluginName,
-            client: client.pluginName,
-            initBeforePlugins: this.getTextReportedDeps(
-              client.initBeforePlugins
-            ),
-            initAfterPlugins: this.getTextReportedDeps(client.initAfterPlugins),
-          }
-        );
-        list.push({
-          type: "client",
-          srcPluginName: service.pluginName,
-          pluginName: client.pluginName,
-          initBeforePlugins: client.initBeforePlugins,
-          initAfterPlugins: client.initAfterPlugins,
-          runBeforePlugins: client.runBeforePlugins,
-          runAfterPlugins: client.runAfterPlugins,
-          reference: client,
-        });
+  private sortByInitDependencies(type: "init" | "run") {
+    return (a: SortedPlugin, b: SortedPlugin): number => {
+      // If a's initBeforePlugins include b's pluginName, a should come before b
+      if (
+        (type == "init" ? a.initBeforePlugins : a.runBeforePlugins).includes(
+          b.pluginName
+        )
+      ) {
+        return -1;
       }
-    }
-    await this.sortAndRunOrInitPlugins(list, "init");
+      // If b's initBeforePlugins include a's pluginName, a should come after b
+      else if (
+        (type == "init" ? b.initBeforePlugins : b.runBeforePlugins).includes(
+          a.pluginName
+        )
+      ) {
+        return 1;
+      }
+      // If a's initAfterPlugins include b's pluginName, a should come after b
+      else if (
+        (type == "init" ? a.initAfterPlugins : a.runAfterPlugins).includes(
+          b.pluginName
+        )
+      ) {
+        return 1;
+      }
+      // If b's initAfterPlugins include a's pluginName, a should come before b
+      else if (
+        (type == "init" ? b.initAfterPlugins : b.runAfterPlugins).includes(
+          a.pluginName
+        )
+      ) {
+        return -1;
+      }
+      // Otherwise, maintain the order
+      else {
+        return 0;
+      }
+    };
   }
 
-  public async sortAndRunOrInitPlugins(
-    plugins: SortedPlugin[],
-    type: "init" | "run"
-  ): Promise<void> {
-    // Create a map to hold the plugins by name for easy access
-    const pluginMap = new Map<string, SortedPlugin>();
-    for (let i = 0; i < plugins.length; i++) {
-      pluginMap.set(plugins[i].pluginName, plugins[i]);
-    }
+  public async sortAndRunOrInitPlugins(type: "init" | "run"): Promise<void> {
+    const plugins = this.gatherListOfPlugins(type).sort(
+      this.sortByInitDependencies(type)
+    );
 
-    // Function to visit each plugin and resolve dependencies
-    const visitPlugin = (
-      plugin: SortedPlugin,
-      resolved: SortedPlugin[],
-      unresolved: SortedPlugin[]
-    ): void => {
-      unresolved.push(plugin);
-      const before =
-        (type === "init"
-          ? plugin.initBeforePlugins
-          : plugin.runBeforePlugins) ?? [];
-      for (let i = 0; i < before.length; i++) {
-        const beforePluginName = before[i];
-        const beforePlugin = pluginMap.get(beforePluginName);
-        if (!beforePlugin) {
-          throw new Error(
-            `Plugin ${beforePluginName} required by ${plugin.pluginName} not found`
-          );
-        }
-        if (!resolved.includes(beforePlugin)) {
-          if (unresolved.includes(beforePlugin)) {
-            continue;
-          }
-          visitPlugin(beforePlugin, resolved, unresolved);
-        }
-      }
-      resolved.push(plugin);
-      unresolved.splice(unresolved.indexOf(plugin), 1);
-    };
+    this.log.debug("{key} plugins in order: {plugins}", {
+      key: type,
+      plugins: plugins.map((x) => x.pluginName).join(", "),
+    });
 
-    // The array to hold the sorted plugins
-    const sortedPlugins: SortedPlugin[] = [];
-
-    // Visit each plugin and resolve dependencies
-    for (let i = 0; i < plugins.length; i++) {
-      if (!sortedPlugins.includes(plugins[i])) {
-        visitPlugin(plugins[i], sortedPlugins, []);
-      }
-    }
-
-    // Once sorted, run each plugin in order
-    for (let i = 0; i < sortedPlugins.length; i++) {
-      this.log.debug(
-        "Plugin {pluginName}({ptype}) trigger {type} before {beforePlugins} and after {afterPlugins}",
-        {
-          ptype:
-            sortedPlugins[i].type +
-            (sortedPlugins[i].type === "client"
-              ? ` on ${sortedPlugins[i].srcPluginName}`
-              : ""),
-          pluginName: sortedPlugins[i].pluginName,
+    for (const plugin of plugins) {
+      this.log.debug("{type} plugin {pluginName}", {
+        type,
+        pluginName: plugin.pluginName,
+      });
+      for (const client of plugin.clients) {
+        this.log.debug("  -> {type} client {pluginName}", {
           type,
-          beforePlugins: this.getTextReportedDeps(
-            type === "init"
-              ? sortedPlugins[i].initBeforePlugins
-              : sortedPlugins[i].runBeforePlugins
-          ),
-          afterPlugins: this.getTextReportedDeps(
-            type === "init"
-              ? sortedPlugins[i].initAfterPlugins
-              : sortedPlugins[i].runAfterPlugins
-          ),
-        }
-      );
-      await SmartFunctionCallAsync(
-        sortedPlugins[i].reference,
-        sortedPlugins[i].reference[type]
-      );
+          pluginName: client.pluginName,
+        });
+        await SmartFunctionCallAsync(client.reference, client.reference[type]);
+      }
+      await SmartFunctionCallAsync(plugin.reference, plugin.reference[type]);
     }
   }
 
@@ -464,50 +407,84 @@ export class SBServices {
     if (list.length === 0) return "ANY";
     return list.join(", ");
   }
-  public async run() {
-    this.log.info("Run all services");
+
+  private gatherListOfPlugins(type: "init" | "run") {
     const list: Array<SortedPlugin> = [];
     for (const service of this._activeServices) {
       this.log.debug(
-        "Mapping required plugins list for {plugin} [runBeforePlugins:{runBeforePlugins}][runAfterPlugins:{runAfterPlugins}]",
+        "Mapping required plugins list for {plugin} [{key}BeforePlugins: {beforePlugins}][{key}AfterPlugins:{afterPlugins}]",
         {
+          key: type,
           plugin: service.pluginName,
-          runBeforePlugins: this.getTextReportedDeps(service.runBeforePlugins),
-          runAfterPlugins: this.getTextReportedDeps(service.runAfterPlugins),
+          beforePlugins: this.getTextReportedDeps(
+            type === "init"
+              ? service.initBeforePlugins
+              : service.runBeforePlugins
+          ),
+          afterPlugins: this.getTextReportedDeps(
+            type === "init" ? service.initAfterPlugins : service.runAfterPlugins
+          ),
         }
       );
-      list.push({
-        type: "service",
+      const refPlugin: SortedPlugin = {
         srcPluginName: service.pluginName,
         pluginName: service.pluginName,
-        initBeforePlugins: service.initBeforePlugins,
-        initAfterPlugins: service.initAfterPlugins,
-        runBeforePlugins: service.runBeforePlugins,
-        runAfterPlugins: service.runAfterPlugins,
+        initBeforePlugins: service.initBeforePlugins ?? [],
+        initAfterPlugins: service.initAfterPlugins ?? [],
+        runBeforePlugins: service.runBeforePlugins ?? [],
+        runAfterPlugins: service.runAfterPlugins ?? [],
         reference: service,
-      });
+        clients: [],
+      };
       for (const client of service._clients) {
         this.log.debug(
-          " - {plugin} -> {client} [runBeforePlugins:{runBeforePlugins}][runAfterPlugins:{runAfterPlugins}]",
+          " -> {client} [{key}BeforePlugins:{beforePlugins}][{key}AfterPlugins:{afterPlugins}]",
           {
-            plugin: service.pluginName,
+            key: type,
             client: client.pluginName,
-            runBeforePlugins: this.getTextReportedDeps(client.runBeforePlugins),
-            runAfterPlugins: this.getTextReportedDeps(client.runAfterPlugins),
+            beforePlugins: this.getTextReportedDeps(
+              type === "init"
+                ? client.initBeforePlugins
+                : client.runBeforePlugins
+            ),
+            afterPlugins: this.getTextReportedDeps(
+              type === "init" ? client.initAfterPlugins : client.runAfterPlugins
+            ),
           }
         );
-        list.push({
-          type: "client",
+        refPlugin.clients.push({
           srcPluginName: service.pluginName,
           pluginName: client.pluginName,
-          initBeforePlugins: client.initBeforePlugins,
-          initAfterPlugins: client.initAfterPlugins,
-          runBeforePlugins: client.runBeforePlugins,
-          runAfterPlugins: client.runAfterPlugins,
+          initBeforePlugins: client.initBeforePlugins ?? [],
+          initAfterPlugins: client.initAfterPlugins ?? [],
+          runBeforePlugins: client.runBeforePlugins ?? [],
+          runAfterPlugins: client.runAfterPlugins ?? [],
           reference: client,
         });
+        refPlugin.initBeforePlugins = refPlugin.initBeforePlugins.concat(
+          client.initBeforePlugins ?? []
+        );
+        refPlugin.initAfterPlugins = refPlugin.initAfterPlugins.concat(
+          client.initAfterPlugins ?? []
+        );
+        refPlugin.runBeforePlugins = refPlugin.runBeforePlugins.concat(
+          client.runBeforePlugins ?? []
+        );
+        refPlugin.runAfterPlugins = refPlugin.runAfterPlugins.concat(
+          client.runAfterPlugins ?? []
+        );
       }
+      list.push(refPlugin);
     }
-    await this.sortAndRunOrInitPlugins(list, "run");
+    return list;
+  }
+  public async init() {
+    this.log.info("Init all services");
+    await this.sortAndRunOrInitPlugins("init");
+  }
+
+  public async run() {
+    this.log.info("Run all services");
+    await this.sortAndRunOrInitPlugins("run");
   }
 }

@@ -34,7 +34,7 @@ export interface ServiceTypes extends BSBPluginEvents {
 }
 
 export class Plugin extends BSBService<Config, ServiceTypes> {
-  public static PLUGIN_NAME = "service-default3";
+  public static PLUGIN_CLIENT = { name: "service-default3" };
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
