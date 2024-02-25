@@ -37,7 +37,7 @@ export class SBPlugins {
     plugin: string,
     name: string
   ): Promise<LoadedPlugin<NamedType, ClassType> | null> {
-    log.debug(`PLUGIN {name} from {package} try load as {pluginName}`, {
+    log.debug(`Plugin {name} from {package} try load as {pluginName}`, {
       name: plugin,
       pluginName: name,
       package: npmPackage ?? "self",
@@ -65,7 +65,7 @@ export class SBPlugins {
       version = packageJSON.version;
     }
     if (!existsSync(pluginPath)) {
-      log.error(`PLUGIN {name} in {package} not found`, {
+      log.error(`Plugin {name} in {package} not found`, {
         name: plugin,
         package: npmPackage ?? "self",
       });
@@ -83,14 +83,14 @@ export class SBPlugins {
     //if (this.devMode) {
     const tsPluginFile = join(pluginPath, "./plugin.ts");
     if (existsSync(tsPluginFile)) {
-      log.debug("PLUGIN {pluginName} running in development mode", {
+      log.debug("Plugin {pluginName} running in development mode", {
         pluginName: name,
       });
       pluginFile = tsPluginFile;
     }
 
     if (!existsSync(pluginFile))
-      throw new BSBError("PLUGIN {pluginName} not found at {location}", {
+      throw new BSBError("Plugin {pluginName} not found at {location}", {
         pluginName: name,
         location: pluginFile,
       });
@@ -99,7 +99,7 @@ export class SBPlugins {
 
     if (importedPlugin.Plugin === undefined)
       throw new BSBError(
-        "PLUGIN {pluginName} does not export a Plugin class - so possibly not a valid BSB Plugin",
+        "Plugin {pluginName} does not export a Plugin class - so possibly not a valid BSB Plugin",
         {
           pluginName: name,
         }

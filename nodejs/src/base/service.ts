@@ -22,6 +22,14 @@ export interface BSBServiceConstructor<
   sbEvents: SBEvents;
 }
 
+export interface BSBServiceClientDefinition {
+  name: string;
+  initBeforePlugins?: Array<string>;
+  initAfterPlugins?: Array<string>;
+  runBeforePlugins?: Array<string>;
+  runAfterPlugins?: Array<string>;
+}
+
 export abstract class BSBService<
   ReferencedConfig extends BSBReferencePluginConfigType = any,
   Events extends BSBPluginEvents = BSBPluginEventsRef
@@ -30,7 +38,7 @@ export abstract class BSBService<
     ? null
     : BSBReferencePluginConfigDefinition<ReferencedConfig>
 > {
-  public static PLUGIN_NAME: string;
+  public static PLUGIN_CLIENT: BSBServiceClientDefinition;
   public abstract readonly initBeforePlugins?: Array<string>;
   public abstract readonly initAfterPlugins?: Array<string>;
   public abstract readonly runBeforePlugins?: Array<string>;
@@ -64,7 +72,9 @@ export abstract class BSBService<
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
 export class BSBServiceRef extends BSBService<any> {
-  public static PLUGIN_NAME = "BSBServiceRef";
+  public static PLUGIN_CLIENT:BSBServiceClientDefinition = {
+    name: "BSBServiceRef"
+  };
   public methods = {};
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;

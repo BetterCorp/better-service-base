@@ -89,7 +89,11 @@ export class ServiceClient<
 
   constructor(service: ServiceT, context: BSBService) {
     super(context);
-    this.pluginName = service.PLUGIN_NAME;
+    this.pluginName = service.PLUGIN_CLIENT.name;
+    this.initBeforePlugins = service.PLUGIN_CLIENT.initBeforePlugins;
+    this.initAfterPlugins = service.PLUGIN_CLIENT.initAfterPlugins;
+    this.runBeforePlugins = service.PLUGIN_CLIENT.runBeforePlugins;
+    this.runAfterPlugins = service.PLUGIN_CLIENT.runAfterPlugins;
   }
 }
 
