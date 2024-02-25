@@ -137,6 +137,10 @@ export class SBServices {
     context: BSBService,
     clientContext: BSBServiceClient<any>
   ): Promise<void> => {
+    this.log.debug('Create plugin client {clientName} in {serviceName}', {
+      clientName: clientContext.pluginName,
+      serviceName: context.pluginName,
+    })
     const contextPlugin = await sbConfig.getServicePluginDefinition(
       clientContext.pluginName
     );
