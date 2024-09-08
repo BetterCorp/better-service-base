@@ -26,13 +26,13 @@ export class emit
   public async onEvent(
       pluginName: string,
       event: string,
-      listener: { (traceId: string|undefined, args: Array<any>): Promise<void> },
+      listener: { (traceId: string, args: Array<any>): Promise<void> },
   ): Promise<void> {
     this.log.debug("onEvent: listening to {pluginName}-{event}", {
       pluginName,
       event,
     });
-    this.on(`${pluginName}-${event}`, (traceId: string|undefined, args: any) => {
+    this.on(`${pluginName}-${event}`, (traceId: string, args: any) => {
       if (this._lastReceivedMessageIds.includes(args.msgID)) {
         return;
       }
@@ -44,7 +44,7 @@ export class emit
   public async emitEvent(
       pluginName: string,
       event: string,
-      traceId: string|undefined,
+      traceId: string,
       args: Array<any>,
   ): Promise<void> {
     this.log.debug("emitEvent: emitting {pluginName}-{event} with traceId {traceId}", {

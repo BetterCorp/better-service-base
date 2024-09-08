@@ -21,13 +21,14 @@ export class Plugin
   }
 
   public override async run() {
+    const traceId = this.metrics.createTrace().id;
     this.log.info("TEST CALLABLE OK ? [{result}]", {
       result: this.service3.callMethod("testMethod"),
     });
     this.log.info("TEST RETURNABLE OK ? [{result}]", {
       result: await this.service3.events.emitEventAndReturn(
           "onReverseReturnable",
-          undefined,
+          traceId,
           5,
           "teXt",
       ),

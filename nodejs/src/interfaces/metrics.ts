@@ -189,17 +189,25 @@ export interface Trace {
    * Starts a new span with the specified name.
    *
    * @param name - The name of the span
-   * @param parentSpanId - Optional parent span ID
    * @param attributes - Optional attributes to associate with the span
    */
-  createSpan(name: string, parentSpanId?: string, attributes?: Record<string, string>): Span;
+  createSpan(name: string, attributes?: Record<string, string|number|boolean>): Span;
+  
+  /**
+   * Starts a new span linked to a parent span.
+   *
+   * @param parentSpanId - Optional parent span ID
+   * @param name - The name of the span
+   * @param attributes - Optional attributes to associate with the span
+   */
+  createSpanFromParent(parentSpanId: string, name: string, attributes?: Record<string, string|number|boolean>): Span;
 
   /**
    * Ends the current trace.
    *
    * @param attributes - Optional attributes to associate with the trace
    */
-  end(attributes?: Record<string, string>): void;
+  end(attributes?: Record<string, string|number|boolean>): void;
 }
 
 export interface Span {
@@ -215,19 +223,17 @@ export interface Span {
   /**
    * Ends the current span.
    *
-   * @param spanId - The ID of the span to end
    * @param attributes - Optional attributes to associate with the span
    */
-  end(attributes?: Record<string, string>): void;
+  end(attributes?: Record<string, string|number|boolean>): void;
 
   /**
    * Records an error in the current span.
    *
-   * @param spanId - The ID of the span to record the error in
    * @param error - The error to record
    * @param attributes - Optional labels to associate with the span
    */
-  error(error: BSBError<any> | Error, attributes?: Record<string, string>): void;
+  error(error: BSBError<any> | Error, attributes?: Record<string, string|number|boolean>): void;
 }
 
 export interface Counter<LABELS extends string | undefined = undefined> {

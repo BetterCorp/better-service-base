@@ -22,7 +22,7 @@ export type DynamicallyReferencedMethodOnIEvents<
     ? [
       event: Method,
       listener: {
-        (traceId: string|undefined, ...a: Arguments): hasReturnable extends true
+        (traceId: string, ...a: Arguments): hasReturnable extends true
                            ? Return
                            : void | Promise<void>;
       }
@@ -34,7 +34,7 @@ export type DynamicallyReferencedMethodEmitIEvents<
     Method extends keyof Interface
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
 > = Interface[Method] extends (...a: infer Arguments) => infer Return
-    ? [event: Method, traceId: string|undefined, ...a: Arguments]
+    ? [event: Method, traceId: string, ...a: Arguments]
     : [event: Method, noMatchingEvent: never];
 
 export type DynamicallyReferencedMethodEmitEARIEvents<
@@ -46,7 +46,7 @@ export type DynamicallyReferencedMethodEmitEARIEvents<
     ? // eslint-disable-next-line @typescript-eslint/no-unused-vars
     Interface[Method] extends (...a: infer Arguments) => infer Return
     ? //? ShowTimeout extends true
-    [event: Method, traceId: string|undefined, timeoutSeconds?: number, ...a: Arguments]
+    [event: Method, traceId: string, timeoutSeconds?: number, ...a: Arguments]
     : //: [event: Method, ...a: Arguments]
     [event: Method, noMatchingEvent: never]
     : Interface[Method] extends (...a: infer Arguments) => infer Return

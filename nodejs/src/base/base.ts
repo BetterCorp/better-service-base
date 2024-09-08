@@ -30,7 +30,7 @@ export abstract class MainBase {
    * @readonly
    * @type {string}
    */
-  protected readonly appId: string = "tbd";
+  public readonly appId: string = "tbd";
 
   /**
    * The mode the app is running in
@@ -40,19 +40,19 @@ export abstract class MainBase {
    * @example production-debug (production mode - debug)
    * @example development (development mode - debug)
    */
-  protected readonly mode: DEBUG_MODE = "development";
+  public readonly mode: DEBUG_MODE = "development";
   /**
    * The current working directory of the app
    */
-  protected readonly cwd: string;
+  public readonly cwd: string;
   /**
    * The current working directory of the plugin
    */
-  protected readonly packageCwd: string;
+  public readonly packageCwd: string;
   /**
    * The current working directory of the service
    */
-  protected readonly pluginCwd: string;
+  public readonly pluginCwd: string;
   /**
    * The name of the plugin
    * This is also the mapped name, or the name defined in the config rather than it's original defined name
@@ -107,7 +107,7 @@ export abstract class Base
    * @example init() { your code here };
    * @example async init() { await your code here };
    */
-  abstract init?(): Promise<void> | void;
+  public abstract init?(): Promise<void> | void;
 
   /**
    * Run
@@ -118,7 +118,7 @@ export abstract class Base
    * @example run() { your code here };
    * @example async run() { await your code here };
    */
-  abstract run?(): Promise<void> | void;
+  public abstract run?(): Promise<void> | void;
 }
 
 /**
@@ -155,7 +155,7 @@ export abstract class BaseWithConfig<
    * @type {PluginConfig}
    * @readonly
    */
-  protected readonly config: ConfigPropertyTypeSafe<ReferencedConfig>;
+  public readonly config: ConfigPropertyTypeSafe<ReferencedConfig>;
 
   constructor(config: BaseWithConfigConfig<ReferencedConfig>) {
     super(config);
@@ -212,7 +212,7 @@ export abstract class BaseWithLoggingAndConfig<
     ReferencedConfig extends BSBReferenceConfigType
 >
     extends BaseWithConfig<ReferencedConfig> {
-  protected log: IPluginLogger;
+  public log: IPluginLogger;
   protected createNewLogger: { (plugin: string): IPluginLogger };
 
   constructor(config: BaseWithLoggingAndConfigConfig<ReferencedConfig>) {

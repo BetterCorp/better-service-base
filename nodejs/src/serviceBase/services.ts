@@ -221,6 +221,7 @@ export class SBServices {
           clientContext as any
       ).callMethod = (
           method: string,
+          traceId: string,
           ...args: Array<any>
       ) => {
         if (referencedServiceContext.methods[method] === undefined) {
@@ -235,6 +236,7 @@ export class SBServices {
         return SmartFunctionCallThroughAsync(
             referencedServiceContext,
             referencedServiceContext.methods[method],
+            traceId,
             ...args,
         );
       };

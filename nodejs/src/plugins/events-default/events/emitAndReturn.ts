@@ -17,7 +17,7 @@ export class emitAndReturn
   public async onReturnableEvent(
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, args: Array<any>): Promise<any> },
+      listener: { (traceId: string, args: Array<any>): Promise<any> },
   ): Promise<void> {
     this.log.debug("onReturnableEvent: listening to {pluginName}-{event}", {
       pluginName,
@@ -35,7 +35,7 @@ export class emitAndReturn
   public async emitEventAndReturn(
       pluginName: string,
       event: string,
-      traceId: string | undefined,
+      traceId: string,
       timeoutSeconds: number,
       args: Array<any>,
   ): Promise<any> {

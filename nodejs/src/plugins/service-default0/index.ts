@@ -61,7 +61,7 @@ export class Plugin
   public dispose?(): void;
 
   public readonly methods = {
-    abc: async (...numbers: Array<number>) => {
+    abc: async (traceId: string, ...numbers: Array<number>) => {
       this.log.info("abc called: {numbers}", {numbers});
     },
   };
@@ -73,9 +73,11 @@ export class Plugin
   }
 
   public async run() {
+    const traceId = this.metrics.createTrace().id;
     this.log.info("aa");
-    this.events.emitEvent("test", undefined, "test", "test");
+    this.events.emitEvent("test", traceId, "test", "test");
     await this.testClient.callMethod('callableMethod',
+        traceId,
         this.config.testa,
         this.config.testb,
     );

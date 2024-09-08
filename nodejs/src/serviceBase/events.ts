@@ -363,8 +363,8 @@ export class SBEvents {
       pluginName: string,
       event: string,
       context: BSBService | BSBServiceClient<any>,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<void> | void },
-      traceId: string | undefined,
+      listener: { (traceId: string, ...args: Array<any>): Promise<void> | void },
+      traceId: string,
       iargs: Array<any>,
   ) {
     const start = process.hrtime();
@@ -403,7 +403,7 @@ export class SBEvents {
       context: BSBService<any, any> | BSBServiceClient<any>,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<void> | void },
+      listener: { (traceId: string, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
     const plugin = this.getPluginForEvent(
@@ -411,7 +411,7 @@ export class SBEvents {
         pluginName,
         event,
     );
-    return await plugin.plugin.onBroadcast(pluginName, event, async (traceId: string | undefined, iargs: Array<any>) =>
+    return await plugin.plugin.onBroadcast(pluginName, event, async (traceId: string, iargs: Array<any>) =>
         self.handleOnBroadcast.call(
             self,
             plugin.pluginName,
@@ -428,7 +428,7 @@ export class SBEvents {
   public async emitBroadcast(
       pluginName: string,
       event: string,
-      traceId: string | undefined,
+      traceId: string,
       ...args: Array<any>
   ): Promise<void> {
     const plugin = this.getPluginForEvent(
@@ -459,8 +459,8 @@ export class SBEvents {
       pluginName: string,
       event: string,
       context: BSBService | BSBServiceClient<any>,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<void> | void },
-      traceId: string | undefined,
+      listener: { (traceId: string, ...args: Array<any>): Promise<void> | void },
+      traceId: string,
       iargs: Array<any>,
   ) {
     const start = process.hrtime();
@@ -500,7 +500,7 @@ export class SBEvents {
       context: BSBService | BSBServiceClient<any>,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<void> | void },
+      listener: { (traceId: string, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
     const plugin = this.getPluginForEvent("onEvent", pluginName, event);
@@ -523,7 +523,7 @@ export class SBEvents {
       context: BSBService | BSBServiceClient<any>,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<void> | void },
+      listener: { (traceId: string, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
     const plugin = this.getPluginForEvent("onEvent", pluginName, event);
@@ -547,7 +547,7 @@ export class SBEvents {
   public async emitEvent(
       pluginName: string,
       event: string,
-      traceId: string | undefined,
+      traceId: string,
       ...args: Array<any>
   ): Promise<void> {
     const plugin = this.getPluginForEvent("emitEvent", pluginName, event);
@@ -573,7 +573,7 @@ export class SBEvents {
       serverId: string,
       pluginName: string,
       event: string,
-      traceId: string | undefined,
+      traceId: string,
       ...args: Array<any>
   ): Promise<void> {
     const plugin = this.getPluginForEvent("emitEvent", pluginName, event);
@@ -600,8 +600,8 @@ export class SBEvents {
       pluginName: string,
       event: string,
       context: BSBService | BSBServiceClient<any>,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<any> | any },
-      traceId: string | undefined,
+      listener: { (traceId: string, ...args: Array<any>): Promise<any> | any },
+      traceId: string,
       iargs: Array<any>,
   ) {
     const start = process.hrtime();
@@ -641,7 +641,7 @@ export class SBEvents {
       context: BSBService | BSBServiceClient<any>,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<void> | void },
+      listener: { (traceId: string, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
     const plugin = this.getPluginForEvent(
@@ -671,7 +671,7 @@ export class SBEvents {
       context: BSBService | BSBServiceClient<any>,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, ...args: Array<any>): Promise<void> | void },
+      listener: { (traceId: string, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
     const plugin = this.getPluginForEvent(
@@ -699,7 +699,7 @@ export class SBEvents {
   public async emitEventAndReturn(
       pluginName: string,
       event: string,
-      traceId: string | undefined,
+      traceId: string,
       timeoutSeconds: number,
       ...args: Array<any>
   ): Promise<any> {
@@ -752,7 +752,7 @@ export class SBEvents {
       serverId: string,
       pluginName: string,
       event: string,
-      traceId: string | undefined,
+      traceId: string,
       timeoutSeconds: number,
       ...args: Array<any>
   ): Promise<any> {

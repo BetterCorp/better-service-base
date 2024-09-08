@@ -68,24 +68,30 @@ export class PluginMetrics
     if (parentId === undefined) {
       context.metrics.metricsBus.emit("startTrace", Date.now(), context.pluginName, traceId);
     }
+    const createSpan = (name: string, parentSpanId?: string, attributes?: Record<string, string>): Span => {
+      const spanId = parentSpanId ?? traceId + ":" + uuidv7();
+      if (parentSpanId
+          === undefined) {
+        context.metrics.metricsBus.emit("startSpan", Date.now(), context.pluginName, traceId, spanId, name, attributes);
+      }
+      return {
+        id: spanId,
+        traceId: traceId,
+        end: () => {
+          context.metrics.metricsBus.emit("endSpan", Date.now(), context.pluginName, traceId, spanId, attributes);
+        },
+        error: (error: BSBError<any> | Error) => {
+          context.metrics.metricsBus.emit("errorSpan", Date.now(), context.pluginName, traceId, spanId, error, attributes);
+        },
+      };
+    }
     return {
       id: traceId,
-      createSpan(name: string, parentSpanId?: string, attributes?: Record<string, string>): Span {
-        const spanId = parentSpanId ?? traceId + ":" + uuidv7();
-        if (parentSpanId
-            === undefined) {
-          context.metrics.metricsBus.emit("startSpan", Date.now(), context.pluginName, traceId, spanId, name, attributes);
-        }
-        return {
-          id: spanId,
-          traceId: traceId,
-          end: () => {
-            context.metrics.metricsBus.emit("endSpan", Date.now(), context.pluginName, traceId, spanId, attributes);
-          },
-          error: (error: BSBError<any> | Error) => {
-            context.metrics.metricsBus.emit("errorSpan", Date.now(), context.pluginName, traceId, spanId, error, attributes);
-          },
-        };
+      createSpan(name: string, attributes?: Record<string, string>): Span {
+        return createSpan(name, undefined, attributes);
+      },
+      createSpanFromParent(parentSpanId: string, name: string, attributes?: Record<string, string>): Span {
+        return createSpan(name, parentSpanId, attributes);
       },
       end: (attributes?: Record<string, string>) => {
         context.metrics.metricsBus.emit("endTrace", Date.now(), context.pluginName, traceId, attributes);

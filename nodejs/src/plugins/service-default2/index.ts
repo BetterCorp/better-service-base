@@ -21,6 +21,7 @@ export class Plugin
   }
 
   public async run() {
-    await this.testClient.callMethod('abc', 10, 12, 11, 13);
+    const traceId = this.metrics.createTrace().id;
+    await this.testClient.callMethod('abc', traceId, 10, 12, 11, 13);
   }
 }

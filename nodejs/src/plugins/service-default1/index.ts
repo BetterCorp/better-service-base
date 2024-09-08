@@ -29,9 +29,9 @@ export class Plugin
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
   public methods = {
-    callableMethod: async (a: number, b: number) => {
+    callableMethod: async (traceId: string, a: number, b: number) => {
       this.log.warn("callableMethod ({a},{b})", {a, b});
-      this.events.emitEvent("onEmittable", undefined, a, b);
+      this.events.emitEvent("onEmittable", traceId, a, b);
       return a * b;
     },
     testMethod: (): boolean => {
@@ -45,17 +45,17 @@ export class Plugin
 
   public async init() {
     this.log.info("INIT SERVICE");
-    this.events.onEvent("onReceivable", async (traceId: string | undefined, a: number, b: number) => {
+    this.events.onEvent("onReceivable", async (traceId: string, a: number, b: number) => {
       this.log.warn("received onReceivable ({a},{b}", {a, b});
       //process.exit(3);
     });
     this.events.onReturnableEvent(
         "onReturnable",
-        async (traceId: string | undefined, a: number, b: number) => {
+        async (traceId: string, a: number, b: number) => {
           this.log.warn("RECEIVED onReturnable ({a},{b})", {a, b});
           const result = await this.events.emitEventAndReturn(
               "onReverseReturnable",
-              undefined,
+              traceId,
               5,
               a,
               b,

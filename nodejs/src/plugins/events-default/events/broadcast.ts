@@ -16,7 +16,7 @@ export class broadcast extends EventEmitter {
   public async onBroadcast(
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, args: Array<any>): Promise<void> }
+      listener: { (traceId: string, args: Array<any>): Promise<void> }
   ): Promise<void> {
     this.log.debug("onBroadcast:listening to {pluginName}-{event}", {
       pluginName,
@@ -28,7 +28,7 @@ export class broadcast extends EventEmitter {
   public async emitBroadcast(
       pluginName: string,
       event: string,
-      traceId: string | undefined,
+      traceId: string,
       args: Array<any>
   ): Promise<void> {
     this.log.debug("emitBroadcast: emitting {pluginName}-{event} with traceId {traceId}", {

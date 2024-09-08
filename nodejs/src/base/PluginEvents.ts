@@ -100,7 +100,7 @@ export class PluginEvents<
       >
   ): Promise<void> {
     const event = args.splice(0, 1)[0] as string;
-    const traceId = args.splice(0, 1)[0] as string | undefined;
+    const traceId = args.splice(0, 1)[0] as string;
     await this.events.emitBroadcast(this.service.pluginName, event, traceId, ...args);
   }
 
@@ -164,7 +164,7 @@ export class PluginEvents<
       >
   ): Promise<void> {
     const event = args.splice(0, 1)[0] as string;
-    const traceId = args.splice(0, 1)[0] as string | undefined;
+    const traceId = args.splice(0, 1)[0] as string;
     await this.events.emitEvent(this.service.pluginName, event, traceId, ...args);
   }
 
@@ -235,7 +235,7 @@ export class PluginEvents<
       >
   ): Promise<void> {
     const event = args.splice(0, 1)[0] as string;
-    const traceId = args.splice(0, 1)[0] as string | undefined;
+    const traceId = args.splice(0, 1)[0] as string;
     await this.events.emitEventSpecific(
         serverId,
         this.service.pluginName,
@@ -316,11 +316,11 @@ export class PluginEvents<
       >
   > {
     const event = args.splice(0, 1)[0] as string;
-    const traceId = args.splice(0, 1)[0] as string | undefined;
+    const traceId = args.splice(0, 1)[0] as string;
     const timeoutSeconds =
-              args.length > 0 ? (
-                  args.splice(0, 1)[0] as number
-              ) : 5;
+        args.length > 0 ? (
+            args.splice(0, 1)[0] as number
+        ) : 5;
     return await this.events.emitEventAndReturn(
         this.service.pluginName,
         event,
@@ -409,11 +409,11 @@ export class PluginEvents<
       >
   > {
     const event = args.splice(0, 1)[0] as string;
-    const traceId = args.splice(0, 1)[0] as string | undefined;
+    const traceId = args.splice(0, 1)[0] as string;
     const timeoutSeconds =
-              args.length > 0 ? (
-                  args.splice(0, 1)[0] as number
-              ) : 5;
+        args.length > 0 ? (
+            args.splice(0, 1)[0] as number
+        ) : 5;
     return await this.events.emitEventAndReturnSpecific(
         serverId,
         this.service.pluginName,

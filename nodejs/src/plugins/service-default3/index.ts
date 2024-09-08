@@ -61,7 +61,7 @@ export class Plugin
   public async init() {
     await this.events.onReturnableEvent(
         "onReverseReturnable",
-        async (traceId: string | undefined, tex: string) => {
+        async (traceId: string, tex: string) => {
           this.log.warn("onReverseReturnable ({tex})", {tex});
           return tex.split("")
                     .reverse()
@@ -71,7 +71,8 @@ export class Plugin
   }
 
   public async run() {
-    await this.testClient.callMethod("abc", 18, 19, 20, 21);
+    const traceId = this.metrics.createTrace().id;
+    await this.testClient.callMethod("abc", traceId, 18, 19, 20, 21);
     this.log.error("Error {a}", {a: "b"});
   }
 }

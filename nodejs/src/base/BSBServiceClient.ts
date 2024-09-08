@@ -14,8 +14,8 @@ import {Tools} from "./tools";
  * ONLY USE THIS IF YOU NEED SPECIFIC CLIENT LOGIC, OTHERWISE USE ServiceClient
  */
 export abstract class BSBServiceClient<Service extends BSBService = any> {
-  protected declare readonly log: IPluginLogger;
-  protected declare readonly metrics: IPluginMetrics;
+  public declare readonly log: IPluginLogger;
+  public declare readonly metrics: IPluginMetrics;
   protected declare readonly events: PluginEvents<
       Service["_virtual_internal_events"]["emitEvents"],
       Service["_virtual_internal_events"]["onEvents"],
