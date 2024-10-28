@@ -1,3 +1,30 @@
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.  
+ * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program. 
+ * The commercial license allows you to use the Program in a closed-source manner, 
+ * including the right to create derivative works that are not subject to the terms 
+ * of the AGPL. 
+ *
+ * To obtain a commercial license, please contact the copyright holders at 
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 import {BaseWithConfig, BaseWithConfigConfig} from "./base";
 import {BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError} from "./errorMessages";
 import {BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType} from "./pluginConfig";
@@ -42,15 +69,15 @@ export abstract class BSBMetrics<
 
   public abstract updateHistogram(timestamp: number, event: "record", pluginName: string, name: string, value: number, labels?: Record<string, string>): void | Promise<void>;
 
-  public abstract startTrace(timestamp: number, pluginName: string, traceId: string): void | Promise<void>;
+  public abstract startTrace(timestamp: number, appId: string, pluginName: string, traceId: string): void | Promise<void>;
 
-  public abstract endTrace(timestamp: number, pluginName: string, traceId: string, attributes?: Record<string, string>): void | Promise<void>;
+  public abstract endTrace(timestamp: number, appId: string, pluginName: string, traceId: string, attributes?: Record<string, string>): void | Promise<void>;
 
-  public abstract startSpan(timestamp: number, pluginName: string, traceId: string, spanId: string, name: string, attributes?: Record<string, string>): void | Promise<void>;
+  public abstract startSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, name: string, parentSpanId?: string, attributes?: Record<string, string>): void | Promise<void>;
 
-  public abstract endSpan(timestamp: number, pluginName: string, traceId: string, spanId: string, attributes?: Record<string, string>): void | Promise<void>;
+  public abstract endSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, attributes?: Record<string, string>): void | Promise<void>;
 
-  public abstract errorSpan(timestamp: number, pluginName: string, traceId: string, spanId: string, error: BSBError<any> | Error, attributes?: Record<string, string>): void | Promise<void>;
+  public abstract errorSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, error: BSBError<any> | Error, attributes?: Record<string, string>): void | Promise<void>;
 }
 
 /**
@@ -77,35 +104,35 @@ export class BSBMetricsRef
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "createHistogram");
   }
 
-  endSpan(timestamp: number, pluginName: string, traceId: string, spanId: string, attributes: Record<string, string> | undefined): void | Promise<void> {
+  endSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, attributes: Record<string, string> | undefined): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "endSpan");
   }
 
-  endTrace(timestamp: number, pluginName: string, traceId: string, attributes: Record<string, string> | undefined): void | Promise<void> {
+  endTrace(timestamp: number, appId: string, pluginName: string, traceId: string, attributes: Record<string, string> | undefined): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "endTrace");
   }
 
-  errorSpan(timestamp: number, pluginName: string, traceId: string, spanId: string, error: BSBError<any> | Error, attributes: Record<string, string> | undefined): void | Promise<void> {
+  errorSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, error: BSBError<any> | Error, attributes: Record<string, string> | undefined): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "errorSpan");
   }
 
-  startSpan(timestamp: number, pluginName: string, traceId: string, spanId: string, name: string, attributes: Record<string, string> | undefined): void | Promise<void> {
+  startSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, name: string, parentSpanId?: string, attributes?: Record<string, string>): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "startSpan");
   }
 
-  startTrace(timestamp: number, pluginName: string, traceId: string): void | Promise<void> {
+  startTrace(timestamp: number, appId: string, pluginName: string, traceId: string): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "startTrace");
   }
 
-  updateCounter(timestamp: number, event: "inc", pluginName: string, name: string, value: number, labels: Record<string, string> | undefined): void | Promise<void> {
+  updateCounter(timestamp: number, event: "inc", pluginName: string, name: string, value: number, labels?: Record<string, string>): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "counterEvent");
   }
 
-  updateGauge(timestamp: number, event: "set" | "inc" | "dec", pluginName: string, name: string, value: number, labels: Record<string, string> | undefined): void | Promise<void> {
+  updateGauge(timestamp: number, event: "set" | "inc" | "dec", pluginName: string, name: string, value: number, labels?: Record<string, string>): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "gaugeEvent");
   }
 
-  updateHistogram(timestamp: number, event: "record", pluginName: string, name: string, value: number, labels: Record<string, string> | undefined): void | Promise<void> {
+  updateHistogram(timestamp: number, event: "record", pluginName: string, name: string, value: number, labels?: Record<string, string>): void | Promise<void> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBMetricsRef", "histogramEvent");
   }
 }

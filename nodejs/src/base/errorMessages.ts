@@ -1,16 +1,44 @@
-import {LogMeta, ParamsFromString} from "../interfaces";
-import {LogFormatter} from "./logFormatter";
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.  
+ * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program. 
+ * The commercial license allows you to use the Program in a closed-source manner, 
+ * including the right to create derivative works that are not subject to the terms 
+ * of the AGPL. 
+ *
+ * To obtain a commercial license, please contact the copyright holders at 
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { createFakeDTrace, DTrace, LogMeta, ParamsFromString } from "../interfaces";
+import { LogFormatter } from "./logFormatter";
 
 /**
  * @hidden
  */
 export type ErrorLogMetaDefinition<T extends string> = {
+  trace: DTrace;
   message: T;
   meta: LogMeta<T>;
 };
 export type ErrorLogMeta<T extends string> = ParamsFromString<T> extends never
-                                             ? [undefined?]
-                                             : [meta: LogMeta<T>];
+  ? [undefined?]
+  : [meta: LogMeta<T>];
 
 /**
  * BSBError is a custom error class that allows for better error handling and logging
@@ -22,16 +50,18 @@ export type ErrorLogMeta<T extends string> = ParamsFromString<T> extends never
  * @constructor
  */
 export class BSBError<T extends string>
-    extends Error {
+  extends Error {
   constructor(
-      message: T,
-      ...meta: ErrorLogMeta<T>
+    trace: DTrace,
+    message: T,
+    ...meta: ErrorLogMeta<T>
   ) {
     const formatter = new LogFormatter();
-    super(formatter.formatLog(message, ...meta));
+    super(formatter.formatLog(trace, message, ...meta));
     this.name = "BSBError-" + message;
     this.raw = {
-      message: message,
+      trace,
+      message,
       meta: meta,
     };
   }
@@ -47,14 +77,15 @@ export class BSBError<T extends string>
  * @hidden
  */
 export function BSB_ERROR_METHOD_NOT_IMPLEMENTED(
-    className: string,
-    method: string,
+  className: string,
+  method: string,
 ) {
   return new BSBError(
-      "Method not implemented: {class}.{method}",
-      {
-        class: className,
-        method: method,
-      },
+    createFakeDTrace(),
+    "Method not implemented: {class}.{method}",
+    {
+      class: className,
+      method: method,
+    },
   );
 }

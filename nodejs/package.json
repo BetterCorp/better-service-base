@@ -1,6 +1,6 @@
 {
   "name": "@bettercorp/service-base",
-  "license": "AGPL-3.0-only",
+  "license": "AGPL-3.0 or Commercial",
   "repository": {
     "url": "git+https://github.com/BetterCorp/better-service-base.git"
   },

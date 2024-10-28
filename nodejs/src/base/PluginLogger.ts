@@ -1,9 +1,36 @@
-import {DEBUG_MODE, IPluginLogger, SmartLogMeta} from "../interfaces";
-import {SBLogging} from "../serviceBase";
-import {BSBError} from "./errorMessages";
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.  
+ * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program. 
+ * The commercial license allows you to use the Program in a closed-source manner, 
+ * including the right to create derivative works that are not subject to the terms 
+ * of the AGPL. 
+ *
+ * To obtain a commercial license, please contact the copyright holders at 
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginLogger, SmartLogMeta } from "../interfaces";
+import { SBLogging } from "../serviceBase";
+import { BSBError } from "./errorMessages";
 
 export class PluginLogger
-    implements IPluginLogger {
+  implements IPluginLogger {
   private logging: SBLogging;
   private pluginName: string;
   private canDebug = false;
@@ -19,105 +46,107 @@ export class PluginLogger
   /**
    * Logs a debug message
    *
+   * @param trace - The trace to associate with the log
    * @param message - The message to log
    * @param meta - Additional information to log with the message
    * @returns nothing
    *
    * @example
    * ```ts
-   * this.log.debug("This is a debug log");
-   * this.log.debug("This is a debug {key}", {"key": "log"});
+   * this.log.debug(trace, "This is a debug log");
+   * this.log.debug(trace, "This is a debug {key}", {"key": "log"});
    * ```
    */
-  public debug<T extends string>(message: T, ...meta: SmartLogMeta<T>): void {
+  public debug<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
     if (this.canDebug) {
-      this.logging.logBus.emit("debug", this.pluginName, message, ...meta);
+      this.logging.logBus.emit("debug", this.pluginName, trace, message, ...meta);
     }
   }
 
   /**
    * Logs an info message
    *
+   * @param trace - The trace to associate with the log
    * @param message - The message to log
    * @param meta - Additional information to log with the message
    * @returns nothing
    *
    * @example
    * ```ts
-   * this.log.info("This is an info log");
-   * this.log.info("This is an info {key}", {"key": "log"});
+   * this.log.info(trace, "This is an info log");
+   * this.log.info(trace, "This is an info {key}", {"key": "log"});
    * ```
    */
-  public info<T extends string>(message: T, ...meta: SmartLogMeta<T>): void {
-    this.logging.logBus.emit("info", this.pluginName, message, ...meta);
+  public info<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
+    this.logging.logBus.emit("info", this.pluginName, trace, message, ...meta);
   }
 
   /**
    * Logs a warn message
    *
+   * @param trace - The trace to associate with the log
    * @param message - The message to log
    * @param meta - Additional information to log with the message
    * @returns nothing
    *
    * @example
    * ```ts
-   * this.log.warn("This is a warn log");
-   * this.log.warn("This is a warn {key}", {"key": "log"});
+   * this.log.warn(trace, "This is a warn log");
+   * this.log.warn(trace, "This is a warn {key}", {"key": "log"});
    * ```
    */
-  public warn<T extends string>(message: T, ...meta: SmartLogMeta<T>): void {
-    this.logging.logBus.emit("warn", this.pluginName, message, ...meta);
+  public warn<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
+    this.logging.logBus.emit("warn", this.pluginName, trace, message, ...meta);
   }
 
   /**
    * Logs an error message
    *
+   * @param trace - The trace to associate with the log
    * @param message - The message to log
    * @param meta - Additional information to log with the message
    * @returns nothing
    *
    * @example
    * ```ts
-   * this.log.error("This is an error log");
-   * this.log.error("This is an error {key}", {"key": "log"});
+   * this.log.error(trace, "This is an error log");
+   * this.log.error(trace, "This is an error {key}", {"key": "log"});
    * ```
    * ```ts
-   * this.log.error(new BSBError("error-key", "This is an error log"));
-   * this.log.error(new BSBError("error-key", "This is an error {key}", {"key": "log"}));
+   * this.log.error(new BSBError(trace, "error-key", "This is an error log"));
+   * this.log.error(new BSBError(trace, "error-key", "This is an error {key}", {"key": "log"}));
    * ```
    */
   public error<T extends string>(
-      message: T,
-      ...meta: SmartLogMeta<T>
+    trace: DTrace,
+    message: T,
+    ...meta: SmartLogMeta<T>
   ): void;
   public error<T extends string>(error: BSBError<T>): void;
-  public error<T extends string | BSBError<string>>(
-      messageOrError: T,
-      ...meta: T extends string ? SmartLogMeta<T> : [undefined?]
+  public error<T extends DTrace | BSBError<string>, M extends string>(
+    traceOrError: T,
+    message?: M,
+    ...meta: M extends string ? SmartLogMeta<M> : [undefined?]
   ): void {
-    if (messageOrError instanceof BSBError) {
-      if (messageOrError.raw !== null) {
+    if (traceOrError instanceof BSBError) {
+      if (traceOrError.raw !== null) {
         this.logging.logBus.emit(
-            "error",
-            this.pluginName,
-            messageOrError.raw.message,
-            messageOrError.raw.meta,
+          "error",
+          this.pluginName,
+          traceOrError.raw.trace,
+          traceOrError.raw.message,
+          traceOrError.raw.meta,
         );
         return;
       }
-      this.logging.logBus.emit(
-          "error",
-          this.pluginName,
-          messageOrError.message,
-          {error: messageOrError},
-      );
+      this.error(createFakeDTrace(), traceOrError.message + ' - error ');
       return;
     }
     this.logging.logBus.emit(
-        "error",
-        this.pluginName,
-        messageOrError,
-        meta,
+      "error",
+      this.pluginName,
+      traceOrError,
+      meta,
     );
   }
 }
