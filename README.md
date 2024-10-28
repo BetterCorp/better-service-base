@@ -18,6 +18,8 @@ Simplicity, flexibility and expandability were the key points when developing th
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/BetterCorp/better-service-base/Build%20and%20Publish%20Containers%20(LIVE))](https://github.com/BetterCorp/better-service-base/actions/workflows/tags.yml) 
 [![Build and Publish (EA)](https://github.com/BetterCorp/better-service-base/actions/workflows/develop.yml/badge.svg?branch=develop)](https://github.com/BetterCorp/better-service-base/actions/workflows/develop.yml)
 [![Build and Publish (RC)](https://github.com/BetterCorp/better-service-base/actions/workflows/master.yml/badge.svg?branch=master)](https://github.com/BetterCorp/better-service-base/actions/workflows/master.yml)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FBetterCorp%2Fbetter-service-base.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2FBetterCorp%2Fbetter-service-base?ref=badge_shield&issueType=license)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FBetterCorp%2Fbetter-service-base.svg?type=shield&issueType=security)](https://app.fossa.com/projects/git%2Bgithub.com%2FBetterCorp%2Fbetter-service-base?ref=badge_shield&issueType=security)
 
 ## Container/Docker 
 [![GitHub](https://img.shields.io/github/license/BetterCorp/better-service-base)](https://github.com/BetterCorp/better-service-base) 
