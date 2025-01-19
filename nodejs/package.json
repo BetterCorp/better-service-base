@@ -1,12 +1,12 @@
 {
   "name": "@bettercorp/service-base",
-  "license": "AGPL-3.0-only",
+  "license": "(AGPL-3.0-only OR Commercial)",
   "repository": {
     "url": "git+https://github.com/BetterCorp/better-service-base.git"
   },
   "engines": {
-    "npm": ">=9.0.0",
-    "node": ">=18.0.0"
+    "npm": ">=10.0.0",
+    "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "nodemon --config ./nodemon.json",
@@ -118,8 +118,8 @@
   },
   "dependencies": {
     "@bettercorp/tools": "^3.7.0",
-    "yaml": "^2.3.4",
+    "yaml": "^2.7.0",
     "yargs": "^17.7.2",
-    "zod": "^3.22.4"
+    "zod": "^3.24.1"
   }
 }
