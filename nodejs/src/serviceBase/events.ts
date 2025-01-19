@@ -1,7 +1,7 @@
 import { DEBUG_MODE, IPluginLogger } from "../interfaces/logging";
 import { PluginLogger } from "../base/PluginLogger";
 import { Readable } from "stream";
-import { Plugin as DefaultEvents } from "../plugins/events-default/plugin";
+import { Plugin as DefaultEvents } from "../plugins/events-default";
 import {
   EventsFilter,
   EventsFilterDetailed,
@@ -119,7 +119,6 @@ export class SBEvents {
     const matchingEvent = this.getPluginsMatchingTriggerEvent(eventAs, plugin);
     if (matchingEvent === undefined)
       throw new BSBError(
-        "SBEvents-triggerEvent",
         "No plugins found to match event: plugin: {plugin} - eventAs: {eventAs} - event: {event}",
         { eventAs, plugin, event }
       );
@@ -317,12 +316,12 @@ export class SBEvents {
       await SmartFunctionCallAsync(context, listener, ...iargs);
       const diff = process.hrtime(start);
       this.log.reportStat(
-        `on-broadcast-${eventsPluginName}-${pluginName}-${event}`,
+        `on-broadcast-${ eventsPluginName }-${ pluginName }-${ event }`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
       );
     } catch (exc: any) {
       this.log.reportStat(
-        `on-broadcast-${eventsPluginName}-${pluginName}-${event}`,
+        `on-broadcast-${ eventsPluginName }-${ pluginName }-${ event }`,
         -1
       );
       this.log.error(
@@ -373,7 +372,7 @@ export class SBEvents {
       event
     );
     this.log.reportStat(
-      `emit-broadcast-${plugin.pluginName}-${pluginName}-${event}`,
+      `emit-broadcast-${ plugin.pluginName }-${ pluginName }-${ event }`,
       1
     );
     await SmartFunctionCallAsync(
@@ -399,12 +398,12 @@ export class SBEvents {
       await SmartFunctionCallAsync(context, listener, ...iargs);
       const diff = process.hrtime(start);
       this.log.reportStat(
-        `on-event-${eventsPluginName}-${pluginName}-${event}`,
+        `on-event-${ eventsPluginName }-${ pluginName }-${ event }`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
       );
     } catch (exc: any) {
       this.log.reportStat(
-        `on-event-${eventsPluginName}-${pluginName}-${event}`,
+        `on-event-${ eventsPluginName }-${ pluginName }-${ event }`,
         -1
       );
       this.log.error(
@@ -471,7 +470,7 @@ export class SBEvents {
   ): Promise<void> {
     const plugin = await this.getPluginForEvent("emitEvent", pluginName, event);
     this.log.reportStat(
-      `emit-event-${plugin.pluginName}-${pluginName}-${event}`,
+      `emit-event-${ plugin.pluginName }-${ pluginName }-${ event }`,
       1
     );
     await SmartFunctionCallAsync(
@@ -490,7 +489,7 @@ export class SBEvents {
   ): Promise<void> {
     const plugin = await this.getPluginForEvent("emitEvent", pluginName, event);
     this.log.reportStat(
-      `emit-event-${plugin.pluginName}-${pluginName}-${event}-${serverId}`,
+      `emit-event-${ plugin.pluginName }-${ pluginName }-${ event }-${ serverId }`,
       1
     );
     await SmartFunctionCallAsync(
@@ -515,13 +514,13 @@ export class SBEvents {
       const resp = await SmartFunctionCallAsync(context, listener, ...iargs);
       const diff = process.hrtime(start);
       this.log.reportStat(
-        `on-returnableevent-${eventsPluginName}-${pluginName}-${event}`,
+        `on-returnableevent-${ eventsPluginName }-${ pluginName }-${ event }`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
       );
       return resp;
     } catch (exc: any) {
       this.log.reportStat(
-        `on-returnableevent-${eventsPluginName}-${pluginName}-${event}`,
+        `on-returnableevent-${ eventsPluginName }-${ pluginName }-${ event }`,
         -1
       );
       this.log.error(
@@ -614,13 +613,13 @@ export class SBEvents {
       );
       const diff = process.hrtime(start);
       this.log.reportStat(
-        `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}`,
+        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
       );
       return resp;
     } catch (exc: any) {
       this.log.reportStat(
-        `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}`,
+        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }`,
         -1
       );
       this.log.error(
@@ -659,13 +658,13 @@ export class SBEvents {
       );
       const diff = process.hrtime(start);
       this.log.reportStat(
-        `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}-${serverId}`,
+        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }-${ serverId }`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
       );
       return resp;
     } catch (exc: any) {
       this.log.reportStat(
-        `emit-eventandreturn-${plugin.pluginName}-${pluginName}-${event}-${serverId}`,
+        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }-${ serverId }`,
         -1
       );
       this.log.error(
@@ -700,13 +699,13 @@ export class SBEvents {
       );
       const diff = process.hrtime(start);
       this.log.reportStat(
-        `receivestream-${eventsPluginName}-${pluginName}-${event}`,
+        `receivestream-${ eventsPluginName }-${ pluginName }-${ event }`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
       );
       return resp;
     } catch (exc: any) {
       this.log.reportStat(
-        `receivestream-${eventsPluginName}-${pluginName}-${event}`,
+        `receivestream-${ eventsPluginName }-${ pluginName }-${ event }`,
         -1
       );
       this.log.error(
@@ -772,12 +771,12 @@ export class SBEvents {
       );
       const diff = process.hrtime(start);
       this.log.reportStat(
-        `sendstream-${plugin.pluginName}-${pluginName}-${event}`,
+        `sendstream-${ plugin.pluginName }-${ pluginName }-${ event }`,
         (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
       );
     } catch (exc: any) {
       this.log.reportStat(
-        `sendstream-${plugin.pluginName}-${pluginName}-${event}`,
+        `sendstream-${ plugin.pluginName }-${ pluginName }-${ event }`,
         -1
       );
       this.log.error(

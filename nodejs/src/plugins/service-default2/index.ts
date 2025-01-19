@@ -1,11 +1,10 @@
-import { BSBService, BSBServiceConstructor } from "../../";
-import { testClient } from "../service-default1";
+import { BSBService, BSBServiceConstructor } from "../..";
+import { testClient } from "../service-default1/client";
 
 export class Plugin extends BSBService<null> {
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
-  public methods = {};
   dispose?(): void;
   init?(): void | Promise<void>;
   public override initAfterPlugins: string[] = ["service-default1"];

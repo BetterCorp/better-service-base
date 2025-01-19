@@ -5,7 +5,7 @@ import {
   emitAndReturn,
   emitStreamAndReceiveStream,
 } from "./events";
-import { BSBEvents, BSBEventsConstructor } from "../../";
+import { BSBEvents, BSBEventsConstructor } from "../..";
 
 export class Plugin extends BSBEvents {
   init?(): void;

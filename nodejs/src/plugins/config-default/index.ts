@@ -11,7 +11,7 @@ import {
   PluginType,
   PluginTypes,
   BSBError,
-} from "../../";
+} from "../..";
 import { ConfigDefinition } from "./interfaces";
 
 export class Plugin extends BSBConfig {
@@ -47,7 +47,6 @@ export class Plugin extends BSBConfig {
     }
 
     throw new BSBError(
-      "DEFAULT_CONFIG_GET_SERVICE_PLUGIN_NAME",
       "Cannot find the plugin {plugin} in the config",
       {
         plugin: pluginName,
@@ -160,7 +159,6 @@ export class Plugin extends BSBConfig {
         this._appConfig;
     } else {
       throw new BSBError(
-        "DEFAULT_CONFIG_SETUP_CONFIG",
         "Cannot find config file at {filepath}",
         {
           filepath: this._secConfigFilePath,
@@ -169,7 +167,6 @@ export class Plugin extends BSBConfig {
     }
     if (Tools.isNullOrUndefined(this._appConfig[this._deploymentProfile])) {
       throw new BSBError(
-        "DEFAULT_CONFIG_SETUP_DEFINITION",
         "unknown deployment profile ({deploymentProfile}), please create it first.",
         {
           deploymentProfile: this._deploymentProfile,

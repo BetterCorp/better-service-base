@@ -1,5 +1,5 @@
 import { DEBUG_MODE, IPluginLogger } from "../interfaces/logging";
-import { Plugin as DefaultConfig } from "../plugins/config-default/plugin";
+import { Plugin as DefaultConfig } from "../plugins/config-default";
 import { SBPlugins } from "./plugins";
 import { SBLogging } from "./logging";
 import { PluginLogger } from "../base/PluginLogger";

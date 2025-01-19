@@ -1,19 +1,5 @@
 import { DynamicallyReferencedMethodBase } from "@bettercorp/tools/lib/Interfaces";
 
-export type DynamicallyReferencedMethodCallable<
-  Interface extends DynamicallyReferencedMethodBase,
-  Method extends keyof Interface,
-  ArgsReference extends boolean = true
-  //ShowTimeout extends boolean = true
-> = ArgsReference extends true
-  ? // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    Interface[Method] extends (...a: infer Arguments) => infer Return
-    ? [event: Method, ...a: Arguments]
-    : [event: Method, noMatchingEvent: never]
-  : Interface[Method] extends (...a: infer Arguments) => infer Return
-  ? Return
-  : Promise<never>;
-
 export type DynamicallyReferencedMethodOnIEvents<
   Interface extends DynamicallyReferencedMethodBase,
   Method extends keyof Interface,

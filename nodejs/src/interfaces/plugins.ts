@@ -71,6 +71,7 @@ export interface IPluginBuit<T extends PluginType> extends IPluginBuilder {
 export interface PluginDefition {
   package?: string | null;
   plugin: string;
+  version?: string | null;
   //name: string;
   enabled: boolean;
 }

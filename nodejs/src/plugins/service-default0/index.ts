@@ -1,5 +1,5 @@
-import { BSBService, BSBServiceConstructor, BSBPluginConfig } from "../../";
-import { testClient } from "../service-default1";
+import { BSBService, BSBServiceConstructor, BSBPluginConfig } from "../..";
+import { testClient } from "../service-default1/client";
 import { z } from "zod";
 
 export const secSchema = z.object({
@@ -49,11 +49,6 @@ export class Plugin extends BSBService<Config, Events> {
   public runAfterPlugins?: string[] | undefined;
   public init?(): Promise<void>;
   public dispose?(): void;
-  public readonly methods = {
-    abc: async () => {
-      console.log("abc called");
-    },
-  };
   private testClient: testClient;
   constructor(config: BSBServiceConstructor) {
     super(config);

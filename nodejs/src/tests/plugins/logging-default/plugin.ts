@@ -3,7 +3,7 @@ import {
   Plugin,
   LOG_LEVELS,
   LogLevels,
-} from "../../../plugins/logging-default/plugin";
+} from "../../../plugins/logging-default";
 import { BSBLoggingConstructor } from "../../../base";
 import { DEBUG_MODE } from "../../../interfaces";
 

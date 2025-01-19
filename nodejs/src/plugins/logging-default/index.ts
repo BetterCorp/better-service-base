@@ -3,7 +3,7 @@ import {
   BSBLogging,
   BSBLoggingConstructor,
   LogFormatter,
-} from "../../";
+} from "../..";
 import { CONSOLE_COLOURS, ConsoleColours } from "./colours";
 
 export const LOG_LEVELS = {

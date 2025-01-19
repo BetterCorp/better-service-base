@@ -12,7 +12,6 @@ export function SmartFunctionCallThroughAsync<T extends SmartFunctionCallFunc>(
   if (typeof input !== "function") return;
   if (typeof context !== "object")
     throw new BSBError(
-      "INCORRECT_REFERENCE",
       "SmartFunctionCallThroughAsync: context is not an object"
     );
   return input.call(context, ...params);
@@ -25,7 +24,6 @@ export async function SmartFunctionCallAsync<T extends SmartFunctionCallFunc>(
   if (typeof input !== "function") return;
   if (typeof context !== "object")
     throw new BSBError(
-      "INCORRECT_REFERENCE",
       "SmartFunctionCallAsync: context is not an object"
     );
   if (input[Symbol.toStringTag] === "AsyncFunction") {
@@ -41,7 +39,6 @@ export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
   if (typeof input !== "function") return;
   if (typeof context !== "object")
     throw new BSBError(
-      "INCORRECT_REFERENCE",
       "SmartFunctionCallSync: context is not an object"
     );
   return input.call(context, ...params);

@@ -237,8 +237,7 @@ export class ServiceBase {
   public async setConfigPlugin(name: string, reference: typeof BSBConfig) {
     if (this._keeps[BOOT_STAT_KEYS.CONFIG] !== undefined)
       throw new BSBError(
-        "Cannot add config plugin as config already initialized",
-        {}
+        "Cannot add config plugin as config already initialized"
       );
     return this.config.setConfigPlugin({
       serviceConfig: null,
@@ -259,8 +258,7 @@ export class ServiceBase {
   ) {
     if (this._keeps[BOOT_STAT_KEYS.SERVICES] !== undefined)
       throw new BSBError(
-        "Cannot add service plugin as service already called",
-        {}
+        "Cannot add service plugin as service already called"
       );
     return await this.services.addPlugin(
       this.config,
@@ -293,8 +291,7 @@ export class ServiceBase {
   ) {
     if (this._keeps[BOOT_STAT_KEYS.EVENTS] !== undefined)
       throw new BSBError(
-        "Cannot add events plugin as events already initialized",
-        {}
+        "Cannot add events plugin as events already initialized"
       );
     return await this.events.addPlugin(
       this.logging,
@@ -325,8 +322,7 @@ export class ServiceBase {
   ) {
     if (this._keeps[BOOT_STAT_KEYS.LOGGING] !== undefined)
       throw new BSBError(
-        "Cannot add logging plugin as logging already initialized",
-        {}
+        "Cannot add logging plugin as logging already initialized"
       );
     return await this.logging.addPlugin(
       {

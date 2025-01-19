@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { Plugin } from "../../../plugins/events-default/plugin";
+import { Plugin } from "../../../plugins/events-default";
 import { emit as emitDirect } from "../../../plugins/events-default/events/emit";
 import { randomUUID } from "crypto";
 import {

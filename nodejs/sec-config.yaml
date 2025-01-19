@@ -6,6 +6,11 @@ default:
       package: "@bettercorp/bsb-rabbitmq"
       enabled: false
   services:
+    service-test:
+      plugin: test-package
+      package: "_test-package"
+      enabled: true
+      config: {}
     service-default0X:
       plugin: service-default0
       enabled: true

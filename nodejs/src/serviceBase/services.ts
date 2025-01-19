@@ -13,8 +13,7 @@ import {
   BSBError,
   BSBServiceClient,
   PluginEvents,
-  LoadedPlugin,
-  SmartFunctionCallThroughAsync,
+  LoadedPlugin
 } from "../";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 
@@ -153,46 +152,7 @@ export class SBServices {
       sbEvents,
       clientContext
     );
-    if (contextPlugin.enabled) {
-      const referencedServiceContext = this._activeServices.find(
-        (x) => x.pluginName === contextPlugin.name
-      ) as BSBService;
-      if (referencedServiceContext === undefined) {
-        throw new BSBError(
-          "The plugin {plugin} is not enabled so you cannot call methods from it",
-          {
-            plugin: contextPlugin.name,
-          }
-        );
-      }
-      if (referencedServiceContext.methods === null) {
-        throw new BSBError(
-          "The plugin {plugin} does not have any callable methods",
-          {
-            plugin: contextPlugin.name,
-          }
-        );
-      }
-      (clientContext as any).callMethod = (
-        method: string,
-        ...args: Array<any>
-      ) => {
-        if (referencedServiceContext.methods[method] === undefined) {
-          throw new BSBError(
-            "The plugin {plugin} does not have a method called {method}",
-            {
-              plugin: contextPlugin.name,
-              method,
-            }
-          );
-        }
-        return SmartFunctionCallThroughAsync(
-          referencedServiceContext,
-          referencedServiceContext.methods[method],
-          ...args
-        );
-      };
-    } else {
+    if (!contextPlugin || !contextPlugin.enabled) {
       this.log.warn("Plugin {plugin} is not enabled", {
         plugin: contextPlugin.name,
       });
@@ -210,7 +170,6 @@ export class SBServices {
         const pluginDef = await sbConfig.getServicePluginDefinition(plugin);
         if (pluginDef.enabled !== true)
           throw new BSBError(
-            "PLUGIN_NOT_ENABLED",
             "The plugin {plugin} is not enabled for {pluginNeeded} to work.",
             {
               plugin: plugin,
@@ -400,7 +359,7 @@ export class SBServices {
         const beforePlugin = pluginMap.get(beforePluginName);
         if (!beforePlugin) {
           throw new Error(
-            `Plugin ${beforePluginName} required by ${plugin.pluginName} not found`
+            `Plugin ${ beforePluginName } required by ${ plugin.pluginName } not found`
           );
         }
         if (!resolved.includes(beforePlugin)) {
@@ -438,7 +397,7 @@ export class SBServices {
           ptype:
             sortedPlugins[i].type +
             (sortedPlugins[i].type === "client"
-              ? ` on ${sortedPlugins[i].srcPluginName}`
+              ? ` on ${ sortedPlugins[i].srcPluginName }`
               : ""),
           pluginName: sortedPlugins[i].pluginName,
           type,

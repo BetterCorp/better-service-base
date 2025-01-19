@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ServiceEventsBase } from "../interfaces";
 import { SBEvents } from "../serviceBase";
 import {
   BaseWithLoggingAndConfig,
@@ -34,7 +33,6 @@ export abstract class BSBService<
   public abstract readonly initAfterPlugins?: Array<string>;
   public abstract readonly runBeforePlugins?: Array<string>;
   public abstract readonly runAfterPlugins?: Array<string>;
-  public abstract readonly methods: ServiceEventsBase;
   public readonly _virtual_internal_events: {
     onEvents: Events["onEvents"];
     emitEvents: Events["emitEvents"];
@@ -63,7 +61,6 @@ export abstract class BSBService<
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
 export class BSBServiceRef extends BSBService<null> {
-  public methods = {};
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;

@@ -1,9 +1,7 @@
 import {
   IPluginLogger,
-  DynamicallyReferencedMethodCallable,
 } from "../interfaces";
-import { BSBService, BSBError, PluginEvents } from "./index";
-import { DynamicallyReferencedMethodType } from "@bettercorp/tools/lib/Interfaces";
+import { BSBService, PluginEvents } from "./index";
 
 export abstract class BSBServiceClient<Service extends BSBService = any> {
   protected readonly log!: IPluginLogger;
@@ -15,24 +13,6 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
     Service["_virtual_internal_events"]["emitBroadcast"],
     Service["_virtual_internal_events"]["onBroadcast"]
   >;
-  public callMethod<TA extends keyof Service["methods"]>(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: DynamicallyReferencedMethodCallable<
-      DynamicallyReferencedMethodType<Service["methods"]>,
-      TA
-    >
-  ): DynamicallyReferencedMethodCallable<
-    DynamicallyReferencedMethodType<Service["methods"]>,
-    TA,
-    false
-  > {
-    throw new BSBError(
-      "The plugin {plugin} is not enabled so you cannot call methods from it",
-      {
-        plugin: this.pluginName,
-      }
-    );
-  }
   constructor(context: BSBService) {
     context._clients.push(this);
   }

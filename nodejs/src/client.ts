@@ -55,7 +55,6 @@ export class FakeServiceClient extends BSBService<null> {
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
-  public methods = {};
   dispose?(): void;
   init?(): void | Promise<void> {
     throw new Error("Method not implemented.");

@@ -17,7 +17,7 @@ import {
   SmartFunctionCallSync,
   LoadedPlugin,
 } from "../";
-import { Plugin as DefaultLogger } from "../plugins/logging-default/plugin";
+import { Plugin as DefaultLogger } from "../plugins/logging-default";
 import { EventEmitter } from "stream";
 import { Tools } from "@bettercorp/tools/lib/Tools";
 
