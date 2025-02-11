@@ -1,11 +1,12 @@
 import {
-  IPluginLogger,
+  IPluginLogging,
+  IPluginMetrics,
 } from "../interfaces";
 import { BSBService, PluginEvents } from "./index";
 
 export abstract class BSBServiceClient<Service extends BSBService = any> {
-  protected readonly log!: IPluginLogger;
-  protected readonly events!: PluginEvents<
+  public readonly log!: IPluginLogging;
+  public readonly events!: PluginEvents<
     Service["_virtual_internal_events"]["emitEvents"],
     Service["_virtual_internal_events"]["onEvents"],
     Service["_virtual_internal_events"]["emitReturnableEvents"],
@@ -13,6 +14,7 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
     Service["_virtual_internal_events"]["emitBroadcast"],
     Service["_virtual_internal_events"]["onBroadcast"]
   >;
+  public readonly metrics!: IPluginMetrics;
   constructor(context: BSBService) {
     context._clients.push(this);
   }

@@ -1,7 +1,45 @@
-import { DEBUG_MODE, IPluginLogger } from "../interfaces";
-import { SBLogging } from "../serviceBase";
-import { BSBReferenceConfigType, PluginLogger } from "./index";
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.  
+ * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program. 
+ * The commercial license allows you to use the Program in a closed-source manner, 
+ * including the right to create derivative works that are not subject to the terms 
+ * of the AGPL. 
+ *
+ * To obtain a commercial license, please contact the copyright holders at 
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
+import { DEBUG_MODE, DTrace, IPluginLogging, IPluginMetrics } from "../interfaces";
+import { SBLogging, SBMetrics } from "../serviceBase";
+import { BSBReferenceConfigType } from "./PluginConfig";
+import { PluginLogging } from "./PluginLogging";
+import { PluginMetrics } from './PluginMetrics';
+
+/**
+ * Main base config
+ * @property appId - The unique app id of the app that is running
+ * @property mode - The mode the app is running in
+ * @property pluginName - The name of the plugin
+ * @property cwd - The current working directory of the app
+ * @property packageCwd - The directory of the package that contains the plugin
+ * @property pluginCwd - The directory of the plugin (src/plugins/{pluginName} or lib/plugins/{pluginName})
+ */
 export interface MainBaseConfig {
   appId: string;
   mode: DEBUG_MODE;
@@ -9,14 +47,19 @@ export interface MainBaseConfig {
   cwd: string;
   packageCwd: string;
   pluginCwd: string;
+  pluginVersion: string;
 }
+
+/**
+ * @hidden
+ */
 export abstract class MainBase {
   /**
    * The unique app id of the app that is running
    * @readonly
    * @type {string}
    */
-  protected readonly appId: string = "tbd";
+  public readonly appId: string = "tbd";
 
   /**
    * The mode the app is running in
@@ -26,29 +69,31 @@ export abstract class MainBase {
    * @example production-debug (production mode - debug)
    * @example development (development mode - debug)
    */
-  protected readonly mode: DEBUG_MODE = "development";
+  public readonly mode: DEBUG_MODE = "development";
   /**
    * The current working directory of the app
    */
-  protected readonly cwd: string;
+  public readonly cwd: string;
   /**
    * The current working directory of the plugin
    */
-  protected readonly packageCwd: string;
+  public readonly packageCwd: string;
   /**
    * The current working directory of the service
    */
-  protected readonly pluginCwd: string;
+  public readonly pluginCwd: string;
   /**
    * The name of the plugin
    * This is also the mapped name, or the name defined in the config rather than it's original defined name
    */
-  public readonly pluginName!: string;
+  public declare readonly pluginName: string;
 
   constructor(config: MainBaseConfig) {
     this.appId = config.appId;
     this.mode = config.mode;
-    if (config.pluginName !== "") this.pluginName = config.pluginName;
+    if (config.pluginName !== "") {
+      this.pluginName = config.pluginName;
+    }
     this.cwd = config.cwd;
     this.packageCwd = config.packageCwd;
     this.pluginCwd = config.pluginCwd;
@@ -64,7 +109,11 @@ export abstract class MainBase {
   dispose?(): void;
 }
 
-export abstract class Base extends MainBase {
+/**
+ * @hidden
+ */
+export abstract class Base
+  extends MainBase {
   constructor(config: MainBaseConfig) {
     super(config);
   }
@@ -87,7 +136,7 @@ export abstract class Base extends MainBase {
    * @example init() { your code here };
    * @example async init() { await your code here };
    */
-  abstract init?(): Promise<void> | void;
+  public abstract init?(trace: DTrace): Promise<void> | void;
 
   /**
    * Run
@@ -98,9 +147,12 @@ export abstract class Base extends MainBase {
    * @example run() { your code here };
    * @example async run() { await your code here };
    */
-  abstract run?(): Promise<void> | void;
+  public abstract run?(trace: DTrace): Promise<void> | void;
 }
 
+/**
+ * @hidden
+ */
 export type ConfigPropertyTypeSafe<
   ReferencedConfig extends BSBReferenceConfigType
 > = ReferencedConfig extends undefined
@@ -109,22 +161,30 @@ export type ConfigPropertyTypeSafe<
   ? undefined
   : ReferencedConfig;
 
+/**
+ * @hidden
+ */
 export interface BaseWithConfigConfig<
   ReferencedConfig extends BSBReferenceConfigType
-> extends MainBaseConfig {
+>
+  extends MainBaseConfig {
   config: ConfigPropertyTypeSafe<ReferencedConfig>;
 }
 
-// used by logging plugins (does not need events or logging since logging logs its own logs)
+/**
+ * @hidden
+ * used by logging plugins (does not need events or logging since logging logs its own logs)
+ */
 export abstract class BaseWithConfig<
   ReferencedConfig extends BSBReferenceConfigType
-> extends Base {
+>
+  extends Base {
   /**
    * The config of the plugin
    * @type {PluginConfig}
    * @readonly
    */
-  protected readonly config: ConfigPropertyTypeSafe<ReferencedConfig>;
+  public readonly config: ConfigPropertyTypeSafe<ReferencedConfig>;
 
   constructor(config: BaseWithConfigConfig<ReferencedConfig>) {
     super(config);
@@ -132,50 +192,111 @@ export abstract class BaseWithConfig<
   }
 }
 
-export interface BaseWithLoggingConfig extends MainBaseConfig {
+/**
+ * BaseWithLoggingConfig
+ * @property sbLogging - Passed in logging base - can be used to create new plugin loggers
+ */
+export interface BaseWithLoggingConfig
+  extends MainBaseConfig {
   sbLogging: SBLogging;
 }
-// used by config plugins (does not need events)
-export abstract class BaseWithLogging extends Base {
-  protected log: IPluginLogger;
-  //protected createNewLogger: { (plugin: string): IPluginLogger };
+
+/**
+ * @hidden
+ * used by config plugins (does not need events)
+ */
+export abstract class BaseWithLogging
+  extends Base {
+  protected log: IPluginLogging;
+
+  //protected createNewLogger: { (plugin: string): IPluginLogging };
 
   constructor(config: BaseWithLoggingConfig) {
     super(config);
-    this.log = new PluginLogger(
+    this.log = new PluginLogging(
       config.mode,
       config.pluginName,
-      config.sbLogging
+      config.sbLogging,
     );
     /*this.createNewLogger = (plugin: string) =>
-      new PluginLogger(mode, `${pluginName}-${plugin}`, sbLogging);*/
+     new PluginLogger(mode, `${pluginName}-${plugin}`, sbLogging);*/
   }
 }
 
+/**
+ * @hidden
+ */
 export interface BaseWithLoggingAndConfigConfig<
   ReferencedConfig extends BSBReferenceConfigType
-> extends BaseWithLoggingConfig,
-    BaseWithConfigConfig<ReferencedConfig> {}
+>
+  extends BaseWithLoggingConfig,
+  BaseWithConfigConfig<ReferencedConfig> {
+}
 
-// used by events plugins (does not need events)
+/**
+ * @hidden
+ */
+export interface BaseWithLoggingMetricsAndConfigConfig<
+  ReferencedConfig extends BSBReferenceConfigType
+>
+  extends BaseWithLoggingAndConfigConfig<ReferencedConfig>,
+  BaseWithLoggingConfig,
+  BaseWithConfigConfig<ReferencedConfig> {
+  sbMetrics: SBMetrics;
+}
+
+/**
+ * @hidden
+ * used by metrics plugins (does not need metrics)
+ */
 export abstract class BaseWithLoggingAndConfig<
   ReferencedConfig extends BSBReferenceConfigType
-> extends BaseWithConfig<ReferencedConfig> {
-  protected log: IPluginLogger;
-  protected createNewLogger: { (plugin: string): IPluginLogger };
+>
+  extends BaseWithConfig<ReferencedConfig> {
+  public log: IPluginLogging;
+  protected createNewLogger: { (plugin: string): IPluginLogging };
 
   constructor(config: BaseWithLoggingAndConfigConfig<ReferencedConfig>) {
     super(config);
-    this.log = new PluginLogger(
+    this.log = new PluginLogging(
       config.mode,
       config.pluginName,
-      config.sbLogging
+      config.sbLogging,
     );
     this.createNewLogger = (plugin: string) =>
-      new PluginLogger(
+      new PluginLogging(
         config.mode,
-        `${config.pluginName}-${plugin}`,
-        config.sbLogging
+        `${ config.pluginName }-${ plugin }`,
+        config.sbLogging,
       );
   }
 }
+
+/**
+ * @hidden
+ * used by events plugins (does not need events)
+ */
+export abstract class BaseWithLoggingMetricsAndConfig<
+  ReferencedConfig extends BSBReferenceConfigType
+>
+  extends BaseWithLoggingAndConfig<ReferencedConfig> {
+  public metrics: IPluginMetrics;
+
+  constructor(config: BaseWithLoggingMetricsAndConfigConfig<ReferencedConfig>) {
+    super(config);
+    this.metrics = new PluginMetrics(
+      config.mode,
+      config.pluginName,
+      config.sbMetrics,
+    );
+  }
+}
+
+/**
+ * @hidden
+ */
+export const NS_PER_SEC = 1e9;
+/**
+ * @hidden
+ */
+export const MS_PER_NS = 1e-6;

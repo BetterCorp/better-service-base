@@ -1,29 +1,70 @@
-import { DEBUG_MODE, IPluginLogger } from "../interfaces/logging";
-import { PluginLogger } from "../base/PluginLogger";
-import { Readable } from "stream";
-import { Plugin as DefaultEvents } from "../plugins/events-default";
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.  
+ * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program. 
+ * The commercial license allows you to use the Program in a closed-source manner, 
+ * including the right to create derivative works that are not subject to the terms 
+ * of the AGPL. 
+ *
+ * To obtain a commercial license, please contact the copyright holders at 
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import { Readable } from "node:stream";
 import {
-  EventsFilter,
-  EventsFilterDetailed,
-  FilterOnType,
-  IPluginDefinition,
-} from "../interfaces/plugins";
-import { SBPlugins } from "./plugins";
-import { SBConfig } from "./config";
-import {
+  BSBError,
+  BSBEvents, BSBService, BSBServiceClient,
+  PluginLogging,
+  PluginMetrics,
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
-} from "../base/functions";
-import { BSBEvents } from "../base/events";
+  Tools,
+} from "../base";
+import {
+  createFakeDTrace,
+  DEBUG_MODE, DTrace,
+  EventsEventTypes, EventsEventTypesBase,
+  EventsFilter, EventsFilterDetailed,
+  FilterOnType,
+  Gauge, IPluginDefinition,
+  IPluginLogging,
+  IPluginMetrics, LoadedPlugin
+} from "../interfaces";
+import { Plugin as DefaultEvents } from "../plugins/events-default/index";
+import { SBConfig } from "./config";
 import { SBLogging } from "./logging";
-import { EventsEventTypes, EventsEventTypesBase } from "../interfaces/events";
-import { BSBError } from "../base/errorMessages";
-import { NS_PER_SEC, MS_PER_NS } from "./serviceBase";
-import { BSBService } from "../base/service";
-import { BSBServiceClient } from "../base/serviceClient";
-import { LoadedPlugin } from "../interfaces";
-import { Tools } from "@bettercorp/tools/lib/Tools";
+import { SBMetrics } from "./metrics";
+import { SBPlugins } from "./plugins";
+import { Counter } from "../interfaces";
+import { MS_PER_NS, NS_PER_SEC } from "../base/base";
 
+/**
+ * @hidden
+ */
+function internalTrace(span: string): DTrace {
+  return createFakeDTrace("serviceBase/SBEvents", span);
+}
+
+/**
+ * BSB Events Controller
+ * @group Events
+ * @category Extending BSB
+ */
 export class SBEvents {
   private events: Array<{
     name: string;
@@ -31,77 +72,107 @@ export class SBEvents {
     on?: EventsFilter;
     onTypeof: FilterOnType;
   }> = [];
-  private mode: DEBUG_MODE = "development";
-  private appId: string;
-  private cwd: string;
+  private readonly mode: DEBUG_MODE = "development";
+  private readonly appId: string;
+  private readonly cwd: string;
   private sbPlugins: SBPlugins;
-  private log: IPluginLogger;
+  private readonly log: IPluginLogging;
+  private readonly metrics: IPluginMetrics;
+  private metricCounters!: Record<EventsEventTypes, Counter<'pluginName' | 'event'>>;
+  private metricGauges!: Record<EventsEventTypes, Gauge<'pluginName' | 'event'>>;
 
   constructor(
     appId: string,
     mode: DEBUG_MODE,
     cwd: string,
     sbPlugins: SBPlugins,
-    sbLogging: SBLogging
+    sbLogging: SBLogging,
+    sbMetrics: SBMetrics,
   ) {
     this.appId = appId;
     this.mode = mode;
     this.cwd = cwd;
     this.sbPlugins = sbPlugins;
     const eventsPluginName = "core-events";
-    this.log = new PluginLogger(this.mode, eventsPluginName, sbLogging);
+    this.log = new PluginLogging(this.mode, eventsPluginName, sbLogging);
+    this.metrics = new PluginMetrics(appId, eventsPluginName, sbMetrics);
   }
 
   public dispose() {
     for (let eventsIndex = 0; eventsIndex < this.events.length; eventsIndex++) {
-      if (this.events[eventsIndex].plugin.dispose !== undefined)
+      if (this.events[eventsIndex].plugin.dispose !== undefined) {
         SmartFunctionCallSync(
           this.events[eventsIndex].plugin,
-          this.events[eventsIndex].plugin.dispose
+          this.events[eventsIndex].plugin.dispose,
         );
+      }
     }
   }
 
   private getPluginsMatchingTriggerEvent(
     event: EventsEventTypes,
-    plugin: string
+    plugin: string,
   ) {
     return this.events.find((eventPlugin) => {
-      if (Tools.isNullOrUndefined(eventPlugin.plugin)) return false;
-      if (Tools.isNullOrUndefined(eventPlugin.on)) return true;
+      if (Tools.isNullOrUndefined(eventPlugin.plugin)) {
+        return false;
+      }
+      if (Tools.isNullOrUndefined(eventPlugin.on)) {
+        return true;
+      }
       switch (eventPlugin.onTypeof) {
         case "all":
           return true;
         case "events":
-          return (eventPlugin.on as Array<EventsEventTypes>).includes(event);
+          return (
+            eventPlugin.on as Array<EventsEventTypes>
+          ).includes(event);
         case "eventsState":
           if (
             Tools.isNullOrUndefined(
-              (eventPlugin.on as Record<EventsEventTypes, boolean>)[event]
+              (
+                eventPlugin.on as Record<EventsEventTypes, boolean>
+              )[event],
             )
-          )
+          ) {
             return false;
-          return (eventPlugin.on as Record<EventsEventTypes, boolean>)[event];
+          }
+          return (
+            eventPlugin.on as Record<EventsEventTypes, boolean>
+          )[event];
         case "eventsPlugins":
           if (
             Tools.isNullOrUndefined(
-              (eventPlugin.on as Record<EventsEventTypes, Array<string>>)[event]
+              (
+                eventPlugin.on as Record<EventsEventTypes, Array<string>>
+              )[event],
             )
-          )
+          ) {
             return false;
-          return (eventPlugin.on as Record<EventsEventTypes, Array<string>>)[
+          }
+          return (
+            eventPlugin.on as Record<EventsEventTypes, Array<string>>
+          )[
             event
           ].includes(plugin);
         case "eventsDetailed":
           if (
             Tools.isNullOrUndefined(
-              (eventPlugin.on as EventsFilterDetailed)[event]
+              (
+                eventPlugin.on as EventsFilterDetailed
+              )[event],
             )
-          )
+          ) {
             return false;
-          if ((eventPlugin.on as EventsFilterDetailed)[event].enabled !== true)
+          }
+          if ((
+            eventPlugin.on as EventsFilterDetailed
+          )[event].enabled !== true) {
             return false;
-          return (eventPlugin.on as EventsFilterDetailed)[
+          }
+          return (
+            eventPlugin.on as EventsFilterDetailed
+          )[
             event
           ].plugins.includes(plugin);
       }
@@ -111,39 +182,52 @@ export class SBEvents {
   private getPluginForEvent(
     eventAs: EventsEventTypes,
     plugin: string,
-    event: string
+    event: string,
   ): {
     pluginName: string;
     plugin: BSBEvents<any>;
   } {
     const matchingEvent = this.getPluginsMatchingTriggerEvent(eventAs, plugin);
-    if (matchingEvent === undefined)
+    if (matchingEvent === undefined) {
       throw new BSBError(
+        internalTrace(`getPluginForEvent:${ eventAs }:${ plugin }:${ event }`),
         "No plugins found to match event: plugin: {plugin} - eventAs: {eventAs} - event: {event}",
-        { eventAs, plugin, event }
+        { eventAs, plugin, event },
       );
+    }
     return {
       plugin: matchingEvent.plugin,
       pluginName: matchingEvent.name,
     };
   }
-  public async init(sbConfig: SBConfig, sbLogging: SBLogging) {
-    this.log.debug("INIT SBEvents");
-    const plugins = await sbConfig.getEventsPlugins();
+
+  public async init(sbConfig: SBConfig, sbLogging: SBLogging, sbMetrics: SBMetrics) {
+    const tTrace = internalTrace("init");
+    this.log.debug(tTrace, "INIT SBEvents");
+
+    this.metricCounters = {} as any;
+    this.metricGauges = {} as any;
+    for (const event of Object.keys(EventsEventTypesBase) as Array<keyof typeof EventsEventTypesBase>) {
+      this.metricCounters[event] = this.metrics.createCounter(event, 'BSB Internal Events ' + event, 'Internal metrics for BSB events');
+      this.metricGauges[event] = this.metrics.createGauge(event, 'BSB Internal Events ' + event, 'Internal metrics for BSB events');
+    }
+
+    const plugins = await sbConfig.getEventsPlugins(tTrace);
     for (const plugin of Object.keys(plugins)) {
       await this.addEvents(
         sbConfig,
         sbLogging,
+        sbMetrics,
         {
           name: plugin,
           package: plugins[plugin].package,
           plugin: plugins[plugin].plugin,
           version: "",
         },
-        plugins[plugin].filter
+        plugins[plugin].filter,
       );
     }
-    this.log.info('Adding "events-default" as events');
+    this.log.info(tTrace, "Adding \"events-default\" as events");
     this.events.push({
       name: "events-default",
       plugin: new DefaultEvents({
@@ -155,26 +239,32 @@ export class SBEvents {
         pluginCwd: this.cwd,
         config: null,
         sbLogging,
+        pluginVersion: "0.0.0",
+        sbMetrics: sbMetrics
       }),
       on: undefined,
       onTypeof: "all",
     });
   }
+
   public async run() {
-    if (this.events.length === 1) return;
+    if (this.events.length === 1) {
+      return;
+    }
     // we want to see if any plugins (ignore events-default) are listening to all events - it so, there is no reason to keep the events-default plugin, so we can dispose and remove it
     const events = this.events.filter((x) => x.name !== "events-default");
     const allEvents = events.filter((x) => x.onTypeof === "all");
     if (allEvents.length > 0) {
       const defaultEvents = this.events.find(
-        (x) => x.name === "events-default"
+        (x) => x.name === "events-default",
       );
       if (defaultEvents !== undefined) {
-        if (defaultEvents.plugin.dispose !== undefined)
+        if (defaultEvents.plugin.dispose !== undefined) {
           SmartFunctionCallSync(
             defaultEvents.plugin,
-            defaultEvents.plugin.dispose
+            defaultEvents.plugin.dispose,
           );
+        }
         this.events = this.events.filter((x) => x.name !== "events-default");
       }
     }
@@ -182,16 +272,18 @@ export class SBEvents {
 
   public async addPlugin(
     sbLogging: SBLogging,
+    sbMetrics: SBMetrics,
     plugin: IPluginDefinition,
     reference: LoadedPlugin<"events">,
     config: any,
-    filter?: EventsFilter
+    filter?: EventsFilter,
   ) {
-    this.log.debug(`Get plugin config: {name}`, {
+    const tTrace = internalTrace(`addPlugin`);
+    this.log.debug(tTrace, `Get plugin config: {name}`, {
       name: plugin.name,
     });
 
-    this.log.debug(`Construct events plugin: {name}`, {
+    this.log.debug(tTrace, `Construct events plugin: {name}`, {
       name: plugin.name,
     });
 
@@ -204,8 +296,10 @@ export class SBEvents {
       pluginCwd: reference.pluginCwd,
       config: config,
       sbLogging,
+      pluginVersion: reference.version,
+      sbMetrics: sbMetrics
     });
-    this.log.info("Adding {pluginName} as events with filter: ", {
+    this.log.info(tTrace, "Adding {pluginName} as events with filter: ", {
       pluginName: plugin.name,
       //filters: filter
     });
@@ -218,7 +312,9 @@ export class SBEvents {
         const methods = Object.keys(EventsEventTypesBase);
         for (const method of methods) {
           if (
-            (filter as unknown as Record<string, any>)[method] !== undefined
+            (
+              filter as unknown as Record<string, any>
+            )[method] !== undefined
           ) {
             const methodValue = filter[method as keyof typeof filter];
             if (typeof methodValue === "boolean") {
@@ -239,12 +335,12 @@ export class SBEvents {
       name: plugin.name,
     });
 
-    this.log.info("Ready {pluginName} ({mappedName})", {
+    this.log.info(tTrace, "Ready {pluginName} ({mappedName})", {
       pluginName: plugin.plugin,
       mappedName: plugin.name,
     });
 
-    await SmartFunctionCallAsync(eventsPlugin, eventsPlugin.init);
+    await SmartFunctionCallAsync(eventsPlugin, eventsPlugin.init, tTrace);
 
     return eventsPlugin;
   }
@@ -252,16 +348,20 @@ export class SBEvents {
   private async addEvents(
     sbConfig: SBConfig,
     sbLogging: SBLogging,
+    sbMetrics: SBMetrics,
     plugin: IPluginDefinition,
-    filter?: EventsFilter
+    filter?: EventsFilter,
   ) {
-    this.log.debug("Add events {name} from ({package}){file}", {
+    const tTrace = internalTrace(`addEvents`);
+    this.log.debug(tTrace, "Add events {name} from ({package}){file}", {
       package: plugin.package ?? "this project",
       name: plugin.name,
       file: plugin.plugin,
     });
-    if (plugin.name === "events-default") return;
-    this.log.debug(`Import events plugin: {name} from ({package}){file}`, {
+    if (plugin.name === "events-default") {
+      return;
+    }
+    this.log.debug(tTrace, `Import events plugin: {name} from ({package}){file}`, {
       package: plugin.package ?? "this project",
       name: plugin.name,
       file: plugin.plugin,
@@ -271,370 +371,442 @@ export class SBEvents {
       this.log,
       plugin.package ?? null,
       plugin.plugin,
-      plugin.name
+      plugin.name,
     );
     if (newPlugin === null) {
-      this.log.error(
+      this.log.error(tTrace,
         "Failed to import events plugin: {name} from ({package}){file}",
         {
           package: plugin.package ?? "this project",
           name: plugin.name,
           file: plugin.plugin,
-        }
+        },
       );
       return;
     }
 
     let pluginConfig =
-      (await sbConfig.getPluginConfig("events", plugin.name)) ?? null;
+      (
+        await sbConfig.getPluginConfig(tTrace, "events", plugin.name)
+      ) ?? null;
 
     if (
-      this.mode !== "production" &&
       !Tools.isNullOrUndefined(newPlugin) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
       Tools.isObject(newPlugin.serviceConfig) &&
       !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
     ) {
-      this.log.debug("Validate plugin config: {name}", { name: plugin.name });
+      this.log.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
-        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
+        newPlugin.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
     }
 
-    await this.addPlugin(sbLogging, plugin, newPlugin, pluginConfig, filter);
+    await this.addPlugin(sbLogging, sbMetrics, plugin, newPlugin, pluginConfig, filter);
   }
 
   private async handleOnBroadcast(
+    trace: DTrace,
     eventsPluginName: string,
     pluginName: string,
     event: string,
     context: BSBService | BSBServiceClient<any>,
-    listener: { (...args: Array<any>): Promise<void> | void },
-    iargs: Array<any>
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<void> | void },
+    iargs: Array<any>,
   ) {
     const start = process.hrtime();
     try {
-      await SmartFunctionCallAsync(context, listener, ...iargs);
+      await SmartFunctionCallAsync(context, listener, trace, ...iargs);
       const diff = process.hrtime(start);
-      this.log.reportStat(
-        `on-broadcast-${ eventsPluginName }-${ pluginName }-${ event }`,
-        (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+      const time = (
+        diff[0] * NS_PER_SEC + diff[1]
+      ) * MS_PER_NS;
+      this.log.debug(trace,
+        "on-broadcast-{eventsPluginName}-{pluginName}-{event}:{time}",
+        {
+          eventsPluginName,
+          pluginName,
+          event,
+          time
+        },
       );
+      this.metricCounters["onBroadcast"].increment(1, { pluginName, event });
+      this.metricGauges["onBroadcast"].set(time, { pluginName, event });
     } catch (exc: any) {
-      this.log.reportStat(
-        `on-broadcast-${ eventsPluginName }-${ pluginName }-${ event }`,
-        -1
-      );
-      this.log.error(
+      this.log.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnBroadcast] error occured: ${error}",
         {
           error: exc.message ?? exc,
           eventsPluginName,
           pluginName,
           event,
-        }
+        },
       );
       throw exc;
     }
   }
+
   public async onBroadcast(
-    context: BSBService | BSBServiceClient<any>,
+    context: BSBService<any, any> | BSBServiceClient<any>,
+    trace: DTrace,
     pluginName: string,
     event: string,
-    listener: { (...args: Array<any>): Promise<void> | void }
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "onBroadcast",
       pluginName,
-      event
+      event,
     );
-    plugin.plugin.onBroadcast(pluginName, event, async (iargs: Array<any>) =>
+    return await plugin.plugin.onBroadcast(trace, pluginName, event, async (iTrace: DTrace, iargs: Array<any>) =>
       self.handleOnBroadcast.call(
         self,
+        iTrace,
         plugin.pluginName,
         pluginName,
         event,
         context,
         listener,
-        iargs
-      )
+        iargs,
+      ),
     );
   }
 
   public async emitBroadcast(
+    trace: DTrace,
     pluginName: string,
     event: string,
     ...args: Array<any>
   ): Promise<void> {
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "emitBroadcast",
       pluginName,
-      event
+      event,
     );
-    this.log.reportStat(
-      `emit-broadcast-${ plugin.pluginName }-${ pluginName }-${ event }`,
-      1
+    this.log.debug(trace,
+      "emit-broadcast-{pluginName}-{event}:{time}",
+      {
+        pluginName,
+        event,
+        time: 1,
+      },
     );
     await SmartFunctionCallAsync(
       plugin.plugin,
       plugin.plugin.emitBroadcast,
+      trace,
       pluginName,
       event,
-      args
+      args,
     );
   }
 
   private async handleOnEvent(
+    trace: DTrace,
     eventsPluginName: string,
     pluginName: string,
     event: string,
     context: BSBService | BSBServiceClient<any>,
-    listener: { (...args: Array<any>): Promise<void> | void },
-    iargs: Array<any>
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<void> | void },
+    iargs: Array<any>,
   ) {
     const start = process.hrtime();
     try {
-      //console.log("CALL ON EVENT", context, listener, iargs);
-      await SmartFunctionCallAsync(context, listener, ...iargs);
+      await SmartFunctionCallAsync(context, listener, trace, ...iargs);
       const diff = process.hrtime(start);
-      this.log.reportStat(
-        `on-event-${ eventsPluginName }-${ pluginName }-${ event }`,
-        (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+      const time = (
+        diff[0] * NS_PER_SEC + diff[1]
+      ) * MS_PER_NS;
+      this.log.debug(trace,
+        "on-event-{eventsPluginName}-{pluginName}-{event}:{time}",
+        {
+          eventsPluginName,
+          pluginName,
+          event,
+          time
+        },
       );
+      this.metricCounters["onEvent"].increment(1, { pluginName, event });
+      this.metricGauges["onEvent"].set(time, { pluginName, event });
     } catch (exc: any) {
-      this.log.reportStat(
-        `on-event-${ eventsPluginName }-${ pluginName }-${ event }`,
-        -1
-      );
-      this.log.error(
+      this.log.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnEvent] error occured: ${error}",
         {
           error: exc.message ?? exc,
           eventsPluginName,
           pluginName,
           event,
-        }
+        },
       );
       throw exc;
     }
   }
+
   public async onEvent(
+    trace: DTrace,
     context: BSBService | BSBServiceClient<any>,
     pluginName: string,
     event: string,
-    listener: { (...args: Array<any>): Promise<void> | void }
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
-    const plugin = await this.getPluginForEvent("onEvent", pluginName, event);
-    plugin.plugin.onEvent(pluginName, event, async (iargs: Array<any>) =>
-      self.handleOnEvent.call(
-        self,
-        plugin.pluginName,
-        pluginName,
-        event,
-        context,
-        listener,
-        iargs
-      )
+    const plugin = this.getPluginForEvent("onEvent", pluginName, event);
+    return await plugin.plugin.onEvent(
+      trace,
+      plugin.pluginName,
+      event,
+      async (trace: DTrace, iargs: Array<any>) =>
+        self.handleOnEvent.call(
+          self,
+          trace,
+          plugin.pluginName,
+          pluginName,
+          event,
+          context,
+          listener,
+          iargs,
+        ),
     );
   }
+
   public async onEventSpecific(
+    trace: DTrace,
     serverId: string,
     context: BSBService | BSBServiceClient<any>,
     pluginName: string,
     event: string,
-    listener: { (...args: Array<any>): Promise<void> | void }
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<void> | void },
   ): Promise<void> {
     const self = this;
-    const plugin = await this.getPluginForEvent("onEvent", pluginName, event);
-    plugin.plugin.onEvent(
+    const plugin = this.getPluginForEvent("onEvent", pluginName, event);
+    return await plugin.plugin.onEvent(
+      trace,
       pluginName,
       event + "-" + serverId,
-      async (iargs: Array<any>) =>
+      async (trace: DTrace, iargs: Array<any>) =>
         self.handleOnEvent.call(
           self,
+          trace,
           plugin.pluginName,
           pluginName,
           event + "-" + serverId,
           context,
           listener,
-          iargs
-        )
+          iargs,
+        ),
     );
   }
 
   public async emitEvent(
+    trace: DTrace,
     pluginName: string,
     event: string,
     ...args: Array<any>
   ): Promise<void> {
-    const plugin = await this.getPluginForEvent("emitEvent", pluginName, event);
-    this.log.reportStat(
-      `emit-event-${ plugin.pluginName }-${ pluginName }-${ event }`,
-      1
+    const plugin = this.getPluginForEvent("emitEvent", pluginName, event);
+    this.log.debug(trace,
+      "emit-event-{pluginName}-{event}:{time}",
+      {
+        pluginName,
+        event,
+        time: 1,
+      },
     );
     await SmartFunctionCallAsync(
       plugin.plugin,
       plugin.plugin.emitEvent,
+      trace,
       pluginName,
       event,
-      args
+      args,
     );
   }
+
   public async emitEventSpecific(
+    trace: DTrace,
     serverId: string,
     pluginName: string,
     event: string,
     ...args: Array<any>
   ): Promise<void> {
-    const plugin = await this.getPluginForEvent("emitEvent", pluginName, event);
-    this.log.reportStat(
-      `emit-event-${ plugin.pluginName }-${ pluginName }-${ event }-${ serverId }`,
-      1
+    const plugin = this.getPluginForEvent("emitEvent", pluginName, event);
+    this.log.debug(trace,
+      "emit-event-{pluginName}-{event}:{time}",
+      {
+        pluginName,
+        event,
+        time: 1,
+      },
     );
     await SmartFunctionCallAsync(
       plugin.plugin,
       plugin.plugin.emitEvent,
+      trace,
       pluginName,
       event + "-" + serverId,
-      args
+      args,
     );
   }
 
   private async handleOnReturnableEvent(
+    trace: DTrace,
     eventsPluginName: string,
     pluginName: string,
     event: string,
     context: BSBService | BSBServiceClient<any>,
-    listener: { (...args: Array<any>): Promise<any> | any },
-    iargs: Array<any>
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<any> | any },
+    iargs: Array<any>,
   ) {
     const start = process.hrtime();
     try {
-      const resp = await SmartFunctionCallAsync(context, listener, ...iargs);
+      const resp = await SmartFunctionCallAsync(context, listener, trace, ...iargs);
       const diff = process.hrtime(start);
-      this.log.reportStat(
-        `on-returnableevent-${ eventsPluginName }-${ pluginName }-${ event }`,
-        (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+      const time = (
+        diff[0] * NS_PER_SEC + diff[1]
+      ) * MS_PER_NS;
+      this.log.debug(trace,
+        "on-returnableevent-{eventsPluginName}-{pluginName}-{event}:{time}",
+        {
+          eventsPluginName,
+          pluginName,
+          event,
+          time,
+        },
       );
+      this.metricCounters["onReturnableEvent"].increment(1, { pluginName, event });
+      this.metricGauges["onReturnableEvent"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.reportStat(
-        `on-returnableevent-${ eventsPluginName }-${ pluginName }-${ event }`,
-        -1
-      );
-      this.log.error(
+      this.log.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnReturnableEvent] error occured: ${error}",
         {
           error: exc.message ?? exc,
           eventsPluginName,
           pluginName,
           event,
-        }
+        },
       );
       throw exc;
     }
   }
+
   public async onReturnableEvent(
+    trace: DTrace,
     context: BSBService | BSBServiceClient<any>,
     pluginName: string,
     event: string,
-    listener: { (...args: Array<any>): Promise<void> | void }
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<any> | any },
   ): Promise<void> {
     const self = this;
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "onReturnableEvent",
       pluginName,
-      event
+      event,
     );
-    plugin.plugin.onReturnableEvent(
+    return await plugin.plugin.onReturnableEvent(
+      trace,
       pluginName,
       event,
-      async (iargs: Array<any>) =>
+      async (iTrace: DTrace, iargs: Array<any>) =>
         self.handleOnReturnableEvent.call(
           self,
+          iTrace,
           plugin.pluginName,
           pluginName,
           event,
           context,
           listener,
-          iargs
-        )
+          iargs,
+        ),
     );
   }
+
   public async onReturnableEventSpecific(
+    trace: DTrace,
     serverId: string,
     context: BSBService | BSBServiceClient<any>,
     pluginName: string,
     event: string,
-    listener: { (...args: Array<any>): Promise<void> | void }
+    listener: { (trace: DTrace, ...args: Array<any>): Promise<any> | any },
   ): Promise<void> {
     const self = this;
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "onReturnableEvent",
       pluginName,
-      event
+      event,
     );
-    plugin.plugin.onReturnableEvent(
+    return await plugin.plugin.onReturnableEvent(
+      trace,
       pluginName,
       event + "-" + serverId,
-      async (iargs: Array<any>) =>
+      async (iTrace: DTrace, iargs: Array<any>) =>
         self.handleOnReturnableEvent.call(
           self,
+          iTrace,
           plugin.pluginName,
           pluginName,
           event + "-" + serverId,
           context,
           listener,
-          iargs
-        )
+          iargs,
+        ),
     );
   }
+
   public async emitEventAndReturn(
+    trace: DTrace,
     pluginName: string,
     event: string,
     timeoutSeconds: number,
     ...args: Array<any>
   ): Promise<any> {
     const start = process.hrtime();
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "emitEventAndReturn",
       pluginName,
-      event
+      event,
     );
     try {
       const resp = await SmartFunctionCallAsync(
         plugin.plugin,
         plugin.plugin.emitEventAndReturn,
+        trace,
         pluginName,
         event,
         timeoutSeconds,
-        args
+        args,
       );
       const diff = process.hrtime(start);
-      this.log.reportStat(
-        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }`,
-        (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+      const time = (
+        diff[0] * NS_PER_SEC + diff[1]
+      ) * MS_PER_NS;
+      this.log.debug(trace,
+        "emit-eventandreturn-{pluginName}-{event}:{time}",
+        {
+          pluginName,
+          event,
+          time,
+        },
       );
+      this.metricCounters["emitEventAndReturn"].increment(1, { pluginName, event });
+      this.metricGauges["emitEventAndReturn"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.reportStat(
-        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }`,
-        -1
-      );
-      this.log.error(
+      this.log.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:emitEventAndReturn] error occured: ${error}",
         {
           error: exc.message ?? exc,
           eventsPluginName: plugin.pluginName,
           pluginName,
           event,
-        }
+        },
       );
       throw exc;
     }
   }
+
   public async emitEventAndReturnSpecific(
+    trace: DTrace,
     serverId: string,
     pluginName: string,
     event: string,
@@ -642,52 +814,59 @@ export class SBEvents {
     ...args: Array<any>
   ): Promise<any> {
     const start = process.hrtime();
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "emitEventAndReturn",
       pluginName,
-      event
+      event,
     );
     try {
       const resp = await SmartFunctionCallAsync(
         plugin.plugin,
         plugin.plugin.emitEventAndReturn,
+        trace,
         pluginName,
         event + "-" + serverId,
         timeoutSeconds,
-        args
+        args,
       );
       const diff = process.hrtime(start);
-      this.log.reportStat(
-        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }-${ serverId }`,
-        (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+      const time = (
+        diff[0] * NS_PER_SEC + diff[1]
+      ) * MS_PER_NS;
+      this.log.debug(trace,
+        "emit-eventandreturn-{pluginName}-{event}:{time}",
+        {
+          pluginName,
+          event,
+          time,
+        },
       );
+      this.metricCounters["emitEventAndReturnSpecific"].increment(1, { pluginName, event });
+      this.metricGauges["emitEventAndReturnSpecific"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.reportStat(
-        `emit-eventandreturn-${ plugin.pluginName }-${ pluginName }-${ event }-${ serverId }`,
-        -1
-      );
-      this.log.error(
+      this.log.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:emitEventAndReturnSpecific] error occured: ${error}",
         {
           error: exc.message ?? exc,
           eventsPluginName: plugin.pluginName,
           pluginName,
           event,
-        }
+        },
       );
       throw exc;
     }
   }
 
   private async handleOnReceiveStream(
+    trace: DTrace,
     eventsPluginName: string,
     pluginName: string,
     event: string,
     context: BSBService | BSBServiceClient<any>,
     listener: { (error: Error | null, stream: Readable): Promise<void> },
     error: Error | null,
-    stream: Readable
+    stream: Readable,
   ) {
     const start = process.hrtime();
     try {
@@ -695,98 +874,118 @@ export class SBEvents {
         context,
         listener,
         error,
-        stream
+        stream,
       );
       const diff = process.hrtime(start);
-      this.log.reportStat(
-        `receivestream-${ eventsPluginName }-${ pluginName }-${ event }`,
-        (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+      const time = (
+        diff[0] * NS_PER_SEC + diff[1]
+      ) * MS_PER_NS;
+      this.log.debug(trace,
+        "receivestream-{eventsPluginName}-{pluginName}-{event}:{time}",
+        {
+          eventsPluginName,
+          pluginName,
+          event,
+          time,
+        },
       );
+      this.metricCounters["receiveStream"].increment(1, { pluginName, event });
+      this.metricGauges["receiveStream"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.reportStat(
-        `receivestream-${ eventsPluginName }-${ pluginName }-${ event }`,
-        -1
-      );
-      this.log.error(
+      this.log.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnReceiveStream] error occured: ${error}",
         {
           error: exc.message ?? exc,
           eventsPluginName,
           pluginName,
           event,
-        }
+        },
       );
       throw exc;
     }
   }
+
   public async receiveStream(
+    trace: DTrace,
     context: BSBService | BSBServiceClient<any>,
     pluginName: string,
     event: string,
     listener: { (error: Error | null, stream: Readable): Promise<void> },
-    timeoutSeconds?: number
+    timeoutSeconds?: number,
   ): Promise<string> {
     const self = this;
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "receiveStream",
       pluginName,
-      event
+      event,
     );
     return await plugin.plugin.receiveStream(
+      trace,
       event,
-      async (error: Error | null, stream: Readable) =>
+      async (etrace: DTrace, error: Error | null, stream: Readable) =>
         self.handleOnReceiveStream.call(
           self,
+          trace,
           plugin.pluginName,
           pluginName,
           event,
           context,
           listener,
           error,
-          stream
+          stream,
         ),
-      timeoutSeconds
+      timeoutSeconds,
     );
   }
+
   public async sendStream(
+    trace: DTrace,
     pluginName: string,
     event: string,
     streamId: string,
-    stream: Readable
+    stream: Readable,
   ): Promise<void> {
     const start = process.hrtime();
-    const plugin = await this.getPluginForEvent(
+    const plugin = this.getPluginForEvent(
       "sendStream",
       pluginName,
-      event
+      event,
     );
     try {
       await SmartFunctionCallAsync(
         plugin.plugin,
         plugin.plugin.sendStream,
+        trace,
         event,
         streamId,
-        stream
+        stream,
       );
       const diff = process.hrtime(start);
-      this.log.reportStat(
-        `sendstream-${ plugin.pluginName }-${ pluginName }-${ event }`,
-        (diff[0] * NS_PER_SEC + diff[1]) * MS_PER_NS
+      const time = (
+        diff[0] * NS_PER_SEC + diff[1]
+      ) * MS_PER_NS;
+      this.log.debug(
+        trace,
+        "sendstream-{pluginName}-{event}:{time}",
+        {
+          pluginName,
+          event,
+          time,
+        },
       );
+      this.metricCounters["sendStream"].increment(1, { pluginName, event });
+      this.metricGauges["sendStream"].set(time, { pluginName, event });
     } catch (exc: any) {
-      this.log.reportStat(
-        `sendstream-${ plugin.pluginName }-${ pluginName }-${ event }`,
-        -1
-      );
       this.log.error(
+        trace,
         "[{eventsPluginName}:{pluginName}:{streamId}:sendStream] error occured: ${error}",
         {
           error: exc.message ?? exc,
           eventsPluginName: plugin.pluginName,
           pluginName,
           streamId,
-        }
+        },
       );
       throw exc;
     }

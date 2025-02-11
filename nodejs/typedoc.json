@@ -1,0 +1,22 @@
+{
+  "navigationLinks": {
+    "Example": "http://example.com"
+  },
+  "sidebarLinks": {
+    "Example": "http://example.com"
+  },
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": false,
+    "includeFolders": true
+  },
+  "categorizeByGroup": false,
+  "visibilityFilters": {
+    "protected": false,
+    "private": false,
+    "inherited": true,
+    "external": false,
+    "@alpha": false,
+    "@beta": false
+  }
+}

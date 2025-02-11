@@ -1,6 +1,40 @@
-import { ParamsFromString } from "@bettercorp/tools/lib/Interfaces";
-import { BSBError } from "../base";
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.  
+ * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program. 
+ * The commercial license allows you to use the Program in a closed-source manner, 
+ * including the right to create derivative works that are not subject to the terms 
+ * of the AGPL. 
+ *
+ * To obtain a commercial license, please contact the copyright holders at 
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
+import { BSBError } from "../base";
+import { ParamsFromString } from "./tools";
+import { DTrace } from "./metrics";
+
+/**
+ * The debug mode of the app
+ * @example "production" - production mode with no debug
+ * @example "production-debug" - production mode with debug
+ * @example "development" - development mode with debug
+ */
 export type DEBUG_MODE = "production" | "production-debug" | "development";
 
 export type SafeLogData =
@@ -26,35 +60,33 @@ export type SmartLogMeta<T extends string> = ParamsFromString<T> extends never
   ? [undefined?]
   : [meta: Record<ParamsFromString<T>, UnsafeLogData | SafeLogData>];
 
-export interface IPluginLogger {
-  reportStat(key: string, value: number): void;
-  reportTextStat<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
-  info<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
-  warn<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
-  debug<T extends string>(message: T, ...meta: SmartLogMeta<T>): void;
+export interface IPluginLogging {
+  info<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void;
+
+  warn<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void;
+
+  debug<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void;
+
   error<T extends string>(
+    trace: DTrace,
     message: T,
     ...meta: SmartLogMeta<T>
   ): void;
-  error<T extends string>(
-    message: T,
-    error: Error,
-    ...meta: SmartLogMeta<T>
-  ): void;
+
   error<T extends string>(error: BSBError<T>): void;
 }
 
+/**
+ * @hidden
+ */
 export const LoggingEventTypesBase = {
-  reportStat: "reportStat",
-  reportTextStat: "reportTextStat",
   debug: "debug",
   info: "info",
   warn: "warn",
   error: "error",
 } as const;
-export type LoggingEventTypesExlReportStat = Exclude<
-  LoggingEventTypes,
-  "reportStat"
->;
+/**
+ * @hidden
+ */
 export type LoggingEventTypes =
   (typeof LoggingEventTypesBase)[keyof typeof LoggingEventTypesBase];

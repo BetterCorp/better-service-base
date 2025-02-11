@@ -18,9 +18,12 @@ node_modules
 /nodejs/junit.json
 /nodejs/sec.config.json
 /nodejs/sec.config.yaml
+/nodejs/sec-config.yaml
 /nodejs/node_modules
 /nodejs/.nyc_output
 /nodejs/lib
+/nodejs-plugins/*/lib
+/nodejs-plugins/*/sec-config.yaml
 /nodejs/coverage
 /nodejs/development/tsconfig.json
 /dotnet/[Dd]ebug/
@@ -38,3 +41,4 @@ node_modules
 /dotnet/artifacts/
 /dotnet/**/Properties/launchSettings.json
 /rust/target
+.idea

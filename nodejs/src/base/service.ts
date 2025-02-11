@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { SBEvents } from "../serviceBase";
+import { SBEvents, SBMetrics } from "../serviceBase";
 import {
   BaseWithLoggingAndConfig,
   BaseWithLoggingAndConfigConfig,
@@ -9,6 +9,7 @@ import {
   BSBServiceClient,
   BSBReferencePluginConfigType,
   BSBReferencePluginConfigDefinition,
+  PluginMetrics,
 } from "./index";
 
 export interface BSBServiceConstructor<
@@ -19,6 +20,7 @@ export interface BSBServiceConstructor<
       : BSBReferencePluginConfigDefinition<ReferencedConfig>
   > {
   sbEvents: SBEvents;
+  sbMetrics: SBMetrics;
 }
 
 export abstract class BSBService<
@@ -50,10 +52,12 @@ export abstract class BSBService<
     Events["emitBroadcast"]
   >;
   public _clients: Array<BSBServiceClient> = [];
+  public readonly metrics: PluginMetrics;
 
   constructor(config: BSBServiceConstructor<ReferencedConfig>) {
     super(config);
     this.events = new PluginEvents(config.mode, config.sbEvents, this);
+    this.metrics = new PluginMetrics(config.appId, config.pluginName, config.sbMetrics);
   }
 }
 

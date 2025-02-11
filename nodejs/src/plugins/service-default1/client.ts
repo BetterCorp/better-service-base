@@ -1,5 +1,6 @@
 import { BSBServiceClient } from "../..";
 import { Plugin } from ".";
+import { DTrace } from "../../interfaces/metrics";
 
 export class testClient extends BSBServiceClient<Plugin> {
   public initBeforePlugins?: string[] | undefined;
@@ -10,24 +11,36 @@ export class testClient extends BSBServiceClient<Plugin> {
   public run?(): Promise<void>;
   public readonly pluginName: string = "service-default1";
   private count = 0;
-  public async init(): Promise<void> {
-    this.events.onEvent("onEmittable", async (a: number, b: number) => {
-      this.log.warn("onEmittable ({a},{b})", { a, b });
+  public async init(trace: DTrace): Promise<void> {
+    // Handle emittable events
+    this.events.onEvent("onEmittable", trace, async (trace: DTrace, a: number, b: number) => {
+      this.log.warn(trace, "onEmittable ({a},{b})", { a, b });
     });
-    this.events.onReturnableEvent(
-      "onReverseReturnable",
-      async (a: number, b: number) => {
-        this.count++;
-        console.log("called: " + this.count);
-        this.log.warn("onReverseReturnable ({a},{b})", { a, b });
-        return a * b;
-      }
-    );
-    await this.events.emitEvent("onReceivable", 56, 7);
+
+    // Handle returnable events
+    this.events.onReturnableEvent("onReverseReturnable", trace, async (trace: DTrace, a: number, b: number) => {
+      this.count++;
+      this.log.warn(trace, "onReverseReturnable ({a},{b})", { a, b });
+      return a * b;
+    });
+
+    // Emit receivable event
+    await this.events.emitEvent("onReceivable", trace, 56, 7);
   }
+
   async abc(a: number, b: number, c: number, d: number): Promise<void> {
-    this.log.warn("TESTING onReturnable ({result})", {
-      result: await this.events.emitEventAndReturn("onReturnable", 5, c, d),
-    });
+    const trace = this.metrics.createTrace();
+    const span = this.metrics.createSpan(trace.trace, "abc");
+
+    try {
+      const result = await this.events.emitEventAndReturn("onReturnable", span.trace, 5, c, d);
+      this.log.warn(span.trace, "TESTING onReturnable ({result})", { result });
+    } catch (error) {
+      span.error(error instanceof Error ? error : new Error(String(error)));
+      throw error;
+    } finally {
+      span.end();
+      trace.end();
+    }
   }
 }

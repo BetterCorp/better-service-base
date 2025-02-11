@@ -1,14 +1,47 @@
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
-import {
-  PluginType,
-  PluginTypeDefinitionRef,
-  IPluginLogger,
-  LoadedPlugin,
-  BSBPluginConfigRef,
-  BSBPluginConfig,
-} from "../";
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.  
+ * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program. 
+ * The commercial license allows you to use the Program in a closed-source manner, 
+ * including the right to create derivative works that are not subject to the terms 
+ * of the AGPL. 
+ *
+ * To obtain a commercial license, please contact the copyright holders at 
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
 
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { BSBPluginConfig, BSBPluginConfigRef } from "../base";
+import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef } from "../interfaces";
+
+/**
+ * @hidden
+ */
+function internalTrace(span: string): DTrace {
+  return createFakeDTrace("serviceBase/SBPlugins", span);
+}
+
+/**
+ * BSB Plugins Controller
+ * @group Plugins
+ * @category Extending BSB
+ */
 export class SBPlugins {
   protected cwd: string;
   protected nodeModulesPluginDir: string;
@@ -24,7 +57,7 @@ export class SBPlugins {
       process.env.BSB_PLUGIN_DIR.length > 3
     ) {
       if (!existsSync(process.env.BSB_PLUGIN_DIR)) {
-        throw new Error(`Plugin directory ${process.env.BSB_PLUGIN_DIR} does not exist`);
+        throw new Error(`Plugin directory ${ process.env.BSB_PLUGIN_DIR } does not exist`);
       }
       this.referencedPluginDir = process.env.BSB_PLUGIN_DIR;
     }
@@ -34,12 +67,13 @@ export class SBPlugins {
     NamedType extends PluginType,
     ClassType extends PluginTypeDefinitionRef<NamedType> = PluginTypeDefinitionRef<NamedType>
   >(
-    log: IPluginLogger,
+    log: IPluginLogging,
     npmPackage: string | null,
     plugin: string,
-    name: string
+    name: string,
   ): Promise<LoadedPlugin<NamedType, ClassType> | null> {
-    log.debug(`PLUGIN {name} from {package} try load as {pluginName}`, {
+    const tTrace = internalTrace(`loadPlugin:${ npmPackage }:${ plugin }`);
+    log.debug(tTrace, `Plugin {name} from {package} try load as {pluginName}`, {
       name: plugin,
       pluginName: name,
       package: npmPackage ?? "self",
@@ -52,7 +86,9 @@ export class SBPlugins {
       // If no package is defined in the config, we will not look anywhere else except for the local plugins
       if (this.devMode) {
         pluginPath = join(this.cwd, "./src/plugins/" + plugin);
-        if (!existsSync(pluginPath)) pluginPath = "";
+        if (!existsSync(pluginPath)) {
+          pluginPath = "";
+        }
       }
       if (pluginPath == "") {
         pluginPath = join(this.cwd, "./lib/plugins/" + plugin);
@@ -72,19 +108,20 @@ export class SBPlugins {
 
       const packageJsonPath = join(packageCwd, "./package.json");
       const packageJSON = JSON.parse(
-        readFileSync(packageJsonPath, "utf-8").toString()
+        readFileSync(packageJsonPath, "utf-8")
+          .toString(),
       );
       version = packageJSON.version;
     }
     if (!existsSync(pluginPath)) {
-      log.error(`PLUGIN {name} in {package} not found`, {
+      log.error(tTrace, `Plugin {name} in {package} not found`, {
         name: plugin,
         package: npmPackage ?? "self",
       });
       return null;
     }
 
-    log.debug(`Plugin {name}: attempt to load from {path} as {pluginName}`, {
+    log.debug(tTrace, `Plugin {name}: attempt to load from {path} as {pluginName}`, {
       name: plugin,
       path: pluginPath,
       pluginName: name,
@@ -98,7 +135,7 @@ export class SBPlugins {
         version
       );
     } catch (error) {
-      log.error(`Failed to load plugin {name}: {error}`, {
+      log.error(tTrace, `Failed to load plugin {name}: {error}`, {
         name: plugin,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -116,7 +153,7 @@ export class SBPlugins {
     version: string
   ): Promise<LoadedPlugin<NamedType, ClassType>> {
     let pluginFile = join(pluginPath, './index.js');
-    
+
     if (this.devMode) {
       const tsPluginFile = join(pluginPath, './index.ts');
       if (existsSync(tsPluginFile)) {
@@ -125,13 +162,13 @@ export class SBPlugins {
     }
 
     if (!existsSync(pluginFile)) {
-      throw new Error(`Plugin ${pluginName} not found at ${pluginFile}`);
+      throw new Error(`Plugin ${ pluginName } not found at ${ pluginFile }`);
     }
 
     const pluginExports = await import(pluginFile);
 
     if (!pluginExports.Plugin) {
-      throw new Error(`Plugin ${pluginName} does not export a Plugin class`);
+      throw new Error(`Plugin ${ pluginName } does not export a Plugin class`);
     }
 
     let serviceConfigDef: BSBPluginConfig<any> | null = null;

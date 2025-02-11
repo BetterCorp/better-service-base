@@ -1,12 +1,13 @@
-import { BSBEvents, SmartFunctionCallSync } from "../../../..";
+import { BSBEvents, SmartFunctionCallSync, DTrace } from "../../../../index";
 import * as assert from "assert";
 import { randomUUID } from "crypto";
 
 const randomName = () => randomUUID();
+const createTrace = (): DTrace => ({ t: randomUUID(), s: randomUUID() });
 
 export function emitAndReturn(
   genNewPlugin: { (): Promise<BSBEvents> },
-  maxTimeoutToExpectAResponse: number
+  maxTimeoutToExpectAResponse: number,
 ) {
   let emitter: BSBEvents;
   beforeEach(async () => {
@@ -24,72 +25,77 @@ export function emitAndReturn(
         const thisPlugin = randomName();
         const thisPlugin2 = randomName();
         const thisEvent = randomName();
+        const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisPlugin, thisEvent, async () => {
+        await emitter.onReturnableEvent(trace, thisPlugin, thisEvent, async () => {
           assert.fail("Received onEvent with diff plugin name");
         });
-        await emitter.onReturnableEvent(thisPlugin2, thisEvent, async () => {
+        await emitter.onReturnableEvent(trace, thisPlugin2, thisEvent, async (receivedTrace: DTrace) => {
+          assert.strictEqual(receivedTrace.t, trace.t);
           setTimeout(() => {
-            console.log("Received onEvent");
+            //console.log("Received onEvent");
             assert.ok(true, "Received onEvent");
           }, 1);
           return emitData2;
         });
-        console.log("!!Received onEvent");
         await emitter.emitEventAndReturn(
+          trace,
           thisPlugin2,
           thisEvent,
           maxTimeoutToExpectAResponse / 1000,
-          []
+          [],
         );
-        console.log("++Received onEvent");
         clearTimeout(emitTimeout);
         assert.ok(true, "Received Response");
       });
       it("should be able to emit to events with plugin name defined", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();
+        const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisPlugin, thisEvent, async () => {
+        await emitter.onReturnableEvent(trace, thisPlugin, thisEvent, async (receivedTrace: DTrace) => {
+          assert.strictEqual(receivedTrace.t, trace.t);
           setTimeout(() => {
-            console.log("Received onEvent");
+            //console.log("Received onEvent");
             assert.ok(true, "Received onEvent");
           }, 1);
           return emitData2;
         });
-        console.log("!!Received onEvent");
         await emitter.emitEventAndReturn(
+          trace,
           thisPlugin,
           thisEvent,
           maxTimeoutToExpectAResponse / 1000,
-          []
+          [],
         );
-        console.log("++Received onEvent");
         clearTimeout(emitTimeout);
         assert.ok(true, "Received Response");
       });
       it("should be able to emit to events with self", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
+        const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, thisEvent, async () => {
+        await emitter.onReturnableEvent(trace, thisCaller, thisEvent, async (receivedTrace: DTrace) => {
+          assert.strictEqual(receivedTrace.t, trace.t);
           assert.ok(true, "Received onEvent");
           return emitData2;
         });
         await emitter.emitEventAndReturn(
+          trace,
           thisCaller,
           thisEvent,
           maxTimeoutToExpectAResponse / 1000,
-          [emitData]
+          [emitData],
         );
         clearTimeout(emitTimeout);
         assert.ok(true, "Received Response");
@@ -98,23 +104,26 @@ export function emitAndReturn(
         const thisPlugin = randomName();
         const thisEvent = randomName();
         const thisEvent2 = randomName();
+        const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisPlugin, thisEvent, () => {
+        await emitter.onReturnableEvent(trace, thisPlugin, thisEvent, () => {
           assert.fail("EEAR MSG Received");
         });
         try {
           await emitter.emitEventAndReturn(
+            trace,
             thisPlugin,
             thisEvent2,
             maxTimeoutToExpectAResponse / 1000,
-            [emitData]
+            [emitData],
           );
           clearTimeout(emitTimeout);
           assert.fail("EEAR Returned");
-        } catch (exc) {
+        }
+        catch (exc) {
           clearTimeout(emitTimeout);
           assert.ok("Timeout of EEAR");
         }
@@ -123,23 +132,26 @@ export function emitAndReturn(
         const thisCaller = randomName();
         const thisEvent = randomName();
         const thisEvent2 = randomName();
+        const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, thisEvent, () => {
+        await emitter.onReturnableEvent(trace, thisCaller, thisEvent, () => {
           assert.fail("EEAR MSG Received");
         });
         try {
           await emitter.emitEventAndReturn(
+            trace,
             thisCaller,
             thisEvent2,
             maxTimeoutToExpectAResponse / 1000,
-            [emitData]
+            [emitData],
           );
           clearTimeout(emitTimeout);
           assert.fail("EEAR Returned");
-        } catch (exc) {
+        }
+        catch (exc) {
           clearTimeout(emitTimeout);
           assert.ok("Timeout of EEAR");
         }
@@ -147,21 +159,25 @@ export function emitAndReturn(
       it("should timeout correctly", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
+        const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, thisEvent, async () => {});
+        await emitter.onReturnableEvent(trace, thisCaller, thisEvent, async () => {
+        });
         try {
           await emitter.emitEventAndReturn(
+            trace,
             thisCaller,
             thisEvent,
             maxTimeoutToExpectAResponse / 1000,
-            [emitData]
+            [emitData],
           );
           clearTimeout(emitTimeout);
           assert.fail("EEAR Returned");
-        } catch (exc) {
+        }
+        catch (exc) {
           clearTimeout(emitTimeout);
           assert.ok("Timeout of EEAR");
         }
@@ -169,23 +185,26 @@ export function emitAndReturn(
       it("should response error correctly", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
+        const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
-        await emitter.onReturnableEvent(thisCaller, thisEvent, () => {
+        await emitter.onReturnableEvent(trace, thisCaller, thisEvent, () => {
           throw "THISISANERROR";
         });
         try {
           await emitter.emitEventAndReturn(
+            trace,
             thisCaller,
             thisEvent,
             maxTimeoutToExpectAResponse / 1000,
-            [emitData]
+            [emitData],
           );
           clearTimeout(emitTimeout);
           assert.fail("EEAR Returned");
-        } catch (exc) {
+        }
+        catch (exc) {
           clearTimeout(emitTimeout);
           assert.ok("EEAR");
           assert.strictEqual(exc, "THISISANERROR");
@@ -224,7 +243,11 @@ export function emitAndReturn(
       },
       {
         name: "Array",
-        data: [0, "Hello", true],
+        data: [
+          0,
+          "Hello",
+          true,
+        ],
       },
       {
         name: "Object",
@@ -233,30 +256,36 @@ export function emitAndReturn(
           surname: "Blond",
           age: 24,
           meta: {
-            location: [-12212, 55336],
+            location: [
+              -12212,
+              55336,
+            ],
           },
         },
       },
     ];
     for (const typeToTest of typesToTest) {
-      describe(`emitEventAndReturn ${typeToTest.name}`, async () => {
+      describe(`emitEventAndReturn ${ typeToTest.name }`, async () => {
         it("should be able to emit to events with plugin name defined", async () => {
           const thisPlugin = randomName();
           const thisEvent = randomName();
+          const trace = createTrace();
 
           const emitTimeout = setTimeout(() => {
             assert.fail("Event not received");
           }, timermaxTimeoutToExpectAResponse);
-          await emitter.onReturnableEvent(thisPlugin, thisEvent, async () => {
+          await emitter.onReturnableEvent(trace, thisPlugin, thisEvent, async (receivedTrace: DTrace) => {
+            assert.strictEqual(receivedTrace.t, trace.t);
             return typeToTest.rData !== undefined
               ? typeToTest.rData
               : typeToTest.data;
           });
           const resp = await emitter.emitEventAndReturn(
+            trace,
             thisPlugin,
             thisEvent,
             maxTimeoutToExpectAResponse / 1000,
-            [typeToTest.data]
+            [typeToTest.data],
           );
           clearTimeout(emitTimeout);
           assert.strictEqual(
@@ -264,41 +293,45 @@ export function emitAndReturn(
             JSON.stringify(
               typeToTest.rData !== undefined
                 ? typeToTest.rData
-                : typeToTest.data
-            )
+                : typeToTest.data,
+            ),
           );
         });
         it("should be able to emit to events with self", async () => {
           const thisCaller = randomName();
           const thisEvent = randomName();
+          const trace = createTrace();
 
           const emitTimeout = setTimeout(() => {
             assert.fail("Event not received - timeout");
           }, timermaxTimeoutToExpectAResponse);
           await emitter.onReturnableEvent(
+            trace,
             thisCaller,
             thisEvent,
-            async (data: Array<any>) => {
+            async (receivedTrace: DTrace, data: Array<any>) => {
+              assert.strictEqual(receivedTrace.t, trace.t);
               clearTimeout(emitTimeout);
               assert.strictEqual(
                 JSON.stringify(data[0]),
                 JSON.stringify(typeToTest.data),
-                "Received data"
+                "Received data",
               );
               return typeToTest.rData || typeToTest.data;
-            }
+            },
           );
           assert.strictEqual(
             JSON.stringify(
               await emitter.emitEventAndReturn(
+                trace,
                 thisCaller,
                 thisEvent,
                 maxTimeoutToExpectAResponse / 1000,
-                [typeToTest.data]
-              )
+                [typeToTest.data],
+              ),
             ),
             JSON.stringify(typeToTest.rData || typeToTest.data),
-            "Returned data"
+            "Returned data",
           );
           clearTimeout(emitTimeout);
         });
@@ -306,23 +339,26 @@ export function emitAndReturn(
           const thisPlugin = randomName();
           const thisEvent = randomName();
           const thisEvent2 = randomName();
+          const trace = createTrace();
 
           const emitTimeout = setTimeout(() => {
             assert.ok(true);
           }, timermaxTimeoutToExpectAResponse);
-          await emitter.onReturnableEvent(thisPlugin, thisEvent, () => {
+          await emitter.onReturnableEvent(trace, thisPlugin, thisEvent, () => {
             assert.fail("EEAR MSG Received");
           });
           try {
             await emitter.emitEventAndReturn(
+              trace,
               thisPlugin,
               thisEvent2,
               maxTimeoutToExpectAResponse / 1000,
-              [typeToTest.data]
+              [typeToTest.data],
             );
             clearTimeout(emitTimeout);
             assert.fail("EEAR Returned");
-          } catch (exc) {
+          }
+          catch (exc) {
             clearTimeout(emitTimeout);
             assert.ok("Timeout of EEAR");
           }
@@ -331,23 +367,26 @@ export function emitAndReturn(
           const thisCaller = randomName();
           const thisEvent = randomName();
           const thisEvent2 = randomName();
+          const trace = createTrace();
 
           const emitTimeout = setTimeout(() => {
             assert.ok(true);
           }, timermaxTimeoutToExpectAResponse);
-          await emitter.onReturnableEvent(thisCaller, thisEvent, () => {
+          await emitter.onReturnableEvent(trace, thisCaller, thisEvent, () => {
             assert.fail("EEAR MSG Received");
           });
           try {
             await emitter.emitEventAndReturn(
+              trace,
               thisCaller,
               thisEvent2,
               maxTimeoutToExpectAResponse / 1000,
-              [typeToTest.data]
+              [typeToTest.data],
             );
             clearTimeout(emitTimeout);
             assert.fail("EEAR Returned");
-          } catch (exc) {
+          }
+          catch (exc) {
             clearTimeout(emitTimeout);
             assert.ok("Timeout of EEAR");
           }
@@ -355,25 +394,30 @@ export function emitAndReturn(
         it("should timeout correctly - general timeout", async () => {
           const thisCaller = randomName();
           const thisEvent = randomName();
+          const trace = createTrace();
 
           const emitTimeout = setTimeout(() => {
             assert.fail("Event not received");
           }, timermaxTimeoutToExpectAResponse + 10);
           await emitter.onReturnableEvent(
+            trace,
             thisCaller,
             thisEvent,
-            async () => {}
+            async () => {
+            },
           );
           try {
             await emitter.emitEventAndReturn(
+              trace,
               thisCaller,
               thisEvent,
               maxTimeoutToExpectAResponse / 1000,
-              [typeToTest.data]
+              [typeToTest.data],
             );
             clearTimeout(emitTimeout);
             assert.fail("EEAR Returned");
-          } catch (exc) {
+          }
+          catch (exc) {
             clearTimeout(emitTimeout);
             assert.ok("Timeout of EEAR");
           }
@@ -381,20 +425,23 @@ export function emitAndReturn(
         it("should timeout correctly - no receipt", async () => {
           const thisCaller = randomName();
           const thisEvent = randomName();
+          const trace = createTrace();
 
           const emitTimeout = setTimeout(() => {
             assert.fail("Event not received");
           }, timermaxTimeoutToExpectAResponse + 10);
           try {
             await emitter.emitEventAndReturn(
+              trace,
               thisCaller,
               thisEvent,
               maxTimeoutToExpectAResponse / 1000,
-              [typeToTest.data]
+              [typeToTest.data],
             );
             clearTimeout(emitTimeout);
             assert.fail("EEAR Returned");
-          } catch (exc) {
+          }
+          catch (exc) {
             clearTimeout(emitTimeout);
             assert.ok("Timeout of EEAR");
           }
@@ -402,28 +449,31 @@ export function emitAndReturn(
         it("should response error correctly", async () => {
           const thisCaller = randomName();
           const thisEvent = randomName();
+          const trace = createTrace();
 
           const emitTimeout = setTimeout(() => {
             assert.fail("Event not received");
           }, timermaxTimeoutToExpectAResponse);
-          await emitter.onReturnableEvent(thisCaller, thisEvent, () => {
+          await emitter.onReturnableEvent(trace, thisCaller, thisEvent, () => {
             throw typeToTest.rData || typeToTest.data;
           });
           try {
             await emitter.emitEventAndReturn(
+              trace,
               thisCaller,
               thisEvent,
               maxTimeoutToExpectAResponse / 1000,
-              [typeToTest.data]
+              [typeToTest.data],
             );
             clearTimeout(emitTimeout);
             assert.fail("EEAR Returned");
-          } catch (exc) {
+          }
+          catch (exc) {
             clearTimeout(emitTimeout);
             assert.ok("EEAR");
             assert.strictEqual(
               JSON.stringify(exc),
-              JSON.stringify(typeToTest.rData || typeToTest.data)
+              JSON.stringify(typeToTest.rData || typeToTest.data),
             );
           }
         });

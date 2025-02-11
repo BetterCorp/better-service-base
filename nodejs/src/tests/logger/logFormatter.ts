@@ -1,119 +1,169 @@
 import { assert } from "chai";
-import { LogFormatter } from "../../base";
+import { LogFormatter } from "../../index";
+import { createFakeDTrace } from "../trace"
+import { randomUUID } from "crypto";
 
 describe("logFormatter", function () {
   describe("formatLog", function () {
-    it("Should return string when meta is undefined", async () => {
+    const dummyTrace = createFakeDTrace('INTERNAL', 'INTERNAL'); // This returns { t: "INTERNAL", s: "INTERNAL" }
+
+    it("Should include trace prefix for INTERNAL trace", async () => {
       const ojb = new LogFormatter();
-      assert.strictEqual(ojb.formatLog("TEST"), "TEST");
+      assert.match(ojb.formatLog(dummyTrace, "TEST"), /^\[INTERNAL:INTERNAL\] TEST$/);
     });
-    it("Should return string when meta is null", async () => {
+
+    it("Should format trace IDs correctly with GUIDs", async () => {
       const ojb = new LogFormatter();
-      assert.strictEqual(ojb.formatLog("TEST", null as any), "TEST"); // ts picks up this issue
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const customTrace = createFakeDTrace(traceId, spanId);
+      assert.match(ojb.formatLog(customTrace, "TEST"), new RegExp(`^\\[${ traceId }:${ spanId }\\] TEST$`));
     });
-    it("Should return string when meta is a string", async () => {
+
+    it("Should note error when trace ID is empty", async () => {
       const ojb = new LogFormatter();
-      assert.strictEqual(ojb.formatLog("TEST", ""), "TEST");
+      const emptyTrace = createFakeDTrace("", "");
+      assert.match(ojb.formatLog(emptyTrace, "TEST"), new RegExp(`TRACE ID ERROR`));
     });
-    it("Should return string when meta is a number", async () => {
+
+    it("Should note error when span ID is empty", async () => {
       const ojb = new LogFormatter();
-      assert.strictEqual(ojb.formatLog("TEST", 5), "TEST");
+      const traceId = randomUUID();
+      const traceNoSpan = createFakeDTrace(traceId, "");
+      assert.match(ojb.formatLog(traceNoSpan, "TEST"), new RegExp(`SPAN ID ERROR`));
     });
-    it("Should format correctly", async () => {
+
+    it("Should handle message with no placeholders", async () => {
       const ojb = new LogFormatter();
-      assert.strictEqual(ojb.formatLog("HTEST {a}", { a: "B" }), "HTEST B");
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
+      assert.match(ojb.formatLog(trace, "Simple message"), new RegExp(`^\\[${ traceId }:${ spanId }\\] Simple message$`));
     });
-    it("Should format *null/undefined* when a value found doesnt exist", async () => {
+
+    it("Should format correctly with meta", async () => {
       const ojb = new LogFormatter();
-      assert.strictEqual(
-        ojb.formatLog("HTEST {a}", {} as any), // ts picks up this issue
-        "HTEST *null/undefined*"
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
+      assert.match(
+        ojb.formatLog(trace, "HTEST {a}", { a: "B" }),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST B$`)
       );
     });
-    it("Should format *null/undefined* when a value found is undefined", async () => {
+
+    it("Should format *null/undefined* when value is missing", async () => {
       const ojb = new LogFormatter();
-      assert.strictEqual(
-        ojb.formatLog("HTEST {a}", { a: undefined } as any), // ts picks up this issue
-        "HTEST *null/undefined*"
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
+      assert.match(
+        ojb.formatLog(trace, "HTEST {a}", {} as any),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST \\*null\\/undefined\\*$`)
       );
     });
-    it("Should format DT in ISO when a value found is a date", async () => {
+
+    it("Should format *null/undefined* when value is undefined", async () => {
       const ojb = new LogFormatter();
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
+      assert.match(
+        ojb.formatLog(trace, "HTEST {a}", { a: undefined } as any),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST \\*null\\/undefined\\*$`)
+      );
+    });
+
+    it("Should format date in ISO format", async () => {
+      const ojb = new LogFormatter();
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
       const dt = new Date(1690040310000); // Sat, 22 Jul 2023 15:38:30 GMT
-      assert.strictEqual(
-        ojb.formatLog("HTEST {f}", { f: dt }),
-        "HTEST 2023-07-22T15:38:30.000Z"
+      assert.match(
+        ojb.formatLog(trace, "HTEST {f}", { f: dt }),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST 2023-07-22T15:38:30\\.000Z$`)
       );
     });
-    it("Should format DT in ISO when a value found is a date 2", async () => {
+
+    it("Should format multiple dates in ISO format", async () => {
       const ojb = new LogFormatter();
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
       const dt = new Date(1690040310000); // Sat, 22 Jul 2023 15:38:30 GMT
-      assert.strictEqual(
-        ojb.formatLog("HTEST {f}@{e}", { e: "DD", f: dt }),
-        "HTEST 2023-07-22T15:38:30.000Z@DD"
+      assert.match(
+        ojb.formatLog(trace, "HTEST {f}@{e}", { e: "DD", f: dt }),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST 2023-07-22T15:38:30\\.000Z@DD$`)
       );
     });
-    it("Should fail to format DT when a value found is inside an object", async () => {
+
+    it("Should handle nested object with date", async () => {
       const ojb = new LogFormatter();
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
       const dt = new Date(1689694710000); // 18 Jul 2023 15:38:30 GMT
-      assert.strictEqual(
-        ojb.formatLog("HTEST {f.y}@{e}", { e: "DD", f: { y: dt } } as any), // ts picks up this issue
-        "HTEST *null/undefined*@DD"
+      assert.match(
+        ojb.formatLog(trace, "HTEST {f.y}@{e}", { e: "DD", f: { y: dt } } as any),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST \\*null\\/undefined\\*@DD$`)
       );
     });
-    // it("Should format DT in ISO when a value found is a date 4", async () => {
-    //   let ojb = new LogFormatter();
-    //   let dt = new Date(1690040310000); // Sat, 22 Jul 2023 15:38:30 GMT
-    //   let dt2 = new Date(1689694710000); // 18 Jul 2023 15:38:30 GMT
-    //   assert.strictEqual(
-    //     ojb.formatLog("HTEST {f.y}@{e}:{a.0}:{a.1}", {
-    //       a: ["E", dt2],
-    //       e: "DD",
-    //       f: { y: dt },
-    //     } as any),
-    //     "HTEST 2023-07-22T15:38:30.000Z@DD:E:2023-07-18T15:38:30.000Z"
-    //   ); // ts picks up this issue
-    // });
-    it("Should format json when a value found is an object", async () => {
+
+    it("Should format object as JSON", async () => {
       const ojb = new LogFormatter();
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
       const dt = new Date(1690040310000); // Sat, 22 Jul 2023 15:38:30 GMT
-      assert.strictEqual(
-        ojb.formatLog("HTEST {f}@{e}", { e: "DD", f: { y: dt } }),
-        'HTEST {"y":"2023-07-22T15:38:30.000Z"}@DD'
+      assert.match(
+        ojb.formatLog(trace, "HTEST {f}@{e}", { e: "DD", f: { y: dt } }),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST {"y":"2023-07-22T15:38:30\\.000Z"}@DD$`)
       );
     });
-    it("Should format direct date", async () => {
+
+    it("Should format array values", async () => {
       const ojb = new LogFormatter();
-      const dt = new Date(1690040310000); // Sat, 22 Jul 2023 15:38:30 GMT
-      assert.strictEqual(
-        ojb.formatLog("{y}", { y: dt }),
-        "2023-07-22T15:38:30.000Z"
-      );
-    });
-    it("Should format iso date", async () => {
-      const isIsoDate = (str: string) => {
-        if (!/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(str))
-          return false;
-        const d = new Date(str);
-        return (
-          d instanceof Date && !isNaN(d.getTime()) && d.toISOString() === str
-        ); // valid date
-      };
-      const ojb = new LogFormatter();
-      const dt = new Date(1690040310000); // Sat, 22 Jul 2023 15:38:30 GMT
-      assert.strictEqual(isIsoDate(ojb.formatLog("{y}", { y: dt })), true);
-    });
-    it("Should format json when a value found is an array", async () => {
-      const ojb = new LogFormatter();
-      const dt = new Date(1690040310000); // Sat, 22 Jul 2023 15:38:30 GMT
-      assert.strictEqual(
-        ojb.formatLog("HTEST {f}@{e}:{a}", {
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
+      const dt = new Date(1690040310000);
+      assert.match(
+        ojb.formatLog(trace, "HTEST {f}@{e}:{a}", {
           a: ["E", "F"],
           e: "DD",
           f: { y: dt },
         } as any),
-        'HTEST {"y":"2023-07-22T15:38:30.000Z"}@DD:E,F'
-      ); // ts picks up this issue
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] HTEST {"y":"2023-07-22T15:38:30\\.000Z"}@DD:E,F$`)
+      );
+    });
+
+    it("Should handle multiple placeholders with mixed types", async () => {
+      const ojb = new LogFormatter();
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
+      assert.match(
+        ojb.formatLog(trace, "Test {str} {num} {bool}", {
+          str: "hello",
+          num: 123,
+          bool: true
+        }),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] Test hello 123 true$`)
+      );
+    });
+
+    it("Should handle special characters in values", async () => {
+      const ojb = new LogFormatter();
+      const traceId = randomUUID();
+      const spanId = randomUUID();
+      const trace = createFakeDTrace(traceId, spanId);
+      assert.match(
+        ojb.formatLog(trace, "Test {special}", {
+          special: "!@#$%^&*()"
+        }),
+        new RegExp(`^\\[${ traceId }:${ spanId }\\] Test !@#\\$%\\^&\\*\\(\\)$`)
+      );
     });
   });
 });

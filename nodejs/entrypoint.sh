@@ -1,5 +1,31 @@
 #!/bin/sh
 
+# BSB (Better-Service-Base) is an event-bus based microservice framework.  
+# Copyright (C) 2024 BetterCorp (PTY) Ltd  
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published
+# by the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Alternatively, you may obtain a commercial license for this program. 
+# The commercial license allows you to use the Program in a closed-source manner, 
+# including the right to create derivative works that are not subject to the terms 
+# of the AGPL. 
+#
+# To obtain a commercial license, please contact the copyright holders at 
+# https://www.bettercorp.dev. The terms and conditions of the commercial license 
+# will be provided upon request.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+
 # if [ "$BSB_CONTAINER" == "true" ]; then
 #   cd /mnt/bsb-plugins
 #   node /root/entrypoint.js
@@ -7,15 +33,15 @@
 #   # node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
 # fi
 
-mkdir /home/bsb/.temp
+mkdir /mnt/.temp
 
-chown -R node:node /home/bsb
-chown -R node:node /mnt/bsb-plugins
+chown -R bsb:bsb /home/bsb
+chown -R bsb:bsb /mnt/plugins
 
-chmod -R 444 /home/bsb
-chmod -R 644 /home/bsb/.temp
-chmod -R 444 /mnt/bsb-plugins
-chmod 600 /home/bsb/sec-config.yaml
+chmod -R 440 /home/bsb
+chmod -R 640 /home/bsb/.temp
+chmod -R 440 /mnt/plugins
+chmod 400 /home/bsb/sec-config.yaml
 
 # Check if the first argument is BSBDEBUG for debugging purposes
 if [ "$1" = "BSBDEBUG" ]; then
