@@ -35,13 +35,13 @@
 
 mkdir /mnt/.temp
 
-chown -R bsb:bsb /home/bsb
-chown -R bsb:bsb /mnt/plugins
+chown -R node:node /home/bsb
+chown -R node:node /mnt/plugins
 
-chmod -R 440 /home/bsb
-chmod -R 640 /home/bsb/.temp
-chmod -R 440 /mnt/plugins
-chmod 400 /home/bsb/sec-config.yaml
+chmod -R 440 /home/bsb || true
+chmod -R 640 /home/bsb/.temp || true
+chmod -R 440 /mnt/plugins || true
+chmod 400 /home/bsb/sec-config.yaml || true
 
 # Check if the first argument is BSBDEBUG for debugging purposes
 if [ "$1" = "BSBDEBUG" ]; then

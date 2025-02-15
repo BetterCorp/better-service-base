@@ -23,9 +23,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-# BSB Build
-# Using 18 until nodejs fixes a bug with v20 - https://github.com/nodejs/docker-node/issues/1829
-FROM node:18 as builder
+# Stage 1: Build TypeScript
+FROM betterweb/node:23 as builder
 
 ARG BSB_VERSION=0.0.0
 
@@ -33,34 +32,54 @@ RUN set -eux && mkdir /home/bsb && npm i -g typescript ts-node
 
 WORKDIR /home/bsb
 
-ADD tsconfig-release.json /home/bsb/tsconfig-release.json
 ADD package.json /home/bsb/package.json
+ADD tsconfig.json /home/bsb/tsconfig.json
+ADD tsconfig-release.json /home/bsb/tsconfig-release.json
 ADD package-lock.json /home/bsb/package-lock.json
 ADD src/ /home/bsb/src/
-RUN npm ci && npm version $BSB_VERSION --allow-same-version --no-git-tag-version && npm run build-release
 
-# Final image
-FROM node:18
+# Install all dependencies (including devDependencies)
+RUN npm install
+RUN npm version $BSB_VERSION --allow-same-version --no-git-tag-version
+RUN npm run build-release
+
+# Stage 2: Install production dependencies
+FROM betterweb/node:23 as dependencies
+
+WORKDIR /home/bsb
+
+COPY --from=builder /home/bsb/package.json /home/bsb/package.json
+COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
+
+# Install only production dependencies
+RUN npm install --production
+
+# Stage 3: Final image
+FROM betterweb/node:23
+
+RUN mkdir -p /mnt /mnt/plugins /mnt/temp /home/bsb
 
 VOLUME /mnt/plugins
 VOLUME /mnt/temp
-RUN groupadd -r bsb & useradd -r -g bsb bsb
 WORKDIR /home/bsb
 
-ENV NODE_ENV production
-ENV BSB_LIVE true
-ENV BSB_CONTAINER true
-ENV BSB_PLUGIN_DIR /mnt/plugins
+ENV NODE_ENV=production
+ENV BSB_LIVE=true
+ENV BSB_CONTAINER=true
+ENV BSB_PLUGIN_DIR=/mnt/plugins
 
 COPY entrypoint.sh /home/bsb/entrypoint.sh
 COPY LICENSE /home/bsb/LICENSE
 
+# Copy compiled TypeScript from builder
+COPY --from=builder /home/bsb/lib /home/bsb/lib
 COPY --from=builder /home/bsb/package.json /home/bsb/package.json
 COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
-COPY --from=builder /home/bsb/lib /home/bsb/lib
-COPY --from=builder /home/bsb/node_modules /home/bsb/node_modules
 
-RUN addgroup node dialout && chown -R bsb:bsb /home/bsb && chown -R bsb:bsb /mnt/temp && chown -R bsb:bsb /mnt/plugins && chmod -R 440 /home/bsb && chmod 111 /home/bsb/entrypoint.sh
+# Copy production node_modules from dependencies stage
+COPY --from=dependencies /home/bsb/node_modules /home/bsb/node_modules
+
+RUN chown -R node:node /home/bsb && chown -R node:node /mnt/temp && chown -R node:node /mnt/plugins && chmod -R 440 /home/bsb && chmod 111 /home/bsb/entrypoint.sh
 
 ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]
 CMD -
