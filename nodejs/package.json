@@ -23,8 +23,14 @@
     "bsb": "lib/cli.js"
   },
   "files": [
-    "lib/**/*",
-    "development/**/*",
+    "lib/*.*",
+    "lib/base/**/*",
+    "lib/interfaces/**/*",
+    "lib/serviceBase/**/*",
+    "lib/plugins/config-*/**/*",
+    "lib/plugins/events-*/**/*",
+    "lib/plugins/metrics-*/**/*",
+    "lib/plugins/logging-*/**/*",
     "README.md",
     "LICENSE"
   ],
