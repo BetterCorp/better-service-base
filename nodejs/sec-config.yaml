@@ -15,7 +15,7 @@ default:
     service-test:
       plugin: test-package
       package: "_test-package"
-      enabled: false
+      enabled: true
       config: {}
     service-default0X:
       plugin: service-default0
@@ -23,6 +23,10 @@ default:
       config:
         testa: 5
         testb: 6
+    service-benchmarkify:
+      plugin: service-benchmarkify
+      enabled: true
+      config: {}
     service-default1X:
       plugin: service-default1
       enabled: true

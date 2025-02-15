@@ -42,6 +42,7 @@ ADD src/ /home/bsb/src/
 RUN npm install
 RUN npm version $BSB_VERSION --allow-same-version --no-git-tag-version
 RUN npm run build-release
+RUN rm -rf /home/bsb/lib/plugins/service-*
 
 # Stage 2: Install production dependencies
 FROM betterweb/node:23 as dependencies

@@ -1,0 +1,30 @@
+{
+  "name": "Microservices benchmark",
+  "meta": {},
+  "suites": [
+    {
+      "name": "Call local actions",
+      "meta": {},
+      "unit": "ops/sec",
+      "tests": [
+        {
+          "name": "BSB",
+          "meta": {},
+          "unit": "ops/sec",
+          "fastest": true,
+          "stat": {
+            "duration": 5.004008544,
+            "cycle": 0,
+            "count": 958000,
+            "avg": 0.000005223390964509395,
+            "rps": 191446.5156436791,
+            "percent": 0
+          }
+        }
+      ]
+    }
+  ],
+  "timestamp": 1739637557500,
+  "generated": "Sat Feb 15 2025 18:39:17 GMT+0200 (Central Africa Time)",
+  "elapsedMs": 5222
+}

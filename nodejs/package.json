@@ -29,7 +29,7 @@
     "LICENSE"
   ],
   "main": "lib/index.js",
-  "version": "9.5.4-beta",
+  "version": "9.5.5-beta",
   "devDependencies": {
     "@types/assert": "^1.5.10",
     "@types/chai": "^4.3.11",
@@ -39,6 +39,7 @@
     "@types/uuid": "^10.0.0",
     "@types/yargs": "^17.0.32",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "benchmarkify": "^4.0.0",
     "chai": "^4.3.10",
     "eslint": "^8.56.0",
     "mocha": "^10.2.0",
