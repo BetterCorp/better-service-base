@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -30,6 +30,10 @@ import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginLogging, SmartLogMeta } fr
 import { SBLogging } from "../serviceBase";
 import { BSBError } from "./errorMessages";
 
+/**
+ * @group Logging
+ * @category Plugin Development Tools
+ */
 export class PluginLogging
   implements IPluginLogging {
   private logging: SBLogging;

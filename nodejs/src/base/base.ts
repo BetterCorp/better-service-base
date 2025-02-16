@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -132,9 +132,9 @@ export abstract class Base
    * Optional function to be called when the plugin is being initialized
    * Can be sync or async
    *
-   * @example init?(): void; //to not use it
-   * @example init() { your code here };
-   * @example async init() { await your code here };
+   * @example init?(trace: DTrace): void; //to not use it
+   * @example init(trace: DTrace) { your code here }; // Includes the trace for the init function
+   * @example async init(trace: DTrace) { await your code here }; // Includes the trace for the init function
    */
   public abstract init?(trace: DTrace): Promise<void> | void;
 
@@ -143,9 +143,9 @@ export abstract class Base
    * Optional function to be called when the plugin is being run
    * Can be sync or async
    *
-   * @example run?(): void; //to not use it
-   * @example run() { your code here };
-   * @example async run() { await your code here };
+   * @example run?(trace: DTrace): void; //to not use it
+   * @example run(trace: DTrace) { your code here }; // Includes the trace for the run function
+   * @example async run(trace: DTrace) { await your code here }; // Includes the trace for the run function
    */
   public abstract run?(trace: DTrace): Promise<void> | void;
 }

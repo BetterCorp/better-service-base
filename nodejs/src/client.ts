@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -39,6 +39,11 @@ import {
 } from "./index";
 import { v7 as randomUUID } from "uuid";
 
+/**
+ * @hidden
+ * 
+ * Old client class - do not use.
+ */
 export class SBClient<Client extends BSBServiceClient> {
   private serviceBase: ServiceBase;
   public client!: Client;
@@ -78,6 +83,11 @@ export class SBClient<Client extends BSBServiceClient> {
   }
 }
 
+/**
+ * @hidden
+ * 
+ * Old client class - do not use.
+ */
 export class FakeServiceClient
   extends BSBService<null> {
   public initBeforePlugins?: string[] | undefined;
@@ -99,6 +109,11 @@ export class FakeServiceClient
   }
 }
 
+/**
+ * @hidden
+ * 
+ * Old config class - do not use.
+ */
 export class FakeServiceConfig
   extends BSBConfig {
   constructor(config: BSBConfigConstructor) {

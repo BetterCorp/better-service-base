@@ -62,6 +62,7 @@ export abstract class BSBService<
 }
 
 /**
+ * @hidden
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
 export class BSBServiceRef extends BSBService<null> {

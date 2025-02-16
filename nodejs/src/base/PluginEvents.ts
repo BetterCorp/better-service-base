@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -44,7 +44,10 @@ export abstract class BSBPluginEvents {
     public abstract onBroadcast: ServiceEventsBase;
     public abstract emitBroadcast: ServiceEventsBase;
 }
-
+/**
+ * @group Events
+ * @category Plugin Development Tools
+ */
 export class PluginEvents<
     onEvents = ServiceEventsBase,
     emitEvents = ServiceEventsBase,
@@ -77,10 +80,10 @@ export class PluginEvents<
      * Basic example of using broadcast events
      * ```ts
      * /// Plugin that emits a broadcast event
-     * await this.emitBroadcast('myEvent', 'some', 'data'); // This will be typesafe
+     * await this.emitBroadcast('myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives a broadcast event
-     * await this.onBroadcast('myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onBroadcast('myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
      */
@@ -115,10 +118,10 @@ export class PluginEvents<
      * Basic example of using broadcast events
      * ```ts
      * /// Plugin that emits a broadcast event
-     * await this.emitBroadcast('myEvent', '{traceId}', 'some', 'data'); // This will be typesafe
+     * await this.emitBroadcast('myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives a broadcast event
-     * await this.onBroadcast('myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onBroadcast('myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
      */
@@ -150,10 +153,10 @@ export class PluginEvents<
      * Basic example of using events
      * ```ts
      * /// Plugin that emits an event
-     * await this.emitEvent('myEvent', 'some', 'data'); // This will be typesafe
+     * await this.emitEvent('myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives an event
-     * await this.onEvent('myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
      */
@@ -188,10 +191,10 @@ export class PluginEvents<
      * Basic example of using events
      * ```ts
      * /// Plugin that emits an event
-     * await this.emitEvent('myEvent', 'some', 'data'); // This will be typesafe
+     * await this.emitEvent('myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives an event
-     * await this.onEvent('myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
      */
@@ -225,10 +228,10 @@ export class PluginEvents<
      * Basic example of using events
      * ```ts
      * /// Plugin that emits an event
-     * await this.emitEventSpecific('serverId', 'myEvent', 'some', 'data'); // This will be typesafe
+     * await this.emitEventSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives an event
-     * await this.onEventSpecific('serverId', 'myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
      */
@@ -267,10 +270,10 @@ export class PluginEvents<
      * Basic example of using events
      * ```ts
      * /// Plugin that emits an event
-     * await this.emitEventSpecific('serverId', 'myEvent', 'some', 'data'); // This will be typesafe
+     * await this.emitEventSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives an event
-     * await this.onEventSpecific('serverId', 'myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
      */
@@ -305,10 +308,10 @@ export class PluginEvents<
      * Basic example of using returnable events
      * ```ts
      * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturn('myEvent', 'some', 'data'); // This will be typesafe
+     * let result = await this.emitEventAndReturn('myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives a returnable event
-     * await this.onReturnableEvent('myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onReturnableEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      *   return 'some result';
      * });
@@ -344,10 +347,10 @@ export class PluginEvents<
      * Basic example of using returnable events
      * ```ts
      * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturn('myEvent', 'some', 'data'); // This will be typesafe
+     * let result = await this.emitEventAndReturn('myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives a returnable event
-     * await this.onReturnableEvent('myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onReturnableEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      *   return 'some result';
      * });
@@ -391,10 +394,10 @@ export class PluginEvents<
      * Basic example of using returnable events
      * ```ts
      * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturnSpecific('serverId', 'myEvent', 'some', 'data'); // This will be typesafe
+     * let result = await this.emitEventAndReturnSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives a returnable event
-     * await this.onReturnableEventSpecific('serverId', 'myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onReturnableEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      *   return 'some result';
      * });
@@ -434,10 +437,10 @@ export class PluginEvents<
      * Basic example of using returnable events
      * ```ts
      * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturnSpecific('serverId', 'myEvent', 'some', 'data'); // This will be typesafe
+     * let result = await this.emitEventAndReturnSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
      *
      * /// Plugin that receives a returnable event
-     * await this.onReturnableEventSpecific('serverId', 'myEvent', async (traceId: string|undefined, some: string, data: string) => {
+     * await this.onReturnableEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      *   return 'some result';
      * });
@@ -482,6 +485,8 @@ export class PluginEvents<
      * ```ts
      * /// Plugin that receives a stream
      * let streamId = await this.receiveStream(
+     *  trace,
+     *  'myStreamEvent',
      *  async (err: Error | null, stream: Readable) => {
      *    pipeline(stream, fs.createWriteStream('./fileout.txt'), (errf) => {
      *      if (errf) throw errf;
@@ -494,7 +499,7 @@ export class PluginEvents<
      *
      * /// Plugin that sends a stream
      * /// This would listen to the event that the other plugin emits
-     * await this.sendStream(streamId, fs.createReadStream('./filein.txt'));
+     * await this.sendStream(trace, 'myStreamEvent', streamId, fs.createReadStream('./filein.txt'));
      * /// and then returns OK to the other plugin
      * ```
      */
@@ -527,6 +532,8 @@ export class PluginEvents<
      * ```ts
      * /// Plugin that receives a stream
      * let streamId = await this.receiveStream(
+     *  trace,
+     *  'myStreamEvent',
      *  async (err: Error | null, stream: Readable) => {
      *    pipeline(stream, fs.createWriteStream('./fileout.txt'), (errf) => {
      *      if (errf) throw errf;
@@ -539,7 +546,7 @@ export class PluginEvents<
      *
      * /// Plugin that sends a stream
      * /// This would listen to the event that the other plugin emits
-     * await this.sendStream(streamId, fs.createReadStream('./filein.txt'));
+     * await this.sendStream(trace, 'myStreamEvent', streamId, fs.createReadStream('./filein.txt'));
      * /// and then returns OK to the other plugin
      * ```
      */
@@ -560,6 +567,7 @@ export class PluginEvents<
 }
 
 /**
+ * @hidden
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
 export class BSBPluginEventsRef

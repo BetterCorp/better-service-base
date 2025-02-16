@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -27,6 +27,10 @@
 
 import { BSBError } from "../base";
 
+/**
+ * @group Metrics
+ * @category Plugin Development Tools
+ */
 export interface IPluginMetrics {
   /**
    * Creates a counter metric.
@@ -134,44 +138,54 @@ export interface IPluginMetrics {
 
   /**
    * Creates a trace metric.
-   * A Trace is a metric that represents a sequence of events or operations.
-   * It provides a hierarchical view of the execution of a system or application.
+   * A Trace is a metric that represents a sequence of events or operations that form a request or transaction.
+   * It provides a way to track and monitor the flow of operations across your application.
    *
    * @remarks
    * Use Cases:
+   * - Request Tracing: Following a request as it moves through different services or components
+   * - Performance Monitoring: Tracking the timing and dependencies of operations
+   * - Error Tracking: Identifying where in a sequence of operations an error occurred
+   * - Distributed Tracing: Monitoring operations across multiple services
    *
-   * Event Tracing: Tracing the execution of a system or application, capturing the sequence of events and operations.
-   * Work Done: Tracing the execution of a system or application, capturing the sequence of tasks and jobs.
    * Characteristics:
+   * - Unique Identification: Each trace has a unique ID
+   * - Attributes: Can include key-value pairs for additional context
+   * - Error Handling: Built-in support for error recording
+   * - Lifecycle Management: Clear start and end points
    *
-   * Hierarchical: Traces can be nested to provide a hierarchical view of the execution.
-   * Example: A Trace can be used to trace the execution of a system or application, capturing the sequence of events and operations.
-   *
-   * @param parentId - Optional parent ID for the trace metric
-   * @returns A Trace object that can be used to update the trace metric
+   * @param name - The name of the trace, used to identify the operation or request being traced
+   * @param attributes - Optional key-value pairs providing additional context about the trace
+   * @returns A Trace object that can be used to record spans, errors, and manage the trace lifecycle
    *
    * @example
    * ```ts
-   * let trace = this.metrics.createTrace();
-   * let spanId = trace.startSpan("span-1"); // Start a new span with the name "span-1"
-   * trace.startSpan("span-2", spanId); // Start a new span with the name "span-2" and parent span ID
-   * trace.startSpan("span-3"); // Start a new span with the name "span-3" and no parent span ID
-   * trace.endSpan(spanId); // End the current span
-   * ```
-   * @example
-   * ```ts
-   * let trace = this.metrics.createTrace();
-   * let spanId = trace.startSpan("span-1", undefined, {"key": "value"}); // Start a new span with the name "span-1" and no parent span ID, and with attributes
-   * trace.startSpan("span-2", spanId, {"key": "value"}); // Start a new span with the name "span-2" and parent span ID, and with attributes
-   * trace.startSpan("span-3", undefined, {"key": "value"}); // Start a new span with the name "span-3" and no parent span ID, and with attributes
-   * trace.endSpan(spanId, {"key": "value"}); // End the current span with attributes
-   * trace.errorSpan(spanId, new Error("Error message"), {"key": "value"}); // Record an error in the current span with attributes
+   * // Create a simple trace
+   * const trace = this.metrics.createTrace("user-registration");
+   * 
+   * // OR Create a trace with attributes
+   * const trace = this.metrics.createTrace("payment-processing", {
+   *   "customer-id": "12345",
+   *   "payment-method": "credit-card"
+   * });
+   * 
+   * // Using the trace
+   * try {
+   *   // Perform operations
+   *   const span = this.metrics.createSpan(trace, "get-customer-balance");
+   *   // Do some external work
+   *   span.end({balance: 100});
+   *   trace.end({transactionId: "12345"});
+   * } catch (error) {
+   *   trace.error(error);
+   * }
+   * trace.end();
    * ```
    */
-  createTrace(parentId?: string): Trace;
+  createTrace(name: string, attributes?: Record<string, string | number | boolean>): Trace;
 
   /**
-   * Creates a new span.
+   * Creates a new span from an existing trace (automatic parent span).
    * @param trace - The trace to associate with the span
    * @param name - The name of the span
    * @param attributes - Optional attributes to associate with the span

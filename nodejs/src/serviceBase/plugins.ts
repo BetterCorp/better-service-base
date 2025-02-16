@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -39,8 +39,12 @@ function internalTrace(span: string): DTrace {
 
 /**
  * BSB Plugins Controller
+ * 
+ * This class is responsible for loading the plugins in the BSB framework.
+ * If you have a specific way of loading plugins, you can extend this class and then use your own class when creating the ServiceBase instance.
+ * 
  * @group Plugins
- * @category Extending BSB
+ * @category Core
  */
 export class SBPlugins {
   protected cwd: string;
@@ -93,25 +97,47 @@ export class SBPlugins {
       if (pluginPath == "") {
         pluginPath = join(this.cwd, "./lib/plugins/" + plugin);
       }
+      const packageJsonPath = join(packageCwd, "./package.json");
+      if (existsSync(packageJsonPath)) {
+        const packageJSON = JSON.parse(
+          readFileSync(packageJsonPath, "utf-8")
+            .toString(),
+        );
+        version = packageJSON.version??'0.0.0';
+      }
     } else {
       // If a package is defined in the config, we will look for the plugin in the BSB_PLUGIN_DIR env, followed by the node_modules directory. Local plugins are not used.
       if (this.referencedPluginDir) {
-        pluginPath = join(this.referencedPluginDir, npmPackage, version, "./lib/plugins/" + plugin);
-        if (!existsSync(pluginPath)) pluginPath = "";
-        pluginPath = join(this.referencedPluginDir, npmPackage, "latest", "./lib/plugins/" + plugin);
-        if (!existsSync(pluginPath)) pluginPath = "";
+        const T1packageCwd = join(this.referencedPluginDir, npmPackage, version);
+        const T1pluginPath = join(this.referencedPluginDir, npmPackage, version, "./lib/plugins/" + plugin);
+        if (existsSync(T1pluginPath)) {
+          pluginPath = T1pluginPath;
+          packageCwd = T1packageCwd;
+        } else {
+          const T2pluginPath = join(this.referencedPluginDir, npmPackage, "latest", "./lib/plugins/" + plugin);
+          const T2packageCwd = join(this.referencedPluginDir, npmPackage, "latest");
+          if (existsSync(T2pluginPath)) {
+            pluginPath = T2pluginPath;
+            packageCwd = T2packageCwd;
+          }
+        }
       }
-      if (pluginPath == '') pluginPath = join(this.nodeModulesPluginDir, npmPackage, "./lib/plugins/" + plugin);
-      if (!existsSync(pluginPath)) pluginPath = "";
+      if (pluginPath == '') {
+        const T3pluginPath = join(this.nodeModulesPluginDir, npmPackage, "./lib/plugins/" + plugin);
+        const T3packageCwd = join(this.nodeModulesPluginDir, npmPackage);
+        if (existsSync(T3pluginPath)) {
+          pluginPath = T3pluginPath;
+          packageCwd = T3packageCwd;
+        }
+      }
 
-      pluginPath = join(packageCwd, "./lib/plugins/", plugin);
-
-      const packageJsonPath = join(packageCwd, "./package.json");
-      const packageJSON = JSON.parse(
-        readFileSync(packageJsonPath, "utf-8")
-          .toString(),
-      );
-      version = packageJSON.version;
+      if (existsSync(packageCwd) && existsSync(join(packageCwd, "./package.json"))) {
+        const packageJSON = JSON.parse(
+          readFileSync(join(packageCwd, "./package.json"), "utf-8")
+            .toString(),
+        );
+        version = packageJSON.version??'0.0.0';
+      }
     }
     if (!existsSync(pluginPath)) {
       log.error(tTrace, `Plugin {name} in {package} not found`, {

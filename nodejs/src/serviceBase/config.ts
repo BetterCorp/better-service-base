@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -56,8 +56,12 @@ function internalTrace(span: string): DTrace {
 
 /**
  * BSB Config Controller
+ * 
+ * This class is responsible for managing the configuration in the BSB framework.
+ * If you have a specific way of managing configuration, you can extend this class and then use your own class when creating the ServiceBase instance.
+ * 
  * @group Config
- * @category Extending BSB
+ * @category Core
  */
 export class SBConfig {
   private mode: DEBUG_MODE = "development";

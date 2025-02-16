@@ -12,7 +12,7 @@
       ]
     },
     "noImplicitAny": true,
-    "removeComments": true,
+    "removeComments": false,
     "preserveConstEnums": true,
     "noImplicitReturns": true,
     "noUnusedLocals": true,

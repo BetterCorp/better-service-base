@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -60,19 +60,51 @@ export type SmartLogMeta<T extends string> = ParamsFromString<T> extends never
   ? [undefined?]
   : [meta: Record<ParamsFromString<T>, UnsafeLogData | SafeLogData>];
 
+/**
+ * @group Logging
+ * @category Plugin Development Tools
+ */
 export interface IPluginLogging {
+  /**
+   * Log an informational message with meta data.
+   * @param trace - The trace object.
+   * @param message - The message to log.
+   * @param meta - The meta data to log.
+   */
   info<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void;
 
+  /**
+   * Log a warning message with meta data.
+   * @param trace - The trace object.
+   * @param message - The message to log.
+   * @param meta - The meta data to log.
+   */
   warn<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void;
 
+  /**
+   * Log a debug message with meta data.
+   * @param trace - The trace object.
+   * @param message - The message to log.
+   * @param meta - The meta data to log.
+   */
   debug<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void;
 
+  /**
+   * Log an error message with meta data.
+   * @param trace - The trace object.
+   * @param message - The message to log.
+   * @param meta - The meta data to log.
+   */
   error<T extends string>(
     trace: DTrace,
     message: T,
     ...meta: SmartLogMeta<T>
   ): void;
 
+  /**
+   * Log an error message with meta data.
+   * @param error - The error to log.
+   */
   error<T extends string>(error: BSBError<T>): void;
 }
 

@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -44,7 +44,7 @@ export interface BSBEventsConstructor<
 
 /**
  * @group Events
- * @category Plugin Development
+ * @category Plugins
  */
 export abstract class BSBEvents<
     ReferencedConfig extends BSBReferencePluginConfigType = any
@@ -69,7 +69,7 @@ export abstract class BSBEvents<
      * Listens for events that are emitted by other plugins
      * Broadcast events are emitted and received by all plugins
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
+     * @param trace - The trace object for tracking the operation
      * @param pluginName - The name of the plugin that is being listened to
      * @param event - The event to listen for
      * @param listener - The function to call when the event is received
@@ -88,8 +88,7 @@ export abstract class BSBEvents<
     /**
      * Emits an event that is received by all plugins
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
-     * @param trace - The trace to use
+     * @param trace - The trace object for tracking the operation
      * @param pluginName - The name of the plugin that is emitting the event
      * @param event - The event to emit
      * @param args - The arguments to pass to the event listener
@@ -99,7 +98,6 @@ export abstract class BSBEvents<
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
      */
     public abstract emitBroadcast(
-
         trace: DTrace,
         pluginName: string,
         event: string,
@@ -109,16 +107,15 @@ export abstract class BSBEvents<
     /**
      * Listens for events that are emitted by other plugins
      * Events are emitted and received by a single plugin
-     * Make sure to use the built in tests
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
+     * @param trace - The trace object for tracking the operation
      * @param pluginName - The name of the plugin that is being listened to
      * @param event - The event to listen for
      * @param listener - The function to call when the event is received
      * @returns Promise that resolves when the event listener has been registered
      *
      * @see BSB events-default plugin for an example of how to use this function
-     * @see {@link  https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
      */
     public abstract onEvent(
         trace: DTrace,
@@ -129,10 +126,8 @@ export abstract class BSBEvents<
 
     /**
      * Emits an event that is received by a single plugin
-     * Make sure to use the built in tests
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
-     * @param trace - The trace to use
+     * @param trace - The trace object for tracking the operation
      * @param pluginName - The name of the plugin that is emitting the event
      * @param event - The event to emit
      * @param args - The arguments to pass to the event listener
@@ -151,9 +146,8 @@ export abstract class BSBEvents<
     /**
      * Listens for events that are emitted by other plugins and return a value
      * Events are emitted and received by a single plugin
-     * Make sure to use the built in tests
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
+     * @param trace - The trace object for tracking the operation
      * @param pluginName - The name of the plugin that is being listened to
      * @param event - The event to listen for
      * @param listener - The function to call when the event is received
@@ -171,10 +165,8 @@ export abstract class BSBEvents<
 
     /**
      * Emits an event that is received by a single plugin and returns a value
-     * Make sure to use the built in tests
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
-     * @param trace - The trace to use
+     * @param trace - The trace object for tracking the operation
      * @param pluginName - The name of the plugin that is emitting the event
      * @param event - The event to emit
      * @param timeoutSeconds - The number of seconds to wait for the value to be returned
@@ -195,8 +187,7 @@ export abstract class BSBEvents<
     /**
      * Sets up a receive stream to receive a stream from another plugin
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
-     * @param trace - The trace to use
+     * @param trace - The trace object for tracking the operation
      * @param event - The event to listen for
      * @param listener - The function to call when the stream is received
      * @param timeoutSeconds - The number of seconds to wait for the stream to be received
@@ -215,8 +206,7 @@ export abstract class BSBEvents<
     /**
      * Sets up a send stream to send a stream to another plugin that created a receive stream
      *
-     * @param callerPluginName - The name of the plugin that is calling this function
-     * @param trace - The trace to use
+     * @param trace - The trace object for tracking the operation
      * @param event - The event to listen for
      * @param streamId - The id of the stream to send data to
      * @param stream - The stream to send data from

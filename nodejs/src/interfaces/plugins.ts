@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -56,6 +56,7 @@ export type PluginType = (typeof PluginTypes)[keyof typeof PluginTypes];
 
 /**
  * Marks all properties of an object read only and all nested objects read only
+ * @hidden
  */
 export type DeepReadonly<T> = {
   readonly [P in keyof T]: T[P] extends (infer R)[]
@@ -69,6 +70,7 @@ export type DeepReadonly<T> = {
 
 /**
  * Marks all properties of an array read only and all nested objects read only
+ * @hidden
  */
 export interface DeepReadonlyArray<T>
     extends ReadonlyArray<DeepReadonly<T>> {

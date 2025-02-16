@@ -3,11 +3,17 @@
 
 import {createHash, randomBytes} from "node:crypto";
 
+/**
+ * @hidden
+ */
 export interface MergeObjectsKey {
   refPropName: string;
   refPropKey: string;
 }
 
+/**
+ * @hidden
+ */
 export interface SimpleStatu<T = any> {
   status: boolean;
   value?: T;
@@ -26,7 +32,9 @@ export type DynamicallyReferencedMethodBase = DynamicallyReferencedType;
  */
 export type DynamicallyReferencedMethodType<T> = T & DynamicallyReferencedMethodBase;
 
-
+/**
+ * @hidden
+ */
 // from: https://stackoverflow.com/a/73394054/8083582
 export type ParamsFromString<T extends string> =
 // Check if this string includes a param, and infer the param name,
@@ -38,6 +46,9 @@ export type ParamsFromString<T extends string> =
         : // No params exist in these string, so return never.
         never;
 
+/**
+ * @hidden
+ */
 export type DynamicallyReferencedMethod<
     Interface extends DynamicallyReferencedType,
     Method extends string,
@@ -56,6 +67,9 @@ export type DynamicallyReferencedMethod<
         : // Else we return a never as it doesn't exist
         never;
 
+/**
+ * @hidden
+ */
 export enum CleanStringStrength {
   soft = "soft",
   hard = "hard",
@@ -66,11 +80,17 @@ export enum CleanStringStrength {
   custom = "custom"
 }
 
+/**
+ * @hidden
+ */
 export function generateAppIdHash(appId: string) {
   const hash = createHash('sha256').update(appId).digest('hex');
   return hash.slice(0, 2); // Take the first 2 characters of the hash
 }
 
+/**
+ * @hidden
+ */
 export function generateTimeBasedId(byteLength: number, appId: string) {
   // Get current timestamp in milliseconds
   const timestamp = BigInt(Date.now());

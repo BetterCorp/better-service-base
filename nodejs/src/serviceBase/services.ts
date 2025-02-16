@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -41,6 +41,9 @@ import { SBLogging } from "./logging";
 import { SBMetrics } from "./metrics";
 import { SBPlugins } from "./plugins";
 
+/**
+ * @hidden
+ */
 interface SortedPlugin {
   srcPluginName: string;
   pluginName: string;
@@ -69,8 +72,12 @@ function internalTrace(span: string): DTrace {
 
 /**
  * BSB Services Controller
+ * 
+ * This class is responsible for managing the services in the BSB framework.
+ * If you have a specific way of managing services, you can extend this class and then use your own class when creating the ServiceBase instance.
+ * 
  * @group Services
- * @category Extending BSB
+ * @category Core
  */
 export class SBServices {
   private _activeServices: Array<BSBService> = [];

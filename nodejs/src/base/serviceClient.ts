@@ -4,6 +4,9 @@ import {
 } from "../interfaces";
 import { BSBService, PluginEvents } from "./index";
 
+/**
+ * @hidden
+ */
 export abstract class BSBServiceClient<Service extends BSBService = any> {
   public readonly log!: IPluginLogging;
   public readonly events!: PluginEvents<
@@ -30,6 +33,7 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
 }
 
 /**
+ * @hidden
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
 export class BSBServiceClientRef extends BSBServiceClient<any> {

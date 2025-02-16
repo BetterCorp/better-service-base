@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -77,8 +77,36 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
 }
 
 /**
+ * Instantiates a link to a Service Plugin.
+ * 
+ * Create a new ServiceClient based on a plugin class/definition and then use the events from that plugin.
+ * 
+ * @example
+ * ```typescript
+ * // Example Service Plugin (just an example, not a real plugin):
+ * 
+ * import { Plugin as Service1 } from "./myplugin";
+ * 
+ * export class Plugin
+ * extends BSBService<null, Events> {
+ *  private service1: ServiceClient<Service1>;
+ * 
+ *  constructor(config: BSBServiceConstructor) {
+ *    super(config);
+ *    this.service1 = new ServiceClient(Service1, this);
+ *  }
+ * 
+ *  public async init(trace: DTrace) {
+ *    this.events.onReturnableEvent("calculate", trace, async (iTrace: DTrace, a: number, b: number) => {
+ *      this.log.info(iTrace, "Calculating {a} * {b}", { a, b });
+ *      return a * b;
+ *    });
+ *  }
+ * }
+ * ```
+ * 
  * @group Services
- * @category Using Plugins
+ * @category Plugins
  */
 export class ServiceClient<
   Service extends BSBService<any>,

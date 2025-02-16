@@ -2,7 +2,23 @@
 // @bettercorp/tools
 import {CleanStringStrength, MergeObjectsKey, SimpleStatu} from "../interfaces";
 
+/**
+ * Just a bunch of utility functions - some are used within the framework, others are just general purpose.
+ * You can use any of these functions instead of writing your own or importing from an additional library.
+ * 
+ * This class only has static methods, so don't going creating instances of it.
+ * 
+ * If you want to use it, like for isNullOrUndefined, you can just call it directly on the class: `Tools.isNullOrUndefined(value)`.
+ * @category Tools
+ */
 export class Tools {
+  /**
+   * @hidden
+   */
+  constructor() {
+    throw new Error("This class is not meant to be instantiated");
+  }
+
   public static readonly regexes = {
     exhard: /(?![A-Za-z0-9])[\W_]/g,
     hard: /(?![,-:~_])[\W]/g,

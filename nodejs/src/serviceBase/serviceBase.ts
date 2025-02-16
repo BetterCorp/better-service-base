@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -70,8 +70,13 @@ function internalTrace(span: string): DTrace {
 
 /**
  * Main entry point for the BSB framework.
+ * 
+ * This class is responsible for initializing and running the BSB framework.
+ * You can override the default behaviour of the framework by passing in your own classes for the plugins, logging, metrics, events and services.
+ * The passed in classes are not the plugins themselves, but rather the classes that handle the plugin creation, setup and running.
+ * 
  * @group Main
- * @category ServiceBase
+ * @category Core
  */
 export class ServiceBase {
   private readonly mode: DEBUG_MODE = "development";

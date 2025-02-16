@@ -1,6 +1,6 @@
 /**
  * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -57,7 +57,7 @@ export interface BSBServiceClientDefinition {
 
 /**
  * @group Services
- * @category Plugin Development
+ * @category Plugins
  */
 export abstract class BSBService<
   ReferencedConfig extends BSBReferencePluginConfigType = any,
@@ -73,6 +73,9 @@ export abstract class BSBService<
   public abstract readonly initAfterPlugins?: Array<string>;
   public abstract readonly runBeforePlugins?: Array<string>;
   public abstract readonly runAfterPlugins?: Array<string>;
+  /**
+   * @hidden
+   */
   public declare readonly _virtual_internal_events: {
     onEvents: Events["onEvents"];
     emitEvents: Events["emitEvents"];
@@ -90,6 +93,9 @@ export abstract class BSBService<
     Events["onBroadcast"],
     Events["emitBroadcast"]
   >;
+  /**
+   * @hidden
+   */
   public _clients: Array<BSBServiceClient<any>> = [];
 
   constructor(config: BSBServiceConstructor<ReferencedConfig>) {
