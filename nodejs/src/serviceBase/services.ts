@@ -26,7 +26,6 @@
  */
 
 import {
-  BSBError,
   BSBService,
   BSBServiceClient,
   PluginEvents,
@@ -265,14 +264,10 @@ export class SBServices {
       for (const plugin of pluginArr!) {
         const pluginDef = await sbConfig.getServicePluginDefinition(tTrace, plugin);
         if (pluginDef.enabled !== true) {
-          throw new BSBError(
-            internalTrace("mapServicePlugins"),
-            "The plugin {plugin} is not enabled for {pluginNeeded} to work.",
-            {
-              plugin: plugin,
-              pluginNeeded: referencedPluginName,
-            }
-          );
+          this.log.warn(tTrace, "The plugin {plugin} is not enabled for {pluginNeeded}. It may not work as expected.", {
+            plugin: plugin,
+            pluginNeeded: referencedPluginName,
+          });
         }
         outlist.push(pluginDef.name);
       }

@@ -35,7 +35,7 @@
     "LICENSE"
   ],
   "main": "lib/index.js",
-  "version": "9.5.6-beta",
+  "version": "9.5.7-beta",
   "devDependencies": {
     "@types/assert": "^1.5.10",
     "@types/chai": "^4.3.11",
