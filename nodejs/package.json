@@ -13,7 +13,7 @@
     "generate-docs2": "typedoc --out ./odocs --tsconfig ./tsconfig-release.json --cacheBust src/index.ts",
     "dev": "ts-node src/dev.ts",
     "start": "node lib/cli.js",
-    "build": "rm -rfv ./lib && tsc && npm run testDev",
+    "build": "rm -rfv ./lib && tsc && npm run testDev && npm run generate-docs",
     "build-release": "rm -rfv ./lib && tsc --p ./tsconfig-release.json",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
@@ -35,11 +35,10 @@
     "LICENSE"
   ],
   "main": "lib/index.js",
-  "version": "9.5.7-beta",
+  "version": "9.5.8-next",
   "devDependencies": {
     "@types/assert": "^1.5.10",
     "@types/chai": "^4.3.11",
-    "@types/chokidar": "^2.1.0",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.17.12",
