@@ -11,7 +11,7 @@
   "scripts": {
     "generate-docs": "typedoc --json ./docs.json --tsconfig ./tsconfig-release.json  --cacheBust src/index.ts",
     "generate-docs2": "typedoc --out ./odocs --tsconfig ./tsconfig-release.json --cacheBust src/index.ts",
-    "dev": "nodemon --config ./nodemon.json",
+    "dev": "ts-node src/dev.ts",
     "start": "node lib/cli.js",
     "build": "rm -rfv ./lib && tsc && npm run testDev",
     "build-release": "rm -rfv ./lib && tsc --p ./tsconfig-release.json",
@@ -39,6 +39,7 @@
   "devDependencies": {
     "@types/assert": "^1.5.10",
     "@types/chai": "^4.3.11",
+    "@types/chokidar": "^2.1.0",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.17.12",
@@ -46,6 +47,7 @@
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "benchmarkify": "^4.0.0",
     "chai": "^4.3.10",
+    "chokidar": "^3.6.0",
     "eslint": "^8.56.0",
     "mocha": "^10.2.0",
     "nyc": "^15.1.0",

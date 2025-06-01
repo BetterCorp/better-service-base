@@ -1,0 +1,10 @@
+# Watch patterns for BSB development
+# Add patterns to watch for changes, one per line
+# Add a ! to make it an ignore
+
+src/**/*.ts
+sec-config.yaml 
+!.git
+!lib
+!node_modules
+!src/plugins/-*/**/*.ts

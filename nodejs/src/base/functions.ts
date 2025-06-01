@@ -27,6 +27,7 @@
 
 import { createFakeDTrace, DTrace } from '../interfaces/metrics';
 import { BSBError } from "./errorMessages";
+import { z } from "zod";
 
 /**
  * @hidden
@@ -144,4 +145,15 @@ export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
     );
   }
   return input.call(context, ...params);
+}
+
+export const ENV_PROPS = z.object({
+  BSB_PROFILE: z.string().optional().default("default"),
+  BSB_CONFIG_FILE: z.string().optional().default("config.yaml"),
+  APP_DIR: z.string().optional().default(process.cwd()),
+  BSB_LOGGER_PLUGIN: z.string().optional().default("config-default"),
+  BSB_LOGGER_PLUGIN_PACKAGE: z.string().optional().default("config-default"),
+});
+export function getEnvProps() {
+  return ENV_PROPS.parse(process.env);
 }

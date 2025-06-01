@@ -215,9 +215,13 @@ export class ServiceBase {
     process.on("SIGUSR2", () => self.dispose(2, "sig kill user 2"));
 
     //catches uncaught exceptions
-    process.on("uncaughtException", (e) =>
-      self.dispose(3, "uncaught exception", e),
-    );
+    process.on("uncaughtException", (error: Error) => {
+      self.log.error(internalTrace("UNCAUGHT_EXCEPTION"),
+        "Uncaught exception: {error}\n Stack: {stack}",
+        { error: error.message, stack: error.stack ?? 'no stack trace' }
+      );
+      self.dispose(3, "uncaught exception", error);
+    });
     this._outputKeep(BOOT_STAT_KEYS.SELF);
   }
 
@@ -265,6 +269,7 @@ export class ServiceBase {
     this.heartBeat();
     this._outputKeep(BOOT_STAT_KEYS.BSB);
     this.bsbBootTimeMetric.set(this._keeps![BOOT_STAT_KEYS.BSB] as number);
+    this._keeps = undefined;
   }
 
   private heartBeat() {
@@ -312,6 +317,8 @@ export class ServiceBase {
         this.log.debug(span.trace, "Disposing config");
         this.config.dispose();
       }
+
+      this._keeps = undefined;
     } catch (error) {
       span.error(error instanceof Error ? error : new Error(String(error)));
       throw error;
