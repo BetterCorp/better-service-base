@@ -63,9 +63,8 @@ export class PluginLogging
    * ```
    */
   public debug<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
-    if (this.canDebug) {
-      this.logging.logBus.emit("debug", this.pluginName, trace, message, ...meta);
-    }
+    if (!this.canDebug) return; // Early return for performance
+    this.logging.logBus.emit("debug", this.pluginName, trace, message, ...meta);
   }
 
   /**

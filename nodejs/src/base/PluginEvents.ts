@@ -58,6 +58,7 @@ export class PluginEvents<
 > {
     private events: SBEvents;
     private service: BSBService<any, any> | BSBServiceClient<any>;
+    private cachedPluginName: string;
 
     constructor(
         mode: DEBUG_MODE,
@@ -66,6 +67,7 @@ export class PluginEvents<
     ) {
         this.events = events;
         this.service = context;
+        this.cachedPluginName = context.pluginName; // Cache to avoid property access
     }
 
     /**
@@ -94,13 +96,13 @@ export class PluginEvents<
             false
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const listener = args[0] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
         return this.events.onBroadcast(
             this.service,
             trace,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             listener
         );
@@ -131,12 +133,12 @@ export class PluginEvents<
             TA
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const remainingArgs = args as Array<any>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const remainingArgs = args.slice(2);
         return this.events.emitBroadcast(
             trace,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             remainingArgs
         );
@@ -167,13 +169,13 @@ export class PluginEvents<
             false
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const listener = args[0] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
         return await this.events.onEvent(
             trace,
             this.service,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             listener
         );
@@ -204,12 +206,12 @@ export class PluginEvents<
             TA
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const remainingArgs = args as Array<any>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const remainingArgs = args.slice(2);
         return await this.events.emitEvent(
             trace,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             ...remainingArgs
         );
@@ -243,14 +245,14 @@ export class PluginEvents<
             false
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const listener = args[0] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
         return await this.events.onEventSpecific(
             trace,
             serverId,
             this.service,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             listener
         );
@@ -284,13 +286,13 @@ export class PluginEvents<
             TA
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const remainingArgs = args as Array<any>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const remainingArgs = args.slice(2);
         return await this.events.emitEventSpecific(
             trace,
             serverId,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             ...remainingArgs
         );
@@ -323,13 +325,13 @@ export class PluginEvents<
             true
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const listener = args[0] as unknown as (trace: DTrace, args: Array<any>) => Promise<any>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<any>;
         return await this.events.onReturnableEvent(
             trace,
             this.service,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             listener
         );
@@ -368,13 +370,13 @@ export class PluginEvents<
             false
         >
     > {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const timeoutSeconds = args.length > 0 ? (args.splice(0, 1)[0] as number) : 5;
-        const remainingArgs = args as Array<any>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const timeoutSeconds = args.length > 2 && typeof args[2] === 'number' ? (args[2] as number) : 5;
+        const remainingArgs = timeoutSeconds !== 5 ? args.slice(3) : args.slice(2);
         return await this.events.emitEventAndReturn(
             trace,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             timeoutSeconds,
             ...remainingArgs
@@ -410,14 +412,14 @@ export class PluginEvents<
             true
         >
     ): Promise<void> {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const listener = args[0] as unknown as (trace: DTrace, args: Array<any>) => Promise<any>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<any>;
         return await this.events.onReturnableEventSpecific(
             trace,
             serverId,
             this.service,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             listener
         );
@@ -459,14 +461,14 @@ export class PluginEvents<
             false
         >
     > {
-        const event = args.splice(0, 1)[0] as string;
-        const trace = args.splice(0, 1)[0] as DTrace;
-        const timeoutSeconds = args.length > 0 ? (args.splice(0, 1)[0] as number) : 5;
-        const remainingArgs = args as Array<any>;
+        const event = args[0] as string;
+        const trace = args[1] as DTrace;
+        const timeoutSeconds = args.length > 2 && typeof args[2] === 'number' ? (args[2] as number) : 5;
+        const remainingArgs = timeoutSeconds !== 5 ? args.slice(3) : args.slice(2);
         return await this.events.emitEventAndReturnSpecific(
             trace,
             serverId,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             timeoutSeconds,
             ...remainingArgs
@@ -512,7 +514,7 @@ export class PluginEvents<
         return await this.events.receiveStream(
             trace,
             this.service,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             listener,
             timeoutSeconds,
@@ -558,7 +560,7 @@ export class PluginEvents<
     ): Promise<void> {
         return await this.events.sendStream(
             trace,
-            this.service.pluginName,
+            this.cachedPluginName,
             event,
             streamId,
             stream,

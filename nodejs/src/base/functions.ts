@@ -73,9 +73,7 @@ export function SmartFunctionCallThroughAsync<T extends SmartFunctionCallFunc>(
   input: T | undefined,
   ...params: Parameters<T>
 ): Promise<ReturnType<T> | void> | ReturnType<T> | void {
-  if (typeof input !== "function") {
-    return;
-  }
+  if (typeof input !== "function") return;
   if (typeof context !== "object") {
     throw new BSBError(trace,
       "SmartFunctionCallThroughAsync: context is not an object",
@@ -108,9 +106,7 @@ export async function SmartFunctionCallAsync<T extends SmartFunctionCallFunc>(
   input: T | undefined,
   ...params: Parameters<T>
 ): Promise<ReturnType<T> | void> {
-  if (typeof input !== "function") {
-    return;
-  }
+  if (typeof input !== "function") return;
   if (typeof context !== "object") {
     throw new BSBError(internalTrace("SmartFunctionCallAsync"),
       "SmartFunctionCallAsync: context is not an object",
@@ -135,9 +131,7 @@ export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
   input: T | undefined,
   ...params: Parameters<T>
 ): ReturnType<T> | void {
-  if (typeof input !== "function") {
-    return;
-  }
+  if (typeof input !== "function") return;
   if (typeof context !== "object") {
     throw new BSBError(internalTrace("SmartFunctionCallSync"),
       "SmartFunctionCallSync: context is not an object",

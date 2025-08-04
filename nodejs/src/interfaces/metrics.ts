@@ -283,8 +283,17 @@ export interface Trace {
 /**
  * @hidden
  */
+const traceCache = new Map<string, DTrace>();
 export const createFakeDTrace = (trace: string, span: string): DTrace => {
-  return { t: `INTERNAL:${trace}`, s: span };
+  const cacheKey = `${trace}:${span}`;
+  let cached = traceCache.get(cacheKey);
+  if (!cached) {
+    cached = { t: `INTERNAL:${trace}`, s: span };
+    if (traceCache.size < 1000) { // Prevent memory leaks
+      traceCache.set(cacheKey, cached);
+    }
+  }
+  return cached;
 };
 /**
  * @hidden
