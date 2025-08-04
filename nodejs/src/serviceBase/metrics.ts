@@ -343,7 +343,7 @@ export class SBMetrics {
       plugin.plugin,
       plugin.name,
     );
-    if (newPlugin === null) {
+    if (newPlugin === null || !newPlugin.success) {
       this.log.error(
         dTrace,
         "Failed to import metrics plugin: {name} from ({package}){file}",
@@ -366,12 +366,12 @@ export class SBMetrics {
       ) ?? null;
 
     if (
-      newPlugin.serviceConfig?.validationSchema
+      newPlugin.data.serviceConfig?.validationSchema
     ) {
       this.log.debug(dTrace, "Validate plugin config: {name}", { name: plugin.name });
-      pluginConfig = newPlugin.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
+      pluginConfig = newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
     }
 
-    await this.addPlugin(plugin, newPlugin, pluginConfig);
+    await this.addPlugin(plugin, newPlugin.data, pluginConfig);
   }
 }

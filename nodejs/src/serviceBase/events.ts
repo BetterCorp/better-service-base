@@ -377,7 +377,7 @@ export class SBEvents {
       plugin.plugin,
       plugin.name,
     );
-    if (newPlugin === null) {
+    if (newPlugin === null || !newPlugin.success) {
       this.log.error(tTrace,
         "Failed to import events plugin: {name} from ({package}){file}",
         {
@@ -395,17 +395,16 @@ export class SBEvents {
       ) ?? null;
 
     if (
-      !Tools.isNullOrUndefined(newPlugin) &&
-      !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
-      Tools.isObject(newPlugin.serviceConfig) &&
-      !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
+      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig) &&
+      Tools.isObject(newPlugin.data.serviceConfig) &&
+      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
     ) {
       this.log.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
-        newPlugin.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
+        newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
     }
 
-    await this.addPlugin(sbLogging, sbMetrics, plugin, newPlugin, pluginConfig, filter);
+    await this.addPlugin(sbLogging, sbMetrics, plugin, newPlugin.data, pluginConfig, filter);
   }
 
   private async handleOnBroadcast(

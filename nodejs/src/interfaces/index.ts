@@ -30,4 +30,17 @@ export * from "./logging";
 export * from "./plugins";
 export * from "./service";
 export * from "./metrics";
-export * from "./tools";
+export * from "./result";
+export * from "./options";
+export { 
+  CleanStringStrength, 
+  DynamicallyReferencedMethodBase,
+  DynamicallyReferencedMethodType,
+  DynamicallyReferencedMethod,
+  DynamicallyReferencedType,
+  MergeObjectsKey,
+  ParamsFromString,
+  SimpleStatu,
+  generateAppIdHash,
+  generateTimeBasedId
+} from "./tools";

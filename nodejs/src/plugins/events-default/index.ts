@@ -32,7 +32,8 @@ import {
   emitAndReturn,
   emitStreamAndReceiveStream,
 } from "../../plugins/events-default/events/index";
-import { BSBEvents, BSBEventsConstructor, DTrace } from "../../index";
+import { DTrace } from "../../index";
+import { BSBEvents, BSBEventsConstructor } from "../../base/BSBEvents";
 
 export class Plugin
   extends BSBEvents {

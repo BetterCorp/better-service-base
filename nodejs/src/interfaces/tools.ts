@@ -105,3 +105,8 @@ export function generateTimeBasedId(byteLength: number, appId: string) {
   // Combine timestamp, appId hash, and random data
   return timeHex + appIdHash + randomHex;
 }
+
+/**
+ * @hidden
+ */
+export const DEBUG_MODE = process.env.NODE_ENV !== "production";

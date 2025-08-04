@@ -29,10 +29,9 @@ import { z } from "zod";
 import {
   BSBPluginConfig,
   BSBPluginEvents,
-  BSBService,
-  BSBServiceConstructor,
   ServiceEventsBase,
 } from "../../index";
+import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
 import { DTrace } from "../../interfaces/metrics";
 
 export const secSchema = z.object({});

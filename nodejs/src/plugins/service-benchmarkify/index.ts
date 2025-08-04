@@ -25,7 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBService, BSBServiceConstructor, BSBPluginEvents, DTrace, ServiceClient, BSBServiceClientDefinition } from "../../index";
+import { BSBPluginEvents, DTrace, ServiceClient, BSBServiceClientDefinition } from "../../index";
+import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
 const Benchmarkify = require("benchmarkify");
 
 export interface Events extends BSBPluginEvents {

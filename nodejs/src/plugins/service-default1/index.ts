@@ -25,7 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBService, BSBPluginEvents } from "../../index";
+import { BSBPluginEvents } from "../../index";
+import { BSBService } from "../../base/BSBService";
 import { BSBServiceClientDefinition } from "../../base";
 import { DTrace } from "../../interfaces/metrics";
 

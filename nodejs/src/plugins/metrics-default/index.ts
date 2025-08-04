@@ -25,7 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBError, BSBMetrics } from "../..";
+import { BSBError } from "../..";
+import { BSBMetrics } from "../../base/BSBMetrics";
 import { DTrace, Timer } from "../../interfaces/metrics";
 import { DEBUG_MODE } from "../../interfaces/logging";
 import { CONSOLE_COLOURS } from "../logging-default/colours";

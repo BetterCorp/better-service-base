@@ -47,7 +47,6 @@ export type ErrorLogMeta<T extends string> = ParamsFromString<T> extends never
  * @category Tools
  * @param message - The message to log
  * @param meta - Additional information to log with the message
- * @constructor
  */
 export class BSBError<T extends string>
   extends Error {

@@ -28,7 +28,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BSBPluginConfig, BSBPluginConfigRef } from "../base";
-import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef } from "../interfaces";
+import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef, Result, Ok, Err, fromPromise } from "../interfaces";
 
 /**
  * @hidden
@@ -75,7 +75,7 @@ export class SBPlugins {
     npmPackage: string | null,
     plugin: string,
     name: string,
-  ): Promise<LoadedPlugin<NamedType, ClassType> | null> {
+  ): Promise<Result<LoadedPlugin<NamedType, ClassType>, Error>> {
     const tTrace = internalTrace(`loadPlugin:${ npmPackage }:${ plugin }`);
     log.debug(tTrace, `Plugin {name} from {package} try load as {pluginName}`, {
       name: plugin,
@@ -144,7 +144,7 @@ export class SBPlugins {
         name: plugin,
         package: npmPackage ?? "self",
       });
-      return null;
+      return Err(new Error(`Plugin ${plugin} in ${npmPackage ?? "self"} not found`));
     }
 
     log.debug(tTrace, `Plugin {name}: attempt to load from {path} as {pluginName}`, {
@@ -153,20 +153,23 @@ export class SBPlugins {
       pluginName: name,
     });
 
-    try {
-      return await this.loadPluginFile(
-        pluginPath,
-        name,
-        packageCwd,
-        version
-      );
-    } catch (error) {
+    const loadResult = await fromPromise(this.loadPluginFile<NamedType, ClassType>(
+      pluginPath,
+      name,
+      packageCwd,
+      version
+    ));
+
+    if (!loadResult.success) {
       log.error(tTrace, `Failed to load plugin {name}: {error}`, {
         name: plugin,
-        error: error instanceof Error ? error.message : String(error),
+        error: loadResult.error.message,
       });
-      return null;
+      return Err(new Error(`Failed to load plugin ${name}: ${loadResult.error.message}`));
     }
+
+    log.info(tTrace, `Successfully loaded plugin {name}`, { name: plugin });
+    return Ok(loadResult.data);
   }
 
   public async loadPluginFile<

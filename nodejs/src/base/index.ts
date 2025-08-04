@@ -40,3 +40,4 @@ export * from "./BSBMetrics";
 export * from "./BSBConfig";
 export * from "./BSBLogging";
 export * from "./BSBServiceClient";
+export * from "./factory";

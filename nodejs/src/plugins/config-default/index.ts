@@ -29,8 +29,6 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { parse } from "yaml";
 import {
-  BSBConfig,
-  BSBConfigConstructor,
   EventsConfig,
   LoggingConfig,
   PluginDefinition,
@@ -39,6 +37,7 @@ import {
   BSBError,
   DTrace,
 } from "../../index";
+import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig";
 import { ConfigDefinition } from "./interfaces";
 
 export class Plugin

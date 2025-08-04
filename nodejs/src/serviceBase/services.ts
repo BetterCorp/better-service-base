@@ -341,7 +341,7 @@ export class SBServices {
       plugin.plugin,
       plugin.name,
     );
-    if (newPlugin === null) {
+    if (newPlugin === null || !newPlugin.success) {
       this.log.error(
         tTrace,
         "Failed to import service plugin: {name} from ({package}){file}",
@@ -365,14 +365,13 @@ export class SBServices {
 
     if (
       this.mode !== "production" &&
-      !Tools.isNullOrUndefined(newPlugin) &&
-      !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
-      Tools.isObject(newPlugin.serviceConfig) &&
-      !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
+      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig) &&
+      Tools.isObject(newPlugin.data.serviceConfig) &&
+      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
     ) {
       this.log.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
-        newPlugin.serviceConfig.validationSchema.parse(pluginConfig);
+        newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig);
     }
 
     await this.addPlugin(
@@ -381,7 +380,7 @@ export class SBServices {
       sbEvents,
       sbMetrics,
       plugin,
-      newPlugin,
+      newPlugin.data,
       pluginConfig,
     );
   }

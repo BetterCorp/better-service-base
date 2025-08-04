@@ -27,11 +27,10 @@
 
 import {
   LogMeta,
-  BSBLogging,
-  BSBLoggingConstructor,
   LogFormatter,
   DTrace
 } from "../../index";
+import { BSBLogging, BSBLoggingConstructor } from "../../base/BSBLogging";
 import { CONSOLE_COLOURS, ConsoleColours } from "./colours";
 
 export const LOG_LEVELS = {

@@ -347,7 +347,7 @@ export class SBLogging {
       plugin.plugin,
       plugin.name,
     );
-    if (newPlugin === null) {
+    if (newPlugin === null || !newPlugin.success) {
       this.log.error(
         dTrace,
         "Failed to import logging plugin: {name} from ({package}){file}",
@@ -370,16 +370,15 @@ export class SBLogging {
       ) ?? null;
 
     if (
-      !Tools.isNullOrUndefined(newPlugin) &&
-      !Tools.isNullOrUndefined(newPlugin.serviceConfig) &&
-      Tools.isObject(newPlugin.serviceConfig) &&
-      !Tools.isNullOrUndefined(newPlugin.serviceConfig.validationSchema)
+      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig) &&
+      Tools.isObject(newPlugin.data.serviceConfig) &&
+      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
     ) {
       this.log.debug(dTrace, "Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
-        newPlugin.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
+        newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
     }
 
-    await this.addPlugin(plugin, newPlugin, pluginConfig, filter);
+    await this.addPlugin(plugin, newPlugin.data, pluginConfig, filter);
   }
 }

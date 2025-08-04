@@ -1,0 +1,13 @@
+junit.json
+sec.config.json
+sec.config.yaml
+sec-config.yaml
+node_modules
+.nyc_output
+lib
+plugins/*/lib
+plugins/*/sec-config.yaml
+coverage
+development/tsconfig.json
+TODO.md
+REVIEW.md

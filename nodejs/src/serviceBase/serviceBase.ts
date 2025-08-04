@@ -25,14 +25,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { v7 as randomUUID } from "uuid";
-import { hostname } from "node:os";
 import {
   BSBError,
   BSBService, MS_PER_NS, NS_PER_SEC,
   PluginLogging, PluginMetrics,
 } from "../base";
-import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, IPluginLogging, LogMeta, PluginTypeDefinitionRef } from "../interfaces";
+import { resolveBSBOptions, fromSimpleOptions, fromPreset } from "../base/factory";
+import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, IPluginLogging, LogMeta, PluginTypeDefinitionRef, BSBOptions, ResolvedBSBOptions, SimpleBSBOptions, BSBPreset } from "../interfaces";
 import { SBConfig } from "./config";
 import { SBEvents } from "./events";
 import { SBLogging } from "./logging";
@@ -80,6 +79,93 @@ function internalTrace(span: string): DTrace {
  */
 export class ServiceBase {
   private readonly mode: DEBUG_MODE = "development";
+
+  /**
+   * Create a ServiceBase instance with simple configuration
+   * 
+   * @param simple - Simple configuration options
+   * @returns New ServiceBase instance
+   * 
+   * @group Main
+   * @category Factory
+   * @example
+   * ```typescript
+   * const app = ServiceBase.create({
+   *   cwd: './my-app',
+   *   plugins: ['logging-default', 'events-default']
+   * });
+   * ```
+   */
+  static create(simple?: SimpleBSBOptions): ServiceBase {
+    const options = fromSimpleOptions(simple);
+    return new ServiceBase(options);
+  }
+
+  /**
+   * Create a ServiceBase instance from a preset
+   * 
+   * @param preset - Preset configuration type
+   * @param overrides - Additional options to override preset defaults
+   * @returns New ServiceBase instance
+   * 
+   * @group Main
+   * @category Factory
+   * @example
+   * ```typescript
+   * const app = ServiceBase.fromPreset(BSBPreset.DEVELOPMENT, { 
+   *   cwd: './my-app' 
+   * });
+   * ```
+   */
+  static fromPreset(preset: BSBPreset, overrides?: Partial<BSBOptions>): ServiceBase {
+    const options = fromPreset(preset, overrides);
+    return new ServiceBase(options);
+  }
+
+  /**
+   * Create a minimal ServiceBase instance for quick prototyping
+   * 
+   * @param cwd - Working directory (defaults to process.cwd())
+   * @returns New ServiceBase instance with minimal configuration
+   * 
+   * @group Main
+   * @category Factory
+   * @example
+   * ```typescript
+   * const app = ServiceBase.minimal('./my-app');
+   * await app.init();
+   * await app.run();
+   * ```
+   */
+  static minimal(cwd?: string): ServiceBase {
+    return ServiceBase.fromPreset(BSBPreset.MINIMAL, { cwd });
+  }
+
+  /**
+   * Create a development ServiceBase instance with debug logging
+   * 
+   * @param cwd - Working directory (defaults to process.cwd())
+   * @returns New ServiceBase instance configured for development
+   * 
+   * @group Main
+   * @category Factory
+   */
+  static development(cwd?: string): ServiceBase {
+    return ServiceBase.fromPreset(BSBPreset.DEVELOPMENT, { cwd });
+  }
+
+  /**
+   * Create a production ServiceBase instance with optimized settings
+   * 
+   * @param cwd - Working directory (defaults to process.cwd())
+   * @returns New ServiceBase instance configured for production
+   * 
+   * @group Main
+   * @category Factory
+   */
+  static production(cwd?: string): ServiceBase {
+    return ServiceBase.fromPreset(BSBPreset.PRODUCTION, { cwd });
+  }
 
   private readonly _CORE_PLUGIN_NAME = "core";
   private readonly _appId;
@@ -133,37 +219,74 @@ export class ServiceBase {
     this.log.info(internalTrace("TIMEKEEPER"), TIMEKEEPLOG, logMeta);
   }
 
+  /**
+   * @deprecated Use constructor with BSBOptions instead
+   */
   constructor(
-    debug: boolean = true, // Enable debug logging (true): disabled debug logging
-    live: boolean = false, // Disable development mode (true): changes the way plugins are imported
-    cwd: string, // Current working directory: The current directory where you are running from
-    config: typeof SBConfig = SBConfig, // Config handler: Allows you to override default behavour,
-    plugins: typeof SBPlugins = SBPlugins, // Plugins handler: Allows you to override default behavour,
-    logging: typeof SBLogging = SBLogging, // Logging handler: Allows you to override default behavour,
-    metrics: typeof SBMetrics = SBMetrics, // Metrics handler: Allows you to override default behavour,
-    events: typeof SBEvents = SBEvents, // Events handler: Allows you to override default behavour,
-    services: typeof SBServices = SBServices, // Services handler: Allows you to override default behavour
+    debug: boolean,
+    live: boolean,
+    cwd: string,
+    config?: typeof SBConfig,
+    plugins?: typeof SBPlugins,
+    logging?: typeof SBLogging,
+    metrics?: typeof SBMetrics,
+    events?: typeof SBEvents,
+    services?: typeof SBServices
+  );
+  
+  /**
+   * Create a new ServiceBase instance with options
+   */
+  constructor(options: BSBOptions);
+  
+  /**
+   * Create a new ServiceBase instance
+   */
+  constructor(
+    optionsOrDebug: BSBOptions | boolean = {},
+    live?: boolean,
+    cwd?: string,
+    config?: typeof SBConfig,
+    plugins?: typeof SBPlugins,
+    logging?: typeof SBLogging,
+    metrics?: typeof SBMetrics,
+    events?: typeof SBEvents,
+    services?: typeof SBServices
   ) {
-    this.cwd = cwd;
-    if (live === false) {
-      this.mode = "development";
-    } else if (debug === true) {
-      this.mode = "production-debug";
+    // Resolve options based on whether new or old API is used
+    let resolvedOptions: ResolvedBSBOptions;
+    
+    if (typeof optionsOrDebug === 'object') {
+      // New API: options object
+      resolvedOptions = resolveBSBOptions(optionsOrDebug);
     } else {
-      this.mode = "production";
+      // Old API: individual parameters (maintain backward compatibility)
+      const debug = optionsOrDebug;
+      resolvedOptions = resolveBSBOptions({
+        debug: debug ?? true,
+        live: live ?? false,
+        cwd: cwd ?? process.cwd(),
+        config,
+        plugins,
+        logging,
+        metrics,
+        events,
+        services
+      });
     }
 
-    this._appId = `${ hostname() }-${ randomUUID() }`;
-    if (typeof process.env.BSB_APP_ID === "string" && process.env.BSB_APP_ID.length > 2) {
-      this._appId = process.env.BSB_APP_ID;
-    }
+    // Set instance properties from resolved options
+    this.cwd = resolvedOptions.cwd;
+    this.mode = resolvedOptions.mode;
+    this._appId = resolvedOptions.appId;
 
     this._startKeep(BOOT_STAT_KEYS.SELF);
 
-    this.plugins = new plugins(this.cwd, this.mode === "development");
-    this.logging = new logging(this._appId, this.mode, this.cwd, this.plugins);
-    this.metrics = new metrics(this._appId, this.mode, this.cwd, this.plugins, this.logging);
-    this.events = new events(
+    // Initialize subsystems with resolved dependencies
+    this.plugins = new resolvedOptions.plugins(this.cwd, this.mode === "development");
+    this.logging = new resolvedOptions.logging(this._appId, this.mode, this.cwd, this.plugins);
+    this.metrics = new resolvedOptions.metrics(this._appId, this.mode, this.cwd, this.plugins, this.logging);
+    this.events = new resolvedOptions.events(
       this._appId,
       this.mode,
       this.cwd,
@@ -171,7 +294,7 @@ export class ServiceBase {
       this.logging,
       this.metrics,
     );
-    this.config = new config(
+    this.config = new resolvedOptions.config(
       this._appId,
       this.mode,
       this.cwd,
@@ -192,7 +315,7 @@ export class ServiceBase {
     this.log.info(internalTrace("CONSTRUCTOR"), "Starting BSB [{mode}]", {
       mode: this.mode,
     });
-    this.services = new services(
+    this.services = new resolvedOptions.services(
       this._appId,
       this.mode,
       this.cwd,

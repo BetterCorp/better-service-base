@@ -25,7 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBService, BSBServiceConstructor, BSBPluginEvents, DTrace, ServiceClient } from "../../index";
+import { BSBPluginEvents, DTrace, ServiceClient } from "../../index";
+import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
 import { Plugin as Service1 } from "../service-default1";
 export interface Events extends BSBPluginEvents {
   emitEvents: {};

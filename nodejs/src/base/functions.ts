@@ -129,7 +129,6 @@ export async function SmartFunctionCallAsync<T extends SmartFunctionCallFunc>(
  * @param context
  * @param input
  * @param params
- * @constructor
  */
 export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
   context: any,

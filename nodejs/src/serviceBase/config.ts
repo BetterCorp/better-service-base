@@ -189,7 +189,7 @@ export class SBConfig {
       this.configPluginName,
       this.configPluginName,
     );
-    if (newPlugin === null) {
+    if (newPlugin === null || !newPlugin.success) {
       this.log.error(tTrace,
         "Failed to import config plugin: {name} from ({package})",
         {
@@ -200,6 +200,6 @@ export class SBConfig {
       return;
     }
 
-    await this.setConfigPlugin(newPlugin);
+    await this.setConfigPlugin(newPlugin.data);
   }
 }
