@@ -1,0 +1,14 @@
+{
+  "name": "bsb-docs",
+  "version": "1.0.0",
+  "description": "BSB Documentation Site",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && npm run build-types:nodejs",
+    "build-types:nodejs": "pushd ../nodejs && npm run docs && popd",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

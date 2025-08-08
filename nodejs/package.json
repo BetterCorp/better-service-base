@@ -10,7 +10,7 @@
   },
   "scripts": {
     "generate-docs": "typedoc --json ./docs.json --tsconfig ./tsconfig-release.json  --cacheBust src/index.ts",
-    "generate-docs2": "typedoc --out ./odocs --tsconfig ./tsconfig-release.json --cacheBust src/index.ts",
+    "docs": "mkdir -p ../docs/dist/languages/nodejs/types && rm -rf ../docs/dist/languages/nodejs/types/* && typedoc --out ../docs/dist/languages/nodejs/types --tsconfig ./tsconfig-release.json --cacheBust src/index.ts",
     "dev": "ts-node src/dev.ts",
     "start": "node lib/cli.js",
     "tsc": "echo 'cleaning...' && rm -rf ./lib && echo 'building...' && tsc && echo 'done'",

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js Implementation - BSB Documentation</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <!-- PrismJS for syntax highlighting (page-scoped) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+    <style>
+        .requirements {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .requirements h2 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .requirements ul {
+            list-style-position: inside;
+            color: var(--secondary-color);
+        }
+        
+        .requirements li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-box {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .info-box h4 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .section {
+            margin: 3rem 0;
+        }
+        
+        .section h2 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-size: 1.75rem;
+        }
+        
+        .section h3 {
+            color: var(--text-color);
+            margin-bottom: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .file-structure {
+            background: var(--code-bg);
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border-color);
+            white-space: pre;
+        }
+        
+        .folder {
+            color: #60a5fa;
+            font-weight: 600;
+        }
+        
+        .file {
+            color: #fbbf24;
+        }
+        
+        .comment {
+            color: #9ca3af;
+            font-style: italic;
+        }
+        
+        .step-list {
+            counter-reset: step;
+            list-style: none;
+        }
+        
+        .step-list li {
+            counter-increment: step;
+            margin: 2rem 0;
+            padding: 2rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            position: relative;
+        }
+        
+        .step-list li::before {
+            content: counter(step);
+            position: absolute;
+            top: -1rem;
+            left: 2rem;
+            background: var(--primary-color);
+            color: white;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        .code-block {
+            background: var(--code-bg);
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border-color);
+            position: relative;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        
+        .code-block[data-title] { padding-top: 1.75rem; }
+        .code-block[data-title]::before {
+            content: attr(data-title);
+            position: absolute;
+            top: 0.25rem;
+            left: 0.5rem;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            max-width: calc(100% - 1rem);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: var(--warning-color);
+        }
+        
+        .success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: var(--success-color);
+        }
+    </style>
+</head>
+<body>
+    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+    
+    <div class="doc-layout">
+        <div id="navbar-container"></div>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <h1>Node.js Implementation</h1>
+                <p>Complete guide to building BSB plugins with Node.js and typed event interfaces</p>
+            </header>
+            
+            <div class="content">
+        <div class="requirements">
+            <h2>📋 Requirements</h2>
+            <ul>
+                <li>Node.js ≥ 23.0.0</li>
+                <li>npm ≥ 11.0.0</li>
+                <li>Docker (runtime - production)</li>
+                <li>TypeScript & Node.js (optional - for plugin development)</li>
+            </ul>
+        </div>
+        
+        <div class="info-box">
+            <h4>🎯 How BSB Works</h4>
+            <p><strong>BSB is designed to run as a standalone Docker container</strong> that loads and runs <em>plugins</em> (published separately). In production you deploy the container and provide plugins via <code>BSB_PLUGIN_DIR</code> or <code>BSB_PLUGINS</code>. Installing BSB as a dependency is only for contributors and local plugin development.</p>
+        </div>
+        
+        <div class="section">
+            <h2>🏗️ Project Structure</h2>
+            <p>Container-first plugin repository layout (recommended for production):</p>
+            
+            <div class="file-structure">/mnt/plugins/
+  @org/service-my-api/
+    latest/
+      package.json
+      lib/plugins/service-my-api/index.js
+    1.2.3/
+      package.json
+      lib/plugins/service-my-api/index.js
+  @org/logging-custom/
+    latest/
+      package.json
+      lib/plugins/logging-custom/index.js
+  @org/metrics-prometheus/
+    latest/
+      package.json
+      lib/plugins/metrics-prometheus/index.js</div>
+
+            <p>Plugin development project structure (local dev):</p>
+            <div class="file-structure">my-plugin/
+├── package.json
+├── src/
+│   └── plugins/
+│       └── service-my-api/
+│           └── index.ts
+└── lib/ (built)
+    └── plugins/service-my-api/index.js</div>
+        </div>
+        
+        <div class="section">
+            <h2>🐳 Container Quick Start</h2>
+            <p>Run the official BSB container and mount your plugin repository:</p>
+            <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
+  -v $(pwd)/plugins:/mnt/plugins:ro \
+  -e BSB_PLUGIN_DIR=/mnt/plugins \
+  bettercorp/bsb-node:latest</code></pre></div>
+            <div class="warning"><strong>Note:</strong> This is the supported production deployment.</div>
+        </div>
+
+        <div class="section">
+            <h2>🚀 Step-by-Step Setup</h2>
+            
+            <ol class="step-list">
+                <li>
+                    <h3>Develop a Plugin</h3>
+                    <p>For development and type support, install BSB in your plugin project:</p>
+                    <div class="code-block" data-title="bash"><pre><code class="language-bash"># Create plugin project and install BSB (dev only)
+mkdir my-bsb-project && cd my-bsb-project
+npm init -y
+npm install @bettercorp/service-base
+
+# Install TypeScript for development
+npm install -D typescript @types/node</code></pre></div>
+                    
+<div class="code-block" data-title="package.json"><pre><code class="language-json">
+{
+  "name": "my-bsb-project",
+  "version": "1.0.0",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && node lib/index.js"
+  },
+  "dependencies": {
+    "@bettercorp/service-base": "^9.5.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^20.19.1"
+  }
+}</code></pre></div>
+                </li>
+                
+                <li>
+                    <h3>Create Plugin Structure</h3>
+                    <p>Set up the plugin directory structure:</p>
+                    <div class="code-block" data-title="bash"><pre><code class="language-bash"># Create plugin structure
+mkdir -p src/plugins/service-my-api</code></pre></div>
+                </li>
+                
+                <li>
+                    <h3>Create Your First Service Plugin</h3>
+                    <p>Implement a basic service plugin with typed events:</p>
+                    <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
+<pre><code class="language-ts">import { BSBService, BSBPluginEvents, DTrace } from '@bettercorp/service-base';
+
+// Strongly-typed event maps for this plugin
+interface MyEvents extends BSBPluginEvents {
+  // Events this plugin LISTENS to (fire-and-forget)
+  onEvents: {
+    'user.created': (data: { userId: string; email: string }) => void;
+  };
+  // Events this plugin EMITS (fire-and-forget)
+  emitEvents: {
+    'notification.send': (payload: { type: 'welcome' | 'alert'; userId: string; message?: string }) => void;
+  };
+  // Returnable events this plugin LISTENS to (RPC-like)
+  onReturnableEvents: {
+    'api.getUser': (userId: string) => Promise&lt;{ userId: string; status: string }&gt;;
+  };
+  // Returnable events this plugin EMITS (RPC-like)
+  emitReturnableEvents: {};
+  // Broadcast channels
+  onBroadcast: {};
+  emitBroadcast: {};
+}
+
+// IMPORTANT: Export class name MUST be `Plugin`
+export class Plugin extends BSBService<null, MyEvents> {
+  public override async init(trace: DTrace): Promise<void> {
+    // Listen for user.created events
+    await this.events.onEvent('user.created', trace, async (_t, data) => {
+      // Emit a notification when a user is created
+      await this.events.emitEvent('notification.send', trace, {
+        type: 'welcome',
+        userId: data.userId,
+        message: `Welcome ${data.email}!`
+      });
+    });
+
+    // Expose a returnable (RPC-like) handler
+    await this.events.onReturnableEvent('api.getUser', trace, async (_t, userId) => {
+      // Typically fetch from a DB; returning inline for example
+      return { userId, status: 'active' };
+    });
+  }
+
+  public override async run(_trace: DTrace): Promise<void> {
+    // Service is ready
+  }
+}
+</code></pre>
+</div>
+                </li>
+                
+                <li>
+                    <h3>Configure TypeScript</h3>
+                    <div class="code-block" data-title="tsconfig.json"><pre><code class="language-json">
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./lib",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "lib"]
+}</code></pre></div>
+                </li>
+                
+                <li>
+                    <h3>Create Configuration</h3>
+                    <div class="code-block" data-title="sec-config.yaml"><pre><code class="language-yaml">default:
+  # Core BSB plugins (required)
+  metrics:
+    metrics-default:
+      plugin: metrics-default
+      enabled: true
+  logging:
+    logging-default:
+      plugin: logging-default
+      enabled: true
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
+  
+  # Your service plugins
+  services:
+    service-my-api:
+      plugin: service-my-api
+      enabled: true
+      config:
+        maxUsers: 1000
+        features:
+          notifications: true</code></pre></div>
+                    
+                    <div class="success">
+                        <strong>Environment Variables:</strong><br>
+                        • <code>BSB_PROFILE</code> - Change deployment profile (default: "default")<br>
+                        • <code>BSB_CONFIG_FILE</code> - Override config file path (default: "./sec-config.yaml")
+                    </div>
+                </li>
+                
+                <li>
+                    <h3>Build and Test Locally</h3>
+                    <div class="code-block" data-title="bash"><pre><code class="language-bash"># Build the project
+npm run build
+
+# Run locally for development only
+npm run dev</code></pre></div>
+                    
+                    <div class="success">
+                        <strong>Success!</strong> Your BSB service should now be running with your custom plugin loaded and ready to handle events.
+                    </div>
+                </li>
+            </ol>
+        </div>
+        
+        <div class="section">
+            <h2>🔄 Event Communication</h2>
+            <p>BSB services communicate exclusively through typed events:</p>
+            
+            <div class="code-block" data-title="Event Types"><pre><code class="language-ts">// Fire-and-forget events
+await this.events.emitEvent('user.created', trace, userData);
+
+// Returnable events (RPC-style)
+const result = await this.events.emitEventAndReturn('api.getUser', trace, userId);
+
+// Listen to events
+await this.events.onEvent('user.created', trace, this.handleUserCreated.bind(this));
+
+// Expose returnable methods
+await this.events.onReturnableEvent('api.getUser', trace, this.getUser.bind(this));</code></pre></div>
+        </div>
+        
+        <div class="section">
+            <h2>🐳 Container Deployment</h2>
+            <p>Deploy the BSB container and mount your prebuilt plugins:</p>
+            <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
+  -v /path/to/plugins:/mnt/plugins:ro \
+  -e BSB_PLUGIN_DIR=/mnt/plugins \
+  bettercorp/bsb-node:latest</code></pre></div>
+        </div>
+        
+        <div class="warning">
+            <strong>Important:</strong> Services communicate through the event bus and can run together in the same container or separately across multiple containers. The event bus handles all communication routing automatically.
+        </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script type="module">
+        import { createNavbar } from '/assets/js/navbar.js';
+        
+        // Load navbar
+        document.getElementById('navbar-container').innerHTML = createNavbar('nodejs');
+        
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+        
+        // Make toggleMobileMenu globally available
+        window.toggleMobileMenu = toggleMobileMenu;
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+    </script>
+</body>
+</html>

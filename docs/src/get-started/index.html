@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started - BSB Documentation</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+    <style>
+        .intro {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+        
+        .intro h2 {
+            color: var(--primary-color);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .intro p {
+            font-size: 1.125rem;
+            color: var(--secondary-color);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .architecture-section {
+            margin: 4rem 0;
+        }
+        
+        .architecture-section h2 {
+            color: var(--primary-color);
+            font-size: 1.75rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .arch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .arch-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        
+        .arch-card h3 {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        
+        .arch-card p {
+            color: var(--secondary-color);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+        
+        .arch-visual {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #e2e8f0;
+        }
+        
+        .next-steps {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin: 3rem 0;
+        }
+        
+        .next-steps h2 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .step-list {
+            list-style: none;
+            counter-reset: step-counter;
+        }
+        
+        .step-list li {
+            counter-increment: step-counter;
+            margin: 1rem 0;
+            padding-left: 3rem;
+            position: relative;
+        }
+        
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: var(--primary-color);
+            color: white;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        
+        .step-list a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .step-list a:hover {
+            text-decoration: underline;
+        }
+        
+        .core-concepts {
+            margin: 4rem 0;
+        }
+        
+        .core-concepts h2 {
+            color: var(--primary-color);
+            font-size: 1.75rem;
+            margin-bottom: 2rem;
+        }
+        
+        .concept-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        .concept-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .concept-card h3 {
+            color: var(--primary-color);
+            font-size: 1.125rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .concept-card p {
+            color: var(--secondary-color);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+    
+    <div class="doc-layout">
+        <div id="navbar-container"></div>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <h1>Getting Started with BSB</h1>
+                <p>Everything you need to know to build your first event-driven microservice with Better Service Base.</p>
+            </header>
+            
+            <div class="content">
+        <div class="intro">
+            <h2>What is BSB?</h2>
+            <p>BSB (Better Service Base) is an event-bus based microservice framework designed for <strong>simplicity</strong>, <strong>flexibility</strong>, and <strong>expandability</strong>. <strong>In production, BSB runs as a standalone Docker container</strong> that loads and runs plugins. Installing BSB as a dependency is only needed for contributors or when developing plugins locally. Plugins are published separately and provided to the container via a mounted plugin repository or optional on-boot installs.</p>
+        </div>
+        
+        <div class="core-concepts">
+            <h2>🧠 Core Concepts</h2>
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h3>📡 Event-Bus Architecture</h3>
+                    <p>Services communicate through events, enabling loose coupling and reactive patterns. Services emit and listen to events without direct dependencies.</p>
+                </div>
+                
+                <div class="concept-card">
+                    <h3>🔌 Plugin System</h3>
+                    <p>Services are defined as plugins in the {src|lib}/plugins/ directory structure. Each service is self-contained but exposes functions through typed Events interfaces. Plugins are discovered and loaded automatically.</p>
+                </div>
+                
+                <div class="concept-card">
+                    <h3>📦 NPM Dependency</h3>
+                    <p>BSB is installed as a dependency (via npm install @bettercorp/service-base) and automatically discovers plugins in the {src|lib}/plugins/ directory. No manual wiring or complex configuration required.</p>
+                </div>
+                
+                <div class="concept-card">
+                    <h3>🏗️ Flexible Deployment</h3>
+                    <p>Same codebase runs as monolith, tightly coupled services, microservices, or distributed edge nodes - you choose the deployment pattern.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="architecture-section">
+            <h2>🏗️ Architecture Patterns</h2>
+            <p style="text-align: center; color: var(--secondary-color); margin-bottom: 2rem;">
+                BSB adapts to your deployment needs. Here are the main patterns:
+            </p>
+            
+            <div class="arch-grid">
+                <div class="arch-card">
+                    <h3>🏢 Monolith</h3>
+                    <p>Single container with all services running together. Perfect for development and small applications.</p>
+                    <div class="arch-visual">
+┌─────────────────────┐
+│   Single Container  │
+│  ┌───┐ ┌───┐ ┌───┐  │
+│  │ A │ │ B │ │ C │  │
+│  └───┘ └───┘ └───┘  │
+│      Event Bus      │
+└─────────────────────┘</div>
+                </div>
+                
+                <div class="arch-card">
+                    <h3>🔗 Tightly Coupled</h3>
+                    <p>Multiple services in same container, sharing event bus. Good for related services that scale together.</p>
+                    <div class="arch-visual">
+┌─────────────────────┐
+│   Shared Container  │
+│  ┌─────┐  ┌─────┐   │
+│  │  A  │  │  B  │   │
+│  │     │  │     │   │
+│  └─────┘  └─────┘   │
+│    Shared Bus       │
+└─────────────────────┘</div>
+                </div>
+                
+                <div class="arch-card">
+                    <h3>🚀 Microservices</h3>
+                    <p>Each service in its own container, individually scalable. Event bus connects distributed services.</p>
+                    <div class="arch-visual">
+┌─────┐  ┌─────┐  ┌─────┐
+│  A  │  │  B  │  │  C  │
+│     │  │ x3  │  │     │
+└─────┘  └─────┘  └─────┘
+    │        │        │
+    └────────┼────────┘
+         Event Bus</div>
+                </div>
+                
+                <div class="arch-card">
+                    <h3>🌍 Edge/Global</h3>
+                    <p>Services distributed across multiple locations, connected over internet. Perfect for CDN-like architectures.</p>
+                    <div class="arch-visual">
+   US-East      EU-West
+  ┌─────┐      ┌─────┐
+  │  A  │ ───  │  B  │
+  └─────┘      └─────┘
+      │           │
+      └─── Bus ───┘
+          │
+      ┌─────┐
+      │  C  │  Asia
+      └─────┘</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="next-steps">
+            <h2>🚀 Next Steps</h2>
+            <p>Choose your language and follow the step-by-step guide:</p>
+            
+            <ol class="step-list">
+                <li>
+                    <strong><a href="/languages/nodejs/">Node.js Guide</a></strong><br>
+                    Complete walkthrough focusing on container-first usage, plugin repository layout, and deployment
+                </li>
+                <li>
+                    <strong>Set up your development environment</strong><br>
+                    Install Docker, Node.js, and your preferred IDE
+                </li>
+                <li>
+                    <strong>Write your first service plugin</strong><br>
+                    Create a simple service that responds to events
+                </li>
+                <li>
+                    <strong>Configure plugins</strong><br>
+                    Select configuration, events, logging, and metrics plugins
+                </li>
+                <li>
+                    <strong>Deploy and scale</strong><br>
+                    Run your service in containers and scale as needed
+                </li>
+            </ol>
+        </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script type="module">
+        import { createNavbar } from '/assets/js/navbar.js';
+        
+        // Load navbar
+        document.getElementById('navbar-container').innerHTML = createNavbar('get-started');
+        
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+        
+        // Make toggleMobileMenu globally available
+        window.toggleMobileMenu = toggleMobileMenu;
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+    </script>
+</body>
+</html>

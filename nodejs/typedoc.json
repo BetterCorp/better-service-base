@@ -1,9 +1,13 @@
 {
+  "name": "BSB Node.js Type Definitions",
   "navigationLinks": {
-    "Example": "http://example.com"
+    "BSB Docs": "https://bsbcode.dev/",
+    "GitHub": "https://github.com/BetterCorp/better-service-base"
   },
   "sidebarLinks": {
-    "Example": "http://example.com"
+    "BSB Documentation": "/",
+    "Plugin System": "/plugins/",
+    "Node.js Guide": "/languages/nodejs/"
   },
   "navigation": {
     "includeCategories": true,
@@ -18,5 +22,30 @@
     "external": false,
     "@alpha": false,
     "@beta": false
-  }
+  },
+  "customCss": "./typedoc-theme/custom.css",
+  "titleLink": "https://bsbcode.dev/",
+  "readme": "none",
+  "sort": ["source-order"],
+  "kindSortOrder": [
+    "Module",
+    "Namespace", 
+    "Enum",
+    "EnumMember",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Constructor",
+    "Property",
+    "Variable",
+    "Function",
+    "Method",
+    "Parameter",
+    "TypeParameter",
+    "Accessor",
+    "GetSignature",
+    "SetSignature",
+    "CallSignature",
+    "ConstructorSignature"
+  ]
 }
