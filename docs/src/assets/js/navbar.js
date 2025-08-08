@@ -1,9 +1,13 @@
 export function createNavbar(activePage = '') {
+  const version = typeof window !== 'undefined' ? (window.__BSB_VERSION__ || '') : '';
   return `
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <h1>BSB Docs</h1>
-        <p>Better Service Base</p>
+        <p>
+          Better Service Base
+          ${version ? `<span class="version-badge" title="Latest version">v${version}</span>` : ''}
+        </p>
       </div>
       
       <nav class="sidebar-nav">
@@ -11,6 +15,7 @@ export function createNavbar(activePage = '') {
           <div class="nav-section-title">Getting Started</div>
           <a href="/" class="nav-item ${activePage === 'overview' ? 'active' : ''}">Overview</a>
           <a href="/get-started/" class="nav-item ${activePage === 'get-started' ? 'active' : ''}">Quick Start</a>
+          <a href="/architecture/" class="nav-item ${activePage === 'architecture' ? 'active' : ''}">Architecture</a>
         </div>
         
         <div class="nav-section">

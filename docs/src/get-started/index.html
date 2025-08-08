@@ -198,8 +198,8 @@
                 </div>
                 
                 <div class="concept-card">
-                    <h3>📦 NPM Dependency</h3>
-                    <p>BSB is installed as a dependency (via npm install @bettercorp/service-base) and automatically discovers plugins in the {src|lib}/plugins/ directory. No manual wiring or complex configuration required.</p>
+                    <h3>📦 Container-First Runtime</h3>
+                    <p>In production, run BSB as a container and provide plugins via <code>BSB_PLUGIN_DIR</code>. Installing as a dependency is for plugin development and types.</p>
                 </div>
                 
                 <div class="concept-card">
@@ -281,7 +281,7 @@
             <ol class="step-list">
                 <li>
                     <strong><a href="/languages/nodejs/">Node.js Guide</a></strong><br>
-                    Complete walkthrough focusing on container-first usage, plugin repository layout, and deployment
+                    Container-first walkthrough: plugin repo layout, events, deployment
                 </li>
                 <li>
                     <strong>Set up your development environment</strong><br>
@@ -310,8 +310,13 @@
     <script type="module">
         import { createNavbar } from '/assets/js/navbar.js';
         
-        // Load navbar
-        document.getElementById('navbar-container').innerHTML = createNavbar('get-started');
+        fetch('/version.txt', { cache: 'no-store' })
+          .then(res => res.ok ? res.text() : '')
+          .then(txt => { window.__BSB_VERSION__ = (txt || '').trim(); })
+          .catch(() => {})
+          .finally(() => {
+            document.getElementById('navbar-container').innerHTML = createNavbar('get-started');
+          });
         
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');

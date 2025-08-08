@@ -16,7 +16,7 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="main-header">
-                <h1>Better Service Base</h1>
+                <h1>Better Service Base <span id="overview-version" class="version-badge" style="display:none;"></span></h1>
                 <p>Event-driven microservice framework designed for simplicity, flexibility, and scalability.</p>
                 
                 <div class="badges">
@@ -44,6 +44,15 @@
                         <div class="card-cta">Get Started</div>
                     </a>
                     
+                        <a href="/architecture/" class="card">
+                            <div class="card-header">
+                                <div class="card-icon api">🏗️</div>
+                                <h3>Architecture</h3>
+                            </div>
+                            <p>Understand BSB's components, deployment patterns, lifecycle, and flows.</p>
+                            <div class="card-cta">View Architecture</div>
+                        </a>
+
                     <a href="/plugins/" class="card">
                         <div class="card-header">
                             <div class="card-icon plugins">🔌</div>
@@ -242,14 +251,10 @@
                     </div>
                 </div>
                 
-                <!-- Installation Example -->
+                <!-- Installation and setup are language-specific; see guides below. -->
                 <div class="info-box">
-                    <h4>🚀 Quick Installation</h4>
-                    <div class="code-block" data-title="bash"><pre><code class="language-bash">npm install @bettercorp/service-base
-
-# Create your plugin structure
-mkdir -p src/plugins/service-my-api
-echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts</code></pre></div>
+                    <h4>🚀 Get Started</h4>
+                    <p>Select a language guide below for installation and setup instructions. For JavaScript/TypeScript, see the Node.js guide.</p>
                 </div>
             </div>
         </main>
@@ -260,8 +265,21 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
     <script type="module">
         import { createNavbar } from '/assets/js/navbar.js';
         
-        // Load navbar
-        document.getElementById('navbar-container').innerHTML = createNavbar('overview');
+        // Inject consolidated version from root version.txt and then render navbar
+        fetch('/version.txt', { cache: 'no-store' })
+          .then(res => res.ok ? res.text() : '')
+          .then(txt => {
+            const ver = (txt || '').trim();
+            if (ver) {
+              window.__BSB_VERSION__ = ver;
+              const badge = document.getElementById('overview-version');
+              if (badge) { badge.textContent = `v${ver}`; badge.style.display = 'inline-block'; }
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            document.getElementById('navbar-container').innerHTML = createNavbar('overview');
+          });
         
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');

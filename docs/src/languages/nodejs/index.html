@@ -194,8 +194,27 @@
         </div>
         
         <div class="info-box">
+            <h4>⚡ Quick Installation (Dev)</h4>
+            <p>For local plugin development and type support:</p>
+            <div class="code-block" data-title="bash"><pre><code class="language-bash">npm install @bettercorp/service-base
+
+# Create your plugin structure (dev)
+mkdir -p src/plugins/service-my-api
+echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts</code></pre></div>
+        </div>
+
+        <div class="info-box">
             <h4>🎯 How BSB Works</h4>
             <p><strong>BSB is designed to run as a standalone Docker container</strong> that loads and runs <em>plugins</em> (published separately). In production you deploy the container and provide plugins via <code>BSB_PLUGIN_DIR</code> or <code>BSB_PLUGINS</code>. Installing BSB as a dependency is only for contributors and local plugin development.</p>
+        </div>
+
+        <div class="info-box">
+            <h4>🔎 Discovery & Runtime</h4>
+            <ul>
+                <li>Production: run the BSB container and provide plugins via <code>BSB_PLUGIN_DIR</code></li>
+                <li>Optional: specify explicit versions with <code>BSB_PLUGINS</code> (e.g. <code>service-my-api@1.2.3;logging-default@latest</code>)</li>
+                <li>Development: install BSB in your plugin project for types and run locally if needed</li>
+            </ul>
         </div>
         
         <div class="section">
@@ -236,7 +255,7 @@
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v $(pwd)/plugins:/mnt/plugins:ro \
   -e BSB_PLUGIN_DIR=/mnt/plugins \
-  bettercorp/bsb-node:latest</code></pre></div>
+  betterweb/service-base:node</code></pre></div>
             <div class="warning"><strong>Note:</strong> This is the supported production deployment.</div>
         </div>
 
@@ -430,7 +449,18 @@ await this.events.onReturnableEvent('api.getUser', trace, this.getUser.bind(this
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v /path/to/plugins:/mnt/plugins:ro \
   -e BSB_PLUGIN_DIR=/mnt/plugins \
-  bettercorp/bsb-node:latest</code></pre></div>
+  betterweb/service-base:node</code></pre></div>
+            <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: betterweb/service-base:node
+    environment:
+      - BSB_PLUGIN_DIR=/mnt/plugins
+      - BSB_PROFILE=default
+    volumes:
+      - ./plugins:/mnt/plugins:ro
+    ports:
+      - "8080:8080"  # if your service exposes HTTP
+</code></pre></div>
         </div>
         
         <div class="warning">
@@ -445,8 +475,13 @@ await this.events.onReturnableEvent('api.getUser', trace, this.getUser.bind(this
     <script type="module">
         import { createNavbar } from '/assets/js/navbar.js';
         
-        // Load navbar
-        document.getElementById('navbar-container').innerHTML = createNavbar('nodejs');
+        fetch('/version.txt', { cache: 'no-store' })
+          .then(res => res.ok ? res.text() : '')
+          .then(txt => { window.__BSB_VERSION__ = (txt || '').trim(); })
+          .catch(() => {})
+          .finally(() => {
+            document.getElementById('navbar-container').innerHTML = createNavbar('nodejs');
+          });
         
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');

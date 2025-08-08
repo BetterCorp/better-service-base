@@ -200,7 +200,7 @@
             <div class="content">
         <div class="intro">
             <h2>Plugin Architecture</h2>
-            <p>BSB's plugin system allows you to easily extend functionality for configuration management, event handling, logging, metrics collection, and custom services. <strong>In production, plugins are provided to the BSB container as prebuilt packages</strong> under a mounted plugin repository (<code>BSB_PLUGIN_DIR</code>). During development, you can structure plugins under <code>{src|lib}/plugins/</code> in your plugin project for local testing. Plugins are automatically discovered and loaded based on your configuration.</p>
+            <p>BSB's plugin system extends configuration, events, logging, metrics, and services. <strong>In production, run the BSB container</strong> and supply <em>prebuilt</em> plugins via a mounted repository (<code>BSB_PLUGIN_DIR</code>). For local development, use <code>{src|lib}/plugins/</code> in a plugin project for types and testing. Plugins are discovered automatically based on configuration.</p>
         </div>
         
         <div class="plugin-categories">
@@ -327,80 +327,42 @@
         
         <div class="plugin-development">
             <h2>🛠️ Developing Custom Plugins</h2>
-            <p>Create your own plugins to extend BSB functionality. For production delivery, publish your plugin as an npm package or ship a prebuilt folder under the mounted repository structure used by <code>BSB_PLUGIN_DIR</code>:</p>
+            <p>Create your own plugins to extend BSB. In production, the BSB container loads <strong>prebuilt</strong> plugins from a mounted repository specified by <code>BSB_PLUGIN_DIR</code>. The repository is organized by organization and version (for example, <code>@org/plugin-name/latest</code> and semantic versions). The exact artifact layout and manifests are <strong>language-specific</strong>. See language guides for details.</p>
+
+            <h3>Repository Layout (Generic)</h3>
             <div class="code-block"><pre><code class="language-text">/mnt/plugins/
-  @org/your-plugin/
+  @org/plugin-one/
     latest/
-      package.json
-      lib/plugins/service-your-plugin/index.js
+      <artifact files for your language>
     1.0.0/
-      package.json
-      lib/plugins/service-your-plugin/index.js</code></pre></div>
-            
-            <h3>Plugin Structure</h3>
-            <div class="code-block"><pre><code class="language-text">plugins/my-custom-plugin/
-├── package.json      # Plugin metadata
-├── index.js         # Main plugin class
-└── config.schema.js # Configuration schema (optional)</code></pre>
-            </div>
-            
-            <h3>Basic Plugin Template</h3>
-            <div class="code-block"><pre><code class="language-js">// plugins/my-custom-plugin/package.json
-{
-  "name": "my-custom-plugin",
-  "version": "1.0.0",
-  "main": "index.js",
-  "bsb": {
-    "type": "service",
-    "name": "my-custom"
-  }
-}
+      <artifact files for your language>
+  @org/plugin-two/
+    latest/
+      <artifact files for your language></code></pre></div>
 
-// plugins/my-custom-plugin/index.js
-const { BSBService } = require('@bettercorp/service-base');
-
-class MyCustomPlugin extends BSBService {
-  async onStart() {
-    this.logger.info('My custom plugin starting...');
-    
-    // Plugin initialization logic
-    await this.initialize();
-    
-    // Set up event listeners
-    await this.onEvent('user.created', this.handleUserCreated.bind(this));
-  }
-  
-  async initialize() {
-    // Your plugin logic here
-  }
-  
-  async handleUserCreated(data) {
-    this.logger.info('Handling user created event', data);
-    // Service communicates through the event bus
-    await this.emitEvent('notification.send', {
-      type: 'welcome',
-      userId: data.id
-    });
-  }
-  
-  async onStop() {
-    this.logger.info('My custom plugin stopping...');
-    // Cleanup logic
-  }
-}
-
-module.exports = MyCustomPlugin;</code></pre>
-            </div>
-            
-            <h3>Plugin Discovery</h3>
-            <p>BSB automatically discovers plugins by:</p>
+            <h3>Naming and Categories</h3>
             <ul>
-                <li>Looking under the mounted <code>BSB_PLUGIN_DIR</code> path for <code>lib/plugins/*</code> folders (preferred in production)</li>
-                <li>Scanning the <code>{src|lib}/plugins/</code> directory structure in local plugin projects (development)</li>
-                <li>Reading <code>package.json</code> files for BSB metadata</li>
-                <li>Loading plugins based on your configuration</li>
-                <li>Initializing plugins in dependency order</li>
-                <li>Services can run together or separately based on deployment needs</li>
+                <li>Prefix names with their category when possible: <code>config-*</code>, <code>events-*</code>, <code>logging-*</code>, <code>metrics-*</code>, <code>service-*</code></li>
+                <li>Use lowercase kebab-case names for consistency</li>
+                <li>Each plugin is self-contained and defines its capabilities via typed events and configuration</li>
+            </ul>
+
+            <div class="info-box">
+                <h4>Language-specific Implementation</h4>
+                <p>For packaging, manifests, and code templates, see the language guides:</p>
+                <ul>
+                    <li><a href="/languages/nodejs/">Node.js plugin implementation</a></li>
+                    <!-- Add more language links when available -->
+                </ul>
+            </div>
+
+            <h3>Plugin Discovery</h3>
+            <p>The container discovers and loads plugins by:</p>
+            <ul>
+                <li>Scanning the mounted <code>BSB_PLUGIN_DIR</code> for organizations and available versions</li>
+                <li>Reading language-specific manifests/metadata for compatibility and configuration</li>
+                <li>Resolving the desired set from configuration (e.g., default set plus overrides)</li>
+                <li>Initializing plugins in dependency-aware order</li>
             </ul>
         </div>
             </div>
@@ -412,8 +374,13 @@ module.exports = MyCustomPlugin;</code></pre>
     <script type="module">
         import { createNavbar } from '/assets/js/navbar.js';
         
-        // Load navbar
-        document.getElementById('navbar-container').innerHTML = createNavbar('plugins');
+        fetch('/version.txt', { cache: 'no-store' })
+          .then(res => res.ok ? res.text() : '')
+          .then(txt => { window.__BSB_VERSION__ = (txt || '').trim(); })
+          .catch(() => {})
+          .finally(() => {
+            document.getElementById('navbar-container').innerHTML = createNavbar('plugins');
+          });
         
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');

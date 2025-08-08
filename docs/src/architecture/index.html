@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture - Better Service Base</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+    <style>
+        .section { margin: 3rem 0; }
+        .section h2 { color: var(--primary-color); font-size: 1.75rem; margin-bottom: 1rem; }
+        .subtle { color: var(--text-secondary); }
+        .grid { display: grid; gap: 1.5rem; }
+        .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+        .cardish { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.5rem; }
+        .diagram { background: var(--code-bg); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; white-space: pre; font-family: monospace; font-size: 0.85rem; color: #e2e8f0; overflow-x: auto; }
+        .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; background: var(--bg-secondary); border: 1px solid var(--border-color); font-size: 0.75rem; margin-right: 0.25rem; }
+        .badge-inline { background: var(--primary-color); color: #fff; border-radius: 6px; padding: 0.1rem 0.5rem; font-size: 0.75rem; }
+        .list { color: var(--text-secondary); }
+        .list li { margin: 0.35rem 0; }
+        .kbd { background: var(--code-bg); border: 1px solid var(--border-color); padding: 0 0.35rem; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
+        .flow-step { border-left: 4px solid var(--primary-color); padding-left: 1rem; margin: 1rem 0; }
+        .table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        .table th, .table td { border: 1px solid var(--border-color); padding: 0.75rem; text-align: left; }
+        .table th { background: var(--bg-secondary); }
+        /* Specific left padding adjustments */
+        #lifecycle .list { padding-left: 1.25rem; }
+        #security .list { padding-left: 1.25rem; }
+    </style>
+</head>
+<body>
+    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="doc-layout">
+        <div id="navbar-container"></div>
+
+        <main class="main-content">
+            <header class="main-header">
+                <h1>Architecture</h1>
+                <p>How BSB is designed: components, processes, and flows.</p>
+            </header>
+
+            <div class="content">
+                <section class="section">
+                    <h2>Core Principles</h2>
+                    <div class="grid cols-3">
+                        <div class="cardish">
+                            <h3>Event-Driven</h3>
+                            <p class="subtle">All communication is via events on a pluggable event bus. Services emit, listen, and perform returnable calls without tight coupling.</p>
+                        </div>
+                        <div class="cardish">
+                            <h3>Plugin Architecture</h3>
+                            <p class="subtle">Functionality is delivered through plugins (configuration, events, logging, metrics, services). The container discovers and loads prebuilt plugins.</p>
+                        </div>
+                        <div class="cardish">
+                            <h3>Container-First</h3>
+                            <p class="subtle">BSB runs as a container in production. Your deployable unit is the container plus a mounted plugin repository.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h2>High-Level Components</h2>
+                    <div class="grid cols-2">
+                        <div class="cardish">
+                            <h3>BSB Runtime</h3>
+                            <ul class="list">
+                                <li><span class="pill">Core</span> Lifecycle, plugin loader, health</li>
+                                <li><span class="pill">Events</span> Event bus abstraction and adapters</li>
+                                <li><span class="pill">Logging</span> Structured logs with pluggable sinks</li>
+                                <li><span class="pill">Metrics</span> Counters, gauges, histograms, traces</li>
+                                <li><span class="pill">Config</span> Typed configuration with sources and profiles</li>
+                            </ul>
+                        </div>
+                        <div class="cardish">
+                            <h3>Plugin Repository</h3>
+                            <p class="subtle">Mounted directory containing organizations and versions.</p>
+                            <div class="diagram">/mnt/plugins/
+  @org/service-foo/
+    latest/
+      <artifact files>
+    1.2.3/
+      <artifact files>
+  @org/events-rabbitmq/
+    latest/
+      <artifact files></div>
+                            <p class="subtle">Language-specific artifacts; see language guides for format.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h2>Deployment Patterns</h2>
+                    <div class="grid cols-2">
+                        <div class="cardish">
+                            <h3>Single Container (Monolith)</h3>
+                            <div class="diagram">┌─────────────────────┐
+│   Single Container  │
+│  ┌───┐ ┌───┐ ┌───┐  │
+│  │ A │ │ B │ │ C │  │
+│  └───┘ └───┘ └───┘  │
+│      Event Bus      │
+└─────────────────────┘</div>
+                        </div>
+                        <div class="cardish">
+                            <h3>Tightly Coupled Services</h3>
+                            <div class="diagram">┌─────────────────────┐
+│   Shared Container  │
+│  ┌─────┐  ┌─────┐   │
+│  │  A  │  │  B  │   │
+│  │     │  │     │   │
+│  └─────┘  └─────┘   │
+│    Shared Bus       │
+└─────────────────────┘</div>
+                        </div>
+                        <div class="cardish">
+                            <h3>Microservices</h3>
+                            <div class="diagram">┌─────┐  ┌─────┐  ┌─────┐
+│  A  │  │  B  │  │  C  │
+│     │  │ x3  │  │     │
+└─────┘  └─────┘  └─────┘
+   │        │        │
+   └────────┼────────┘
+        Event Bus</div>
+                        </div>
+                        <div class="cardish">
+                            <h3>Global Edge</h3>
+                            <div class="diagram">   US-East      EU-West
+  ┌─────┐      ┌─────┐
+  │  A  │ ───  │  B  │
+  └─────┘      └─────┘
+      │           │
+      └─── Bus ───┘
+          │
+      ┌─────┐
+      │  C  │  Asia
+      └─────┘</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="lifecycle" class="section">
+                    <h2>Lifecycle: Boot to Ready</h2>
+                    <ol class="list">
+                        <li class="flow-step"><strong>Bootstrap</strong>: Load configuration profile (<span class="kbd">BSB_PROFILE</span>) and core adapters (events/logging/metrics/config).</li>
+                        <li class="flow-step"><strong>Discover</strong>: Scan <span class="kbd">BSB_PLUGIN_DIR</span> for organizations and versions; resolve desired plugin set.</li>
+                        <li class="flow-step"><strong>Validate</strong>: Check compatibility, config schemas, and dependencies; order plugins.</li>
+                        <li class="flow-step"><strong>Initialize</strong>: Instantiate plugins; provide context: logging, metrics, config, and event handles.</li>
+                        <li class="flow-step"><strong>Register Events</strong>: Each plugin registers listeners and returnable handlers.</li>
+                        <li class="flow-step"><strong>Run</strong>: Start plugins; expose health/readiness; begin handling traffic.</li>
+                    </ol>
+                </section>
+
+                <section class="section">
+                    <h2>Event Communication</h2>
+                    <div class="grid cols-2">
+                        <div class="cardish">
+                            <h3>Event Types</h3>
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Kind</th><th>Description</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>Fire-and-forget</td><td>Emit without waiting for response.</td></tr>
+                                    <tr><td>Returnable (RPC-like)</td><td>Emit and await a typed response.</td></tr>
+                                    <tr><td>Broadcast</td><td>Emit to many subscribers.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="cardish">
+                            <h3>Tracing & Observability</h3>
+                            <ul class="list">
+                                <li>Every event carries a trace context (trace/span identifiers)</li>
+                                <li>Metrics record latencies, rates, and errors</li>
+                                <li>Structured logs correlate to traces and events</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h2>Configuration & Profiles</h2>
+                    <div class="grid cols-2">
+                        <div class="cardish">
+                            <h3>Profiles</h3>
+                            <ul class="list">
+                                <li>Profiles select environment-specific settings (<span class="kbd">BSB_PROFILE</span>)</li>
+                                <li>Layered sources (files, vaults, services) merged into a typed config</li>
+                            </ul>
+                        </div>
+                        <div class="cardish">
+                            <h3>Secrets & External Sources</h3>
+                            <p class="subtle">Use configuration plugins to pull from vaults (e.g., 1Password), service discovery (Consul/etcd), or orchestrator-native stores.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h2>Resilience & Scaling</h2>
+                    <div class="grid cols-2">
+                        <div class="cardish">
+                            <h3>Resilience</h3>
+                            <ul class="list">
+                                <li>Backpressure and timeouts at the event layer</li>
+                                <li>Retries with jitter for transient failures</li>
+                                <li>Circuit breaking around external dependencies</li>
+                            </ul>
+                        </div>
+                        <div class="cardish">
+                            <h3>Scaling</h3>
+                            <ul class="list">
+                                <li>Horizontal scale via multiple containers/services</li>
+                                <li>Per-service autoscaling based on metrics</li>
+                                <li>Edge placement for low-latency flows</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="security" class="section">
+                    <h2>Security Considerations</h2>
+                    <ul class="list">
+                        <li>Signed plugin artifacts and checksum verification (pipeline responsibility)</li>
+                        <li>Least-privilege configuration sources and secret handling</li>
+                        <li>Audit logs on plugin load/unload and configuration changes</li>
+                    </ul>
+                </section>
+
+                <section class="section">
+                    <h2>Operational Flows</h2>
+                    <div class="grid cols-3">
+                        <div class="cardish">
+                            <h3>Deploy</h3>
+                            <ol class="list">
+                                <li>Build container image</li>
+                                <li>Publish plugins to repository</li>
+                                <li>Configure <span class="kbd">BSB_PLUGIN_DIR</span> and profile</li>
+                                <li>Roll out</li>
+                            </ol>
+                        </div>
+                        <div class="cardish">
+                            <h3>Upgrade Plugin</h3>
+                            <ol class="list">
+                                <li>Publish new version under <span class="kbd">@org/name/x.y.z</span></li>
+                                <li>Switch alias (e.g., <span class="kbd">latest</span>) or pin specific version</li>
+                                <li>Restart/roll services to pick up</li>
+                            </ol>
+                        </div>
+                        <div class="cardish">
+                            <h3>Roll Back</h3>
+                            <ol class="list">
+                                <li>Repoint alias to prior version</li>
+                                <li>Roll services</li>
+                                <li>Monitor metrics and logs</li>
+                            </ol>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script type="module">
+        import { createNavbar } from '/assets/js/navbar.js';
+
+        fetch('/version.txt', { cache: 'no-store' })
+          .then(res => res.ok ? res.text() : '')
+          .then(txt => { window.__BSB_VERSION__ = (txt || '').trim(); })
+          .catch(() => {})
+          .finally(() => {
+            document.getElementById('navbar-container').innerHTML = createNavbar('architecture');
+          });
+
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        window.toggleMobileMenu = toggleMobileMenu;
+
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+    </script>
+</body>
+</html>

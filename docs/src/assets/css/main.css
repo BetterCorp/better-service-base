@@ -70,6 +70,17 @@ body {
     color: var(--text-secondary);
 }
 
+.version-badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.125rem 0.5rem;
+    background: var(--primary-color);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
 .sidebar-nav {
     padding: 1rem 0;
 }
