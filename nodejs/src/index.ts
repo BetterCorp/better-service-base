@@ -28,4 +28,6 @@
 export * from "./base/index";
 export * from "./interfaces/index";
 export * from "./serviceBase/index";
-export { SBClient } from "./client";
+/**
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html | API: Module Index}
+ */

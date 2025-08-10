@@ -38,27 +38,6 @@ export const secSchema = z.object({
 export class Config
   extends BSBPluginConfig<typeof secSchema> {
   validationSchema = secSchema;
-
-  migrate(
-    toVersion: string,
-    fromVersion: string | null,
-    fromConfig: any | null,
-  ) {
-    if (fromConfig === null) {
-      // defaults
-      return {
-        testa: 1,
-        testb: 2,
-      };
-    }
-    else {
-      // migrate
-      return {
-        testa: fromConfig.testa,
-        testb: fromConfig.testb,
-      };
-    }
-  }
 }
 
 export interface Events {

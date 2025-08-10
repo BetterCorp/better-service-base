@@ -50,6 +50,9 @@ function internalTrace(span: string): DTrace {
  * @category Core
  */
 export class SBMetrics {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBMetrics.html | API: SBMetrics}
+   */
   private metricsPlugins: Array<BSBMetrics<any>> = [];
   public metricsBus: EventEmitter = new EventEmitter();
   private mode: DEBUG_MODE = "development";

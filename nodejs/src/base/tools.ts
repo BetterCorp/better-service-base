@@ -10,6 +10,7 @@ import {CleanStringStrength, MergeObjectsKey, SimpleStatu} from "../interfaces";
  * 
  * If you want to use it, like for isNullOrUndefined, you can just call it directly on the class: `Tools.isNullOrUndefined(value)`.
  * @category Tools
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html | API: Tools}
  */
 export class Tools {
   /**
@@ -19,6 +20,10 @@ export class Tools {
     throw new Error("This class is not meant to be instantiated");
   }
 
+  /**
+   * Predefined regular expressions for common string cleaning operations.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#regexes | API: Tools#regexes}
+   */
   public static readonly regexes = {
     exhard: /(?![A-Za-z0-9])[\W_]/g,
     hard: /(?![,-:~_])[\W]/g,
@@ -78,6 +83,16 @@ export class Tools {
       returnNullAndUndefined: false,
       customRegex: RegExp,
   ): string;
+  /**
+   * Clean and sanitize a string by removing unwanted characters based on specified strength.
+   * @param objectToClean - The object/string to clean
+   * @param maxLimit - Maximum character limit (default: 255)
+   * @param strength - Cleaning strength or custom regex (default: CleanStringStrength.hard)
+   * @param returnNullAndUndefined - Whether to return null/undefined for those values (default: false)
+   * @param customRegex - Custom regex when using CleanStringStrength.custom
+   * @returns The cleaned string, or null/undefined if returnNullAndUndefined is true
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#cleanString | API: Tools#cleanString}
+   */
   public static cleanString<T extends boolean = false>(
       objectToClean: any,
       maxLimit: number                       = 255,
@@ -130,6 +145,12 @@ export class Tools {
     return data;
   }
 
+  /**
+   * Automatically capitalize the first letter of each word in a string.
+   * @param data - The string to capitalize
+   * @returns The string with each word capitalized
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#autoCapitalizeWords | API: Tools#autoCapitalizeWords}
+   */
   public static autoCapitalizeWords(data: string): string {
     const words = data.split(" ");
 
@@ -140,11 +161,20 @@ export class Tools {
     return words.join(" ");
   }
 
+  /**
+   * Get the string keys from an enum object, filtering out numeric keys.
+   * @param obj - The enum object
+   * @returns Array of string keys
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#enumKeys | API: Tools#enumKeys}
+   */
   static enumKeys<O extends object, K extends keyof O = keyof O>(obj: O): K[] {
     return Object.keys(obj)
                  .filter((k) => Number.isNaN(+k)) as K[];
   }
 
+  /**
+   * @hidden
+   */
   private static _flattenObject<T = unknown, TR = object>(obj: T): TR {
     // CREDITS: https://gist.github.com/penguinboy/762197
     let tempA: any = {};
@@ -162,6 +192,13 @@ export class Tools {
     return tempA;
   }
 
+  /**
+   * Flatten a nested object into a single level with dot notation keys.
+   * @param obj - The object to flatten
+   * @returns The flattened object
+   * @throws Error if the input is not a valid object
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#flattenObject | API: Tools#flattenObject}
+   */
   public static flattenObject<T = unknown, TR = object>(obj: T): TR {
     if (!this.isObject(obj)) {
       throw "Not a valid object!";
@@ -169,6 +206,15 @@ export class Tools {
     return this._flattenObject<T, TR>(obj);
   }
 
+  /**
+   * Get hierarchical availability of objects based on key-parent relationships.
+   * @param listOfObjects - Array of objects to search through
+   * @param key - The key property name
+   * @param parentkey - The parent key property name
+   * @param value - The value to match against
+   * @returns Array of matching objects including hierarchical children
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#hierachialGetAvailibility | API: Tools#hierachialGetAvailibility}
+   */
   static hierachialGetAvailibility<T>(
       listOfObjects: Array<T>,
       key: string,
@@ -194,6 +240,12 @@ export class Tools {
     return listToReturn;
   }
 
+  /**
+   * Decode a base64 data URL string and extract the image type and data.
+   * @param dataString - Base64 data URL string (e.g., "data:image/png;base64,...")
+   * @returns Object with type and data properties, or Error if invalid
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#decodeBase64Image | API: Tools#decodeBase64Image}
+   */
   static decodeBase64Image(dataString: string): any {
     let matches       = dataString.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/),
         response: any = {};
@@ -259,6 +311,14 @@ export class Tools {
     );
   }
 
+  /**
+   * Get a value from a nested object using a string path (e.g., "user.profile.name").
+   * Supports comma-separated paths for concatenation and "*" wildcard for all properties.
+   * @param workingObj - The object to search in
+   * @param stringToGet - Dot-notation path string or comma-separated paths
+   * @returns The value at the specified path, or null if not found
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#GetValueFromObjectBasedOnStringPath | API: Tools#GetValueFromObjectBasedOnStringPath}
+   */
   public static GetValueFromObjectBasedOnStringPath(
       workingObj: any,
       stringToGet: string,
@@ -300,6 +360,15 @@ export class Tools {
     return finalString;
   }
 
+  /**
+   * Merge two objects deeply, with the second object taking precedence.
+   * @param src - Source object to merge into
+   * @param against - Object to merge from (takes precedence)
+   * @param initialMigration - Whether to clone objects before merging (default: true)
+   * @param referenceKey - Optional reference key for merge operations
+   * @returns The merged object
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#mergeObjects | API: Tools#mergeObjects}
+   */
   public static mergeObjects(
       src: any,
       against: any,
@@ -341,6 +410,13 @@ export class Tools {
     return src;
   }
 
+  /**
+   * Replace placeholders in a string with values from an object using {key} syntax.
+   * @param obj - Object containing replacement values
+   * @param str - String with placeholders (e.g., "Hello {name}")
+   * @returns String with placeholders replaced by object values
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#StringReplaceWithObject | API: Tools#StringReplaceWithObject}
+   */
   public static StringReplaceWithObject(obj: any, str: string): string {
     let strToReplace = str;
     if (strToReplace.indexOf("{") >= 0) {
@@ -362,6 +438,12 @@ export class Tools {
     return strToReplace;
   }
 
+  /**
+   * Convert milliseconds to a human-readable time string.
+   * @param time - Time in milliseconds
+   * @returns Human-readable time string (e.g., "5 minutes", "2 hours")
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#getTimeFromMilliseconds | API: Tools#getTimeFromMilliseconds}
+   */
   public static getTimeFromMilliseconds(time: number) {
     if (time < 1000) {
       return `${time} milliseconds`;
@@ -381,12 +463,27 @@ export class Tools {
     return `${hours / 24} days`;
   }
 
+  /**
+   * Create a delay/sleep for the specified number of milliseconds.
+   * @param time - Time to delay in milliseconds (default: 1000)
+   * @returns Promise that resolves after the specified time
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#delay | API: Tools#delay}
+   */
   public static delay(time: number = 1000): Promise<void> {
     return new Promise((resolve, reject) => {
       setTimeout(resolve, time);
     });
   }
 
+  /**
+   * Wait with delays while checking a condition, throwing an error on timeout.
+   * @param checkFunc - Function that returns true while waiting should continue
+   * @param rejectFunc - Function to call on timeout (before throwing)
+   * @param time - Delay between checks in milliseconds (default: 1000)
+   * @param timeout - Maximum number of check attempts (default: 10)
+   * @throws "Timeout!" when the timeout is exceeded
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#waitDelayThenThrow | API: Tools#waitDelayThenThrow}
+   */
   public static async waitDelayThenThrow(
       checkFunc: Function,
       rejectFunc: Function,
@@ -409,16 +506,35 @@ export class Tools {
     }
   }
 
+  /**
+   * Check if a value is a simple primitive type (string, number, or boolean).
+   * @param value - The value to check
+   * @returns True if the value is a string, number, or boolean
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isSimpleType | API: Tools#isSimpleType}
+   */
   public static isSimpleType(value: unknown): boolean {
     return (
         Tools.isBoolean(value) || Tools.isNumber(value) || Tools.isString(value)
     );
   }
 
+  /**
+   * Type guard to check if a value is a string.
+   * @param value - The value to check
+   * @returns True if the value is a string
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isString | API: Tools#isString}
+   */
   public static isString(value: unknown): value is string {
     return typeof value === "string" || value instanceof String;
   }
 
+  /**
+   * Type guard to check if a value is a Date object.
+   * @param value - The value to check
+   * @param matchString - Currently unused parameter for potential string date matching
+   * @returns True if the value is a Date instance
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isDate | API: Tools#isDate}
+   */
   public static isDate(value: unknown, matchString = true): value is Date {
     return value instanceof Date; /*
      ? true
@@ -427,6 +543,12 @@ export class Tools {
      : false*/
   }
 
+  /**
+   * Type guard to check if a value is an array.
+   * @param value - The value to check
+   * @returns True if the value is an array
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isArray | API: Tools#isArray}
+   */
   public static isArray<T = unknown>(value: unknown): value is Array<T> {
     return (
         !Tools.isNullOrUndefined(value) &&
@@ -435,18 +557,42 @@ export class Tools {
     );
   }
 
+  /**
+   * Type guard to check if a value is a function.
+   * @param value - The value to check
+   * @returns True if the value is a function
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isFunction | API: Tools#isFunction}
+   */
   public static isFunction(value: any): value is Function {
     return typeof value === "function";
   }
 
+  /**
+   * Type guard to check if a value is a symbol.
+   * @param value - The value to check
+   * @returns True if the value is a symbol
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isSymbol | API: Tools#isSymbol}
+   */
   public static isSymbol(value: any): value is symbol {
     return typeof value === "symbol";
   }
 
+  /**
+   * Type guard to check if a value is a valid number (not NaN).
+   * @param value - The value to check
+   * @returns True if the value is a number and not NaN
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isNumber | API: Tools#isNumber}
+   */
   public static isNumber(value: any): value is number {
     return typeof value === "number" && !isNaN(value);
   }
 
+  /**
+   * Check if a value can be parsed as a valid number and return the parsed result.
+   * @param value - The value to check and parse
+   * @returns Object with status (true if valid) and value (the parsed number)
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isStringNumber | API: Tools#isStringNumber}
+   */
   public static isStringNumber(value: any): SimpleStatu<number> {
     if (Tools.isNumber(value)) {
       return {status: true, value: value};
@@ -472,14 +618,32 @@ export class Tools {
     return {status: false};
   }
 
+  /**
+   * Type guard to check if a value is a boolean.
+   * @param value - The value to check
+   * @returns True if the value is a boolean
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isBoolean | API: Tools#isBoolean}
+   */
   public static isBoolean(value: unknown): value is boolean {
     return typeof value === "boolean";
   }
 
+  /**
+   * Type guard to check if a value is undefined.
+   * @param value - The value to check
+   * @returns True if the value is undefined
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isUndefined | API: Tools#isUndefined}
+   */
   public static isUndefined(value: unknown): value is undefined {
     return typeof value === "undefined";
   }
 
+  /**
+   * Type guard to check if a value is null.
+   * @param value - The value to check
+   * @returns True if the value is null
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isNull | API: Tools#isNull}
+   */
   public static isNull(value: unknown): value is null {
     if (value === null) {
       return true;
@@ -487,10 +651,23 @@ export class Tools {
     return false;
   }
 
+  /**
+   * Type guard to check if a value is a plain object (not array, null, etc.).
+   * @param value - The value to check
+   * @returns True if the value is a plain object
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isObject | API: Tools#isObject}
+   */
   public static isObject(value: unknown): value is Object {
     return Tools.TypeofObjectConstructor<Object>(value, "object");
   }
 
+  /**
+   * Type guard to check object constructor type (array or object).
+   * @param value - The value to check
+   * @param type - The type to check for ("array" or "object")
+   * @returns True if the value matches the specified constructor type
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#TypeofObjectConstructor | API: Tools#TypeofObjectConstructor}
+   */
   public static TypeofObjectConstructor<TR = unknown>(
       value: unknown,
       type: "array" | "object",
@@ -507,10 +684,22 @@ export class Tools {
     return false;
   }
 
+  /**
+   * Type guard to check if a value is a plain object with string keys.
+   * @param value - The value to check
+   * @returns True if the value is a plain object
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isPlainObject | API: Tools#isPlainObject}
+   */
   public static isPlainObject(value: unknown): value is Record<string, any> {
     return Tools.isObject(value);
   }
 
+  /**
+   * Type guard to check if a value is null or undefined.
+   * @param value - The value to check
+   * @returns True if the value is null or undefined
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#isNullOrUndefined | API: Tools#isNullOrUndefined}
+   */
   public static isNullOrUndefined(value: unknown): value is null | undefined {
     if (Tools.isUndefined(value)) {
       return true;
@@ -521,12 +710,28 @@ export class Tools {
     return false;
   }
 
+  /**
+   * Generate a random integer between min and max (inclusive).
+   * @param min - Minimum value (inclusive)
+   * @param max - Maximum value (inclusive)
+   * @returns Random integer between min and max
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#genRandomNumber | API: Tools#genRandomNumber}
+   */
   public static genRandomNumber(min: number, max: number) {
     return Math.floor(Math.random() * (
         +max - +min
     )) + +min;
   }
 
+  /**
+   * Clamp a number between a minimum and maximum value.
+   * @param min - Minimum allowed value
+   * @param max - Maximum allowed value
+   * @param value - Value to clamp
+   * @returns The clamped value
+   * @throws Error if min is greater than max
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#clampNumber | API: Tools#clampNumber}
+   */
   public static clampNumber(min: number, max: number, value: number) {
     if (min > max) {
       throw new Error("min cannot be greater than max");
@@ -534,11 +739,28 @@ export class Tools {
     return value < min ? min : value > max ? max : value;
   }
 
+  /**
+   * Sleep/delay execution for the specified number of milliseconds.
+   * @param milliseconds - Time to sleep in milliseconds (default: 1000)
+   * @returns Promise that resolves after the specified time
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#sleep | API: Tools#sleep}
+   */
   public static async sleep(milliseconds: number = 1000): Promise<void> {
     await new Promise((r) => setTimeout(r, milliseconds));
   }
 
+  /**
+   * Collection of utility functions for working with arrays.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#arrays | API: Tools#arrays}
+   */
   public static arrays = {
+    /**
+     * Asynchronously map over an array with async callback functions.
+     * @param arr - The array to map over
+     * @param asyncCallback - Async function to call for each item
+     * @returns Promise resolving to the mapped array
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#arrays | API: Tools#arrays}
+     */
     mapAsync: async <Input = any, Output = any>(
         arr: Array<Input>,
         asyncCallback: { (item: Input): Promise<Output> },
@@ -549,6 +771,13 @@ export class Tools {
           }),
       );
     },
+    /**
+     * Group array items by a key generated from a function.
+     * @param groupFunc - Function that returns a string key for grouping
+     * @param list - Array to group
+     * @returns Object with keys as group names and values as arrays of grouped items
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#arrays | API: Tools#arrays}
+     */
     groupListBy: <T = any>(
         groupFunc: { (object: T): string },
         list: Array<T>,
@@ -568,17 +797,34 @@ export class Tools {
           {},
       );
     },
+    /**
+     * Collect array items into groups using a grouping function, returning only the grouped arrays.
+     * @param groupFunc - Function that returns a string key for grouping
+     * @param list - Array to collect
+     * @returns Array of arrays where each sub-array contains grouped items
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#arrays | API: Tools#arrays}
+     */
     collectListBy: <T = any>(
         groupFunc: { (object: T): string },
         list: Array<T>,
     ): Array<Array<T>> => {
       return Object.values(Tools.arrays.groupListBy(groupFunc, list));
     },
-    /* Get the first item in the array */
+    /**
+     * Get the first item in the array.
+     * @param list - The array to get the first item from
+     * @returns The first item or undefined if array is empty
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#arrays | API: Tools#arrays}
+     */
     head: <T = any>(list: Array<T>): T | undefined => {
       return list[0];
     },
-    /* Get the last item in the array */
+    /**
+     * Get the last item in the array.
+     * @param list - The array to get the last item from
+     * @returns The last item or undefined if array is empty
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Tools.html#arrays | API: Tools#arrays}
+     */
     tail: <T = any>(list: Array<T>): T | undefined => {
       return list[list.length - 1];
     },

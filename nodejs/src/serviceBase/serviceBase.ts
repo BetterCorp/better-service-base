@@ -78,6 +78,9 @@ function internalTrace(span: string): DTrace {
  * @category Core
  */
 export class ServiceBase {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceBase.html | API: ServiceBase}
+   */
   private readonly mode: DEBUG_MODE = "development";
 
   /**
@@ -348,6 +351,10 @@ export class ServiceBase {
     this._outputKeep(BOOT_STAT_KEYS.SELF);
   }
 
+  /**
+   * Initialize all subsystems and plugins
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceBase.html#init | API: ServiceBase.init}
+   */
   public async init() {
     this._startKeep(BOOT_STAT_KEYS.INIT);
 
@@ -376,6 +383,10 @@ export class ServiceBase {
     this._outputKeep(BOOT_STAT_KEYS.INIT);
   }
 
+  /**
+   * Run the application after initialization
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceBase.html#run | API: ServiceBase.run}
+   */
   public async run() {
     this._startKeep(BOOT_STAT_KEYS.RUN);
     await this.logging.run();
@@ -402,6 +413,10 @@ export class ServiceBase {
 
   private _disposing: boolean = false;
 
+  /**
+   * Dispose all subsystems and exit process with code
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceBase.html#dispose | API: ServiceBase.dispose}
+   */
   async dispose(eCode: number = 0, reason: string, extraData?: any) {
     if (this._disposing) {
       return;
@@ -453,6 +468,10 @@ export class ServiceBase {
     }
   }
 
+  /**
+   * Add a service plugin programmatically
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceBase.html#addService | API: ServiceBase.addService}
+   */
   public async addService(
     name: string,
     plugin: typeof BSBService<any, any>,

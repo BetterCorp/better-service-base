@@ -219,6 +219,7 @@ pre {
     background-color: var(--bsb-primary-color) !important;
     color: white !important;
     border-radius: 4px !important;
+    padding: 0px 5px 0px 5px !important;
 }
 
 /* Links */

@@ -43,6 +43,7 @@ export type Result<T, E = Error> =
  * 
  * @group Errors
  * @category Utilities
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/Ok.html | API: Ok}
  */
 export function Ok<T>(data: T): Result<T, never> {
   return { success: true, data };
@@ -90,6 +91,7 @@ export function mapResult<T, U, E>(
  * 
  * @group Errors
  * @category Utilities
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/mapError.html | API: mapError}
  */
 export function mapError<T, E, F>(
   result: Result<T, E>,
@@ -163,6 +165,7 @@ export function unwrapOr<T, E>(result: Result<T, E>, defaultValue: T): T {
  * 
  * @group Errors
  * @category Utilities
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/fromPromise.html | API: fromPromise}
  */
 export async function fromPromise<T>(promise: Promise<T>): Promise<Result<T, Error>> {
   try {
@@ -172,3 +175,4 @@ export async function fromPromise<T>(promise: Promise<T>): Promise<Result<T, Err
     return Err(error instanceof Error ? error : new Error(String(error)));
   }
 }
+

@@ -27,13 +27,26 @@
 
 import {DTrace} from "./metrics";
 
+/**
+ * Base interface for service events
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/ServiceEventsBase.html | API: ServiceEventsBase}
+ */
 export interface ServiceEventsBase {
   [key: string]: (...args: any[]) => Promise<any> | any;
 }
 
+/**
+ * Base interface for callable service events
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/ServiceEventsCallableBase.html | API: ServiceEventsCallableBase}
+ */
 export interface ServiceEventsCallableBase {
   [key: string]: (trace: DTrace, ...args: any[]) => Promise<any> | any;
 }
+/**
+ * Default service events interface
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/ServiceEventsDefault.html | API: ServiceEventsDefault}
+ */
 export interface ServiceEventsDefault {
   [key: string]: () => never;
 }
+

@@ -40,6 +40,7 @@ export type BSBConfigConstructor = BaseWithLoggingConfig;
  * @category Plugins
  * @template T - The type of config for the plugin
  * Abstract class representing the configuration for the Better Service Base.
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html | API: BSBConfig}
  */
 export abstract class BSBConfig
   extends BaseWithLogging {
@@ -57,30 +58,35 @@ export abstract class BSBConfig
   /**
    * Returns the logging plugins configuration.
    * @returns Promise resolving to an object containing the logging configuration for each plugin.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getLoggingPlugins | API: BSBConfig#getLoggingPlugins}
    */
   abstract getLoggingPlugins(trace: DTrace): Promise<Record<string, LoggingConfig>>;
 
   /**
    * Returns the metrics plugins configuration.
    * @returns Promise resolving to an object containing the metrics configuration for each plugin.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getMetricsPlugins | API: BSBConfig#getMetricsPlugins}
    */
   abstract getMetricsPlugins(trace: DTrace): Promise<Record<string, PluginDefinition>>;
 
   /**
    * Returns the events plugins configuration.
    * @returns Promise resolving to an object containing the events configuration for each plugin.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getEventsPlugins | API: BSBConfig#getEventsPlugins}
    */
   abstract getEventsPlugins(trace: DTrace): Promise<Record<string, EventsConfig>>;
 
   /**
    * Returns the service plugins configuration.
    * @returns Promise resolving to an object containing the configuration for each plugin.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getServicePlugins | API: BSBConfig#getServicePlugins}
    */
   abstract getServicePlugins(trace: DTrace): Promise<Record<string, PluginDefinition>>;
 
   /**
    * Returns a mapped plugin name and whether the plugin is enabled or not
    * @returns string of the plugin name and if it is enabled or not
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getServicePluginDefinition | API: BSBConfig#getServicePluginDefinition}
    */
   abstract getServicePluginDefinition(
     trace: DTrace,
@@ -92,6 +98,7 @@ export abstract class BSBConfig
    * @template T - The type of the configuration object.
    * @param plugin - The name of the plugin to retrieve the configuration for.
    * @returns Promise resolving to the configuration object for the specified plugin, or null if the plugin is not found.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getPluginConfig | API: BSBConfig#getPluginConfig}
    */
   abstract getPluginConfig(
     trace: DTrace,

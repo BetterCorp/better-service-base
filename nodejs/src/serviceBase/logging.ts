@@ -57,6 +57,9 @@ function internalTrace(span: string): DTrace {
  * @category Core
  */
 export class SBLogging {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBLogging.html | API: SBLogging}
+   */
   private loggers: Array<{
     plugin: BSBLogging<any>;
     on?: LoggingFilter;

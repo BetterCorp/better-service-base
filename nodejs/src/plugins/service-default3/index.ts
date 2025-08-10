@@ -39,14 +39,6 @@ export const secSchema = z.object({});
 export class Config
   extends BSBPluginConfig<typeof secSchema> {
   validationSchema = secSchema;
-
-  migrate(
-    toVersion: string,
-    fromVersion: string | null,
-    fromConfig: any | null,
-  ) {
-    return fromConfig;
-  }
 }
 
 export interface ServiceTypes

@@ -89,6 +89,9 @@ export class PluginEvents<
      *   /// Do something with the data
      * });
      */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onBroadcast | API: PluginEvents.onBroadcast}
+     */
     public onBroadcast<TA extends keyof onBroadcast>(
         ...args: DynamicallyReferencedMethodOnIEvents<
             DynamicallyReferencedMethodType<onBroadcast>,
@@ -127,6 +130,9 @@ export class PluginEvents<
      *   /// Do something with the data
      * });
      */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitBroadcast | API: PluginEvents.emitBroadcast}
+     */
     public emitBroadcast<TA extends keyof emitBroadcast>(
         ...args: DynamicallyReferencedMethodEmitIEvents<
             DynamicallyReferencedMethodType<emitBroadcast>,
@@ -161,6 +167,9 @@ export class PluginEvents<
      * await this.onEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
+     */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onEvent | API: PluginEvents.onEvent}
      */
     public async onEvent<TA extends keyof onEvents>(
         ...args: DynamicallyReferencedMethodOnIEvents<
@@ -200,6 +209,9 @@ export class PluginEvents<
      *   /// Do something with the data
      * });
      */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEvent | API: PluginEvents.emitEvent}
+     */
     public async emitEvent<TA extends keyof emitEvents>(
         ...args: DynamicallyReferencedMethodEmitIEvents<
             DynamicallyReferencedMethodType<emitEvents>,
@@ -236,6 +248,9 @@ export class PluginEvents<
      * await this.onEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
      *   /// Do something with the data
      * });
+     */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onEventSpecific | API: PluginEvents.onEventSpecific}
      */
     public async onEventSpecific<TA extends keyof onEvents>(
         serverId: string,
@@ -279,6 +294,9 @@ export class PluginEvents<
      *   /// Do something with the data
      * });
      */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventSpecific | API: PluginEvents.emitEventSpecific}
+     */
     public async emitEventSpecific<TA extends keyof emitEvents>(
         serverId: string,
         ...args: DynamicallyReferencedMethodEmitIEvents<
@@ -318,6 +336,9 @@ export class PluginEvents<
      *   return 'some result';
      * });
      */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onReturnableEvent | API: PluginEvents.onReturnableEvent}
+     */
     public async onReturnableEvent<TA extends keyof onReturnableEvents>(
         ...args: DynamicallyReferencedMethodOnIEvents<
             DynamicallyReferencedMethodType<onReturnableEvents>,
@@ -356,6 +377,9 @@ export class PluginEvents<
      *   /// Do something with the data
      *   return 'some result';
      * });
+     */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventAndReturn | API: PluginEvents.emitEventAndReturn}
      */
     public async emitEventAndReturn<TA extends keyof emitReturnableEvents>(
         ...args: DynamicallyReferencedMethodEmitEARIEvents<
@@ -404,6 +428,9 @@ export class PluginEvents<
      *   return 'some result';
      * });
      */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onReturnableEventSpecific | API: PluginEvents.onReturnableEventSpecific}
+     */
     public async onReturnableEventSpecific<TA extends keyof onReturnableEvents>(
         serverId: string,
         ...args: DynamicallyReferencedMethodOnIEvents<
@@ -446,6 +473,7 @@ export class PluginEvents<
      *   /// Do something with the data
      *   return 'some result';
      * });
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventAndReturnSpecific | API: PluginEvents.emitEventAndReturnSpecific}
      */
     public async emitEventAndReturnSpecific<TA extends keyof emitReturnableEvents>(
         serverId: string,
@@ -505,6 +533,9 @@ export class PluginEvents<
      * /// and then returns OK to the other plugin
      * ```
      */
+    /**
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#receiveStream | API: PluginEvents.receiveStream}
+     */
     public async receiveStream(
         trace: DTrace,
         event: string,
@@ -551,6 +582,7 @@ export class PluginEvents<
      * await this.sendStream(trace, 'myStreamEvent', streamId, fs.createReadStream('./filein.txt'));
      * /// and then returns OK to the other plugin
      * ```
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#sendStream | API: PluginEvents.sendStream}
      */
     public async sendStream(
         trace: DTrace,

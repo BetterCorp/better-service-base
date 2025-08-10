@@ -30,6 +30,7 @@ import { BSBError } from "../base";
 /**
  * @group Metrics
  * @category Plugin Development Tools
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginMetrics.html | API: IPluginMetrics}
  */
 export interface IPluginMetrics {
   /**
@@ -62,6 +63,7 @@ export interface IPluginMetrics {
    * counter.inc(1); // Increment the counter by 1
    * counter.inc(10); // Increment the counter by 10
    * ```
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginMetrics.html#createCounter | API: IPluginMetrics#createCounter}
    */
   createCounter<LABELS extends string | undefined>(name: string, description: string, help: string, labels?: LABELS[]): Counter<LABELS>;
 
@@ -99,6 +101,7 @@ export interface IPluginMetrics {
    * gauge.decrement(); // Decrement the gauge by 1
    * gauge.decrement(10); // Decrement the gauge by 10
    * ```
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginMetrics.html#createGauge | API: IPluginMetrics#createGauge}
    */
   createGauge<LABELS extends string | undefined>(name: string, description: string, help: string, labels?: LABELS[]): Gauge<LABELS>;
 
@@ -133,6 +136,7 @@ export interface IPluginMetrics {
    * histogram.record(20); // Record the value 20 in the histogram
    * histogram.record(30); // Record the value 30 in the histogram
    * ```
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginMetrics.html#createHistogram | API: IPluginMetrics#createHistogram}
    */
   createHistogram<LABELS extends string | undefined>(name: string, description: string, help: string, boundaries?: number[], labels?: LABELS[]): Histogram<LABELS>;
 
@@ -181,6 +185,7 @@ export interface IPluginMetrics {
    * }
    * trace.end();
    * ```
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginMetrics.html#createTrace | API: IPluginMetrics#createTrace}
    */
   createTrace(name: string, attributes?: Record<string, string | number | boolean>): Trace;
 
@@ -196,6 +201,7 @@ export interface IPluginMetrics {
    * let span = this.metrics.createSpan(trace, "span-1", {"key": "value"});
    * span.end();
    * ```
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginMetrics.html#createSpan | API: IPluginMetrics#createSpan}
    */
   createSpan(trace: DTrace, name: string, attributes?: Record<string, string | number | boolean>): Trace
 
@@ -223,6 +229,7 @@ export interface IPluginMetrics {
    * // Do some work
    * let elapsedTime = timer.stop(); // Stop the timer and get the elapsed time in nanoseconds
    * ```
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginMetrics.html#createTimer | API: IPluginMetrics#createTimer}
    */
   createTimer(): Timer
 }
@@ -385,3 +392,4 @@ export interface Histogram<LABELS extends string | undefined = undefined> {
    */
   record(value: number, labels?: LABELS extends string ? Partial<Record<LABELS, string>> : never): void;
 }
+

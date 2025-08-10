@@ -152,6 +152,7 @@ export class PluginMetricsTrace implements Trace {
 /**
  * @group Metrics
  * @category Plugin Development Tools
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginMetrics.html | API: PluginMetrics}
  */
 export class PluginMetrics implements IPluginMetrics {
   private metrics: SBMetrics;

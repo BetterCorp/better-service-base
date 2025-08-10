@@ -47,6 +47,9 @@ function internalTrace(span: string): DTrace {
  * @hidden
  * ONLY USE THIS IF YOU NEED SPECIFIC CLIENT LOGIC, OTHERWISE USE ServiceClient
  */
+/**
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBServiceClient.html | API: BSBServiceClient}
+ */
 export abstract class BSBServiceClient<Service extends BSBService = any> {
   public declare readonly log: IPluginLogging;
   public declare readonly metrics: IPluginMetrics;
@@ -113,6 +116,9 @@ export class ServiceClient<
   ServiceT extends typeof BSBServiceRef = any
 >
   extends BSBServiceClient<Service> {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceClient.html | API: ServiceClient}
+   */
   public readonly pluginName: string = "{UNSET SERVICE CLIENT PLUGIN NAME}";
   public readonly initBeforePlugins?: Array<string>;
   public readonly initAfterPlugins?: Array<string>;

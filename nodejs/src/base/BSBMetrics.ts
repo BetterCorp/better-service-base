@@ -45,6 +45,7 @@ export interface BSBMetricsConstructor<
  * @category Plugins
  * @template T - The type of config for the plugin
  * Abstract class representing the configuration for the Better Service Base.
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBMetrics.html | API: BSBMetrics}
  */
 export abstract class BSBMetrics<
   ReferencedConfig extends BSBReferencePluginConfigType = any

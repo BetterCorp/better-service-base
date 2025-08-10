@@ -58,6 +58,7 @@ export abstract class MainBase {
    * The unique app id of the app that is running
    * @readonly
    * @type {string}
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#appId | API: MainBase.appId}
    */
   public readonly appId: string = "tbd";
 
@@ -68,23 +69,28 @@ export abstract class MainBase {
    * @example production (production mode - no debug)
    * @example production-debug (production mode - debug)
    * @example development (development mode - debug)
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#mode | API: MainBase.mode}
    */
   public readonly mode: DEBUG_MODE = "development";
   /**
    * The current working directory of the app
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#cwd | API: MainBase.cwd}
    */
   public readonly cwd: string;
   /**
    * The current working directory of the plugin
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#packageCwd | API: MainBase.packageCwd}
    */
   public readonly packageCwd: string;
   /**
    * The current working directory of the service
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#pluginCwd | API: MainBase.pluginCwd}
    */
   public readonly pluginCwd: string;
   /**
    * The name of the plugin
    * This is also the mapped name, or the name defined in the config rather than it's original defined name
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#pluginName | API: MainBase.pluginName}
    */
   public declare readonly pluginName: string;
 
@@ -114,6 +120,9 @@ export abstract class MainBase {
  */
 export abstract class Base
   extends MainBase {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Base.html | API: Base}
+   */
   constructor(config: MainBaseConfig) {
     super(config);
   }
@@ -124,6 +133,7 @@ export abstract class Base
    *
    * @example dispose?(): void; //to not use it
    * @example dispose() { your code here };
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Base.html#dispose | API: Base.dispose}
    */
   abstract dispose?(): void;
 
@@ -135,6 +145,7 @@ export abstract class Base
    * @example init?(trace: DTrace): void; //to not use it
    * @example init(trace: DTrace) { your code here }; // Includes the trace for the init function
    * @example async init(trace: DTrace) { await your code here }; // Includes the trace for the init function
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Base.html#init | API: Base.init}
    */
   public abstract init?(trace: DTrace): Promise<void> | void;
 
@@ -146,6 +157,7 @@ export abstract class Base
    * @example run?(trace: DTrace): void; //to not use it
    * @example run(trace: DTrace) { your code here }; // Includes the trace for the run function
    * @example async run(trace: DTrace) { await your code here }; // Includes the trace for the run function
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Base.html#run | API: Base.run}
    */
   public abstract run?(trace: DTrace): Promise<void> | void;
 }

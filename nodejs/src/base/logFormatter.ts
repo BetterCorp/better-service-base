@@ -42,6 +42,9 @@ import { Tools } from "./tools";
  * });
  * ```
  */
+/**
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/LogFormatter.html | API: LogFormatter}
+ */
 export class LogFormatter {
   private isUnsafeLogData(value: any): value is UnsafeLogData {
     return Tools.isObject(value) && !Tools.isNullOrUndefined(value.safeValue);

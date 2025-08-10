@@ -64,6 +64,9 @@ function internalTrace(span: string): DTrace {
  * @category Core
  */
 export class SBConfig {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBConfig.html | API: SBConfig}
+   */
   private mode: DEBUG_MODE = "development";
   private appId: string;
   private cwd: string;
@@ -124,6 +127,10 @@ export class SBConfig {
     return await this.configPlugin.getServicePluginDefinition(trace, pluginName);
   }
 
+  /**
+   * Dispose config subsystem
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBConfig.html#dispose | API: SBConfig.dispose}
+   */
   public dispose() {
     SmartFunctionCallSync(this.configPlugin, this.configPlugin.dispose);
   }
@@ -131,6 +138,10 @@ export class SBConfig {
   private configPackage: string | undefined;
   private configPluginName = "config-default";
 
+  /**
+   * Set the active config plugin implementation
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBConfig.html#setConfigPlugin | API: SBConfig.setConfigPlugin}
+   */
   public async setConfigPlugin(reference: LoadedPlugin<"config">) {
     const tTrace = internalTrace(`setConfigPlugin`);
     this.configPlugin = new reference.plugin({
@@ -159,6 +170,10 @@ export class SBConfig {
     return this.configPlugin;
   }
 
+  /**
+   * Initialize config plugin (default or loaded)
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBConfig.html#init | API: SBConfig.init}
+   */
   public async init(): Promise<void> {
     const tTrace = internalTrace(`init`);
     if (

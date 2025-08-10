@@ -33,6 +33,7 @@ import { BSBError } from "./errorMessages";
 /**
  * @group Logging
  * @category Plugin Development Tools
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginLogging.html | API: PluginLogging}
  */
 export class PluginLogging
   implements IPluginLogging {
@@ -50,6 +51,7 @@ export class PluginLogging
 
   /**
    * Logs a debug message
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginLogging.html#debug | API: PluginLogging.debug}
    *
    * @param trace - The trace to associate with the log
    * @param message - The message to log
@@ -69,6 +71,7 @@ export class PluginLogging
 
   /**
    * Logs an info message
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginLogging.html#info | API: PluginLogging.info}
    *
    * @param trace - The trace to associate with the log
    * @param message - The message to log
@@ -87,6 +90,7 @@ export class PluginLogging
 
   /**
    * Logs a warn message
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginLogging.html#warn | API: PluginLogging.warn}
    *
    * @param trace - The trace to associate with the log
    * @param message - The message to log
@@ -105,6 +109,7 @@ export class PluginLogging
 
   /**
    * Logs an error message
+    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginLogging.html#error | API: PluginLogging.error}
    *
    * @param trace - The trace to associate with the log
    * @param message - The message to log

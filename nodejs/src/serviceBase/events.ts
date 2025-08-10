@@ -70,6 +70,9 @@ function internalTrace(span: string): DTrace {
  * @category Core
  */
 export class SBEvents {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBEvents.html | API: SBEvents}
+   */
   private events: Array<{
     name: string;
     plugin: BSBEvents<any>;

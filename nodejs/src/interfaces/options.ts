@@ -38,6 +38,7 @@ import type { SBServices } from "../serviceBase/services";
  * 
  * @group Main
  * @category Configuration
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/BSBOptions.html | API: BSBOptions}
  */
 export interface BSBOptions {
   /**
@@ -106,6 +107,7 @@ export interface BSBOptions {
  * 
  * @group Main
  * @category Configuration
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/ResolvedBSBOptions.html | API: ResolvedBSBOptions}
  */
 export interface ResolvedBSBOptions {
   debug: boolean;
@@ -126,6 +128,7 @@ export interface ResolvedBSBOptions {
  * 
  * @group Main
  * @category Configuration
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/SimpleBSBOptions.html | API: SimpleBSBOptions}
  */
 export interface SimpleBSBOptions {
   /**
@@ -157,6 +160,7 @@ export interface SimpleBSBOptions {
  * 
  * @group Main
  * @category Configuration
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/BSBPreset.html | API: BSBPreset}
  */
 export enum BSBPreset {
   /**

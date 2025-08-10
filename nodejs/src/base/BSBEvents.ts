@@ -45,6 +45,7 @@ export interface BSBEventsConstructor<
 /**
  * @group Events
  * @category Plugins
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html | API: BSBEvents}
  */
 export abstract class BSBEvents<
     ReferencedConfig extends BSBReferencePluginConfigType = any
@@ -77,6 +78,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#onBroadcast | API: BSBEvents#onBroadcast}
      */
     public abstract onBroadcast(
         trace: DTrace,
@@ -96,6 +98,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#emitBroadcast | API: BSBEvents#emitBroadcast}
      */
     public abstract emitBroadcast(
         trace: DTrace,
@@ -116,6 +119,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#onEvent | API: BSBEvents#onEvent}
      */
     public abstract onEvent(
         trace: DTrace,
@@ -135,6 +139,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#emitEvent | API: BSBEvents#emitEvent}
      */
     public abstract emitEvent(
         trace: DTrace,
@@ -155,6 +160,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#onReturnableEvent | API: BSBEvents#onReturnableEvent}
      */
     public abstract onReturnableEvent(
         trace: DTrace,
@@ -175,6 +181,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#emitEventAndReturn | API: BSBEvents#emitEventAndReturn}
      */
     public abstract emitEventAndReturn(
         trace: DTrace,
@@ -195,6 +202,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#receiveStream | API: BSBEvents#receiveStream}
      */
     public abstract receiveStream(
         trace: DTrace,
@@ -214,6 +222,7 @@ export abstract class BSBEvents<
      *
      * @see BSB events-default plugin for an example of how to use this function
      * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/events-default | Default Events Plugin}
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#sendStream | API: BSBEvents#sendStream}
      */
     public abstract sendStream(
         trace: DTrace,

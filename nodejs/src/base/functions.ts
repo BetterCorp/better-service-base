@@ -66,6 +66,7 @@ type SmartFunctionCallFunc = {
  * };
  * console.log("done with " + SmartFunctionCallThroughAsync(this, myFunc, "a", 5));
  * ```
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/SmartFunctionCallThroughAsync.html | API: SmartFunctionCallThroughAsync}
  */
 export function SmartFunctionCallThroughAsync<T extends SmartFunctionCallFunc>(
   trace: DTrace,
@@ -100,6 +101,7 @@ export function SmartFunctionCallThroughAsync<T extends SmartFunctionCallFunc>(
  * };
  * console.log("done with " + await SmartFunctionCallAsync(this, myFunc, "a", 5));
  * ```
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/SmartFunctionCallAsync.html | API: SmartFunctionCallAsync}
  */
 export async function SmartFunctionCallAsync<T extends SmartFunctionCallFunc>(
   context: any,
@@ -125,6 +127,7 @@ export async function SmartFunctionCallAsync<T extends SmartFunctionCallFunc>(
  * @param context
  * @param input
  * @param params
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/SmartFunctionCallSync.html | API: SmartFunctionCallSync}
  */
 export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
   context: any,
@@ -140,13 +143,31 @@ export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
   return input.call(context, ...params);
 }
 
+/**
+ * Validated environment properties for the BSB runtime.
+ *
+ * Use {@link getEnvProps} to read and validate the current process env.
+ *
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#ENV_PROPS | API: ENV_PROPS}
+ */
 export const ENV_PROPS = z.object({
+  /** Active configuration profile (e.g. "default", "prod") */
   BSB_PROFILE: z.string().optional().default("default"),
+  /** Path to the root config file when not using plugin-based sources */
   BSB_CONFIG_FILE: z.string().optional().default("config.yaml"),
+  /** Application working directory */
   APP_DIR: z.string().optional().default(process.cwd()),
+  /** Logger plugin name to load */
   BSB_LOGGER_PLUGIN: z.string().optional().default("config-default"),
+  /** Logger plugin package (if different from name) */
   BSB_LOGGER_PLUGIN_PACKAGE: z.string().optional().default("config-default"),
 });
+
+/**
+ * Parse and validate the current environment against {@link ENV_PROPS}.
+ *
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/getEnvProps.html | API: getEnvProps}
+ */
 export function getEnvProps() {
   return ENV_PROPS.parse(process.env);
 }

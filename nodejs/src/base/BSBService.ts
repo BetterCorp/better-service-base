@@ -35,6 +35,9 @@ import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from
 import { BSBPluginEvents, BSBPluginEventsRef, PluginEvents } from "./PluginEvents";
 import { PluginMetrics } from "./PluginMetrics";
 
+/**
+ * @hidden
+ */
 export interface BSBServiceConstructor<
   ReferencedConfig extends BSBReferencePluginConfigType = any
 >
@@ -47,6 +50,9 @@ export interface BSBServiceConstructor<
   sbMetrics: SBMetrics;
 }
 
+/**
+ * @hidden
+ */
 export interface BSBServiceClientDefinition {
   name: string;
   initBeforePlugins?: Array<string>;
@@ -58,6 +64,17 @@ export interface BSBServiceClientDefinition {
 /**
  * @group Services
  * @category Plugins
+ */
+/**
+ * Base class for implementing a service plugin.
+ *
+ * Lifecycle:
+ *  - constructor(config)
+ *  - init(trace): async initialization and event registration
+ *  - run(trace): start processing
+ *  - dispose(): cleanup resources
+  *
+  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBService.html | API: BSBService}
  */
 export abstract class BSBService<
   ReferencedConfig extends BSBReferencePluginConfigType = any,
@@ -84,7 +101,9 @@ export abstract class BSBService<
     onBroadcast: Events["onBroadcast"];
     emitBroadcast: Events["emitBroadcast"];
   };
+  /** Metrics helper scoped to this plugin */
   public readonly metrics: IPluginMetrics;
+  /** Strongly-typed event API for this plugin */
   public readonly events: PluginEvents<
     Events["onEvents"],
     Events["emitEvents"],

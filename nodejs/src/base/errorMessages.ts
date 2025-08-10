@@ -48,6 +48,9 @@ export type ErrorLogMeta<T extends string> = ParamsFromString<T> extends never
  * @param message - The message to log
  * @param meta - Additional information to log with the message
  */
+/**
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBError.html | API: BSBError}
+ */
 export class BSBError<T extends string>
   extends Error {
   constructor(

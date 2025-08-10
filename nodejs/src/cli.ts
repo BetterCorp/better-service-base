@@ -26,6 +26,9 @@
  */
 
 import { ServiceBase } from "./serviceBase/serviceBase";
+/**
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#cli | API: CLI}
+ */
 
 const runApp = async () => {
   const CWD = process.env.APP_DIR || process.cwd();

@@ -83,6 +83,15 @@ export type BSBReferencePluginConfigDefinition<
       ? z.infer<ReferencedConfig["validationSchema"]>
       : null;
 
+/**
+ * Base class for plugin configuration.
+ *
+ * Define your Zod validation schema in {@link validationSchema}. Prefer
+ * versioned schemas using Zod unions and transforms to normalize old
+ * configs into the latest shape at parse time.
+ *
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBPluginConfig.html | API: BSBPluginConfig}
+ */
 export abstract class BSBPluginConfig<
     MyPluginConfig extends Exclude<BSBPluginConfigType, undefined> | null = null
 > {
@@ -91,20 +100,6 @@ export abstract class BSBPluginConfig<
   }
 
   public abstract validationSchema: MyPluginConfig;
-
-  /**
-   * Migrate the config from one version to another
-   *
-   * @todo Future feature - not implemented yet
-   * @todo write your migration code if you do make changes you'd like to have migratable
-   */
-  public abstract migrate?(
-      toVersion: string,
-      fromVersion: string | null,
-      fromConfig: any | null,
-  ): MyPluginConfig extends BSBPluginConfigType
-     ? z.infer<MyPluginConfig>
-     : null;
 }
 
 /**

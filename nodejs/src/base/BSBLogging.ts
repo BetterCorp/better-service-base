@@ -45,6 +45,7 @@ export interface BSBLoggingConstructor<
 /**
  * @group Logging
  * @category Plugins
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBLogging.html | API: BSBLogging}
  */
 export abstract class BSBLogging<
   ReferencedConfig extends BSBReferencePluginConfigType = any
@@ -78,6 +79,7 @@ export abstract class BSBLogging<
    *
    * @see BSB logging-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/logging-default | Default Logging Plugin}
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBLogging.html#debug | API: BSBLogging#debug}
    */
   public abstract debug<T extends string>(
     plugin: string,
@@ -98,6 +100,7 @@ export abstract class BSBLogging<
    *
    * @see BSB logging-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/logging-default | Default Logging Plugin}
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBLogging.html#info | API: BSBLogging#info}
    */
   public abstract info<T extends string>(
     plugin: string,
@@ -118,6 +121,7 @@ export abstract class BSBLogging<
    *
    * @see BSB logging-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/logging-default | Default Logging Plugin}
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBLogging.html#warn | API: BSBLogging#warn}
    */
   public abstract warn<T extends string>(
     plugin: string,
@@ -138,6 +142,7 @@ export abstract class BSBLogging<
    *
    * @see BSB logging-default plugin for an example of how to use this function
    * @see {@link https://github.com/BetterCorp/better-service-base/tree/master/nodejs/src/plugins/logging-default | Default Logging Plugin}
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBLogging.html#error | API: BSBLogging#error}
    */
   public abstract error<T extends string>(
     plugin: string,

@@ -47,6 +47,9 @@ function internalTrace(span: string): DTrace {
  * @category Core
  */
 export class SBPlugins {
+  /**
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBPlugins.html | API: SBPlugins}
+   */
   protected cwd: string;
   protected nodeModulesPluginDir: string;
   protected referencedPluginDir: string | null = null;

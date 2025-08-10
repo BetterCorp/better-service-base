@@ -41,6 +41,9 @@ import {LoggingEventTypes} from "./logging";
 /**
  * @hidden
  */
+/**
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_plugins | API: interfaces/plugins}
+ */
 export const PluginTypes = {
   config: "config",
   events: "events",
@@ -226,3 +229,7 @@ export interface LoadedPlugin<
   pluginCwd: string;
   pluginPath: string;
 }
+
+/**
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_plugins | API: interfaces/plugins}
+ */
