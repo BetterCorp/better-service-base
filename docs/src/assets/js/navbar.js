@@ -16,6 +16,7 @@ export function createNavbar(activePage = '') {
           <a href="/" class="nav-item ${activePage === 'overview' ? 'active' : ''}">Overview</a>
           <a href="/get-started/" class="nav-item ${activePage === 'get-started' ? 'active' : ''}">Quick Start</a>
           <a href="/architecture/" class="nav-item ${activePage === 'architecture' ? 'active' : ''}">Architecture</a>
+          <a href="/developer/" class="nav-item ${activePage === 'developer' ? 'active' : ''}">Developer Guide</a>
         </div>
         
         <div class="nav-section">

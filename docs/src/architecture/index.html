@@ -202,9 +202,9 @@
                         <div class="cardish">
                             <h3>Resilience</h3>
                             <ul class="list">
-                                <li>Backpressure and timeouts at the event layer</li>
-                                <li>Retries with jitter for transient failures</li>
-                                <li>Circuit breaking around external dependencies</li>
+                                <li>Design for backpressure and timeouts at the event layer</li>
+                                <li>Implement retries/jitter and circuit breaking in your plugin code or chosen libraries (framework-agnostic)</li>
+                                <li>Prefer idempotent handlers to simplify failure recovery</li>
                             </ul>
                         </div>
                         <div class="cardish">

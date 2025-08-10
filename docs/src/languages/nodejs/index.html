@@ -302,7 +302,7 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
                 
                 <li>
                     <h3>Create Your First Service Plugin</h3>
-                    <p>Implement a basic service plugin with typed events:</p>
+                    <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor → init → run → dispose</code>):</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
 <pre><code class="language-ts">import { BSBService, BSBPluginEvents, DTrace } from '@bettercorp/service-base';
 

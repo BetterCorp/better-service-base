@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Developer Guide - Better Service Base</title>
+  <link rel="stylesheet" href="/assets/css/main.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css" />
+  <style>
+    .section { margin: 3rem 0; }
+    .section h2 { color: var(--primary-color); font-size: 1.75rem; margin-bottom: 1rem; }
+    .subtle { color: var(--text-secondary); }
+    .grid { display: grid; gap: 1.5rem; }
+    .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+    .cardish { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.5rem; }
+    .diagram { background: var(--code-bg); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; white-space: pre; font-family: monospace; font-size: 0.85rem; color: #e2e8f0; overflow-x: auto; }
+    .list { color: var(--text-secondary); }
+    .list li { margin: 0.35rem 0; }
+    .code-block { background: var(--code-bg); color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); white-space: pre-wrap; line-height: 1.4; font-family: monospace; }
+    .table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    .table th, .table td { border: 1px solid var(--border-color); padding: 0.75rem; text-align: left; }
+    .table th { background: var(--bg-secondary); }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+
+  <div class="doc-layout">
+    <div id="navbar-container"></div>
+
+    <main class="main-content">
+      <header class="main-header">
+        <h1>Developer Guide</h1>
+        <p>Deep-dive guidance for building, testing, deploying, and operating BSB services.</p>
+      </header>
+
+      <div class="content">
+        <section class="section">
+          <h2>End-to-End Tutorial</h2>
+          <ol class="list">
+            <li>Scaffold a plugin project (see language guide)</li>
+            <li>Implement events and handlers</li>
+            <li>Configure default plugins (config/events/logging/metrics)</li>
+            <li>Run locally with Docker Compose (mount plugin repo)</li>
+            <li>Publish artifacts to plugin repository</li>
+            <li>Deploy container with mounted repository</li>
+          </ol>
+        </section>
+
+        <section class="section">
+          <h2>Plugin Lifecycle</h2>
+          <div class="grid cols-2">
+            <div class="cardish">
+              <h3>Hooks</h3>
+              <ul class="list">
+                <li><strong>constructor(config)</strong>: set up fields; no async work</li>
+                <li><strong>init(trace)</strong>: prepare dependencies, read config, <em>register event listeners/handlers</em></li>
+                <li><strong>run(trace)</strong>: start processing and servicing events</li>
+                <li><strong>dispose()</strong>: graceful shutdown and cleanup of resources</li>
+              </ul>
+            </div>
+            <div class="cardish">
+              <h3>Enable/Disable & Order</h3>
+              <ul class="list">
+                <li>Disabled plugins are skipped but logged</li>
+                <li>Dependencies determine initialization order</li>
+                <li>Use typed configuration validation</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Event Design Guide</h2>
+          <div class="grid cols-2">
+            <div class="cardish">
+              <h3>Conventions</h3>
+              <ul class="list">
+                <li>Names: <code>domain.action</code>, kebab/snake as needed</li>
+                <li>Semantic payloads with explicit types</li>
+                <li>Include correlation IDs and timestamps</li>
+              </ul>
+            </div>
+            <div class="cardish">
+              <h3>Reliability</h3>
+              <ul class="list">
+                <li>Prefer idempotent handlers</li>
+                <li>Use dead-letter queues/topics if your adapter supports them</li>
+                <li>Retries/backoff/circuit breaking are app-level: choose libraries/patterns that fit your needs</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Configuration Reference</h2>
+          <table class="table">
+            <thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead>
+            <tbody>
+              <tr><td><code>BSB_PROFILE</code></td><td>Selects configuration profile</td><td><code>default</code></td></tr>
+              <tr><td><code>BSB_PLUGIN_DIR</code></td><td>Mounted plugin repository path</td><td>None</td></tr>
+              <tr><td><code>BSB_PLUGINS</code></td><td>Explicit plugin list with versions</td><td>Optional</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section">
+          <h2>Observability</h2>
+          <div class="grid cols-3">
+            <div class="cardish">
+              <h3>Logs</h3>
+              <ul class="list">
+                <li>Structured JSON logging</li>
+                <li>Correlate with trace IDs</li>
+              </ul>
+            </div>
+            <div class="cardish">
+              <h3>Metrics</h3>
+              <ul class="list">
+                <li>Request rates, latencies, errors</li>
+                <li>Resource usage per service</li>
+              </ul>
+            </div>
+            <div class="cardish">
+              <h3>Tracing</h3>
+              <ul class="list">
+                <li>End-to-end spans on events</li>
+                <li>Sampling and baggage</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Troubleshooting</h2>
+          <ul class="list">
+            <li>Plugin not discovered: verify repo mount and naming</li>
+            <li>Config errors: validate schema and profile selection</li>
+            <li>Bus connectivity: adapter credentials and endpoints</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Performance & Scaling</h2>
+          <ul class="list">
+            <li>Tune concurrency per handler</li>
+            <li>Batch where adapters support it</li>
+            <li>Design for backpressure; implement shedding in your service if required</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Security Hardening</h2>
+          <ul class="list">
+            <li>Signed plugin artifacts and checksums</li>
+            <li>Secrets via config plugins; avoid env/plaintext</li>
+            <li>RBAC for config sources</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Deployment Recipes</h2>
+          <ul class="list">
+            <li>Docker Compose for local stacks</li>
+            <li>Kubernetes: rolling updates, blue/green</li>
+            <li>Pin vs latest for plugin versions</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Compatibility Matrix</h2>
+          <p class="subtle">Document capabilities per adapter/source in the language guides and a future compatibility page.</p>
+        </section>
+
+        <section class="section">
+          <h2>Versioning & Releases</h2>
+          <ul class="list">
+            <li>Consolidated version via <code>version.txt</code></li>
+            <li>Mapping to language packages</li>
+            <li>Deprecation and migration policy</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Testing Guide</h2>
+          <ul class="list">
+            <li>Unit tests with mocked bus</li>
+            <li>Integration tests against real adapter</li>
+            <li>Contract tests for event schemas</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Reference Examples</h2>
+          <ul class="list">
+            <li>HTTP API service</li>
+            <li>Cron/worker service</li>
+            <li>Message transformer</li>
+            <li>Orchestrator/saga</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Local Dev Workflow</h2>
+          <ul class="list">
+            <li>Recommended IDE and tools</li>
+            <li>Debugging with traces and logs</li>
+            <li>Hot-reload strategies (language-specific)</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Design Decisions</h2>
+          <p class="subtle">Add ADRs capturing key choices like container-first, plugin boundaries, and event guarantees.</p>
+        </section>
+
+        <section class="section">
+          <h2>Glossary & FAQ</h2>
+          <ul class="list">
+            <li>Plugin kinds, returnable events, profiles</li>
+            <li>Common pitfalls and clarifications</li>
+          </ul>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script type="module">
+    import { createNavbar } from '/assets/js/navbar.js';
+    fetch('/version.txt', { cache: 'no-store' })
+      .then(res => res.ok ? res.text() : '')
+      .then(txt => { window.__BSB_VERSION__ = (txt || '').trim(); })
+      .catch(() => {})
+      .finally(() => {
+        document.getElementById('navbar-container').innerHTML = createNavbar('developer');
+      });
+
+    function toggleMobileMenu() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('mobile-open');
+    }
+    window.toggleMobileMenu = toggleMobileMenu;
+    document.addEventListener('click', function(event) {
+      const sidebar = document.getElementById('sidebar');
+      const toggle = document.querySelector('.mobile-menu-toggle');
+      if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+        sidebar.classList.remove('mobile-open');
+      }
+    });
+  </script>
+</body>
+</html>

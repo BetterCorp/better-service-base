@@ -37,6 +37,7 @@ export default defineConfig({
         main: 'src/index.html',
         'get-started': 'src/get-started/index.html',
         'architecture': 'src/architecture/index.html',
+        'developer': 'src/developer/index.html',
         'nodejs-guide': 'src/languages/nodejs/index.html',
         'plugins': 'src/plugins/index.html'
       }
