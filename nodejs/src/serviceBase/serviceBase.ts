@@ -31,7 +31,7 @@ import {
   PluginLogging, PluginMetrics,
 } from "../base";
 import { resolveBSBOptions, fromSimpleOptions, fromPreset } from "../base/factory";
-import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, IPluginLogging, LogMeta, PluginTypeDefinitionRef, BSBOptions, ResolvedBSBOptions, SimpleBSBOptions, BSBPreset } from "../interfaces";
+import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, IPluginLogging, LogMeta, PluginTypeDefinitionRef, BSBOptions, SimpleBSBOptions, BSBPreset } from "../interfaces";
 import { SBConfig } from "./config";
 import { SBEvents } from "./events";
 import { SBLogging } from "./logging";
@@ -223,60 +223,63 @@ export class ServiceBase {
   }
 
   /**
-   * @deprecated Use constructor with BSBOptions instead
+   * Creates a new ServiceBase instance to orchestrate the BSB framework.
+   *
+   * The ServiceBase is the main entry point for running BSB applications. It initializes
+   * and coordinates all subsystems including configuration, logging, metrics, events,
+   * and service plugins.
+   *
+   * @param options - Configuration options for the ServiceBase instance
+   * @param options.debug - Enable debug mode with verbose logging (default: true)
+   * @param options.live - Enable production/live mode optimizations (default: false)
+   * @param options.cwd - Working directory for the application (default: process.cwd())
+   * @param options.config - Custom configuration controller class
+   * @param options.plugins - Custom plugin loader class
+   * @param options.logging - Custom logging controller class
+   * @param options.metrics - Custom metrics controller class
+   * @param options.events - Custom events controller class
+   * @param options.services - Custom services controller class
+   *
+   * @example
+   * ```typescript
+   * // Basic usage with defaults
+   * const app = new ServiceBase();
+   * await app.init();
+   * await app.run();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Production configuration
+   * const app = new ServiceBase({
+   *   debug: false,
+   *   live: true,
+   *   cwd: '/app'
+   * });
+   * await app.init();
+   * await app.run();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Development configuration
+   * const app = new ServiceBase({
+   *   debug: true,
+   *   live: false,
+   *   cwd: process.cwd()
+   * });
+   * await app.init();
+   * await app.run();
+   * ```
+   *
+   * @see {@link ServiceBase.create} for factory method with simple options
+   * @see {@link ServiceBase.fromPreset} for preset-based configuration
+   * @see {@link ServiceBase.init} for initialization
+   * @see {@link ServiceBase.run} for starting the application
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceBase.html | API: ServiceBase}
    */
-  constructor(
-    debug: boolean,
-    live: boolean,
-    cwd: string,
-    config?: typeof SBConfig,
-    plugins?: typeof SBPlugins,
-    logging?: typeof SBLogging,
-    metrics?: typeof SBMetrics,
-    events?: typeof SBEvents,
-    services?: typeof SBServices
-  );
-  
-  /**
-   * Create a new ServiceBase instance with options
-   */
-  constructor(options: BSBOptions);
-  
-  /**
-   * Create a new ServiceBase instance
-   */
-  constructor(
-    optionsOrDebug: BSBOptions | boolean = {},
-    live?: boolean,
-    cwd?: string,
-    config?: typeof SBConfig,
-    plugins?: typeof SBPlugins,
-    logging?: typeof SBLogging,
-    metrics?: typeof SBMetrics,
-    events?: typeof SBEvents,
-    services?: typeof SBServices
-  ) {
-    // Resolve options based on whether new or old API is used
-    let resolvedOptions: ResolvedBSBOptions;
-    
-    if (typeof optionsOrDebug === 'object') {
-      // New API: options object
-      resolvedOptions = resolveBSBOptions(optionsOrDebug);
-    } else {
-      // Old API: individual parameters (maintain backward compatibility)
-      const debug = optionsOrDebug;
-      resolvedOptions = resolveBSBOptions({
-        debug: debug ?? true,
-        live: live ?? false,
-        cwd: cwd ?? process.cwd(),
-        config,
-        plugins,
-        logging,
-        metrics,
-        events,
-        services
-      });
-    }
+  constructor(options: BSBOptions = {}) {
+    const resolvedOptions = resolveBSBOptions(options);
 
     // Set instance properties from resolved options
     this.cwd = resolvedOptions.cwd;

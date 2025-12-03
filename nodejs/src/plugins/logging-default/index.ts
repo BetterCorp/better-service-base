@@ -72,7 +72,7 @@ export class Plugin
     additionalToConsole?: any,
   ) {
     let formattedMessage = this.logFormatter.formatLog<T>(trace, message, meta);
-    formattedMessage = `[${ plugin.toUpperCase() }] ${ formattedMessage }`;
+    formattedMessage = `[${plugin.toUpperCase()}] ${formattedMessage}`;
     let func: any = console.debug;
     let colour: Array<ConsoleColours> = [
       CONSOLE_COLOURS.BgBlack,
@@ -80,7 +80,7 @@ export class Plugin
     ];
     let colour2: Array<ConsoleColours> = [];
     if (level === LOG_LEVELS.DEBUG) {
-      formattedMessage = `[DEBUG] ${ formattedMessage }`;
+      formattedMessage = `[DEBUG] ${formattedMessage}`;
       //formattedMessage = `[DEBUG] ${message} ${JSON.stringify(meta)} == ${formattedMessage}`;
       colour = [
         CONSOLE_COLOURS.BgBlue,
@@ -88,12 +88,12 @@ export class Plugin
       ];
     }
     if (level === LOG_LEVELS.INFO) {
-      formattedMessage = `[INFO] ${ formattedMessage }`;
+      formattedMessage = `[INFO] ${formattedMessage}`;
       func = console.log;
       colour = [];
     }
     if (level === LOG_LEVELS.WARN) {
-      formattedMessage = `[WARN] ${ formattedMessage }`;
+      formattedMessage = `[WARN] ${formattedMessage}`;
       func = console.warn;
       colour = [
         CONSOLE_COLOURS.BgBlack,
@@ -101,7 +101,7 @@ export class Plugin
       ];
     }
     if (level === LOG_LEVELS.ERROR) {
-      formattedMessage = `[ERROR] ${ formattedMessage }`;
+      formattedMessage = `[ERROR] ${formattedMessage}`;
       func = console.error;
       colour = [
         CONSOLE_COLOURS.BgRed,
@@ -118,7 +118,7 @@ export class Plugin
     if (additionalToConsole) {
       formattedMessage += colour2.join("") + "\n" + additionalToConsole;
     }
-    func(colour.join("") + "%s" + CONSOLE_COLOURS.Reset, formattedMessage);
+    func(colour.join("") + "%s" + CONSOLE_COLOURS.Reset, `${new Date().toISOString()} | ${formattedMessage}`);
   }
 
   public debug<T extends string>(

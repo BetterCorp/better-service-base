@@ -197,7 +197,7 @@ export class SBEvents {
     const matchingEvent = this.getPluginsMatchingTriggerEvent(eventAs, plugin);
     if (matchingEvent === undefined) {
       throw new BSBError(
-        internalTrace(`getPluginForEvent:${ eventAs }:${ plugin }:${ event }`),
+        internalTrace(`getPluginForEvent:${eventAs}:${plugin}:${event}`),
         "No plugins found to match event: plugin: {plugin} - eventAs: {eventAs} - event: {event}",
         { eventAs, plugin, event },
       );
@@ -928,6 +928,7 @@ export class SBEvents {
     );
     return await plugin.plugin.receiveStream(
       trace,
+      plugin.pluginName,
       event,
       async (etrace: DTrace, error: Error | null, stream: Readable) =>
         self.handleOnReceiveStream.call(
@@ -963,6 +964,7 @@ export class SBEvents {
         plugin.plugin,
         plugin.plugin.sendStream,
         trace,
+        plugin.pluginName,
         event,
         streamId,
         stream,

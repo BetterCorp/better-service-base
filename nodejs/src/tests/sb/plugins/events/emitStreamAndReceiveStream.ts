@@ -131,24 +131,27 @@ export function emitStreamAndReceiveStream(
     const timermaxTimeoutToExpectAResponse = maxTimeoutToExpectAResponse + 10;
     it("receiveStream creates a should generate a valid string", async () => {
       const thisCaller = randomName();
+      const thisCallerEvent = randomName();
       const trace = createTrace();
 
       const uuid = await emitter.receiveStream(
         trace,
         thisCaller,
+        thisCallerEvent,
         async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
         },
         maxTimeoutToExpectAResponse,
       );
-      assert.ok(`${ uuid }`.length >= 10, "Not a valid unique ID for stream");
+      assert.ok(`${uuid}`.length >= 10, "Not a valid unique ID for stream");
     });
     it("sendStream triggers timeout when no receiveStream setup", async () => {
       const thisCaller = randomName();
       const thisEvent = randomName();
+      const streamId = randomName();
       const trace = createTrace();
 
       try {
-        await emitter.sendStream(trace, thisCaller, thisEvent, mockBareFakeStream());
+        await emitter.sendStream(trace, thisCaller, thisEvent, streamId, mockBareFakeStream());
         assert.fail("Timeout not called");
       }
       catch {
@@ -157,6 +160,7 @@ export function emitStreamAndReceiveStream(
     });
     it("sendStream triggers receiveStream listener", async () => {
       const thisCaller = randomName();
+      const thisCallerEvent = randomName();
       const trace = createTrace();
 
       const emitTimeout = setTimeout(() => {
@@ -165,6 +169,7 @@ export function emitStreamAndReceiveStream(
       const uuid = await emitter.receiveStream(
         trace,
         thisCaller,
+        thisCallerEvent,
         async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
           clearTimeout(emitTimeout);
           stream.emit("end");
@@ -173,7 +178,7 @@ export function emitStreamAndReceiveStream(
         maxTimeoutToExpectAResponse,
       );
       try {
-        await emitter.sendStream(trace, thisCaller, uuid, mockBareFakeStream());
+        await emitter.sendStream(trace, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
         //console.log("endededed");
         // eslint-disable-next-line no-empty
       }
@@ -183,6 +188,7 @@ export function emitStreamAndReceiveStream(
     describe("sendStream triggers receiveStream listener passing in the stream", async () => {
       it("should not call the listener with an error", async () => {
         const thisCaller = randomName();
+        const thisCallerEvent = randomName();
         const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
@@ -191,6 +197,7 @@ export function emitStreamAndReceiveStream(
         const uuid = await emitter.receiveStream(
           trace,
           thisCaller,
+          thisCallerEvent,
           async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
             clearTimeout(emitTimeout);
             stream.emit("end");
@@ -199,7 +206,7 @@ export function emitStreamAndReceiveStream(
           maxTimeoutToExpectAResponse,
         );
         try {
-          await emitter.sendStream(trace, thisCaller, uuid, mockBareFakeStream());
+          await emitter.sendStream(trace, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
           // eslint-disable-next-line no-empty
         }
         catch {
@@ -207,6 +214,7 @@ export function emitStreamAndReceiveStream(
       });
       it("should call the listener with a stream", async () => {
         const thisCaller = randomName();
+        const thisCallerEvent = randomName();
         const trace = createTrace();
 
         const emitTimeout = setTimeout(() => {
@@ -215,6 +223,7 @@ export function emitStreamAndReceiveStream(
         const uuid = await emitter.receiveStream(
           trace,
           thisCaller,
+          thisCallerEvent,
           async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
             clearTimeout(emitTimeout);
             stream.emit("end");
@@ -227,7 +236,7 @@ export function emitStreamAndReceiveStream(
           maxTimeoutToExpectAResponse,
         );
         try {
-          await emitter.sendStream(trace, thisCaller, uuid, mockBareFakeStream());
+          await emitter.sendStream(trace, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
           // eslint-disable-next-line no-empty
         }
         catch {
@@ -237,16 +246,17 @@ export function emitStreamAndReceiveStream(
     describe("sendStream triggers receiveStream files", function () {
       this.timeout(120000);
       const runTest = async (size: string, count = 1) => {
-        it(`should be able to fully stream a file - ${ size }`, async () => {
+        it(`should be able to fully stream a file - ${size}`, async () => {
           this.timeout(120000);
           const thisCaller = randomName();
+          const thisCallerEvent = randomName();
           const trace = createTrace();
           //const now = new Date().getTime();
-          const fileName = `./test-file-${ size }`;
+          const fileName = `./test-file-${size}`;
           const fileNameOut = fileName + "-out";
           try {
             await runCMD(
-              `dd if=/dev/urandom of=${ fileName } bs=${ size } count=${ count }`,
+              `dd if=/dev/urandom of=${fileName} bs=${size} count=${count}`,
             );
             /*fs.writeFileSync(fileName, 'XX');
              for (let x = 0; x < itr1; x++) {
@@ -267,6 +277,7 @@ export function emitStreamAndReceiveStream(
             const uuid = await emitter.receiveStream(
               trace,
               thisCaller,
+              thisCallerEvent,
               async (receivedTrace: DTrace, error: Error | null, stream: Readable): Promise<any> => {
                 if (error) {
                   return assert.fail(error);
@@ -283,6 +294,7 @@ export function emitStreamAndReceiveStream(
             await emitter.sendStream(
               trace,
               thisCaller,
+              thisCallerEvent,
               uuid,
               fs.createReadStream(fileName),
             );

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,18 +8,20 @@
     <link rel="stylesheet" href="/assets/css/main.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
 </head>
+
 <body>
     <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
-    
+
     <div class="doc-layout">
         <div id="navbar-container"></div>
-        
+
         <!-- Main Content -->
         <main class="main-content">
             <header class="main-header">
-                <h1>Better Service Base <span id="overview-version" class="version-badge" style="display:none;"></span></h1>
+                <h1>Better Service Base <span id="overview-version" class="version-badge" style="display:none;"></span>
+                </h1>
                 <p>Event-driven microservice framework designed for simplicity, flexibility, and scalability.</p>
-                
+
                 <div class="badges">
                     <span class="badge">Event-Driven</span>
                     <span class="badge">Multi-Language</span>
@@ -26,13 +29,15 @@
                     <span class="badge">Production Ready</span>
                 </div>
             </header>
-            
+
             <div class="content">
                 <div class="content-header">
                     <h2>How BSB Works</h2>
-                    <p><strong>BSB is installed as a dependency</strong> in your project to provide types, functions, and framework foundation. Your services are defined as plugins in a specific structure where each service is self-contained but can expose functions through typed event interfaces.</p>
+                    <p><strong>BSB is installed as a dependency</strong> in your project to provide types, functions,
+                        and framework foundation. Your services are defined as plugins in a specific structure where
+                        each service is self-contained but can expose functions through typed event interfaces.</p>
                 </div>
-                
+
                 <!-- Main Cards -->
                 <div class="card-grid">
                     <a href="/get-started/" class="card">
@@ -40,105 +45,113 @@
                             <div class="card-icon nodejs">🚀</div>
                             <h3>Quick Start</h3>
                         </div>
-                        <p>Learn the BSB plugin architecture, understand how services communicate through events, and build your first plugin.</p>
+                        <p>Learn the BSB plugin architecture, understand how services communicate through events, and
+                            build your first plugin.</p>
                         <div class="card-cta">Get Started</div>
                     </a>
-                    
-                        <a href="/architecture/" class="card">
-                            <div class="card-header">
-                                <div class="card-icon api">🏗️</div>
-                                <h3>Architecture</h3>
-                            </div>
-                            <p>Understand BSB's components, deployment patterns, lifecycle, and flows.</p>
-                            <div class="card-cta">View Architecture</div>
-                        </a>
 
-                        <a href="/developer/" class="card">
-                            <div class="card-header">
-                                <div class="card-icon api">👨‍💻</div>
-                                <h3>Developer Guide</h3>
-                            </div>
-                            <p>Deep-dive docs: lifecycle, events, config, observability, troubleshooting, and more.</p>
-                            <div class="card-cta">Read Guide</div>
-                        </a>
+                    <a href="/architecture/" class="card">
+                        <div class="card-header">
+                            <div class="card-icon api">🏗️</div>
+                            <h3>Architecture</h3>
+                        </div>
+                        <p>Understand BSB's components, deployment patterns, lifecycle, and flows.</p>
+                        <div class="card-cta">View Architecture</div>
+                    </a>
+
+                    <a href="/developer/" class="card">
+                        <div class="card-header">
+                            <div class="card-icon api">👨‍💻</div>
+                            <h3>Developer Guide</h3>
+                        </div>
+                        <p>Deep-dive docs: lifecycle, events, config, observability, troubleshooting, and more.</p>
+                        <div class="card-cta">Read Guide</div>
+                    </a>
 
                     <a href="/plugins/" class="card">
                         <div class="card-header">
                             <div class="card-icon plugins">🔌</div>
                             <h3>Plugin System</h3>
                         </div>
-                        <p>Discover the plugin architecture and marketplace. Learn how to create custom plugins for configuration, events, logging, and services.</p>
+                        <p>Discover the plugin architecture and marketplace. Learn how to create custom plugins for
+                            configuration, events, logging, and services.</p>
                         <div class="card-cta">Explore Plugins</div>
                     </a>
                 </div>
-                
+
                 <!-- Language Implementations -->
                 <div class="languages-section">
                     <h3>🌍 Language Implementations</h3>
                     <p>Choose your preferred programming language to get started with BSB:</p>
-                    
+
                     <div class="card-grid">
                         <a href="/languages/nodejs/" class="card">
                             <div class="card-header">
                                 <div class="card-icon nodejs">⚡</div>
                                 <h3>Node.js</h3>
                             </div>
-                            <p>Complete implementation guide for JavaScript/TypeScript developers. Includes setup, plugin development, and deployment.</p>
+                            <p>Complete implementation guide for JavaScript/TypeScript developers. Includes setup,
+                                plugin development, and deployment.</p>
                             <div class="card-cta">Node.js Guide</div>
                         </a>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon go">🐹</div>
                                 <h3>Go</h3>
                             </div>
-                            <p>High-performance microservices with excellent concurrency support. Perfect for cloud-native deployments and containerization.</p>
+                            <p>High-performance microservices with excellent concurrency support. Perfect for
+                                cloud-native deployments and containerization.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon python">🐍</div>
                                 <h3>Python</h3>
                             </div>
-                            <p>Rapid development with rich ecosystem support. Async/await for event handling and extensive library integration.</p>
+                            <p>Rapid development with rich ecosystem support. Async/await for event handling and
+                                extensive library integration.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon dotnet">🔷</div>
                                 <h3>C# / .NET</h3>
                             </div>
-                            <p>Enterprise-grade implementation with strongly-typed event interfaces, dependency injection, and robust tooling.</p>
+                            <p>Enterprise-grade implementation with strongly-typed event interfaces, dependency
+                                injection, and robust tooling.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon java">☕</div>
                                 <h3>Java</h3>
                             </div>
-                            <p>Mature enterprise platform with comprehensive ecosystem. Spring integration and proven scalability patterns.</p>
+                            <p>Mature enterprise platform with comprehensive ecosystem. Spring integration and proven
+                                scalability patterns.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon elixir">💧</div>
                                 <h3>Elixir</h3>
                             </div>
-                            <p>Built for distributed systems with fault tolerance. Actor model perfect for event-driven microservice architecture.</p>
+                            <p>Built for distributed systems with fault tolerance. Actor model perfect for event-driven
+                                microservice architecture.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Reference Section -->
                 <div class="reference-section">
                     <h3>📚 Language-Specific References</h3>
                     <p>API documentation and type definitions for each language:</p>
-                    
+
                     <div class="card-grid">
                         <a href="/languages/nodejs/types/" class="card">
                             <div class="card-header">
@@ -148,7 +161,7 @@
                             <p>Complete TypeScript type definitions and API reference for Node.js BSB development.</p>
                             <div class="card-cta">Browse Types</div>
                         </a>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon api">📗</div>
@@ -157,25 +170,27 @@
                             <p>Complete Go package documentation with interface definitions and usage examples.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon api">📙</div>
                                 <h3>Python API Docs</h3>
                             </div>
-                            <p>Comprehensive Python package docs with type hints and async patterns for BSB development.</p>
+                            <p>Comprehensive Python package docs with type hints and async patterns for BSB development.
+                            </p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon api">📘</div>
                                 <h3>.NET API Docs</h3>
                             </div>
-                            <p>Complete C# API documentation with IntelliSense support and dependency injection patterns.</p>
+                            <p>Complete C# API documentation with IntelliSense support and dependency injection
+                                patterns.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon api">📒</div>
@@ -184,7 +199,7 @@
                             <p>JavaDoc-generated documentation with Spring Boot integration and enterprise patterns.</p>
                             <div class="card-cta">Coming Soon</div>
                         </div>
-                        
+
                         <div class="card coming-soon">
                             <div class="card-header">
                                 <div class="card-icon api">📜</div>
@@ -195,12 +210,13 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Architecture Section -->
                 <div class="architecture-section">
                     <h3>🏗️ Deployment Flexibility</h3>
-                    <p>BSB services can run in various configurations depending on your needs - the event bus handles all communication.</p>
-                    
+                    <p>BSB services can run in various configurations depending on your needs - the event bus handles
+                        all communication.</p>
+
                     <div class="arch-grid">
                         <div class="arch-item">
                             <h4>Single Service</h4>
@@ -218,9 +234,21 @@
                             <h4>Global Edge</h4>
                             <p>Worldwide distribution at edge locations</p>
                         </div>
+                        <div class="arch-item">
+                            <h4>SaaS</h4>
+                            <p>Services distributed across multiple tenants</p>
+                        </div>
+                        <div class="arch-item">
+                            <h4>Hybrid</h4>
+                            <p>Mixed deployment patterns (SaaS + On-Prem)</p>
+                        </div>
+                        <div class="arch-item">
+                            <h4>On-Prem</h4>
+                            <p>Services running on-premises</p>
+                        </div>
                     </div>
                 </div>
-                
+
                 <!-- Features -->
                 <div class="features-grid">
                     <div class="feature">
@@ -228,85 +256,87 @@
                         <h4>Plugin-Based</h4>
                         <p>Services are self-contained plugins with typed event interfaces for communication.</p>
                     </div>
-                    
+
                     <div class="feature">
                         <div class="feature-icon">📡</div>
                         <h4>Event-Bus</h4>
                         <p>Powerful event system with returnable events, broadcasts, and streaming support.</p>
                     </div>
-                    
+
                     <div class="feature">
                         <div class="feature-icon">🔧</div>
                         <h4>Type-Safe</h4>
                         <p>Full TypeScript support with typed event interfaces and compile-time checking.</p>
                     </div>
-                    
+
                     <div class="feature">
                         <div class="feature-icon">⚖️</div>
                         <h4>Scalable</h4>
                         <p>Run services together or separately, scale individual components as needed.</p>
                     </div>
-                    
+
                     <div class="feature">
                         <div class="feature-icon">🌍</div>
                         <h4>Location-Agnostic</h4>
                         <p>Services work the same whether co-located or distributed across the globe.</p>
                     </div>
-                    
+
                     <div class="feature">
                         <div class="feature-icon">🛡️</div>
                         <h4>Production Ready</h4>
                         <p>Built-in logging, metrics, configuration management, and error handling.</p>
                     </div>
                 </div>
-                
+
                 <!-- Installation and setup are language-specific; see guides below. -->
                 <div class="info-box">
                     <h4>🚀 Get Started</h4>
-                    <p>Select a language guide below for installation and setup instructions. For JavaScript/TypeScript, see the Node.js guide.</p>
+                    <p>Select a language guide below for installation and setup instructions. For JavaScript/TypeScript,
+                        see the Node.js guide.</p>
                 </div>
             </div>
         </main>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
     <script type="module">
         import { createNavbar } from '/assets/js/navbar.js';
-        
+
         // Inject consolidated version from root version.txt and then render navbar
         fetch('/version.txt', { cache: 'no-store' })
-          .then(res => res.ok ? res.text() : '')
-          .then(txt => {
-            const ver = (txt || '').trim();
-            if (ver) {
-              window.__BSB_VERSION__ = ver;
-              const badge = document.getElementById('overview-version');
-              if (badge) { badge.textContent = `v${ver}`; badge.style.display = 'inline-block'; }
-            }
-          })
-          .catch(() => {})
-          .finally(() => {
-            document.getElementById('navbar-container').innerHTML = createNavbar('overview');
-          });
-        
+            .then(res => res.ok ? res.text() : '')
+            .then(txt => {
+                const ver = (txt || '').trim();
+                if (ver) {
+                    window.__BSB_VERSION__ = ver;
+                    const badge = document.getElementById('overview-version');
+                    if (badge) { badge.textContent = `v${ver}`; badge.style.display = 'inline-block'; }
+                }
+            })
+            .catch(() => { })
+            .finally(() => {
+                document.getElementById('navbar-container').innerHTML = createNavbar('overview');
+            });
+
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('mobile-open');
         }
-        
+
         // Make toggleMobileMenu globally available
         window.toggleMobileMenu = toggleMobileMenu;
-        
+
         // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
+        document.addEventListener('click', function (event) {
             const sidebar = document.getElementById('sidebar');
             const toggle = document.querySelector('.mobile-menu-toggle');
-            
+
             if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
                 sidebar.classList.remove('mobile-open');
             }
         });
     </script>
 </body>
+
 </html>

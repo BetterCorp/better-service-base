@@ -32,7 +32,11 @@ import { ServiceBase } from "./serviceBase/serviceBase";
 
 const runApp = async () => {
   const CWD = process.env.APP_DIR || process.cwd();
-  const SB = new ServiceBase(false, true, CWD);
+  const SB = new ServiceBase({
+    debug: false,
+    live: true,
+    cwd: CWD
+  });
   await SB.init();
   await SB.run();
 };

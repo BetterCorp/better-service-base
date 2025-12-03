@@ -31,3 +31,6 @@ node_modules
 /dotnet/**/Properties/launchSettings.json
 /rust/target
 .idea
+# Repomix output
+repomix-output.xml
+*.repomix.xml

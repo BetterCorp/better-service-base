@@ -304,35 +304,106 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
                     <h3>Create Your First Service Plugin</h3>
                     <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor → init → run → dispose</code>):</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
-<pre><code class="language-ts">import { BSBService, BSBPluginEvents, DTrace } from '@bettercorp/service-base';
+<pre><code class="language-ts">import { BSBService, BSBServiceConstructor, BSBServiceClientDefinition, DTrace, z } from '@bettercorp/service-base';
+import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from '@bettercorp/service-base';
 
-// Strongly-typed event maps for this plugin
-interface MyEvents extends BSBPluginEvents {
-  // Events this plugin LISTENS to (fire-and-forget)
-  onEvents: {
-    'user.created': (data: { userId: string; email: string }) => void;
-  };
-  // Events this plugin EMITS (fire-and-forget)
+// Schema-first event definitions with automatic validation
+export const EventSchemas = {
+  // Events this service emits (fire-and-forget)
   emitEvents: {
-    'notification.send': (payload: { type: 'welcome' | 'alert'; userId: string; message?: string }) => void;
-  };
-  // Returnable events this plugin LISTENS to (RPC-like)
+    'notification.send': createFireAndForgetEvent(
+      z.object({
+        type: z.enum(['welcome', 'alert']),
+        userId: z.string().uuid(),
+        message: z.string().optional()
+      }),
+      'Send notification to user'
+    )
+  },
+  
+  // Events this service listens to (fire-and-forget)  
+  onEvents: {
+    'user.created': createFireAndForgetEvent(
+      z.object({
+        userId: z.string().uuid(),
+        email: z.string().email()
+      }),
+      'Handle user creation event'
+    )
+  },
+  
+  // Returnable events this service emits (RPC-like requests from this service)
+  emitReturnableEvents: {
+    'data.fetch': createReturnableEvent(
+      z.object({
+        userId: z.string().uuid()
+      }),
+      z.object({
+        userData: z.record(z.unknown())
+      }),
+      'Fetch user data from external service'
+    )
+  },
+  
+  // Returnable events this service listens to (RPC-like requests to this service)
   onReturnableEvents: {
-    'api.getUser': (userId: string) => Promise&lt;{ userId: string; status: string }&gt;;
-  };
-  // Returnable events this plugin EMITS (RPC-like)
-  emitReturnableEvents: {};
-  // Broadcast channels
-  onBroadcast: {};
-  emitBroadcast: {};
-}
+    'api.getUser': createReturnableEvent(
+      z.object({
+        userId: z.string().uuid()
+      }),
+      z.object({
+        userId: z.string().uuid(),
+        status: z.string()
+      }),
+      'Get user status information'
+    )
+  },
+  
+  // Broadcast events this service emits (all listeners receive)
+  emitBroadcast: {
+    'system.alert': createBroadcastEvent(
+      z.object({
+        level: z.enum(['info', 'warning', 'error']),
+        message: z.string(),
+        timestamp: z.string().datetime()
+      }),
+      'System-wide alert broadcast'
+    )
+  },
+  
+  // Broadcast events this service listens to
+  onBroadcast: {
+    'system.maintenance': createBroadcastEvent(
+      z.object({
+        startTime: z.string().datetime(),
+        duration: z.number().min(0)
+      }),
+      'Listen for maintenance mode broadcasts'
+    )
+  }
+} as const; // 🔑 Critical for type safety!
 
 // IMPORTANT: Export class name MUST be `Plugin`
-export class Plugin extends BSBService<null, MyEvents> {
-  public override async init(trace: DTrace): Promise<void> {
-    // Listen for user.created events
+export class Plugin extends BSBService<null, typeof EventSchemas> {
+  public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
+    name: "service-my-api",
+  }
+  public initBeforePlugins?: string[] | undefined;
+  public initAfterPlugins?: string[] | undefined;
+  public runBeforePlugins?: string[] | undefined;
+  public runAfterPlugins?: string[] | undefined;
+
+  constructor(config: BSBServiceConstructor<null, typeof EventSchemas>) {
+    super({
+      ...config,
+      eventSchemas: EventSchemas
+    });
+  }
+
+  public async init(trace: DTrace): Promise<void> {
+    // Listen for user.created events (with automatic validation)
     await this.events.onEvent('user.created', trace, async (_t, data) => {
-      // Emit a notification when a user is created
+      // Emit a notification when a user is created (with automatic validation)
       await this.events.emitEvent('notification.send', trace, {
         type: 'welcome',
         userId: data.userId,
@@ -340,15 +411,20 @@ export class Plugin extends BSBService<null, MyEvents> {
       });
     });
 
-    // Expose a returnable (RPC-like) handler
-    await this.events.onReturnableEvent('api.getUser', trace, async (_t, userId) => {
+    // Expose a returnable (RPC-like) handler (with automatic validation)
+    await this.events.onReturnableEvent('api.getUser', trace, async (_t, data) => {
       // Typically fetch from a DB; returning inline for example
-      return { userId, status: 'active' };
+      return { userId: data.userId, status: 'active' }; // Return data is validated automatically
     });
   }
 
-  public override async run(_trace: DTrace): Promise<void> {
-    // Service is ready
+  public async run(trace: DTrace): Promise<void> {
+    // Service is ready - emit a system alert as an example
+    await this.events.emitBroadcast('system.alert', trace, {
+      level: 'info',
+      message: 'My API service is now running',
+      timestamp: new Date().toISOString()
+    });
   }
 }
 </code></pre>
@@ -375,6 +451,61 @@ export class Plugin extends BSBService<null, MyEvents> {
   "include": ["src/**/*"],
   "exclude": ["node_modules", "lib"]
 }</code></pre></div>
+                </li>
+                
+                <li>
+                    <h3>Create Plugin Config (Optional)</h3>
+                    <p>Define configuration schema and metadata for your plugin:</p>
+                    <div class="code-block" data-title="src/plugins/service-my-api/config.ts (Optional)">
+<pre><code class="language-ts">import { BSBPluginConfig, z } from '@bettercorp/service-base';
+
+// Define your config schema using Zod
+const MyConfigSchema = z.object({
+  maxUsers: z.number().default(1000),
+  features: z.object({
+    notifications: z.boolean().default(true),
+    analytics: z.boolean().default(false)
+  }),
+  apiKeys: z.object({
+    external: z.string().optional()
+  }).optional()
+});
+
+export class Config extends BSBPluginConfig&lt;typeof MyConfigSchema&gt; {
+  public validationSchema = MyConfigSchema;
+
+  // Optional: Config migration for version upgrades
+  public async migrate(
+    versionFrom: string | null,
+    versionTo: string,
+    existingConfig?: z.infer&lt;typeof MyConfigSchema&gt;
+  ) {
+    // First-time setup
+    if (versionFrom === null) {
+      return {
+        maxUsers: 1000,
+        features: {
+          notifications: true,
+          analytics: false
+        }
+      };
+    }
+    
+    // Handle version migrations
+    if (versionFrom === '1.0.0' && versionTo === '1.1.0') {
+      return {
+        ...existingConfig,
+        features: {
+          ...existingConfig?.features,
+          analytics: false // New feature added in 1.1.0
+        }
+      };
+    }
+
+    return existingConfig || {};
+  }
+}
+</code></pre></div>
                 </li>
                 
                 <li>
@@ -430,17 +561,114 @@ npm run dev</code></pre></div>
             <h2>🔄 Event Communication</h2>
             <p>BSB services communicate exclusively through typed events:</p>
             
-            <div class="code-block" data-title="Event Types"><pre><code class="language-ts">// Fire-and-forget events
-await this.events.emitEvent('user.created', trace, userData);
+            <div class="code-block" data-title="Event Types"><pre><code class="language-ts">// Fire-and-forget events (single object parameter)
+await this.events.emitEvent('notification.send', trace, {
+  type: 'welcome',
+  userId: 'user-123',
+  message: 'Welcome!'
+});
 
-// Returnable events (RPC-style)
-const result = await this.events.emitEventAndReturn('api.getUser', trace, userId);
+// Returnable events (RPC-style, single object parameter)
+const result = await this.events.emitEventAndReturn('api.getUser', trace, {
+  userId: 'user-123'
+}, 5); // timeout in seconds
 
-// Listen to events
-await this.events.onEvent('user.created', trace, this.handleUserCreated.bind(this));
+// Broadcast events (all listeners receive, single object parameter)
+await this.events.emitBroadcast('system.alert', trace, {
+  level: 'info',
+  message: 'System status update',
+  timestamp: new Date().toISOString()
+});
 
-// Expose returnable methods
-await this.events.onReturnableEvent('api.getUser', trace, this.getUser.bind(this));</code></pre></div>
+// Listen to events (object parameter in handler)
+await this.events.onEvent('user.created', trace, async (_t, data) => {
+  console.log(`New user: ${data.email}`);
+});
+
+// Expose returnable methods (object parameter and return)
+await this.events.onReturnableEvent('api.getUser', trace, async (_t, data) => {
+  return { userId: data.userId, status: 'active' };
+});
+
+// Listen to broadcast events
+await this.events.onBroadcast('system.maintenance', trace, async (_t, data) => {
+  console.log(`Maintenance starts at: ${data.startTime}`);
+});</code></pre></div>
+        </div>
+        
+        <div class="section">
+            <h2>🔒 Event Validation & Performance</h2>
+            <p>BSB supports optional Zod-based validation for enhanced runtime type safety:</p>
+            
+            <div class="info-box">
+                <h4>⚖️ Performance Considerations</h4>
+                <ul>
+                    <li><strong>Validation overhead:</strong> ~1-5ms per event (depends on schema complexity)</li>
+                    <li><strong>Production toggle:</strong> Set <code>BSB_VALIDATE_EVENTS=false</code> to disable validation</li>
+                    <li><strong>Selective validation:</strong> Validate only critical events for optimal performance</li>
+                    <li><strong>Performance monitoring:</strong> Automatic logging of slow validations</li>
+                </ul>
+            </div>
+            
+            <div class="code-block" data-title="Environment Variables for Validation"><pre><code class="language-bash"># Enable/disable validation globally
+BSB_VALIDATE_EVENTS=true
+
+# Performance tuning
+BSB_VALIDATION_PERFORMANCE_THRESHOLD=10  # Log validations slower than 10ms
+BSB_VALIDATION_STRICT=true               # Throw errors (false = log warnings)
+</code></pre></div>
+            
+            <div class="code-block" data-title="Advanced Validation Example"><pre><code class="language-ts">// Complex validation schemas with nested objects and arrays
+export const AdvancedEventSchemas = {
+  onEvents: {
+    'order.process': createFireAndForgetEvent(
+      z.object({
+        id: z.string().uuid(),
+        items: z.array(z.object({
+          productId: z.string().uuid(),
+          quantity: z.number().positive(),
+          price: z.number().positive()
+        })).min(1),
+        customer: z.object({
+          id: z.string().uuid(),
+          email: z.string().email(),
+          tier: z.enum(['basic', 'premium'])
+        }),
+        metadata: z.record(z.unknown()).optional()
+      }),
+      'Process customer order with complex validation'
+    )
+  },
+  
+  emitReturnableEvents: {
+    'payment.process': createReturnableEvent(
+      z.object({
+        orderId: z.string().uuid(),
+        amount: z.number().positive(),
+        currency: z.string().length(3),
+        paymentMethod: z.enum(['card', 'bank', 'crypto'])
+      }),
+      z.object({
+        transactionId: z.string(),
+        status: z.enum(['success', 'failed', 'pending']),
+        fees: z.number().min(0),
+        processedAt: z.string().datetime()
+      }),
+      'Process payment with detailed response'
+    )
+  }
+} as const;
+
+// Use in your plugin class
+export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas> {
+  constructor(config: BSBServiceConstructor<null, typeof AdvancedEventSchemas>) {
+    super({
+      ...config,
+      eventSchemas: AdvancedEventSchemas
+    });
+  }
+}
+</code></pre></div>
         </div>
         
         <div class="section">

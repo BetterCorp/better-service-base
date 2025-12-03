@@ -49,6 +49,7 @@ export class emitStreamAndReceiveStream
 
   async receiveStream(
     trace: DTrace,
+    pluginName: string,
     event: string,
     listener: { (etrace: DTrace, error: Error | null, stream: Readable): Promise<void> },
     timeoutSeconds: number = 60,
@@ -56,14 +57,17 @@ export class emitStreamAndReceiveStream
     // Create span for receiving stream with setup function trace details
     const receiveSpan = this.metrics.createSpan(trace, "receiveStream:receive", {
       event,
+      pluginName,
       timeoutSeconds,
       functionTraceId: trace.t,
       functionSpanId: trace.s
     });
 
-    const streamId = `${ randomUUID() }=${ timeoutSeconds }`;
-    this.log.debug(receiveSpan.trace, "receiveStream: listening to {streamId}", {
+    const streamId = `${randomUUID()}=${timeoutSeconds}`;
+    this.log.debug(receiveSpan.trace, "receiveStream: listening to {streamId} ({pluginName}-{event})", {
       streamId,
+      pluginName,
+      event,
     });
 
     const self = this;
@@ -72,23 +76,23 @@ export class emitStreamAndReceiveStream
         const timeoutError = new BSBError(receiveSpan.trace, "Receive Receipt Timeout");
         receiveSpan.error(timeoutError);
         listener(receiveSpan.trace, timeoutError, null!);
-        self.emit(`${ streamId }-error`, receiveSpan.trace, timeoutError);
+        self.emit(`${streamId}-error`, receiveSpan.trace, timeoutError);
         self.removeAllListeners(streamId);
         receiveSpan.end();
       }, self.staticCommsTimeout);
 
       self.once(streamId, (ttrace: DTrace, stream: Readable): void => {
         clearTimeout(receiptTimeoutHandler);
-        self.emit(`${ streamId }-emit`);
+        self.emit(`${streamId}-emit`);
 
         stream.on("error", (error: any) => {
           const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
           receiveSpan.error(errorObj);
-          self.emit(`${ streamId }-error`, errorObj);
+          self.emit(`${streamId}-error`, errorObj);
         });
 
         stream.on("end", () => {
-          self.emit(`${ streamId }-end`);
+          self.emit(`${streamId}-end`);
           receiveSpan.end();
         });
 
@@ -101,6 +105,7 @@ export class emitStreamAndReceiveStream
 
   async sendStream(
     trace: DTrace,
+    pluginName: string,
     event: string,
     streamId: string,
     stream: Readable,
@@ -108,6 +113,7 @@ export class emitStreamAndReceiveStream
     // Create span for sending stream
     const sendSpan = this.metrics.createSpan(trace, "sendStream:send", {
       event,
+      pluginName,
       streamId
     });
 
@@ -124,9 +130,9 @@ export class emitStreamAndReceiveStream
         }
         receiptTimeoutHandler = null;
         clearTimeout(timeoutHandler);
-        self.removeAllListeners(`${ streamId }-emit`);
-        self.removeAllListeners(`${ streamId }-end`);
-        self.removeAllListeners(`${ streamId }-error`);
+        self.removeAllListeners(`${streamId}-emit`);
+        self.removeAllListeners(`${streamId}-end`);
+        self.removeAllListeners(`${streamId}-error`);
         sendSpan.end();
       };
 
@@ -146,19 +152,19 @@ export class emitStreamAndReceiveStream
         reject(timeoutError);
       }, timeout * 1000);
 
-      self.once(`${ streamId }-emit`, () => {
+      self.once(`${streamId}-emit`, () => {
         if (receiptTimeoutHandler !== null) {
           clearTimeout(receiptTimeoutHandler);
         }
         receiptTimeoutHandler = null;
       });
 
-      self.once(`${ streamId }-end`, () => {
+      self.once(`${streamId}-end`, () => {
         clearSessions();
         resolve();
       });
 
-      self.once(`${ streamId }-error`, (error: Error) => reject(error));
+      self.once(`${streamId}-error`, (error: Error) => reject(error));
 
       self.emit(streamId, sendSpan.trace, stream);
     });

@@ -28,11 +28,10 @@
 import { z } from "zod";
 import {
   BSBPluginConfig,
-  BSBPluginEvents,
-  ServiceEventsBase,
 } from "../../index";
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
 import { DTrace } from "../../interfaces/metrics";
+import { createReturnableEvent } from "../../interfaces/schema-events";
 
 export const secSchema = z.object({});
 
@@ -41,22 +40,30 @@ export class Config
   validationSchema = secSchema;
 }
 
-export interface ServiceTypes
-  extends BSBPluginEvents {
-  onEvents: ServiceEventsBase;
-  emitEvents: ServiceEventsBase;
+export const EventSchemas = {
   onReturnableEvents: {
-    onReverseReturnable: (tex: string) => Promise<string>;
-  };
+    onReverseReturnable: createReturnableEvent(
+      z.object({
+        text: z.string()
+      }),
+      z.string(),
+      'Reverse a string'
+    )
+  },
   emitReturnableEvents: {
-    calculate: (a: number, b: number) => Promise<number>;
-  };
-  onBroadcast: ServiceEventsBase;
-  emitBroadcast: ServiceEventsBase;
-}
+    calculate: createReturnableEvent(
+      z.object({
+        a: z.number(),
+        b: z.number()
+      }),
+      z.number(),
+      'Calculate with two numbers'
+    )
+  }
+} as const;
 
 export class Plugin
-  extends BSBService<Config, ServiceTypes> {
+  extends BSBService<Config, typeof EventSchemas> {
   public static PLUGIN_CLIENT = { name: "service-default3" };
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
@@ -65,8 +72,11 @@ export class Plugin
 
   dispose?(): void;
 
-  constructor(config: BSBServiceConstructor) {
-    super(config);
+  constructor(config: BSBServiceConstructor<Config, typeof EventSchemas>) {
+    super({
+      ...config,
+      eventSchemas: EventSchemas
+    });
   }
 
   public async init(trace: DTrace) {
@@ -75,9 +85,9 @@ export class Plugin
     await this.events.onReturnableEvent(
       "onReverseReturnable",
       trace,
-      async (iTrace: DTrace, tex: string) => {
-        this.log.warn(iTrace, "onReverseReturnable ({tex})", { tex });
-        return tex.split("").reverse().join("");
+      async (iTrace: DTrace, input) => {
+        this.log.warn(iTrace, "onReverseReturnable ({text})", { text: input.text });
+        return input.text.split("").reverse().join("");
       },
     );
   }
@@ -85,16 +95,18 @@ export class Plugin
   public async run(trace: DTrace) {
     this.log.info(trace, "Running service-default3");
 
-    // Use events to calculate
-    // const result = await this.events.emitEventAndReturn(
-    //   "calculate",
-    //   trace,
-    //   5,
-    //   18,
-    //   19
-    // );
+    // NEW API: Use events to calculate with object parameter
+    const result = await this.events.emitEventAndReturn(
+      "calculate",
+      trace,
+      {
+        a: 18,
+        b: 19
+      },
+      5 // timeout
+    );
 
-    // this.log.info(trace, "Calculation result: {result}", { result });
+    this.log.info(trace, "Calculation result: {result}", { result });
     this.log.debug(trace, "Debug {a}", { a: "IT IS AN DEBUG!" });
     this.log.info(trace, "Info {a}", { a: "IT IS AN INFO!" });
     this.log.warn(trace, "Warning {a}", { a: "IT IS AN WARNING!" });

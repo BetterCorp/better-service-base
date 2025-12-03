@@ -30,8 +30,10 @@ import {
   DTrace,
   IPluginLogging,
   IPluginMetrics,
+  BSBEventSchemas,
 } from "../interfaces";
-import { BSBService, BSBServiceRef } from "./BSBService";
+import { ServiceClientEventSchemas } from "../interfaces/schema-events";
+import { BSBService, BSBServiceClientDefinition } from "./BSBService";
 import { BSBError } from "./errorMessages";
 import { PluginEvents } from "./PluginEvents";
 import { Tools } from "./tools";
@@ -50,17 +52,12 @@ function internalTrace(span: string): DTrace {
 /**
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBServiceClient.html | API: BSBServiceClient}
  */
-export abstract class BSBServiceClient<Service extends BSBService = any> {
+export abstract class BSBServiceClient<
+  Service extends BSBService<any, any> = BSBService<any, BSBEventSchemas>
+> {
   public declare readonly log: IPluginLogging;
   public declare readonly metrics: IPluginMetrics;
-  public declare readonly events: PluginEvents<
-    Service["_virtual_internal_events"]["emitEvents"],
-    Service["_virtual_internal_events"]["onEvents"],
-    Service["_virtual_internal_events"]["emitReturnableEvents"],
-    Service["_virtual_internal_events"]["onReturnableEvents"],
-    Service["_virtual_internal_events"]["emitBroadcast"],
-    Service["_virtual_internal_events"]["onBroadcast"]
-  >;
+  public declare readonly events: PluginEvents<BSBEventSchemas>;
 
   constructor(context: BSBService) {
     context._clients.push(this);
@@ -112,8 +109,9 @@ export abstract class BSBServiceClient<Service extends BSBService = any> {
  * @category Plugins
  */
 export class ServiceClient<
-  Service extends BSBService<any>,
-  ServiceT extends typeof BSBServiceRef = any
+  Service extends BSBService<any, TEventSchemas>,
+  TEventSchemas extends BSBEventSchemas = any,
+  ServiceT extends { PLUGIN_CLIENT: BSBServiceClientDefinition } = any
 >
   extends BSBServiceClient<Service> {
   /**
@@ -131,14 +129,7 @@ export class ServiceClient<
 
   public run?(trace: DTrace): Promise<void>;
 
-  public declare events: PluginEvents<
-    Service["_virtual_internal_events"]["emitEvents"],
-    Service["_virtual_internal_events"]["onEvents"],
-    Service["_virtual_internal_events"]["emitReturnableEvents"],
-    Service["_virtual_internal_events"]["onReturnableEvents"],
-    Service["_virtual_internal_events"]["emitBroadcast"],
-    Service["_virtual_internal_events"]["onBroadcast"]
-  >;
+  public declare events: PluginEvents<ServiceClientEventSchemas<TEventSchemas>>;
 
   constructor(service: ServiceT, context: BSBService) {
     super(context);

@@ -27,19 +27,20 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { DTrace, IPluginMetrics } from "../interfaces";
+import { DTrace, IPluginMetrics, BSBEventSchemas } from "../interfaces";
 import { SBEvents, SBMetrics } from "../serviceBase";
 import { BaseWithLoggingAndConfig, BaseWithLoggingAndConfigConfig } from "./base";
 import { BSBServiceClient } from "./BSBServiceClient";
 import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
-import { BSBPluginEvents, BSBPluginEventsRef, PluginEvents } from "./PluginEvents";
+import { PluginEvents } from "./PluginEvents";
 import { PluginMetrics } from "./PluginMetrics";
 
 /**
  * @hidden
  */
 export interface BSBServiceConstructor<
-  ReferencedConfig extends BSBReferencePluginConfigType = any
+  ReferencedConfig extends BSBReferencePluginConfigType = any,
+  TEventSchemas extends BSBEventSchemas = BSBEventSchemas
 >
   extends BaseWithLoggingAndConfigConfig<
     ReferencedConfig extends null
@@ -48,6 +49,7 @@ export interface BSBServiceConstructor<
   > {
   sbEvents: SBEvents;
   sbMetrics: SBMetrics;
+  eventSchemas?: TEventSchemas;
 }
 
 /**
@@ -78,7 +80,7 @@ export interface BSBServiceClientDefinition {
  */
 export abstract class BSBService<
   ReferencedConfig extends BSBReferencePluginConfigType = any,
-  Events extends BSBPluginEvents = BSBPluginEventsRef
+  TEventSchemas extends BSBEventSchemas = BSBEventSchemas
 >
   extends BaseWithLoggingAndConfig<
     ReferencedConfig extends null
@@ -90,36 +92,19 @@ export abstract class BSBService<
   public abstract readonly initAfterPlugins?: Array<string>;
   public abstract readonly runBeforePlugins?: Array<string>;
   public abstract readonly runAfterPlugins?: Array<string>;
-  /**
-   * @hidden
-   */
-  public declare readonly _virtual_internal_events: {
-    onEvents: Events["onEvents"];
-    emitEvents: Events["emitEvents"];
-    onReturnableEvents: Events["onReturnableEvents"];
-    emitReturnableEvents: Events["emitReturnableEvents"];
-    onBroadcast: Events["onBroadcast"];
-    emitBroadcast: Events["emitBroadcast"];
-  };
+  
   /** Metrics helper scoped to this plugin */
   public readonly metrics: IPluginMetrics;
-  /** Strongly-typed event API for this plugin */
-  public readonly events: PluginEvents<
-    Events["onEvents"],
-    Events["emitEvents"],
-    Events["onReturnableEvents"],
-    Events["emitReturnableEvents"],
-    Events["onBroadcast"],
-    Events["emitBroadcast"]
-  >;
+  /** Schema-first event API for this plugin with automatic validation */
+  public readonly events: PluginEvents<TEventSchemas>;
   /**
    * @hidden
    */
   public _clients: Array<BSBServiceClient<any>> = [];
 
-  constructor(config: BSBServiceConstructor<ReferencedConfig>) {
+  constructor(config: BSBServiceConstructor<ReferencedConfig, TEventSchemas>) {
     super(config);
-    this.events = new PluginEvents(config.mode, config.sbEvents, this);
+    this.events = new PluginEvents(config.mode, config.sbEvents, this, config.eventSchemas || {} as TEventSchemas);
     this.metrics = new PluginMetrics(config.appId, config.pluginName, config.sbMetrics);
   }
 }
@@ -129,7 +114,7 @@ export abstract class BSBService<
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
 export class BSBServiceRef
-  extends BSBService<any> {
+  extends BSBService<any, BSBEventSchemas> {
   public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
     name: "BSBServiceRef",
   };
@@ -144,7 +129,7 @@ export class BSBServiceRef
 
   run?(trace: DTrace): void | Promise<void>;
 
-  constructor(config: BSBServiceConstructor<null>) {
+  constructor(config: BSBServiceConstructor<null, BSBEventSchemas>) {
     super(config);
   }
 }

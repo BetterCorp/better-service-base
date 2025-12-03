@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "BSB Documentation Site",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host=0.0.0.0",
     "build": "vite build && npm run build-types:nodejs",
-    "build-types:nodejs": "pushd ../nodejs && npm run docs && popd",
+    "build-types:nodejs": "cd ../nodejs && npm run docs && cd ../docs",
     "preview": "vite preview"
   },
   "devDependencies": {

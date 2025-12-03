@@ -96,7 +96,10 @@ export class emitAndReturn
     const self = this;
     return new Promise((resolve, reject) => {
       const timeoutHandler = setTimeout(() => {
-        const timeoutError = new BSBError(sendSpan.trace, "Timeout");
+        const timeoutError = new BSBError(sendSpan.trace, "Timeout: {pluginName}-{event}", {
+          pluginName,
+          event,
+        });
         sendSpan.error(timeoutError);
         sendSpan.end();
         reject(timeoutError);

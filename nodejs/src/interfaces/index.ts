@@ -32,6 +32,7 @@ export * from "./service";
 export * from "./metrics";
 export * from "./result";
 export * from "./options";
+export * from "./schema-events";
 export { 
   CleanStringStrength, 
   DynamicallyReferencedMethodBase,

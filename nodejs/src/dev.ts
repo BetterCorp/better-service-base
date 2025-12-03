@@ -94,7 +94,11 @@ const readWatchConfig = (filePath: string): WatchConfig => {
 
 const startApp = async () => {
   const CWD = process.env.APP_DIR || process.cwd();
-  const SB = new ServiceBase(true, false, CWD);
+  const SB = new ServiceBase({
+    debug: true,
+    live: false,
+    cwd: CWD
+  });
   await SB.init();
   await SB.run();
   return SB;

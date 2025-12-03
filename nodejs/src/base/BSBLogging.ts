@@ -60,11 +60,31 @@ export abstract class BSBLogging<
   }
 
   /**
-   * This function is never used for events plugins.
-   * @ignore @deprecated
+   * Run lifecycle method for logging plugins.
+   *
+   * This method is inherited from the base plugin class but is not used by logging plugins.
+   * Logging plugins are initialized during the init phase and do not require a separate run phase.
+   *
+   * @remarks
+   * Logging plugins are available immediately after initialization to capture logs from
+   * other plugins during their init and run phases. Therefore, this method intentionally
+   * performs no operation.
+   *
+   * @returns void
+   *
+   * @example
+   * ```typescript
+   * // Logging plugins do not need to implement run()
+   * // The base class provides this no-op implementation
+   * export class MyLoggingPlugin extends BSBLogging<MyConfig> {
+   *   // No run() override needed
+   * }
+   * ```
+   *
+   * @see {@link BSBLogging.init} for the initialization lifecycle method
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBLogging.html#run | API: BSBLogging#run}
    */
-  public run() {
-  }
+  public run(): void {}
 
   /**
    * Debug

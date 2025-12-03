@@ -27,575 +27,346 @@
 
 import { Readable } from "node:stream";
 import {
-    DEBUG_MODE, DTrace, DynamicallyReferencedMethodEmitEARIEvents, DynamicallyReferencedMethodEmitIEvents,
-    DynamicallyReferencedMethodOnIEvents,
-    DynamicallyReferencedMethodType,
-    ServiceEventsBase,
+    DEBUG_MODE, DTrace,
+    BSBEventSchemas,
+    EventInputType,
+    EventOutputType,
 } from "../interfaces";
 import { SBEvents } from "../serviceBase";
 import { BSBService } from "./BSBService";
 import { BSBServiceClient } from "./BSBServiceClient";
+import { EventValidator } from "./EventValidator";
 
-export abstract class BSBPluginEvents {
-    public abstract onEvents: ServiceEventsBase;
-    public abstract emitEvents: ServiceEventsBase;
-    public abstract onReturnableEvents: ServiceEventsBase;
-    public abstract emitReturnableEvents: ServiceEventsBase;
-    public abstract onBroadcast: ServiceEventsBase;
-    public abstract emitBroadcast: ServiceEventsBase;
-}
 /**
+ * Plugin event schema definition.
+ * Define event schemas once and get both TypeScript types and runtime validation.
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#BSBPluginEvents | API: BSBPluginEvents}
+ */
+export type BSBPluginEvents<T extends BSBEventSchemas = BSBEventSchemas> = T;
+
+/**
+ * Schema-first plugin events handler with automatic validation and object parameters.
  * @group Events
  * @category Plugin Development Tools
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html | API: PluginEvents}
  */
-export class PluginEvents<
-    onEvents = ServiceEventsBase,
-    emitEvents = ServiceEventsBase,
-    onReturnableEvents = ServiceEventsBase,
-    emitReturnableEvents = ServiceEventsBase,
-    onBroadcast = ServiceEventsBase,
-    emitBroadcast = ServiceEventsBase
-> {
+export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchemas> {
     private events: SBEvents;
     private service: BSBService<any, any> | BSBServiceClient<any>;
     private cachedPluginName: string;
+    private validator: EventValidator;
+    private eventSchemas: TEventSchemas;
 
     constructor(
         mode: DEBUG_MODE,
         events: SBEvents,
         context: BSBService | BSBServiceClient,
+        eventSchemas: TEventSchemas
     ) {
         this.events = events;
         this.service = context;
-        this.cachedPluginName = context.pluginName; // Cache to avoid property access
+        this.cachedPluginName = context.pluginName;
+        this.eventSchemas = eventSchemas;
+        this.validator = new EventValidator({}, context.log);
     }
 
     /**
-     * Listens for events that are emitted by other plugins
-     * Broadcast events are emitted and received by all plugins
-     *
-     * @param event - The event to listen for
-     * @param listener - The function to call when the event is received
-     * @returns Promise that resolves when the event listener has been registered
-     *
-     * @example
-     * Basic example of using broadcast events
-     * ```ts
-     * /// Plugin that emits a broadcast event
-     * await this.emitBroadcast('myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives a broadcast event
-     * await this.onBroadcast('myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     * });
+     * Listen for broadcast events emitted by other plugins with full type safety.
+     * @param eventName - Name of the event to listen for (strongly typed)
+     * @param trace - Trace for logging context
+     * @param listener - Function to call when event is received (receives validated input object)
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onBroadcast | API: PluginEvents#onBroadcast}
      */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onBroadcast | API: PluginEvents.onBroadcast}
-     */
-    public onBroadcast<TA extends keyof onBroadcast>(
-        ...args: DynamicallyReferencedMethodOnIEvents<
-            DynamicallyReferencedMethodType<onBroadcast>,
-            TA,
-            false
-        >
+    public async onBroadcast<
+        TBroadcast extends NonNullable<TEventSchemas['onBroadcast']>,
+        K extends keyof TBroadcast
+    >(
+        eventName: K,
+        trace: DTrace,
+        listener: (trace: DTrace, input: EventInputType<TBroadcast[K]>) => Promise<void>
     ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
+        const wrappedListener = async (trace: DTrace, rawInput: any) => {
+            let validatedInput = rawInput;
+            
+            // Validate input if schema exists
+            const schema = this.eventSchemas.onBroadcast?.[eventName as string];
+            if (schema) {
+                const result = this.validator.validateInput(eventName as string, rawInput, schema.input, trace);
+                if (!result.success) {
+                    throw result.error;
+                }
+                validatedInput = result.data;
+            }
+            
+            await listener(trace, validatedInput);
+        };
+
         return this.events.onBroadcast(
             this.service,
             trace,
             this.cachedPluginName,
-            event,
-            listener
+            eventName as string,
+            wrappedListener
         );
     }
 
     /**
-     * Emits a broadcast event that is received by all plugins that are listening for that event
-     *
-     * @param event - The event to emit
-     * @param traceId - The trace ID to associate with the event
-     * @param args - The arguments to pass to the event
-     * @returns Promise that resolves when the event has been emitted
-     *
-     * @example
-     * Basic example of using broadcast events
-     * ```ts
-     * /// Plugin that emits a broadcast event
-     * await this.emitBroadcast('myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives a broadcast event
-     * await this.onBroadcast('myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     * });
+     * Emit broadcast events to all listening plugins with full type safety.
+     * @param eventName - Name of the event to emit (strongly typed)
+     * @param trace - Trace for logging context
+     * @param input - Event input object (will be validated against schema)
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitBroadcast | API: PluginEvents#emitBroadcast}
      */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitBroadcast | API: PluginEvents.emitBroadcast}
-     */
-    public emitBroadcast<TA extends keyof emitBroadcast>(
-        ...args: DynamicallyReferencedMethodEmitIEvents<
-            DynamicallyReferencedMethodType<emitBroadcast>,
-            TA
-        >
+    public async emitBroadcast<
+        TBroadcast extends NonNullable<TEventSchemas['emitBroadcast']>,
+        K extends keyof TBroadcast
+    >(
+        eventName: K,
+        trace: DTrace,
+        input: EventInputType<TBroadcast[K]>
     ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const remainingArgs = args.slice(2);
+        let validatedInput = input;
+        
+        // Validate input if schema exists
+        const schema = this.eventSchemas.emitBroadcast?.[eventName as string];
+        if (schema) {
+            const result = this.validator.validateInput(eventName as string, input, schema.input, trace);
+            if (!result.success) {
+                throw result.error;
+            }
+            validatedInput = result.data;
+        }
+
         return this.events.emitBroadcast(
             trace,
             this.cachedPluginName,
-            event,
-            remainingArgs
+            eventName as string,
+            [validatedInput]
         );
     }
 
     /**
-     * Listens for events that are emitted by other plugins (the first plugin to receive the event will handle it)
-     *
-     * @param event - The event to listen for
-     * @param listener - The function to call when the event is received
-     * @returns Promise that resolves when the event listener has been registered
-     *
-     * @example
-     * Basic example of using events
-     * ```ts
-     * /// Plugin that emits an event
-     * await this.emitEvent('myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives an event
-     * await this.onEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     * });
+     * Listen for fire-and-forget events from other plugins with full type safety.
+     * @param eventName - Name of the event to listen for (strongly typed)
+     * @param trace - Trace for logging context
+     * @param listener - Function to call when event is received (receives validated input object)
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onEvent | API: PluginEvents#onEvent}
      */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onEvent | API: PluginEvents.onEvent}
-     */
-    public async onEvent<TA extends keyof onEvents>(
-        ...args: DynamicallyReferencedMethodOnIEvents<
-            DynamicallyReferencedMethodType<onEvents>,
-            TA,
-            false
-        >
+    public async onEvent<
+        TEvents extends NonNullable<TEventSchemas['onEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        trace: DTrace,
+        listener: (trace: DTrace, input: EventInputType<TEvents[K]>) => Promise<void>
     ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
-        return await this.events.onEvent(
+        const wrappedListener = async (trace: DTrace, rawInput: any) => {
+            let validatedInput = rawInput;
+            
+            // Validate input if schema exists
+            const schema = this.eventSchemas.onEvents?.[eventName as string];
+            if (schema) {
+                const result = this.validator.validateInput(eventName as string, rawInput, schema.input, trace);
+                if (!result.success) {
+                    throw result.error;
+                }
+                validatedInput = result.data;
+            }
+            
+            await listener(trace, validatedInput);
+        };
+
+        return this.events.onEvent(
             trace,
             this.service,
             this.cachedPluginName,
-            event,
-            listener
+            eventName as string,
+            wrappedListener
         );
     }
 
     /**
-     * Emits an event that is received by the first plugin that is listening for that event (depends on events service)
-     *
-     * @param event - The event to emit
-     * @param traceId - The trace ID to associate with the event
-     * @param args - The arguments to pass to the event
-     * @returns Promise that resolves when the event has been emitted
-     *
-     * @example
-     * Basic example of using events
-     * ```ts
-     * /// Plugin that emits an event
-     * await this.emitEvent('myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives an event
-     * await this.onEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     * });
+     * Emit fire-and-forget events to other plugins with full type safety.
+     * @param eventName - Name of the event to emit (strongly typed)
+     * @param trace - Trace for logging context  
+     * @param input - Event input object (will be validated against schema)
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEvent | API: PluginEvents#emitEvent}
      */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEvent | API: PluginEvents.emitEvent}
-     */
-    public async emitEvent<TA extends keyof emitEvents>(
-        ...args: DynamicallyReferencedMethodEmitIEvents<
-            DynamicallyReferencedMethodType<emitEvents>,
-            TA
-        >
+    public async emitEvent<
+        TEvents extends NonNullable<TEventSchemas['emitEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        trace: DTrace,
+        input: EventInputType<TEvents[K]>
     ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const remainingArgs = args.slice(2);
-        return await this.events.emitEvent(
+        let validatedInput = input;
+        
+        // Validate input if schema exists
+        const schema = this.eventSchemas.emitEvents?.[eventName as string];
+        if (schema) {
+            const result = this.validator.validateInput(eventName as string, input, schema.input, trace);
+            if (!result.success) {
+                throw result.error;
+            }
+            validatedInput = result.data;
+        }
+
+        return this.events.emitEvent(
             trace,
             this.cachedPluginName,
-            event,
-            ...remainingArgs
+            eventName as string,
+            validatedInput
         );
     }
 
     /**
-     * Listens for events that are emitted by other plugins (the first plugin to receive the event will handle it)
-     * The serverId allows for the event to be handled by a specific plugin
-     *
-     * @param serverId - The server ID to listen for the event on
-     * @param event - The event to listen for
-     * @param listener - The function to call when the event is received
-     * @returns Promise that resolves when the event listener has been registered
-     *
-     * @example
-     * Basic example of using events
-     * ```ts
-     * /// Plugin that emits an event
-     * await this.emitEventSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives an event
-     * await this.onEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     * });
+     * Listen for returnable events from other plugins with full type safety.
+     * @param eventName - Name of the event to listen for (strongly typed)
+     * @param trace - Trace for logging context
+     * @param listener - Function to call when event is received, must return a value
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onReturnableEvent | API: PluginEvents#onReturnableEvent}
      */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onEventSpecific | API: PluginEvents.onEventSpecific}
-     */
-    public async onEventSpecific<TA extends keyof onEvents>(
-        serverId: string,
-        ...args: DynamicallyReferencedMethodOnIEvents<
-            DynamicallyReferencedMethodType<onEvents>,
-            TA,
-            false
-        >
+    public async onReturnableEvent<
+        TEvents extends NonNullable<TEventSchemas['onReturnableEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        trace: DTrace,
+        listener: (
+            trace: DTrace, 
+            input: EventInputType<TEvents[K]>
+        ) => Promise<EventOutputType<TEvents[K]>>
     ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<void>;
-        return await this.events.onEventSpecific(
-            trace,
-            serverId,
-            this.service,
-            this.cachedPluginName,
-            event,
-            listener
-        );
-    }
+        const wrappedListener = async (trace: DTrace, rawInput: any) => {
+            let validatedInput = rawInput;
+            const schema = this.eventSchemas.onReturnableEvents?.[eventName as string];
+            
+            // Validate input if schema exists
+            if (schema) {
+                const inputResult = this.validator.validateInput(eventName as string, rawInput, schema.input, trace);
+                if (!inputResult.success) {
+                    throw inputResult.error;
+                }
+                validatedInput = inputResult.data;
+            }
+            
+            const result = await listener(trace, validatedInput);
+            
+            // Validate output if schema exists
+            if (schema) {
+                const outputResult = this.validator.validateOutput(eventName as string, result, schema.output, trace);
+                if (!outputResult.success) {
+                    throw outputResult.error;
+                }
+                return outputResult.data;
+            }
+            
+            return result;
+        };
 
-    /**
-     * Emits an event that is received by the first plugin that is listening for that event (depends on events service)
-     * The serverId allows for the event to be handled by a specific plugin
-     *
-     * @param serverId - The server ID to emit the event on
-     * @param event - The event to emit
-     * @param traceId - The trace ID to associate with the event
-     * @param args - The arguments to pass to the event
-     * @returns Promise that resolves when the event has been emitted
-     *
-     * @example
-     * Basic example of using events
-     * ```ts
-     * /// Plugin that emits an event
-     * await this.emitEventSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives an event
-     * await this.onEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     * });
-     */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventSpecific | API: PluginEvents.emitEventSpecific}
-     */
-    public async emitEventSpecific<TA extends keyof emitEvents>(
-        serverId: string,
-        ...args: DynamicallyReferencedMethodEmitIEvents<
-            DynamicallyReferencedMethodType<emitEvents>,
-            TA
-        >
-    ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const remainingArgs = args.slice(2);
-        return await this.events.emitEventSpecific(
-            trace,
-            serverId,
-            this.cachedPluginName,
-            event,
-            ...remainingArgs
-        );
-    }
-
-    /**
-     * Listens for events and retuns a value to the plugin that emitted the event
-     *
-     * @param event - The event to listen for
-     * @param listener - The function to call when the event is received
-     *  - @returns The value to return to the plugin that emitted the event
-     * @returns Promise that resolves when the event listener has been registered
-     *
-     * @example
-     * Basic example of using returnable events
-     * ```ts
-     * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturn('myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives a returnable event
-     * await this.onReturnableEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     *   return 'some result';
-     * });
-     */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onReturnableEvent | API: PluginEvents.onReturnableEvent}
-     */
-    public async onReturnableEvent<TA extends keyof onReturnableEvents>(
-        ...args: DynamicallyReferencedMethodOnIEvents<
-            DynamicallyReferencedMethodType<onReturnableEvents>,
-            TA,
-            true
-        >
-    ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<any>;
-        return await this.events.onReturnableEvent(
+        return this.events.onReturnableEvent(
             trace,
             this.service,
             this.cachedPluginName,
-            event,
-            listener
+            eventName as string,
+            wrappedListener
         );
     }
 
     /**
-     * Emits a returnable event that is received by the first plugin that is listening for that event (depends on events service)
-     *
-     * @param event - The event listen to
-     * @param traceId - The trace ID to associate with the event
-     * @param args - The arguments to pass to the event
-     * @returns Promise that resolves when the event has been emitted and the value has been returned
-     *
-     * @example
-     * Basic example of using returnable events
-     * ```ts
-     * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturn('myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives a returnable event
-     * await this.onReturnableEvent('myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     *   return 'some result';
-     * });
+     * Emit returnable events and wait for response with full type safety.
+     * @param eventName - Name of the event to emit (strongly typed)
+     * @param trace - Trace for logging context
+     * @param input - Event input object (will be validated against schema)
+     * @param timeoutSeconds - Optional timeout in seconds (default: 5)
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventAndReturn | API: PluginEvents#emitEventAndReturn}
      */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventAndReturn | API: PluginEvents.emitEventAndReturn}
-     */
-    public async emitEventAndReturn<TA extends keyof emitReturnableEvents>(
-        ...args: DynamicallyReferencedMethodEmitEARIEvents<
-            DynamicallyReferencedMethodType<emitReturnableEvents>,
-            TA,
-            true
-        >
-    ): Promise<
-        DynamicallyReferencedMethodEmitEARIEvents<
-            DynamicallyReferencedMethodType<emitReturnableEvents>,
-            TA,
-            false
-        >
-    > {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const timeoutSeconds = args.length > 2 && typeof args[2] === 'number' ? (args[2] as number) : 5;
-        const remainingArgs = timeoutSeconds !== 5 ? args.slice(3) : args.slice(2);
-        return await this.events.emitEventAndReturn(
+    public async emitEventAndReturn<
+        TEvents extends NonNullable<TEventSchemas['emitReturnableEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        trace: DTrace,
+        input: EventInputType<TEvents[K]>,
+        timeoutSeconds: number = 5
+    ): Promise<EventOutputType<TEvents[K]>> {
+        let validatedInput = input;
+        const schema = this.eventSchemas.emitReturnableEvents?.[eventName as string];
+        
+        // Validate input if schema exists
+        if (schema) {
+            const inputResult = this.validator.validateInput(eventName as string, input, schema.input, trace);
+            if (!inputResult.success) {
+                throw inputResult.error;
+            }
+            validatedInput = inputResult.data;
+        }
+
+        const result = await this.events.emitEventAndReturn(
             trace,
             this.cachedPluginName,
-            event,
+            eventName as string,
             timeoutSeconds,
-            ...remainingArgs
+            validatedInput
         );
+        
+        // Validate output if schema exists
+        if (schema) {
+            const outputResult = this.validator.validateOutput(eventName as string, result, schema.output, trace);
+            if (!outputResult.success) {
+                throw outputResult.error;
+            }
+            return outputResult.data;
+        }
+        
+        return result;
     }
 
     /**
-     * Listens for events and retuns a value to the plugin that emitted the event
-     * The serverId allows for the event to be handled by a specific plugin
-     *
-     * @param serverId - The server ID to listen for the event on
-     * @param event - The event to listen for
-     * @param listener - The function to call when the event is received
-     * @returns Promise that resolves when the event listener has been registered
-     *
-     * @example
-     * Basic example of using returnable events
-     * ```ts
-     * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturnSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives a returnable event
-     * await this.onReturnableEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     *   return 'some result';
-     * });
-     */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onReturnableEventSpecific | API: PluginEvents.onReturnableEventSpecific}
-     */
-    public async onReturnableEventSpecific<TA extends keyof onReturnableEvents>(
-        serverId: string,
-        ...args: DynamicallyReferencedMethodOnIEvents<
-            DynamicallyReferencedMethodType<onReturnableEvents>,
-            TA,
-            true
-        >
-    ): Promise<void> {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const listener = args[2] as unknown as (trace: DTrace, args: Array<any>) => Promise<any>;
-        return await this.events.onReturnableEventSpecific(
-            trace,
-            serverId,
-            this.service,
-            this.cachedPluginName,
-            event,
-            listener
-        );
-    }
-
-    /**
-     * Emits a returnable event that is received by the first plugin that is listening for that event (depends on events service)
-     * The serverId allows for the event to be handled by a specific plugin
-     *
-     * @param serverId - The server ID to emit the event on
-     * @param event - The event emit
-     * @param traceId - The trace ID to associate with the event
-     * @param args - The arguments to pass to the event
-     * @returns Promise that resolves when the event has been emitted and the value has been returned
-     *
-     * @example
-     * Basic example of using returnable events
-     * ```ts
-     * /// Plugin that emits a returnable event
-     * let result = await this.emitEventAndReturnSpecific('serverId', 'myEvent', trace, 'some', 'data'); // This will be typesafe
-     *
-     * /// Plugin that receives a returnable event
-     * await this.onReturnableEventSpecific('serverId', 'myEvent', async (trace: DTrace, some: string, data: string) => {
-     *   /// Do something with the data
-     *   return 'some result';
-     * });
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventAndReturnSpecific | API: PluginEvents.emitEventAndReturnSpecific}
-     */
-    public async emitEventAndReturnSpecific<TA extends keyof emitReturnableEvents>(
-        serverId: string,
-        ...args: DynamicallyReferencedMethodEmitEARIEvents<
-            DynamicallyReferencedMethodType<emitReturnableEvents>,
-            TA,
-            true
-        >
-    ): Promise<
-        DynamicallyReferencedMethodEmitEARIEvents<
-            DynamicallyReferencedMethodType<emitReturnableEvents>,
-            TA,
-            false
-        >
-    > {
-        const event = args[0] as string;
-        const trace = args[1] as DTrace;
-        const timeoutSeconds = args.length > 2 && typeof args[2] === 'number' ? (args[2] as number) : 5;
-        const remainingArgs = timeoutSeconds !== 5 ? args.slice(3) : args.slice(2);
-        return await this.events.emitEventAndReturnSpecific(
-            trace,
-            serverId,
-            this.cachedPluginName,
-            event,
-            timeoutSeconds,
-            ...remainingArgs
-        );
-    }
-
-    /**
-     * Gets a stream ID for another plugin to stream data to it.
-     *
-     * @param listener - Function that is called when the stream is received
-     * @param timeoutSeconds - How long to wait for the stream to be fully received before timing out
-     * @returns The stream ID that the other plugin should use to stream data to this plugin
-     *
-     * @example
-     * Basic example of using streams
-     * ```ts
-     * /// Plugin that receives a stream
-     * let streamId = await this.receiveStream(
-     *  trace,
-     *  'myStreamEvent',
-     *  async (err: Error | null, stream: Readable) => {
-     *    pipeline(stream, fs.createWriteStream('./fileout.txt'), (errf) => {
-     *      if (errf) throw errf;
-     *    });
-     *  },
-     *   5 // seconds
-     * );
-     * /// Send stream ID to other plugin
-     * /// you can use emitEventAndReturn to send the stream ID to the other plugin and await for the stream to finish
-     *
-     * /// Plugin that sends a stream
-     * /// This would listen to the event that the other plugin emits
-     * await this.sendStream(trace, 'myStreamEvent', streamId, fs.createReadStream('./filein.txt'));
-     * /// and then returns OK to the other plugin
-     * ```
-     */
-    /**
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#receiveStream | API: PluginEvents.receiveStream}
+     * Get stream ID for receiving streamed data from another plugin.
+     * @param trace - Trace for logging context
+     * @param eventName - Name of the stream event
+     * @param listener - Function called when stream is received
+     * @param timeoutSeconds - Optional timeout in seconds
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#receiveStream | API: PluginEvents#receiveStream}
      */
     public async receiveStream(
         trace: DTrace,
-        event: string,
-        listener: { (error: Error | null, stream: Readable): Promise<void> },
-        timeoutSeconds?: number,
+        eventName: string,
+        listener: (error: Error | null, stream: Readable) => Promise<void>,
+        timeoutSeconds?: number
     ): Promise<string> {
-        return await this.events.receiveStream(
+        return this.events.receiveStream(
             trace,
             this.service,
             this.cachedPluginName,
-            event,
+            eventName,
             listener,
-            timeoutSeconds,
+            timeoutSeconds
         );
     }
 
     /**
-     * Sends a stream to another plugin
-     *
-     * @param trace - The trace ID to associate with the event
-     * @param streamId - The stream ID to stream data too
-     * @param stream - The stream to send
-     * @returns Promise that resolves when the stream has been fully sent
-     *
-     * @example
-     * Basic example of using streams
-     * ```ts
-     * /// Plugin that receives a stream
-     * let streamId = await this.receiveStream(
-     *  trace,
-     *  'myStreamEvent',
-     *  async (err: Error | null, stream: Readable) => {
-     *    pipeline(stream, fs.createWriteStream('./fileout.txt'), (errf) => {
-     *      if (errf) throw errf;
-     *    });
-     *  },
-     *   5 // seconds
-     * );
-     * /// Send stream ID to other plugin
-     * /// you can use emitEventAndReturn to send the stream ID to the other plugin and await for the stream to finish
-     *
-     * /// Plugin that sends a stream
-     * /// This would listen to the event that the other plugin emits
-     * await this.sendStream(trace, 'myStreamEvent', streamId, fs.createReadStream('./filein.txt'));
-     * /// and then returns OK to the other plugin
-     * ```
-     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#sendStream | API: PluginEvents.sendStream}
+     * Send stream data to another plugin.
+     * @param trace - Trace for logging context  
+     * @param eventName - Name of the stream event
+     * @param streamId - ID of the stream to send to
+     * @param stream - The readable stream to send
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#sendStream | API: PluginEvents#sendStream}
      */
     public async sendStream(
         trace: DTrace,
-        event: string,
+        eventName: string,
         streamId: string,
-        stream: Readable,
+        stream: Readable
     ): Promise<void> {
-        return await this.events.sendStream(
+        return this.events.sendStream(
             trace,
             this.cachedPluginName,
-            event,
+            eventName,
             streamId,
-            stream,
+            stream
         );
     }
 }
@@ -604,12 +375,11 @@ export class PluginEvents<
  * @hidden
  * DO NOT REFERENCE/USE THIS CLASS - IT IS AN INTERNALLY REFERENCED CLASS
  */
-export class BSBPluginEventsRef
-    extends BSBPluginEvents {
-    public onEvents: ServiceEventsBase = {};
-    public emitEvents: ServiceEventsBase = {};
-    public onReturnableEvents: ServiceEventsBase = {};
-    public emitReturnableEvents: ServiceEventsBase = {};
-    public onBroadcast: ServiceEventsBase = {};
-    public emitBroadcast: ServiceEventsBase = {};
+export class BSBPluginEventsRef {
+    public emitEvents = {};
+    public onEvents = {};
+    public emitReturnableEvents = {};
+    public onReturnableEvents = {};
+    public emitBroadcast = {};
+    public onBroadcast = {};
 }

@@ -123,19 +123,21 @@ export class Plugin
 
   public async receiveStream(
     trace: DTrace,
+    pluginName: string,
     event: string,
     listener: { (trace: DTrace, error: Error | null, stream: Readable): Promise<void> },
     timeoutSeconds?: number,
   ): Promise<string> {
-    return this.eas.receiveStream(trace, event, listener, timeoutSeconds);
+    return this.eas.receiveStream(trace, pluginName, event, listener, timeoutSeconds);
   }
 
   public async sendStream(
     trace: DTrace,
+    pluginName: string,
     event: string,
     streamId: string,
     stream: Readable,
   ): Promise<void> {
-    return this.eas.sendStream(trace, event, streamId, stream);
+    return this.eas.sendStream(trace, pluginName, event, streamId, stream);
   }
 }

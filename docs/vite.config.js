@@ -44,7 +44,8 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000
+    port: 3000,
+    allowedHosts: ['durmr03.tail178679.ts.net']
   },
   plugins: [copyVersionTxt()]
 })

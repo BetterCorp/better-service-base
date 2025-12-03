@@ -25,24 +25,97 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBPluginEvents, DTrace, ServiceClient, BSBServiceClientDefinition } from "../../index";
+import { DTrace, ServiceClient, BSBServiceClientDefinition } from "../../index";
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
+import { createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent } from "../../interfaces/schema-events";
+import { z } from "zod";
 const Benchmarkify = require("benchmarkify");
 
-export interface Events extends BSBPluginEvents {
-  emitEvents: {};
-  onEvents: {};
+export const EventSchemas = {
+  // Events this service emits (fire-and-forget, first listener receives)
+  emitEvents: {
+    'benchmark.started': createFireAndForgetEvent(
+      z.object({
+        name: z.string(),
+        timestamp: z.string().datetime()
+      }),
+      'Benchmark test started'
+    )
+  },
+  
+  // Events this service listens to (fire-and-forget)
+  onEvents: {
+    'benchmark.trigger': createFireAndForgetEvent(
+      z.object({
+        testName: z.string().optional()
+      }),
+      'Trigger benchmark execution'
+    )
+  },
+  
+  // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
-  };
+    'performance.test': createReturnableEvent(
+      z.object({
+        iterations: z.number().default(1000),
+        warmup: z.boolean().default(true)
+      }),
+      z.object({
+        duration: z.number(),
+        opsPerSecond: z.number()
+      }),
+      'Request performance test execution'
+    )
+  },
+  
+  // Returnable events this service listens to (requests to this service)
   onReturnableEvents: {
-    add(a: number, b: number): number;
-  };
-  emitBroadcast: {};
-  onBroadcast: {};
-}
+    add: createReturnableEvent(
+      z.object({
+        a: z.number(),
+        b: z.number()
+      }),
+      z.number(),
+      'Add two numbers'
+    ),
+    void: createReturnableEvent(
+      z.object({}),
+      z.void(),
+      'Void event for benchmarking'
+    )
+  },
+  
+  // Broadcast events this service emits (all listeners receive)
+  emitBroadcast: {
+    'benchmark.results': createBroadcastEvent(
+      z.object({
+        testName: z.string(),
+        results: z.array(z.object({
+          operation: z.string(),
+          opsPerSecond: z.number(),
+          duration: z.number()
+        })),
+        timestamp: z.string().datetime()
+      }),
+      'Broadcast benchmark results to all interested parties'
+    )
+  },
+  
+  // Broadcast events this service listens to
+  onBroadcast: {
+    'system.load': createBroadcastEvent(
+      z.object({
+        cpuUsage: z.number(),
+        memoryUsage: z.number(),
+        timestamp: z.string().datetime()
+      }),
+      'Listen for system load updates'
+    )
+  }
+} as const;
 
 export class Plugin
-  extends BSBService<null, Events> {
+  extends BSBService<null, typeof EventSchemas> {
   public static readonly PLUGIN_CLIENT: BSBServiceClientDefinition = {
     name: "service-benchmarkify",
     initBeforePlugins: [],
@@ -58,29 +131,48 @@ export class Plugin
 
   dispose?(): void;
   async init(trace: DTrace): Promise<void> {
-    await this.events.onReturnableEvent('add', trace, (trace: DTrace, a: number, b: number) => {
-      return a + b;
+    await this.events.onReturnableEvent('add', trace, async (trace: DTrace, input) => {
+      return input.a + input.b;
+    });
+    await this.events.onReturnableEvent('void', trace, async (trace: DTrace, input) => {
+      return;
+    });
+    await this.events.onEvent('benchmark.trigger', trace, async (trace: DTrace, input) => {
+      this.log.info(trace, "Benchmark triggered: {testName}", { testName: input.testName || 'default' });
+      return;
     });
   };
 
-  constructor(config: BSBServiceConstructor) {
-    super(config);
+  constructor(config: BSBServiceConstructor<null, typeof EventSchemas>) {
+    super({
+      ...config,
+      eventSchemas: EventSchemas
+    });
     this.fakeSelf = new ServiceClient<Plugin>(Plugin, this);
   }
 
   public override async run(trace: DTrace) {
     this.log.info(trace, "Running service-default4");
 
-    let benchmark = new Benchmarkify("Microservices benchmark").printHeader();
+    let benchmark = new Benchmarkify("BSB benchmark").printHeader();
 
     const bench = benchmark.createSuite("Call local actions");
 
     const self = this;
-    bench.add("BSB", async (done: Function) => {
-      await self.fakeSelf.events.emitEventAndReturn('add', trace, 1, 5, 3);
+    bench.add("BSB:emitEventAndReturn:add", async (done: Function) => {
+      await self.fakeSelf.events.emitEventAndReturn('add', trace, { a: 5, b: 3 }, 1);
       done();
     });
-    console.log(JSON.stringify(await benchmark.run(), null, 2));
+    bench.add("BSB:emitEventAndReturn:void", async (done: Function) => {
+      await self.fakeSelf.events.emitEventAndReturn('void', trace, {}, 1);
+      done();
+    });
+    bench.add("BSB:emitEvent:void", async (done: Function) => {
+      await self.fakeSelf.events.emitEvent('void', trace, {});
+      done();
+    });
+    await benchmark.run()
+    //console.log(JSON.stringify(await benchmark.run(), null, 2));
     // Use events to reverse text
     // const result = await this.events.emitEventAndReturn(
     //   "onReverseReturnable",

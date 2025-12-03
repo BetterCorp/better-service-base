@@ -11,8 +11,9 @@ npm run build
 
 # Components are handled by Vite build
 
-pushd ../nodejs
+oldpath=$PWD
+cd ../nodejs
 npm run docs
-popd
+cd $oldpath
 
 echo "Build complete! Documentation ready in dist/"

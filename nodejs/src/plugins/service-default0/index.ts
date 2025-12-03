@@ -29,6 +29,7 @@ import { BSBPluginConfig, BSBService, BSBServiceConstructor } from "../../base";
 import { z } from "zod";
 import { BSBServiceClientDefinition } from "../../base";
 import { DTrace } from "../../interfaces/metrics";
+import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 
 export const secSchema = z.object({
   testa: z.number(),
@@ -40,21 +41,83 @@ export class Config
   validationSchema = secSchema;
 }
 
-export interface Events {
+export const EventSchemas = {
+  // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
-    test: (a: string, b: string) => Promise<void>;
-  };
-  onEvents: {};
+    test: createFireAndForgetEvent(
+      z.object({
+        a: z.string(),
+        b: z.string()
+      }),
+      'Test event with string parameters'
+    )
+  },
+  
+  // Events this service listens to (fire-and-forget)
+  onEvents: {
+    startup: createFireAndForgetEvent(
+      z.object({
+        timestamp: z.string().datetime(),
+        source: z.string()
+      }),
+      'Handle system startup notification'
+    )
+  },
+  
+  // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
-    calculate: (a: number, b: number) => Promise<number>;
-  };
-  onReturnableEvents: {};
-  emitBroadcast: {};
-  onBroadcast: {};
-}
+    calculate: createReturnableEvent(
+      z.object({
+        a: z.number().min(0),
+        b: z.number().min(0)
+      }),
+      z.number(),
+      'Calculate with two numbers'
+    )
+  },
+  
+  // Returnable events this service listens to (requests to this service)
+  onReturnableEvents: {
+    'data.validate': createReturnableEvent(
+      z.object({
+        data: z.unknown(),
+        schema: z.string()
+      }),
+      z.object({
+        valid: z.boolean(),
+        errors: z.array(z.string())
+      }),
+      'Validate data against a schema'
+    )
+  },
+  
+  // Broadcast events this service emits (all listeners receive)
+  emitBroadcast: {
+    'system.alert': createBroadcastEvent(
+      z.object({
+        level: z.enum(['info', 'warning', 'error', 'critical']),
+        message: z.string(),
+        timestamp: z.string().datetime(),
+        source: z.string()
+      }),
+      'System-wide alert broadcast'
+    )
+  },
+  
+  // Broadcast events this service listens to
+  onBroadcast: {
+    'system.shutdown': createBroadcastEvent(
+      z.object({
+        reason: z.string(),
+        gracefulTimeout: z.number().default(30000)
+      }),
+      'Listen for system shutdown broadcasts'
+    )
+  }
+} as const; // Critical for type safety
 
 export class Plugin
-  extends BSBService<Config, Events> {
+  extends BSBService<Config, typeof EventSchemas> {
   public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
     name: "service-default0",
   }
@@ -66,25 +129,33 @@ export class Plugin
   public init?(): Promise<void>;
   public dispose?(): void;
 
-  constructor(config: BSBServiceConstructor) {
-    super(config);
+  constructor(config: BSBServiceConstructor<Config, typeof EventSchemas>) {
+    super({
+      ...config,
+      eventSchemas: EventSchemas
+    });
   }
 
   public async run(trace: DTrace) {
-    //this.log.info(span.trace, "Starting service-default0");
+    //this.log.info(trace, "Starting service-default0");
 
-    // Emit test event
-    await this.events.emitEvent("test", trace, "test", "test");
+    // NEW API: Emit test event with object parameter
+    await this.events.emitEvent("test", trace, {
+      a: "test",
+      b: "test"
+    });
 
-    // Calculate using returnable event
-    // const result = await this.events.emitEventAndReturn(
-    //   "calculate", 
-    //   span.trace,
-    //   5, // timeout seconds
-    //   this.config.testa,
-    //   this.config.testb
-    // );
+    // NEW API: Calculate using returnable event with object parameter
+    const result = await this.events.emitEventAndReturn(
+      "calculate", 
+      trace,
+      {
+        a: this.config.testa,
+        b: this.config.testb
+      },
+      5 // timeout seconds
+    );
 
-    // this.log.info(span.trace, "Calculation result: {result}", { result });
+    this.log.info(trace, "Calculation result: {result}", { result });
   }
 }

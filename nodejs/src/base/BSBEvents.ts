@@ -60,11 +60,32 @@ export abstract class BSBEvents<
     }
 
     /**
-     * This function is never used for events plugins.
-     * @ignore @deprecated
+     * Run lifecycle method for events plugins.
+     *
+     * This method is inherited from the base plugin class but is not used by events plugins.
+     * Events plugins are initialized during the init phase and begin processing events
+     * immediately. They do not require a separate run phase.
+     *
+     * @remarks
+     * Events plugins establish their event bus connections and listeners during initialization.
+     * The event routing is active as soon as init completes. Therefore, this method
+     * intentionally performs no operation.
+     *
+     * @returns void
+     *
+     * @example
+     * ```typescript
+     * // Events plugins do not need to implement run()
+     * // The base class provides this no-op implementation
+     * export class MyEventsPlugin extends BSBEvents<MyConfig> {
+     *   // No run() override needed
+     * }
+     * ```
+     *
+     * @see {@link BSBEvents.init} for the initialization lifecycle method
+     * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#run | API: BSBEvents#run}
      */
-    public run() {
-    }
+    public run(): void {}
 
     /**
      * Listens for events that are emitted by other plugins
@@ -195,6 +216,7 @@ export abstract class BSBEvents<
      * Sets up a receive stream to receive a stream from another plugin
      *
      * @param trace - The trace object for tracking the operation
+     * @param pluginName - The name of the plugin that is emitting the event
      * @param event - The event to listen for
      * @param listener - The function to call when the stream is received
      * @param timeoutSeconds - The number of seconds to wait for the stream to be received
@@ -206,6 +228,7 @@ export abstract class BSBEvents<
      */
     public abstract receiveStream(
         trace: DTrace,
+        pluginName: string,
         event: string,
         listener: (trace: DTrace, error: Error | null, stream: Readable) => Promise<void>,
         timeoutSeconds?: number,
@@ -215,6 +238,7 @@ export abstract class BSBEvents<
      * Sets up a send stream to send a stream to another plugin that created a receive stream
      *
      * @param trace - The trace object for tracking the operation
+     * @param pluginName - The name of the plugin that is emitting the event
      * @param event - The event to listen for
      * @param streamId - The id of the stream to send data to
      * @param stream - The stream to send data from
@@ -226,6 +250,7 @@ export abstract class BSBEvents<
      */
     public abstract sendStream(
         trace: DTrace,
+        pluginName: string,
         event: string,
         streamId: string,
         stream: Readable,
@@ -298,6 +323,7 @@ export class BSBEventsRef
 
     public receiveStream(
         trace: DTrace,
+        pluginName: string,
         event: string,
         listener: (trace: DTrace, error: Error | null, stream: Readable) => Promise<void>,
         timeoutSeconds?: number | undefined,
@@ -307,6 +333,7 @@ export class BSBEventsRef
 
     public sendStream(
         trace: DTrace,
+        pluginName: string,
         event: string,
         streamId: string,
         stream: Readable,

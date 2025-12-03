@@ -26,7 +26,6 @@
  */
 
 import {z} from "zod";
-import {BSB_ERROR_METHOD_NOT_IMPLEMENTED} from "./errorMessages";
 
 /**
  * The definition of the config with zod validation
@@ -65,6 +64,18 @@ export type BSBConfigMigration<T extends BSBPluginConfigType> = (
     existingConfig?: z.infer<Exclude<T, undefined>>,
 ) => Promise<z.infer<Exclude<T, undefined>>>;
 
+/**
+ * Plugin metadata information for enhanced discoverability and documentation.
+ * All fields are optional to maintain backward compatibility.
+ * Version and BSB version information is typically read from package.json.
+ */
+export interface BSBPluginMetadata {
+    /** Human-readable plugin name */
+    name: string;
+    /** Brief description of what the plugin does */
+    description: string;
+}
+
 export type BSBConfigDefintionReference<
     T extends BSBPluginConfigType,
     AS = undefined
@@ -90,6 +101,8 @@ export type BSBReferencePluginConfigDefinition<
  * versioned schemas using Zod unions and transforms to normalize old
  * configs into the latest shape at parse time.
  *
+ * Optionally provide {@link metadata} for enhanced plugin discoverability.
+ *
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBPluginConfig.html | API: BSBPluginConfig}
  */
 export abstract class BSBPluginConfig<
@@ -100,6 +113,13 @@ export abstract class BSBPluginConfig<
   }
 
   public abstract validationSchema: MyPluginConfig;
+
+  /**
+   * Optional plugin metadata for enhanced discoverability and documentation.
+   * Provides information about the plugin's purpose.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBPluginConfig.html#metadata | API: BSBPluginConfig#metadata}
+   */
+  public metadata?: BSBPluginMetadata;
 }
 
 /**
@@ -109,15 +129,4 @@ export abstract class BSBPluginConfig<
 export class BSBPluginConfigRef
     extends BSBPluginConfig<any> {
   public validationSchema = {};
-
-  public migrate?(
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      toVersion: string,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      fromVersion: string | null,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      fromConfig: any,
-  ) {
-    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBPluginConfigRef", "migrate");
-  }
 }

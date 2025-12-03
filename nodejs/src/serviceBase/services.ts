@@ -238,6 +238,7 @@ export class SBServices {
       this.mode,
       sbEvents,
       clientContext,
+      {} // empty event schemas for client context
     );
     (
       clientContext as any

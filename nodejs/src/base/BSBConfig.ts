@@ -49,11 +49,32 @@ export abstract class BSBConfig
   }
 
   /**
-   * This function is never used for events plugins.
-   * @ignore @deprecated
+   * Run lifecycle method for configuration plugins.
+   *
+   * This method is inherited from the base plugin class but is not used by configuration plugins.
+   * Configuration plugins are initialized during the init phase and provide configuration data
+   * to other plugins. They do not require a separate run phase.
+   *
+   * @remarks
+   * Configuration plugins are typically disposed after all other plugins have been initialized
+   * to free up memory, as configuration data is cached by individual plugins. Therefore, this
+   * method intentionally performs no operation.
+   *
+   * @returns void
+   *
+   * @example
+   * ```typescript
+   * // Configuration plugins do not need to implement run()
+   * // The base class provides this no-op implementation
+   * export class MyConfigPlugin extends BSBConfig {
+   *   // No run() override needed
+   * }
+   * ```
+   *
+   * @see {@link BSBConfig.init} for the initialization lifecycle method
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#run | API: BSBConfig#run}
    */
-  public run() {
-  }
+  public run(): void {}
 
   /**
    * Returns the logging plugins configuration.

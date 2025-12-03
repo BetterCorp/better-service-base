@@ -25,22 +25,25 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBPluginEvents, DTrace } from "../../index";
+import { DTrace } from "../../index";
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
+import { createReturnableEvent } from "../../interfaces/schema-events";
+import { z } from "zod";
 
-export interface Events extends BSBPluginEvents {
-  emitEvents: {};
-  onEvents: {};
+export const EventSchemas = {
   emitReturnableEvents: {
-    onReverseReturnable: (text: string) => Promise<string>;
-  };
-  onReturnableEvents: {};
-  emitBroadcast: {};
-  onBroadcast: {};
-}
+    onReverseReturnable: createReturnableEvent(
+      z.object({
+        text: z.string()
+      }),
+      z.string(),
+      'Reverse text string'
+    )
+  }
+} as const;
 
 export class Plugin
-  extends BSBService<null, Events> {
+  extends BSBService<null, typeof EventSchemas> {
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
@@ -50,21 +53,15 @@ export class Plugin
   dispose?(): void;
   init?(): void | Promise<void>;
 
-  constructor(config: BSBServiceConstructor) {
-    super(config);
+  constructor(config: BSBServiceConstructor<null, typeof EventSchemas>) {
+    super({
+      ...config,
+      eventSchemas: EventSchemas
+    });
   }
 
   public override async run(trace: DTrace) {
     this.log.info(trace, "Running service-default4");
-
-    // Use events to reverse text
-    // const result = await this.events.emitEventAndReturn(
-    //   "onReverseReturnable",
-    //   trace,
-    //   5,
-    //   "teXt"
-    // );
-
-    // this.log.info(trace, "Reverse result: {result}", { result });
+    
   }
 }

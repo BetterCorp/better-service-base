@@ -40,19 +40,19 @@ export class testClient extends BSBServiceClient<Plugin> {
   private count = 0;
   public async init(trace: DTrace): Promise<void> {
     // Handle emittable events
-    this.events.onEvent("onEmittable", trace, async (trace: DTrace, a: number, b: number) => {
-      this.log.warn(trace, "onEmittable ({a},{b})", { a, b });
+    this.events.onEvent("onEmittable", trace, async (trace: DTrace, input: any) => {
+      this.log.warn(trace, "onEmittable ({a},{b})", { a: input.a, b: input.b });
     });
 
     // Handle returnable events
-    this.events.onReturnableEvent("onReverseReturnable", trace, async (trace: DTrace, a: number, b: number) => {
+    this.events.onReturnableEvent("onReverseReturnable", trace, async (trace: DTrace, input: any) => {
       this.count++;
-      this.log.warn(trace, "onReverseReturnable ({a},{b})", { a, b });
-      return a * b;
+      this.log.warn(trace, "onReverseReturnable ({a},{b})", { a: input.a, b: input.b });
+      return input.a * input.b;
     });
 
     // Emit receivable event
-    await this.events.emitEvent("onReceivable", trace, 56, 7);
+    await this.events.emitEvent("onReceivable", trace, { a: 56, b: 7 });
   }
 
   async abc(a: number, b: number, c: number, d: number): Promise<void> {
@@ -60,7 +60,7 @@ export class testClient extends BSBServiceClient<Plugin> {
     const span = this.metrics.createSpan(trace.trace, "abc");
 
     try {
-      const result = await this.events.emitEventAndReturn("onReturnable", span.trace, 5, c, d);
+      const result = await this.events.emitEventAndReturn("onReturnable", span.trace, { a: c, b: d }, 5);
       this.log.warn(span.trace, "TESTING onReturnable ({result})", { result });
     } catch (error) {
       span.error(error instanceof Error ? error : new Error(String(error)));

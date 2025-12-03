@@ -110,7 +110,11 @@ describe("plugins/logging-default", () => {
               if (expectMessage[xx] === null) {
                 continue;
               }
-              assert.equal(data[xx], expectMessage[xx]);
+              // Handle timestamped log format: split on | and compare only the message part
+              const actualMessage = typeof data[xx] === 'string' && data[xx].includes(' | ')
+                ? data[xx].split(' | ')[1]
+                : data[xx];
+              assert.equal(actualMessage, expectMessage[xx]);
             }
           };
         }
@@ -136,12 +140,13 @@ describe("plugins/logging-default", () => {
         ) {
           let has = false;
           for (const item of consoleExpectMessageContent.logs) {
+            const itemStr = item.toString();
+            // Handle timestamped log format: split on | and check only the message part
+            const messagePart = itemStr.includes(' | ') ? itemStr.split(' | ')[1] : itemStr;
             if (
-              item
-                .toString()
-                .indexOf(
-                  consoleExpectMessageContent.expectMessageContent[xx],
-                ) >= 0
+              messagePart.indexOf(
+                consoleExpectMessageContent.expectMessageContent[xx],
+              ) >= 0
             ) {
               has = true;
               break;
@@ -149,8 +154,8 @@ describe("plugins/logging-default", () => {
           }
           assert.ok(
             has,
-            `Does not contain '${ consoleExpectMessageContent.expectMessageContent[xx]
-            }': ${ consoleExpectMessageContent.logs.join(",") }`,
+            `Does not contain '${consoleExpectMessageContent.expectMessageContent[xx]
+            }': ${consoleExpectMessageContent.logs.join(",")}`,
           );
         }
       }
