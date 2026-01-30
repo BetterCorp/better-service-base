@@ -10,12 +10,12 @@
   },
   "scripts": {
     "generate-docs": "typedoc --json ./docs.json --tsconfig ./tsconfig-release.json  --cacheBust src/index.ts",
-    "docs": "mkdir -p ../docs/dist/languages/nodejs/types && rm -rf ../docs/dist/languages/nodejs/types/* && typedoc --out ../docs/dist/languages/nodejs/types --tsconfig ./tsconfig-release.json --cacheBust src/index.ts",
+    "docs": "mkdir -p ../docs/dist/languages/nodejs/types && rimraf ../docs/dist/languages/nodejs/types/* && typedoc --out ../docs/dist/languages/nodejs/types --tsconfig ./tsconfig-release.json --cacheBust src/index.ts",
     "dev": "ts-node src/dev.ts",
     "start": "node lib/cli.js",
     "tsc": "echo 'cleaning...' && rm -rf ./lib && echo 'building...' && tsc && echo 'done'",
-    "build": "rm -rfv ./lib && tsc && npm run testDev && npm run generate-docs",
-    "build-release": "rm -rfv ./lib && tsc --p ./tsconfig-release.json",
+    "build": "rimraf ./lib && tsc && npm run testDev && npm run generate-docs",
+    "build-release": "rimraf ./lib && tsc --p ./tsconfig-release.json",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
     "testDev": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts'"
@@ -53,6 +53,7 @@
     "eslint": "^9.39.2",
     "mocha": "^11.7.5",
     "nyc": "^17.1.0",
+    "rimraf": "^6.1.2",
     "ts-morph": "^27.0.2",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.16",
