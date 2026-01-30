@@ -90,7 +90,7 @@ export const EventSchemas = {
       z.object({
         status: z.enum(['healthy', 'degraded', 'unhealthy']),
         uptime: z.number(),
-        details: z.record(z.unknown()).optional()
+        details: z.record(z.string(), z.unknown()).optional()
       }),
       'Perform health check'
     )
@@ -101,7 +101,7 @@ export const EventSchemas = {
     'metrics.report': createBroadcastEvent(
       z.object({
         timestamp: z.string().datetime(),
-        metrics: z.record(z.number()),
+        metrics: z.record(z.string(), z.number()),
         period: z.string()
       }),
       'Broadcast performance metrics'

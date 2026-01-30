@@ -106,7 +106,7 @@ export const EventSchemas = {
     'config.updated': createBroadcastEvent(
       z.object({
         section: z.string(),
-        changes: z.record(z.unknown()),
+        changes: z.record(z.string(), z.unknown()),
         version: z.string()
       }),
       'Listen for configuration update broadcasts'

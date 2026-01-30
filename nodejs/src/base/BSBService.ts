@@ -48,7 +48,7 @@ export interface BSBServiceConstructor<
   extends BaseWithLoggingAndConfigConfig<
     ReferencedConfig extends null
     ? null
-    : BSBReferencePluginConfigDefinition<ReferencedConfig>
+    : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
   > {
   sbEvents: SBEvents;
   sbObservable: SBObservable;
@@ -88,7 +88,7 @@ export abstract class BSBService<
   extends BaseWithLoggingAndConfig<
     ReferencedConfig extends null
     ? null
-    : BSBReferencePluginConfigDefinition<ReferencedConfig>
+    : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
   > {
   public static PLUGIN_CLIENT: BSBServiceClientDefinition;
   public abstract readonly initBeforePlugins?: Array<string>;

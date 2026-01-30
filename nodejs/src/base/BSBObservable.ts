@@ -37,7 +37,7 @@ export interface BSBObservableConstructor<
   extends BaseWithConfigConfig<
     ReferencedConfig extends null
     ? null
-    : BSBReferencePluginConfigDefinition<ReferencedConfig>
+    : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
   > {}
 
 /**
@@ -52,7 +52,7 @@ export abstract class BSBObservable<
 > extends BaseWithConfig<
   ReferencedConfig extends null
   ? null
-  : BSBReferencePluginConfigDefinition<ReferencedConfig>
+  : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
 > {
   constructor(config: BSBObservableConstructor<ReferencedConfig>) {
     super(config);

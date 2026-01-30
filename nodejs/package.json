@@ -38,27 +38,29 @@
   "main": "lib/index.js",
   "version": "9.5.8-next",
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/assert": "^1.5.10",
     "@types/chai": "^4.3.11",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^20.19.1",
+    "@types/node": "^25.1.0",
     "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "benchmarkify": "^4.0.0",
     "chai": "^4.3.10",
-    "chokidar": "^3.6.0",
-    "eslint": "^8.56.0",
-    "mocha": "^10.2.0",
-    "nyc": "^15.1.0",
-    "ts-morph": "^21.0.1",
+    "chokidar": "^5.0.0",
+    "eslint": "^9.39.2",
+    "mocha": "^11.7.5",
+    "nyc": "^17.1.0",
+    "ts-morph": "^27.0.2",
     "ts-node": "^10.9.2",
-    "typedoc": "^0.27.7",
+    "typedoc": "^0.28.16",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "uuid": "^11.0.5",
-    "yaml": "^2.7.0",
-    "zod": "^3.24.1"
+    "uuid": "^13.0.0",
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
   }
 }

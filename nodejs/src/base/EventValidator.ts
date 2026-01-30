@@ -231,7 +231,7 @@ export class ValidationError extends Error {
    */
   constructor(
     message: string,
-    public readonly zodError: z.ZodError,
+    public readonly zodError: z.ZodError<any>,
     public readonly eventName: string,
     public readonly direction: 'input' | 'output'
   ) {
@@ -250,7 +250,7 @@ export class ValidationError extends Error {
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ValidationError.html#getFormattedErrors | API: ValidationError#getFormattedErrors}
    */
   public getFormattedErrors(): string {
-    return this.zodError.errors.map(err => 
+    return this.zodError.issues.map((err: any) =>
       `${err.path.join('.')}: ${err.message}`
     ).join('; ');
   }

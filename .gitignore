@@ -6,6 +6,7 @@
 *.sln.docstates
 .vscode/
 node_modules
+*.tsbuildinfo
 /_exports
 /junit.xml
 /test-file-*

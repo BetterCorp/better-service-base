@@ -29,7 +29,7 @@
 import { Readable } from "node:stream";
 import { BaseWithLoggingMetricsAndConfig, BaseWithLoggingMetricsAndConfigConfig } from "./base";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
-import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBReferenceConfigType } from "./PluginConfig";
 import { Observable } from '../interfaces/observable';
 
 export interface BSBEventsConstructor<
@@ -38,7 +38,7 @@ export interface BSBEventsConstructor<
     extends BaseWithLoggingMetricsAndConfigConfig<
         ReferencedConfig extends null
         ? null
-        : BSBReferencePluginConfigDefinition<ReferencedConfig>
+        : BSBReferencePluginConfigDefinition<ReferencedConfig> & BSBReferenceConfigType
     > {
 }
 
@@ -53,7 +53,7 @@ export abstract class BSBEvents<
     extends BaseWithLoggingMetricsAndConfig<
         ReferencedConfig extends null
         ? null
-        : BSBReferencePluginConfigDefinition<ReferencedConfig>
+        : BSBReferencePluginConfigDefinition<ReferencedConfig> & BSBReferenceConfigType
     > {
     constructor(config: BSBEventsConstructor<ReferencedConfig>) {
         super(config);

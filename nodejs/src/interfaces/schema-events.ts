@@ -33,9 +33,9 @@ import { z } from "zod";
  */
 export interface ReturnableEventSchema<TInput = any, TOutput = any> {
   /** Schema for event input parameters (as a single object) */
-  input: z.ZodSchema<TInput>;
+  input: z.ZodType<TInput>;
   /** Schema for event output/return value */
-  output: z.ZodSchema<TOutput>;
+  output: z.ZodType<TOutput>;
   /** Optional description of what this event does */
   description?: string;
   /** Optional examples for documentation */
@@ -53,7 +53,7 @@ export interface ReturnableEventSchema<TInput = any, TOutput = any> {
  */
 export interface FireAndForgetEventSchema<TInput = any> {
   /** Schema for event input parameters (as a single object) */
-  input: z.ZodSchema<TInput>;
+  input: z.ZodType<TInput>;
   /** Optional description of what this event does */
   description?: string;
   /** Optional examples for documentation */
@@ -152,7 +152,7 @@ export function createFireAndForgetEvent<T extends z.ZodSchema>(
   input: T,
   description?: string
 ): FireAndForgetEventSchema<InferZodType<T>> {
-  return { input, description } as const;
+  return { input, description } as FireAndForgetEventSchema<InferZodType<T>>;
 }
 
 /**
@@ -168,7 +168,7 @@ export function createReturnableEvent<TInput extends z.ZodSchema, TOutput extend
   output: TOutput,
   description?: string
 ): ReturnableEventSchema<InferZodType<TInput>, InferZodType<TOutput>> {
-  return { input, output, description } as const;
+  return { input, output, description } as ReturnableEventSchema<InferZodType<TInput>, InferZodType<TOutput>>;
 }
 
 /**
@@ -183,7 +183,7 @@ export function createBroadcastEvent<T extends z.ZodSchema>(
   input: T,
   description?: string
 ): FireAndForgetEventSchema<InferZodType<T>> {
-  return { input, description } as const;
+  return { input, description } as FireAndForgetEventSchema<InferZodType<T>>;
 }
 
 /**
