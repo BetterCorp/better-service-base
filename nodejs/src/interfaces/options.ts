@@ -28,8 +28,7 @@
 import type { DEBUG_MODE } from "./logging";
 import type { SBConfig } from "../serviceBase/config";
 import type { SBPlugins } from "../serviceBase/plugins";
-import type { SBLogging } from "../serviceBase/logging";
-import type { SBMetrics } from "../serviceBase/metrics";
+import type { SBObservable } from "../serviceBase/observable";
 import type { SBEvents } from "../serviceBase/events";
 import type { SBServices } from "../serviceBase/services";
 
@@ -66,6 +65,12 @@ export interface BSBOptions {
   appId?: string;
 
   /**
+   * Deployment region for resource context
+   * @default undefined (resolved from BSB_REGION env var)
+   */
+  region?: string;
+
+  /**
    * Override default configuration handler
    * @default SBConfig
    */
@@ -78,16 +83,10 @@ export interface BSBOptions {
   plugins?: typeof SBPlugins;
 
   /**
-   * Override default logging handler
-   * @default SBLogging
+   * Override default observable handler (unified logging, metrics, tracing)
+   * @default SBObservable
    */
-  logging?: typeof SBLogging;
-
-  /**
-   * Override default metrics handler
-   * @default SBMetrics
-   */
-  metrics?: typeof SBMetrics;
+  observable?: typeof SBObservable;
 
   /**
    * Override default events handler
@@ -114,11 +113,11 @@ export interface ResolvedBSBOptions {
   live: boolean;
   cwd: string;
   appId: string;
+  region?: string;
   mode: DEBUG_MODE;
   config: typeof SBConfig;
   plugins: typeof SBPlugins;
-  logging: typeof SBLogging;
-  metrics: typeof SBMetrics;
+  observable: typeof SBObservable;
   events: typeof SBEvents;
   services: typeof SBServices;
 }
@@ -144,7 +143,7 @@ export interface SimpleBSBOptions {
 
   /**
    * List of plugins to enable
-   * @default ['logging-default', 'events-default', 'metrics-default']
+   * @default ['observable-default', 'events-default']
    */
   plugins?: string[];
 

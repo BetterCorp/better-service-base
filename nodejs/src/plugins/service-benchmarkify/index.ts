@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace, ServiceClient, BSBServiceClientDefinition } from "../../index";
+import { Observable, ServiceClient, BSBServiceClientDefinition } from "../../index";
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
 import { createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 import { z } from "zod";
@@ -130,15 +130,15 @@ export class Plugin
   private fakeSelf: ServiceClient<Plugin>
 
   dispose?(): void;
-  async init(trace: DTrace): Promise<void> {
-    await this.events.onReturnableEvent('add', trace, async (trace: DTrace, input) => {
+  async init(obs: Observable): Promise<void> {
+    await this.events.onReturnableEvent('add', obs, async (obs: Observable, input) => {
       return input.a + input.b;
     });
-    await this.events.onReturnableEvent('void', trace, async (trace: DTrace, input) => {
+    await this.events.onReturnableEvent('void', obs, async (obs: Observable, input) => {
       return;
     });
-    await this.events.onEvent('benchmark.trigger', trace, async (trace: DTrace, input) => {
-      this.log.info(trace, "Benchmark triggered: {testName}", { testName: input.testName || 'default' });
+    await this.events.onEvent('benchmark.trigger', obs, async (obs: Observable, input) => {
+      this.log.info(obs.trace, "Benchmark triggered: {testName}", { testName: input.testName || 'default' });
       return;
     });
   };
@@ -151,8 +151,8 @@ export class Plugin
     this.fakeSelf = new ServiceClient<Plugin>(Plugin, this);
   }
 
-  public override async run(trace: DTrace) {
-    this.log.info(trace, "Running service-default4");
+  public override async run(obs: Observable) {
+    this.log.info(obs.trace, "Running service-default4");
 
     let benchmark = new Benchmarkify("BSB benchmark").printHeader();
 
@@ -160,15 +160,15 @@ export class Plugin
 
     const self = this;
     bench.add("BSB:emitEventAndReturn:add", async (done: Function) => {
-      await self.fakeSelf.events.emitEventAndReturn('add', trace, { a: 5, b: 3 }, 1);
+      await self.fakeSelf.events.emitEventAndReturn('add', obs, { a: 5, b: 3 }, 1);
       done();
     });
     bench.add("BSB:emitEventAndReturn:void", async (done: Function) => {
-      await self.fakeSelf.events.emitEventAndReturn('void', trace, {}, 1);
+      await self.fakeSelf.events.emitEventAndReturn('void', obs, {}, 1);
       done();
     });
     bench.add("BSB:emitEvent:void", async (done: Function) => {
-      await self.fakeSelf.events.emitEvent('void', trace, {});
+      await self.fakeSelf.events.emitEvent('void', obs, {});
       done();
     });
     await benchmark.run()
@@ -181,6 +181,6 @@ export class Plugin
     //   "teXt"
     // );
 
-    // this.log.info(trace, "Reverse result: {result}", { result });
+    // this.log.info(obs.trace, "Reverse result: {result}", { result });
   }
 }

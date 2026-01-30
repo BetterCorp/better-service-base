@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Core Plugins - BSB Documentation</title>
+  <meta name="description" content="BSB's built-in core plugins: config-default, events-default, logging-default, and metrics-default.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <style>
+    .page-header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-color));
+      padding: 3rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .page-header h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+    .page-header p { color: var(--text-secondary); font-size: 1.125rem; max-width: 700px; }
+    .content-section { padding: 2rem; max-width: 1000px; }
+    .content-section h2 {
+      font-size: 1.75rem;
+      color: var(--primary-color);
+      margin: 2rem 0 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+    .content-section h2:first-child { margin-top: 0; }
+    .content-section p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1rem; }
+    .plugin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+    .plugin-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.3s ease;
+    }
+    .plugin-card:hover {
+      border-color: var(--primary-color);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    .plugin-card h3 {
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      margin-bottom: 1rem;
+      color: var(--text-color);
+    }
+    .plugin-card p { font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .plugin-card .features { margin: 0; padding-left: 1.25rem; font-size: 0.85rem; }
+    .plugin-card .features li { margin-bottom: 0.5rem; color: var(--text-secondary); }
+    .plugin-card .cta { color: var(--primary-color); font-weight: 500; font-size: 0.875rem; display: block; margin-top: 1rem; }
+    .plugin-card.config { border-top: 4px solid var(--config-color); }
+    .plugin-card.events { border-top: 4px solid var(--primary-color); }
+    .plugin-card.logging { border-top: 4px solid var(--logging-color); }
+    .plugin-card.metrics { border-top: 4px solid var(--service-color); }
+  </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      <nav class="nav-menu" id="nav-menu">
+        <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link active">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/" class="active">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/logging-default/">logging-default</a><a href="/core-plugins/metrics-default/">metrics-default</a></div></div>
+        <a href="/languages/nodejs/types/" class="nav-link">API Reference</a>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank">GitHub</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+  <div class="doc-layout">
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Core Plugins</h1>
+        <p>BSB ships with sensible default plugins for configuration, events, logging, and metrics. These are part of the framework and work out of the box.</p>
+      </header>
+
+      <div class="content-section">
+        <h2>Built-in Plugins</h2>
+
+        <p>These core plugins are included with BSB and enabled by default. They provide a solid foundation for development and simple deployments.</p>
+
+        <div class="plugin-grid">
+          <a href="/core-plugins/config-default/" class="plugin-card config">
+            <h3>config-default</h3>
+            <p>YAML-based configuration with environment variable support and validation.</p>
+            <ul class="features">
+              <li>Loads from sec-config.yaml</li>
+              <li>Environment variable overrides</li>
+              <li>Zod schema validation</li>
+              <li>Plugin-specific config sections</li>
+            </ul>
+            <span class="cta">View Documentation</span>
+          </a>
+
+          <a href="/core-plugins/events-default/" class="plugin-card events">
+            <h3>events-default</h3>
+            <p>In-memory event bus for single-process deployments and development.</p>
+            <ul class="features">
+              <li>Fire-and-forget events</li>
+              <li>Request-response (returnable)</li>
+              <li>Broadcast to all listeners</li>
+              <li>Stream support</li>
+            </ul>
+            <span class="cta">View Documentation</span>
+          </a>
+
+          <a href="/core-plugins/logging-default/" class="plugin-card logging">
+            <h3>logging-default</h3>
+            <p>Console logging with ANSI colors and structured output.</p>
+            <ul class="features">
+              <li>Colored console output</li>
+              <li>Log levels (debug, info, warn, error)</li>
+              <li>Trace ID propagation</li>
+              <li>Structured metadata</li>
+            </ul>
+            <span class="cta">View Documentation</span>
+          </a>
+
+          <a href="/core-plugins/metrics-default/" class="plugin-card metrics">
+            <h3>metrics-default</h3>
+            <p>Basic metrics collection with counters, gauges, and histograms.</p>
+            <ul class="features">
+              <li>Counter metrics</li>
+              <li>Gauge metrics</li>
+              <li>Histogram metrics</li>
+              <li>Trace and span support</li>
+            </ul>
+            <span class="cta">View Documentation</span>
+          </a>
+        </div>
+
+        <h2>When to Replace Core Plugins</h2>
+
+        <p>The default plugins are designed for development and simple single-container deployments. You should replace them when:</p>
+
+        <ul>
+          <li><strong>events-default</strong> - Replace when you need multiple containers/processes to communicate. Use events-rabbitmq, events-kafka, or events-redis.</li>
+          <li><strong>logging-default</strong> - Replace when you need centralized logging. Use logging-gelf (Graylog), logging-elasticsearch, or logging-datadog.</li>
+          <li><strong>config-default</strong> - Replace when you need dynamic configuration or secrets management. Use config-consul, config-etcd, or config-vault.</li>
+          <li><strong>metrics-default</strong> - Replace when you need monitoring dashboards. Use metrics-prometheus or metrics-opentelemetry.</li>
+        </ul>
+
+        <p>Check <a href="https://plugins.bsbcode.dev" style="color: var(--primary-color);">plugins.bsbcode.dev</a> for available plugins.</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/assets/js/navbar.js" data-page="core-plugins"></script>
+</body>
+</html>

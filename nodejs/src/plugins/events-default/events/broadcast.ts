@@ -26,16 +26,14 @@
  */
 
 import { EventEmitter } from "node:events";
-import { DTrace, IPluginLogging, IPluginMetrics } from "../../../index";
+import { Observable, IPluginLogging } from "../../../index";
 
 export class broadcast extends EventEmitter {
   private log: IPluginLogging;
-  private metrics: IPluginMetrics;
 
-  constructor(log: IPluginLogging, metrics: IPluginMetrics) {
+  constructor(log: IPluginLogging) {
     super();
     this.log = log;
-    this.metrics = metrics;
   }
 
   public dispose() {
@@ -43,59 +41,57 @@ export class broadcast extends EventEmitter {
   }
 
   public async onBroadcast(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (trace: DTrace, args: Array<any>): Promise<void> }
+    listener: { (obs: Observable, args: Array<any>): Promise<void> }
   ): Promise<void> {
-    this.log.debug(trace, "onBroadcast: listening to {pluginName}-{event}", {
+    this.log.debug(obs.trace, "onBroadcast: listening to {pluginName}-{event}", {
       pluginName,
       event,
     });
-    this.on(`${ pluginName }-${ event }`, async (etrace: DTrace, args: any[]) => {
-      // Create span for receiving the broadcast with setup function trace details
-      const receiveSpan = this.metrics.createSpan(etrace, "onBroadcast:receive", {
+    this.on(`${ pluginName }-${ event }`, async (eobs: Observable, args: any[]) => {
+      // Create child observable for receiving the broadcast
+      const receiveObs = eobs.span("onBroadcast:receive", {
         pluginName,
         event,
-        functionTraceId: trace.t,
-        functionSpanId: trace.s
       });
 
       try {
-        await listener(receiveSpan.trace, args);
+        await listener(receiveObs, args);
       } catch (error: any) {
         const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
-        receiveSpan.error(errorObj);
+        receiveObs.error(errorObj);
         throw error;
       } finally {
-        receiveSpan.end();
+        receiveObs.end();
       }
     });
   }
 
   public async emitBroadcast(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     args: Array<any>
   ): Promise<void> {
-    // Create span for sending the broadcast
-    const sendSpan = this.metrics.createSpan(trace, "emitBroadcast:send", {
+    // Create child observable for sending the broadcast
+    const sendObs = obs.span("emitBroadcast:send", {
       pluginName,
       event,
     });
 
     try {
-      this.log.debug(sendSpan.trace, "emitBroadcast: emitting {pluginName}-{event}", {
+      this.log.debug(sendObs.trace, "emitBroadcast: emitting {pluginName}-{event}", {
         pluginName, event,
       });
-      this.emit(`${ pluginName }-${ event }`, sendSpan.trace, args);
+      this.emit(`${ pluginName }-${ event }`, sendObs, args);
     } catch (error: any) {
       const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
-      sendSpan.error(errorObj);
+      sendObs.error(errorObj);
       throw error;
     } finally {
-      sendSpan.end();
+      sendObs.end();
     }
   }
 }

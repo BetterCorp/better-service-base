@@ -26,13 +26,12 @@
  */
 
 import { EventEmitter } from "node:events";
-import { DTrace, IPluginLogging, IPluginMetrics } from "../../../index";
+import { Observable, IPluginLogging } from "../../../index";
 import { randomUUID } from "node:crypto";
 
 export class emit
   extends EventEmitter {
   private log: IPluginLogging;
-  private metrics: IPluginMetrics;
   private _lastReceivedMessageIds: Array<string> = [];
   private set lastReceivedMessageIds(value: string) {
     // remove after 50 messages
@@ -42,10 +41,9 @@ export class emit
     this._lastReceivedMessageIds.push(value);
   }
 
-  constructor(log: IPluginLogging, metrics: IPluginMetrics) {
+  constructor(log: IPluginLogging) {
     super();
     this.log = log;
-    this.metrics = metrics;
   }
 
   public dispose() {
@@ -53,72 +51,70 @@ export class emit
   }
 
   public async onEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (trace: DTrace, args: Array<any>): Promise<void> },
+    listener: { (obs: Observable, args: Array<any>): Promise<void> },
   ): Promise<void> {
-    this.log.debug(trace, "onEvent: listening to {pluginName}-{event}", {
+    this.log.debug(obs.trace, "onEvent: listening to {pluginName}-{event}", {
       pluginName,
       event,
     });
-    this.on(`${ pluginName }-${ event }`, async (etrace: DTrace, args: any) => {
+    this.on(`${ pluginName }-${ event }`, async (eobs: Observable, args: any) => {
       if (this._lastReceivedMessageIds.includes(args.msgID)) {
         return;
       }
       this.lastReceivedMessageIds = args.msgID;
 
-      // Create span for receiving the event with setup function trace details
-      const receiveSpan = this.metrics.createSpan(etrace, "onEvent:receive", {
+      // Create child observable for receiving the event
+      const receiveObs = eobs.span("onEvent:receive", {
         pluginName,
         event,
-        functionTraceId: trace.t,
-        functionSpanId: trace.s,
         messageId: args.msgID
       });
 
       try {
-        await listener(receiveSpan.trace, args.data);
+        await listener(receiveObs, args.data);
       } catch (error: any) {
         const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
-        receiveSpan.error(errorObj);
+        receiveObs.error(errorObj);
         throw error;
       } finally {
-        receiveSpan.end();
+        receiveObs.end();
       }
     });
   }
 
   public async emitEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     args: Array<any>,
   ): Promise<void> {
     const msgID = randomUUID();
 
-    // Create span for sending the event
-    const sendSpan = this.metrics.createSpan(trace, "emitEvent:send", {
+    // Create child observable for sending the event
+    const sendObs = obs.span("emitEvent:send", {
       pluginName,
       event,
       messageId: msgID
     });
 
     try {
-      this.log.debug(sendSpan.trace, "emitEvent: emitting {pluginName}-{event}", {
+      this.log.debug(sendObs.trace, "emitEvent: emitting {pluginName}-{event}", {
         pluginName, event,
       });
 
-      this.emit(`${ pluginName }-${ event }`, sendSpan.trace, {
+      this.emit(`${ pluginName }-${ event }`, sendObs, {
         msgID,
         data: args,
       });
     } catch (error: any) {
       const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
-      sendSpan.error(errorObj);
+      sendObs.error(errorObj);
       throw error;
     } finally {
-      sendSpan.end();
+      sendObs.end();
     }
   }
 }

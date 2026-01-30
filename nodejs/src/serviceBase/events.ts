@@ -43,12 +43,12 @@ import {
   FilterOnType,
   Gauge, IPluginDefinition,
   IPluginLogging,
-  IPluginMetrics, LoadedPlugin
+  IPluginMetrics, LoadedPlugin,
+  Observable,
 } from "../interfaces";
 import { Plugin as DefaultEvents } from "../plugins/events-default/index";
 import { SBConfig } from "./config";
-import { SBLogging } from "./logging";
-import { SBMetrics } from "./metrics";
+import { SBObservable } from "./observable";
 import { SBPlugins } from "./plugins";
 import { Counter } from "../interfaces";
 import { MS_PER_NS, NS_PER_SEC } from "../base/base";
@@ -87,22 +87,24 @@ export class SBEvents {
   private readonly metrics: IPluginMetrics;
   private metricCounters!: Record<EventsEventTypes, Counter<'pluginName' | 'event'>>;
   private metricGauges!: Record<EventsEventTypes, Gauge<'pluginName' | 'event'>>;
+  private createObservable: (trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => Observable;
 
   constructor(
     appId: string,
     mode: DEBUG_MODE,
     cwd: string,
     sbPlugins: SBPlugins,
-    sbLogging: SBLogging,
-    sbMetrics: SBMetrics,
+    sbObservable: SBObservable,
+    createObservable: (trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => Observable,
   ) {
     this.appId = appId;
     this.mode = mode;
     this.cwd = cwd;
     this.sbPlugins = sbPlugins;
+    this.createObservable = createObservable;
     const eventsPluginName = "core-events";
-    this.log = new PluginLogging(this.mode, eventsPluginName, sbLogging);
-    this.metrics = new PluginMetrics(appId, eventsPluginName, sbMetrics);
+    this.log = new PluginLogging(this.mode, eventsPluginName, sbObservable);
+    this.metrics = new PluginMetrics(appId, eventsPluginName, sbObservable);
   }
 
   public dispose() {
@@ -208,7 +210,7 @@ export class SBEvents {
     };
   }
 
-  public async init(sbConfig: SBConfig, sbLogging: SBLogging, sbMetrics: SBMetrics) {
+  public async init(sbConfig: SBConfig, sbObservable: SBObservable) {
     const tTrace = internalTrace("init");
     this.log.debug(tTrace, "INIT SBEvents");
 
@@ -223,8 +225,7 @@ export class SBEvents {
     for (const plugin of Object.keys(plugins)) {
       await this.addEvents(
         sbConfig,
-        sbLogging,
-        sbMetrics,
+        sbObservable,
         {
           name: plugin,
           package: plugins[plugin].package,
@@ -245,9 +246,8 @@ export class SBEvents {
         packageCwd: this.cwd,
         pluginCwd: this.cwd,
         config: null,
-        sbLogging,
-        pluginVersion: "0.0.0",
-        sbMetrics: sbMetrics
+        sbObservable,
+        pluginVersion: "0.0.0"
       }),
       on: undefined,
       onTypeof: "all",
@@ -278,8 +278,7 @@ export class SBEvents {
   }
 
   public async addPlugin(
-    sbLogging: SBLogging,
-    sbMetrics: SBMetrics,
+    sbObservable: SBObservable,
     plugin: IPluginDefinition,
     reference: LoadedPlugin<"events">,
     config: any,
@@ -302,9 +301,8 @@ export class SBEvents {
       packageCwd: reference.packageCwd,
       pluginCwd: reference.pluginCwd,
       config: config,
-      sbLogging,
-      pluginVersion: reference.version,
-      sbMetrics: sbMetrics
+      sbObservable,
+      pluginVersion: reference.version
     });
     this.log.info(tTrace, "Adding {pluginName} as events with filter: ", {
       pluginName: plugin.name,
@@ -347,15 +345,15 @@ export class SBEvents {
       mappedName: plugin.name,
     });
 
-    await SmartFunctionCallAsync(eventsPlugin, eventsPlugin.init, tTrace);
+    const obs = this.createObservable(tTrace, "events");
+    await SmartFunctionCallAsync(eventsPlugin, eventsPlugin.init, obs);
 
     return eventsPlugin;
   }
 
   private async addEvents(
     sbConfig: SBConfig,
-    sbLogging: SBLogging,
-    sbMetrics: SBMetrics,
+    sbObservable: SBObservable,
     plugin: IPluginDefinition,
     filter?: EventsFilter,
   ) {
@@ -407,7 +405,7 @@ export class SBEvents {
         newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
     }
 
-    await this.addPlugin(sbLogging, sbMetrics, plugin, newPlugin.data, pluginConfig, filter);
+    await this.addPlugin(sbObservable, plugin, newPlugin.data, pluginConfig, filter);
   }
 
   private async handleOnBroadcast(
@@ -464,10 +462,11 @@ export class SBEvents {
       pluginName,
       event,
     );
-    return await plugin.plugin.onBroadcast(trace, pluginName, event, async (iTrace: DTrace, iargs: Array<any>) =>
+    const obs = this.createObservable(trace, "events");
+    return await plugin.plugin.onBroadcast(obs, pluginName, event, async (iObs: Observable, iargs: Array<any>) =>
       self.handleOnBroadcast.call(
         self,
-        iTrace,
+        iObs.trace,
         plugin.pluginName,
         pluginName,
         event,
@@ -497,10 +496,11 @@ export class SBEvents {
         time: 1,
       },
     );
+    const obs = this.createObservable(trace, "events");
     await SmartFunctionCallAsync(
       plugin.plugin,
       plugin.plugin.emitBroadcast,
-      trace,
+      obs,
       pluginName,
       event,
       args,
@@ -557,14 +557,15 @@ export class SBEvents {
   ): Promise<void> {
     const self = this;
     const plugin = this.getPluginForEvent("onEvent", pluginName, event);
+    const obs = this.createObservable(trace, "events");
     return await plugin.plugin.onEvent(
-      trace,
+      obs,
       plugin.pluginName,
       event,
-      async (trace: DTrace, iargs: Array<any>) =>
+      async (iObs: Observable, iargs: Array<any>) =>
         self.handleOnEvent.call(
           self,
-          trace,
+          iObs.trace,
           plugin.pluginName,
           pluginName,
           event,
@@ -585,14 +586,15 @@ export class SBEvents {
   ): Promise<void> {
     const self = this;
     const plugin = this.getPluginForEvent("onEvent", pluginName, event);
+    const obs = this.createObservable(trace, "events");
     return await plugin.plugin.onEvent(
-      trace,
+      obs,
       pluginName,
       event + "-" + serverId,
-      async (trace: DTrace, iargs: Array<any>) =>
+      async (iObs: Observable, iargs: Array<any>) =>
         self.handleOnEvent.call(
           self,
-          trace,
+          iObs.trace,
           plugin.pluginName,
           pluginName,
           event + "-" + serverId,
@@ -618,10 +620,11 @@ export class SBEvents {
         time: 1,
       },
     );
+    const obs = this.createObservable(trace, "events");
     await SmartFunctionCallAsync(
       plugin.plugin,
       plugin.plugin.emitEvent,
-      trace,
+      obs,
       pluginName,
       event,
       args,
@@ -644,10 +647,11 @@ export class SBEvents {
         time: 1,
       },
     );
+    const obs = this.createObservable(trace, "events");
     await SmartFunctionCallAsync(
       plugin.plugin,
       plugin.plugin.emitEvent,
-      trace,
+      obs,
       pluginName,
       event + "-" + serverId,
       args,
@@ -709,14 +713,15 @@ export class SBEvents {
       pluginName,
       event,
     );
+    const obs = this.createObservable(trace, "events");
     return await plugin.plugin.onReturnableEvent(
-      trace,
+      obs,
       pluginName,
       event,
-      async (iTrace: DTrace, iargs: Array<any>) =>
+      async (iObs: Observable, iargs: Array<any>) =>
         self.handleOnReturnableEvent.call(
           self,
-          iTrace,
+          iObs.trace,
           plugin.pluginName,
           pluginName,
           event,
@@ -741,14 +746,15 @@ export class SBEvents {
       pluginName,
       event,
     );
+    const obs = this.createObservable(trace, "events");
     return await plugin.plugin.onReturnableEvent(
-      trace,
+      obs,
       pluginName,
       event + "-" + serverId,
-      async (iTrace: DTrace, iargs: Array<any>) =>
+      async (iObs: Observable, iargs: Array<any>) =>
         self.handleOnReturnableEvent.call(
           self,
-          iTrace,
+          iObs.trace,
           plugin.pluginName,
           pluginName,
           event + "-" + serverId,
@@ -773,10 +779,11 @@ export class SBEvents {
       event,
     );
     try {
+      const obs = this.createObservable(trace, "events");
       const resp = await SmartFunctionCallAsync(
         plugin.plugin,
         plugin.plugin.emitEventAndReturn,
-        trace,
+        obs,
         pluginName,
         event,
         timeoutSeconds,
@@ -826,10 +833,11 @@ export class SBEvents {
       event,
     );
     try {
+      const obs = this.createObservable(trace, "events");
       const resp = await SmartFunctionCallAsync(
         plugin.plugin,
         plugin.plugin.emitEventAndReturn,
-        trace,
+        obs,
         pluginName,
         event + "-" + serverId,
         timeoutSeconds,
@@ -926,11 +934,12 @@ export class SBEvents {
       pluginName,
       event,
     );
+    const obs = this.createObservable(trace, "events");
     return await plugin.plugin.receiveStream(
-      trace,
+      obs,
       plugin.pluginName,
       event,
-      async (etrace: DTrace, error: Error | null, stream: Readable) =>
+      async (iObs: Observable, error: Error | null, stream: Readable) =>
         self.handleOnReceiveStream.call(
           self,
           trace,
@@ -960,10 +969,11 @@ export class SBEvents {
       event,
     );
     try {
+      const obs = this.createObservable(trace, "events");
       await SmartFunctionCallAsync(
         plugin.plugin,
         plugin.plugin.sendStream,
-        trace,
+        obs,
         plugin.pluginName,
         event,
         streamId,

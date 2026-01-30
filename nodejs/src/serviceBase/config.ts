@@ -38,13 +38,14 @@ import {
   EventsConfig,
   IPluginLogging,
   LoadedPlugin,
-  LoggingConfig,
+  ObservableConfig,
   PluginDefinition,
   PluginType,
   createFakeDTrace,
+  Observable,
 } from "../interfaces";
 import { Plugin as DefaultConfig } from "../plugins/config-default/index";
-import { SBLogging } from "./logging";
+import { SBObservable } from "./observable";
 import { SBPlugins } from "./plugins";
 
 /**
@@ -71,23 +72,26 @@ export class SBConfig {
   private appId: string;
   private cwd: string;
   private sbPlugins: SBPlugins;
-  private sbLogging: SBLogging;
+  private sbObservable: SBObservable;
   private log: IPluginLogging;
   private configPlugin: BSBConfig;
+  private createObservable: (trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => Observable;
 
   constructor(
     appId: string,
     mode: DEBUG_MODE,
     cwd: string,
-    sbLogging: SBLogging,
+    sbObservable: SBObservable,
     sbPlugins: SBPlugins,
+    createObservable: (trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => Observable,
   ) {
     this.appId = appId;
     this.mode = mode;
     this.cwd = cwd;
-    this.sbLogging = sbLogging;
+    this.sbObservable = sbObservable;
     this.sbPlugins = sbPlugins;
-    this.log = new PluginLogging(mode, "sb-config", sbLogging);
+    this.createObservable = createObservable;
+    this.log = new PluginLogging(mode, "sb-config", sbObservable);
     this.configPlugin = new DefaultConfig({
       appId,
       mode,
@@ -95,36 +99,37 @@ export class SBConfig {
       cwd,
       packageCwd: cwd,
       pluginCwd: cwd,
-      sbLogging,
+      sbObservable,
       pluginVersion: "0.0.0",
     });
   }
 
   public async getPluginConfig(trace: DTrace, pluginType: PluginType, name: string) {
-    return await this.configPlugin.getPluginConfig(trace, pluginType, name);
+    const obs = this.createObservable(trace, "config");
+    return await this.configPlugin.getPluginConfig(obs, pluginType, name);
   }
 
   public async getServicePlugins(trace: DTrace): Promise<Record<string, PluginDefinition>> {
-    return await this.configPlugin.getServicePlugins(trace);
+    const obs = this.createObservable(trace, "config");
+    return await this.configPlugin.getServicePlugins(obs);
   }
 
   public async getEventsPlugins(trace: DTrace): Promise<Record<string, EventsConfig>> {
-    return await this.configPlugin.getEventsPlugins(trace);
+    const obs = this.createObservable(trace, "config");
+    return await this.configPlugin.getEventsPlugins(obs);
   }
 
-  public async getLoggingPlugins(trace: DTrace): Promise<Record<string, LoggingConfig>> {
-    return await this.configPlugin.getLoggingPlugins(trace);
-  }
-
-  public async getMetricsPlugins(trace: DTrace): Promise<Record<string, PluginDefinition>> {
-    return await this.configPlugin.getMetricsPlugins(trace);
+  public async getObservablePlugins(trace: DTrace): Promise<Record<string, ObservableConfig>> {
+    const obs = this.createObservable(trace, "config");
+    return await this.configPlugin.getObservablePlugins(obs);
   }
 
   public async getServicePluginDefinition(
     trace: DTrace,
     pluginName: string,
   ): Promise<{ name: string; enabled: boolean }> {
-    return await this.configPlugin.getServicePluginDefinition(trace, pluginName);
+    const obs = this.createObservable(trace, "config");
+    return await this.configPlugin.getServicePluginDefinition(obs, pluginName);
   }
 
   /**
@@ -151,7 +156,7 @@ export class SBConfig {
       cwd: this.cwd,
       packageCwd: reference.packageCwd,
       pluginCwd: reference.pluginCwd,
-      sbLogging: this.sbLogging,
+      sbObservable: this.sbObservable,
       pluginVersion: reference.version,
     });
     this.log.info(tTrace, "Adding {pluginName} as config", {
@@ -161,7 +166,8 @@ export class SBConfig {
     this.log.debug(tTrace, `Init: {name}`, {
       name: this.configPluginName,
     });
-    await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init, tTrace);
+    const obs = this.createObservable(tTrace, "config");
+    await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init, obs);
 
     this.log.info(tTrace, `Init: {name}: OK`, {
       name: this.configPluginName,
@@ -190,7 +196,8 @@ export class SBConfig {
       name: this.configPluginName,
     });
     if (this.configPluginName === "config-default") {
-      await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init, tTrace);
+      const obs = this.createObservable(tTrace, "config");
+      await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init, obs);
       return;
     }
     this.log.debug(tTrace, `Import config plugin: {name} from ({package})`, {

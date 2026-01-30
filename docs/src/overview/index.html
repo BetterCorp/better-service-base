@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overview - BSB Documentation</title>
+  <meta name="description" content="Learn about BSB's event-driven architecture, plugin system, and how services communicate through typed events.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+  <style>
+    .page-header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-color));
+      padding: 3rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .page-header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .page-header p {
+      color: var(--text-secondary);
+      font-size: 1.125rem;
+      max-width: 700px;
+    }
+
+    .content-section {
+      padding: 3rem 2rem;
+      max-width: 900px;
+    }
+
+    .content-section h2 {
+      font-size: 1.75rem;
+      color: var(--primary-color);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .content-section h3 {
+      font-size: 1.25rem;
+      margin: 2rem 0 1rem;
+      color: var(--text-color);
+    }
+
+    .content-section p {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 1rem;
+    }
+
+    .content-section ul, .content-section ol {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 1.5rem;
+      padding-left: 1.5rem;
+    }
+
+    .content-section li {
+      margin-bottom: 0.5rem;
+    }
+
+    .content-section code {
+      background: var(--code-bg);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.875rem;
+    }
+
+    .concept-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+
+    .concept-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .concept-card h4 {
+      color: var(--primary-color);
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    .concept-card p {
+      font-size: 0.9rem;
+      margin-bottom: 0;
+    }
+
+    /* Architecture Diagram */
+    .architecture-diagram {
+      margin: 2rem 0;
+    }
+
+    .arch-container {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .arch-header {
+      background: linear-gradient(135deg, var(--bg-color), var(--bg-secondary));
+      padding: 1rem;
+      text-align: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-color);
+    }
+
+    .arch-body {
+      padding: 1.5rem;
+    }
+
+    .core-plugins-row, .services-row {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .arch-plugin {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      text-align: center;
+      min-width: 100px;
+      transition: all 0.2s ease;
+    }
+
+    .arch-plugin.config { border-top: 3px solid var(--config-color); }
+    .arch-plugin.logging { border-top: 3px solid var(--logging-color); }
+    .arch-plugin.metrics { border-top: 3px solid var(--service-color); }
+    .arch-plugin.service { border-top: 3px solid var(--primary-color); }
+
+    .plugin-icon {
+      display: block;
+      font-size: 1.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .plugin-name {
+      display: block;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text-color);
+    }
+
+    .plugin-type {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--primary-color);
+      margin-top: 0.25rem;
+    }
+
+    .events-bus {
+      background: linear-gradient(135deg, rgba(251, 140, 0, 0.15), rgba(251, 140, 0, 0.05));
+      border: 1px solid rgba(251, 140, 0, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1.25rem 0;
+      text-align: center;
+    }
+
+    .bus-icon {
+      font-size: 1.25rem;
+      margin-right: 0.5rem;
+    }
+
+    .bus-label {
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .bus-subtitle {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    .connection-arrows {
+      display: flex;
+      justify-content: center;
+      gap: 4rem;
+      font-size: 1.5rem;
+      color: var(--primary-color);
+      margin: 0.5rem 0;
+    }
+
+    .event-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+    }
+
+    .event-table th, .event-table td {
+      padding: 1rem;
+      text-align: left;
+      border: 1px solid var(--border-color);
+    }
+
+    .event-table th {
+      background: var(--bg-secondary);
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+
+    .event-table td {
+      background: var(--card-bg);
+      color: var(--text-secondary);
+    }
+
+    .next-steps {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-top: 3rem;
+    }
+
+    .next-steps h3 {
+      margin-top: 0;
+      color: var(--primary-color);
+    }
+
+    .next-link {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--primary-color);
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .next-link:hover {
+      background: #e65100;
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      <nav class="nav-menu" id="nav-menu">
+        <div class="nav-dropdown"><button class="nav-link active">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/" class="active">Overview</a></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/logging-default/">logging-default</a><a href="/core-plugins/metrics-default/">metrics-default</a></div></div>
+        <a href="/languages/nodejs/types/" class="nav-link">API Reference</a>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank">GitHub</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+  <div class="doc-layout">
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Understanding BSB</h1>
+        <p>BSB (Better Service Base) is an event-driven microservices framework with a pluggable architecture. Learn the core concepts before you start building.</p>
+      </header>
+
+      <div class="content-section">
+        <h2>What is BSB?</h2>
+
+        <p>BSB is a framework for building microservices that communicate through events. Instead of direct HTTP calls between services, every service publishes and subscribes to events through a central event bus.</p>
+
+        <p>The key insight: <strong>your business logic should not care about infrastructure</strong>. Whether your events go through an in-memory bus, RabbitMQ, or Kafka - your service code stays the same.</p>
+
+        <h3>Core Principles</h3>
+
+        <div class="concept-grid">
+          <div class="concept-card">
+            <h4>Event-Driven</h4>
+            <p>Services communicate exclusively through typed events. No direct coupling between services - just event contracts.</p>
+          </div>
+
+          <div class="concept-card">
+            <h4>Plugin Architecture</h4>
+            <p>Everything is a plugin: configuration, logging, events, metrics, and your services. Swap implementations without changing code.</p>
+          </div>
+
+          <div class="concept-card">
+            <h4>Container-First</h4>
+            <p>Designed for Docker and Kubernetes. Mount plugin directories at runtime. Configure through environment variables.</p>
+          </div>
+
+          <div class="concept-card">
+            <h4>Type-Safe</h4>
+            <p>Define event schemas with Zod. Get compile-time type checking and runtime validation across all services.</p>
+          </div>
+        </div>
+
+        <h2>How It Works</h2>
+
+        <p>When BSB starts, it discovers and loads plugins, then orchestrates the service lifecycle:</p>
+
+        <div class="architecture-diagram">
+          <div class="arch-container">
+            <div class="arch-header">BSB Runtime</div>
+            <div class="arch-body">
+              <div class="core-plugins-row">
+                <div class="arch-plugin config">
+                  <span class="plugin-icon">⚙</span>
+                  <span class="plugin-name">Config</span>
+                </div>
+                <div class="arch-plugin logging">
+                  <span class="plugin-icon">📋</span>
+                  <span class="plugin-name">Logging</span>
+                </div>
+                <div class="arch-plugin metrics">
+                  <span class="plugin-icon">📊</span>
+                  <span class="plugin-name">Metrics</span>
+                </div>
+              </div>
+              <div class="events-bus">
+                <span class="bus-icon">⚡</span>
+                <span class="bus-label">Events Plugin</span>
+                <span class="bus-subtitle">routes events between all service plugins</span>
+              </div>
+              <div class="connection-arrows">
+                <span class="arrow">↑</span>
+                <span class="arrow">↑</span>
+                <span class="arrow">↑</span>
+              </div>
+              <div class="services-row">
+                <div class="arch-plugin service">
+                  <span class="plugin-name">Service A</span>
+                  <span class="plugin-type">Your Code</span>
+                </div>
+                <div class="arch-plugin service">
+                  <span class="plugin-name">Service B</span>
+                  <span class="plugin-type">Your Code</span>
+                </div>
+                <div class="arch-plugin service">
+                  <span class="plugin-name">Service C</span>
+                  <span class="plugin-type">Your Code</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3>Plugin Types</h3>
+
+        <p>BSB has five types of plugins. <strong>Service plugins</strong> are where you write your business logic. The other four are core infrastructure plugins that power the framework:</p>
+
+        <ul>
+          <li><strong>service-*</strong> - <em>Your code goes here.</em> Business logic, API handlers, workers - this is what you build.</li>
+          <li><strong>config-*</strong> - Loads configuration (YAML, Consul, etcd, etc.)</li>
+          <li><strong>events-*</strong> - Routes events between services (in-memory, RabbitMQ, Kafka, etc.)</li>
+          <li><strong>logging-*</strong> - Handles log output (console, Graylog, Datadog, etc.)</li>
+          <li><strong>metrics-*</strong> - Collects metrics (Prometheus, OpenTelemetry, etc.)</li>
+        </ul>
+
+        <h2>Event Communication</h2>
+
+        <p>Services communicate through three event patterns:</p>
+
+        <table class="event-table">
+          <thead>
+            <tr>
+              <th>Pattern</th>
+              <th>Description</th>
+              <th>Use Case</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>emitEvent</code></td>
+              <td>Fire-and-forget. First listener receives.</td>
+              <td>Background jobs, notifications</td>
+            </tr>
+            <tr>
+              <td><code>emitEventAndReturn</code></td>
+              <td>Request-response. Wait for a result.</td>
+              <td>Validation, data lookup, RPC-style calls</td>
+            </tr>
+            <tr>
+              <td><code>emitBroadcast</code></td>
+              <td>All listeners receive the event.</td>
+              <td>Cache invalidation, real-time updates</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Service Lifecycle</h2>
+
+        <p>Every service plugin follows a predictable lifecycle:</p>
+
+        <ol>
+          <li><strong>Constructor</strong> - Plugin is instantiated with configuration</li>
+          <li><strong>init()</strong> - Set up event listeners and dependencies</li>
+          <li><strong>run()</strong> - Start processing (called after all services init)</li>
+          <li><strong>dispose()</strong> - Clean up on shutdown</li>
+        </ol>
+
+        <p>Services can declare dependencies on other services using <code>initBeforePlugins</code>, <code>initAfterPlugins</code>, <code>runBeforePlugins</code>, and <code>runAfterPlugins</code>.</p>
+
+        <h2>Type-Safe Events with Schemas</h2>
+
+        <p>BSB uses schemas to define event contracts. This gives you autocomplete, type checking, and runtime validation:</p>
+
+        <div class="code-group">
+          <div class="code-tabs">
+            <button class="code-tab active" data-lang="typescript"><span class="code-tab-icon ts">TS</span> TypeScript</button>
+            <button class="code-tab" data-lang="go"><span class="code-tab-icon go">Go</span> Go</button>
+            <button class="code-tab" data-lang="python"><span class="code-tab-icon py">Py</span> Python</button>
+          </div>
+          <pre data-lang="typescript" class="active"><code class="language-typescript">// In init() - register listener. Trace comes FROM the caller.
+async init(trace: Trace) {
+  await this.events.onReturnableEvent('user.validate',
+    async (callerTrace, data) => {
+      // callerTrace lets you see who called this event
+      return { valid: data.email.includes('@') };
+    }
+  );
+}
+
+// In run() - emit event. Pass YOUR trace so callers can track you.
+async run(trace: Trace) {
+  const result = await this.events.emitEventAndReturn(
+    'user.validate',
+    trace,  // pass startup trace for observability
+    { email: 'user@example.com' },
+    5  // timeout seconds
+  );
+}</code></pre>
+          <pre data-lang="go"><code class="language-go">// In Init() - register listener. Trace comes FROM the caller.
+func (p *Plugin) Init(ctx context.Context) error {
+    p.events.OnReturnableEvent("user.validate",
+        func(ctx context.Context, data ValidateUserInput) (ValidateUserOutput, error) {
+            // ctx contains the caller's trace
+            return ValidateUserOutput{Valid: true}, nil
+        },
+    )
+    return nil
+}
+
+// In Run() - emit event. Pass YOUR trace so callers can track you.
+func (p *Plugin) Run(ctx context.Context) error {
+    result, err := events.EmitAndReturn[ValidateUserOutput](
+        ctx,  // pass startup context for observability
+        "user.validate",
+        ValidateUserInput{Email: "user@example.com"},
+        5*time.Second,
+    )
+    return err
+}</code></pre>
+          <pre data-lang="python"><code class="language-python"># In init() - register listener. Trace comes FROM the caller.
+async def init(self, trace: Trace):
+    @self.events.on_returnable_event("user.validate")
+    async def validate(caller_trace: Trace, data: ValidateUserInput):
+        # caller_trace lets you see who called this event
+        return ValidateUserOutput(valid="@" in data.email)
+
+# In run() - emit event. Pass YOUR trace so callers can track you.
+async def run(self, trace: Trace):
+    result = await self.events.emit_and_return(
+        "user.validate",
+        trace,  # pass startup trace for observability
+        ValidateUserInput(email="user@example.com"),
+        timeout=5
+    )</code></pre>
+        </div>
+
+        <div class="next-steps">
+          <h3>Ready to Build?</h3>
+          <p>Now that you understand the concepts, create your first service plugin.</p>
+          <a href="/guides/nodejs/" class="next-link">Start with Node.js</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/assets/js/navbar.js" data-page="overview"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script type="module" src="/assets/js/code-tabs.js"></script>
+</body>
+</html>

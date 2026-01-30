@@ -30,7 +30,7 @@ import {
   BSBPluginConfig,
 } from "../../index";
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
-import { DTrace } from "../../interfaces/metrics";
+import { Observable } from "../../interfaces";
 import { createReturnableEvent } from "../../interfaces/schema-events";
 
 export const secSchema = z.object({});
@@ -79,26 +79,26 @@ export class Plugin
     });
   }
 
-  public async init(trace: DTrace) {
-    this.log.info(trace, "Initializing service-default3");
+  public async init(obs: Observable) {
+    this.log.info(obs.trace, "Initializing service-default3");
 
     await this.events.onReturnableEvent(
       "onReverseReturnable",
-      trace,
-      async (iTrace: DTrace, input) => {
-        this.log.warn(iTrace, "onReverseReturnable ({text})", { text: input.text });
+      obs,
+      async (obs: Observable, input) => {
+        this.log.warn(obs.trace, "onReverseReturnable ({text})", { text: input.text });
         return input.text.split("").reverse().join("");
       },
     );
   }
 
-  public async run(trace: DTrace) {
-    this.log.info(trace, "Running service-default3");
+  public async run(obs: Observable) {
+    this.log.info(obs.trace, "Running service-default3");
 
     // NEW API: Use events to calculate with object parameter
     const result = await this.events.emitEventAndReturn(
       "calculate",
-      trace,
+      obs,
       {
         a: 18,
         b: 19
@@ -106,10 +106,10 @@ export class Plugin
       5 // timeout
     );
 
-    this.log.info(trace, "Calculation result: {result}", { result });
-    this.log.debug(trace, "Debug {a}", { a: "IT IS AN DEBUG!" });
-    this.log.info(trace, "Info {a}", { a: "IT IS AN INFO!" });
-    this.log.warn(trace, "Warning {a}", { a: "IT IS AN WARNING!" });
-    this.log.error(trace, "Error {a}", { a: "IT IS AN ERROR!" });
+    this.log.info(obs.trace, "Calculation result: {result}", { result });
+    this.log.debug(obs.trace, "Debug {a}", { a: "IT IS AN DEBUG!" });
+    this.log.info(obs.trace, "Info {a}", { a: "IT IS AN INFO!" });
+    this.log.warn(obs.trace, "Warning {a}", { a: "IT IS AN WARNING!" });
+    this.log.error(obs.trace, "Error {a}", { a: "IT IS AN ERROR!" });
   }
 }

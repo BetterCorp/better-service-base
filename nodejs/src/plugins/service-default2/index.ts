@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace, ServiceClient } from "../../index";
+import { Observable, ServiceClient } from "../../index";
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
 import { Plugin as Service1, EventSchemas as Service1EventSchemas } from "../service-default1";
 import { Plugin as Service3, EventSchemas as Service3EventSchemas } from "../service-default3";
@@ -140,24 +140,24 @@ export class Plugin
     this.service3 = new ServiceClient(Service3, this);
   }
 
-  public async init(trace: DTrace) {
-    this.events.onReturnableEvent("calculate", trace, async (iTrace: DTrace, input) => {
-      this.log.info(iTrace, "Calculating {a} * {b}", { a: input.a, b: input.b });
+  public async init(obs: Observable) {
+    this.events.onReturnableEvent("calculate", obs, async (obs: Observable, input) => {
+      this.log.info(obs.trace, "Calculating {a} * {b}", { a: input.a, b: input.b });
       return input.a * input.b;
     });
   }
 
-  public async run(trace: DTrace) {
-    this.log.info(trace, "Running service-default2");
-    const result = await this.service1.events.emitEventAndReturn("calculate", trace, { 
+  public async run(obs: Observable) {
+    this.log.info(obs.trace, "Running service-default2");
+    const result = await this.service1.events.emitEventAndReturn("calculate", obs, { 
       a: 5, 
       b: 5 
     }, 5)
-    await this.service3.events.onReturnableEvent("calculate", trace, async (iTrace: DTrace, input) => {
-      this.log.info(iTrace, "Calculating {a} * {b}", { a: input.a, b: input.b });
+    await this.service3.events.onReturnableEvent("calculate", obs, async (obs: Observable, input) => {
+      this.log.info(obs.trace, "Calculating {a} * {b}", { a: input.a, b: input.b });
       return input.a * input.b;
     });
-    this.log.info(trace, "Calculation result: {result}", { result });
+    this.log.info(obs.trace, "Calculation result: {result}", { result });
 
     // Use events to calculate instead of direct method calls
     // const result = await this.events.emitEventAndReturn(
@@ -168,6 +168,6 @@ export class Plugin
     //   12
     // );
 
-    // this.log.info(trace, "Calculation result: {result}", { result });
+    // this.log.info(obs.obs, "Calculation result: {result}", { result });
   }
 }

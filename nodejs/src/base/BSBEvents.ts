@@ -30,7 +30,7 @@ import { Readable } from "node:stream";
 import { BaseWithLoggingMetricsAndConfig, BaseWithLoggingMetricsAndConfigConfig } from "./base";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
 import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
-import { DTrace } from '../interfaces/metrics';
+import { Observable } from '../interfaces/observable';
 
 export interface BSBEventsConstructor<
     ReferencedConfig extends BSBReferencePluginConfigType = any
@@ -102,10 +102,10 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#onBroadcast | API: BSBEvents#onBroadcast}
      */
     public abstract onBroadcast(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: { (trace: DTrace, args: Array<any>): Promise<void> },
+        listener: { (trace: Observable, args: Array<any>): Promise<void> },
     ): Promise<void>;
 
     /**
@@ -122,7 +122,7 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#emitBroadcast | API: BSBEvents#emitBroadcast}
      */
     public abstract emitBroadcast(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         args: Array<any>,
@@ -143,10 +143,10 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#onEvent | API: BSBEvents#onEvent}
      */
     public abstract onEvent(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: { (trace: DTrace, args: Array<any>): Promise<void> },
+        listener: { (trace: Observable, args: Array<any>): Promise<void> },
     ): Promise<void>;
 
     /**
@@ -163,7 +163,7 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#emitEvent | API: BSBEvents#emitEvent}
      */
     public abstract emitEvent(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         args: Array<any>,
@@ -184,10 +184,10 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#onReturnableEvent | API: BSBEvents#onReturnableEvent}
      */
     public abstract onReturnableEvent(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: { (trace: DTrace, args: Array<any>): Promise<any> },
+        listener: { (trace: Observable, args: Array<any>): Promise<any> },
     ): Promise<void>;
 
     /**
@@ -205,7 +205,7 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#emitEventAndReturn | API: BSBEvents#emitEventAndReturn}
      */
     public abstract emitEventAndReturn(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         timeoutSeconds: number,
@@ -227,10 +227,10 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#receiveStream | API: BSBEvents#receiveStream}
      */
     public abstract receiveStream(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: (trace: DTrace, error: Error | null, stream: Readable) => Promise<void>,
+        listener: (trace: Observable, error: Error | null, stream: Readable) => Promise<void>,
         timeoutSeconds?: number,
     ): Promise<string>;
 
@@ -249,7 +249,7 @@ export abstract class BSBEvents<
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBEvents.html#sendStream | API: BSBEvents#sendStream}
      */
     public abstract sendStream(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         streamId: string,
@@ -264,16 +264,16 @@ export abstract class BSBEvents<
 export class BSBEventsRef
     extends BSBEvents {
     public onBroadcast(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: (trace: DTrace, args: any[]) => Promise<void>,
+        listener: (trace: Observable, args: any[]) => Promise<void>,
     ): Promise<void> {
         throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onBroadcast");
     }
 
     public emitBroadcast(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         args: any[],
@@ -282,16 +282,16 @@ export class BSBEventsRef
     }
 
     public onEvent(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: (trace: DTrace, args: any[]) => Promise<void>,
+        listener: (trace: Observable, args: any[]) => Promise<void>,
     ): Promise<void> {
         throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onEvent");
     }
 
     public emitEvent(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         args: any[],
@@ -300,16 +300,16 @@ export class BSBEventsRef
     }
 
     public onReturnableEvent(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: (trace: DTrace, args: any[]) => Promise<any>,
+        listener: (trace: Observable, args: any[]) => Promise<any>,
     ): Promise<void> {
         throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onReturnableEvent");
     }
 
     public emitEventAndReturn(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         timeoutSeconds: number,
@@ -322,17 +322,17 @@ export class BSBEventsRef
     }
 
     public receiveStream(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
-        listener: (trace: DTrace, error: Error | null, stream: Readable) => Promise<void>,
+        listener: (trace: Observable, error: Error | null, stream: Readable) => Promise<void>,
         timeoutSeconds?: number | undefined,
     ): Promise<string> {
         throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "receiveStream");
     }
 
     public sendStream(
-        trace: DTrace,
+        trace: Observable,
         pluginName: string,
         event: string,
         streamId: string,
@@ -343,5 +343,5 @@ export class BSBEventsRef
 
     dispose?(): void;
 
-    init?(trace: DTrace): void | Promise<void>;
+    init?(obs: Observable): void | Promise<void>;
 }

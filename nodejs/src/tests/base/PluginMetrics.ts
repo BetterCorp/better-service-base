@@ -29,7 +29,7 @@ import { expect } from "chai";
 import { SBMetrics } from "../../serviceBase";
 import { PluginMetrics } from "../../base/PluginMetrics";
 import { BSBError } from "../../base/errorMessages";
-import { DTrace } from "../../interfaces";
+import { Observable } from "../../interfaces";
 import { EventEmitter } from "events";
 
 describe("PluginMetrics", () => {

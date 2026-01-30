@@ -28,14 +28,13 @@
 import {
   BSBError,
   BSBService, MS_PER_NS, NS_PER_SEC,
-  PluginLogging, PluginMetrics,
+  PluginLogging, PluginMetrics, ResourceContextBuilder, PluginObservable,
 } from "../base";
 import { resolveBSBOptions, fromSimpleOptions, fromPreset } from "../base/factory";
-import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, IPluginLogging, LogMeta, PluginTypeDefinitionRef, BSBOptions, SimpleBSBOptions, BSBPreset } from "../interfaces";
+import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, IPluginLogging, LogMeta, PluginTypeDefinitionRef, BSBOptions, SimpleBSBOptions, BSBPreset, Observable } from "../interfaces";
 import { SBConfig } from "./config";
 import { SBEvents } from "./events";
-import { SBLogging } from "./logging";
-import { SBMetrics } from "./metrics";
+import { SBObservable } from "./observable";
 import { SBPlugins } from "./plugins";
 import { SBServices } from "./services";
 
@@ -46,8 +45,7 @@ export const BOOT_STAT_KEYS = {
   BSB: "BSB",
   SELF: "SELF",
   CONFIG: "CONFIG",
-  LOGGING: "LOGGER",
-  METRICS: "METRICS",
+  OBSERVABLE: "OBSERVABLE",
   EVENTS: "EVENTS",
   SERVICES: "SERVICES",
   INIT: "INIT",
@@ -172,8 +170,7 @@ export class ServiceBase {
 
   private readonly _CORE_PLUGIN_NAME = "core";
   private readonly _appId;
-  private readonly logging: SBLogging;
-  private readonly metrics: SBMetrics;
+  private readonly observable: SBObservable;
   private readonly plugins: SBPlugins;
   private readonly config: SBConfig;
   private readonly events: SBEvents;
@@ -278,6 +275,8 @@ export class ServiceBase {
    * @see {@link ServiceBase.run} for starting the application
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ServiceBase.html | API: ServiceBase}
    */
+  private readonly _region?: string;
+
   constructor(options: BSBOptions = {}) {
     const resolvedOptions = resolveBSBOptions(options);
 
@@ -285,39 +284,68 @@ export class ServiceBase {
     this.cwd = resolvedOptions.cwd;
     this.mode = resolvedOptions.mode;
     this._appId = resolvedOptions.appId;
+    this._region = resolvedOptions.region;
 
     this._startKeep(BOOT_STAT_KEYS.SELF);
 
     // Initialize subsystems with resolved dependencies
     this.plugins = new resolvedOptions.plugins(this.cwd, this.mode === "development");
-    this.logging = new resolvedOptions.logging(this._appId, this.mode, this.cwd, this.plugins);
-    this.metrics = new resolvedOptions.metrics(this._appId, this.mode, this.cwd, this.plugins, this.logging);
+    this.observable = new resolvedOptions.observable(this._appId, this.mode, this.cwd, this.plugins);
+
+    // Initialize logging and metrics BEFORE config and events
+    this.log = new PluginLogging(
+      this.mode,
+      this._CORE_PLUGIN_NAME,
+      this.observable,
+    );
+    this.pluginMetrics = new PluginMetrics(
+      this._appId,
+      this._CORE_PLUGIN_NAME,
+      this.observable,
+    );
+
+    // Create Observable factory for subsystems
+    const createObservableFromTrace = (
+      trace: DTrace,
+      pluginName: string,
+      attributes?: Record<string, string | number | boolean>
+    ): Observable => {
+      const resource = ResourceContextBuilder.build({
+        appId: this._appId,
+        mode: this.mode,
+        pluginName: pluginName,
+        cwd: this.cwd,
+        packageCwd: this.cwd,
+        pluginCwd: this.cwd,
+        pluginVersion: "1.0.0"
+      }, this._region);
+
+      return new PluginObservable(
+        trace,
+        resource,
+        this.log as any,
+        this.pluginMetrics,
+        attributes || {}
+      );
+    };
+
     this.events = new resolvedOptions.events(
       this._appId,
       this.mode,
       this.cwd,
       this.plugins,
-      this.logging,
-      this.metrics,
+      this.observable,
+      createObservableFromTrace,
     );
     this.config = new resolvedOptions.config(
       this._appId,
       this.mode,
       this.cwd,
-      this.logging,
+      this.observable,
       this.plugins,
+      createObservableFromTrace,
     );
 
-    this.log = new PluginLogging(
-      this.mode,
-      this._CORE_PLUGIN_NAME,
-      this.logging,
-    );
-    this.pluginMetrics = new PluginMetrics(
-      this._appId,
-      this._CORE_PLUGIN_NAME,
-      this.metrics,
-    );
     this.log.info(internalTrace("CONSTRUCTOR"), "Starting BSB [{mode}]", {
       mode: this.mode,
     });
@@ -326,7 +354,8 @@ export class ServiceBase {
       this.mode,
       this.cwd,
       this.plugins,
-      this.logging,
+      this.observable,
+      this._region,
     );
 
     process.stdin.resume(); //so the program will not close instantly
@@ -364,22 +393,19 @@ export class ServiceBase {
     this._startKeep(BOOT_STAT_KEYS.CONFIG);
     await this.config.init();
     this._outputKeep(BOOT_STAT_KEYS.CONFIG);
-    this._startKeep(BOOT_STAT_KEYS.LOGGING);
-    await this.logging.init(this.config);
-    this._outputKeep(BOOT_STAT_KEYS.LOGGING);
-    this._startKeep(BOOT_STAT_KEYS.METRICS);
-    await this.metrics.init(this.config);
-    this._outputKeep(BOOT_STAT_KEYS.METRICS);
+    this._startKeep(BOOT_STAT_KEYS.OBSERVABLE);
+    await this.observable.init(internalTrace("OBSERVABLE_INIT"), this.config);
+    this._outputKeep(BOOT_STAT_KEYS.OBSERVABLE);
     this._startKeep(BOOT_STAT_KEYS.EVENTS);
-    await this.events.init(this.config, this.logging, this.metrics);
+    await this.events.init(this.config, this.observable);
     this._outputKeep(BOOT_STAT_KEYS.EVENTS);
     // SERVICES ORDERING
     this._startKeep(BOOT_STAT_KEYS.SERVICES);
-    await this.services.setup(this.config, this.logging, this.events, this.metrics);
+    await this.services.setup(this.config, this.observable, this.events);
     await this.services.init();
     this._outputKeep(BOOT_STAT_KEYS.SERVICES);
 
-    this.coreMetrics = new PluginMetrics(this._appId, this._CORE_PLUGIN_NAME, this.metrics);
+    this.coreMetrics = new PluginMetrics(this._appId, this._CORE_PLUGIN_NAME, this.observable);
     this.heartBeatMetric = this.coreMetrics.createCounter("heartbeat", "Heartbeat", "Heartbeat", [this._appId]);
     this.bsbBootTimeMetric = this.coreMetrics.createGauge("bsbBootTime", "BSB Boot Time", "BSB Boot Time", [this._appId]);
 
@@ -392,7 +418,7 @@ export class ServiceBase {
    */
   public async run() {
     this._startKeep(BOOT_STAT_KEYS.RUN);
-    await this.logging.run();
+    await this.observable.run(internalTrace("OBSERVABLE_RUN"));
     await this.events.run();
     await this.services.run();
     this.log.info(internalTrace("RUN"), "Disposing config for memory cleanup and safety");
@@ -446,13 +472,9 @@ export class ServiceBase {
         this.log.debug(span.trace, "Disposing events");
         this.events.dispose();
       }
-      if (this.metrics !== undefined) {
-        this.log.debug(span.trace, "Disposing metrics");
-        this.metrics.dispose();
-      }
-      if (this.logging !== undefined) {
-        this.log.debug(span.trace, "Disposing logging");
-        this.logging.dispose();
+      if (this.observable !== undefined) {
+        this.log.debug(span.trace, "Disposing observable");
+        this.observable.dispose();
       }
       if (this.config !== undefined) {
         this.log.debug(span.trace, "Disposing config");
@@ -487,9 +509,8 @@ export class ServiceBase {
     }
     return await this.services.addPlugin(
       this.config,
-      this.logging,
+      this.observable,
       this.events,
-      this.metrics,
       {
         name,
         plugin: name,

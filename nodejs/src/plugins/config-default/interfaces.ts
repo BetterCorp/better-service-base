@@ -26,7 +26,7 @@
  */
 
 import {
-  LoggingConfig,
+  ObservableConfig,
   EventsConfig,
   PluginDefinition as ServiceConfig,
 } from "../../index";
@@ -91,8 +91,7 @@ export interface ExtendedConfig {
   config: any | undefined;
 }
 export interface ConfigProfile {
-  logging: Record<PluginName, LoggingConfig & ExtendedConfig>;
-  metrics: Record<PluginName, ServiceConfig & ExtendedConfig>;
+  observable: Record<PluginName, ObservableConfig & ExtendedConfig>;
   events: Record<PluginName, EventsConfig & ExtendedConfig>;
   services: Record<PluginName, ServiceConfig & ExtendedConfig>;
 }

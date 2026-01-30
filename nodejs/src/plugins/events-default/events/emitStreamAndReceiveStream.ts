@@ -28,19 +28,17 @@
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import { randomUUID } from "node:crypto";
-import { BSBError, DTrace, IPluginLogging, IPluginMetrics } from "../../../index";
+import { BSBError, Observable, IPluginLogging } from "../../../index";
 
 export class emitStreamAndReceiveStream
   extends EventEmitter {
   // If we try receive or send a stream and the other party is not ready for some reason, we will automatically timeout in 5s.
   private readonly staticCommsTimeout = 1000;
   private log: IPluginLogging;
-  private metrics: IPluginMetrics;
 
-  constructor(log: IPluginLogging, metrics: IPluginMetrics) {
+  constructor(log: IPluginLogging) {
     super();
     this.log = log;
-    this.metrics = metrics;
   }
 
   public dispose() {
@@ -48,23 +46,21 @@ export class emitStreamAndReceiveStream
   }
 
   async receiveStream(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (etrace: DTrace, error: Error | null, stream: Readable): Promise<void> },
+    listener: { (eobs: Observable, error: Error | null, stream: Readable): Promise<void> },
     timeoutSeconds: number = 60,
   ): Promise<string> {
-    // Create span for receiving stream with setup function trace details
-    const receiveSpan = this.metrics.createSpan(trace, "receiveStream:receive", {
+    // Create child observable for receiving stream
+    const receiveObs = obs.span("receiveStream:receive", {
       event,
       pluginName,
       timeoutSeconds,
-      functionTraceId: trace.t,
-      functionSpanId: trace.s
     });
 
     const streamId = `${randomUUID()}=${timeoutSeconds}`;
-    this.log.debug(receiveSpan.trace, "receiveStream: listening to {streamId} ({pluginName}-{event})", {
+    this.log.debug(receiveObs.trace, "receiveStream: listening to {streamId} ({pluginName}-{event})", {
       streamId,
       pluginName,
       event,
@@ -73,30 +69,30 @@ export class emitStreamAndReceiveStream
     const self = this;
     return new Promise((resolve) => {
       const receiptTimeoutHandler: NodeJS.Timeout = setTimeout(() => {
-        const timeoutError = new BSBError(receiveSpan.trace, "Receive Receipt Timeout");
-        receiveSpan.error(timeoutError);
-        listener(receiveSpan.trace, timeoutError, null!);
-        self.emit(`${streamId}-error`, receiveSpan.trace, timeoutError);
+        const timeoutError = new BSBError(receiveObs.trace, "Receive Receipt Timeout");
+        receiveObs.error(timeoutError);
+        listener(receiveObs, timeoutError, null!);
+        self.emit(`${streamId}-error`, receiveObs, timeoutError);
         self.removeAllListeners(streamId);
-        receiveSpan.end();
+        receiveObs.end();
       }, self.staticCommsTimeout);
 
-      self.once(streamId, (ttrace: DTrace, stream: Readable): void => {
+      self.once(streamId, (eobs: Observable, stream: Readable): void => {
         clearTimeout(receiptTimeoutHandler);
         self.emit(`${streamId}-emit`);
 
         stream.on("error", (error: any) => {
           const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
-          receiveSpan.error(errorObj);
+          receiveObs.error(errorObj);
           self.emit(`${streamId}-error`, errorObj);
         });
 
         stream.on("end", () => {
           self.emit(`${streamId}-end`);
-          receiveSpan.end();
+          receiveObs.end();
         });
 
-        listener(receiveSpan.trace, null, stream);
+        listener(receiveObs, null, stream);
       });
 
       resolve(streamId);
@@ -104,20 +100,20 @@ export class emitStreamAndReceiveStream
   }
 
   async sendStream(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     streamId: string,
     stream: Readable,
   ): Promise<void> {
-    // Create span for sending stream
-    const sendSpan = this.metrics.createSpan(trace, "sendStream:send", {
+    // Create child observable for sending stream
+    const sendObs = obs.span("sendStream:send", {
       event,
       pluginName,
       streamId
     });
 
-    this.log.debug(sendSpan.trace, "sendStream: emitting _self-{streamId}", { streamId });
+    this.log.debug(sendObs.trace, "sendStream: emitting {streamId}", { streamId });
 
     const self = this;
     return new Promise((resolve, rejectI) => {
@@ -133,22 +129,22 @@ export class emitStreamAndReceiveStream
         self.removeAllListeners(`${streamId}-emit`);
         self.removeAllListeners(`${streamId}-end`);
         self.removeAllListeners(`${streamId}-error`);
-        sendSpan.end();
+        sendObs.end();
       };
 
       const reject = (e: Error) => {
         clearSessions(e);
-        sendSpan.error(e);
+        sendObs.error(e);
         rejectI(e);
       };
 
       let receiptTimeoutHandler: NodeJS.Timeout | null = setTimeout(() => {
-        const timeoutError = new BSBError(sendSpan.trace, "Send Receipt Timeout");
+        const timeoutError = new BSBError(sendObs.trace, "Send Receipt Timeout");
         reject(timeoutError);
       }, self.staticCommsTimeout);
 
       const timeoutHandler = setTimeout(() => {
-        const timeoutError = new BSBError(sendSpan.trace, "Stream Timeout");
+        const timeoutError = new BSBError(sendObs.trace, "Stream Timeout");
         reject(timeoutError);
       }, timeout * 1000);
 
@@ -166,7 +162,7 @@ export class emitStreamAndReceiveStream
 
       self.once(`${streamId}-error`, (error: Error) => reject(error));
 
-      self.emit(streamId, sendSpan.trace, stream);
+      self.emit(streamId, sendObs, stream);
     });
   }
 }

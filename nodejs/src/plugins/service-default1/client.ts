@@ -27,7 +27,7 @@
 
 import { BSBServiceClient } from "../..";
 import { Plugin } from ".";
-import { DTrace } from "../../interfaces/metrics";
+import { Observable } from "../../interfaces";
 
 export class testClient extends BSBServiceClient<Plugin> {
   public initBeforePlugins?: string[] | undefined;
@@ -38,36 +38,37 @@ export class testClient extends BSBServiceClient<Plugin> {
   public run?(): Promise<void>;
   public readonly pluginName: string = "service-default1";
   private count = 0;
-  public async init(trace: DTrace): Promise<void> {
+  private initObs?: Observable;
+
+  public async init(obs: Observable): Promise<void> {
+    this.initObs = obs;
     // Handle emittable events
-    this.events.onEvent("onEmittable", trace, async (trace: DTrace, input: any) => {
-      this.log.warn(trace, "onEmittable ({a},{b})", { a: input.a, b: input.b });
+    this.events.onEvent("onEmittable", obs, async (obs: Observable, input: any) => {
+      this.log.warn(obs.trace, "onEmittable ({a},{b})", { a: input.a, b: input.b });
     });
 
     // Handle returnable events
-    this.events.onReturnableEvent("onReverseReturnable", trace, async (trace: DTrace, input: any) => {
+    this.events.onReturnableEvent("onReverseReturnable", obs, async (obs: Observable, input: any) => {
       this.count++;
-      this.log.warn(trace, "onReverseReturnable ({a},{b})", { a: input.a, b: input.b });
+      this.log.warn(obs.trace, "onReverseReturnable ({a},{b})", { a: input.a, b: input.b });
       return input.a * input.b;
     });
 
     // Emit receivable event
-    await this.events.emitEvent("onReceivable", trace, { a: 56, b: 7 });
+    await this.events.emitEvent("onReceivable", obs, { a: 56, b: 7 });
   }
 
   async abc(a: number, b: number, c: number, d: number): Promise<void> {
-    const trace = this.metrics.createTrace('abc test');
-    const span = this.metrics.createSpan(trace.trace, "abc");
+    const obs = this.initObs!.span('abc', { component: 'test' });
 
     try {
-      const result = await this.events.emitEventAndReturn("onReturnable", span.trace, { a: c, b: d }, 5);
-      this.log.warn(span.trace, "TESTING onReturnable ({result})", { result });
+      const result = await this.events.emitEventAndReturn("onReturnable", obs, { a: c, b: d }, 5);
+      obs.log.warn("TESTING onReturnable ({result})", { result });
     } catch (error) {
-      span.error(error instanceof Error ? error : new Error(String(error)));
+      obs.error(error instanceof Error ? error : new Error(String(error)));
       throw error;
     } finally {
-      span.end();
-      trace.end();
+      obs.end();
     }
   }
 }

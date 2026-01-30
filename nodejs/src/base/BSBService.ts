@@ -27,13 +27,16 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { DTrace, IPluginMetrics, BSBEventSchemas } from "../interfaces";
-import { SBEvents, SBMetrics } from "../serviceBase";
+import { DTrace, IPluginMetrics, BSBEventSchemas, Observable } from "../interfaces";
+import { SBEvents, SBObservable } from "../serviceBase";
 import { BaseWithLoggingAndConfig, BaseWithLoggingAndConfigConfig } from "./base";
 import { BSBServiceClient } from "./BSBServiceClient";
 import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
 import { PluginEvents } from "./PluginEvents";
 import { PluginMetrics } from "./PluginMetrics";
+import { ResourceContext, ResourceContextBuilder } from "./ResourceContext";
+import { PluginObservable } from "./PluginObservable";
+import { PluginLogging } from "./PluginLogging";
 
 /**
  * @hidden
@@ -48,7 +51,7 @@ export interface BSBServiceConstructor<
     : BSBReferencePluginConfigDefinition<ReferencedConfig>
   > {
   sbEvents: SBEvents;
-  sbMetrics: SBMetrics;
+  sbObservable: SBObservable;
   eventSchemas?: TEventSchemas;
 }
 
@@ -101,11 +104,63 @@ export abstract class BSBService<
    * @hidden
    */
   public _clients: Array<BSBServiceClient<any>> = [];
+  /**
+   * @hidden
+   */
+  private _resourceContext: ResourceContext;
 
   constructor(config: BSBServiceConstructor<ReferencedConfig, TEventSchemas>) {
     super(config);
     this.events = new PluginEvents(config.mode, config.sbEvents, this, config.eventSchemas || {} as TEventSchemas);
-    this.metrics = new PluginMetrics(config.appId, config.pluginName, config.sbMetrics);
+    this.metrics = new PluginMetrics(config.appId, config.pluginName, config.sbObservable);
+
+    // Build resource context at construction time
+    this._resourceContext = ResourceContextBuilder.build(
+      {
+        appId: config.appId,
+        mode: config.mode,
+        pluginName: config.pluginName,
+        cwd: config.cwd,
+        packageCwd: config.packageCwd,
+        pluginCwd: config.pluginCwd,
+        pluginVersion: (config as any).pluginVersion || 'unknown'
+      },
+      (config as any).region
+    );
+  }
+
+  /**
+   * Create an Observable from a DTrace with plugin's resource context
+   *
+   * This method wraps a DTrace object in an Observable that provides:
+   * - Automatic trace context for logging
+   * - Resource context (service name, version, region, etc.)
+   * - Immutable attribute propagation
+   * - Child span creation
+   *
+   * @param trace - DTrace object
+   * @param attributes - Optional initial attributes
+   * @returns Observable wrapping the trace
+   *
+   * @example
+   * ```typescript
+   * const obs = this.createObservable(trace, { "user.id": "123" });
+   * obs.log.info("Processing request");
+   * ```
+   *
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBService.html#createObservable | API: BSBService.createObservable}
+   */
+  protected createObservable(
+    trace: DTrace,
+    attributes?: Record<string, string | number | boolean>
+  ): Observable {
+    return new PluginObservable(
+      trace,
+      this._resourceContext,
+      this.log as PluginLogging,
+      this.metrics as PluginMetrics,
+      attributes
+    );
   }
 }
 
@@ -125,9 +180,9 @@ export class BSBServiceRef
 
   dispose?(): void;
 
-  init?(trace: DTrace): void | Promise<void>;
+  init?(obs: Observable): void | Promise<void>;
 
-  run?(trace: DTrace): void | Promise<void>;
+  run?(obs: Observable): void | Promise<void>;
 
   constructor(config: BSBServiceConstructor<null, BSBEventSchemas>) {
     super(config);

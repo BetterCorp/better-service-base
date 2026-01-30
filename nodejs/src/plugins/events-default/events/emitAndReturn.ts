@@ -26,17 +26,15 @@
  */
 
 import { EventEmitter } from "node:events";
-import { BSBError, DTrace, IPluginLogging, IPluginMetrics } from "../../../index";
+import { BSBError, Observable, IPluginLogging } from "../../../index";
 
 export class emitAndReturn
   extends EventEmitter {
   private log: IPluginLogging;
-  private metrics: IPluginMetrics;
 
-  constructor(log: IPluginLogging, metrics: IPluginMetrics) {
+  constructor(log: IPluginLogging) {
     super();
     this.log = log;
-    this.metrics = metrics;
   }
 
   public dispose() {
@@ -44,81 +42,79 @@ export class emitAndReturn
   }
 
   public async onReturnableEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (trace: DTrace, args: Array<any>): Promise<any> },
+    listener: { (obs: Observable, args: Array<any>): Promise<any> },
   ): Promise<void> {
-    this.log.debug(trace, "onReturnableEvent: listening to {pluginName}-{event}", {
+    this.log.debug(obs.trace, "onReturnableEvent: listening to {pluginName}-{event}", {
       pluginName,
       event,
     });
-    this.on(`${ pluginName }-${ event }`, async (etrace: DTrace, resolve, reject, data) => {
-      // Create span for receiving and handling the returnable event with setup function trace details
-      const receiveSpan = this.metrics.createSpan(etrace, "onReturnableEvent:receive", {
+    this.on(`${ pluginName }-${ event }`, async (eobs: Observable, resolve, reject, data) => {
+      // Create child observable for receiving and handling the returnable event
+      const receiveObs = eobs.span("onReturnableEvent:receive", {
         pluginName,
         event,
-        functionTraceId: trace.t,
-        functionSpanId: trace.s
       });
 
       try {
-        const result = await listener(receiveSpan.trace, data);
+        const result = await listener(receiveObs, data);
         resolve(result);
       } catch (error: any) {
         const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
-        receiveSpan.error(errorObj);
+        receiveObs.error(errorObj);
         reject(error);
       } finally {
-        receiveSpan.end();
+        receiveObs.end();
       }
     });
   }
 
   public async emitEventAndReturn(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     timeoutSeconds: number,
     args: Array<any>,
   ): Promise<any> {
-    // Create span for sending the returnable event
-    const sendSpan = this.metrics.createSpan(trace, "emitEventAndReturn:send", {
+    // Create child observable for sending the returnable event
+    const sendObs = obs.span("emitEventAndReturn:send", {
       pluginName,
       event,
       timeoutSeconds
     });
 
-    this.log.debug(sendSpan.trace, "emitReturnableEvent: emitting {pluginName}-{event}", {
+    this.log.debug(sendObs.trace, "emitReturnableEvent: emitting {pluginName}-{event}", {
       pluginName, event,
     });
 
     const self = this;
     return new Promise((resolve, reject) => {
       const timeoutHandler = setTimeout(() => {
-        const timeoutError = new BSBError(sendSpan.trace, "Timeout: {pluginName}-{event}", {
+        const timeoutError = new BSBError(sendObs.trace, "Timeout: {pluginName}-{event}", {
           pluginName,
           event,
         });
-        sendSpan.error(timeoutError);
-        sendSpan.end();
+        sendObs.error(timeoutError);
+        sendObs.end();
         reject(timeoutError);
       }, timeoutSeconds * 1000);
 
       self.emit(
         `${ pluginName }-${ event }`,
-        sendSpan.trace,
+        sendObs,
         (result: any) => {
           clearTimeout(timeoutHandler);
           resolve(result);
-          sendSpan.end();
+          sendObs.end();
         },
         (error: any) => {
           clearTimeout(timeoutHandler);
           const errorObj = error instanceof Error ? error : new Error(error?.message || String(error));
-          sendSpan.error(errorObj);
+          sendObs.error(errorObj);
           reject(error);
-          sendSpan.end();
+          sendObs.end();
         },
         args,
       );

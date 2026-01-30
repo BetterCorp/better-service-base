@@ -27,7 +27,7 @@
 
 import { BSBService } from "../../base/BSBService";
 import { ServiceClient, BSBServiceClientDefinition } from "../../base";
-import { DTrace } from "../../interfaces/metrics";
+import { Observable } from "../../interfaces/observable";
 import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 import { Plugin as Service0, EventSchemas as Service0EventSchemas } from "../service-default0";
 import { z } from "zod";
@@ -137,47 +137,59 @@ export class Plugin
   dispose?(): void;
   run?(): void | Promise<void>;
 
-  public async init(trace: DTrace) {
-    this.log.info(trace, "Initializing service-default1");
+  public async init(obs: Observable) {
+    // v9: Observable provides unified logging, metrics, and tracing
+    obs.log.info("Initializing service-default1");
 
     // Listen to service0's calculation events (service0 emits these)
-    await this.service0.events.onReturnableEvent("calculate", trace, async (iTrace: DTrace, input) => {
-      this.log.info(iTrace, "Handling calculation request from service0: {a} * {b}", { a: input.a, b: input.b });
+    // Event handlers receive Observable (not DTrace) with automatic context
+    await this.service0.events.onReturnableEvent("calculate", obs, async (handlerObs: Observable, input) => {
+      // handlerObs is a child span created automatically by BSB
+      handlerObs.log.info("Handling calculation request from service0: {a} * {b}", {
+        a: input.a,
+        b: input.b
+      });
       return input.a * input.b;
     });
 
-    // This would cause a TypeScript error (uncomment to test):
-    // await this.service0.events.emitEventAndReturn("invalid-event", trace, {}, 5);
-    // TypeScript error: Argument of type '"invalid-event"' is not assignable to parameter
-
     // Handle text transformation requests
-    await this.events.onReturnableEvent("text.transform", trace, async (iTrace: DTrace, input) => {
-      this.log.info(iTrace, "Transforming text: {text} using {transformation}", { 
-        text: input.text, 
-        transformation: input.transformation 
+    // Demonstrates Observable usage in event handlers
+    await this.events.onReturnableEvent("text.transform", obs, async (handlerObs: Observable, input) => {
+      handlerObs.log.info("Transforming text: {text} using {transformation}", {
+        text: input.text,
+        transformation: input.transformation
       });
-      
+
+      // Can create child spans for sub-operations
+      const workObs = handlerObs.span("transform-operation");
+      workObs.setAttribute("operation", input.transformation);
+
+      let result: string;
       switch (input.transformation) {
-        case 'uppercase': return input.text.toUpperCase();
-        case 'lowercase': return input.text.toLowerCase();
-        case 'reverse': return input.text.split('').reverse().join('');
-        case 'capitalize': return input.text.charAt(0).toUpperCase() + input.text.slice(1).toLowerCase();
-        default: return input.text;
+        case 'uppercase': result = input.text.toUpperCase(); break;
+        case 'lowercase': result = input.text.toLowerCase(); break;
+        case 'reverse': result = input.text.split('').reverse().join(''); break;
+        case 'capitalize':
+          result = input.text.charAt(0).toUpperCase() + input.text.slice(1).toLowerCase();
+          break;
       }
+
+      workObs.end({ "result.length": result.length });
+      return result;
     });
 
     // Handle calculation requests
-    await this.events.onReturnableEvent("calculate", trace, async (iTrace: DTrace, input) => {
-      this.log.info(iTrace, "Calculating {a} * {b}", { a: input.a, b: input.b });
+    await this.events.onReturnableEvent("calculate", obs, async (handlerObs: Observable, input) => {
+      handlerObs.log.info("Calculating {a} * {b}", { a: input.a, b: input.b });
       return input.a * input.b;
     });
 
     // Handle incoming data for processing
-    await this.events.onEvent("data.received", trace, async (itrace: DTrace, input) => {
-      this.log.info(itrace, "Received data for processing: {itemId}", { itemId: input.itemId });
-      
+    await this.events.onEvent("data.received", obs, async (handlerObs: Observable, input) => {
+      handlerObs.log.info("Received data for processing: {itemId}", { itemId: input.itemId });
+
       // Process the data and emit completion event
-      await this.events.emitEvent("data.processed", trace, {
+      await this.events.emitEvent("data.processed", obs, {
         itemId: input.itemId,
         result: { processed: true, timestamp: new Date().toISOString() },
         processingTime: 100
@@ -185,8 +197,8 @@ export class Plugin
     });
 
     // Listen for configuration update broadcasts
-    await this.events.onBroadcast("config.updated", trace, async (iTrace: DTrace, input) => {
-      this.log.info(iTrace, "Configuration updated: {section}", { section: input.section });
+    await this.events.onBroadcast("config.updated", obs, async (handlerObs: Observable, input) => {
+      handlerObs.log.info("Configuration updated: {section}", { section: input.section });
       // Handle configuration changes...
     });
   }

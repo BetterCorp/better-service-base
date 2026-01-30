@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DEBUG_MODE, DTrace, IPluginLogging, IPluginMetrics } from "../interfaces";
-import { SBLogging, SBMetrics } from "../serviceBase";
+import { DEBUG_MODE, IPluginLogging, IPluginMetrics, Observable } from "../interfaces";
+import { SBObservable } from "../serviceBase";
 import { BSBReferenceConfigType } from "./PluginConfig";
 import { PluginLogging } from "./PluginLogging";
 import { PluginMetrics } from './PluginMetrics';
@@ -39,6 +39,7 @@ import { PluginMetrics } from './PluginMetrics';
  * @property cwd - The current working directory of the app
  * @property packageCwd - The directory of the package that contains the plugin
  * @property pluginCwd - The directory of the plugin (src/plugins/{pluginName} or lib/plugins/{pluginName})
+ * @property region - The deployment region for resource context
  */
 export interface MainBaseConfig {
   appId: string;
@@ -48,6 +49,7 @@ export interface MainBaseConfig {
   packageCwd: string;
   pluginCwd: string;
   pluginVersion: string;
+  region?: string;
 }
 
 /**
@@ -94,6 +96,12 @@ export abstract class MainBase {
    */
   public declare readonly pluginName: string;
 
+  /**
+   * The deployment region for resource context
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#region | API: MainBase.region}
+   */
+  public readonly region?: string;
+
   constructor(config: MainBaseConfig) {
     this.appId = config.appId;
     this.mode = config.mode;
@@ -103,6 +111,7 @@ export abstract class MainBase {
     this.cwd = config.cwd;
     this.packageCwd = config.packageCwd;
     this.pluginCwd = config.pluginCwd;
+    this.region = config.region;
   }
 
   /**
@@ -142,24 +151,50 @@ export abstract class Base
    * Optional function to be called when the plugin is being initialized
    * Can be sync or async
    *
-   * @example init?(trace: DTrace): void; //to not use it
-   * @example init(trace: DTrace) { your code here }; // Includes the trace for the init function
-   * @example async init(trace: DTrace) { await your code here }; // Includes the trace for the init function
+   * @remarks
+   * **v9 BREAKING CHANGE**: Now requires Observable instead of DTrace.
+   * Observable provides unified access to logging, metrics, and tracing with automatic context propagation.
+   *
+   * @param obs - Observable context with logging, metrics, and trace information
+   *
+   * @example
+   * ```typescript
+   * async init(obs: Observable) {
+   *   obs.log.info("Initializing plugin");
+   *   // Set attributes for all child operations
+   *   const withVersion = obs.setAttribute("plugin.version", "1.0.0");
+   * }
+   * ```
+   *
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Base.html#init | API: Base.init}
    */
-  public abstract init?(trace: DTrace): Promise<void> | void;
+  public abstract init?(obs: Observable): Promise<void> | void;
 
   /**
    * Run
    * Optional function to be called when the plugin is being run
    * Can be sync or async
    *
-   * @example run?(trace: DTrace): void; //to not use it
-   * @example run(trace: DTrace) { your code here }; // Includes the trace for the run function
-   * @example async run(trace: DTrace) { await your code here }; // Includes the trace for the run function
+   * @remarks
+   * **v9 BREAKING CHANGE**: Now requires Observable instead of DTrace.
+   * Observable provides unified access to logging, metrics, and tracing with automatic context propagation.
+   *
+   * @param obs - Observable context with logging, metrics, and trace information
+   *
+   * @example
+   * ```typescript
+   * async run(obs: Observable) {
+   *   obs.log.info("Running plugin");
+   *   // Create child span for work
+   *   const workObs = obs.span("do-work");
+   *   // ... do work ...
+   *   workObs.end();
+   * }
+   * ```
+   *
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/Base.html#run | API: Base.run}
    */
-  public abstract run?(trace: DTrace): Promise<void> | void;
+  public abstract run?(obs: Observable): Promise<void> | void;
 }
 
 /**
@@ -206,11 +241,11 @@ export abstract class BaseWithConfig<
 
 /**
  * BaseWithLoggingConfig
- * @property sbLogging - Passed in logging base - can be used to create new plugin loggers
+ * @property sbObservable - Passed in observable base - can be used to create new plugin loggers
  */
 export interface BaseWithLoggingConfig
   extends MainBaseConfig {
-  sbLogging: SBLogging;
+  sbObservable: SBObservable;
 }
 
 /**
@@ -228,10 +263,10 @@ export abstract class BaseWithLogging
     this.log = new PluginLogging(
       config.mode,
       config.pluginName,
-      config.sbLogging,
+      config.sbObservable,
     );
     /*this.createNewLogger = (plugin: string) =>
-     new PluginLogger(mode, `${pluginName}-${plugin}`, sbLogging);*/
+     new PluginLogger(mode, `${pluginName}-${plugin}`, sbObservable);*/
   }
 }
 
@@ -254,7 +289,6 @@ export interface BaseWithLoggingMetricsAndConfigConfig<
   extends BaseWithLoggingAndConfigConfig<ReferencedConfig>,
   BaseWithLoggingConfig,
   BaseWithConfigConfig<ReferencedConfig> {
-  sbMetrics: SBMetrics;
 }
 
 /**
@@ -273,13 +307,13 @@ export abstract class BaseWithLoggingAndConfig<
     this.log = new PluginLogging(
       config.mode,
       config.pluginName,
-      config.sbLogging,
+      config.sbObservable,
     );
     this.createNewLogger = (plugin: string) =>
       new PluginLogging(
         config.mode,
         `${ config.pluginName }-${ plugin }`,
-        config.sbLogging,
+        config.sbObservable,
       );
   }
 }
@@ -297,9 +331,9 @@ export abstract class BaseWithLoggingMetricsAndConfig<
   constructor(config: BaseWithLoggingMetricsAndConfigConfig<ReferencedConfig>) {
     super(config);
     this.metrics = new PluginMetrics(
-      config.mode,
+      config.appId,
       config.pluginName,
-      config.sbMetrics,
+      config.sbObservable,
     );
   }
 }

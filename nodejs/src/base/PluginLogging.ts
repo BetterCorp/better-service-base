@@ -27,8 +27,18 @@
 
 import { Tools } from '../base/tools';
 import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginLogging, SmartLogMeta } from "../interfaces";
-import { SBLogging } from "../serviceBase";
 import { BSBError } from "./errorMessages";
+
+/**
+ * Observable bus interface for logging
+ * @hidden
+ */
+interface ObservableBus {
+  debug(plugin: string, trace: DTrace, message: string, ...meta: any[]): void;
+  info(plugin: string, trace: DTrace, message: string, ...meta: any[]): void;
+  warn(plugin: string, trace: DTrace, message: string, ...meta: any[]): void;
+  error(plugin: string, trace: DTrace, message: string | BSBError<any>, ...meta: any[]): void;
+}
 
 /**
  * @group Logging
@@ -37,11 +47,11 @@ import { BSBError } from "./errorMessages";
  */
 export class PluginLogging
   implements IPluginLogging {
-  private logging: SBLogging;
+  private logging: ObservableBus;
   private pluginName: string;
   private canDebug = false;
 
-  constructor(mode: DEBUG_MODE, plugin: string, logging: SBLogging) {
+  constructor(mode: DEBUG_MODE, plugin: string, logging: ObservableBus) {
     this.logging = logging;
     this.pluginName = plugin;
     if (mode !== "production") {
@@ -66,7 +76,7 @@ export class PluginLogging
    */
   public debug<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
     if (!this.canDebug) return; // Early return for performance
-    this.logging.logBus.emit("debug", this.pluginName, trace, message, ...meta);
+    this.logging.debug(this.pluginName, trace, message, ...meta);
   }
 
   /**
@@ -85,7 +95,7 @@ export class PluginLogging
    * ```
    */
   public info<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
-    this.logging.logBus.emit("info", this.pluginName, trace, message, ...meta);
+    this.logging.info(this.pluginName, trace, message, ...meta);
   }
 
   /**
@@ -104,7 +114,7 @@ export class PluginLogging
    * ```
    */
   public warn<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
-    this.logging.logBus.emit("warn", this.pluginName, trace, message, ...meta);
+    this.logging.warn(this.pluginName, trace, message, ...meta);
   }
 
   /**
@@ -139,8 +149,7 @@ export class PluginLogging
   ): void {
     if (traceOrError instanceof BSBError) {
       if (traceOrError.raw !== null) {
-        this.logging.logBus.emit(
-          "error",
+        this.logging.error(
           this.pluginName,
           traceOrError.raw.trace,
           traceOrError.raw.message,
@@ -155,11 +164,10 @@ export class PluginLogging
       this.error(createFakeDTrace('base/PluginLogging', 'errorType'), JSON.stringify(traceOrError));
       return;
     }
-    this.logging.logBus.emit(
-      "error",
+    this.logging.error(
       this.pluginName,
       traceOrError,
-      message,
+      message!,
       ...meta,
     );
   }

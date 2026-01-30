@@ -34,7 +34,24 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        main: 'src/index.html',
+        // Main pages
+        'main': 'src/index.html',
+        'overview': 'src/overview/index.html',
+
+        // Guides - Building Services
+        'guides-nodejs': 'src/guides/nodejs/index.html',
+
+        // Extending BSB
+        'extending-nodejs': 'src/extending/nodejs/index.html',
+
+        // Core Plugins
+        'core-plugins': 'src/core-plugins/index.html',
+        'core-plugins-config': 'src/core-plugins/config-default/index.html',
+        'core-plugins-events': 'src/core-plugins/events-default/index.html',
+        'core-plugins-logging': 'src/core-plugins/logging-default/index.html',
+        'core-plugins-metrics': 'src/core-plugins/metrics-default/index.html',
+
+        // Legacy pages (keep for now, can remove later)
         'get-started': 'src/get-started/index.html',
         'architecture': 'src/architecture/index.html',
         'developer': 'src/developer/index.html',

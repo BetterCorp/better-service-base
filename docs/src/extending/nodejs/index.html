@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Extending BSB with Node.js - BSB Documentation</title>
+  <meta name="description" content="Build custom events, logging, config, and metrics plugins for BSB. Extend the framework with your own implementations.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+  <style>
+    .page-header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-color));
+      padding: 3rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .page-header h1 { font-size: 2.5rem; margin-bottom: 1rem; }
+    .page-header p { color: var(--text-secondary); font-size: 1.125rem; max-width: 700px; }
+    .content-section { padding: 2rem; max-width: 900px; }
+    .content-section h2 {
+      font-size: 1.75rem;
+      color: var(--primary-color);
+      margin: 2.5rem 0 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+    .content-section h2:first-child { margin-top: 0; }
+    .content-section p { color: var(--text-secondary); line-height: 1.8; margin-bottom: 1rem; }
+    .plugin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+    .plugin-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+    }
+    .plugin-card:hover {
+      border-color: var(--primary-color);
+      transform: translateY(-2px);
+    }
+    .plugin-card h3 { margin-bottom: 0.75rem; color: var(--text-color); }
+    .plugin-card p { font-size: 0.9rem; margin-bottom: 1rem; }
+    .plugin-card .cta { color: var(--primary-color); font-weight: 500; font-size: 0.875rem; }
+    .plugin-card.config { border-top: 3px solid var(--config-color); }
+    .plugin-card.events { border-top: 3px solid var(--primary-color); }
+    .plugin-card.logging { border-top: 3px solid var(--logging-color); }
+    .plugin-card.metrics { border-top: 3px solid var(--service-color); }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    code {
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      <nav class="nav-menu" id="nav-menu">
+        <div class="nav-dropdown">
+          <button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/">Home</a>
+            <a href="/overview/">Overview</a>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/guides/nodejs/">Node.js</a>
+            <span class="coming-soon">Go</span>
+            <span class="coming-soon">Python</span>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="nav-link active">Extend BSB <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/extending/nodejs/" class="active">Node.js</a>
+            <span class="coming-soon">Go</span>
+            <span class="coming-soon">Python</span>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/core-plugins/">Overview</a>
+            <div class="dropdown-divider"></div>
+            <a href="/core-plugins/config-default/">config-default</a>
+            <a href="/core-plugins/events-default/">events-default</a>
+            <a href="/core-plugins/logging-default/">logging-default</a>
+            <a href="/core-plugins/metrics-default/">metrics-default</a>
+          </div>
+        </div>
+        <a href="/languages/nodejs/types/" class="nav-link">API Reference</a>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank">GitHub</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Extending BSB</h1>
+        <p>Build custom plugins to extend BSB's capabilities. Create your own events, logging, configuration, and metrics implementations.</p>
+      </header>
+
+      <div class="content-section">
+        <h2>Plugin Types</h2>
+
+        <p>BSB can be extended with four types of infrastructure plugins. Each plugin type has a specific base class and interface to implement.</p>
+
+        <div class="plugin-grid">
+          <div class="plugin-card events">
+            <h3>Events Plugin</h3>
+            <p>Route events between services. Implement RabbitMQ, Kafka, Redis Pub/Sub, or any message broker.</p>
+            <span class="cta">Extends BSBEvents</span>
+          </div>
+
+          <div class="plugin-card logging">
+            <h3>Logging Plugin</h3>
+            <p>Send logs to external systems. Implement Graylog, Elasticsearch, Datadog, or custom log aggregators.</p>
+            <span class="cta">Extends BSBLogging</span>
+          </div>
+
+          <div class="plugin-card config">
+            <h3>Config Plugin</h3>
+            <p>Load configuration from external sources. Implement Consul, etcd, Vault, or custom config providers.</p>
+            <span class="cta">Extends BSBConfig</span>
+          </div>
+
+          <div class="plugin-card metrics">
+            <h3>Metrics Plugin</h3>
+            <p>Export metrics to monitoring systems. Implement Prometheus, OpenTelemetry, StatsD, or custom collectors.</p>
+            <span class="cta">Extends BSBMetrics</span>
+          </div>
+        </div>
+
+        <h2>Creating an Events Plugin</h2>
+
+        <p>An events plugin routes messages between services. Here's a skeleton for a RabbitMQ implementation:</p>
+
+        <pre><code class="language-typescript">import { BSBEvents, BSBEventsConstructor } from "@bettercorp/service-base";
+import { Readable } from "node:stream";
+import { DTrace } from "@bettercorp/service-base";
+
+export class Plugin extends BSBEvents&lt;null&gt; {
+  private connection: any; // Your RabbitMQ connection
+
+  constructor(config: BSBEventsConstructor&lt;null&gt;) {
+    super(config);
+  }
+
+  public async init(trace: DTrace) {
+    // Connect to RabbitMQ
+    this.connection = await connect(process.env.RABBITMQ_URL);
+    this.log.info(trace, "Connected to RabbitMQ");
+  }
+
+  public async onBroadcast(
+    trace: DTrace,
+    pluginName: string,
+    event: string,
+    listener: (trace: DTrace, args: any[]) =&gt; Promise&lt;void&gt;
+  ): Promise&lt;void&gt; {
+    // Subscribe to a fanout exchange
+  }
+
+  public async emitBroadcast(
+    trace: DTrace,
+    pluginName: string,
+    event: string,
+    args: any[]
+  ): Promise&lt;void&gt; {
+    // Publish to a fanout exchange
+  }
+
+  public async onEvent(
+    trace: DTrace,
+    pluginName: string,
+    event: string,
+    listener: (trace: DTrace, args: any[]) =&gt; Promise&lt;void&gt;
+  ): Promise&lt;void&gt; {
+    // Subscribe to a queue
+  }
+
+  public async emitEvent(
+    trace: DTrace,
+    pluginName: string,
+    event: string,
+    args: any[]
+  ): Promise&lt;void&gt; {
+    // Publish to a queue
+  }
+
+  public async onReturnableEvent(
+    trace: DTrace,
+    pluginName: string,
+    event: string,
+    listener: (trace: DTrace, args: any[]) =&gt; Promise&lt;any&gt;
+  ): Promise&lt;void&gt; {
+    // Subscribe to RPC queue
+  }
+
+  public async emitEventAndReturn(
+    trace: DTrace,
+    pluginName: string,
+    event: string,
+    timeoutSeconds: number,
+    args: any[]
+  ): Promise&lt;any&gt; {
+    // Publish to RPC queue and wait for response
+  }
+
+  // Stream methods...
+  public async receiveStream(...) { }
+  public async sendStream(...) { }
+
+  public dispose() {
+    this.connection?.close();
+  }
+}</code></pre>
+
+        <h2>Creating a Logging Plugin</h2>
+
+        <p>A logging plugin receives log messages and sends them to an external system:</p>
+
+        <pre><code class="language-typescript">import { BSBLogging, BSBLoggingConstructor } from "@bettercorp/service-base";
+import { DTrace, LogMeta } from "@bettercorp/service-base";
+
+export class Plugin extends BSBLogging&lt;null&gt; {
+  constructor(config: BSBLoggingConstructor&lt;null&gt;) {
+    super(config);
+  }
+
+  public async debug&lt;T extends string&gt;(
+    plugin: string,
+    trace: DTrace,
+    message: T,
+    meta?: LogMeta&lt;T&gt;
+  ): Promise&lt;void&gt; {
+    await this.sendToGraylog("debug", plugin, trace, message, meta);
+  }
+
+  public async info&lt;T extends string&gt;(
+    plugin: string,
+    trace: DTrace,
+    message: T,
+    meta?: LogMeta&lt;T&gt;
+  ): Promise&lt;void&gt; {
+    await this.sendToGraylog("info", plugin, trace, message, meta);
+  }
+
+  public async warn&lt;T extends string&gt;(
+    plugin: string,
+    trace: DTrace,
+    message: T,
+    meta?: LogMeta&lt;T&gt;
+  ): Promise&lt;void&gt; {
+    await this.sendToGraylog("warn", plugin, trace, message, meta);
+  }
+
+  public async error&lt;T extends string&gt;(
+    plugin: string,
+    trace: DTrace,
+    message: T,
+    errorOrMeta?: Error | LogMeta&lt;T&gt;,
+    meta?: LogMeta&lt;T&gt;
+  ): Promise&lt;void&gt; {
+    await this.sendToGraylog("error", plugin, trace, message, meta);
+  }
+
+  private async sendToGraylog(level: string, ...args: any[]) {
+    // Send to Graylog GELF endpoint
+  }
+}</code></pre>
+
+        <h2>Plugin Discovery</h2>
+
+        <p>BSB discovers plugins in this order:</p>
+
+        <ol>
+          <li><code>./src/plugins/</code> - Local development plugins</li>
+          <li><code>./lib/plugins/</code> - Compiled plugins</li>
+          <li><code>$BSB_PLUGIN_DIR/</code> - External plugin directory (for Docker)</li>
+          <li><code>node_modules/</code> - npm-installed plugins</li>
+        </ol>
+
+        <p>Name your plugin folder with the appropriate prefix: <code>events-*</code>, <code>logging-*</code>, <code>config-*</code>, or <code>metrics-*</code>.</p>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+
+  <script type="module" src="/assets/js/navbar.js" data-page="extending-nodejs"></script>
+</body>
+</html>

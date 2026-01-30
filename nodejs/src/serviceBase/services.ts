@@ -32,12 +32,13 @@ import {
   PluginLogging,
   PluginMetrics, SmartFunctionCallAsync,
   SmartFunctionCallSync, Tools,
+  ResourceContextBuilder,
+  PluginObservable,
 } from "../base";
-import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginDefinition, IPluginLogging, LoadedPlugin } from "../interfaces";
+import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginDefinition, IPluginLogging, LoadedPlugin, Observable } from "../interfaces";
 import { SBConfig } from "./config";
 import { SBEvents } from "./events";
-import { SBLogging } from "./logging";
-import { SBMetrics } from "./metrics";
+import { SBObservable } from "./observable";
 import { SBPlugins } from "./plugins";
 
 /**
@@ -87,19 +88,23 @@ export class SBServices {
   private sbPlugins: SBPlugins;
   private readonly log: IPluginLogging;
 
+  private readonly region?: string;
+
   constructor(
     appId: string,
     mode: DEBUG_MODE,
     cwd: string,
     sbPlugins: SBPlugins,
-    sbLogging: SBLogging,
+    sbObservable: SBObservable,
+    region?: string,
   ) {
     this.appId = appId;
     this.mode = mode;
     this.cwd = cwd;
     this.sbPlugins = sbPlugins;
+    this.region = region;
     const eventsPluginName = "core-services";
-    this.log = new PluginLogging(this.mode, eventsPluginName, sbLogging);
+    this.log = new PluginLogging(this.mode, eventsPluginName, sbObservable);
   }
 
   public dispose() {
@@ -153,15 +158,14 @@ export class SBServices {
 
   public async setup(
     sbConfig: SBConfig,
-    sbLogging: SBLogging,
+    sbObservable: SBObservable,
     sbEvents: SBEvents,
-    sbMetrics: SBMetrics,
   ) {
     const tTrace = internalTrace("setup");
     this.log.debug(tTrace, "SETUP SBServices");
     const plugins = await sbConfig.getServicePlugins(tTrace);
     for (const plugin of Object.keys(plugins)) {
-      await this.addService(sbConfig, sbLogging, sbEvents, sbMetrics, {
+      await this.addService(sbConfig, sbObservable, sbEvents, {
         name: plugin,
         package: plugins[plugin].package,
         plugin: plugins[plugin].plugin,
@@ -178,9 +182,8 @@ export class SBServices {
         await this.remapDeps(sbConfig, tTrace, client);
         await this.setupPluginClient(
           sbConfig,
-          sbLogging,
+          sbObservable,
           sbEvents,
-          sbMetrics,
           activeService,
           client,
         );
@@ -201,9 +204,8 @@ export class SBServices {
 
   private setupPluginClient = async (
     sbConfig: SBConfig,
-    sbLogging: SBLogging,
+    sbObservable: SBObservable,
     sbEvents: SBEvents,
-    sbMetrics: SBMetrics,
     context: BSBService,
     clientContext: BSBServiceClient<any>,
   ): Promise<void> => {
@@ -230,7 +232,7 @@ export class SBServices {
     ).log = new PluginLogging(
       this.mode,
       contextPlugin.name,
-      sbLogging,
+      sbObservable,
     );
     (
       clientContext as any
@@ -245,8 +247,33 @@ export class SBServices {
     ).metrics = new PluginMetrics(
       this.appId,
       contextPlugin.name,
-      sbMetrics,
+      sbObservable,
     );
+
+    // v9: Add resource context and createObservable method for clients
+    const clientResourceContext = ResourceContextBuilder.build(
+      {
+        appId: this.appId,
+        mode: this.mode,
+        pluginName: contextPlugin.name,
+        cwd: this.cwd,
+        packageCwd: "", // Clients don't have their own package path
+        pluginCwd: "", // Clients don't have their own plugin path
+        pluginVersion: "client"
+      },
+      this.region
+    );
+    (clientContext as any)._resourceContext = clientResourceContext;
+    (clientContext as any).createObservable = function(trace: DTrace, attributes?: Record<string, string | number | boolean>): Observable {
+      return new PluginObservable(
+        trace,
+        clientResourceContext,
+        (clientContext as any).log as PluginLogging,
+        (clientContext as any).metrics as PluginMetrics,
+        attributes
+      );
+    };
+
     if (!contextPlugin || !contextPlugin.enabled) {
       this.log.warn(tTrace, "Plugin {plugin} is not enabled", {
         plugin: contextPlugin.name,
@@ -278,9 +305,8 @@ export class SBServices {
 
   public async addPlugin(
     sbConfig: SBConfig,
-    sbLogging: SBLogging,
+    sbObservable: SBObservable,
     sbEvents: SBEvents,
-    sbMetrics: SBMetrics,
     plugin: IPluginDefinition,
     reference: LoadedPlugin<"service">,
     config: any,
@@ -298,10 +324,10 @@ export class SBServices {
       packageCwd: reference.packageCwd,
       pluginCwd: reference.pluginCwd,
       config: config,
-      sbLogging: sbLogging,
+      sbObservable: sbObservable,
       sbEvents: sbEvents,
-      sbMetrics: sbMetrics,
       pluginVersion: reference.version,
+      region: this.region,
     });
     this.log.debug(tTrace, "Adding {pluginName} as service", {
       pluginName: plugin.name,
@@ -319,9 +345,8 @@ export class SBServices {
 
   private async addService(
     sbConfig: SBConfig,
-    sbLogging: SBLogging,
+    sbObservable: SBObservable,
     sbEvents: SBEvents,
-    sbMetrics: SBMetrics,
     plugin: IPluginDefinition,
   ) {
     const tTrace = internalTrace("addService");
@@ -377,9 +402,8 @@ export class SBServices {
 
     await this.addPlugin(
       sbConfig,
-      sbLogging,
+      sbObservable,
       sbEvents,
-      sbMetrics,
       plugin,
       newPlugin.data,
       pluginConfig,
@@ -453,14 +477,24 @@ export class SBServices {
         type,
         pluginName: plugin.pluginName,
       });
+
+      // v9: Convert DTrace to Observable before calling plugin methods
+      const obs = (plugin.reference as any).createObservable
+        ? (plugin.reference as any).createObservable(tTrace)
+        : tTrace;
+
       for (const client of plugin.clients) {
         this.log.debug(tTrace, "  -> {type} client {pluginName}", {
           type,
           pluginName: client.pluginName,
         });
-        await SmartFunctionCallAsync(client.reference, client.reference[type], tTrace);
+        // For clients, try to get Observable from parent service
+        const clientObs = (client.reference as any).createObservable
+          ? (client.reference as any).createObservable(tTrace)
+          : obs;
+        await SmartFunctionCallAsync(client.reference, client.reference[type], clientObs);
       }
-      await SmartFunctionCallAsync(plugin.reference, plugin.reference[type], tTrace);
+      await SmartFunctionCallAsync(plugin.reference, plugin.reference[type], obs);
     }
   }
 

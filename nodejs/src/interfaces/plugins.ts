@@ -29,14 +29,13 @@ import {
   BSBConfig, BSBConfigRef,
   BSBEvents,
   BSBEventsRef,
-  BSBLogging,
-  BSBLoggingRef,
-  BSBMetrics, BSBMetricsRef, BSBPluginConfig,
+  BSBObservable,
+  BSBObservableRef,
+  BSBPluginConfig,
   BSBService,
   BSBServiceRef,
 } from "../base";
 import {EventsEventTypes} from "./events";
-import {LoggingEventTypes} from "./logging";
 
 /**
  * @hidden
@@ -47,9 +46,8 @@ import {LoggingEventTypes} from "./logging";
 export const PluginTypes = {
   config: "config",
   events: "events",
-  logging: "logging",
+  observable: "observable",
   service: "service",
-  metrics: "metrics",
 } as const;
 
 /**
@@ -107,15 +105,13 @@ export interface IPluginBuilder {
 export type PluginTypeDefinition<T extends PluginType> =
     T extends typeof PluginTypes.service
     ? BSBService
-    : T extends typeof PluginTypes.logging
-      ? BSBLogging<any>
+    : T extends typeof PluginTypes.observable
+      ? BSBObservable<any>
       : T extends typeof PluginTypes.config
         ? BSBConfig
         : T extends typeof PluginTypes.events
           ? BSBEvents
-          : T extends typeof PluginTypes.metrics
-            ? BSBMetrics
-            : never;
+          : never;
 
 /**
  * @hidden
@@ -123,15 +119,13 @@ export type PluginTypeDefinition<T extends PluginType> =
 export type PluginTypeDefinitionRef<T extends PluginType> =
     T extends typeof PluginTypes.service
     ? typeof BSBServiceRef
-    : T extends typeof PluginTypes.logging
-      ? typeof BSBLoggingRef
+    : T extends typeof PluginTypes.observable
+      ? typeof BSBObservableRef
       : T extends typeof PluginTypes.config
         ? typeof BSBConfigRef
         : T extends typeof PluginTypes.events
           ? typeof BSBEventsRef
-          : T extends typeof PluginTypes.metrics
-            ? typeof BSBMetricsRef
-            : never;
+          : never;
 
 /**
  * @hidden
@@ -163,27 +157,6 @@ export type FilterDetailed<T extends string | number | symbol = any> = Record<
       enabled: boolean;
     }
 >;
-/**
- * @hidden
- */
-export type LoggingFilterDetailed = FilterDetailed<LoggingEventTypes>;
-
-/**
- * @hidden
- */
-export type LoggingFilter =
-    | LoggingFilterDetailed // eventsDetailed
-    | Record<LoggingEventTypes, boolean> // eventsState
-    | Record<LoggingEventTypes, Array<string>> // eventsPlugins
-    | Array<LoggingEventTypes>; // events
-
-/**
- * @hidden
- */
-export interface LoggingConfig
-    extends PluginDefinition {
-  filter?: LoggingFilter;
-}
 
 /**
  * @hidden

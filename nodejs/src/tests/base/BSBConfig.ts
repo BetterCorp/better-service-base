@@ -29,7 +29,7 @@ import { expect } from "chai";
 import { BSBConfig, BSBConfigRef } from "../../base/BSBConfig";
 import { createFakeDTrace } from "../trace";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "../../base/errorMessages";
-import { DTrace, EventsConfig, LoggingConfig, PluginDefinition, PluginType } from "../../interfaces";
+import { Observable, EventsConfig, LoggingConfig, PluginDefinition, PluginType } from "../../interfaces";
 import { MockSBLogging } from "../mocks";
 
 describe("BSBConfig", () => {
@@ -116,11 +116,11 @@ describe("BSBConfig", () => {
         // No-op for testing
       }
 
-      async init(trace: DTrace): Promise<void> {
+      async init(obs: Observable): Promise<void> {
         // No-op for testing
       }
 
-      async getLoggingPlugins(trace: DTrace): Promise<Record<string, LoggingConfig>> {
+      async getLoggingPlugins(obs: Observable): Promise<Record<string, LoggingConfig>> {
         return {
           "test-plugin": {
             enabled: true,
@@ -130,7 +130,7 @@ describe("BSBConfig", () => {
         };
       }
 
-      async getMetricsPlugins(trace: DTrace): Promise<Record<string, PluginDefinition>> {
+      async getMetricsPlugins(obs: Observable): Promise<Record<string, PluginDefinition>> {
         return {
           "test-plugin": {
             enabled: true,
@@ -140,7 +140,7 @@ describe("BSBConfig", () => {
         };
       }
 
-      async getEventsPlugins(trace: DTrace): Promise<Record<string, EventsConfig>> {
+      async getEventsPlugins(obs: Observable): Promise<Record<string, EventsConfig>> {
         return {
           "test-plugin": {
             enabled: true,
@@ -150,7 +150,7 @@ describe("BSBConfig", () => {
         };
       }
 
-      async getServicePlugins(trace: DTrace): Promise<Record<string, PluginDefinition>> {
+      async getServicePlugins(obs: Observable): Promise<Record<string, PluginDefinition>> {
         return {
           "test-plugin": {
             enabled: true,
@@ -160,13 +160,13 @@ describe("BSBConfig", () => {
         };
       }
 
-      async getPluginConfig(trace: DTrace, pluginType: PluginType, plugin: string): Promise<object | null> {
+      async getPluginConfig(obs: Observable, pluginType: PluginType, plugin: string): Promise<object | null> {
         return {
           key: "value"
         };
       }
 
-      async getServicePluginDefinition(trace: DTrace, pluginName: string): Promise<{ name: string; enabled: boolean }> {
+      async getServicePluginDefinition(obs: Observable, pluginName: string): Promise<{ name: string; enabled: boolean }> {
         return {
           name: pluginName,
           enabled: true

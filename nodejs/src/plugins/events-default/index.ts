@@ -32,7 +32,7 @@ import {
   emitAndReturn,
   emitStreamAndReceiveStream,
 } from "../../plugins/events-default/events/index";
-import { DTrace } from "../../index";
+import { Observable } from "../../index";
 import { BSBEvents, BSBEventsConstructor } from "../../base/BSBEvents";
 
 export class Plugin
@@ -47,10 +47,10 @@ export class Plugin
   constructor(config: BSBEventsConstructor) {
     super(config);
 
-    this.broadcast = new broadcast(this.createNewLogger("broadcast"), this.metrics);
-    this.emit = new emit(this.createNewLogger("emit"), this.metrics);
-    this.ear = new emitAndReturn(this.createNewLogger("emitAndReturn"), this.metrics);
-    this.eas = new emitStreamAndReceiveStream(this.createNewLogger("stream"), this.metrics);
+    this.broadcast = new broadcast(this.createNewLogger("broadcast"));
+    this.emit = new emit(this.createNewLogger("emit"));
+    this.ear = new emitAndReturn(this.createNewLogger("emitAndReturn"));
+    this.eas = new emitStreamAndReceiveStream(this.createNewLogger("stream"));
   }
 
   public dispose() {
@@ -61,59 +61,59 @@ export class Plugin
   }
 
   public async onBroadcast(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (trace: DTrace, args: Array<any>): Promise<void> },
+    listener: { (obs: Observable, args: Array<any>): Promise<void> },
   ): Promise<void> {
-    await this.broadcast.onBroadcast(trace, pluginName, event, listener);
+    await this.broadcast.onBroadcast(obs, pluginName, event, listener);
   }
 
   public async emitBroadcast(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     args: Array<any>,
   ): Promise<void> {
-    await this.broadcast.emitBroadcast(trace, pluginName, event, args);
+    await this.broadcast.emitBroadcast(obs, pluginName, event, args);
   }
 
   public async onEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (trace: DTrace, args: Array<any>): Promise<void> },
+    listener: { (obs: Observable, args: Array<any>): Promise<void> },
   ): Promise<void> {
-    await this.emit.onEvent(trace, pluginName, event, listener);
+    await this.emit.onEvent(obs, pluginName, event, listener);
   }
 
   public async emitEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     args: Array<any>,
   ): Promise<void> {
-    await this.emit.emitEvent(trace, pluginName, event, args);
+    await this.emit.emitEvent(obs, pluginName, event, args);
   }
 
   public async onReturnableEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (trace: DTrace, args: Array<any>): Promise<any> },
+    listener: { (obs: Observable, args: Array<any>): Promise<any> },
   ): Promise<void> {
-    await this.ear.onReturnableEvent(trace, pluginName, event, listener);
+    await this.ear.onReturnableEvent(obs, pluginName, event, listener);
   }
 
   public async emitEventAndReturn(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     timeoutSeconds: number,
     args: Array<any>,
   ): Promise<any> {
     return await this.ear.emitEventAndReturn(
-      trace,
+      obs,
       pluginName,
       event,
       timeoutSeconds,
@@ -122,22 +122,22 @@ export class Plugin
   }
 
   public async receiveStream(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: { (trace: DTrace, error: Error | null, stream: Readable): Promise<void> },
+    listener: { (obs: Observable, error: Error | null, stream: Readable): Promise<void> },
     timeoutSeconds?: number,
   ): Promise<string> {
-    return this.eas.receiveStream(trace, pluginName, event, listener, timeoutSeconds);
+    return this.eas.receiveStream(obs, pluginName, event, listener, timeoutSeconds);
   }
 
   public async sendStream(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     streamId: string,
     stream: Readable,
   ): Promise<void> {
-    return this.eas.sendStream(trace, pluginName, event, streamId, stream);
+    return this.eas.sendStream(obs, pluginName, event, streamId, stream);
   }
 }

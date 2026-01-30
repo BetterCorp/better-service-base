@@ -26,7 +26,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { DTrace, EventsConfig, LoggingConfig, PluginDefinition, PluginType } from "../interfaces";
+import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../interfaces";
 import { BaseWithLogging, BaseWithLoggingConfig } from "./base";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
 
@@ -77,32 +77,25 @@ export abstract class BSBConfig
   public run(): void {}
 
   /**
-   * Returns the logging plugins configuration.
-   * @returns Promise resolving to an object containing the logging configuration for each plugin.
-   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getLoggingPlugins | API: BSBConfig#getLoggingPlugins}
+   * Returns the observable plugins configuration (unified logging, metrics, tracing).
+   * @returns Promise resolving to an object containing the observable configuration for each plugin.
+   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getObservablePlugins | API: BSBConfig#getObservablePlugins}
    */
-  abstract getLoggingPlugins(trace: DTrace): Promise<Record<string, LoggingConfig>>;
-
-  /**
-   * Returns the metrics plugins configuration.
-   * @returns Promise resolving to an object containing the metrics configuration for each plugin.
-   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getMetricsPlugins | API: BSBConfig#getMetricsPlugins}
-   */
-  abstract getMetricsPlugins(trace: DTrace): Promise<Record<string, PluginDefinition>>;
+  abstract getObservablePlugins(obs: Observable): Promise<Record<string, ObservableConfig>>;
 
   /**
    * Returns the events plugins configuration.
    * @returns Promise resolving to an object containing the events configuration for each plugin.
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getEventsPlugins | API: BSBConfig#getEventsPlugins}
    */
-  abstract getEventsPlugins(trace: DTrace): Promise<Record<string, EventsConfig>>;
+  abstract getEventsPlugins(obs: Observable): Promise<Record<string, EventsConfig>>;
 
   /**
    * Returns the service plugins configuration.
    * @returns Promise resolving to an object containing the configuration for each plugin.
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getServicePlugins | API: BSBConfig#getServicePlugins}
    */
-  abstract getServicePlugins(trace: DTrace): Promise<Record<string, PluginDefinition>>;
+  abstract getServicePlugins(obs: Observable): Promise<Record<string, PluginDefinition>>;
 
   /**
    * Returns a mapped plugin name and whether the plugin is enabled or not
@@ -110,7 +103,7 @@ export abstract class BSBConfig
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getServicePluginDefinition | API: BSBConfig#getServicePluginDefinition}
    */
   abstract getServicePluginDefinition(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
   ): Promise<{ name: string; enabled: boolean }>;
 
@@ -122,7 +115,7 @@ export abstract class BSBConfig
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html#getPluginConfig | API: BSBConfig#getPluginConfig}
    */
   abstract getPluginConfig(
-    trace: DTrace,
+    obs: Observable,
     pluginType: PluginType,
     plugin: string,
   ): Promise<object | null>;
@@ -133,24 +126,20 @@ export abstract class BSBConfig
  */
 export class BSBConfigRef
   extends BSBConfig {
-  getLoggingPlugins(trace: DTrace): Promise<Record<string, LoggingConfig>> {
-    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getLoggingPlugins");
+  getObservablePlugins(obs: Observable): Promise<Record<string, ObservableConfig>> {
+    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getObservablePlugins");
   }
 
-  getMetricsPlugins(trace: DTrace): Promise<Record<string, PluginDefinition>> {
-    throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getMetricsPlugins");
-  }
-
-  getEventsPlugins(trace: DTrace): Promise<Record<string, EventsConfig>> {
+  getEventsPlugins(obs: Observable): Promise<Record<string, EventsConfig>> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getEventsPlugins");
   }
 
-  getServicePlugins(trace: DTrace): Promise<Record<string, PluginDefinition>> {
+  getServicePlugins(obs: Observable): Promise<Record<string, PluginDefinition>> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getServicePlugins");
   }
 
   getPluginConfig(
-    trace: DTrace,
+    obs: Observable,
     pluginType: PluginType,
     plugin: string,
   ): Promise<object | null> {
@@ -158,7 +147,7 @@ export class BSBConfigRef
   }
 
   getServicePluginDefinition(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
   ): Promise<{ name: string; enabled: boolean }> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED(
@@ -169,5 +158,5 @@ export class BSBConfigRef
 
   dispose?(): void;
 
-  init?(trace: DTrace): void;
+  init?(obs: Observable): void;
 }

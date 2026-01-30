@@ -28,7 +28,7 @@
 import { BSBPluginConfig, BSBService, BSBServiceConstructor } from "../../base";
 import { z } from "zod";
 import { BSBServiceClientDefinition } from "../../base";
-import { DTrace } from "../../interfaces/metrics";
+import { Observable } from "../../interfaces/observable";
 import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 
 export const secSchema = z.object({
@@ -136,19 +136,20 @@ export class Plugin
     });
   }
 
-  public async run(trace: DTrace) {
-    //this.log.info(trace, "Starting service-default0");
+  public async run(obs: Observable) {
+    // v9: Observable provides unified logging, metrics, and tracing
+    obs.log.info("Starting service-default0");
 
-    // NEW API: Emit test event with object parameter
-    await this.events.emitEvent("test", trace, {
+    // Event methods accept Observable directly (no need to extract .trace)
+    await this.events.emitEvent("test", obs, {
       a: "test",
       b: "test"
     });
 
-    // NEW API: Calculate using returnable event with object parameter
+    // Calculate using returnable event with Observable
     const result = await this.events.emitEventAndReturn(
-      "calculate", 
-      trace,
+      "calculate",
+      obs,
       {
         a: this.config.testa,
         b: this.config.testb
@@ -156,6 +157,6 @@ export class Plugin
       5 // timeout seconds
     );
 
-    this.log.info(trace, "Calculation result: {result}", { result });
+    obs.log.info("Calculation result: {result}", { result });
   }
 }

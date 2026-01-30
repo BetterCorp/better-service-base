@@ -1,12 +1,9 @@
 default:
-  metrics:
-    metrics-default:
-      plugin: metrics-default
-      enabled: false
-  logging:
-    logging-default:
-      plugin: logging-default
+  observable:
+    observable-default:
+      plugin: observable-default
       enabled: true
+      filter: [debug, info, warn, error]
   events:
     events-default:
       plugin: events-default

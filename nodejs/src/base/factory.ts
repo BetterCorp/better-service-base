@@ -30,8 +30,7 @@ import { hostname } from "node:os";
 import { BSBOptions, ResolvedBSBOptions, SimpleBSBOptions, BSBPreset, DEBUG_MODE } from "../interfaces";
 import { SBConfig } from "../serviceBase/config";
 import { SBPlugins } from "../serviceBase/plugins";
-import { SBLogging } from "../serviceBase/logging";
-import { SBMetrics } from "../serviceBase/metrics";
+import { SBObservable } from "../serviceBase/observable";
 import { SBEvents } from "../serviceBase/events";
 import { SBServices } from "../serviceBase/services";
 
@@ -50,10 +49,10 @@ export function resolveBSBOptions(options: BSBOptions = {}): ResolvedBSBOptions 
     live = false,
     cwd = process.cwd(),
     appId,
+    region,
     config = SBConfig,
     plugins = SBPlugins,
-    logging = SBLogging,
-    metrics = SBMetrics,
+    observable = SBObservable,
     events = SBEvents,
     services = SBServices
   } = options;
@@ -78,16 +77,26 @@ export function resolveBSBOptions(options: BSBOptions = {}): ResolvedBSBOptions 
     resolvedAppId = `${hostname()}-${randomUUID()}`;
   }
 
+  // Resolve region from option → env → undefined
+  let resolvedRegion: string | undefined;
+  if (region) {
+    resolvedRegion = region;
+  } else if (typeof process.env.BSB_REGION === "string" && process.env.BSB_REGION.length > 0) {
+    resolvedRegion = process.env.BSB_REGION;
+  } else {
+    resolvedRegion = undefined;
+  }
+
   return {
     debug,
     live,
     cwd,
     appId: resolvedAppId,
+    region: resolvedRegion,
     mode,
     config,
     plugins,
-    logging,
-    metrics,
+    observable,
     events,
     services
   };

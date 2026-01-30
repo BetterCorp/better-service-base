@@ -31,6 +31,7 @@ import {
   IPluginLogging,
   IPluginMetrics,
   BSBEventSchemas,
+  Observable,
 } from "../interfaces";
 import { ServiceClientEventSchemas } from "../interfaces/schema-events";
 import { BSBService, BSBServiceClientDefinition } from "./BSBService";
@@ -71,9 +72,27 @@ export abstract class BSBServiceClient<
 
   public abstract dispose?(): void;
 
-  public abstract init?(trace: DTrace): Promise<void>;
+  /**
+   * Init
+   * Optional function to be called when the client is being initialized
+   *
+   * @remarks
+   * **v9 BREAKING CHANGE**: Now requires Observable instead of DTrace.
+   *
+   * @param obs - Observable context with logging, metrics, and trace information
+   */
+  public abstract init?(obs: Observable): Promise<void>;
 
-  public abstract run?(trace: DTrace): Promise<void>;
+  /**
+   * Run
+   * Optional function to be called when the client is being run
+   *
+   * @remarks
+   * **v9 BREAKING CHANGE**: Now requires Observable instead of DTrace.
+   *
+   * @param obs - Observable context with logging, metrics, and trace information
+   */
+  public abstract run?(obs: Observable): Promise<void>;
 }
 
 /**
@@ -125,9 +144,15 @@ export class ServiceClient<
 
   public dispose?(): void;
 
-  public init?(trace: DTrace): Promise<void>;
+  /**
+   * Init (v9: Observable only)
+   */
+  public init?(obs: Observable): Promise<void>;
 
-  public run?(trace: DTrace): Promise<void>;
+  /**
+   * Run (v9: Observable only)
+   */
+  public run?(obs: Observable): Promise<void>;
 
   public declare events: PluginEvents<ServiceClientEventSchemas<TEventSchemas>>;
 
@@ -163,11 +188,11 @@ export class BSBServiceClientRef
     throw new Error("Method not implemented.");
   }
 
-  public init?(trace: DTrace): Promise<void> {
+  public init?(obs: Observable): Promise<void> {
     throw new Error("Method not implemented.");
   }
 
-  public run?(trace: DTrace): Promise<void> {
+  public run?(obs: Observable): Promise<void> {
     throw new Error("Method not implemented.");
   }
 }

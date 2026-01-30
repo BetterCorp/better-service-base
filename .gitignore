@@ -34,3 +34,4 @@ node_modules
 # Repomix output
 repomix-output.xml
 *.repomix.xml
+docs.json

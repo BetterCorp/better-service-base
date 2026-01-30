@@ -30,12 +30,12 @@ import * as fs from "node:fs";
 import { parse } from "yaml";
 import {
   EventsConfig,
-  LoggingConfig,
+  ObservableConfig,
   PluginDefinition,
   PluginType,
   PluginTypes, Tools,
   BSBError,
-  DTrace,
+  Observable,
 } from "../../index";
 import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig";
 import { ConfigDefinition } from "./interfaces";
@@ -43,7 +43,7 @@ import { ConfigDefinition } from "./interfaces";
 export class Plugin
   extends BSBConfig {
   async getServicePluginDefinition(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
   ): Promise<{ name: string; enabled: boolean }> {
     const keydPlugins = Object.keys(
@@ -75,7 +75,7 @@ export class Plugin
     }
 
     throw new BSBError(
-      trace,
+      obs.trace,
       "Cannot find the plugin {plugin} in the config",
       {
         plugin: pluginName,
@@ -83,47 +83,25 @@ export class Plugin
     );
   }
 
-  async getMetricsPlugins(): Promise<Record<string, PluginDefinition>> {
+  async getObservablePlugins(): Promise<Record<string, ObservableConfig>> {
     const plugins = Object.keys(
-      this._appConfig[this._deploymentProfile].metrics ?? {},
+      this._appConfig[this._deploymentProfile].observable ?? {},
     )
       .filter((x) => {
         return (
-          this._appConfig[this._deploymentProfile].metrics[x].enabled === true
+          this._appConfig[this._deploymentProfile].observable[x].enabled === true
         );
       });
     return plugins.reduce((acc, x) => {
       acc[x] = {
-        //name: this._appConfig[this._deploymentProfile].logging[x].name,
-        version: this._appConfig[this._deploymentProfile].metrics[x].version,
-        plugin: this._appConfig[this._deploymentProfile].metrics[x].plugin,
-        package: this._appConfig[this._deploymentProfile].metrics[x].package,
-        enabled: this._appConfig[this._deploymentProfile].metrics[x].enabled,
+        version: this._appConfig[this._deploymentProfile].observable[x].version,
+        plugin: this._appConfig[this._deploymentProfile].observable[x].plugin,
+        package: this._appConfig[this._deploymentProfile].observable[x].package,
+        enabled: this._appConfig[this._deploymentProfile].observable[x].enabled,
+        filter: this._appConfig[this._deploymentProfile].observable[x].filter,
       };
       return acc;
-    }, {} as Record<string, PluginDefinition>);
-  }
-
-  async getLoggingPlugins(): Promise<Record<string, LoggingConfig>> {
-    const plugins = Object.keys(
-      this._appConfig[this._deploymentProfile].logging ?? {},
-    )
-      .filter((x) => {
-        return (
-          this._appConfig[this._deploymentProfile].logging[x].enabled === true
-        );
-      });
-    return plugins.reduce((acc, x) => {
-      acc[x] = {
-        //name: this._appConfig[this._deploymentProfile].logging[x].name,
-        version: this._appConfig[this._deploymentProfile].logging[x].version,
-        plugin: this._appConfig[this._deploymentProfile].logging[x].plugin,
-        package: this._appConfig[this._deploymentProfile].logging[x].package,
-        enabled: this._appConfig[this._deploymentProfile].logging[x].enabled,
-        filter: this._appConfig[this._deploymentProfile].logging[x].filter,
-      };
-      return acc;
-    }, {} as Record<string, LoggingConfig>);
+    }, {} as Record<string, ObservableConfig>);
   }
 
   async getEventsPlugins(): Promise<Record<string, EventsConfig>> {
@@ -170,22 +148,19 @@ export class Plugin
   }
 
   async getPluginConfig(
-    trace: DTrace,
+    obs: Observable,
     pluginType: PluginType,
     plugin: string,
   ): Promise<object | null> {
     if (pluginType === PluginTypes.config) {
       return null;
     }
-    let configKey: "services" | "logging" | "events" | "metrics" = "services";
+    let configKey: "services" | "observable" | "events" = "services";
     if (pluginType === PluginTypes.events) {
       configKey = "events";
     }
-    if (pluginType === PluginTypes.metrics) {
-      configKey = "metrics";
-    }
-    if (pluginType === PluginTypes.logging) {
-      configKey = "logging";
+    if (pluginType === PluginTypes.observable) {
+      configKey = "observable";
     }
     return (
       this._appConfig[this._deploymentProfile][configKey][plugin].config ?? null
@@ -205,7 +180,7 @@ export class Plugin
     this._secConfigFilePath = path.join(this.cwd, "./sec-config.yaml");
   }
 
-  init(trace: DTrace): void {
+  init(obs: Observable): void {
     if (
       Tools.isString(process.env.BSB_PROFILE) &&
       process.env.BSB_PROFILE.length > 2
@@ -220,8 +195,7 @@ export class Plugin
     }
     this._appConfig = {
       default: {
-        logging: {},
-        metrics: {},
+        observable: {},
         events: {},
         services: {},
       },
@@ -234,7 +208,7 @@ export class Plugin
     }
     else {
       throw new BSBError(
-        trace,
+        obs.trace,
         "Cannot find config file at {filepath}",
         {
           filepath: this._secConfigFilePath,
@@ -243,7 +217,7 @@ export class Plugin
     }
     if (Tools.isNullOrUndefined(this._appConfig[this._deploymentProfile])) {
       throw new BSBError(
-        trace,
+        obs.trace,
         "unknown deployment profile ({deploymentProfile}), please create it first.",
         {
           deploymentProfile: this._deploymentProfile,
@@ -251,7 +225,7 @@ export class Plugin
       );
     }
     this.log.debug(
-      trace,
+      obs.trace,
       "Config ready, using profile: {profile}", {
       profile: this._deploymentProfile,
     });

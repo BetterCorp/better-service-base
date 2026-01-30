@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace } from "../../index";
+import { Observable } from "../../index";
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
 import { createReturnableEvent } from "../../interfaces/schema-events";
 import { z } from "zod";
@@ -60,8 +60,8 @@ export class Plugin
     });
   }
 
-  public override async run(trace: DTrace) {
-    this.log.info(trace, "Running service-default4");
-    
+  public override async run(obs: Observable) {
+    obs.log.info("Running service-default4");
+
   }
 }

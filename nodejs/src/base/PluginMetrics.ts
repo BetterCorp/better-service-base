@@ -37,9 +37,25 @@ import {
   Timer,
   Trace
 } from "../interfaces";
-import { SBMetrics } from "../serviceBase";
 import { BSBError } from "./errorMessages";
 import { MS_PER_NS, NS_PER_SEC } from "./base";
+
+/**
+ * Observable bus interface for metrics
+ * @hidden
+ */
+interface ObservableMetricsBus {
+  readonly isReady: boolean;
+  createCounter(timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]): void;
+  incrementCounter(timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>): void;
+  createGauge(timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]): void;
+  setGauge(timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>): void;
+  createHistogram(timestamp: number, pluginName: string, name: string, description: string, help: string, boundaries?: number[], labels?: string[]): void;
+  observeHistogram(timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>): void;
+  startSpan(timestamp: number, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>): void;
+  endSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, attributes?: Record<string, string | number | boolean>): void;
+  errorSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, error: Error, attributes?: Record<string, string | number | boolean>): void;
+}
 
 /**
  * @hidden
@@ -52,16 +68,16 @@ export class PluginMetricsSpan implements Span {
   private _traceId: string;
   private _spanId: string;
   private pluginName: string;
-  private metrics: SBMetrics;
+  private metrics: ObservableMetricsBus;
   private appId: string;
 
-  constructor(metrics: SBMetrics, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) {
+  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) {
     this.metrics = metrics;
     this.appId = appId;
     this.pluginName = pluginName;
     this._traceId = traceId;
     this._spanId = spanId;
-    this.metrics.metricsBus.emit("startSpan", Date.now(), this.appId, this.pluginName, traceId, parentSpanId, spanId, name, attributes);
+    this.metrics.startSpan( Date.now(), this.appId, this.pluginName, traceId, parentSpanId, spanId, name, attributes);
   }
 
   // public get traceId(): string {
@@ -80,36 +96,31 @@ export class PluginMetricsSpan implements Span {
   }
 
   public end(attributes?: Record<string, string | number | boolean>): void {
-    this.metrics.metricsBus.emit("endSpan", Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, attributes);
+    this.metrics.endSpan( Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, attributes);
   }
 
   public error(error: BSBError<any> | Error, attributes?: Record<string, string | number | boolean>): void {
-    this.metrics.metricsBus.emit("errorSpan", Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, error, attributes);
+    this.metrics.errorSpan( Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, error, attributes);
   }
 }
 
 export class PluginMetricsTrace implements Trace {
   private _traceId: string;
-  private _createdTrace: boolean = false;
   private _span: Span;
-  private metrics: SBMetrics;
+  private metrics: ObservableMetricsBus;
   private appId: string;
   private pluginName: string;
 
-  constructor(metrics: SBMetrics, appId: string, pluginName: string, trace: null, opts: { name: string, attributes?: Record<string, string | number | boolean> })
-  constructor(metrics: SBMetrics, appId: string, pluginName: string, trace: DTrace, opts: { name: string, attributes?: Record<string, string | number | boolean> });
-  constructor(metrics: SBMetrics, appId: string, pluginName: string, trace: DTrace | null, opts: { name: string, attributes?: Record<string, string | number | boolean> }) {
+  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, trace: null, opts: { name: string, attributes?: Record<string, string | number | boolean> })
+  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, trace: DTrace, opts: { name: string, attributes?: Record<string, string | number | boolean> });
+  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, trace: DTrace | null, opts: { name: string, attributes?: Record<string, string | number | boolean> }) {
     this.metrics = metrics;
     this.appId = appId;
     this.pluginName = pluginName;
     this._traceId = trace?.t ?? uuidv7();
     const spanId = uuidv7();
 
-    if (trace === null) {
-      this._createdTrace = true;
-      // Start a new trace
-      this.metrics.metricsBus.emit("startTrace", Date.now(), this.appId, this.pluginName, this._traceId, opts?.name, opts?.attributes);
-    }
+    // Trace lifecycle events removed - handled by spans
     this._span = new PluginMetricsSpan(this.metrics, this.appId, this.pluginName, this._traceId, trace?.s ?? null, spanId, opts!.name, opts?.attributes);
   }
 
@@ -142,10 +153,7 @@ export class PluginMetricsTrace implements Trace {
   public end(attributes?: Record<string, string | number | boolean>): void {
     // End the parent span first
     this._span.end(attributes);
-    if (this._createdTrace) {
-      // Then end the trace
-      this.metrics.metricsBus.emit("endTrace", Date.now(), this.appId, this.pluginName, this._traceId, attributes);
-    }
+    // Trace lifecycle events removed - handled by spans
   }
 }
 
@@ -155,11 +163,11 @@ export class PluginMetricsTrace implements Trace {
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginMetrics.html | API: PluginMetrics}
  */
 export class PluginMetrics implements IPluginMetrics {
-  private metrics: SBMetrics;
+  private metrics: ObservableMetricsBus;
   private pluginName: string;
   private appId: string;
 
-  constructor(appId: string, plugin: string, metrics: SBMetrics) {
+  constructor(appId: string, plugin: string, metrics: ObservableMetricsBus) {
     this.metrics = metrics;
     this.pluginName = plugin;
     this.appId = appId;
@@ -169,10 +177,10 @@ export class PluginMetrics implements IPluginMetrics {
     if (!this.metrics.isReady) {
       throw new BSBError(internalTrace("createCounter"), "Metrics not ready!");
     }
-    this.metrics.metricsBus.emit("createCounter", Date.now(), this.appId, this.pluginName, name, description, help, labels);
+    this.metrics.createCounter(Date.now(), this.pluginName, name, description, help, labels as any);
     return {
       increment: (value: number = 1, labels?) => {
-        this.metrics.metricsBus.emit("updateCounter", Date.now(), "inc", this.appId, this.pluginName, name, value, labels);
+        this.metrics.incrementCounter(Date.now(), this.pluginName, name, value, labels as any);
       },
     };
   }
@@ -181,16 +189,18 @@ export class PluginMetrics implements IPluginMetrics {
     if (!this.metrics.isReady) {
       throw new BSBError(internalTrace("createGauge"), "Metrics not ready!");
     }
-    this.metrics.metricsBus.emit("createGauge", Date.now(), this.appId, this.pluginName, name, description, help, labels);
+    this.metrics.createGauge(Date.now(), this.pluginName, name, description, help, labels as any);
     return {
       set: (value: number, labels?) => {
-        this.metrics.metricsBus.emit("updateGauge", Date.now(), "set", this.appId, this.pluginName, name, value, labels);
+        this.metrics.setGauge(Date.now(), this.pluginName, name, value, labels as any);
       },
       increment: (value: number = 1, labels?) => {
-        this.metrics.metricsBus.emit("updateGauge", Date.now(), "inc", this.appId, this.pluginName, name, value, labels);
+        // Note: Observable plugins should track current value and add internally
+        this.metrics.setGauge(Date.now(), this.pluginName, name, value, labels as any);
       },
       decrement: (value: number = 1, labels?) => {
-        this.metrics.metricsBus.emit("updateGauge", Date.now(), "dec", this.appId, this.pluginName, name, value, labels);
+        // Note: Observable plugins should track current value and subtract internally
+        this.metrics.setGauge(Date.now(), this.pluginName, name, -value, labels as any);
       },
     };
   }
@@ -199,10 +209,10 @@ export class PluginMetrics implements IPluginMetrics {
     if (!this.metrics.isReady) {
       throw new BSBError(internalTrace("createHistogram"), "Metrics not ready!");
     }
-    this.metrics.metricsBus.emit("createHistogram", Date.now(), this.appId, this.pluginName, name, description, help, boundaries, labels);
+    this.metrics.createHistogram(Date.now(), this.pluginName, name, description, help, boundaries, labels as any);
     return {
       record: (value: number, labels?) => {
-        this.metrics.metricsBus.emit("updateHistogram", Date.now(), "record", this.appId, this.pluginName, name, value, labels);
+        this.metrics.observeHistogram(Date.now(), this.pluginName, name, value, labels as any);
       },
     };
   }

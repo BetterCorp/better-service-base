@@ -31,6 +31,7 @@ import {
     BSBEventSchemas,
     EventInputType,
     EventOutputType,
+    Observable,
 } from "../interfaces";
 import { SBEvents } from "../serviceBase";
 import { BSBService } from "./BSBService";
@@ -71,10 +72,33 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
     }
 
     /**
+     * Helper to extract DTrace from Observable | DTrace
+     * @hidden
+     */
+    private extractTrace(obs: Observable | DTrace): DTrace {
+        if ('trace' in obs && typeof obs.trace === 'object') {
+            return obs.trace;
+        }
+        return obs as DTrace;
+    }
+
+    /**
+     * Helper to create Observable from DTrace if needed
+     * @hidden
+     */
+    private ensureObservable(obsOrTrace: Observable | DTrace): Observable {
+        if ('trace' in obsOrTrace && 'log' in obsOrTrace) {
+            return obsOrTrace as Observable;
+        }
+        // Create Observable from DTrace
+        return (this.service as any).createObservable(obsOrTrace as DTrace);
+    }
+
+    /**
      * Listen for broadcast events emitted by other plugins with full type safety.
      * @param eventName - Name of the event to listen for (strongly typed)
-     * @param trace - Trace for logging context
-     * @param listener - Function to call when event is received (receives validated input object)
+     * @param obs - Observable context (v9 BREAKING: Observable only, no longer accepts DTrace)
+     * @param listener - Function to call when event is received (receives Observable and validated input object)
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onBroadcast | API: PluginEvents#onBroadcast}
      */
     public async onBroadcast<
@@ -82,23 +106,27 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         K extends keyof TBroadcast
     >(
         eventName: K,
-        trace: DTrace,
-        listener: (trace: DTrace, input: EventInputType<TBroadcast[K]>) => Promise<void>
+        obs: Observable,
+        listener: (handlerObs: Observable, input: EventInputType<TBroadcast[K]>) => Promise<void>
     ): Promise<void> {
-        const wrappedListener = async (trace: DTrace, rawInput: any) => {
+        const trace = this.extractTrace(obs);
+
+        const wrappedListener = async (handlerTrace: DTrace, rawInput: any) => {
             let validatedInput = rawInput;
-            
+
             // Validate input if schema exists
             const schema = this.eventSchemas.onBroadcast?.[eventName as string];
             if (schema) {
-                const result = this.validator.validateInput(eventName as string, rawInput, schema.input, trace);
+                const result = this.validator.validateInput(eventName as string, rawInput, schema.input, handlerTrace);
                 if (!result.success) {
                     throw result.error;
                 }
                 validatedInput = result.data;
             }
-            
-            await listener(trace, validatedInput);
+
+            // Create Observable for handler
+            const handlerObs = this.ensureObservable(handlerTrace);
+            await listener(handlerObs, validatedInput);
         };
 
         return this.events.onBroadcast(
@@ -113,7 +141,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
     /**
      * Emit broadcast events to all listening plugins with full type safety.
      * @param eventName - Name of the event to emit (strongly typed)
-     * @param trace - Trace for logging context
+     * @param obs - Observable context (v9 BREAKING: Observable only, no longer accepts DTrace)
      * @param input - Event input object (will be validated against schema)
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitBroadcast | API: PluginEvents#emitBroadcast}
      */
@@ -122,11 +150,12 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         K extends keyof TBroadcast
     >(
         eventName: K,
-        trace: DTrace,
+        obs: Observable,
         input: EventInputType<TBroadcast[K]>
     ): Promise<void> {
+        const trace = this.extractTrace(obs);
         let validatedInput = input;
-        
+
         // Validate input if schema exists
         const schema = this.eventSchemas.emitBroadcast?.[eventName as string];
         if (schema) {
@@ -148,8 +177,8 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
     /**
      * Listen for fire-and-forget events from other plugins with full type safety.
      * @param eventName - Name of the event to listen for (strongly typed)
-     * @param trace - Trace for logging context
-     * @param listener - Function to call when event is received (receives validated input object)
+     * @param obs - Observable context (v9 BREAKING: Observable only, no longer accepts DTrace)
+     * @param listener - Function to call when event is received (receives Observable and validated input object)
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onEvent | API: PluginEvents#onEvent}
      */
     public async onEvent<
@@ -157,23 +186,27 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         K extends keyof TEvents
     >(
         eventName: K,
-        trace: DTrace,
-        listener: (trace: DTrace, input: EventInputType<TEvents[K]>) => Promise<void>
+        obs: Observable,
+        listener: (handlerObs: Observable, input: EventInputType<TEvents[K]>) => Promise<void>
     ): Promise<void> {
-        const wrappedListener = async (trace: DTrace, rawInput: any) => {
+        const trace = this.extractTrace(obs);
+
+        const wrappedListener = async (handlerTrace: DTrace, rawInput: any) => {
             let validatedInput = rawInput;
-            
+
             // Validate input if schema exists
             const schema = this.eventSchemas.onEvents?.[eventName as string];
             if (schema) {
-                const result = this.validator.validateInput(eventName as string, rawInput, schema.input, trace);
+                const result = this.validator.validateInput(eventName as string, rawInput, schema.input, handlerTrace);
                 if (!result.success) {
                     throw result.error;
                 }
                 validatedInput = result.data;
             }
-            
-            await listener(trace, validatedInput);
+
+            // Create Observable for handler
+            const handlerObs = this.ensureObservable(handlerTrace);
+            await listener(handlerObs, validatedInput);
         };
 
         return this.events.onEvent(
@@ -188,7 +221,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
     /**
      * Emit fire-and-forget events to other plugins with full type safety.
      * @param eventName - Name of the event to emit (strongly typed)
-     * @param trace - Trace for logging context  
+     * @param obs - Observable context (v9 BREAKING: Observable only, no longer accepts DTrace)
      * @param input - Event input object (will be validated against schema)
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEvent | API: PluginEvents#emitEvent}
      */
@@ -197,11 +230,12 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         K extends keyof TEvents
     >(
         eventName: K,
-        trace: DTrace,
+        obs: Observable,
         input: EventInputType<TEvents[K]>
     ): Promise<void> {
+        const trace = this.extractTrace(obs);
         let validatedInput = input;
-        
+
         // Validate input if schema exists
         const schema = this.eventSchemas.emitEvents?.[eventName as string];
         if (schema) {
@@ -223,8 +257,8 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
     /**
      * Listen for returnable events from other plugins with full type safety.
      * @param eventName - Name of the event to listen for (strongly typed)
-     * @param trace - Trace for logging context
-     * @param listener - Function to call when event is received, must return a value
+     * @param obs - Observable context (v9 BREAKING: Observable only, no longer accepts DTrace)
+     * @param listener - Function to call when event is received (receives Observable), must return a value
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#onReturnableEvent | API: PluginEvents#onReturnableEvent}
      */
     public async onReturnableEvent<
@@ -232,36 +266,40 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         K extends keyof TEvents
     >(
         eventName: K,
-        trace: DTrace,
+        obs: Observable,
         listener: (
-            trace: DTrace, 
+            handlerObs: Observable,
             input: EventInputType<TEvents[K]>
         ) => Promise<EventOutputType<TEvents[K]>>
     ): Promise<void> {
-        const wrappedListener = async (trace: DTrace, rawInput: any) => {
+        const trace = this.extractTrace(obs);
+
+        const wrappedListener = async (handlerTrace: DTrace, rawInput: any) => {
             let validatedInput = rawInput;
             const schema = this.eventSchemas.onReturnableEvents?.[eventName as string];
-            
+
             // Validate input if schema exists
             if (schema) {
-                const inputResult = this.validator.validateInput(eventName as string, rawInput, schema.input, trace);
+                const inputResult = this.validator.validateInput(eventName as string, rawInput, schema.input, handlerTrace);
                 if (!inputResult.success) {
                     throw inputResult.error;
                 }
                 validatedInput = inputResult.data;
             }
-            
-            const result = await listener(trace, validatedInput);
-            
+
+            // Create Observable for handler
+            const handlerObs = this.ensureObservable(handlerTrace);
+            const result = await listener(handlerObs, validatedInput);
+
             // Validate output if schema exists
             if (schema) {
-                const outputResult = this.validator.validateOutput(eventName as string, result, schema.output, trace);
+                const outputResult = this.validator.validateOutput(eventName as string, result, schema.output, handlerTrace);
                 if (!outputResult.success) {
                     throw outputResult.error;
                 }
                 return outputResult.data;
             }
-            
+
             return result;
         };
 
@@ -277,7 +315,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
     /**
      * Emit returnable events and wait for response with full type safety.
      * @param eventName - Name of the event to emit (strongly typed)
-     * @param trace - Trace for logging context
+     * @param obs - Observable context (v9 BREAKING: Observable only, no longer accepts DTrace)
      * @param input - Event input object (will be validated against schema)
      * @param timeoutSeconds - Optional timeout in seconds (default: 5)
      * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html#emitEventAndReturn | API: PluginEvents#emitEventAndReturn}
@@ -287,13 +325,14 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         K extends keyof TEvents
     >(
         eventName: K,
-        trace: DTrace,
+        obs: Observable,
         input: EventInputType<TEvents[K]>,
         timeoutSeconds: number = 5
     ): Promise<EventOutputType<TEvents[K]>> {
+        const trace = this.extractTrace(obs);
         let validatedInput = input;
         const schema = this.eventSchemas.emitReturnableEvents?.[eventName as string];
-        
+
         // Validate input if schema exists
         if (schema) {
             const inputResult = this.validator.validateInput(eventName as string, input, schema.input, trace);

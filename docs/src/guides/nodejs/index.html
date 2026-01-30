@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Node.js Guide - BSB Documentation</title>
+  <meta name="description" content="Build your first BSB service with Node.js. Step-by-step guide to creating services, handling events, and configuring plugins.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+  <style>
+    .page-header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-color));
+      padding: 3rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .page-header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .page-header p {
+      color: var(--text-secondary);
+      font-size: 1.125rem;
+      max-width: 700px;
+    }
+
+    .requirements-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-left: 4px solid var(--primary-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 2rem;
+    }
+
+    .requirements-box h3 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .requirements-box ul {
+      margin: 0;
+      padding-left: 1.25rem;
+      color: var(--text-secondary);
+    }
+
+    .requirements-box li {
+      margin-bottom: 0.5rem;
+    }
+
+    .content-section {
+      padding: 2rem;
+      max-width: 900px;
+    }
+
+    .content-section h2 {
+      font-size: 1.75rem;
+      color: var(--primary-color);
+      margin: 2.5rem 0 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .content-section h2:first-child {
+      margin-top: 0;
+    }
+
+    .content-section h3 {
+      font-size: 1.25rem;
+      margin: 2rem 0 1rem;
+      color: var(--text-color);
+    }
+
+    .content-section p {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 1rem;
+    }
+
+    .content-section ul, .content-section ol {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 1.5rem;
+      padding-left: 1.5rem;
+    }
+
+    .content-section li {
+      margin-bottom: 0.5rem;
+    }
+
+    .step {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin: 2rem 0;
+      position: relative;
+    }
+
+    .step-number {
+      position: absolute;
+      top: -15px;
+      left: 20px;
+      background: var(--primary-color);
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+
+    .step h3 {
+      margin-top: 0;
+      color: var(--text-color);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    pre code {
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    code {
+      background: var(--code-bg);
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.875rem;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+    }
+
+    .file-path {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      padding: 0.5rem 1rem;
+      border-radius: 6px 6px 0 0;
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.8rem;
+      margin-bottom: -1px;
+      display: inline-block;
+    }
+
+    .file-path + pre {
+      border-top-left-radius: 0;
+      margin-top: 0;
+    }
+
+    .info-box {
+      background: rgba(251, 140, 0, 0.05);
+      border-left: 4px solid var(--primary-color);
+      padding: 1rem 1.5rem;
+      margin: 1.5rem 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .info-box p {
+      margin: 0;
+    }
+
+    .next-steps {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-top: 3rem;
+    }
+
+    .next-steps h3 {
+      margin-top: 0;
+      color: var(--primary-color);
+    }
+
+    .next-link {
+      display: inline-block;
+      margin-top: 1rem;
+      margin-right: 1rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--primary-color);
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .next-link:hover {
+      background: #e65100;
+      transform: translateY(-2px);
+    }
+
+    .next-link.secondary {
+      background: var(--card-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+    }
+
+    .next-link.secondary:hover {
+      border-color: var(--primary-color);
+    }
+  </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      <nav class="nav-menu" id="nav-menu">
+        <div class="nav-dropdown">
+          <button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/">Home</a>
+            <a href="/overview/">Overview</a>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="nav-link active">Build Services <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/guides/nodejs/" class="active">Node.js</a>
+            <span class="coming-soon">Go</span>
+            <span class="coming-soon">Python</span>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/extending/nodejs/">Node.js</a>
+            <span class="coming-soon">Go</span>
+            <span class="coming-soon">Python</span>
+          </div>
+        </div>
+        <div class="nav-dropdown">
+          <button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/core-plugins/">Overview</a>
+            <div class="dropdown-divider"></div>
+            <a href="/core-plugins/config-default/">config-default</a>
+            <a href="/core-plugins/events-default/">events-default</a>
+            <a href="/core-plugins/logging-default/">logging-default</a>
+            <a href="/core-plugins/metrics-default/">metrics-default</a>
+          </div>
+        </div>
+        <a href="/languages/nodejs/types/" class="nav-link">API Reference</a>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank">GitHub</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <main class="main-content">
+      <header class="page-header">
+        <h1>Building Services with Node.js</h1>
+        <p>Create your first BSB service plugin. This guide covers setup, event handling, configuration, and deployment.</p>
+      </header>
+
+      <div class="requirements-box">
+        <h3>Requirements</h3>
+        <ul>
+          <li>Node.js 23.0.0 or higher</li>
+          <li>npm 11.0.0 or higher</li>
+          <li>Docker (for container deployment)</li>
+        </ul>
+      </div>
+
+      <div class="content-section">
+        <h2>Quick Start</h2>
+
+        <p>The fastest way to get started is to install BSB and create a service plugin.</p>
+
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Create a new project</h3>
+          <pre><code class="language-bash">mkdir my-bsb-service
+cd my-bsb-service
+npm init -y
+npm install @bettercorp/service-base typescript @types/node
+npx tsc --init</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Create your service plugin</h3>
+
+          <p>Create a plugin directory structure:</p>
+
+          <pre><code class="language-bash">mkdir -p src/plugins/service-hello</code></pre>
+
+          <span class="file-path">src/plugins/service-hello/index.ts</span>
+          <pre><code class="language-typescript">import { BSBService, BSBServiceConstructor } from "@bettercorp/service-base";
+import { z } from "zod";
+import { createReturnableEvent, createFireAndForgetEvent } from "@bettercorp/service-base";
+
+// Define your event schemas
+export const EventSchemas = {
+  emitEvents: {},
+  onEvents: {},
+  emitReturnableEvents: {},
+  onReturnableEvents: {
+    'hello.greet': createReturnableEvent(
+      z.object({
+        name: z.string()
+      }),
+      z.object({
+        message: z.string(),
+        timestamp: z.string()
+      }),
+      'Greet a user by name'
+    )
+  },
+  emitBroadcast: {},
+  onBroadcast: {}
+} as const;
+
+export class Plugin extends BSBService&lt;null, typeof EventSchemas&gt; {
+  public initBeforePlugins?: string[];
+  public initAfterPlugins?: string[];
+  public runBeforePlugins?: string[];
+  public runAfterPlugins?: string[];
+
+  constructor(config: BSBServiceConstructor&lt;null, typeof EventSchemas&gt;) {
+    super({
+      ...config,
+      eventSchemas: EventSchemas
+    });
+  }
+
+  public async init() {
+    // Register event handlers
+    await this.events.onReturnableEvent("hello.greet", async (trace, input) =&gt; {
+      this.log.info(trace, "Greeting {name}", { name: input.name });
+
+      return {
+        message: `Hello, ${input.name}!`,
+        timestamp: new Date().toISOString()
+      };
+    });
+  }
+
+  public async run() {
+    this.log.info(this.metrics.createTrace("run").trace, "Hello service is running");
+  }
+
+  public dispose() {
+    // Cleanup if needed
+  }
+}</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Create the configuration</h3>
+
+          <span class="file-path">sec-config.yaml</span>
+          <pre><code class="language-yaml">plugins:
+  service-hello:
+    enabled: true</code></pre>
+        </div>
+
+        <div class="step">
+          <div class="step-number">4</div>
+          <h3>Run your service</h3>
+
+          <pre><code class="language-bash"># Development mode (with hot reload)
+npx ts-node src/dev.ts
+
+# Or production mode
+npm run build
+node lib/cli.js</code></pre>
+        </div>
+
+        <h2>Understanding the Structure</h2>
+
+        <h3>Plugin Directory</h3>
+
+        <p>BSB discovers plugins by scanning the <code>src/plugins/</code> directory. Each plugin must:</p>
+
+        <ul>
+          <li>Be in a folder named <code>service-*</code>, <code>events-*</code>, <code>logging-*</code>, <code>config-*</code>, or <code>metrics-*</code></li>
+          <li>Export a <code>Plugin</code> class that extends the appropriate base class</li>
+          <li>Optionally export a <code>Config</code> class for plugin configuration</li>
+        </ul>
+
+        <h3>Event Schemas</h3>
+
+        <p>The <code>EventSchemas</code> object defines your service's event contract:</p>
+
+        <ul>
+          <li><code>emitEvents</code> - Events you emit (fire-and-forget, first listener)</li>
+          <li><code>onEvents</code> - Events you listen to (fire-and-forget)</li>
+          <li><code>emitReturnableEvents</code> - Events you emit and expect a response</li>
+          <li><code>onReturnableEvents</code> - Events you handle and return a response</li>
+          <li><code>emitBroadcast</code> - Events you broadcast (all listeners)</li>
+          <li><code>onBroadcast</code> - Broadcasts you listen to</li>
+        </ul>
+
+        <h2>Working with Events</h2>
+
+        <h3>Emitting Events</h3>
+
+        <pre><code class="language-typescript">// Fire-and-forget (first listener receives)
+await this.events.emitEvent("user.created", trace, {
+  userId: "123",
+  email: "user@example.com"
+});
+
+// Request-response (wait for result)
+const result = await this.events.emitEventAndReturn(
+  "user.validate",
+  trace,
+  { email: "user@example.com" },
+  5 // timeout in seconds
+);
+
+// Broadcast (all listeners receive)
+await this.events.emitBroadcast("cache.invalidate", trace, {
+  keys: ["user:123"]
+});</code></pre>
+
+        <h3>Handling Events</h3>
+
+        <pre><code class="language-typescript">// Handle fire-and-forget
+await this.events.onEvent("user.created", trace, async (t, input) =&gt; {
+  this.log.info(t, "User created: {userId}", { userId: input.userId });
+});
+
+// Handle request-response
+await this.events.onReturnableEvent("user.validate", trace, async (t, input) =&gt; {
+  const isValid = await validateEmail(input.email);
+  return { valid: isValid };
+});
+
+// Handle broadcast
+await this.events.onBroadcast("cache.invalidate", trace, async (t, input) =&gt; {
+  for (const key of input.keys) {
+    await cache.delete(key);
+  }
+});</code></pre>
+
+        <h2>Adding Configuration</h2>
+
+        <p>To add configuration to your plugin, create a Config class:</p>
+
+        <pre><code class="language-typescript">import { BSBPluginConfig } from "@bettercorp/service-base";
+import { z } from "zod";
+
+const configSchema = z.object({
+  greeting: z.string().default("Hello"),
+  maxNameLength: z.number().default(100)
+});
+
+export class Config extends BSBPluginConfig&lt;typeof configSchema&gt; {
+  validationSchema = configSchema;
+}
+
+export class Plugin extends BSBService&lt;Config, typeof EventSchemas&gt; {
+  // Now this.config is typed with your schema
+  async init() {
+    const greeting = this.config.greeting; // "Hello"
+    const max = this.config.maxNameLength; // 100
+  }
+}</code></pre>
+
+        <p>Then in your <code>sec-config.yaml</code>:</p>
+
+        <pre><code class="language-yaml">plugins:
+  service-hello:
+    enabled: true
+    greeting: "Welcome"
+    maxNameLength: 50</code></pre>
+
+        <div class="next-steps">
+          <h3>Next Steps</h3>
+          <p>Now that you've built your first service, explore more advanced topics.</p>
+          <a href="/extending/nodejs/" class="next-link">Extend BSB</a>
+          <a href="/core-plugins/" class="next-link secondary">Core Plugins</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+
+  <script type="module" src="/assets/js/navbar.js" data-page="guides-nodejs"></script>
+</body>
+</html>

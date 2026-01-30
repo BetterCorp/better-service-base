@@ -1,45 +1,144 @@
-export function createNavbar(activePage = '') {
+// BSB Documentation Navigation
+// Usage: Add to page as a module script with data-page attribute:
+// <script type="module" src="/assets/js/navbar.js" data-page="home"></script>
+
+function createNavbar(activePage = '') {
   const version = typeof window !== 'undefined' ? (window.__BSB_VERSION__ || '') : '';
+
   return `
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <h1>BSB Docs</h1>
-        <p>
-          Better Service Base
-          ${version ? `<span class="version-badge" title="Latest version">v${version}</span>` : ''}
-        </p>
+    <header class="top-nav">
+      <div class="nav-container">
+        <a href="/" class="nav-brand">
+          <span class="brand-text">BSB</span>
+          ${version ? `<span class="nav-version">v${version}</span>` : ''}
+        </a>
+
+        <nav class="nav-menu" id="nav-menu">
+          <div class="nav-dropdown">
+            <button class="nav-link ${['home', 'overview'].includes(activePage) ? 'active' : ''}">
+              Learn <span class="dropdown-arrow">&#9662;</span>
+            </button>
+            <div class="dropdown-content">
+              <a href="/" class="${activePage === 'home' ? 'active' : ''}">Home</a>
+              <a href="/overview/" class="${activePage === 'overview' ? 'active' : ''}">Overview</a>
+            </div>
+          </div>
+
+          <div class="nav-dropdown">
+            <button class="nav-link ${activePage.startsWith('guides') ? 'active' : ''}">
+              Build Services <span class="dropdown-arrow">&#9662;</span>
+            </button>
+            <div class="dropdown-content">
+              <a href="/guides/nodejs/" class="${activePage === 'guides-nodejs' ? 'active' : ''}">Node.js</a>
+              <span class="coming-soon">Go</span>
+              <span class="coming-soon">Python</span>
+              <span class="coming-soon">Rust</span>
+            </div>
+          </div>
+
+          <div class="nav-dropdown">
+            <button class="nav-link ${activePage.startsWith('extending') ? 'active' : ''}">
+              Extend BSB <span class="dropdown-arrow">&#9662;</span>
+            </button>
+            <div class="dropdown-content">
+              <a href="/extending/nodejs/" class="${activePage === 'extending-nodejs' ? 'active' : ''}">Node.js</a>
+              <span class="coming-soon">Go</span>
+              <span class="coming-soon">Python</span>
+            </div>
+          </div>
+
+          <div class="nav-dropdown">
+            <button class="nav-link ${['core-plugins', 'config-default', 'events-default', 'logging-default', 'metrics-default'].includes(activePage) ? 'active' : ''}">
+              Core Plugins <span class="dropdown-arrow">&#9662;</span>
+            </button>
+            <div class="dropdown-content">
+              <a href="/core-plugins/" class="${activePage === 'core-plugins' ? 'active' : ''}">Overview</a>
+              <div class="dropdown-divider"></div>
+              <a href="/core-plugins/config-default/" class="${activePage === 'config-default' ? 'active' : ''}">config-default</a>
+              <a href="/core-plugins/events-default/" class="${activePage === 'events-default' ? 'active' : ''}">events-default</a>
+              <a href="/core-plugins/logging-default/" class="${activePage === 'logging-default' ? 'active' : ''}">logging-default</a>
+              <a href="/core-plugins/metrics-default/" class="${activePage === 'metrics-default' ? 'active' : ''}">metrics-default</a>
+            </div>
+          </div>
+
+          <a href="/languages/nodejs/types/" class="nav-link ${activePage === 'nodejs-types' ? 'active' : ''}">API Reference</a>
+
+          <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
+            GitHub
+            <svg class="external-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>
+            </svg>
+          </a>
+        </nav>
+
+        <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
       </div>
-      
-      <nav class="sidebar-nav">
-        <div class="nav-section">
-          <div class="nav-section-title">Getting Started</div>
-          <a href="/" class="nav-item ${activePage === 'overview' ? 'active' : ''}">Overview</a>
-          <a href="/get-started/" class="nav-item ${activePage === 'get-started' ? 'active' : ''}">Quick Start</a>
-          <a href="/architecture/" class="nav-item ${activePage === 'architecture' ? 'active' : ''}">Architecture</a>
-          <a href="/developer/" class="nav-item ${activePage === 'developer' ? 'active' : ''}">Developer Guide</a>
-        </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">Implementation</div>
-          <a href="/languages/nodejs/" class="nav-item ${activePage === 'nodejs' ? 'active' : ''}">Node.js Guide</a>
-          <span class="nav-item coming-soon">Go</span>
-          <span class="nav-item coming-soon">Python</span>
-          <span class="nav-item coming-soon">C# / .NET</span>
-          <span class="nav-item coming-soon">Java</span>
-        </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">Reference</div>
-          <a href="/plugins/" class="nav-item ${activePage === 'plugins' ? 'active' : ''}">Plugin System</a>
-          <a href="/languages/nodejs/types/" class="nav-item">Node.js Types</a>
-        </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">Community</div>
-          <a href="https://github.com/BetterCorp/better-service-base" class="nav-item" target="_blank">GitHub</a>
-          <a href="https://bettercorp.dev" class="nav-item" target="_blank">BetterCorp</a>
-        </div>
-      </nav>
-    </aside>
+    </header>
   `;
 }
+
+function initNavbar() {
+  const toggle = document.getElementById('nav-toggle');
+  const menu = document.getElementById('nav-menu');
+
+  if (toggle && menu) {
+    toggle.addEventListener('click', () => {
+      menu.classList.toggle('open');
+      toggle.classList.toggle('open');
+    });
+  }
+
+  // Handle dropdown clicks for mobile
+  document.querySelectorAll('.nav-dropdown > button').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dropdown = btn.parentElement;
+      const wasOpen = dropdown.classList.contains('open');
+      document.querySelectorAll('.nav-dropdown').forEach(d => d.classList.remove('open'));
+      if (!wasOpen) dropdown.classList.add('open');
+    });
+  });
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.nav-dropdown')) {
+      document.querySelectorAll('.nav-dropdown').forEach(d => d.classList.remove('open'));
+    }
+  });
+}
+
+// Auto-initialize when this script loads
+(function() {
+  // Just initialize event handlers - HTML is already in the page
+  initNavbar();
+
+  // Fetch and display version if element exists
+  fetch('/version.txt', { cache: 'no-store' })
+    .then(res => {
+      if (!res.ok) return '';
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('html')) return ''; // Don't use HTML 404 pages
+      return res.text();
+    })
+    .then(txt => {
+      const version = (txt || '').trim();
+      // Only use if it looks like a version (short, no HTML)
+      if (version && version.length < 20 && !version.includes('<')) {
+        const brand = document.querySelector('.nav-brand');
+        if (brand && !brand.querySelector('.nav-version')) {
+          const versionEl = document.createElement('span');
+          versionEl.className = 'nav-version';
+          versionEl.textContent = 'v' + version;
+          brand.appendChild(versionEl);
+        }
+      }
+    })
+    .catch(() => {});
+})();
+
+// Export for manual use if needed
+export { createNavbar, initNavbar };
