@@ -31,12 +31,13 @@ import {
   LOG_LEVELS,
   LogLevels,
 } from "../../../plugins/logging-default/index";
-import { createFakeDTrace } from "../../trace";
+import { createTestObservable } from "../../trace";
 import { getLoggingConstructorConfig } from '../../mocks';
 
 
 describe("plugins/logging-default", () => {
-  const dummyTrace = createFakeDTrace();
+  const obs = createTestObservable();
+  const dummyTrace = obs.trace; // logging-default plugin still uses DTrace internally
   describe("console.x", () => {
     const tempCCStore: any = {
       log: null,

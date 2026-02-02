@@ -80,20 +80,20 @@ export class Plugin
   }
 
   public async init(obs: Observable) {
-    this.log.info(obs.trace, "Initializing service-default3");
+    obs.log.info( "Initializing service-default3");
 
     await this.events.onReturnableEvent(
       "onReverseReturnable",
       obs,
       async (obs: Observable, input) => {
-        this.log.warn(obs.trace, "onReverseReturnable ({text})", { text: input.text });
+        obs.log.warn( "onReverseReturnable ({text})", { text: input.text });
         return input.text.split("").reverse().join("");
       },
     );
   }
 
   public async run(obs: Observable) {
-    this.log.info(obs.trace, "Running service-default3");
+    obs.log.info( "Running service-default3");
 
     // NEW API: Use events to calculate with object parameter
     const result = await this.events.emitEventAndReturn(
@@ -106,10 +106,10 @@ export class Plugin
       5 // timeout
     );
 
-    this.log.info(obs.trace, "Calculation result: {result}", { result });
-    this.log.debug(obs.trace, "Debug {a}", { a: "IT IS AN DEBUG!" });
-    this.log.info(obs.trace, "Info {a}", { a: "IT IS AN INFO!" });
-    this.log.warn(obs.trace, "Warning {a}", { a: "IT IS AN WARNING!" });
-    this.log.error(obs.trace, "Error {a}", { a: "IT IS AN ERROR!" });
+    obs.log.info( "Calculation result: {result}", { result });
+    obs.log.debug( "Debug {a}", { a: "IT IS AN DEBUG!" });
+    obs.log.info( "Info {a}", { a: "IT IS AN INFO!" });
+    obs.log.warn( "Warning {a}", { a: "IT IS AN WARNING!" });
+    obs.log.error( "Error {a}", { a: "IT IS AN ERROR!" });
   }
 }

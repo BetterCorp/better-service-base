@@ -27,13 +27,13 @@
 
 import { expect } from "chai";
 import { BSBConfig, BSBConfigRef } from "../../base/BSBConfig";
-import { createFakeDTrace } from "../trace";
+import { createTestObservable } from "../trace";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "../../base/errorMessages";
-import { Observable, EventsConfig, LoggingConfig, PluginDefinition, PluginType } from "../../interfaces";
-import { MockSBLogging } from "../mocks";
+import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../../interfaces";
+import { MockSBObservable } from "../mocks";
 
 describe("BSBConfig", () => {
-  const dummyTrace = createFakeDTrace();
+  const obs = createTestObservable();
 
   describe("BSBConfigRef", () => {
     let config: BSBConfigRef;
@@ -47,31 +47,22 @@ describe("BSBConfig", () => {
         pluginCwd: process.cwd(),
         pluginName: "test-plugin",
         pluginVersion: "0.0.0",
-        sbLogging: MockSBLogging(),
+        sbObservable: MockSBObservable(),
       });
     });
 
-    it("should throw not implemented for getLoggingPlugins", async () => {
+    it("should throw not implemented for getObservablePlugins", async () => {
       try {
-        await config.getLoggingPlugins(dummyTrace);
+        await (config as any).getObservablePlugins(obs);
         expect.fail("Should have thrown");
       } catch (error) {
-        expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getLoggingPlugins").toString());
-      }
-    });
-
-    it("should throw not implemented for getMetricsPlugins", async () => {
-      try {
-        await config.getMetricsPlugins(dummyTrace);
-        expect.fail("Should have thrown");
-      } catch (error) {
-        expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getMetricsPlugins").toString());
+        expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getObservablePlugins").toString());
       }
     });
 
     it("should throw not implemented for getEventsPlugins", async () => {
       try {
-        await config.getEventsPlugins(dummyTrace);
+        await config.getEventsPlugins(obs);
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getEventsPlugins").toString());
@@ -80,7 +71,7 @@ describe("BSBConfig", () => {
 
     it("should throw not implemented for getServicePlugins", async () => {
       try {
-        await config.getServicePlugins(dummyTrace);
+        await config.getServicePlugins(obs);
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getServicePlugins").toString());
@@ -89,7 +80,7 @@ describe("BSBConfig", () => {
 
     it("should throw not implemented for getPluginConfig", async () => {
       try {
-        await config.getPluginConfig(dummyTrace, "events", "test-plugin");
+        await config.getPluginConfig(obs, "events", "test-plugin");
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getPluginConfig").toString());
@@ -98,7 +89,7 @@ describe("BSBConfig", () => {
 
     it("should throw not implemented for getServicePluginDefinition", async () => {
       try {
-        await config.getServicePluginDefinition(dummyTrace, "test-plugin");
+        await config.getServicePluginDefinition(obs, "test-plugin");
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getServicePluginName").toString());
@@ -120,17 +111,7 @@ describe("BSBConfig", () => {
         // No-op for testing
       }
 
-      async getLoggingPlugins(obs: Observable): Promise<Record<string, LoggingConfig>> {
-        return {
-          "test-plugin": {
-            enabled: true,
-            plugin: "test-plugin",
-            version: "0.0.0"
-          }
-        };
-      }
-
-      async getMetricsPlugins(obs: Observable): Promise<Record<string, PluginDefinition>> {
+      async getObservablePlugins(obs: Observable): Promise<Record<string, ObservableConfig>> {
         return {
           "test-plugin": {
             enabled: true,
@@ -185,23 +166,12 @@ describe("BSBConfig", () => {
         pluginCwd: process.cwd(),
         pluginName: "test-plugin",
         pluginVersion: "0.0.0",
-        sbLogging: MockSBLogging(),
+        sbObservable: MockSBObservable(),
       });
     });
 
-    it("should return logging plugins config", async () => {
-      const result = await config.getLoggingPlugins(dummyTrace);
-      expect(result).to.deep.equal({
-        "test-plugin": {
-          enabled: true,
-          plugin: "test-plugin",
-          version: "0.0.0"
-        }
-      });
-    });
-
-    it("should return metrics plugins config", async () => {
-      const result = await config.getMetricsPlugins(dummyTrace);
+    it("should return observable plugins config", async () => {
+      const result = await config.getObservablePlugins(obs);
       expect(result).to.deep.equal({
         "test-plugin": {
           enabled: true,
@@ -212,7 +182,7 @@ describe("BSBConfig", () => {
     });
 
     it("should return events plugins config", async () => {
-      const result = await config.getEventsPlugins(dummyTrace);
+      const result = await config.getEventsPlugins(obs);
       expect(result).to.deep.equal({
         "test-plugin": {
           enabled: true,
@@ -223,7 +193,7 @@ describe("BSBConfig", () => {
     });
 
     it("should return service plugins config", async () => {
-      const result = await config.getServicePlugins(dummyTrace);
+      const result = await config.getServicePlugins(obs);
       expect(result).to.deep.equal({
         "test-plugin": {
           enabled: true,
@@ -234,14 +204,14 @@ describe("BSBConfig", () => {
     });
 
     it("should return plugin config", async () => {
-      const result = await config.getPluginConfig(dummyTrace, "events", "test-plugin");
+      const result = await config.getPluginConfig(obs, "events", "test-plugin");
       expect(result).to.deep.equal({
         key: "value"
       });
     });
 
     it("should return service plugin definition", async () => {
-      const result = await config.getServicePluginDefinition(dummyTrace, "test-plugin");
+      const result = await config.getServicePluginDefinition(obs, "test-plugin");
       expect(result).to.deep.equal({
         name: "test-plugin",
         enabled: true

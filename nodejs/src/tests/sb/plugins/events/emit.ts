@@ -27,10 +27,10 @@
 
 import * as assert from "assert";
 import {randomUUID} from "crypto";
-import {BSBEvents, SmartFunctionCallSync, DTrace} from "../../../../index";
+import {BSBEvents, SmartFunctionCallSync, Observable} from "../../../../index";
+import { createTestObservable } from "../../../trace";
 
 const randomName = () => randomUUID();
-const createTrace = (): DTrace => ({ t: randomUUID(), s: randomUUID() });
 
 export function emit(
     genNewPlugin: { (): Promise<BSBEvents> },
@@ -44,138 +44,140 @@ export function emit(
     SmartFunctionCallSync(emitter, emitter.dispose);
   });
   describe("Emit", async function () {
-    this.timeout(maxTimeoutToExpectAResponse + 10);
-    this.afterEach((done) => setTimeout(done, maxTimeoutToExpectAResponse));
+    this.timeout(maxTimeoutToExpectAResponse + 100);
     describe("emitEvent", async () => {
       const emitData = true;
       it("only one plugin should receive the event", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
         let receiveCounter = 0;
-        setTimeout(() => {
-          if (receiveCounter === 1) {
-            return assert.ok(receiveCounter);
-          }
-          if (receiveCounter === 0) {
-            return assert.fail("Event not received");
-          }
-          assert.fail("Received " + receiveCounter + " events");
-        }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisPlugin, thisEvent, async (receivedTrace: DTrace, args: any[]) => {
-          assert.strictEqual(receivedTrace.t, trace.t);
+        await emitter.onEvent(obs, thisPlugin, thisEvent, async (receivedObs: Observable, args: any[]) => {
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           receiveCounter++;
         });
-        await emitter.onEvent(trace, thisPlugin, thisEvent, async (receivedTrace: DTrace, args: any[]) => {
-          assert.strictEqual(receivedTrace.t, trace.t);
+        await emitter.onEvent(obs, thisPlugin, thisEvent, async (receivedObs: Observable, args: any[]) => {
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           receiveCounter++;
         });
-        await emitter.emitEvent(trace, thisPlugin, thisEvent, [emitData]);
+        await emitter.emitEvent(obs, thisPlugin, thisEvent, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
+        if (receiveCounter === 1) {
+          return assert.ok(receiveCounter);
+        }
+        if (receiveCounter === 0) {
+          return assert.fail("Event not received");
+        }
+        assert.fail("Received " + receiveCounter + " events");
       });
       it("diff plugin names should not receive same event", async () => {
         const thisPlugin = randomName();
         const thisPlugin2 = randomName();
         const thisEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
         let receiveCounter = 0;
-        setTimeout(() => {
-          if (receiveCounter === 1) {
-            return assert.ok(receiveCounter);
-          }
-          if (receiveCounter === 0) {
-            return assert.fail("Event not received");
-          }
-          assert.fail("Received " + receiveCounter + " events");
-        }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisPlugin, thisEvent, async () => {
+        await emitter.onEvent(obs, thisPlugin, thisEvent, async () => {
           assert.fail("Received on diff plugin name");
         });
-        await emitter.onEvent(trace, thisPlugin2, thisEvent, async (receivedTrace: DTrace, args: any[]) => {
-          assert.strictEqual(receivedTrace.t, trace.t);
+        await emitter.onEvent(obs, thisPlugin2, thisEvent, async (receivedObs: Observable, args: any[]) => {
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           receiveCounter++;
         });
-        await emitter.onEvent(trace, thisPlugin2, thisEvent, async (receivedTrace: DTrace, args: any[]) => {
-          assert.strictEqual(receivedTrace.t, trace.t);
+        await emitter.onEvent(obs, thisPlugin2, thisEvent, async (receivedObs: Observable, args: any[]) => {
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           receiveCounter++;
         });
-        await emitter.emitEvent(trace, thisPlugin2, thisEvent, [emitData]);
+        await emitter.emitEvent(obs, thisPlugin2, thisEvent, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
+        if (receiveCounter === 1) {
+          return assert.ok(receiveCounter);
+        }
+        if (receiveCounter === 0) {
+          return assert.fail("Event not received");
+        }
+        assert.fail("Received " + receiveCounter + " events");
       });
       it("should be able to emit to events with plugin name defined", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisPlugin, thisEvent, async (receivedTrace: DTrace, data: any[]) => {
+        await emitter.onEvent(obs, thisPlugin, thisEvent, async (receivedObs: Observable, data: any[]) => {
           clearTimeout(emitTimeout);
-          assert.strictEqual(receivedTrace.t, trace.t);
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           assert.ok(data[0]);
         });
-        await emitter.emitEvent(trace, thisPlugin, thisEvent, [emitData]);
+        await emitter.emitEvent(obs, thisPlugin, thisEvent, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
       it("should be able to emit to events with self", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisCaller, thisEvent, async (receivedTrace: DTrace, data: any[]) => {
+        await emitter.onEvent(obs, thisCaller, thisEvent, async (receivedObs: Observable, data: any[]) => {
           clearTimeout(emitTimeout);
-          assert.strictEqual(receivedTrace.t, trace.t);
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           assert.ok(data[0]);
         });
-        await emitter.emitEvent(trace, thisCaller, thisEvent, [emitData]);
+        await emitter.emitEvent(obs, thisCaller, thisEvent, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
       it("should be able to emit to events with self multi-args", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisCaller, thisEvent, async (receivedTrace: DTrace, data: any[]) => {
+        await emitter.onEvent(obs, thisCaller, thisEvent, async (receivedObs: Observable, data: any[]) => {
           clearTimeout(emitTimeout);
-          assert.strictEqual(receivedTrace.t, trace.t);
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           assert.deepEqual(data[0], 0);
           assert.deepEqual(data[1], 1);
           assert.deepEqual(data[2], 2);
           assert.deepEqual(data[3], 3);
         });
-        await emitter.emitEvent(trace, thisCaller, thisEvent, [0, 1, 2, 3]);
+        await emitter.emitEvent(obs, thisCaller, thisEvent, [0, 1, 2, 3]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
       it("should not be able to emit to other events with plugin name defined", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();
         const thisEvent2 = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisPlugin, thisEvent, async () => {
+        await emitter.onEvent(obs, thisPlugin, thisEvent, async () => {
           clearTimeout(emitTimeout);
           assert.fail("Event received");
         });
-        await emitter.emitEvent(trace, thisPlugin, thisEvent2, [emitData]);
+        await emitter.emitEvent(obs, thisPlugin, thisEvent2, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
       it("should not be able to emit to other events with self", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
         const thisEvent2 = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisCaller, thisEvent, async () => {
+        await emitter.onEvent(obs, thisCaller, thisEvent, async () => {
           clearTimeout(emitTimeout);
           assert.fail("Event received");
         });
-        await emitter.emitEvent(trace, thisCaller, thisEvent2, [emitData]);
+        await emitter.emitEvent(obs, thisCaller, thisEvent2, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
     });
     describe("onEvent", async () => {
@@ -183,62 +185,66 @@ export function emit(
       it("should be able to emit to events with plugin name defined", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisPlugin, thisEvent, async (receivedTrace: DTrace, data: any[]) => {
+        await emitter.onEvent(obs, thisPlugin, thisEvent, async (receivedObs: Observable, data: any[]) => {
           clearTimeout(emitTimeout);
-          assert.strictEqual(receivedTrace.t, trace.t);
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           assert.deepEqual(data[0], emitData);
         });
-        await emitter.emitEvent(trace, thisPlugin, thisEvent, [emitData]);
+        await emitter.emitEvent(obs, thisPlugin, thisEvent, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
       it("should be able to emit to events with self", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisCaller, thisEvent, async (receivedTrace: DTrace, data: any[]) => {
+        await emitter.onEvent(obs, thisCaller, thisEvent, async (receivedObs: Observable, data: any[]) => {
           clearTimeout(emitTimeout);
-          assert.strictEqual(receivedTrace.t, trace.t);
+          assert.strictEqual(receivedObs.traceId, obs.traceId);
           assert.deepEqual(data[0], emitData);
         });
-        await emitter.emitEvent(trace, thisCaller, thisEvent, [emitData]);
+        await emitter.emitEvent(obs, thisCaller, thisEvent, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
       it("should not be able to emit to other events with plugin name defined", async () => {
         const thisPlugin = randomName();
         const thisEvent = randomName();
         const thisEvent2 = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisPlugin, thisEvent, async () => {
+        await emitter.onEvent(obs, thisPlugin, thisEvent, async () => {
           clearTimeout(emitTimeout);
           assert.fail("Event received");
         });
-        await emitter.emitEvent(trace, thisPlugin, thisEvent2, [emitData]);
+        await emitter.emitEvent(obs, thisPlugin, thisEvent2, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
       it("should not be able to emit to other events with self", async () => {
         const thisCaller = randomName();
         const thisEvent = randomName();
         const thisEvent2 = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.ok(true);
         }, maxTimeoutToExpectAResponse);
-        await emitter.onEvent(trace, thisCaller, thisEvent, async () => {
+        await emitter.onEvent(obs, thisCaller, thisEvent, async () => {
           clearTimeout(emitTimeout);
           assert.fail("Event received");
         });
-        await emitter.emitEvent(trace, thisCaller, thisEvent2, [emitData]);
+        await emitter.emitEvent(obs, thisCaller, thisEvent2, [emitData]);
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
     });
     const typesToTest = [
@@ -294,62 +300,66 @@ export function emit(
         it("should be able to emit to events with plugin name defined", async () => {
           const thisPlugin = randomName();
           const thisEvent = randomName();
-          const trace = createTrace();
+          const obs = createTestObservable();
 
           const emitTimeout = setTimeout(() => {
             assert.fail("Event not received");
           }, maxTimeoutToExpectAResponse);
-          await emitter.onEvent(trace, thisPlugin, thisEvent, async (receivedTrace: DTrace, data: any[]) => {
+          await emitter.onEvent(obs, thisPlugin, thisEvent, async (receivedObs: Observable, data: any[]) => {
             clearTimeout(emitTimeout);
-            assert.strictEqual(receivedTrace.t, trace.t);
+            assert.strictEqual(receivedObs.traceId, obs.traceId);
             assert.deepEqual(data[0], typeToTest.data);
           });
-          await emitter.emitEvent(trace, thisPlugin, thisEvent, [typeToTest.data]);
+          await emitter.emitEvent(obs, thisPlugin, thisEvent, [typeToTest.data]);
+          await new Promise(resolve => setTimeout(resolve, 10));
         });
         it("should be able to emit to events with self", async () => {
           const thisCaller = randomName();
           const thisEvent = randomName();
-          const trace = createTrace();
+          const obs = createTestObservable();
 
           const emitTimeout = setTimeout(() => {
             assert.fail("Event not received");
           }, maxTimeoutToExpectAResponse);
-          await emitter.onEvent(trace, thisCaller, thisEvent, async (receivedTrace: DTrace, data: any[]) => {
+          await emitter.onEvent(obs, thisCaller, thisEvent, async (receivedObs: Observable, data: any[]) => {
             clearTimeout(emitTimeout);
-            assert.strictEqual(receivedTrace.t, trace.t);
+            assert.strictEqual(receivedObs.traceId, obs.traceId);
             assert.deepEqual(data[0], typeToTest.data);
           });
-          await emitter.emitEvent(trace, thisCaller, thisEvent, [typeToTest.data]);
+          await emitter.emitEvent(obs, thisCaller, thisEvent, [typeToTest.data]);
+          await new Promise(resolve => setTimeout(resolve, 10));
         });
         it("should not be able to emit to other events with plugin name defined", async () => {
           const thisPlugin = randomName();
           const thisEvent = randomName();
           const thisEvent2 = randomName();
-          const trace = createTrace();
+          const obs = createTestObservable();
 
           const emitTimeout = setTimeout(() => {
             assert.ok(true);
           }, maxTimeoutToExpectAResponse);
-          await emitter.onEvent(trace, thisPlugin, thisEvent, async () => {
+          await emitter.onEvent(obs, thisPlugin, thisEvent, async () => {
             clearTimeout(emitTimeout);
             assert.fail("Event received");
           });
-          await emitter.emitEvent(trace, thisPlugin, thisEvent2, [typeToTest.data]);
+          await emitter.emitEvent(obs, thisPlugin, thisEvent2, [typeToTest.data]);
+          await new Promise(resolve => setTimeout(resolve, 10));
         });
         it("should not be able to emit to other events with self", async () => {
           const thisCaller = randomName();
           const thisEvent = randomName();
           const thisEvent2 = randomName();
-          const trace = createTrace();
+          const obs = createTestObservable();
 
           const emitTimeout = setTimeout(() => {
             assert.ok(true);
           }, maxTimeoutToExpectAResponse);
-          await emitter.onEvent(trace, thisCaller, thisEvent, async () => {
+          await emitter.onEvent(obs, thisCaller, thisEvent, async () => {
             clearTimeout(emitTimeout);
             assert.fail("Event received");
           });
-          await emitter.emitEvent(trace, thisCaller, thisEvent2, [typeToTest.data]);
+          await emitter.emitEvent(obs, thisCaller, thisEvent2, [typeToTest.data]);
+          await new Promise(resolve => setTimeout(resolve, 10));
         });
       });
     }

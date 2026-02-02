@@ -27,13 +27,13 @@
 
 import { expect } from "chai";
 import { BSBEventsRef } from "../../base/BSBEvents";
-import { createFakeDTrace } from "../trace";
+import { createTestObservable } from "../trace";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "../../base/errorMessages";
-import { MockSBLogging, MockSBMetrics } from "../mocks";
+import { MockSBObservable } from "../mocks";
 import { Readable } from "node:stream";
 
 describe("BSBEvents", () => {
-  const dummyTrace = createFakeDTrace();
+  const obs = createTestObservable();
 
   describe("BSBEventsRef", () => {
     let events: BSBEventsRef;
@@ -47,15 +47,14 @@ describe("BSBEvents", () => {
         pluginCwd: process.cwd(),
         pluginName: "test-plugin",
         pluginVersion: "0.0.0",
-        sbLogging: MockSBLogging(),
-        sbMetrics: MockSBMetrics(),
+        sbObservable: MockSBObservable(),
         config: null
       });
     });
 
     it("should throw not implemented for onBroadcast", async () => {
       try {
-        await events.onBroadcast(dummyTrace, "test-plugin", "test-event", async () => { });
+        await events.onBroadcast(obs, "test-plugin", "test-event", async () => { });
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onBroadcast").toString());
@@ -64,7 +63,7 @@ describe("BSBEvents", () => {
 
     it("should throw not implemented for emitBroadcast", async () => {
       try {
-        await events.emitBroadcast(dummyTrace, "test-plugin", "test-event", []);
+        await events.emitBroadcast(obs, "test-plugin", "test-event", []);
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "emitBroadcast").toString());
@@ -73,7 +72,7 @@ describe("BSBEvents", () => {
 
     it("should throw not implemented for onEvent", async () => {
       try {
-        await events.onEvent(dummyTrace, "test-plugin", "test-event", async () => { });
+        await events.onEvent(obs, "test-plugin", "test-event", async () => { });
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onEvent").toString());
@@ -82,7 +81,7 @@ describe("BSBEvents", () => {
 
     it("should throw not implemented for emitEvent", async () => {
       try {
-        await events.emitEvent(dummyTrace, "test-plugin", "test-event", []);
+        await events.emitEvent(obs, "test-plugin", "test-event", []);
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "emitEvent").toString());
@@ -91,7 +90,7 @@ describe("BSBEvents", () => {
 
     it("should throw not implemented for onReturnableEvent", async () => {
       try {
-        await events.onReturnableEvent(dummyTrace, "test-plugin", "test-event", async () => { });
+        await events.onReturnableEvent(obs, "test-plugin", "test-event", async () => { });
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "onReturnableEvent").toString());
@@ -100,7 +99,7 @@ describe("BSBEvents", () => {
 
     it("should throw not implemented for emitEventAndReturn", async () => {
       try {
-        await events.emitEventAndReturn(dummyTrace, "test-plugin", "test-event", 30, []);
+        await events.emitEventAndReturn(obs, "test-plugin", "test-event", 30, []);
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "emitEventAndReturn").toString());
@@ -109,7 +108,7 @@ describe("BSBEvents", () => {
 
     it("should throw not implemented for receiveStream", async () => {
       try {
-        await events.receiveStream(dummyTrace, "test-plugin", "test-event", async () => { }, 30);
+        await events.receiveStream(obs, "test-plugin", "test-event", async () => { }, 30);
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "receiveStream").toString());
@@ -123,7 +122,7 @@ describe("BSBEvents", () => {
             this.push(null);
           }
         });
-        await events.sendStream(dummyTrace, "test-plugin", "test-event", "test-stream-id", mockStream);
+        await events.sendStream(obs, "test-plugin", "test-event", "test-stream-id", mockStream);
         expect.fail("Should have thrown");
       } catch (error) {
         expect((error as BSBError<string>).toString()).to.equal(BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBEventsRef", "sendStream").toString());

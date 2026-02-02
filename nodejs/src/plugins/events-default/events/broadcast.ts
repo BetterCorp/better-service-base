@@ -46,7 +46,7 @@ export class broadcast extends EventEmitter {
     event: string,
     listener: { (obs: Observable, args: Array<any>): Promise<void> }
   ): Promise<void> {
-    this.log.debug(obs.trace, "onBroadcast: listening to {pluginName}-{event}", {
+    obs.log.debug("onBroadcast: listening to {pluginName}-{event}", {
       pluginName,
       event,
     });
@@ -82,7 +82,7 @@ export class broadcast extends EventEmitter {
     });
 
     try {
-      this.log.debug(sendObs.trace, "emitBroadcast: emitting {pluginName}-{event}", {
+      sendObs.log.debug("emitBroadcast: emitting {pluginName}-{event}", {
         pluginName, event,
       });
       this.emit(`${ pluginName }-${ event }`, sendObs, args);

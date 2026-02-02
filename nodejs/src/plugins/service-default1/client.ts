@@ -44,13 +44,13 @@ export class testClient extends BSBServiceClient<Plugin> {
     this.initObs = obs;
     // Handle emittable events
     this.events.onEvent("onEmittable", obs, async (obs: Observable, input: any) => {
-      this.log.warn(obs.trace, "onEmittable ({a},{b})", { a: input.a, b: input.b });
+      obs.log.warn( "onEmittable ({a},{b})", { a: input.a, b: input.b });
     });
 
     // Handle returnable events
     this.events.onReturnableEvent("onReverseReturnable", obs, async (obs: Observable, input: any) => {
       this.count++;
-      this.log.warn(obs.trace, "onReverseReturnable ({a},{b})", { a: input.a, b: input.b });
+      obs.log.warn( "onReverseReturnable ({a},{b})", { a: input.a, b: input.b });
       return input.a * input.b;
     });
 

@@ -31,40 +31,40 @@ import { emitAndReturn } from "./emitAndReturn";
 import { emitStreamAndReceiveStream } from "./emitStreamAndReceiveStream";
 import {
   BSBEventsRef,
-  createFakeDTrace,
 } from "../../../../index";
 import { getEventsConstructorConfig } from '../../../mocks';
+import { createTestObservable } from "../../../trace";
 
 export const RunEventsPluginTests = (
   eventsPlugin: typeof BSBEventsRef,
   config: any = undefined,
 ) => {
-  const trace = createFakeDTrace('test-trace', 'test-span');
+  const obs = createTestObservable();
   broadcast(async () => {
     const refP = new eventsPlugin(await getEventsConstructorConfig(config));
     if (refP.init !== undefined) {
-      await refP.init(trace);
+      await refP.init(obs);
     }
     return refP;
-  }, 10);
+  }, 100);
   emit(async () => {
     const refP = new eventsPlugin(await getEventsConstructorConfig(config));
     if (refP.init !== undefined) {
-      await refP.init(trace);
+      await refP.init(obs);
     }
     return refP;
-  }, 10);
+  }, 100);
   emitAndReturn(async () => {
     const refP = new eventsPlugin(await getEventsConstructorConfig(config));
     if (refP.init !== undefined) {
-      await refP.init(trace);
+      await refP.init(obs);
     }
     return refP;
-  }, 10);
+  }, 100);
   emitStreamAndReceiveStream(async () => {
     const refP = new eventsPlugin(await getEventsConstructorConfig(config));
     if (refP.init !== undefined) {
-      await refP.init(trace);
+      await refP.init(obs);
     }
     //refP.eas.staticCommsTimeout = 25;
     return refP;

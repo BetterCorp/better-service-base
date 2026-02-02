@@ -50,15 +50,30 @@ function internalTrace(span: string): DTrace {
  * BSB Observable Controller - Unified logging, metrics, and tracing
  *
  * This class is responsible for managing all observability in the BSB framework.
- * If you have a specific way of managing observability, you can extend this class and then use your own class when creating the ServiceBase instance.
+ * It coordinates observable plugins (like OpenTelemetry, Prometheus, etc.) and
+ * routes events from the Observable API to the configured backends.
+ *
+ * If you have a specific way of managing observability, you can extend this class
+ * and use your own class when creating the ServiceBase instance.
  *
  * @group Observable
  * @category Core
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBObservable.html | API: SBObservable}
+ *
+ * @example
+ * ```typescript
+ * // Custom observable controller
+ * class MyObservable extends SBObservable {
+ *   // Override methods as needed
+ * }
+ *
+ * // Use custom controller
+ * const serviceBase = new ServiceBase(appId, {
+ *   observableClass: MyObservable
+ * });
+ * ```
  */
 export class SBObservable {
-  /**
-   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBObservable.html | API: SBObservable}
-   */
   private observablePlugins: Array<{
     plugin: BSBObservable<any>;
     on?: ObservableFilter;
@@ -72,10 +87,21 @@ export class SBObservable {
   private log: IPluginLogging;
   private _ready = false;
 
+  /**
+   * Check if observable plugins are ready
+   * @returns true if all plugins have been initialized
+   */
   public get isReady() {
     return this._ready;
   }
 
+  /**
+   * Create an SBObservable instance
+   * @param appId - Application ID
+   * @param mode - Debug mode (development, production, production-debug)
+   * @param cwd - Current working directory
+   * @param sbPlugins - Plugin manager instance
+   */
   constructor(
     appId: string,
     mode: DEBUG_MODE,
@@ -379,6 +405,14 @@ export class SBObservable {
     return "all";
   }
 
+  /**
+   * Setup and load observable plugins from configuration
+   *
+   * Loads configured observable plugins and initializes their filters.
+   * This is called during ServiceBase initialization.
+   *
+   * @param sbConfig - Configuration manager instance
+   */
   public async setupObservablePlugins(sbConfig: SBConfig) {
     const trace = internalTrace("setupObservablePlugins");
 
@@ -445,6 +479,15 @@ export class SBObservable {
     this.log.info(trace, "Observable plugins setup complete");
   }
 
+  /**
+   * Initialize all observable plugins
+   *
+   * Calls the init lifecycle method on all loaded observable plugins.
+   * This is called during ServiceBase initialization.
+   *
+   * @param trace - DTrace for tracking initialization
+   * @param sbConfig - Configuration manager instance
+   */
   public async init(trace: DTrace, sbConfig: SBConfig) {
     this.log.info(trace, "Setting up observable plugins");
     await this.setupObservablePlugins(sbConfig);
@@ -458,6 +501,14 @@ export class SBObservable {
     this.log.info(trace, "Observable plugins initialized");
   }
 
+  /**
+   * Run all observable plugins
+   *
+   * Calls the run lifecycle method on all loaded observable plugins.
+   * This is called during ServiceBase startup.
+   *
+   * @param trace - DTrace for tracking the run phase
+   */
   public async run(trace: DTrace) {
     this.log.info(trace, "Running observable plugins");
     for (const observablePlugin of this.observablePlugins) {
@@ -468,6 +519,12 @@ export class SBObservable {
     this.log.info(trace, "Observable plugins running");
   }
 
+  /**
+   * Dispose all observable plugins
+   *
+   * Calls the dispose lifecycle method on all loaded observable plugins
+   * and clears the plugin list. This is called during ServiceBase shutdown.
+   */
   public async dispose() {
     for (const observablePlugin of this.observablePlugins) {
       if (observablePlugin.plugin.dispose) {
@@ -478,55 +535,165 @@ export class SBObservable {
   }
 
   // Logging API (for PluginLogging to use)
+  /**
+   * Emit a debug log event
+   * @param plugin - Plugin name
+   * @param trace - DTrace object
+   * @param message - Log message
+   * @param meta - Log metadata
+   */
   public debug(plugin: string, trace: DTrace, message: string, meta: LogMeta<any>) {
     this.observableBus.emit("debug", plugin, trace, message, meta);
   }
 
+  /**
+   * Emit an info log event
+   * @param plugin - Plugin name
+   * @param trace - DTrace object
+   * @param message - Log message
+   * @param meta - Log metadata
+   */
   public info(plugin: string, trace: DTrace, message: string, meta: LogMeta<any>) {
     this.observableBus.emit("info", plugin, trace, message, meta);
   }
 
+  /**
+   * Emit a warn log event
+   * @param plugin - Plugin name
+   * @param trace - DTrace object
+   * @param message - Log message
+   * @param meta - Log metadata
+   */
   public warn(plugin: string, trace: DTrace, message: string, meta: LogMeta<any>) {
     this.observableBus.emit("warn", plugin, trace, message, meta);
   }
 
+  /**
+   * Emit an error log event
+   * @param plugin - Plugin name
+   * @param trace - DTrace object
+   * @param message - Log message or BSBError
+   * @param meta - Log metadata (optional)
+   */
   public error(plugin: string, trace: DTrace, message: string | BSBError<any>, meta?: LogMeta<any>) {
     this.observableBus.emit("error", plugin, trace, message, meta);
   }
 
   // Metrics API (for PluginMetrics to use)
+  /**
+   * Emit counter creation event
+   * @param timestamp - Event timestamp
+   * @param pluginName - Plugin name
+   * @param name - Metric name
+   * @param description - Short description
+   * @param help - Detailed help text
+   * @param labels - Optional label names
+   */
   public createCounter(timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]) {
     this.observableBus.emit("createCounter", timestamp, pluginName, name, description, help, labels);
   }
 
+  /**
+   * Emit counter increment event
+   * @param timestamp - Event timestamp
+   * @param pluginName - Plugin name
+   * @param name - Metric name
+   * @param value - Increment value
+   * @param labels - Optional label values
+   */
   public incrementCounter(timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>) {
     this.observableBus.emit("incrementCounter", timestamp, pluginName, name, value, labels);
   }
 
+  /**
+   * Emit gauge creation event
+   * @param timestamp - Event timestamp
+   * @param pluginName - Plugin name
+   * @param name - Metric name
+   * @param description - Short description
+   * @param help - Detailed help text
+   * @param labels - Optional label names
+   */
   public createGauge(timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]) {
     this.observableBus.emit("createGauge", timestamp, pluginName, name, description, help, labels);
   }
 
+  /**
+   * Emit gauge set event
+   * @param timestamp - Event timestamp
+   * @param pluginName - Plugin name
+   * @param name - Metric name
+   * @param value - New gauge value
+   * @param labels - Optional label values
+   */
   public setGauge(timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>) {
     this.observableBus.emit("setGauge", timestamp, pluginName, name, value, labels);
   }
 
+  /**
+   * Emit histogram creation event
+   * @param timestamp - Event timestamp
+   * @param pluginName - Plugin name
+   * @param name - Metric name
+   * @param description - Short description
+   * @param help - Detailed help text
+   * @param boundaries - Optional histogram boundaries
+   * @param labels - Optional label names
+   */
   public createHistogram(timestamp: number, pluginName: string, name: string, description: string, help: string, boundaries?: number[], labels?: string[]) {
     this.observableBus.emit("createHistogram", timestamp, pluginName, name, description, help, boundaries, labels);
   }
 
+  /**
+   * Emit histogram observation event
+   * @param timestamp - Event timestamp
+   * @param pluginName - Plugin name
+   * @param name - Metric name
+   * @param value - Observed value
+   * @param labels - Optional label values
+   */
   public observeHistogram(timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>) {
     this.observableBus.emit("observeHistogram", timestamp, pluginName, name, value, labels);
   }
 
+  /**
+   * Emit span start event
+   * @param timestamp - Event timestamp
+   * @param appId - Application ID
+   * @param pluginName - Plugin name
+   * @param traceId - Trace ID
+   * @param parentSpanId - Parent span ID (null for root spans)
+   * @param spanId - This span's ID
+   * @param name - Span name
+   * @param attributes - Optional span attributes
+   */
   public startSpan(timestamp: number, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) {
     this.observableBus.emit("spanStart", { t: traceId, s: spanId }, pluginName, name, attributes);
   }
 
+  /**
+   * Emit span end event
+   * @param timestamp - Event timestamp
+   * @param appId - Application ID
+   * @param pluginName - Plugin name
+   * @param traceId - Trace ID
+   * @param spanId - Span ID
+   * @param attributes - Optional final attributes
+   */
   public endSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, attributes?: Record<string, string | number | boolean>) {
     this.observableBus.emit("spanEnd", { t: traceId, s: spanId }, pluginName, attributes);
   }
 
+  /**
+   * Emit span error event
+   * @param timestamp - Event timestamp
+   * @param appId - Application ID
+   * @param pluginName - Plugin name
+   * @param traceId - Trace ID
+   * @param spanId - Span ID
+   * @param error - Error to record
+   * @param attributes - Optional error attributes
+   */
   public errorSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, error: Error, attributes?: Record<string, string | number | boolean>) {
     this.observableBus.emit("spanError", { t: traceId, s: spanId }, pluginName, error, attributes);
   }

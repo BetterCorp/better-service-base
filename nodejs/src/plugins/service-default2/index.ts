@@ -142,22 +142,22 @@ export class Plugin
 
   public async init(obs: Observable) {
     this.events.onReturnableEvent("calculate", obs, async (obs: Observable, input) => {
-      this.log.info(obs.trace, "Calculating {a} * {b}", { a: input.a, b: input.b });
+      obs.log.info( "Calculating {a} * {b}", { a: input.a, b: input.b });
       return input.a * input.b;
     });
   }
 
   public async run(obs: Observable) {
-    this.log.info(obs.trace, "Running service-default2");
+    obs.log.info( "Running service-default2");
     const result = await this.service1.events.emitEventAndReturn("calculate", obs, { 
       a: 5, 
       b: 5 
     }, 5)
     await this.service3.events.onReturnableEvent("calculate", obs, async (obs: Observable, input) => {
-      this.log.info(obs.trace, "Calculating {a} * {b}", { a: input.a, b: input.b });
+      obs.log.info( "Calculating {a} * {b}", { a: input.a, b: input.b });
       return input.a * input.b;
     });
-    this.log.info(obs.trace, "Calculation result: {result}", { result });
+    obs.log.info( "Calculation result: {result}", { result });
 
     // Use events to calculate instead of direct method calls
     // const result = await this.events.emitEventAndReturn(

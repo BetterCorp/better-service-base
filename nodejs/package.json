@@ -17,8 +17,9 @@
     "build": "rimraf ./lib && tsc && npm run testDev && npm run generate-docs",
     "build-release": "rimraf ./lib && tsc --p ./tsconfig-release.json",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
-    "test": "node ./node_modules/nyc/bin/nyc.js --reporter json --reporter lcov ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts' --reporter json --reporter-options output=junit.json",
-    "testDev": "NODE_OPTIONS=\"--loader ts-node/esm\" ts-node ./node_modules/nyc/bin/nyc.js ./node_modules/mocha/bin/mocha.js -r ts-node/register 'src/tests/**/*.ts'"
+    "test": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc --reporter json --reporter lcov mocha --reporter json --reporter-options output=junit.json",
+    "testDev": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc mocha",
+    "test:watch": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= mocha --watch --watch-files src"
   },
   "bin": {
     "bsb": "lib/cli.js"
@@ -50,6 +51,7 @@
     "benchmarkify": "^4.0.0",
     "chai": "^4.3.10",
     "chokidar": "^5.0.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "mocha": "^11.7.5",
     "nyc": "^17.1.0",

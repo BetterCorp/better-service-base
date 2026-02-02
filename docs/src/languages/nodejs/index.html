@@ -219,6 +219,16 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
         </div>
 
         <div class="info-box">
+            <h4>📖 BSB v9 Documentation</h4>
+            <p>BSB v9 introduces the <strong>Observable pattern</strong> for unified observability. Check out our comprehensive guides:</p>
+            <ul>
+                <li><a href="/languages/nodejs/migration-v9.html">Migration Guide: v8 to v9</a> - Step-by-step migration from DTrace to Observable</li>
+                <li><a href="/languages/nodejs/observable-guide.html">Observable Pattern Guide</a> - Complete usage guide with examples</li>
+                <li><a href="/languages/nodejs/types/">API Reference (TypeDoc)</a> - Full TypeScript API documentation</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
             <h4>🔎 Discovery & Runtime</h4>
             <ul>
                 <li>Production: run the BSB container and provide plugins via <code>BSB_PLUGIN_DIR</code></li>
@@ -314,7 +324,7 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
                     <h3>Create Your First Service Plugin</h3>
                     <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor → init → run → dispose</code>):</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
-<pre><code class="language-ts">import { BSBService, BSBServiceConstructor, BSBServiceClientDefinition, DTrace, z } from '@bettercorp/service-base';
+<pre><code class="language-ts">import { BSBService, BSBServiceConstructor, BSBServiceClientDefinition, Observable, z } from '@bettercorp/service-base';
 import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from '@bettercorp/service-base';
 
 // Schema-first event definitions with automatic validation
@@ -330,8 +340,8 @@ export const EventSchemas = {
       'Send notification to user'
     )
   },
-  
-  // Events this service listens to (fire-and-forget)  
+
+  // Events this service listens to (fire-and-forget)
   onEvents: {
     'user.created': createFireAndForgetEvent(
       z.object({
@@ -341,7 +351,7 @@ export const EventSchemas = {
       'Handle user creation event'
     )
   },
-  
+
   // Returnable events this service emits (RPC-like requests from this service)
   emitReturnableEvents: {
     'data.fetch': createReturnableEvent(
@@ -354,7 +364,7 @@ export const EventSchemas = {
       'Fetch user data from external service'
     )
   },
-  
+
   // Returnable events this service listens to (RPC-like requests to this service)
   onReturnableEvents: {
     'api.getUser': createReturnableEvent(
@@ -368,7 +378,7 @@ export const EventSchemas = {
       'Get user status information'
     )
   },
-  
+
   // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'system.alert': createBroadcastEvent(
@@ -380,7 +390,7 @@ export const EventSchemas = {
       'System-wide alert broadcast'
     )
   },
-  
+
   // Broadcast events this service listens to
   onBroadcast: {
     'system.maintenance': createBroadcastEvent(
@@ -392,6 +402,10 @@ export const EventSchemas = {
     )
   }
 } as const; // 🔑 Critical for type safety!
+
+// Learn more about the Observable pattern:
+// - Migration Guide: /languages/nodejs/migration-v9.html
+// - Observable Guide: /languages/nodejs/observable-guide.html
 
 // IMPORTANT: Export class name MUST be `Plugin`
 export class Plugin extends BSBService<null, typeof EventSchemas> {
@@ -410,11 +424,11 @@ export class Plugin extends BSBService<null, typeof EventSchemas> {
     });
   }
 
-  public async init(trace: DTrace): Promise<void> {
+  public async init(obs: Observable): Promise<void> {
     // Listen for user.created events (with automatic validation)
-    await this.events.onEvent('user.created', trace, async (_t, data) => {
+    await this.events.onEvent('user.created', obs, async (childObs, data) => {
       // Emit a notification when a user is created (with automatic validation)
-      await this.events.emitEvent('notification.send', trace, {
+      await this.events.emitEvent('notification.send', childObs, {
         type: 'welcome',
         userId: data.userId,
         message: `Welcome ${data.email}!`
@@ -422,15 +436,15 @@ export class Plugin extends BSBService<null, typeof EventSchemas> {
     });
 
     // Expose a returnable (RPC-like) handler (with automatic validation)
-    await this.events.onReturnableEvent('api.getUser', trace, async (_t, data) => {
+    await this.events.onReturnableEvent('api.getUser', obs, async (childObs, data) => {
       // Typically fetch from a DB; returning inline for example
       return { userId: data.userId, status: 'active' }; // Return data is validated automatically
     });
   }
 
-  public async run(trace: DTrace): Promise<void> {
+  public async run(obs: Observable): Promise<void> {
     // Service is ready - emit a system alert as an example
-    await this.events.emitBroadcast('system.alert', trace, {
+    await this.events.emitBroadcast('system.alert', obs, {
       level: 'info',
       message: 'My API service is now running',
       timestamp: new Date().toISOString()
@@ -572,36 +586,36 @@ npm run dev</code></pre></div>
             <p>BSB services communicate exclusively through typed events:</p>
             
             <div class="code-block" data-title="Event Types"><pre><code class="language-ts">// Fire-and-forget events (single object parameter)
-await this.events.emitEvent('notification.send', trace, {
+await this.events.emitEvent('notification.send', obs, {
   type: 'welcome',
   userId: 'user-123',
   message: 'Welcome!'
 });
 
 // Returnable events (RPC-style, single object parameter)
-const result = await this.events.emitEventAndReturn('api.getUser', trace, {
+const result = await this.events.emitEventAndReturn('api.getUser', obs, {
   userId: 'user-123'
 }, 5); // timeout in seconds
 
 // Broadcast events (all listeners receive, single object parameter)
-await this.events.emitBroadcast('system.alert', trace, {
+await this.events.emitBroadcast('system.alert', obs, {
   level: 'info',
   message: 'System status update',
   timestamp: new Date().toISOString()
 });
 
 // Listen to events (object parameter in handler)
-await this.events.onEvent('user.created', trace, async (_t, data) => {
+await this.events.onEvent('user.created', obs, async (childObs, data) => {
   console.log(`New user: ${data.email}`);
 });
 
 // Expose returnable methods (object parameter and return)
-await this.events.onReturnableEvent('api.getUser', trace, async (_t, data) => {
+await this.events.onReturnableEvent('api.getUser', obs, async (childObs, data) => {
   return { userId: data.userId, status: 'active' };
 });
 
 // Listen to broadcast events
-await this.events.onBroadcast('system.maintenance', trace, async (_t, data) => {
+await this.events.onBroadcast('system.maintenance', obs, async (childObs, data) => {
   console.log(`Maintenance starts at: ${data.startTime}`);
 });</code></pre></div>
         </div>

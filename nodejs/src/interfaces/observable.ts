@@ -97,6 +97,17 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
 
   /**
    * Logging methods with automatic trace context
+   *
+   * All log methods automatically include trace context (trace ID, span ID) in the output.
+   * Logs support placeholder syntax for structured logging.
+   *
+   * @example
+   * ```typescript
+   * obs.log.debug("Processing {count} items", { count: 10 });
+   * obs.log.info("Request started");
+   * obs.log.warn("Rate limit approaching");
+   * obs.log.error("Failed to connect to database");
+   * ```
    */
   log: {
     /**
@@ -130,6 +141,24 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
 
   /**
    * Metrics methods for creating counters, gauges, histograms, and timers
+   *
+   * @example
+   * ```typescript
+   * // Counter for tracking requests
+   * const requests = obs.metrics.counter(
+   *   "requests_total",
+   *   "Total requests",
+   *   "Count of all incoming requests",
+   *   ["method", "status"]
+   * );
+   * requests.increment(1, { method: "GET", status: "200" });
+   *
+   * // Timer for measuring duration
+   * const timer = obs.metrics.timer();
+   * await processRequest();
+   * const duration = timer.stop();
+   * obs.log.info("Request took {ms}ms", { ms: duration });
+   * ```
    */
   metrics: {
     /**
@@ -184,18 +213,54 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
 
   /**
    * Create a child span with inherited attributes
+   *
+   * Child spans inherit all attributes from the parent and form a parent-child
+   * relationship in the distributed trace. Always call end() when done.
+   *
    * @param name - Name of the span
    * @param attributes - Additional attributes for this span
    * @returns New Observable representing the child span
+   *
+   * @example
+   * ```typescript
+   * public async fetchUser(obs: Observable, userId: string) {
+   *   const span = obs.span("fetch-user", { "user.id": userId });
+   *   try {
+   *     const user = await this.db.query("SELECT * FROM users WHERE id = ?", [userId]);
+   *     span.end({ "user.found": true });
+   *     return user;
+   *   } catch (error) {
+   *     span.error(error as Error);
+   *     span.end({ "user.found": false });
+   *     throw error;
+   *   }
+   * }
+   * ```
    */
   span(name: string, attributes?: Record<string, string | number | boolean>): Observable<TAttributeSchema>;
 
   /**
    * Create a new Observable with an additional attribute
-   * Observables are immutable - this returns a new instance
+   *
+   * Observables are immutable - this returns a new instance.
+   * Attributes are propagated to all child operations (logs, spans, metrics).
+   *
    * @param key - Attribute key
    * @param value - Attribute value
    * @returns New Observable with the added attribute
+   *
+   * @example
+   * ```typescript
+   * public async handleRequest(obs: Observable, req: Request) {
+   *   // Add request ID to all subsequent operations
+   *   const withRequestId = obs.setAttribute("request.id", req.id);
+   *   withRequestId.log.info("Handling request");
+   *
+   *   // Chain multiple attributes
+   *   const withUser = withRequestId.setAttribute("user.id", req.userId);
+   *   const span = withUser.span("process-request");
+   * }
+   * ```
    */
   setAttribute<K extends string, V extends string | number | boolean>(
     key: K,
@@ -204,22 +269,67 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
 
   /**
    * Create a new Observable with multiple attributes
-   * Observables are immutable - this returns a new instance
+   *
+   * Observables are immutable - this returns a new instance.
+   * More efficient than calling setAttribute multiple times.
+   *
    * @param attrs - Attributes to add
    * @returns New Observable with the added attributes
+   *
+   * @example
+   * ```typescript
+   * public async handleRequest(obs: Observable, req: Request) {
+   *   const withContext = obs.setAttributes({
+   *     "request.id": req.id,
+   *     "user.id": req.userId,
+   *     "request.method": req.method,
+   *     "request.path": req.path
+   *   });
+   *   withContext.log.info("Processing request");
+   * }
+   * ```
    */
   setAttributes(attrs: Record<string, string | number | boolean>): Observable<TAttributeSchema>;
 
   /**
    * Record an error to both logs and traces
+   *
+   * Automatically records the error to both the logging system and the active span.
+   * This ensures errors are captured in both systems for complete observability.
+   *
    * @param error - Error or BSBError to record
    * @param attributes - Additional attributes to attach
+   *
+   * @example
+   * ```typescript
+   * const span = obs.span("risky-operation");
+   * try {
+   *   await this.doSomethingRisky();
+   *   span.end({ "status": "success" });
+   * } catch (error) {
+   *   span.error(error as Error, { "status": "failed", "retry": true });
+   *   span.end();
+   *   throw error;
+   * }
+   * ```
    */
   error(error: Error, attributes?: Record<string, string | number | boolean>): void;
 
   /**
    * End the span (only applies if this Observable was created via span())
+   *
+   * Completes the span and records the final state. If this Observable was not
+   * created via span(), this method does nothing.
+   *
    * @param attributes - Final attributes to attach before ending
+   *
+   * @example
+   * ```typescript
+   * const span = obs.span("process-batch");
+   * const items = await this.fetchItems();
+   * await this.processItems(items);
+   * span.end({ "items.processed": items.length, "status": "complete" });
+   * ```
    */
   end(attributes?: Record<string, string | number | boolean>): void;
 }

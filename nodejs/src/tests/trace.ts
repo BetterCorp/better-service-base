@@ -26,6 +26,11 @@
  */
 
 import { DTrace } from '../interfaces';
+import { Observable } from '../interfaces/observable';
+import { PluginObservable } from '../base/PluginObservable';
+import { ResourceContext } from '../base/ResourceContext';
+import { PluginLogging } from '../base/PluginLogging';
+import { PluginMetrics } from '../base/PluginMetrics';
 
 /**
  * @hidden
@@ -35,4 +40,57 @@ export function createFakeDTrace(trace?: string, span?: string): DTrace {
     t: trace ?? '',
     s: span ?? '',
   };
+}
+
+/**
+ * Create a test Observable with minimal setup for testing
+ * @param trace - Optional trace ID (default: 'test-trace')
+ * @param span - Optional span ID (default: 'test-span')
+ * @param pluginName - Optional plugin name (default: 'test-plugin')
+ * @returns Observable for testing
+ * @hidden
+ */
+export function createTestObservable(
+  trace?: string,
+  span?: string,
+  pluginName: string = 'test-plugin'
+): Observable {
+  const dTrace = createFakeDTrace(trace ?? 'test-trace', span ?? 'test-span');
+
+  // Create minimal resource context
+  const resource: ResourceContext = {
+    'service.name': pluginName,
+    'service.version': '1.0.0-test',
+    'service.instance.id': 'test-instance',
+    'deployment.environment': 'test',
+  };
+
+  // Create stub logging - will be replaced by mocks in tests
+  const logging = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  } as any as PluginLogging;
+
+  // Create stub metrics - will be replaced by mocks in tests
+  const metrics = {
+    createCounter: () => ({ increment: () => {} }),
+    createGauge: () => ({ set: () => {}, increment: () => {}, decrement: () => {} }),
+    createHistogram: () => ({ record: () => {} }),
+    createTimer: () => ({ stop: () => 0 }),
+    createSpan: (parentTrace: DTrace, name: string, attrs?: any) => ({
+      trace: createFakeDTrace(parentTrace.t, 'child-span-' + name), // Preserve parent trace ID
+      error: () => {},
+      end: () => {}
+    }),
+  } as any as PluginMetrics;
+
+  return new PluginObservable(
+    dTrace,
+    resource,
+    logging,
+    metrics,
+    {}
+  );
 }

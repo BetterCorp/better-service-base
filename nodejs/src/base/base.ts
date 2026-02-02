@@ -250,13 +250,28 @@ export interface BaseWithLoggingConfig
 
 /**
  * @hidden
- * used by config plugins (does not need events)
+ * @deprecated v9 - Use Observable.log instead. This base class is maintained for backward compatibility only.
+ *
+ * Base class with logging support (legacy pattern).
+ *
+ * **Migration to v9:**
+ * ```typescript
+ * // Old pattern (deprecated):
+ * this.log.debug(obs.trace, "message", { data });
+ *
+ * // New pattern (use this):
+ * obs.log.debug("message", { data });
+ * ```
+ *
+ * @see {@link Observable.log} for the new unified logging interface
  */
 export abstract class BaseWithLogging
   extends Base {
+  /**
+   * @deprecated v9 - Use `obs.log` instead where `obs` is the Observable parameter passed to your methods.
+   * The Observable pattern provides unified logging with automatic trace context.
+   */
   protected log: IPluginLogging;
-
-  //protected createNewLogger: { (plugin: string): IPluginLogging };
 
   constructor(config: BaseWithLoggingConfig) {
     super(config);
@@ -265,8 +280,6 @@ export abstract class BaseWithLogging
       config.pluginName,
       config.sbObservable,
     );
-    /*this.createNewLogger = (plugin: string) =>
-     new PluginLogger(mode, `${pluginName}-${plugin}`, sbObservable);*/
   }
 }
 
@@ -322,10 +335,30 @@ export abstract class BaseWithLoggingAndConfig<
  * @hidden
  * used by events plugins (does not need events)
  */
+/**
+ * @deprecated v9 - Use Observable.metrics instead. This base class is maintained for backward compatibility only.
+ *
+ * **Migration to v9:**
+ * ```typescript
+ * // Old pattern (deprecated):
+ * const counter = this.metrics.createCounter("requests", "Request count", "Total requests");
+ * counter.increment();
+ *
+ * // New pattern (use this):
+ * const counter = obs.metrics.counter("requests", "Request count", "Total requests");
+ * counter.increment();
+ * ```
+ *
+ * @see {@link Observable.metrics} for the new unified metrics interface
+ */
 export abstract class BaseWithLoggingMetricsAndConfig<
   ReferencedConfig extends BSBReferenceConfigType
 >
   extends BaseWithLoggingAndConfig<ReferencedConfig> {
+  /**
+   * @deprecated v9 - Use `obs.metrics` instead where `obs` is the Observable parameter passed to your methods.
+   * The Observable pattern provides unified metrics with automatic trace context.
+   */
   public metrics: IPluginMetrics;
 
   constructor(config: BaseWithLoggingMetricsAndConfigConfig<ReferencedConfig>) {

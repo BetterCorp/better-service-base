@@ -138,7 +138,7 @@ export class Plugin
       return;
     });
     await this.events.onEvent('benchmark.trigger', obs, async (obs: Observable, input) => {
-      this.log.info(obs.trace, "Benchmark triggered: {testName}", { testName: input.testName || 'default' });
+      obs.log.info("Benchmark triggered: {testName}", { testName: input.testName || 'default' });
       return;
     });
   };
@@ -152,7 +152,7 @@ export class Plugin
   }
 
   public override async run(obs: Observable) {
-    this.log.info(obs.trace, "Running service-default4");
+    obs.log.info("Running service-default4");
 
     let benchmark = new Benchmarkify("BSB benchmark").printHeader();
 

@@ -32,12 +32,12 @@ import { randomUUID } from "crypto";
 import {
   RunEventsPluginTests,
 } from "../../sb/plugins/events/index";
-import { createFakeDTrace } from "../../trace";
+import { createTestObservable } from "../../trace";
 import { generateNullLogging, newMetrics } from '../../mocks';
 
 describe("plugins/events-default", () => {
   describe("Events Emit", async () => {
-    const dummyTrace = createFakeDTrace();
+    const dummyObs = createTestObservable();
 
     it("_lastReceivedMessageIds should be empty on init", async () => {
       const emit = new emitDirect(generateNullLogging(), await newMetrics());
@@ -46,8 +46,8 @@ describe("plugins/events-default", () => {
 
     it("_lastReceivedMessageIds should contain latest emit ID", async () => {
       const emit = new emitDirect(generateNullLogging(), await newMetrics());
-      await emit.onEvent(dummyTrace, "b", "c", async () => {});
-      await emit.emitEvent(dummyTrace, "b", "c", []);
+      await emit.onEvent(dummyObs, "b", "c", async () => {});
+      await emit.emitEvent(dummyObs, "b", "c", []);
       assert.equal((emit as any)._lastReceivedMessageIds.length, 1);
     });
 
@@ -55,10 +55,10 @@ describe("plugins/events-default", () => {
       const emit = new emitDirect(generateNullLogging(), await newMetrics());
       const testID = randomUUID();
       let called = 0;
-      await emit.onEvent(dummyTrace, "b", "c", async () => {
+      await emit.onEvent(dummyObs, "b", "c", async () => {
         called++;
       });
-      emit.emit(`b-c`, dummyTrace, {
+      emit.emit(`b-c`, dummyObs, {
         msgID: testID,
         data: [],
       });
@@ -70,14 +70,14 @@ describe("plugins/events-default", () => {
       const testID1 = randomUUID();
       const testID2 = randomUUID();
       let called = 0;
-      await emit.onEvent(dummyTrace, "b", "c", async () => {
+      await emit.onEvent(dummyObs, "b", "c", async () => {
         called++;
       });
-      emit.emit(`b-c`, dummyTrace, {
+      emit.emit(`b-c`, dummyObs, {
         msgID: testID1,
         data: [],
       });
-      emit.emit(`b-c`, dummyTrace, {
+      emit.emit(`b-c`, dummyObs, {
         msgID: testID2,
         data: [],
       });
@@ -90,9 +90,9 @@ describe("plugins/events-default", () => {
         .repeat(100)
         .split("")
         .map(() => randomUUID());
-      await emit.onEvent(dummyTrace, "b", "c", async () => {});
+      await emit.onEvent(dummyObs, "b", "c", async () => {});
       for (const emitID of testIDs)
-        emit.emit(`b-c`, dummyTrace, {
+        emit.emit(`b-c`, dummyObs, {
           msgID: emitID,
           data: [],
         });

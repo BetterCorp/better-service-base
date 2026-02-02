@@ -28,6 +28,10 @@
 import { DEBUG_MODE, BSBLoggingConstructor, SBMetrics, SBConfig, DTrace, SBLogging, SBEvents, SBPlugins, BSBEventsConstructor, PluginLogging } from "../index";
 import { PluginMetrics } from "../base/PluginMetrics";
 import { EventEmitter } from 'events';
+import { SBObservable } from '../serviceBase/observable';
+import { Observable } from '../interfaces/observable';
+import { BSBError } from '../base/errorMessages';
+import { LogMeta } from '../interfaces/logging';
 
 export const MockSBLogging = (): SBLogging => {
   const fake = {
@@ -40,14 +44,74 @@ export const MockSBLogging = (): SBLogging => {
   return fake;
 };
 
+export const MockSBObservable = (): SBObservable => {
+  const observableBus = new EventEmitter();
+  observableBus.on('error', (...args) => {}); // Prevent unhandled error events
+
+  return {
+    observableBus,
+    isReady: true,
+
+    // Logging methods - emit to bus
+    debug: (plugin: string, trace: DTrace, message: string, meta: LogMeta<any>) => {
+      observableBus.emit('debug', plugin, trace, message, meta);
+    },
+    info: (plugin: string, trace: DTrace, message: string, meta: LogMeta<any>) => {
+      observableBus.emit('info', plugin, trace, message, meta);
+    },
+    warn: (plugin: string, trace: DTrace, message: string, meta: LogMeta<any>) => {
+      observableBus.emit('warn', plugin, trace, message, meta);
+    },
+    error: (plugin: string, trace: DTrace, message: string | BSBError<any>, meta?: LogMeta<any>) => {
+      observableBus.emit('error', plugin, trace, message, meta);
+    },
+
+    // Metrics methods - emit to bus
+    createCounter: (timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]) => {
+      observableBus.emit('createCounter', timestamp, pluginName, name, description, help, labels);
+    },
+    incrementCounter: (timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>) => {
+      observableBus.emit('incrementCounter', timestamp, pluginName, name, value, labels);
+    },
+    createGauge: (timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]) => {
+      observableBus.emit('createGauge', timestamp, pluginName, name, description, help, labels);
+    },
+    setGauge: (timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>) => {
+      observableBus.emit('setGauge', timestamp, pluginName, name, value, labels);
+    },
+    createHistogram: (timestamp: number, pluginName: string, name: string, description: string, help: string, boundaries?: number[], labels?: string[]) => {
+      observableBus.emit('createHistogram', timestamp, pluginName, name, description, help, boundaries, labels);
+    },
+    observeHistogram: (timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>) => {
+      observableBus.emit('observeHistogram', timestamp, pluginName, name, value, labels);
+    },
+
+    // Span methods - emit to bus
+    startSpan: (timestamp: number, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) => {
+      observableBus.emit('spanStart', { t: traceId, s: spanId }, pluginName, name, attributes);
+    },
+    endSpan: (timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, attributes?: Record<string, string | number | boolean>) => {
+      observableBus.emit('spanEnd', { t: traceId, s: spanId }, pluginName, attributes);
+    },
+    errorSpan: (timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, error: Error, attributes?: Record<string, string | number | boolean>) => {
+      observableBus.emit('spanError', { t: traceId, s: spanId }, pluginName, error, attributes);
+    },
+
+    // Lifecycle methods
+    setupObservablePlugins: async () => {},
+    init: async () => {},
+    run: async () => {},
+    dispose: async () => {},
+  } as unknown as SBObservable;
+};
+
 export const MockSBConfig = (): SBConfig => {
   const SB = {
-    getMetricsPlugins: async () => ({}),
-    getLoggingPlugins: async () => ({}),
-    getEventsPlugins: async () => ({}),
-    getServicePlugins: async () => ({}),
-    getPluginConfig: async () => ({}),
-    getServicePluginDefinition: async (trace: DTrace, pluginName: string) => ({ name: pluginName, enabled: true }),
+    getObservablePlugins: async (obs: Observable) => ({}),
+    getEventsPlugins: async (obs: Observable) => ({}),
+    getServicePlugins: async (obs: Observable) => ({}),
+    getPluginConfig: async (obs: Observable, pluginType: any, name: string) => null,
+    getServicePluginDefinition: async (obs: Observable, pluginName: string) => ({ name: pluginName, enabled: true }),
     dispose: () => { },
     setConfigPlugin: async () => {
       return SB;
@@ -84,21 +148,14 @@ export const MockSBPlugins = (): SBPlugins => {
   } as unknown as SBPlugins;
 };
 
-export const newSBMetrics = async () => {
-  const metrics = new SBMetrics(
-    "test-app",
-    "development",
-    process.cwd(),
-    MockSBPlugins(),
-    MockSBLogging()
-  );
-  await metrics.init(MockSBConfig());
-  return metrics;
+export const newSBObservable = async () => {
+  const observable = MockSBObservable();
+  return observable;
 };
 
 export const newMetrics = async () => {
-  const metrics = await newSBMetrics();
-  return new PluginMetrics("test-app", "test-plugin", metrics);
+  const observable = await newSBObservable();
+  return new PluginMetrics("test-app", "test-plugin", observable);
 };
 
 export const getLoggingConstructorConfig = (
@@ -127,13 +184,12 @@ export const getEventsConstructorConfig = async (
     mode: "development",
     pluginName: "test-plugin",
     pluginVersion: "0.0.0",
-    sbLogging: MockSBLogging(),
-    sbMetrics: await newSBMetrics(),
+    sbObservable: MockSBObservable(),
     config: config,
   };
 };
 
 export const generateNullLogging = () => {
-  const sbLogging = MockSBLogging();
-  return new PluginLogging("development", "test-plugin", sbLogging);
+  const sbObservable = MockSBObservable();
+  return new PluginLogging("development", "test-plugin", sbObservable);
 };

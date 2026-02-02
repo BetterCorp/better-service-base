@@ -145,7 +145,31 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     timer: () => this._metrics.createTimer()
   };
 
-  // Create child span with inherited attributes
+  /**
+   * Create a child span with inherited attributes
+   *
+   * Creates a new Observable representing a child span for distributed tracing.
+   * All attributes from the parent are automatically inherited by the child.
+   *
+   * @param name - Name of the span (e.g., "database-query", "api-call")
+   * @param attributes - Additional attributes to add to this span
+   * @returns New Observable instance representing the child span
+   *
+   * @example
+   * ```typescript
+   * public async processOrder(obs: Observable) {
+   *   // Create child span for database operation
+   *   const dbSpan = obs.span("fetch-order", { "order.id": "123" });
+   *   try {
+   *     const order = await this.db.getOrder("123");
+   *     dbSpan.end({ "order.status": order.status });
+   *   } catch (error) {
+   *     dbSpan.error(error);
+   *     dbSpan.end();
+   *   }
+   * }
+   * ```
+   */
   span(
     name: string,
     attributes?: Record<string, string | number | boolean>
@@ -163,7 +187,27 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     );
   }
 
-  // Immutable attribute setting
+  /**
+   * Create a new Observable with an additional attribute
+   *
+   * Observables are immutable - this returns a new instance with the added attribute.
+   * The attribute is propagated to all child operations (logs, spans, etc.).
+   *
+   * @param key - Attribute key (e.g., "user.id", "transaction.type")
+   * @param value - Attribute value (string, number, or boolean)
+   * @returns New Observable instance with the added attribute
+   *
+   * @example
+   * ```typescript
+   * public async handleRequest(obs: Observable, userId: string) {
+   *   // Add user ID to all subsequent operations
+   *   const withUser = obs.setAttribute("user.id", userId);
+   *
+   *   withUser.log.info("Processing request");  // Log includes user.id
+   *   const span = withUser.span("process");    // Span includes user.id
+   * }
+   * ```
+   */
   setAttribute<K extends string, V extends string | number | boolean>(
     key: K,
     value: V
@@ -178,6 +222,29 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     );
   }
 
+  /**
+   * Create a new Observable with multiple attributes
+   *
+   * Observables are immutable - this returns a new instance with the added attributes.
+   * All attributes are propagated to child operations.
+   *
+   * @param attrs - Object containing attributes to add
+   * @returns New Observable instance with the added attributes
+   *
+   * @example
+   * ```typescript
+   * public async handleRequest(obs: Observable, context: RequestContext) {
+   *   // Add multiple attributes at once
+   *   const withContext = obs.setAttributes({
+   *     "user.id": context.userId,
+   *     "request.id": context.requestId,
+   *     "request.method": context.method
+   *   });
+   *
+   *   withContext.log.info("Processing request");
+   * }
+   * ```
+   */
   setAttributes(
     attrs: Record<string, string | number | boolean>
   ): Observable<TAttributeSchema> {
@@ -191,7 +258,31 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     );
   }
 
-  // Record error to both span and logs
+  /**
+   * Record an error to both logs and traces
+   *
+   * This method automatically records the error to both the logging system and
+   * the active span (if this Observable was created via span()). This ensures
+   * errors are captured in both systems for complete observability.
+   *
+   * @param error - Error or BSBError instance to record
+   * @param attributes - Additional attributes to attach to the error
+   *
+   * @example
+   * ```typescript
+   * public async processData(obs: Observable) {
+   *   const span = obs.span("process-data");
+   *   try {
+   *     await this.riskyOperation();
+   *   } catch (error) {
+   *     // Record error to both logs and span
+   *     span.error(error as Error, { "operation": "riskyOperation" });
+   *     span.end();
+   *     throw error;
+   *   }
+   * }
+   * ```
+   */
   error(
     error: Error | BSBError<any>,
     attributes?: Record<string, string | number | boolean>
@@ -211,7 +302,31 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     }
   }
 
-  // End span if this was created via span()
+  /**
+   * End the span (only applies if this Observable was created via span())
+   *
+   * Completes the span and records the final state. If this Observable was not
+   * created via span(), this method does nothing. Always call end() when the
+   * operation is complete to ensure proper trace completion.
+   *
+   * @param attributes - Final attributes to attach before ending the span
+   *
+   * @example
+   * ```typescript
+   * public async fetchData(obs: Observable) {
+   *   const span = obs.span("fetch-data");
+   *   try {
+   *     const data = await this.api.fetch();
+   *     span.end({ "data.size": data.length, "status": "success" });
+   *     return data;
+   *   } catch (error) {
+   *     span.error(error as Error);
+   *     span.end({ "status": "failed" });
+   *     throw error;
+   *   }
+   * }
+   * ```
+   */
   end(attributes?: Record<string, string | number | boolean>): void {
     if (this._span) {
       const mergedAttrs = { ...this._attributes, ...attributes };

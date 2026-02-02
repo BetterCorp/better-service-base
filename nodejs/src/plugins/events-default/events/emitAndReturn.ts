@@ -47,7 +47,7 @@ export class emitAndReturn
     event: string,
     listener: { (obs: Observable, args: Array<any>): Promise<any> },
   ): Promise<void> {
-    this.log.debug(obs.trace, "onReturnableEvent: listening to {pluginName}-{event}", {
+    obs.log.debug("onReturnableEvent: listening to {pluginName}-{event}", {
       pluginName,
       event,
     });
@@ -85,7 +85,7 @@ export class emitAndReturn
       timeoutSeconds
     });
 
-    this.log.debug(sendObs.trace, "emitReturnableEvent: emitting {pluginName}-{event}", {
+    sendObs.log.debug("emitReturnableEvent: emitting {pluginName}-{event}", {
       pluginName, event,
     });
 

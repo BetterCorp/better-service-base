@@ -224,8 +224,7 @@ export class Plugin
         },
       );
     }
-    this.log.debug(
-      obs.trace,
+    obs.log.debug(
       "Config ready, using profile: {profile}", {
       profile: this._deploymentProfile,
     });

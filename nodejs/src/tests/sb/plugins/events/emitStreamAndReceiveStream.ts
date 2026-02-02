@@ -27,15 +27,14 @@
 
 import * as fs from "fs";
 import * as crypto from "crypto";
-import { exec } from "child_process";
 import { pipeline } from "stream";
 import { Readable } from "stream";
 import * as assert from "assert";
-import { BSBEvents, SmartFunctionCallSync, DTrace } from "../../../../index";
+import { BSBEvents, SmartFunctionCallSync, Observable } from "../../../../index";
 import { randomUUID } from "crypto";
+import { createTestObservable } from "../../../trace";
 
 const randomName = () => crypto.randomUUID();
-const createTrace = (): DTrace => ({ t: randomUUID(), s: randomUUID() });
 
 const mockBareFakeStream = () => {
   const obj: any = {
@@ -71,21 +70,49 @@ const getFileHash = (filename: any) =>
     fd.pipe(hash);
   });
 
-const runCMD = (cmd: string) =>
-  new Promise((resolve, reject) => {
-    exec(cmd, (err, stdout, stderr) => {
-      if (err) {
-        // node couldn't execute the command
-        return reject(err);
+// Cross-platform function to create test files with random data
+const createTestFile = (filePath: string, sizeStr: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Parse size string (e.g., "1KB", "16MB")
+    const match = sizeStr.match(/^(\d+)(KB|MB)$/);
+    if (!match) {
+      return reject(new Error(`Invalid size format: ${sizeStr}`));
+    }
+
+    const num = parseInt(match[1], 10);
+    const unit = match[2];
+    const sizeBytes = unit === 'KB' ? num * 1024 : num * 1024 * 1024;
+
+    // Create random data in chunks
+    const writeStream = fs.createWriteStream(filePath);
+    const chunkSize = 64 * 1024; // 64KB chunks
+    let written = 0;
+
+    const writeChunk = () => {
+      while (written < sizeBytes) {
+        const remaining = sizeBytes - written;
+        const size = Math.min(chunkSize, remaining);
+        const buffer = crypto.randomBytes(size);
+
+        const canContinue = writeStream.write(buffer);
+        written += size;
+
+        if (!canContinue) {
+          // Wait for drain event
+          writeStream.once('drain', writeChunk);
+          return;
+        }
       }
 
-      // the *entire* stdout and stderr (buffered)
-      resolve({
-        stdout,
-        stderr,
-      });
-    });
+      writeStream.end();
+    };
+
+    writeStream.on('finish', () => resolve());
+    writeStream.on('error', reject);
+
+    writeChunk();
   });
+};
 
 // const convertBytes = (
 //   bytes: number,
@@ -132,13 +159,13 @@ export function emitStreamAndReceiveStream(
     it("receiveStream creates a should generate a valid string", async () => {
       const thisCaller = randomName();
       const thisCallerEvent = randomName();
-      const trace = createTrace();
+      const obs = createTestObservable();
 
       const uuid = await emitter.receiveStream(
-        trace,
+        obs,
         thisCaller,
         thisCallerEvent,
-        async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
+        async (receivedObs: Observable, error: Error | null, stream: Readable) => {
         },
         maxTimeoutToExpectAResponse,
       );
@@ -147,11 +174,12 @@ export function emitStreamAndReceiveStream(
     it("sendStream triggers timeout when no receiveStream setup", async () => {
       const thisCaller = randomName();
       const thisEvent = randomName();
-      const streamId = randomName();
-      const trace = createTrace();
+      // Use proper streamId format: uuid=timeoutSeconds
+      const streamId = `${randomName()}=1`;
+      const obs = createTestObservable();
 
       try {
-        await emitter.sendStream(trace, thisCaller, thisEvent, streamId, mockBareFakeStream());
+        await emitter.sendStream(obs, thisCaller, thisEvent, streamId, mockBareFakeStream());
         assert.fail("Timeout not called");
       }
       catch {
@@ -161,16 +189,16 @@ export function emitStreamAndReceiveStream(
     it("sendStream triggers receiveStream listener", async () => {
       const thisCaller = randomName();
       const thisCallerEvent = randomName();
-      const trace = createTrace();
+      const obs = createTestObservable();
 
       const emitTimeout = setTimeout(() => {
         assert.fail("Event not received");
       }, timermaxTimeoutToExpectAResponse);
       const uuid = await emitter.receiveStream(
-        trace,
+        obs,
         thisCaller,
         thisCallerEvent,
-        async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
+        async (receivedObs: Observable, error: Error | null, stream: Readable) => {
           clearTimeout(emitTimeout);
           stream.emit("end");
           assert.ok(true, "Listener called");
@@ -178,7 +206,7 @@ export function emitStreamAndReceiveStream(
         maxTimeoutToExpectAResponse,
       );
       try {
-        await emitter.sendStream(trace, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
+        await emitter.sendStream(obs, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
         //console.log("endededed");
         // eslint-disable-next-line no-empty
       }
@@ -189,16 +217,16 @@ export function emitStreamAndReceiveStream(
       it("should not call the listener with an error", async () => {
         const thisCaller = randomName();
         const thisCallerEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
         const uuid = await emitter.receiveStream(
-          trace,
+          obs,
           thisCaller,
           thisCallerEvent,
-          async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
+          async (receivedObs: Observable, error: Error | null, stream: Readable) => {
             clearTimeout(emitTimeout);
             stream.emit("end");
             assert.strictEqual(error, null, "Error is not null");
@@ -206,7 +234,7 @@ export function emitStreamAndReceiveStream(
           maxTimeoutToExpectAResponse,
         );
         try {
-          await emitter.sendStream(trace, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
+          await emitter.sendStream(obs, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
           // eslint-disable-next-line no-empty
         }
         catch {
@@ -215,16 +243,16 @@ export function emitStreamAndReceiveStream(
       it("should call the listener with a stream", async () => {
         const thisCaller = randomName();
         const thisCallerEvent = randomName();
-        const trace = createTrace();
+        const obs = createTestObservable();
 
         const emitTimeout = setTimeout(() => {
           assert.fail("Event not received");
         }, timermaxTimeoutToExpectAResponse);
         const uuid = await emitter.receiveStream(
-          trace,
+          obs,
           thisCaller,
           thisCallerEvent,
-          async (receivedTrace: DTrace, error: Error | null, stream: Readable) => {
+          async (receivedObs: Observable, error: Error | null, stream: Readable) => {
             clearTimeout(emitTimeout);
             stream.emit("end");
             assert.strictEqual(
@@ -236,7 +264,7 @@ export function emitStreamAndReceiveStream(
           maxTimeoutToExpectAResponse,
         );
         try {
-          await emitter.sendStream(trace, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
+          await emitter.sendStream(obs, thisCaller, thisCallerEvent, uuid, mockBareFakeStream());
           // eslint-disable-next-line no-empty
         }
         catch {
@@ -250,22 +278,13 @@ export function emitStreamAndReceiveStream(
           this.timeout(120000);
           const thisCaller = randomName();
           const thisCallerEvent = randomName();
-          const trace = createTrace();
+          const obs = createTestObservable();
           //const now = new Date().getTime();
           const fileName = `./test-file-${size}`;
           const fileNameOut = fileName + "-out";
           try {
-            await runCMD(
-              `dd if=/dev/urandom of=${fileName} bs=${size} count=${count}`,
-            );
-            /*fs.writeFileSync(fileName, 'XX');
-             for (let x = 0; x < itr1; x++) {
-             let fileBatch = crypto.randomUUID();
-             for (let x = 0; x < itr2; x++)
-             fileBatch += crypto.randomUUID();
-             //console.log('batch:' + x)
-             await new Promise((r, re) => fs.appendFile(fileName, fileBatch, (err) => ((err ? re : r)())));
-             }*/
+            // Create test file with random data (cross-platform)
+            await createTestFile(fileName, size);
             //const fileBytes = fs.statSync(fileName).size;
             //const fullBytes = convertBytes(fileBytes);
             //console.log(` ${size} act size: ${fullBytes}`);
@@ -275,10 +294,10 @@ export function emitStreamAndReceiveStream(
               assert.fail("Event not received");
             }, timermaxTimeoutToExpectAResponse);
             const uuid = await emitter.receiveStream(
-              trace,
+              obs,
               thisCaller,
               thisCallerEvent,
-              async (receivedTrace: DTrace, error: Error | null, stream: Readable): Promise<any> => {
+              async (receivedObs: Observable, error: Error | null, stream: Readable): Promise<any> => {
                 if (error) {
                   return assert.fail(error);
                 }
@@ -292,7 +311,7 @@ export function emitStreamAndReceiveStream(
               maxTimeoutToExpectAResponse,
             );
             await emitter.sendStream(
-              trace,
+              obs,
               thisCaller,
               thisCallerEvent,
               uuid,

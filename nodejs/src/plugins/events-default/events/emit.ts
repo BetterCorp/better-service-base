@@ -56,7 +56,7 @@ export class emit
     event: string,
     listener: { (obs: Observable, args: Array<any>): Promise<void> },
   ): Promise<void> {
-    this.log.debug(obs.trace, "onEvent: listening to {pluginName}-{event}", {
+    obs.log.debug("onEvent: listening to {pluginName}-{event}", {
       pluginName,
       event,
     });
@@ -101,7 +101,7 @@ export class emit
     });
 
     try {
-      this.log.debug(sendObs.trace, "emitEvent: emitting {pluginName}-{event}", {
+      sendObs.log.debug("emitEvent: emitting {pluginName}-{event}", {
         pluginName, event,
       });
 

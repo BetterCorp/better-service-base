@@ -60,7 +60,7 @@ export class emitStreamAndReceiveStream
     });
 
     const streamId = `${randomUUID()}=${timeoutSeconds}`;
-    this.log.debug(receiveObs.trace, "receiveStream: listening to {streamId} ({pluginName}-{event})", {
+    receiveObs.log.debug("receiveStream: listening to {streamId} ({pluginName}-{event})", {
       streamId,
       pluginName,
       event,
@@ -113,7 +113,7 @@ export class emitStreamAndReceiveStream
       streamId
     });
 
-    this.log.debug(sendObs.trace, "sendStream: emitting {streamId}", { streamId });
+    sendObs.log.debug("sendStream: emitting {streamId}", { streamId });
 
     const self = this;
     return new Promise((resolve, rejectI) => {

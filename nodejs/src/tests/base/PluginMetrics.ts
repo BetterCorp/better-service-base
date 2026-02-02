@@ -26,28 +26,21 @@
  */
 
 import { expect } from "chai";
-import { SBMetrics } from "../../serviceBase";
 import { PluginMetrics } from "../../base/PluginMetrics";
 import { BSBError } from "../../base/errorMessages";
-import { Observable } from "../../interfaces";
-import { EventEmitter } from "events";
+import { DTrace } from "../../interfaces";
+import { MockSBObservable } from "../mocks";
+import { SBObservable } from "../../serviceBase/observable";
 
 describe("PluginMetrics", () => {
-  let mockMetrics: SBMetrics;
+  let mockObservable: SBObservable;
   let pluginMetrics: PluginMetrics;
   const appId = "test-app";
   const pluginName = "test-plugin";
 
-  function createMockMetrics(isReady: boolean = true): SBMetrics {
-    return {
-      isReady,
-      metricsBus: new EventEmitter() as any
-    } as SBMetrics;
-  }
-
   beforeEach(() => {
-    mockMetrics = createMockMetrics(true);
-    pluginMetrics = new PluginMetrics(appId, pluginName, mockMetrics);
+    mockObservable = MockSBObservable();
+    pluginMetrics = new PluginMetrics(appId, pluginName, mockObservable);
   });
 
   describe("createCounter", () => {
@@ -57,8 +50,7 @@ describe("PluginMetrics", () => {
       const help = "Help text";
       const labels = ["label1", "label2"];
 
-      mockMetrics.metricsBus.once("createCounter", (timestamp, emittedAppId, emittedPlugin, emittedName, emittedDesc, emittedHelp, emittedLabels) => {
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("createCounter", (timestamp, emittedPlugin, emittedName, emittedDesc, emittedHelp, emittedLabels) => {
         expect(emittedPlugin).to.equal(pluginName);
         expect(emittedName).to.equal(name);
         expect(emittedDesc).to.equal(description);
@@ -75,9 +67,7 @@ describe("PluginMetrics", () => {
       const value = 5;
       const labels = { label1: "value1" };
 
-      mockMetrics.metricsBus.once("updateCounter", (timestamp, event, emittedAppId, emittedPlugin, emittedName, emittedValue, emittedLabels) => {
-        expect(event).to.equal("inc");
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("incrementCounter", (timestamp, emittedPlugin, emittedName, emittedValue, emittedLabels) => {
         expect(emittedPlugin).to.equal(pluginName);
         expect(emittedName).to.equal(name);
         expect(emittedValue).to.equal(value);
@@ -89,8 +79,10 @@ describe("PluginMetrics", () => {
       counter.increment(value, labels);
     });
 
-    it("should throw error when metrics not ready", () => {
-      pluginMetrics = new PluginMetrics(appId, pluginName, createMockMetrics(false));
+    it("should throw error when observable not ready", () => {
+      const notReadyObs = MockSBObservable();
+      (notReadyObs as any).isReady = false;
+      pluginMetrics = new PluginMetrics(appId, pluginName, notReadyObs);
       expect(() => pluginMetrics.createCounter("test", "desc", "help")).to.throw(BSBError);
     });
   });
@@ -102,8 +94,7 @@ describe("PluginMetrics", () => {
       const help = "Help text";
       const labels = ["label1", "label2"];
 
-      mockMetrics.metricsBus.once("createGauge", (timestamp, emittedAppId, emittedPlugin, emittedName, emittedDesc, emittedHelp, emittedLabels) => {
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("createGauge", (timestamp, emittedPlugin, emittedName, emittedDesc, emittedHelp, emittedLabels) => {
         expect(emittedPlugin).to.equal(pluginName);
         expect(emittedName).to.equal(name);
         expect(emittedDesc).to.equal(description);
@@ -120,9 +111,7 @@ describe("PluginMetrics", () => {
       const value = 10;
       const labels = { label1: "value1" };
 
-      mockMetrics.metricsBus.once("updateGauge", (timestamp, event, emittedAppId, emittedPlugin, emittedName, emittedValue, emittedLabels) => {
-        expect(event).to.equal("set");
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("setGauge", (timestamp, emittedPlugin, emittedName, emittedValue, emittedLabels) => {
         expect(emittedPlugin).to.equal(pluginName);
         expect(emittedName).to.equal(name);
         expect(emittedValue).to.equal(value);
@@ -143,8 +132,7 @@ describe("PluginMetrics", () => {
       const boundaries = [0.1, 0.5, 1];
       const labels = ["label1", "label2"];
 
-      mockMetrics.metricsBus.once("createHistogram", (timestamp, emittedAppId, emittedPlugin, emittedName, emittedDesc, emittedHelp, emittedBoundaries, emittedLabels) => {
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("createHistogram", (timestamp, emittedPlugin, emittedName, emittedDesc, emittedHelp, emittedBoundaries, emittedLabels) => {
         expect(emittedPlugin).to.equal(pluginName);
         expect(emittedName).to.equal(name);
         expect(emittedDesc).to.equal(description);
@@ -162,9 +150,7 @@ describe("PluginMetrics", () => {
       const value = 0.75;
       const labels = { label1: "value1" };
 
-      mockMetrics.metricsBus.once("updateHistogram", (timestamp, event, emittedAppId, emittedPlugin, emittedName, emittedValue, emittedLabels) => {
-        expect(event).to.equal("record");
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("observeHistogram", (timestamp, emittedPlugin, emittedName, emittedValue, emittedLabels) => {
         expect(emittedPlugin).to.equal(pluginName);
         expect(emittedName).to.equal(name);
         expect(emittedValue).to.equal(value);
@@ -178,14 +164,13 @@ describe("PluginMetrics", () => {
   });
 
   describe("createTrace", () => {
-    it("should create a trace and emit start trace event", (done) => {
+    it("should create a trace and emit start span event", (done) => {
       const name = "test_trace";
       const attributes = { attr1: "value1" };
 
-      mockMetrics.metricsBus.once("startTrace", (timestamp, emittedAppId, emittedPlugin, traceId, emittedName, emittedAttrs) => {
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("spanStart", (trace: DTrace, emittedPlugin: string, emittedName: string, emittedAttrs: any) => {
         expect(emittedPlugin).to.equal(pluginName);
-        expect(traceId).to.be.a("string");
+        expect(trace.t).to.be.a("string");
         expect(emittedName).to.equal(name);
         expect(emittedAttrs).to.deep.equal(attributes);
         done();
@@ -201,12 +186,10 @@ describe("PluginMetrics", () => {
       const name = "test_span";
       const attributes = { attr1: "value1" };
 
-      mockMetrics.metricsBus.once("startSpan", (timestamp, emittedAppId, emittedPlugin, traceId, parentSpanId, spanId, emittedName, emittedAttrs) => {
-        expect(emittedAppId).to.equal(appId);
+      mockObservable.observableBus.once("spanStart", (emittedTrace: DTrace, emittedPlugin: string, emittedName: string, emittedAttrs: any) => {
         expect(emittedPlugin).to.equal(pluginName);
-        expect(traceId).to.equal(trace.t);
-        expect(parentSpanId).to.equal(trace.s);
-        expect(spanId).to.be.a("string");
+        expect(emittedTrace.t).to.equal(trace.t);
+        expect(emittedTrace.s).to.be.a("string");
         expect(emittedName).to.equal(name);
         expect(emittedAttrs).to.deep.equal(attributes);
         done();
@@ -227,8 +210,10 @@ describe("PluginMetrics", () => {
       }, 10);
     });
 
-    it("should throw error when metrics not ready", () => {
-      pluginMetrics = new PluginMetrics(appId, pluginName, createMockMetrics(false));
+    it("should throw error when observable not ready", () => {
+      const notReadyObs = MockSBObservable();
+      (notReadyObs as any).isReady = false;
+      pluginMetrics = new PluginMetrics(appId, pluginName, notReadyObs);
       expect(() => pluginMetrics.createTimer()).to.throw(BSBError);
     });
   });
