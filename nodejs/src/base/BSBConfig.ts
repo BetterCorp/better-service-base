@@ -27,13 +27,13 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../interfaces";
-import { BaseWithLogging, BaseWithLoggingConfig } from "./base";
+import { BaseWithObservable, BaseWithObservableConfig } from "./base";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
 
 /**
  * @hidden
  */
-export type BSBConfigConstructor = BaseWithLoggingConfig;
+export type BSBConfigConstructor = BaseWithObservableConfig;
 
 /**
  * @group Config
@@ -43,7 +43,7 @@ export type BSBConfigConstructor = BaseWithLoggingConfig;
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html | API: BSBConfig}
  */
 export abstract class BSBConfig
-  extends BaseWithLogging {
+  extends BaseWithObservable {
   constructor(config: BSBConfigConstructor) {
     super(config);
   }

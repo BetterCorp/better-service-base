@@ -29,8 +29,7 @@ import { Readable } from "node:stream";
 import {
   BSBError,
   BSBEvents, BSBService, BSBServiceClient,
-  PluginLogging,
-  PluginMetrics,
+  ObservableBackend,
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
   Tools,
@@ -42,8 +41,7 @@ import {
   EventsFilter, EventsFilterDetailed,
   FilterOnType,
   Gauge, IPluginDefinition,
-  IPluginLogging,
-  IPluginMetrics, LoadedPlugin,
+  IPluginObservable, LoadedPlugin,
   Observable,
 } from "../interfaces";
 import { Plugin as DefaultEvents } from "../plugins/events-default/index";
@@ -83,8 +81,7 @@ export class SBEvents {
   private readonly appId: string;
   private readonly cwd: string;
   private sbPlugins: SBPlugins;
-  private readonly log: IPluginLogging;
-  private readonly metrics: IPluginMetrics;
+  private readonly observableBackend: IPluginObservable;
   private metricCounters!: Record<EventsEventTypes, Counter<'pluginName' | 'event'>>;
   private metricGauges!: Record<EventsEventTypes, Gauge<'pluginName' | 'event'>>;
   private createObservable: (trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => Observable;
@@ -103,8 +100,7 @@ export class SBEvents {
     this.sbPlugins = sbPlugins;
     this.createObservable = createObservable;
     const eventsPluginName = "core-events";
-    this.log = new PluginLogging(this.mode, eventsPluginName, sbObservable);
-    this.metrics = new PluginMetrics(appId, eventsPluginName, sbObservable);
+    this.observableBackend = new ObservableBackend(this.mode, appId, eventsPluginName, sbObservable);
   }
 
   public dispose() {
@@ -212,13 +208,13 @@ export class SBEvents {
 
   public async init(sbConfig: SBConfig, sbObservable: SBObservable) {
     const tTrace = internalTrace("init");
-    this.log.debug(tTrace, "INIT SBEvents");
+    this.observableBackend.debug(tTrace, "INIT SBEvents");
 
     this.metricCounters = {} as any;
     this.metricGauges = {} as any;
     for (const event of Object.keys(EventsEventTypesBase) as Array<keyof typeof EventsEventTypesBase>) {
-      this.metricCounters[event] = this.metrics.createCounter(event, 'BSB Internal Events ' + event, 'Internal metrics for BSB events');
-      this.metricGauges[event] = this.metrics.createGauge(event, 'BSB Internal Events ' + event, 'Internal metrics for BSB events');
+      this.metricCounters[event] = this.observableBackend.createCounter(event, 'BSB Internal Events ' + event, 'Internal metrics for BSB events');
+      this.metricGauges[event] = this.observableBackend.createGauge(event, 'BSB Internal Events ' + event, 'Internal metrics for BSB events');
     }
 
     const plugins = await sbConfig.getEventsPlugins(tTrace);
@@ -235,7 +231,7 @@ export class SBEvents {
         plugins[plugin].filter,
       );
     }
-    this.log.info(tTrace, "Adding \"events-default\" as events");
+    this.observableBackend.info(tTrace, "Adding \"events-default\" as events");
     this.events.push({
       name: "events-default",
       plugin: new DefaultEvents({
@@ -285,11 +281,11 @@ export class SBEvents {
     filter?: EventsFilter,
   ) {
     const tTrace = internalTrace(`addPlugin`);
-    this.log.debug(tTrace, `Get plugin config: {name}`, {
+    this.observableBackend.debug(tTrace, `Get plugin config: {name}`, {
       name: plugin.name,
     });
 
-    this.log.debug(tTrace, `Construct events plugin: {name}`, {
+    this.observableBackend.debug(tTrace, `Construct events plugin: {name}`, {
       name: plugin.name,
     });
 
@@ -304,7 +300,7 @@ export class SBEvents {
       sbObservable,
       pluginVersion: reference.version
     });
-    this.log.info(tTrace, "Adding {pluginName} as events with filter: ", {
+    this.observableBackend.info(tTrace, "Adding {pluginName} as events with filter: ", {
       pluginName: plugin.name,
       //filters: filter
     });
@@ -340,7 +336,7 @@ export class SBEvents {
       name: plugin.name,
     });
 
-    this.log.info(tTrace, "Ready {pluginName} ({mappedName})", {
+    this.observableBackend.info(tTrace, "Ready {pluginName} ({mappedName})", {
       pluginName: plugin.plugin,
       mappedName: plugin.name,
     });
@@ -358,7 +354,7 @@ export class SBEvents {
     filter?: EventsFilter,
   ) {
     const tTrace = internalTrace(`addEvents`);
-    this.log.debug(tTrace, "Add events {name} from ({package}){file}", {
+    this.observableBackend.debug(tTrace, "Add events {name} from ({package}){file}", {
       package: plugin.package ?? "this project",
       name: plugin.name,
       file: plugin.plugin,
@@ -366,20 +362,20 @@ export class SBEvents {
     if (plugin.name === "events-default") {
       return;
     }
-    this.log.debug(tTrace, `Import events plugin: {name} from ({package}){file}`, {
+    this.observableBackend.debug(tTrace, `Import events plugin: {name} from ({package}){file}`, {
       package: plugin.package ?? "this project",
       name: plugin.name,
       file: plugin.plugin,
     });
 
     const newPlugin = await this.sbPlugins.loadPlugin<"events">(
-      this.log,
+      this.observableBackend,
       plugin.package ?? null,
       plugin.plugin,
       plugin.name,
     );
     if (newPlugin === null || !newPlugin.success) {
-      this.log.error(tTrace,
+      this.observableBackend.error(tTrace,
         "Failed to import events plugin: {name} from ({package}){file}",
         {
           package: plugin.package ?? "this project",
@@ -400,7 +396,7 @@ export class SBEvents {
       Tools.isObject(newPlugin.data.serviceConfig) &&
       !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
     ) {
-      this.log.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
+      this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
         newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
     }
@@ -424,7 +420,7 @@ export class SBEvents {
       const time = (
         diff[0] * NS_PER_SEC + diff[1]
       ) * MS_PER_NS;
-      this.log.debug(trace,
+      this.observableBackend.debug(trace,
         "on-broadcast-{eventsPluginName}-{pluginName}-{event}:{time}",
         {
           eventsPluginName,
@@ -436,7 +432,7 @@ export class SBEvents {
       this.metricCounters["onBroadcast"].increment(1, { pluginName, event });
       this.metricGauges["onBroadcast"].set(time, { pluginName, event });
     } catch (exc: any) {
-      this.log.error(trace,
+      this.observableBackend.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnBroadcast] error occured: ${error}",
         {
           error: exc.message ?? exc,
@@ -488,7 +484,7 @@ export class SBEvents {
       pluginName,
       event,
     );
-    this.log.debug(trace,
+    this.observableBackend.debug(trace,
       "emit-broadcast-{pluginName}-{event}:{time}",
       {
         pluginName,
@@ -523,7 +519,7 @@ export class SBEvents {
       const time = (
         diff[0] * NS_PER_SEC + diff[1]
       ) * MS_PER_NS;
-      this.log.debug(trace,
+      this.observableBackend.debug(trace,
         "on-event-{eventsPluginName}-{pluginName}-{event}:{time}",
         {
           eventsPluginName,
@@ -535,7 +531,7 @@ export class SBEvents {
       this.metricCounters["onEvent"].increment(1, { pluginName, event });
       this.metricGauges["onEvent"].set(time, { pluginName, event });
     } catch (exc: any) {
-      this.log.error(trace,
+      this.observableBackend.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnEvent] error occured: ${error}",
         {
           error: exc.message ?? exc,
@@ -612,7 +608,7 @@ export class SBEvents {
     ...args: Array<any>
   ): Promise<void> {
     const plugin = this.getPluginForEvent("emitEvent", pluginName, event);
-    this.log.debug(trace,
+    this.observableBackend.debug(trace,
       "emit-event-{pluginName}-{event}:{time}",
       {
         pluginName,
@@ -639,7 +635,7 @@ export class SBEvents {
     ...args: Array<any>
   ): Promise<void> {
     const plugin = this.getPluginForEvent("emitEvent", pluginName, event);
-    this.log.debug(trace,
+    this.observableBackend.debug(trace,
       "emit-event-{pluginName}-{event}:{time}",
       {
         pluginName,
@@ -674,7 +670,7 @@ export class SBEvents {
       const time = (
         diff[0] * NS_PER_SEC + diff[1]
       ) * MS_PER_NS;
-      this.log.debug(trace,
+      this.observableBackend.debug(trace,
         "on-returnableevent-{eventsPluginName}-{pluginName}-{event}:{time}",
         {
           eventsPluginName,
@@ -687,7 +683,7 @@ export class SBEvents {
       this.metricGauges["onReturnableEvent"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.error(trace,
+      this.observableBackend.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnReturnableEvent] error occured: ${error}",
         {
           error: exc.message ?? exc,
@@ -793,7 +789,7 @@ export class SBEvents {
       const time = (
         diff[0] * NS_PER_SEC + diff[1]
       ) * MS_PER_NS;
-      this.log.debug(trace,
+      this.observableBackend.debug(trace,
         "emit-eventandreturn-{pluginName}-{event}:{time}",
         {
           pluginName,
@@ -805,7 +801,7 @@ export class SBEvents {
       this.metricGauges["emitEventAndReturn"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.error(trace,
+      this.observableBackend.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:emitEventAndReturn] error occured: ${error}",
         {
           error: exc.message ?? exc,
@@ -847,7 +843,7 @@ export class SBEvents {
       const time = (
         diff[0] * NS_PER_SEC + diff[1]
       ) * MS_PER_NS;
-      this.log.debug(trace,
+      this.observableBackend.debug(trace,
         "emit-eventandreturn-{pluginName}-{event}:{time}",
         {
           pluginName,
@@ -859,7 +855,7 @@ export class SBEvents {
       this.metricGauges["emitEventAndReturnSpecific"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.error(trace,
+      this.observableBackend.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:emitEventAndReturnSpecific] error occured: ${error}",
         {
           error: exc.message ?? exc,
@@ -894,7 +890,7 @@ export class SBEvents {
       const time = (
         diff[0] * NS_PER_SEC + diff[1]
       ) * MS_PER_NS;
-      this.log.debug(trace,
+      this.observableBackend.debug(trace,
         "receivestream-{eventsPluginName}-{pluginName}-{event}:{time}",
         {
           eventsPluginName,
@@ -907,7 +903,7 @@ export class SBEvents {
       this.metricGauges["receiveStream"].set(time, { pluginName, event });
       return resp;
     } catch (exc: any) {
-      this.log.error(trace,
+      this.observableBackend.error(trace,
         "[{eventsPluginName}:{pluginName}:{event}:handleOnReceiveStream] error occured: ${error}",
         {
           error: exc.message ?? exc,
@@ -983,7 +979,7 @@ export class SBEvents {
       const time = (
         diff[0] * NS_PER_SEC + diff[1]
       ) * MS_PER_NS;
-      this.log.debug(
+      this.observableBackend.debug(
         trace,
         "sendstream-{pluginName}-{event}:{time}",
         {
@@ -995,7 +991,7 @@ export class SBEvents {
       this.metricCounters["sendStream"].increment(1, { pluginName, event });
       this.metricGauges["sendStream"].set(time, { pluginName, event });
     } catch (exc: any) {
-      this.log.error(
+      this.observableBackend.error(
         trace,
         "[{eventsPluginName}:{pluginName}:{streamId}:sendStream] error occured: ${error}",
         {

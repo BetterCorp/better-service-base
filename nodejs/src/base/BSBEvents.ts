@@ -27,7 +27,7 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Readable } from "node:stream";
-import { BaseWithLoggingMetricsAndConfig, BaseWithLoggingMetricsAndConfigConfig } from "./base";
+import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
 import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBReferenceConfigType } from "./PluginConfig";
 import { Observable } from '../interfaces/observable';
@@ -35,7 +35,7 @@ import { Observable } from '../interfaces/observable';
 export interface BSBEventsConstructor<
     ReferencedConfig extends BSBReferencePluginConfigType = any
 >
-    extends BaseWithLoggingMetricsAndConfigConfig<
+    extends BaseWithObservableAndConfigConfig<
         ReferencedConfig extends null
         ? null
         : BSBReferencePluginConfigDefinition<ReferencedConfig> & BSBReferenceConfigType
@@ -50,7 +50,7 @@ export interface BSBEventsConstructor<
 export abstract class BSBEvents<
     ReferencedConfig extends BSBReferencePluginConfigType = any
 >
-    extends BaseWithLoggingMetricsAndConfig<
+    extends BaseWithObservableAndConfig<
         ReferencedConfig extends null
         ? null
         : BSBReferencePluginConfigDefinition<ReferencedConfig> & BSBReferenceConfigType

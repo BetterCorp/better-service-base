@@ -28,8 +28,6 @@
 import {
   createFakeDTrace,
   DTrace,
-  IPluginLogging,
-  IPluginMetrics,
   BSBEventSchemas,
   Observable,
 } from "../interfaces";
@@ -56,8 +54,6 @@ function internalTrace(span: string): DTrace {
 export abstract class BSBServiceClient<
   Service extends BSBService<any, any> = BSBService<any, BSBEventSchemas>
 > {
-  public declare readonly log: IPluginLogging;
-  public declare readonly metrics: IPluginMetrics;
   public declare readonly events: PluginEvents<BSBEventSchemas>;
 
   constructor(context: BSBService) {

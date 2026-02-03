@@ -47,10 +47,10 @@ export class Plugin
   constructor(config: BSBEventsConstructor) {
     super(config);
 
-    this.broadcast = new broadcast(this.createNewLogger("broadcast"));
-    this.emit = new emit(this.createNewLogger("emit"));
-    this.ear = new emitAndReturn(this.createNewLogger("emitAndReturn"));
-    this.eas = new emitStreamAndReceiveStream(this.createNewLogger("stream"));
+    this.broadcast = new broadcast(this.__internalObservable);
+    this.emit = new emit(this.__internalObservable);
+    this.ear = new emitAndReturn(this.__internalObservable);
+    this.eas = new emitStreamAndReceiveStream(this.__internalObservable);
   }
 
   public dispose() {

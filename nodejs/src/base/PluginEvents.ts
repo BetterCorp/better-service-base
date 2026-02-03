@@ -32,6 +32,7 @@ import {
     EventInputType,
     EventOutputType,
     Observable,
+    IPluginObservable,
 } from "../interfaces";
 import { SBEvents } from "../serviceBase";
 import { BSBService } from "./BSBService";
@@ -62,13 +63,14 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         mode: DEBUG_MODE,
         events: SBEvents,
         context: BSBService | BSBServiceClient,
-        eventSchemas: TEventSchemas
+        eventSchemas: TEventSchemas,
+        observableBackend?: IPluginObservable
     ) {
         this.events = events;
         this.service = context;
         this.cachedPluginName = context.pluginName;
         this.eventSchemas = eventSchemas;
-        this.validator = new EventValidator({}, context.log);
+        this.validator = new EventValidator({}, observableBackend);
     }
 
     /**

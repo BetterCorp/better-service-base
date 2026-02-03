@@ -26,21 +26,21 @@
  */
 
 import { expect } from "chai";
-import { PluginMetrics } from "../../base/PluginMetrics";
+import { ObservableBackend } from "../../base/ObservableBackend";
 import { BSBError } from "../../base/errorMessages";
 import { DTrace } from "../../interfaces";
 import { MockSBObservable } from "../mocks";
 import { SBObservable } from "../../serviceBase/observable";
 
-describe("PluginMetrics", () => {
+describe("ObservableBackend", () => {
   let mockObservable: SBObservable;
-  let pluginMetrics: PluginMetrics;
+  let observableBackend: ObservableBackend;
   const appId = "test-app";
   const pluginName = "test-plugin";
 
   beforeEach(() => {
     mockObservable = MockSBObservable();
-    pluginMetrics = new PluginMetrics(appId, pluginName, mockObservable);
+    observableBackend = new ObservableBackend("development", appId, pluginName, mockObservable);
   });
 
   describe("createCounter", () => {
@@ -59,7 +59,7 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      pluginMetrics.createCounter(name, description, help, labels);
+      observableBackend.createCounter(name, description, help, labels);
     });
 
     it("should increment counter and emit increment event", (done) => {
@@ -75,15 +75,15 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      const counter = pluginMetrics.createCounter(name, "desc", "help");
+      const counter = observableBackend.createCounter(name, "desc", "help");
       counter.increment(value, labels);
     });
 
     it("should throw error when observable not ready", () => {
       const notReadyObs = MockSBObservable();
       (notReadyObs as any).isReady = false;
-      pluginMetrics = new PluginMetrics(appId, pluginName, notReadyObs);
-      expect(() => pluginMetrics.createCounter("test", "desc", "help")).to.throw(BSBError);
+      observableBackend = new ObservableBackend("development", appId, pluginName, notReadyObs);
+      expect(() => observableBackend.createCounter("test", "desc", "help")).to.throw(BSBError);
     });
   });
 
@@ -103,7 +103,7 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      pluginMetrics.createGauge(name, description, help, labels);
+      observableBackend.createGauge(name, description, help, labels);
     });
 
     it("should set gauge value and emit set event", (done) => {
@@ -119,7 +119,7 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      const gauge = pluginMetrics.createGauge(name, "desc", "help");
+      const gauge = observableBackend.createGauge(name, "desc", "help");
       gauge.set(value, labels);
     });
   });
@@ -142,7 +142,7 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      pluginMetrics.createHistogram(name, description, help, boundaries, labels);
+      observableBackend.createHistogram(name, description, help, boundaries, labels);
     });
 
     it("should record histogram value and emit record event", (done) => {
@@ -158,7 +158,7 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      const histogram = pluginMetrics.createHistogram(name, "desc", "help");
+      const histogram = observableBackend.createHistogram(name, "desc", "help");
       histogram.record(value, labels);
     });
   });
@@ -176,7 +176,7 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      pluginMetrics.createTrace(name, attributes);
+      observableBackend.createTrace(name, attributes);
     });
   });
 
@@ -195,13 +195,13 @@ describe("PluginMetrics", () => {
         done();
       });
 
-      pluginMetrics.createSpan(trace, name, attributes);
+      observableBackend.createSpan(trace, name, attributes);
     });
   });
 
   describe("createTimer", () => {
     it("should create a timer that measures elapsed time", (done) => {
-      const timer = pluginMetrics.createTimer();
+      const timer = observableBackend.createTimer();
       setTimeout(() => {
         const elapsed = timer.stop();
         expect(elapsed).to.be.a("number");
@@ -213,8 +213,8 @@ describe("PluginMetrics", () => {
     it("should throw error when observable not ready", () => {
       const notReadyObs = MockSBObservable();
       (notReadyObs as any).isReady = false;
-      pluginMetrics = new PluginMetrics(appId, pluginName, notReadyObs);
-      expect(() => pluginMetrics.createTimer()).to.throw(BSBError);
+      observableBackend = new ObservableBackend("development", appId, pluginName, notReadyObs);
+      expect(() => observableBackend.createTimer()).to.throw(BSBError);
     });
   });
 });

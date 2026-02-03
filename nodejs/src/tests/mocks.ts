@@ -25,28 +25,16 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DEBUG_MODE, BSBLoggingConstructor, SBMetrics, SBConfig, DTrace, SBLogging, SBEvents, SBPlugins, BSBEventsConstructor, PluginLogging } from "../index";
-import { PluginMetrics } from "../base/PluginMetrics";
+import { DEBUG_MODE, SBConfig, DTrace, SBEvents, SBPlugins, BSBEventsConstructor, ObservableBackend, BSBObservableConstructor } from "../index";
 import { EventEmitter } from 'events';
 import { SBObservable } from '../serviceBase/observable';
 import { Observable } from '../interfaces/observable';
 import { BSBError } from '../base/errorMessages';
 import { LogMeta } from '../interfaces/logging';
 
-export const MockSBLogging = (): SBLogging => {
-  const fake = {
-    logBus: new EventEmitter(),
-    dispose: () => { },
-    init: async () => { },
-    run: async () => { },
-  } as unknown as SBLogging;
-  fake.logBus.on('error', (...args) => {}); // https://nodejs.org/api/events.html#error-events
-  return fake;
-};
-
 export const MockSBObservable = (): SBObservable => {
   const observableBus = new EventEmitter();
-  observableBus.on('error', (...args) => {}); // Prevent unhandled error events
+  observableBus.on('error', (...args: any[]) => {}); // Prevent unhandled error events
 
   return {
     observableBus,
@@ -121,15 +109,6 @@ export const MockSBConfig = (): SBConfig => {
   return SB
 };
 
-export const MockSBMetrics = (): SBMetrics => {
-  return {
-    metricsBus: new EventEmitter(),
-    dispose: () => { },
-    init: async () => { },
-    run: async () => { },
-  } as unknown as SBMetrics;
-};
-
 export const MockSBEvents = (): SBEvents => {
   return {
     eventsBus: new EventEmitter(),
@@ -155,12 +134,12 @@ export const newSBObservable = async () => {
 
 export const newMetrics = async () => {
   const observable = await newSBObservable();
-  return new PluginMetrics("test-app", "test-plugin", observable);
+  return new ObservableBackend("development", "test-app", "test-plugin", observable);
 };
 
-export const getLoggingConstructorConfig = (
+export const getObservableConstructorConfig = (
   mode: DEBUG_MODE = "development",
-): BSBLoggingConstructor => {
+): BSBObservableConstructor => {
   return {
     appId: "test-app",
     packageCwd: process.cwd(),
@@ -191,5 +170,5 @@ export const getEventsConstructorConfig = async (
 
 export const generateNullLogging = () => {
   const sbObservable = MockSBObservable();
-  return new PluginLogging("development", "test-plugin", sbObservable);
+  return new ObservableBackend("development", "test-app", "test-plugin", sbObservable);
 };

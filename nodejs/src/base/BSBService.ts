@@ -27,16 +27,14 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { DTrace, IPluginMetrics, BSBEventSchemas, Observable } from "../interfaces";
+import { DTrace, BSBEventSchemas, Observable } from "../interfaces";
 import { SBEvents, SBObservable } from "../serviceBase";
-import { BaseWithLoggingAndConfig, BaseWithLoggingAndConfigConfig } from "./base";
+import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base";
 import { BSBServiceClient } from "./BSBServiceClient";
 import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
 import { PluginEvents } from "./PluginEvents";
-import { PluginMetrics } from "./PluginMetrics";
 import { ResourceContext, ResourceContextBuilder } from "./ResourceContext";
 import { PluginObservable } from "./PluginObservable";
-import { PluginLogging } from "./PluginLogging";
 
 /**
  * @hidden
@@ -45,7 +43,7 @@ export interface BSBServiceConstructor<
   ReferencedConfig extends BSBReferencePluginConfigType = any,
   TEventSchemas extends BSBEventSchemas = BSBEventSchemas
 >
-  extends BaseWithLoggingAndConfigConfig<
+  extends BaseWithObservableAndConfigConfig<
     ReferencedConfig extends null
     ? null
     : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
@@ -85,7 +83,7 @@ export abstract class BSBService<
   ReferencedConfig extends BSBReferencePluginConfigType = any,
   TEventSchemas extends BSBEventSchemas = BSBEventSchemas
 >
-  extends BaseWithLoggingAndConfig<
+  extends BaseWithObservableAndConfig<
     ReferencedConfig extends null
     ? null
     : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
@@ -95,9 +93,7 @@ export abstract class BSBService<
   public abstract readonly initAfterPlugins?: Array<string>;
   public abstract readonly runBeforePlugins?: Array<string>;
   public abstract readonly runAfterPlugins?: Array<string>;
-  
-  /** Metrics helper scoped to this plugin */
-  public readonly metrics: IPluginMetrics;
+
   /** Schema-first event API for this plugin with automatic validation */
   public readonly events: PluginEvents<TEventSchemas>;
   /**
@@ -111,8 +107,10 @@ export abstract class BSBService<
 
   constructor(config: BSBServiceConstructor<ReferencedConfig, TEventSchemas>) {
     super(config);
-    this.events = new PluginEvents(config.mode, config.sbEvents, this, config.eventSchemas || {} as TEventSchemas);
-    this.metrics = new PluginMetrics(config.appId, config.pluginName, config.sbObservable);
+
+    // Observable backend initialized
+
+    this.events = new PluginEvents(config.mode, config.sbEvents, this, config.eventSchemas || {} as TEventSchemas, this.__internalObservable);
 
     // Build resource context at construction time
     this._resourceContext = ResourceContextBuilder.build(
@@ -157,8 +155,7 @@ export abstract class BSBService<
     return new PluginObservable(
       trace,
       this._resourceContext,
-      this.log as PluginLogging,
-      this.metrics as PluginMetrics,
+      this.__internalObservable,
       attributes
     );
   }

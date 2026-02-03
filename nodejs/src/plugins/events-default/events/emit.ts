@@ -31,7 +31,6 @@ import { randomUUID } from "node:crypto";
 
 export class emit
   extends EventEmitter {
-  private log: IPluginLogging;
   private _lastReceivedMessageIds: Array<string> = [];
   private set lastReceivedMessageIds(value: string) {
     // remove after 50 messages
@@ -41,9 +40,8 @@ export class emit
     this._lastReceivedMessageIds.push(value);
   }
 
-  constructor(log: IPluginLogging) {
+  constructor(_log: IPluginLogging) {
     super();
-    this.log = log;
   }
 
   public dispose() {

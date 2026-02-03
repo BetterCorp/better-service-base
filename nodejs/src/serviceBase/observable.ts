@@ -26,11 +26,11 @@
  */
 
 import { EventEmitter } from "node:events";
-import { BSBObservable, PluginLogging, SmartFunctionCallAsync, BSBError } from "../base";
+import { BSBObservable, ObservableBackend, SmartFunctionCallAsync, BSBError } from "../base";
 import {
   DEBUG_MODE,
   FilterOnType,
-  IPluginLogging,
+  IPluginObservable,
   ObservableEventTypes,
   ObservableFilter,
   LogMeta,
@@ -84,7 +84,7 @@ export class SBObservable {
   private appId: string;
   private cwd: string;
   private sbPlugins: SBPlugins;
-  private log: IPluginLogging;
+  private observableBackend: IPluginObservable;
   private _ready = false;
 
   /**
@@ -113,7 +113,7 @@ export class SBObservable {
     this.cwd = cwd;
     this.sbPlugins = sbPlugins;
     const observablePluginName = "core-observable";
-    this.log = new PluginLogging(this.mode, observablePluginName, this);
+    this.observableBackend = new ObservableBackend(this.mode, appId, observablePluginName, this);
 
     // Setup logging events
     if (this.mode !== "production") {
@@ -416,32 +416,32 @@ export class SBObservable {
   public async setupObservablePlugins(sbConfig: SBConfig) {
     const trace = internalTrace("setupObservablePlugins");
 
-    this.log.info(trace, "Setting up observable plugins");
+    this.observableBackend.info(trace, "Setting up observable plugins");
     const observablePluginsFromConfig = await sbConfig.getObservablePlugins(trace);
 
     for (const pluginKey of Object.keys(observablePluginsFromConfig)) {
       const pluginDef = observablePluginsFromConfig[pluginKey];
       if (!pluginDef.enabled) {
-        this.log.info(trace, "Observable plugin {plugin} is disabled", { plugin: pluginKey });
+        this.observableBackend.info(trace, "Observable plugin {plugin} is disabled", { plugin: pluginKey });
         continue;
       }
 
       try {
         const loadResult = await this.sbPlugins.loadPlugin<"observable">(
-          this.log,
+          this.observableBackend,
           pluginDef.package ?? null,
           pluginDef.plugin,
           pluginKey
         );
 
         if (!loadResult || !loadResult.success) {
-          this.log.error(trace, "Failed to load observable plugin {plugin}", { plugin: pluginKey });
+          this.observableBackend.error(trace, "Failed to load observable plugin {plugin}", { plugin: pluginKey });
           continue;
         }
 
         const loadedPlugin = loadResult.data;
 
-        this.log.info(trace, "Loaded observable plugin {plugin} from {package}", {
+        this.observableBackend.info(trace, "Loaded observable plugin {plugin} from {package}", {
           plugin: pluginKey,
           package: loadedPlugin.packageCwd,
         });
@@ -465,9 +465,9 @@ export class SBObservable {
           onTypeof: this.determineFilterType(pluginDef.filter),
         });
 
-        this.log.info(trace, "Initialized observable plugin {plugin}", { plugin: pluginKey });
+        this.observableBackend.info(trace, "Initialized observable plugin {plugin}", { plugin: pluginKey });
       } catch (error: any) {
-        this.log.error(trace, "Failed to load observable plugin {plugin}: {error}", {
+        this.observableBackend.error(trace, "Failed to load observable plugin {plugin}: {error}", {
           plugin: pluginKey,
           error: error.message,
         });
@@ -476,7 +476,7 @@ export class SBObservable {
     }
 
     this._ready = true;
-    this.log.info(trace, "Observable plugins setup complete");
+    this.observableBackend.info(trace, "Observable plugins setup complete");
   }
 
   /**
@@ -489,16 +489,16 @@ export class SBObservable {
    * @param sbConfig - Configuration manager instance
    */
   public async init(trace: DTrace, sbConfig: SBConfig) {
-    this.log.info(trace, "Setting up observable plugins");
+    this.observableBackend.info(trace, "Setting up observable plugins");
     await this.setupObservablePlugins(sbConfig);
 
-    this.log.info(trace, "Initializing observable plugins");
+    this.observableBackend.info(trace, "Initializing observable plugins");
     for (const observablePlugin of this.observablePlugins) {
       if (observablePlugin.plugin.init) {
         await (observablePlugin.plugin.init as any).call(observablePlugin.plugin);
       }
     }
-    this.log.info(trace, "Observable plugins initialized");
+    this.observableBackend.info(trace, "Observable plugins initialized");
   }
 
   /**
@@ -510,13 +510,13 @@ export class SBObservable {
    * @param trace - DTrace for tracking the run phase
    */
   public async run(trace: DTrace) {
-    this.log.info(trace, "Running observable plugins");
+    this.observableBackend.info(trace, "Running observable plugins");
     for (const observablePlugin of this.observablePlugins) {
       if (observablePlugin.plugin.run) {
         await (observablePlugin.plugin.run as any).call(observablePlugin.plugin);
       }
     }
-    this.log.info(trace, "Observable plugins running");
+    this.observableBackend.info(trace, "Observable plugins running");
   }
 
   /**

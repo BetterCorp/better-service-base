@@ -25,11 +25,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DEBUG_MODE, IPluginLogging, IPluginMetrics, Observable } from "../interfaces";
+import { DEBUG_MODE, IPluginObservable, Observable } from "../interfaces";
 import { SBObservable } from "../serviceBase";
 import { BSBReferenceConfigType } from "./PluginConfig";
-import { PluginLogging } from "./PluginLogging";
-import { PluginMetrics } from './PluginMetrics';
+import { ObservableBackend } from "./ObservableBackend";
 
 /**
  * Main base config
@@ -240,134 +239,101 @@ export abstract class BaseWithConfig<
 }
 
 /**
- * BaseWithLoggingConfig
- * @property sbObservable - Passed in observable base - can be used to create new plugin loggers
+ * BaseWithObservableConfig
+ * @property sbObservable - Passed in observable base - can be used to create new plugin observable backend
  */
-export interface BaseWithLoggingConfig
+export interface BaseWithObservableConfig
   extends MainBaseConfig {
   sbObservable: SBObservable;
 }
 
 /**
  * @hidden
- * @deprecated v9 - Use Observable.log instead. This base class is maintained for backward compatibility only.
+ * Base class with internal observable support for Observable creation.
  *
- * Base class with logging support (legacy pattern).
+ * **v9 Architecture:**
+ * - Logging and metrics accessed via Observable: `obs.log.info("message")`, `obs.metrics.counter(...)`
+ * - Use `this.createObservable()` to create new root traces
+ * - Pass Observable through all methods for trace context
  *
- * **Migration to v9:**
- * ```typescript
- * // Old pattern (deprecated):
- * this.log.debug(obs.trace, "message", { data });
- *
- * // New pattern (use this):
- * obs.log.debug("message", { data });
- * ```
- *
- * @see {@link Observable.log} for the new unified logging interface
+ * @see {@link Observable} for the unified observable interface
+ * @see {@link BSBService.createObservable} for creating Observables
  */
-export abstract class BaseWithLogging
+export abstract class BaseWithObservable
   extends Base {
   /**
-   * @deprecated v9 - Use `obs.log` instead where `obs` is the Observable parameter passed to your methods.
-   * The Observable pattern provides unified logging with automatic trace context.
+   * @hidden
+   * Internal ObservableBackend instance for creating Observables.
+   * NOT accessible to plugin code - use Observable instead.
    */
-  protected log: IPluginLogging;
+  private _observable: IPluginObservable;
 
-  constructor(config: BaseWithLoggingConfig) {
+  constructor(config: BaseWithObservableConfig) {
     super(config);
-    this.log = new PluginLogging(
+    this._observable = new ObservableBackend(
       config.mode,
-      config.pluginName,
-      config.sbObservable,
-    );
-  }
-}
-
-/**
- * @hidden
- */
-export interface BaseWithLoggingAndConfigConfig<
-  ReferencedConfig extends BSBReferenceConfigType
->
-  extends BaseWithLoggingConfig,
-  BaseWithConfigConfig<ReferencedConfig> {
-}
-
-/**
- * @hidden
- */
-export interface BaseWithLoggingMetricsAndConfigConfig<
-  ReferencedConfig extends BSBReferenceConfigType
->
-  extends BaseWithLoggingAndConfigConfig<ReferencedConfig>,
-  BaseWithLoggingConfig,
-  BaseWithConfigConfig<ReferencedConfig> {
-}
-
-/**
- * @hidden
- * used by metrics plugins (does not need metrics)
- */
-export abstract class BaseWithLoggingAndConfig<
-  ReferencedConfig extends BSBReferenceConfigType
->
-  extends BaseWithConfig<ReferencedConfig> {
-  public log: IPluginLogging;
-  protected createNewLogger: { (plugin: string): IPluginLogging };
-
-  constructor(config: BaseWithLoggingAndConfigConfig<ReferencedConfig>) {
-    super(config);
-    this.log = new PluginLogging(
-      config.mode,
-      config.pluginName,
-      config.sbObservable,
-    );
-    this.createNewLogger = (plugin: string) =>
-      new PluginLogging(
-        config.mode,
-        `${ config.pluginName }-${ plugin }`,
-        config.sbObservable,
-      );
-  }
-}
-
-/**
- * @hidden
- * used by events plugins (does not need events)
- */
-/**
- * @deprecated v9 - Use Observable.metrics instead. This base class is maintained for backward compatibility only.
- *
- * **Migration to v9:**
- * ```typescript
- * // Old pattern (deprecated):
- * const counter = this.metrics.createCounter("requests", "Request count", "Total requests");
- * counter.increment();
- *
- * // New pattern (use this):
- * const counter = obs.metrics.counter("requests", "Request count", "Total requests");
- * counter.increment();
- * ```
- *
- * @see {@link Observable.metrics} for the new unified metrics interface
- */
-export abstract class BaseWithLoggingMetricsAndConfig<
-  ReferencedConfig extends BSBReferenceConfigType
->
-  extends BaseWithLoggingAndConfig<ReferencedConfig> {
-  /**
-   * @deprecated v9 - Use `obs.metrics` instead where `obs` is the Observable parameter passed to your methods.
-   * The Observable pattern provides unified metrics with automatic trace context.
-   */
-  public metrics: IPluginMetrics;
-
-  constructor(config: BaseWithLoggingMetricsAndConfigConfig<ReferencedConfig>) {
-    super(config);
-    this.metrics = new PluginMetrics(
       config.appId,
       config.pluginName,
       config.sbObservable,
     );
+
+    // Observable backend initialized
+    // Accessible via this.__internalObservable for creating Observables
+  }
+
+  /**
+   * @hidden
+   * Get internal observable backend for Observable creation.
+   * NOT for direct plugin use.
+   */
+  protected get __internalObservable(): IPluginObservable {
+    return this._observable;
+  }
+}
+
+/**
+ * @hidden
+ */
+export interface BaseWithObservableAndConfigConfig<
+  ReferencedConfig extends BSBReferenceConfigType
+>
+  extends BaseWithObservableConfig,
+  BaseWithConfigConfig<ReferencedConfig> {
+}
+
+/**
+ * @hidden
+ * Base class with config and internal observable support.
+ * Use Observable for all logging and metrics operations.
+ */
+export abstract class BaseWithObservableAndConfig<
+  ReferencedConfig extends BSBReferenceConfigType
+>
+  extends BaseWithConfig<ReferencedConfig> {
+  /**
+   * @hidden
+   * Internal ObservableBackend instance for creating Observables.
+   */
+  private _observable: IPluginObservable;
+
+  constructor(config: BaseWithObservableAndConfigConfig<ReferencedConfig>) {
+    super(config);
+    this._observable = new ObservableBackend(
+      config.mode,
+      config.appId,
+      config.pluginName,
+      config.sbObservable,
+    );
+
+    // Observable backend initialized
+  }
+
+  /**
+   * @hidden
+   * Get internal observable backend for Observable creation.
+   */
+  protected get __internalObservable(): IPluginObservable {
+    return this._observable;
   }
 }
 

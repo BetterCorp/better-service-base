@@ -30,11 +30,8 @@ import { BSBError, Observable, IPluginLogging } from "../../../index";
 
 export class emitAndReturn
   extends EventEmitter {
-  private log: IPluginLogging;
-
-  constructor(log: IPluginLogging) {
+  constructor(_log: IPluginLogging) {
     super();
-    this.log = log;
   }
 
   public dispose() {

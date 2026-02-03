@@ -1,19 +1,19 @@
 /**
- * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd  
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
  * by the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Alternatively, you may obtain a commercial license for this program. 
- * The commercial license allows you to use the Program in a closed-source manner, 
- * including the right to create derivative works that are not subject to the terms 
- * of the AGPL. 
+ * Alternatively, you may obtain a commercial license for this program.
+ * The commercial license allows you to use the Program in a closed-source manner,
+ * including the right to create derivative works that are not subject to the terms
+ * of the AGPL.
  *
- * To obtain a commercial license, please contact the copyright holders at 
- * https://www.bettercorp.dev. The terms and conditions of the commercial license 
+ * To obtain a commercial license, please contact the copyright holders at
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license
  * will be provided upon request.
  *
  * This program is distributed in the hope that it will be useful,
@@ -26,13 +26,15 @@
  */
 
 import { v7 as uuidv7 } from "uuid";
+import { Tools } from './tools';
 import {
   Counter,
   createFakeDTrace,
+  DEBUG_MODE,
   DTrace,
   Gauge,
   Histogram,
-  IPluginMetrics,
+  SmartLogMeta,
   Span,
   Timer,
   Trace
@@ -41,11 +43,17 @@ import { BSBError } from "./errorMessages";
 import { MS_PER_NS, NS_PER_SEC } from "./base";
 
 /**
- * Observable bus interface for metrics
+ * Observable bus interface - unified for both logging and metrics
  * @hidden
  */
-interface ObservableMetricsBus {
+interface ObservableBus {
   readonly isReady: boolean;
+  // Logging methods
+  debug(plugin: string, trace: DTrace, message: string, ...meta: any[]): void;
+  info(plugin: string, trace: DTrace, message: string, ...meta: any[]): void;
+  warn(plugin: string, trace: DTrace, message: string, ...meta: any[]): void;
+  error(plugin: string, trace: DTrace, message: string | BSBError<any>, ...meta: any[]): void;
+  // Metrics methods
   createCounter(timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]): void;
   incrementCounter(timestamp: number, pluginName: string, name: string, value: number, labels?: Record<string, string>): void;
   createGauge(timestamp: number, pluginName: string, name: string, description: string, help: string, labels?: string[]): void;
@@ -61,7 +69,7 @@ interface ObservableMetricsBus {
  * @hidden
  */
 function internalTrace(span: string): DTrace {
-  return createFakeDTrace("base/PluginMetrics", span);
+  return createFakeDTrace("base/ObservableBackend", span);
 }
 
 /**
@@ -70,20 +78,19 @@ function internalTrace(span: string): DTrace {
  * A span tracks a specific operation within a trace, with a unique span ID.
  * Spans form parent-child relationships to represent the call hierarchy.
  *
- * @group Metrics
- * @category Plugin Development Tools
- * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginMetricsSpan.html | API: PluginMetricsSpan}
+ * @internal
+ * @hidden
  */
-export class PluginMetricsSpan implements Span {
+class ObservableBackendSpan implements Span {
   private _traceId: string;
   private _spanId: string;
   private pluginName: string;
-  private metrics: ObservableMetricsBus;
+  private backend: ObservableBus;
   private appId: string;
 
   /**
    * Create a new span
-   * @param metrics - Observable metrics bus for emitting span events
+   * @param backend - Observable backend for emitting span events
    * @param appId - Application ID
    * @param pluginName - Name of the plugin creating the span
    * @param traceId - Trace ID (unique for the entire trace)
@@ -92,18 +99,14 @@ export class PluginMetricsSpan implements Span {
    * @param name - Name of the span (e.g., "database-query")
    * @param attributes - Optional attributes to attach to the span
    */
-  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) {
-    this.metrics = metrics;
+  constructor(backend: ObservableBus, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) {
+    this.backend = backend;
     this.appId = appId;
     this.pluginName = pluginName;
     this._traceId = traceId;
     this._spanId = spanId;
-    this.metrics.startSpan( Date.now(), this.appId, this.pluginName, traceId, parentSpanId, spanId, name, attributes);
+    this.backend.startSpan(Date.now(), this.appId, this.pluginName, traceId, parentSpanId, spanId, name, attributes);
   }
-
-  // public get traceId(): string {
-  //   return this._traceId;
-  // }
 
   /**
    * Get the span ID
@@ -129,7 +132,7 @@ export class PluginMetricsSpan implements Span {
    * @param attributes - Final attributes to attach before ending
    */
   public end(attributes?: Record<string, string | number | boolean>): void {
-    this.metrics.endSpan( Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, attributes);
+    this.backend.endSpan(Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, attributes);
   }
 
   /**
@@ -138,7 +141,7 @@ export class PluginMetricsSpan implements Span {
    * @param attributes - Additional attributes to attach to the error
    */
   public error(error: BSBError<any> | Error, attributes?: Record<string, string | number | boolean>): void {
-    this.metrics.errorSpan( Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, error, attributes);
+    this.backend.errorSpan(Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, error, attributes);
   }
 }
 
@@ -148,44 +151,42 @@ export class PluginMetricsSpan implements Span {
  * A trace represents the entire journey of a request through the system.
  * Each trace contains one or more spans representing individual operations.
  *
- * @group Metrics
- * @category Plugin Development Tools
- * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginMetricsTrace.html | API: PluginMetricsTrace}
+ * @internal
+ * @hidden
  */
-export class PluginMetricsTrace implements Trace {
+class ObservableBackendTrace implements Trace {
   private _traceId: string;
   private _span: Span;
-  private metrics: ObservableMetricsBus;
+  private backend: ObservableBus;
   private appId: string;
   private pluginName: string;
 
   /**
    * Create a new trace (overload for new trace without parent)
-   * @param metrics - Observable metrics bus
+   * @param backend - Observable backend
    * @param appId - Application ID
    * @param pluginName - Plugin name
    * @param trace - null to create a new trace
    * @param opts - Options including span name and attributes
    */
-  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, trace: null, opts: { name: string, attributes?: Record<string, string | number | boolean> })
+  constructor(backend: ObservableBus, appId: string, pluginName: string, trace: null, opts: { name: string, attributes?: Record<string, string | number | boolean> })
   /**
    * Create a child trace from an existing trace
-   * @param metrics - Observable metrics bus
+   * @param backend - Observable backend
    * @param appId - Application ID
    * @param pluginName - Plugin name
    * @param trace - Parent DTrace object
    * @param opts - Options including span name and attributes
    */
-  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, trace: DTrace, opts: { name: string, attributes?: Record<string, string | number | boolean> });
-  constructor(metrics: ObservableMetricsBus, appId: string, pluginName: string, trace: DTrace | null, opts: { name: string, attributes?: Record<string, string | number | boolean> }) {
-    this.metrics = metrics;
+  constructor(backend: ObservableBus, appId: string, pluginName: string, trace: DTrace, opts: { name: string, attributes?: Record<string, string | number | boolean> });
+  constructor(backend: ObservableBus, appId: string, pluginName: string, trace: DTrace | null, opts: { name: string, attributes?: Record<string, string | number | boolean> }) {
+    this.backend = backend;
     this.appId = appId;
     this.pluginName = pluginName;
     this._traceId = trace?.t ?? uuidv7();
     const spanId = uuidv7();
 
-    // Trace lifecycle events removed - handled by spans
-    this._span = new PluginMetricsSpan(this.metrics, this.appId, this.pluginName, this._traceId, trace?.s ?? null, spanId, opts!.name, opts?.attributes);
+    this._span = new ObservableBackendSpan(this.backend, this.appId, this.pluginName, this._traceId, trace?.s ?? null, spanId, opts!.name, opts?.attributes);
   }
 
   /**
@@ -205,10 +206,6 @@ export class PluginMetricsTrace implements Trace {
     this._span.error(error, attributes);
   }
 
-  // public get span(): Span {
-  //   return this._span;
-  // }
-
   /**
    * Get the DTrace object (trace ID + current span ID)
    * @returns DTrace object containing trace ID and current span ID
@@ -217,75 +214,171 @@ export class PluginMetricsTrace implements Trace {
     return { t: this._traceId, s: this._span.id };
   }
 
-  // public createSpan(name: string, attributes?: Record<string, string | number | boolean>): Span {
-  //   const spanId = uuidv7();
-  //   return new PluginMetricsSpan(this.metrics, this.appId, this.pluginName, this._traceId, spanId, name, this._parentSpan.id, attributes);
-  // }
-
-  // public createSpanFromParent(parentSpanId: string, name: string, attributes?: Record<string, string | number | boolean>): Span {
-  //   const spanId = uuidv7();
-  //   return new PluginMetricsSpan(this.metrics, this.appId, this.pluginName, this._traceId, spanId, name, parentSpanId, attributes);
-  // }
-
   /**
    * End the trace by ending its associated span
    * @param attributes - Final attributes to attach before ending
    */
   public end(attributes?: Record<string, string | number | boolean>): void {
-    // End the parent span first
     this._span.end(attributes);
-    // Trace lifecycle events removed - handled by spans
   }
 }
 
 /**
- * Plugin Metrics - Provides metric creation and tracing capabilities
+ * Observable Backend - Unified backend for logging and metrics
  *
- * This class provides methods for creating counters, gauges, histograms, timers,
- * and distributed traces. It integrates with the Observable system to send metrics
- * to configured observability backends.
+ * This is the internal backend that handles both logging and metrics operations.
+ * It replaces the separate PluginLogging and PluginMetrics classes with a single
+ * unified implementation.
  *
- * @group Metrics
+ * @group Observable
  * @category Plugin Development Tools
- * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginMetrics.html | API: PluginMetrics}
+ * @internal
  *
  * @example
  * ```typescript
- * // Available via Observable in plugins
- * public async run(obs: Observable) {
- *   // Create and use a counter
- *   const requestCounter = obs.metrics.counter(
- *     "requests_total",
- *     "Total requests",
- *     "Count of all incoming requests",
- *     ["method", "status"]
- *   );
- *   requestCounter.increment(1, { method: "GET", status: "200" });
- *
- *   // Create and use a timer
- *   const timer = obs.metrics.timer();
- *   await doWork();
- *   const elapsed = timer.stop();
- *   obs.log.info("Work completed in {ms}ms", { ms: elapsed });
- * }
+ * // Internal use only - plugins use Observable interface
+ * const backend = new ObservableBackend(
+ *   'development',
+ *   'my-app',
+ *   'my-plugin',
+ *   sbObservable
+ * );
  * ```
  */
-export class PluginMetrics implements IPluginMetrics {
-  private metrics: ObservableMetricsBus;
+export class ObservableBackend {
+  private bus: ObservableBus;
   private pluginName: string;
   private appId: string;
+  private canDebug = false;
 
   /**
-   * Create a PluginMetrics instance
+   * Create an ObservableBackend instance
+   * @param mode - Debug mode setting
    * @param appId - Application ID
-   * @param plugin - Plugin name
-   * @param metrics - Observable metrics bus
+   * @param pluginName - Plugin name
+   * @param bus - Observable bus for emitting events
    */
-  constructor(appId: string, plugin: string, metrics: ObservableMetricsBus) {
-    this.metrics = metrics;
-    this.pluginName = plugin;
+  constructor(mode: DEBUG_MODE, appId: string, pluginName: string, bus: ObservableBus) {
+    this.bus = bus;
+    this.pluginName = pluginName;
     this.appId = appId;
+    if (mode !== "production") {
+      this.canDebug = true;
+    }
   }
+
+  // ==================== LOGGING METHODS ====================
+
+  /**
+   * Logs a debug message
+   *
+   * @param trace - The trace to associate with the log
+   * @param message - The message to log
+   * @param meta - Additional information to log with the message
+   * @returns nothing
+   *
+   * @example
+   * ```ts
+   * backend.debug(trace, "This is a debug log");
+   * backend.debug(trace, "This is a debug {key}", {"key": "log"});
+   * ```
+   */
+  public debug<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
+    if (!this.canDebug) return; // Early return for performance
+    this.bus.debug(this.pluginName, trace, message, ...meta);
+  }
+
+  /**
+   * Logs an info message
+   *
+   * @param trace - The trace to associate with the log
+   * @param message - The message to log
+   * @param meta - Additional information to log with the message
+   * @returns nothing
+   *
+   * @example
+   * ```ts
+   * backend.info(trace, "This is an info log");
+   * backend.info(trace, "This is an info {key}", {"key": "log"});
+   * ```
+   */
+  public info<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
+    this.bus.info(this.pluginName, trace, message, ...meta);
+  }
+
+  /**
+   * Logs a warn message
+   *
+   * @param trace - The trace to associate with the log
+   * @param message - The message to log
+   * @param meta - Additional information to log with the message
+   * @returns nothing
+   *
+   * @example
+   * ```ts
+   * backend.warn(trace, "This is a warn log");
+   * backend.warn(trace, "This is a warn {key}", {"key": "log"});
+   * ```
+   */
+  public warn<T extends string>(trace: DTrace, message: T, ...meta: SmartLogMeta<T>): void {
+    this.bus.warn(this.pluginName, trace, message, ...meta);
+  }
+
+  /**
+   * Logs an error message
+   *
+   * @param trace - The trace to associate with the log
+   * @param message - The message to log
+   * @param meta - Additional information to log with the message
+   * @returns nothing
+   *
+   * @example
+   * ```ts
+   * backend.error(trace, "This is an error log");
+   * backend.error(trace, "This is an error {key}", {"key": "log"});
+   * ```
+   * ```ts
+   * backend.error(new BSBError(trace, "error-key", "This is an error log"));
+   * backend.error(new BSBError(trace, "error-key", "This is an error {key}", {"key": "log"}));
+   * ```
+   */
+  public error<T extends string>(
+    trace: DTrace,
+    message: T,
+    ...meta: SmartLogMeta<T>
+  ): void;
+  public error<T extends string>(error: BSBError<T>): void;
+  public error<T extends DTrace | BSBError<string>, M extends string>(
+    traceOrError: T,
+    message?: M,
+    ...meta: M extends string ? SmartLogMeta<M> : [undefined?]
+  ): void {
+    if (traceOrError instanceof BSBError) {
+      if (traceOrError.raw !== null) {
+        this.bus.error(
+          this.pluginName,
+          traceOrError.raw.trace,
+          traceOrError.raw.message,
+          traceOrError.raw.meta,
+        );
+        return;
+      }
+      this.error(createFakeDTrace('base/ObservableBackend', 'error'), traceOrError.message + ' - error ');
+      return;
+    }
+    if (!Tools.isObject(traceOrError) || !Tools.isString(traceOrError.t) || !Tools.isString(traceOrError.s)) {
+      this.error(createFakeDTrace('base/ObservableBackend', 'errorType'), JSON.stringify(traceOrError));
+      return;
+    }
+    this.bus.error(
+      this.pluginName,
+      traceOrError,
+      message!,
+      ...meta,
+    );
+  }
+
+  // ==================== METRICS METHODS ====================
 
   /**
    * Create a counter metric
@@ -301,7 +394,7 @@ export class PluginMetrics implements IPluginMetrics {
    *
    * @example
    * ```typescript
-   * const requests = obs.metrics.counter(
+   * const requests = backend.createCounter(
    *   "http_requests_total",
    *   "Total HTTP requests",
    *   "Count of all HTTP requests received",
@@ -311,13 +404,13 @@ export class PluginMetrics implements IPluginMetrics {
    * ```
    */
   public createCounter<LABELS extends string | undefined>(name: string, description: string, help: string, labels?: LABELS[]): Counter<LABELS> {
-    if (!this.metrics.isReady) {
+    if (!this.bus.isReady) {
       throw new BSBError(internalTrace("createCounter"), "Metrics not ready!");
     }
-    this.metrics.createCounter(Date.now(), this.pluginName, name, description, help, labels as any);
+    this.bus.createCounter(Date.now(), this.pluginName, name, description, help, labels as any);
     return {
       increment: (value: number = 1, labels?) => {
-        this.metrics.incrementCounter(Date.now(), this.pluginName, name, value, labels as any);
+        this.bus.incrementCounter(Date.now(), this.pluginName, name, value, labels as any);
       },
     };
   }
@@ -336,7 +429,7 @@ export class PluginMetrics implements IPluginMetrics {
    *
    * @example
    * ```typescript
-   * const activeConns = obs.metrics.gauge(
+   * const activeConns = backend.createGauge(
    *   "active_connections",
    *   "Active connections",
    *   "Number of currently active connections"
@@ -347,21 +440,21 @@ export class PluginMetrics implements IPluginMetrics {
    * ```
    */
   public createGauge<LABELS extends string | undefined>(name: string, description: string, help: string, labels?: LABELS[]): Gauge<LABELS> {
-    if (!this.metrics.isReady) {
+    if (!this.bus.isReady) {
       throw new BSBError(internalTrace("createGauge"), "Metrics not ready!");
     }
-    this.metrics.createGauge(Date.now(), this.pluginName, name, description, help, labels as any);
+    this.bus.createGauge(Date.now(), this.pluginName, name, description, help, labels as any);
     return {
       set: (value: number, labels?) => {
-        this.metrics.setGauge(Date.now(), this.pluginName, name, value, labels as any);
+        this.bus.setGauge(Date.now(), this.pluginName, name, value, labels as any);
       },
       increment: (value: number = 1, labels?) => {
         // Note: Observable plugins should track current value and add internally
-        this.metrics.setGauge(Date.now(), this.pluginName, name, value, labels as any);
+        this.bus.setGauge(Date.now(), this.pluginName, name, value, labels as any);
       },
       decrement: (value: number = 1, labels?) => {
         // Note: Observable plugins should track current value and subtract internally
-        this.metrics.setGauge(Date.now(), this.pluginName, name, -value, labels as any);
+        this.bus.setGauge(Date.now(), this.pluginName, name, -value, labels as any);
       },
     };
   }
@@ -381,26 +474,24 @@ export class PluginMetrics implements IPluginMetrics {
    *
    * @example
    * ```typescript
-   * const duration = obs.metrics.histogram(
+   * const duration = backend.createHistogram(
    *   "request_duration_ms",
    *   "Request duration",
    *   "Duration of HTTP requests in milliseconds",
    *   [10, 50, 100, 500, 1000, 5000],
    *   ["method"]
    * );
-   * const timer = obs.metrics.timer();
-   * await handleRequest();
-   * duration.record(timer.stop(), { method: "GET" });
+   * duration.record(125, { method: "GET" });
    * ```
    */
   public createHistogram<LABELS extends string | undefined>(name: string, description: string, help: string, boundaries?: number[], labels?: LABELS[]): Histogram<LABELS> {
-    if (!this.metrics.isReady) {
+    if (!this.bus.isReady) {
       throw new BSBError(internalTrace("createHistogram"), "Metrics not ready!");
     }
-    this.metrics.createHistogram(Date.now(), this.pluginName, name, description, help, boundaries, labels as any);
+    this.bus.createHistogram(Date.now(), this.pluginName, name, description, help, boundaries, labels as any);
     return {
       record: (value: number, labels?) => {
-        this.metrics.observeHistogram(Date.now(), this.pluginName, name, value, labels as any);
+        this.bus.observeHistogram(Date.now(), this.pluginName, name, value, labels as any);
       },
     };
   }
@@ -417,7 +508,7 @@ export class PluginMetrics implements IPluginMetrics {
    *
    * @example
    * ```typescript
-   * const trace = this.metrics.createTrace("process-batch", {
+   * const trace = backend.createTrace("process-batch", {
    *   "batch.size": 100
    * });
    * // ... do work ...
@@ -425,10 +516,10 @@ export class PluginMetrics implements IPluginMetrics {
    * ```
    */
   public createTrace(name: string, attributes?: Record<string, string | number | boolean>): Trace {
-    if (!this.metrics.isReady) {
+    if (!this.bus.isReady) {
       throw new BSBError(internalTrace("createTrace"), "Metrics not ready!");
     }
-    return new PluginMetricsTrace(this.metrics, this.appId, this.pluginName, null, { name, attributes });
+    return new ObservableBackendTrace(this.bus, this.appId, this.pluginName, null, { name, attributes });
   }
 
   /**
@@ -445,16 +536,16 @@ export class PluginMetrics implements IPluginMetrics {
    * @example
    * ```typescript
    * // Usually accessed via Observable
-   * const childSpan = obs.span("database-query");
+   * const childSpan = backend.createSpan(trace, "database-query");
    * // ... do work ...
    * childSpan.end();
    * ```
    */
   public createSpan(trace: DTrace, name: string, attributes?: Record<string, string | number | boolean>): Trace {
-    if (!this.metrics.isReady) {
+    if (!this.bus.isReady) {
       throw new BSBError(internalTrace("createSpan"), "Metrics not ready!");
     }
-    return new PluginMetricsTrace(this.metrics, this.appId, this.pluginName, trace, { name, attributes });
+    return new ObservableBackendTrace(this.bus, this.appId, this.pluginName, trace, { name, attributes });
   }
 
   /**
@@ -467,14 +558,13 @@ export class PluginMetrics implements IPluginMetrics {
    *
    * @example
    * ```typescript
-   * const timer = obs.metrics.timer();
+   * const timer = backend.createTimer();
    * await performOperation();
    * const elapsed = timer.stop();
-   * obs.log.info("Operation took {ms}ms", { ms: elapsed });
    * ```
    */
   public createTimer(): Timer {
-    if (!this.metrics.isReady) {
+    if (!this.bus.isReady) {
       throw new BSBError(internalTrace("createTimer"), "Metrics not ready!");
     }
     const start = process.hrtime();

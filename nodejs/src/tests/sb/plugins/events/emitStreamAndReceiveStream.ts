@@ -31,7 +31,6 @@ import { pipeline } from "stream";
 import { Readable } from "stream";
 import * as assert from "assert";
 import { BSBEvents, SmartFunctionCallSync, Observable } from "../../../../index";
-import { randomUUID } from "crypto";
 import { createTestObservable } from "../../../trace";
 
 const randomName = () => crypto.randomUUID();

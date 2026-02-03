@@ -34,11 +34,9 @@ export class emitStreamAndReceiveStream
   extends EventEmitter {
   // If we try receive or send a stream and the other party is not ready for some reason, we will automatically timeout in 5s.
   private readonly staticCommsTimeout = 1000;
-  private log: IPluginLogging;
 
-  constructor(log: IPluginLogging) {
+  constructor(_log: IPluginLogging) {
     super();
-    this.log = log;
   }
 
   public dispose() {

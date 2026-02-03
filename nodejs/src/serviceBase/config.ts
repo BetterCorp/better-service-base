@@ -27,7 +27,7 @@
 
 import {
   BSBConfig,
-  PluginLogging,
+  ObservableBackend,
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
   Tools
@@ -36,7 +36,7 @@ import {
   DEBUG_MODE,
   DTrace,
   EventsConfig,
-  IPluginLogging,
+  IPluginObservable,
   LoadedPlugin,
   ObservableConfig,
   PluginDefinition,
@@ -73,7 +73,7 @@ export class SBConfig {
   private cwd: string;
   private sbPlugins: SBPlugins;
   private sbObservable: SBObservable;
-  private log: IPluginLogging;
+  private observableBackend: IPluginObservable;
   private configPlugin: BSBConfig;
   private createObservable: (trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => Observable;
 
@@ -91,7 +91,7 @@ export class SBConfig {
     this.sbObservable = sbObservable;
     this.sbPlugins = sbPlugins;
     this.createObservable = createObservable;
-    this.log = new PluginLogging(mode, "sb-config", sbObservable);
+    this.observableBackend = new ObservableBackend(mode, appId, "sb-config", sbObservable);
     this.configPlugin = new DefaultConfig({
       appId,
       mode,
@@ -159,17 +159,17 @@ export class SBConfig {
       sbObservable: this.sbObservable,
       pluginVersion: reference.version,
     });
-    this.log.info(tTrace, "Adding {pluginName} as config", {
+    this.observableBackend.info(tTrace, "Adding {pluginName} as config", {
       pluginName: reference.name,
     });
 
-    this.log.debug(tTrace, `Init: {name}`, {
+    this.observableBackend.debug(tTrace, `Init: {name}`, {
       name: this.configPluginName,
     });
     const obs = this.createObservable(tTrace, "config");
     await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init, obs);
 
-    this.log.info(tTrace, `Init: {name}: OK`, {
+    this.observableBackend.info(tTrace, `Init: {name}: OK`, {
       name: this.configPluginName,
     });
 
@@ -191,7 +191,7 @@ export class SBConfig {
         this.configPackage = process.env.BSB_LOGGER_PLUGIN_PACKAGE;
       }
     }
-    this.log.debug(tTrace, "Add config {name} from ({package})", {
+    this.observableBackend.debug(tTrace, "Add config {name} from ({package})", {
       package: this.configPackage ?? "this project",
       name: this.configPluginName,
     });
@@ -200,19 +200,19 @@ export class SBConfig {
       await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init, obs);
       return;
     }
-    this.log.debug(tTrace, `Import config plugin: {name} from ({package})`, {
+    this.observableBackend.debug(tTrace, `Import config plugin: {name} from ({package})`, {
       package: this.configPackage ?? "this project",
       name: this.configPluginName,
     });
 
     const newPlugin = await this.sbPlugins.loadPlugin<"config">(
-      this.log,
+      this.observableBackend,
       this.configPackage ?? null,
       this.configPluginName,
       this.configPluginName,
     );
     if (newPlugin === null || !newPlugin.success) {
-      this.log.error(tTrace,
+      this.observableBackend.error(tTrace,
         "Failed to import config plugin: {name} from ({package})",
         {
           package: this.configPackage ?? "this project",

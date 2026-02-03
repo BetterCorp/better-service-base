@@ -28,10 +28,10 @@
 import {
   BSBError,
   BSBService, MS_PER_NS, NS_PER_SEC,
-  PluginLogging, PluginMetrics, ResourceContextBuilder, PluginObservable,
+  ObservableBackend, ResourceContextBuilder, PluginObservable,
 } from "../base";
 import { resolveBSBOptions, fromSimpleOptions, fromPreset } from "../base/factory";
-import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, IPluginLogging, LogMeta, PluginTypeDefinitionRef, BSBOptions, SimpleBSBOptions, BSBPreset, Observable } from "../interfaces";
+import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, LogMeta, PluginTypeDefinitionRef, BSBOptions, SimpleBSBOptions, BSBPreset, Observable } from "../interfaces";
 import { SBConfig } from "./config";
 import { SBEvents } from "./events";
 import { SBObservable } from "./observable";
@@ -174,12 +174,11 @@ export class ServiceBase {
   private readonly plugins: SBPlugins;
   private readonly config: SBConfig;
   private readonly events: SBEvents;
-  private readonly log: IPluginLogging;
-  private readonly pluginMetrics: PluginMetrics;
+  private readonly observableBackend: ObservableBackend;
   private readonly services!: SBServices;
   private readonly cwd!: string;
 
-  private coreMetrics!: PluginMetrics;
+  private coreMetrics!: ObservableBackend;
   private heartBeatMetric!: Counter;
   private bsbBootTimeMetric!: Gauge;
 
@@ -192,8 +191,8 @@ export class ServiceBase {
     if (this._keeps === undefined) {
       throw new BSBError(internalTrace("TIMEKEEPER"), "Internal error with timekeeper!");
     }
-    if (this.log !== undefined) {
-      this.log.debug(internalTrace("TIMEKEEPER"), "Starting timer for {log}", { log: stepName });
+    if (this.observableBackend !== undefined) {
+      this.observableBackend.debug(internalTrace("TIMEKEEPER"), "Starting timer for {log}", { log: stepName });
     }
     this._keeps[stepName] = process.hrtime();
   }
@@ -216,7 +215,7 @@ export class ServiceBase {
       msTime: this._keeps[stepName],
       timerName: stepName,
     };
-    this.log.info(internalTrace("TIMEKEEPER"), TIMEKEEPLOG, logMeta);
+    this.observableBackend.info(internalTrace("TIMEKEEPER"), TIMEKEEPLOG, logMeta);
   }
 
   /**
@@ -292,13 +291,9 @@ export class ServiceBase {
     this.plugins = new resolvedOptions.plugins(this.cwd, this.mode === "development");
     this.observable = new resolvedOptions.observable(this._appId, this.mode, this.cwd, this.plugins);
 
-    // Initialize logging and metrics BEFORE config and events
-    this.log = new PluginLogging(
+    // Initialize unified observable backend BEFORE config and events
+    this.observableBackend = new ObservableBackend(
       this.mode,
-      this._CORE_PLUGIN_NAME,
-      this.observable,
-    );
-    this.pluginMetrics = new PluginMetrics(
       this._appId,
       this._CORE_PLUGIN_NAME,
       this.observable,
@@ -323,8 +318,7 @@ export class ServiceBase {
       return new PluginObservable(
         trace,
         resource,
-        this.log as any,
-        this.pluginMetrics,
+        this.observableBackend,
         attributes || {}
       );
     };
@@ -346,7 +340,7 @@ export class ServiceBase {
       createObservableFromTrace,
     );
 
-    this.log.info(internalTrace("CONSTRUCTOR"), "Starting BSB [{mode}]", {
+    this.observableBackend.info(internalTrace("CONSTRUCTOR"), "Starting BSB [{mode}]", {
       mode: this.mode,
     });
     this.services = new resolvedOptions.services(
@@ -374,7 +368,7 @@ export class ServiceBase {
 
     //catches uncaught exceptions
     process.on("uncaughtException", (error: Error) => {
-      self.log.error(internalTrace("UNCAUGHT_EXCEPTION"),
+      self.observableBackend.error(internalTrace("UNCAUGHT_EXCEPTION"),
         "Uncaught exception: {error}\n Stack: {stack}",
         { error: error.message, stack: error.stack ?? 'no stack trace' }
       );
@@ -405,7 +399,7 @@ export class ServiceBase {
     await this.services.init();
     this._outputKeep(BOOT_STAT_KEYS.SERVICES);
 
-    this.coreMetrics = new PluginMetrics(this._appId, this._CORE_PLUGIN_NAME, this.observable);
+    this.coreMetrics = this.observableBackend;
     this.heartBeatMetric = this.coreMetrics.createCounter("heartbeat", "Heartbeat", "Heartbeat", [this._appId]);
     this.bsbBootTimeMetric = this.coreMetrics.createGauge("bsbBootTime", "BSB Boot Time", "BSB Boot Time", [this._appId]);
 
@@ -421,7 +415,7 @@ export class ServiceBase {
     await this.observable.run(internalTrace("OBSERVABLE_RUN"));
     await this.events.run();
     await this.services.run();
-    this.log.info(internalTrace("RUN"), "Disposing config for memory cleanup and safety");
+    this.observableBackend.info(internalTrace("RUN"), "Disposing config for memory cleanup and safety");
     this.config.dispose();
     this._outputKeep(BOOT_STAT_KEYS.RUN);
 
@@ -436,7 +430,7 @@ export class ServiceBase {
   }
 
   private heartBeat() {
-    this.log.debug(internalTrace("HEARTBEAT"), "Heartbeat");
+    this.observableBackend.debug(internalTrace("HEARTBEAT"), "Heartbeat");
     this.heartBeatMetric.increment();
   }
 
@@ -451,12 +445,12 @@ export class ServiceBase {
       return;
     }
     this._disposing = true;
-    const trace = this.pluginMetrics.createTrace("dispose", { reason });
-    const span = this.pluginMetrics.createSpan(trace.trace, "dispose", { reason });
+    const trace = this.observableBackend.createTrace("dispose", { reason });
+    const span = this.observableBackend.createSpan(trace.trace, "dispose", { reason });
     try {
-      this.log.info(span.trace, "Disposing BSB: {reason}", { reason });
+      this.observableBackend.info(span.trace, "Disposing BSB: {reason}", { reason });
       if (extraData !== undefined) {
-        this.log.error(span.trace, "Extra data: {data} {trace}", { data: extraData, trace: extraData.stack });
+        this.observableBackend.error(span.trace, "Extra data: {data} {trace}", { data: extraData, trace: extraData.stack });
         console.error(extraData)
       }
 
@@ -465,19 +459,19 @@ export class ServiceBase {
       }
 
       if (this.services !== undefined) {
-        this.log.debug(span.trace, "Disposing services");
+        this.observableBackend.debug(span.trace, "Disposing services");
         this.services.dispose();
       }
       if (this.events !== undefined) {
-        this.log.debug(span.trace, "Disposing events");
+        this.observableBackend.debug(span.trace, "Disposing events");
         this.events.dispose();
       }
       if (this.observable !== undefined) {
-        this.log.debug(span.trace, "Disposing observable");
+        this.observableBackend.debug(span.trace, "Disposing observable");
         this.observable.dispose();
       }
       if (this.config !== undefined) {
-        this.log.debug(span.trace, "Disposing config");
+        this.observableBackend.debug(span.trace, "Disposing config");
         this.config.dispose();
       }
 

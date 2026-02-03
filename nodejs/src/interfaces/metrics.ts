@@ -26,6 +26,20 @@
  */
 
 import { BSBError } from "../base";
+import { IPluginLogging } from "./logging";
+
+/**
+ * @group Observable
+ * @category Plugin Development Tools
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/interfaces/IPluginObservable.html | API: IPluginObservable}
+ * @internal
+ *
+ * Unified interface combining logging and metrics capabilities.
+ * This is the internal interface implemented by ObservableBackend.
+ */
+export interface IPluginObservable extends IPluginLogging, IPluginMetrics {
+  // Combined interface - inherits all methods from both IPluginLogging and IPluginMetrics
+}
 
 /**
  * @group Metrics

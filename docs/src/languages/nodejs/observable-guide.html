@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observable Pattern Guide - BSB Documentation</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+    <style>
+        .info-box {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .info-box h4 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .section {
+            margin: 3rem 0;
+        }
+
+        .section h2 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-size: 1.75rem;
+        }
+
+        .section h3 {
+            color: var(--text-color);
+            margin-bottom: 1rem;
+            margin-top: 2rem;
+        }
+
+        .code-block {
+            background: var(--code-bg);
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border-color);
+            position: relative;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+
+        .code-block[data-title] { padding-top: 1.75rem; }
+        .code-block[data-title]::before {
+            content: attr(data-title);
+            position: absolute;
+            top: 0.25rem;
+            left: 0.5rem;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: var(--warning-color);
+        }
+
+        .success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: var(--success-color);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .feature-card h4 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .method-signature {
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+
+        .method-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .method-section h4 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        table th,
+        table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table th {
+            background: var(--code-bg);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        table tr:hover {
+            background: rgba(96, 165, 250, 0.05);
+        }
+    </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      <nav class="nav-menu" id="nav-menu">
+        <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/logging-default/">logging-default</a><a href="/core-plugins/metrics-default/">metrics-default</a></div></div>
+        <a href="/languages/nodejs/types/" class="nav-link active">API Reference</a>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank">GitHub</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <main class="main-content">
+      <header class="main-header">
+        <h1>Observable Pattern Guide</h1>
+        <p>Complete guide to using the Observable pattern for unified observability in BSB v9</p>
+      </header>
+
+      <div class="content">
+        <div class="info-box">
+          <h4>What is Observable?</h4>
+          <p>Observable is BSB's unified interface for observability, combining <strong>logging</strong>, <strong>metrics</strong>, and <strong>distributed tracing</strong> into a single, cohesive API. Instead of juggling separate trace objects and logging calls, Observable provides everything you need in one immutable context.</p>
+
+          <p><strong>Key Benefits:</strong></p>
+          <ul>
+            <li>Single interface for all observability needs</li>
+            <li>Automatic trace context propagation</li>
+            <li>Immutable attributes that safely propagate through operations</li>
+            <li>W3C trace context compatible</li>
+            <li>Resource context automatically included (service name, version, region, etc.)</li>
+          </ul>
+
+          <p>See also: <a href="/languages/nodejs/migration-v9.html">Migration Guide from v8 to v9</a></p>
+        </div>
+
+        <div class="section">
+          <h2>Core Concepts</h2>
+
+          <div class="feature-grid">
+            <div class="feature-card">
+              <h4>Immutability</h4>
+              <p>Observable instances are immutable. Methods like <code>setAttribute()</code> and <code>span()</code> return new Observable instances with updated context.</p>
+            </div>
+
+            <div class="feature-card">
+              <h4>Automatic Context</h4>
+              <p>All logs and metrics automatically include trace IDs, span IDs, and custom attributes without manual passing.</p>
+            </div>
+
+            <div class="feature-card">
+              <h4>Resource Context</h4>
+              <p>Every Observable includes resource information (service name, version, instance ID, environment, region) from the plugin configuration.</p>
+            </div>
+
+            <div class="feature-card">
+              <h4>W3C Compatible</h4>
+              <p>Trace IDs and span IDs follow W3C trace context standards for interoperability with other tracing systems.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Observable Properties</h2>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>trace</code></td>
+                <td><code>DTrace</code></td>
+                <td>Underlying trace object (W3C compatible)</td>
+              </tr>
+              <tr>
+                <td><code>traceId</code></td>
+                <td><code>string</code></td>
+                <td>Unique identifier for the entire trace</td>
+              </tr>
+              <tr>
+                <td><code>spanId</code></td>
+                <td><code>string</code></td>
+                <td>Unique identifier for this specific span</td>
+              </tr>
+              <tr>
+                <td><code>resource</code></td>
+                <td><code>ResourceContext</code></td>
+                <td>Service name, version, instance ID, environment, region</td>
+              </tr>
+              <tr>
+                <td><code>attributes</code></td>
+                <td><code>Record&lt;string, string | number | boolean&gt;</code></td>
+                <td>Custom attributes attached to this observable</td>
+              </tr>
+              <tr>
+                <td><code>log</code></td>
+                <td><code>object</code></td>
+                <td>Logging methods (debug, info, warn, error)</td>
+              </tr>
+              <tr>
+                <td><code>metrics</code></td>
+                <td><code>object</code></td>
+                <td>Metrics methods (counter, gauge, histogram, timer)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <h2>Logging with Observable</h2>
+
+          <p>Observable provides four logging levels, all with automatic trace context inclusion:</p>
+
+          <div class="method-section">
+            <h4>Debug Logging</h4>
+            <div class="method-signature">obs.log.debug(message: string, ...meta: SmartLogMeta): void</div>
+            <p>Used for detailed debugging information. Only logged in development mode by default.</p>
+
+            <div class="code-block" data-title="Debug Examples"><pre><code class="language-ts">// Simple message
+obs.log.debug("Processing started");
+
+// With metadata
+obs.log.debug("Processing item {id} of {total}", {
+  id: item.id,
+  total: items.length
+});
+
+// Metadata is automatically replaced in placeholders
+obs.log.debug("User {userId} performed action {action}", {
+  userId: user.id,
+  action: "login"
+});
+// Output: "User abc-123 performed action login"</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Info Logging</h4>
+            <div class="method-signature">obs.log.info(message: string, ...meta: SmartLogMeta): void</div>
+            <p>Used for general informational messages about application flow.</p>
+
+            <div class="code-block" data-title="Info Examples"><pre><code class="language-ts">// Service lifecycle
+obs.log.info("Service initialized successfully");
+
+// Business events
+obs.log.info("Order {orderId} created for customer {customerId}", {
+  orderId: order.id,
+  customerId: order.customerId
+});
+
+// With multiple metadata objects
+obs.log.info("Processing complete", {
+  duration: timer.stop(),
+  itemsProcessed: items.length
+});</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Warning Logging</h4>
+            <div class="method-signature">obs.log.warn(message: string, ...meta: SmartLogMeta): void</div>
+            <p>Used for potentially harmful situations that should be reviewed.</p>
+
+            <div class="code-block" data-title="Warning Examples"><pre><code class="language-ts">// Resource warnings
+obs.log.warn("Connection pool at {percent}% capacity", {
+  percent: 85
+});
+
+// Validation warnings
+obs.log.warn("Deprecated API endpoint used: {endpoint}", {
+  endpoint: req.path
+});
+
+// Rate limiting
+obs.log.warn("Rate limit approaching for user {userId}", {
+  userId: user.id
+});</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Error Logging</h4>
+            <div class="method-signature">obs.log.error(messageOrError: string | Error, ...meta: SmartLogMeta): void</div>
+            <p>Used for error conditions. Supports both error objects and string messages.</p>
+
+            <div class="code-block" data-title="Error Examples"><pre><code class="language-ts">// Error object
+try {
+  await dangerousOperation();
+} catch (error) {
+  obs.log.error(error as Error);
+}
+
+// Error with context
+try {
+  await processOrder(order);
+} catch (error) {
+  obs.log.error(error as Error, {
+    orderId: order.id,
+    customerId: order.customerId
+  });
+}
+
+// String error message
+obs.log.error("Failed to connect to database: {reason}", {
+  reason: "Connection timeout"
+});</code></pre></div>
+          </div>
+
+          <div class="success">
+            <strong>Automatic Trace Context:</strong> All log methods automatically include the trace ID and span ID in the log output, making it easy to correlate logs with distributed traces.
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Metrics with Observable</h2>
+
+          <p>Observable provides methods to create and use four types of metrics:</p>
+
+          <div class="method-section">
+            <h4>Counters</h4>
+            <div class="method-signature">obs.metrics.counter(name, description, help, labels?): Counter</div>
+            <p>Monotonically increasing values. Use for counting events, requests, errors, etc.</p>
+
+            <div class="code-block" data-title="Counter Examples"><pre><code class="language-ts">// Create a counter
+const requestCounter = obs.metrics.counter(
+  "http_requests_total",
+  "Total HTTP requests",
+  "Count of all HTTP requests received by the service",
+  ["method", "status"]
+);
+
+// Increment counter
+requestCounter.increment(1, {
+  method: "GET",
+  status: "200"
+});
+
+// Counter without labels
+const errorCounter = obs.metrics.counter(
+  "errors_total",
+  "Total errors",
+  "Count of all errors encountered"
+);
+errorCounter.increment(1);</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Gauges</h4>
+            <div class="method-signature">obs.metrics.gauge(name, description, help, labels?): Gauge</div>
+            <p>Values that can go up and down. Use for measuring current state like active connections, queue size, etc.</p>
+
+            <div class="code-block" data-title="Gauge Examples"><pre><code class="language-ts">// Create a gauge
+const activeConnections = obs.metrics.gauge(
+  "active_connections",
+  "Active database connections",
+  "Number of currently active database connections"
+);
+
+// Set gauge value
+activeConnections.set(10);
+
+// Increment/decrement
+activeConnections.increment(1); // Add 1
+activeConnections.decrement(1); // Subtract 1
+
+// With labels
+const queueSize = obs.metrics.gauge(
+  "queue_size",
+  "Queue size",
+  "Current size of processing queues",
+  ["queue_name"]
+);
+
+queueSize.set(42, { queue_name: "orders" });</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Histograms</h4>
+            <div class="method-signature">obs.metrics.histogram(name, description, help, boundaries?, labels?): Histogram</div>
+            <p>Samples observations and counts them in configurable buckets. Use for measuring distributions like request durations, response sizes, etc.</p>
+
+            <div class="code-block" data-title="Histogram Examples"><pre><code class="language-ts">// Create a histogram with custom boundaries
+const requestDuration = obs.metrics.histogram(
+  "http_request_duration_ms",
+  "HTTP request duration",
+  "Distribution of HTTP request durations in milliseconds",
+  [10, 50, 100, 500, 1000, 5000], // Boundaries in ms
+  ["method", "route"]
+);
+
+// Record observation
+requestDuration.record(145, {
+  method: "POST",
+  route: "/api/users"
+});
+
+// Use with timer
+const timer = obs.metrics.timer();
+await processRequest();
+const duration = timer.stop();
+requestDuration.record(duration, {
+  method: "GET",
+  route: "/api/orders"
+});</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Timers</h4>
+            <div class="method-signature">obs.metrics.timer(): Timer</div>
+            <p>Convenience method for measuring elapsed time. Returns duration in milliseconds.</p>
+
+            <div class="code-block" data-title="Timer Examples"><pre><code class="language-ts">// Basic timer usage
+const timer = obs.metrics.timer();
+await someOperation();
+const duration = timer.stop();
+obs.log.info("Operation took {ms}ms", { ms: duration });
+
+// Use with histogram
+const processTimer = obs.metrics.timer();
+await processItems(items);
+const processDuration = processTimer.stop();
+
+const durationHistogram = obs.metrics.histogram(
+  "process_duration_ms",
+  "Process duration",
+  "Time taken to process items"
+);
+durationHistogram.record(processDuration);
+
+// Multiple timers
+const dbTimer = obs.metrics.timer();
+const results = await database.query();
+const dbDuration = dbTimer.stop();
+
+const serializeTimer = obs.metrics.timer();
+const json = JSON.stringify(results);
+const serializeDuration = serializeTimer.stop();
+
+obs.log.info("DB: {db}ms, Serialize: {serialize}ms", {
+  db: dbDuration,
+  serialize: serializeDuration
+});</code></pre></div>
+          </div>
+
+          <div class="warning">
+            <strong>Performance Tip:</strong> Create metrics once (usually in <code>init()</code>) and reuse them. Creating metrics repeatedly can impact performance.
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Distributed Tracing</h2>
+
+          <p>Observable makes distributed tracing simple with automatic parent-child span relationships:</p>
+
+          <div class="method-section">
+            <h4>Creating Spans</h4>
+            <div class="method-signature">obs.span(name: string, attributes?): Observable</div>
+            <p>Creates a child span with automatic parent-child relationship. Always call <code>end()</code> when done.</p>
+
+            <div class="code-block" data-title="Span Examples"><pre><code class="language-ts">// Basic span
+const span = obs.span("database-query");
+try {
+  const results = await db.query("SELECT * FROM users");
+  span.end({ rows: results.length });
+  return results;
+} catch (error) {
+  span.error(error as Error);
+  span.end({ success: false });
+  throw error;
+}
+
+// Span with initial attributes
+const userSpan = obs.span("fetch-user", {
+  userId: user.id,
+  cached: false
+});
+
+const userData = await fetchUser(user.id);
+userSpan.end({ found: true });
+
+// Nested spans
+const orderSpan = obs.span("process-order", {
+  orderId: order.id
+});
+
+// Validation span (child of orderSpan)
+const validationSpan = orderSpan.span("validate-order");
+await validateOrder(order);
+validationSpan.end({ valid: true });
+
+// Payment span (child of orderSpan)
+const paymentSpan = orderSpan.span("process-payment");
+const payment = await processPayment(order);
+paymentSpan.end({ transactionId: payment.id });
+
+// End parent span
+orderSpan.end({ status: "completed" });</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Recording Errors</h4>
+            <div class="method-signature">obs.error(error: Error, attributes?): void</div>
+            <p>Records an error to both logs and the active span. Automatically includes error details.</p>
+
+            <div class="code-block" data-title="Error Recording Examples"><pre><code class="language-ts">// Simple error recording
+const span = obs.span("risky-operation");
+try {
+  await doSomethingRisky();
+  span.end({ success: true });
+} catch (error) {
+  span.error(error as Error);
+  span.end({ success: false });
+  throw error;
+}
+
+// Error with additional context
+const processSpan = obs.span("process-batch");
+try {
+  await processBatch(items);
+  processSpan.end({ itemsProcessed: items.length });
+} catch (error) {
+  processSpan.error(error as Error, {
+    itemsProcessed: processedCount,
+    itemsFailed: items.length - processedCount,
+    retryable: true
+  });
+  processSpan.end();
+  throw error;
+}</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Ending Spans</h4>
+            <div class="method-signature">obs.end(attributes?): void</div>
+            <p>Completes the span and optionally records final attributes. Only affects spans created with <code>span()</code>.</p>
+
+            <div class="code-block" data-title="Ending Span Examples"><pre><code class="language-ts">// End with final attributes
+const span = obs.span("data-processing");
+const results = await processData(data);
+span.end({
+  itemsProcessed: results.length,
+  duration: timer.stop(),
+  status: "success"
+});
+
+// End without attributes
+const simpleSpan = obs.span("quick-operation");
+await doSomething();
+simpleSpan.end();
+
+// Conditional attributes
+const conditionalSpan = obs.span("conditional-operation");
+const success = await tryOperation();
+conditionalSpan.end({
+  success: success,
+  retries: success ? 0 : 3
+});</code></pre></div>
+          </div>
+
+          <div class="success">
+            <strong>Best Practice:</strong> Always end spans in a finally block or ensure they're ended in both success and error paths to avoid incomplete traces.
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Attribute Propagation</h2>
+
+          <p>One of the most powerful features of Observable is immutable attribute propagation. Attributes you set are automatically included in all child operations.</p>
+
+          <div class="method-section">
+            <h4>Setting Single Attributes</h4>
+            <div class="method-signature">obs.setAttribute(key: string, value: string | number | boolean): Observable</div>
+            <p>Creates a new Observable with an additional attribute. The original Observable is unchanged.</p>
+
+            <div class="code-block" data-title="Single Attribute Examples"><pre><code class="language-ts">// Add request context
+const withRequest = obs.setAttribute("request.id", req.id);
+withRequest.log.info("Handling request");
+// Log automatically includes request.id
+
+// Chain attributes
+const withUser = withRequest.setAttribute("user.id", user.id);
+withUser.log.info("User authenticated");
+// Log includes both request.id and user.id
+
+// Create span with inherited attributes
+const span = withUser.span("process-data");
+// Span automatically has request.id and user.id attributes
+span.end();</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Setting Multiple Attributes</h4>
+            <div class="method-signature">obs.setAttributes(attrs: Record&lt;string, string | number | boolean&gt;): Observable</div>
+            <p>More efficient way to add multiple attributes at once.</p>
+
+            <div class="code-block" data-title="Multiple Attributes Examples"><pre><code class="language-ts">// Set multiple attributes efficiently
+const withContext = obs.setAttributes({
+  "request.id": req.id,
+  "user.id": req.userId,
+  "request.method": req.method,
+  "request.path": req.path
+});
+
+withContext.log.info("Processing request");
+// All 4 attributes are included in the log
+
+// Complex context
+const orderContext = obs.setAttributes({
+  "order.id": order.id,
+  "customer.id": order.customerId,
+  "order.total": order.total,
+  "order.itemCount": order.items.length
+});
+
+const processSpan = orderContext.span("process-order");
+// Span inherits all order attributes automatically</code></pre></div>
+          </div>
+
+          <div class="code-block" data-title="Complete Attribute Propagation Example"><pre><code class="language-ts">export class OrderService extends BSBService&lt;ConfigSchema, EventSchemas&gt; {
+  public async handleOrderCreated(obs: Observable, order: Order) {
+    // Add order context
+    const withOrder = obs.setAttributes({
+      "order.id": order.id,
+      "customer.id": order.customerId,
+      "order.total": order.total
+    });
+
+    withOrder.log.info("Processing new order");
+    // Log includes order.id, customer.id, order.total
+
+    // Validation span inherits all attributes
+    const validationSpan = withOrder.span("validate-order");
+    try {
+      await this.validateOrder(order);
+      validationSpan.end({ valid: true });
+    } catch (error) {
+      validationSpan.error(error as Error);
+      // Error log includes all order attributes + error details
+      validationSpan.end({ valid: false });
+      throw error;
+    }
+
+    // Payment span also inherits all attributes
+    const paymentSpan = withOrder.span("process-payment");
+    const payment = await this.processPayment(order);
+
+    // Add payment-specific attributes
+    const withPayment = paymentSpan.setAttribute(
+      "payment.id",
+      payment.transactionId
+    );
+    withPayment.log.info("Payment processed");
+    // Log now includes order attributes + payment.id
+
+    paymentSpan.end({ success: true });
+
+    withOrder.log.info("Order completed successfully");
+    // All operations maintain consistent context
+  }
+}</code></pre></div>
+
+          <div class="warning">
+            <strong>Immutability Note:</strong> <code>setAttribute()</code> and <code>setAttributes()</code> return NEW Observable instances. The original Observable is unchanged. This is by design for safety and predictability.
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Common Patterns and Best Practices</h2>
+
+          <div class="method-section">
+            <h4>Pattern 1: Request Handler with Full Observability</h4>
+
+            <div class="code-block" data-title="Complete Request Handler"><pre><code class="language-ts">export class APIService extends BSBService&lt;ConfigSchema, EventSchemas&gt; {
+  private requestCounter: Counter;
+  private requestDuration: Histogram;
+
+  public async init(obs: Observable): Promise&lt;void&gt; {
+    // Create metrics once
+    this.requestCounter = obs.metrics.counter(
+      "api_requests_total",
+      "Total API requests",
+      "Count of all API requests",
+      ["method", "status"]
+    );
+
+    this.requestDuration = obs.metrics.histogram(
+      "api_request_duration_ms",
+      "API request duration",
+      "Distribution of API request durations",
+      [10, 50, 100, 500, 1000, 5000],
+      ["method", "route"]
+    );
+
+    await this.events.onEvent(
+      'http.request',
+      obs,
+      async (requestObs, req) => {
+        await this.handleRequest(requestObs, req);
+      }
+    );
+  }
+
+  private async handleRequest(obs: Observable, req: Request) {
+    // Add request context
+    const withContext = obs.setAttributes({
+      "request.id": req.id,
+      "request.method": req.method,
+      "request.path": req.path,
+      "user.id": req.userId
+    });
+
+    // Start timer
+    const timer = withContext.metrics.timer();
+
+    // Create request span
+    const requestSpan = withContext.span("handle-request");
+
+    try {
+      requestSpan.log.info("Processing request");
+
+      // Process request (span automatically propagates)
+      const result = await this.processRequest(requestSpan, req);
+
+      // Record success metrics
+      const duration = timer.stop();
+      this.requestCounter.increment(1, {
+        method: req.method,
+        status: "200"
+      });
+      this.requestDuration.record(duration, {
+        method: req.method,
+        route: req.path
+      });
+
+      requestSpan.end({
+        status: "success",
+        duration: duration
+      });
+
+      return result;
+
+    } catch (error) {
+      // Record error
+      requestSpan.error(error as Error);
+
+      // Record failure metrics
+      const duration = timer.stop();
+      this.requestCounter.increment(1, {
+        method: req.method,
+        status: "500"
+      });
+
+      requestSpan.end({
+        status: "error",
+        duration: duration
+      });
+
+      throw error;
+    }
+  }
+
+  private async processRequest(obs: Observable, req: Request) {
+    // Span inherits all request context automatically
+    const processSpan = obs.span("validate-and-execute");
+
+    // Validation
+    const validationSpan = processSpan.span("validate");
+    await this.validate(req);
+    validationSpan.end({ valid: true });
+
+    // Execution
+    const execSpan = processSpan.span("execute");
+    const result = await this.execute(req);
+    execSpan.end({ resultCount: result.length });
+
+    processSpan.end();
+    return result;
+  }
+}</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Pattern 2: Background Job Processing</h4>
+
+            <div class="code-block" data-title="Background Job Pattern"><pre><code class="language-ts">export class JobProcessor extends BSBService&lt;ConfigSchema, EventSchemas&gt; {
+  private jobCounter: Counter;
+  private processingGauge: Gauge;
+
+  public async init(obs: Observable): Promise&lt;void&gt; {
+    this.jobCounter = obs.metrics.counter(
+      "jobs_processed_total",
+      "Total jobs processed",
+      "Count of all processed jobs",
+      ["type", "status"]
+    );
+
+    this.processingGauge = obs.metrics.gauge(
+      "jobs_processing",
+      "Currently processing jobs",
+      "Number of jobs currently being processed"
+    );
+
+    await this.events.onEvent(
+      'job.queued',
+      obs,
+      async (jobObs, job) => {
+        await this.processJob(jobObs, job);
+      }
+    );
+  }
+
+  private async processJob(obs: Observable, job: Job) {
+    // Add job context
+    const withJob = obs.setAttributes({
+      "job.id": job.id,
+      "job.type": job.type,
+      "job.priority": job.priority
+    });
+
+    // Track active jobs
+    this.processingGauge.increment(1);
+
+    const jobSpan = withJob.span("process-job");
+
+    try {
+      jobSpan.log.info("Starting job processing");
+
+      // Process with retries
+      await this.processWithRetry(jobSpan, job);
+
+      // Success
+      this.jobCounter.increment(1, {
+        type: job.type,
+        status: "success"
+      });
+
+      jobSpan.end({ status: "completed" });
+
+      await this.events.emitEvent('job.completed', jobSpan, {
+        jobId: job.id,
+        result: "success"
+      });
+
+    } catch (error) {
+      jobSpan.error(error as Error);
+
+      this.jobCounter.increment(1, {
+        type: job.type,
+        status: "failed"
+      });
+
+      jobSpan.end({ status: "failed" });
+
+      await this.events.emitEvent('job.failed', jobSpan, {
+        jobId: job.id,
+        error: (error as Error).message
+      });
+
+    } finally {
+      this.processingGauge.decrement(1);
+    }
+  }
+
+  private async processWithRetry(
+    obs: Observable,
+    job: Job,
+    maxRetries: number = 3
+  ) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const attemptSpan = obs.span("job-attempt", {
+        attempt: attempt,
+        maxRetries: maxRetries
+      });
+
+      try {
+        await this.executeJob(attemptSpan, job);
+        attemptSpan.end({ success: true });
+        return; // Success
+      } catch (error) {
+        attemptSpan.error(error as Error);
+        attemptSpan.end({ success: false });
+
+        if (attempt === maxRetries) {
+          throw error; // Final attempt failed
+        }
+
+        // Wait before retry
+        const backoff = Math.pow(2, attempt) * 1000;
+        attemptSpan.log.warn("Retrying in {ms}ms", { ms: backoff });
+        await new Promise(resolve => setTimeout(resolve, backoff));
+      }
+    }
+  }
+}</code></pre></div>
+          </div>
+
+          <div class="method-section">
+            <h4>Pattern 3: Cross-Service Communication</h4>
+
+            <div class="code-block" data-title="Service Communication Pattern"><pre><code class="language-ts">export class OrderService extends BSBService&lt;ConfigSchema, EventSchemas&gt; {
+  public async createOrder(obs: Observable, orderData: OrderData) {
+    const withOrder = obs.setAttribute("order.id", orderData.id);
+
+    const orderSpan = withOrder.span("create-order");
+
+    try {
+      // Step 1: Validate user
+      orderSpan.log.info("Validating user");
+      const userSpan = orderSpan.span("validate-user");
+
+      const validation = await this.events.emitEventAndReturn(
+        'user.validate',
+        userSpan,
+        { userId: orderData.userId },
+        5
+      );
+
+      if (!validation.valid) {
+        userSpan.end({ valid: false });
+        throw new Error("Invalid user");
+      }
+      userSpan.end({ valid: true });
+
+      // Step 2: Check inventory
+      orderSpan.log.info("Checking inventory");
+      const inventorySpan = orderSpan.span("check-inventory");
+
+      const inventory = await this.events.emitEventAndReturn(
+        'inventory.check',
+        inventorySpan,
+        { items: orderData.items },
+        5
+      );
+
+      if (!inventory.available) {
+        inventorySpan.end({ available: false });
+        throw new Error("Insufficient inventory");
+      }
+      inventorySpan.end({ available: true });
+
+      // Step 3: Process payment
+      orderSpan.log.info("Processing payment");
+      const paymentSpan = orderSpan.span("process-payment");
+
+      const payment = await this.events.emitEventAndReturn(
+        'payment.process',
+        paymentSpan,
+        {
+          amount: orderData.total,
+          customerId: orderData.userId
+        },
+        10
+      );
+
+      if (!payment.success) {
+        paymentSpan.end({ success: false });
+        throw new Error("Payment failed");
+      }
+
+      const withPayment = paymentSpan.setAttribute(
+        "payment.id",
+        payment.transactionId
+      );
+      withPayment.log.info("Payment successful");
+      paymentSpan.end({ success: true });
+
+      // Step 4: Create order
+      orderSpan.log.info("Creating order record");
+      const order = await this.saveOrder(orderSpan, orderData);
+
+      // Emit order created event
+      await this.events.emitEvent('order.created', orderSpan, {
+        orderId: order.id,
+        customerId: orderData.userId,
+        total: orderData.total
+      });
+
+      orderSpan.end({
+        status: "success",
+        orderId: order.id
+      });
+
+      return order;
+
+    } catch (error) {
+      orderSpan.error(error as Error);
+      orderSpan.end({ status: "failed" });
+      throw error;
+    }
+  }
+}</code></pre></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Performance Considerations</h2>
+
+          <div class="info-box">
+            <h4>Performance Best Practices</h4>
+            <ul>
+              <li><strong>Create metrics once:</strong> Create counters, gauges, and histograms in <code>init()</code>, not in request handlers</li>
+              <li><strong>Reuse Observables:</strong> Don't create new attributes for every operation if not needed</li>
+              <li><strong>Batch attributes:</strong> Use <code>setAttributes()</code> for multiple attributes instead of chaining <code>setAttribute()</code></li>
+              <li><strong>End spans properly:</strong> Always end spans to avoid memory leaks in tracing systems</li>
+              <li><strong>Use appropriate log levels:</strong> Avoid excessive debug logging in production</li>
+            </ul>
+          </div>
+
+          <div class="code-block" data-title="Good vs Bad Performance"><pre><code class="language-ts">// ❌ BAD: Creating metrics repeatedly
+public async handleRequest(obs: Observable, req: Request) {
+  const counter = obs.metrics.counter("requests", "...", "...");
+  counter.increment(1); // Creates metric every request!
+}
+
+// ✅ GOOD: Create once, reuse
+private requestCounter: Counter;
+
+public async init(obs: Observable) {
+  this.requestCounter = obs.metrics.counter("requests", "...", "...");
+}
+
+public async handleRequest(obs: Observable, req: Request) {
+  this.requestCounter.increment(1); // Reuses existing metric
+}
+
+// ❌ BAD: Chaining setAttribute repeatedly
+const obs1 = obs.setAttribute("a", 1);
+const obs2 = obs1.setAttribute("b", 2);
+const obs3 = obs2.setAttribute("c", 3);
+const obs4 = obs3.setAttribute("d", 4);
+
+// ✅ GOOD: Use setAttributes
+const withContext = obs.setAttributes({
+  a: 1,
+  b: 2,
+  c: 3,
+  d: 4
+});</code></pre></div>
+        </div>
+
+        <div class="section">
+          <h2>Complete Reference</h2>
+
+          <div class="info-box">
+            <h4>Method Quick Reference</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Method</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td rowspan="4"><strong>Logging</strong></td>
+                  <td><code>obs.log.debug(msg, ...meta)</code></td>
+                  <td>Debug level logging</td>
+                </tr>
+                <tr>
+                  <td><code>obs.log.info(msg, ...meta)</code></td>
+                  <td>Info level logging</td>
+                </tr>
+                <tr>
+                  <td><code>obs.log.warn(msg, ...meta)</code></td>
+                  <td>Warning level logging</td>
+                </tr>
+                <tr>
+                  <td><code>obs.log.error(err, ...meta)</code></td>
+                  <td>Error level logging</td>
+                </tr>
+                <tr>
+                  <td rowspan="4"><strong>Metrics</strong></td>
+                  <td><code>obs.metrics.counter(...)</code></td>
+                  <td>Create monotonic counter</td>
+                </tr>
+                <tr>
+                  <td><code>obs.metrics.gauge(...)</code></td>
+                  <td>Create gauge metric</td>
+                </tr>
+                <tr>
+                  <td><code>obs.metrics.histogram(...)</code></td>
+                  <td>Create histogram metric</td>
+                </tr>
+                <tr>
+                  <td><code>obs.metrics.timer()</code></td>
+                  <td>Create duration timer</td>
+                </tr>
+                <tr>
+                  <td rowspan="4"><strong>Tracing</strong></td>
+                  <td><code>obs.span(name, attrs?)</code></td>
+                  <td>Create child span</td>
+                </tr>
+                <tr>
+                  <td><code>obs.error(err, attrs?)</code></td>
+                  <td>Record error to span and logs</td>
+                </tr>
+                <tr>
+                  <td><code>obs.end(attrs?)</code></td>
+                  <td>End span with final attributes</td>
+                </tr>
+                <tr>
+                  <td><code>obs.setAttribute(k, v)</code></td>
+                  <td>Add single attribute</td>
+                </tr>
+                <tr>
+                  <td rowspan="2"><strong>Context</strong></td>
+                  <td><code>obs.setAttributes(attrs)</code></td>
+                  <td>Add multiple attributes</td>
+                </tr>
+                <tr>
+                  <td><code>obs.attributes</code></td>
+                  <td>Access current attributes</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="info-box">
+            <h4>Additional Resources</h4>
+            <ul>
+              <li><a href="/languages/nodejs/migration-v9.html">Migration Guide: v8 to v9</a></li>
+              <li><a href="/languages/nodejs/index.html">Node.js Implementation Guide</a></li>
+              <li><a href="/languages/nodejs/types/">Complete API Reference (TypeDoc)</a></li>
+              <li><a href="https://github.com/BetterCorp/better-service-base">GitHub Repository</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
+</html>

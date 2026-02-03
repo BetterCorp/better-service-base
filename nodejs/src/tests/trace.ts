@@ -25,12 +25,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace } from '../interfaces';
+import { DTrace, IPluginObservable } from '../interfaces';
 import { Observable } from '../interfaces/observable';
 import { PluginObservable } from '../base/PluginObservable';
 import { ResourceContext } from '../base/ResourceContext';
-import { PluginLogging } from '../base/PluginLogging';
-import { PluginMetrics } from '../base/PluginMetrics';
 
 /**
  * @hidden
@@ -65,32 +63,36 @@ export function createTestObservable(
     'deployment.environment': 'test',
   };
 
-  // Create stub logging - will be replaced by mocks in tests
-  const logging = {
+  // Create stub unified backend - will be replaced by mocks in tests
+  const backend: IPluginObservable = {
+    // Logging methods
     debug: () => {},
     info: () => {},
     warn: () => {},
     error: () => {},
-  } as any as PluginLogging;
-
-  // Create stub metrics - will be replaced by mocks in tests
-  const metrics = {
+    // Metrics methods
     createCounter: () => ({ increment: () => {} }),
     createGauge: () => ({ set: () => {}, increment: () => {}, decrement: () => {} }),
     createHistogram: () => ({ record: () => {} }),
     createTimer: () => ({ stop: () => 0 }),
+    createTrace: (name: string, attrs?: any) => ({
+      id: 'test-trace-id',
+      trace: createFakeDTrace('test-trace', 'test-span'),
+      error: () => {},
+      end: () => {}
+    }),
     createSpan: (parentTrace: DTrace, name: string, attrs?: any) => ({
+      id: 'child-span-' + name,
       trace: createFakeDTrace(parentTrace.t, 'child-span-' + name), // Preserve parent trace ID
       error: () => {},
       end: () => {}
     }),
-  } as any as PluginMetrics;
+  } as any;
 
   return new PluginObservable(
     dTrace,
     resource,
-    logging,
-    metrics,
+    backend,
     {}
   );
 }

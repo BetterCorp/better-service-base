@@ -29,13 +29,12 @@ import {
   BSBService,
   BSBServiceClient,
   PluginEvents,
-  PluginLogging,
-  PluginMetrics, SmartFunctionCallAsync,
+  ObservableBackend, SmartFunctionCallAsync,
   SmartFunctionCallSync, Tools,
   ResourceContextBuilder,
   PluginObservable,
 } from "../base";
-import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginDefinition, IPluginLogging, LoadedPlugin, Observable } from "../interfaces";
+import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginDefinition, IPluginObservable, LoadedPlugin, Observable } from "../interfaces";
 import { SBConfig } from "./config";
 import { SBEvents } from "./events";
 import { SBObservable } from "./observable";
@@ -86,7 +85,7 @@ export class SBServices {
   private readonly appId: string;
   private readonly cwd: string;
   private sbPlugins: SBPlugins;
-  private readonly log: IPluginLogging;
+  private readonly observableBackend: IPluginObservable;
 
   private readonly region?: string;
 
@@ -104,12 +103,12 @@ export class SBServices {
     this.sbPlugins = sbPlugins;
     this.region = region;
     const eventsPluginName = "core-services";
-    this.log = new PluginLogging(this.mode, eventsPluginName, sbObservable);
+    this.observableBackend = new ObservableBackend(this.mode, appId, eventsPluginName, sbObservable);
   }
 
   public dispose() {
     for (const service of this._activeServices) {
-      this.log.warn(internalTrace("dispose"), "disposing {service}", { service: service.pluginName });
+      this.observableBackend.warn(internalTrace("dispose"), "disposing {service}", { service: service.pluginName });
       for (const client of service._clients) {
         SmartFunctionCallSync(client, client.dispose);
       }
@@ -162,7 +161,7 @@ export class SBServices {
     sbEvents: SBEvents,
   ) {
     const tTrace = internalTrace("setup");
-    this.log.debug(tTrace, "SETUP SBServices");
+    this.observableBackend.debug(tTrace, "SETUP SBServices");
     const plugins = await sbConfig.getServicePlugins(tTrace);
     for (const plugin of Object.keys(plugins)) {
       await this.addService(sbConfig, sbObservable, sbEvents, {
@@ -175,7 +174,7 @@ export class SBServices {
     for (const activeService of this._activeServices) {
       await this.remapDeps(sbConfig, tTrace, activeService);
       for (const client of activeService._clients) {
-        this.log.debug(tTrace, "Construct {pluginName} client {clientName}", {
+        this.observableBackend.debug(tTrace, "Construct {pluginName} client {clientName}", {
           pluginName: activeService.pluginName,
           clientName: client.pluginName,
         });
@@ -187,7 +186,7 @@ export class SBServices {
           activeService,
           client,
         );
-        this.log.debug(tTrace,
+        this.observableBackend.debug(tTrace,
           "Setup {pluginName} client {asOriginalPluginName} as {clientName}",
           {
             pluginName: activeService.pluginName,
@@ -199,7 +198,7 @@ export class SBServices {
         );
       }
     }
-    this.log.debug(tTrace, "SETUP SBServices: Completed");
+    this.observableBackend.debug(tTrace, "SETUP SBServices: Completed");
   }
 
   private setupPluginClient = async (
@@ -210,7 +209,7 @@ export class SBServices {
     clientContext: BSBServiceClient<any>,
   ): Promise<void> => {
     const tTrace = internalTrace("setupPluginClient");
-    this.log.debug(tTrace, "Create plugin client {clientName} in {serviceName}", {
+    this.observableBackend.debug(tTrace, "Create plugin client {clientName} in {serviceName}", {
       clientName: clientContext.pluginName,
       serviceName: context.pluginName,
     });
@@ -227,13 +226,14 @@ export class SBServices {
     (
       clientContext as any
     ).pluginEnabled = contextPlugin.enabled;
-    (
-      clientContext as any
-    ).log = new PluginLogging(
+    // Create unified observable backend for client
+    const clientObservableBackend = new ObservableBackend(
       this.mode,
+      this.appId,
       contextPlugin.name,
       sbObservable,
     );
+
     (
       clientContext as any
     ).events = new PluginEvents(
@@ -241,13 +241,6 @@ export class SBServices {
       sbEvents,
       clientContext,
       {} // empty event schemas for client context
-    );
-    (
-      clientContext as any
-    ).metrics = new PluginMetrics(
-      this.appId,
-      contextPlugin.name,
-      sbObservable,
     );
 
     // v9: Add resource context and createObservable method for clients
@@ -268,14 +261,13 @@ export class SBServices {
       return new PluginObservable(
         trace,
         clientResourceContext,
-        (clientContext as any).log as PluginLogging,
-        (clientContext as any).metrics as PluginMetrics,
+        clientObservableBackend,
         attributes
       );
     };
 
     if (!contextPlugin || !contextPlugin.enabled) {
-      this.log.warn(tTrace, "Plugin {plugin} is not enabled", {
+      this.observableBackend.warn(tTrace, "Plugin {plugin} is not enabled", {
         plugin: contextPlugin.name,
       });
     }
@@ -292,7 +284,7 @@ export class SBServices {
       for (const plugin of pluginArr!) {
         const pluginDef = await sbConfig.getServicePluginDefinition(tTrace, plugin);
         if (pluginDef.enabled !== true) {
-          this.log.warn(tTrace, "The plugin {plugin} is not enabled for {pluginNeeded}. It may not work as expected.", {
+          this.observableBackend.warn(tTrace, "The plugin {plugin} is not enabled for {pluginNeeded}. It may not work as expected.", {
             plugin: plugin,
             pluginNeeded: referencedPluginName,
           });
@@ -312,7 +304,7 @@ export class SBServices {
     config: any,
   ) {
     const tTrace = internalTrace("addPlugin");
-    this.log.debug(tTrace, `Construct service plugin: {name}`, {
+    this.observableBackend.debug(tTrace, `Construct service plugin: {name}`, {
       name: plugin.name,
     });
 
@@ -329,13 +321,13 @@ export class SBServices {
       pluginVersion: reference.version,
       region: this.region,
     });
-    this.log.debug(tTrace, "Adding {pluginName} as service", {
+    this.observableBackend.debug(tTrace, "Adding {pluginName} as service", {
       pluginName: plugin.name,
     });
 
     this._activeServices.push(servicePlugin);
 
-    this.log.info(tTrace, "Ready {pluginName} ({mappedName})", {
+    this.observableBackend.info(tTrace, "Ready {pluginName} ({mappedName})", {
       pluginName: plugin.plugin,
       mappedName: plugin.name,
     });
@@ -350,25 +342,25 @@ export class SBServices {
     plugin: IPluginDefinition,
   ) {
     const tTrace = internalTrace("addService");
-    this.log.debug(tTrace, "Add service {name} from ({package}){file}", {
+    this.observableBackend.debug(tTrace, "Add service {name} from ({package}){file}", {
       package: plugin.package ?? "this project",
       name: plugin.name,
       file: plugin.plugin,
     });
-    this.log.debug(tTrace, `Import service plugin: {name} from ({package}){file}`, {
+    this.observableBackend.debug(tTrace, `Import service plugin: {name} from ({package}){file}`, {
       package: plugin.package ?? "this project",
       name: plugin.name,
       file: plugin.plugin,
     });
 
     const newPlugin = await this.sbPlugins.loadPlugin<"service">(
-      this.log,
+      this.observableBackend,
       plugin.package ?? null,
       plugin.plugin,
       plugin.name,
     );
     if (newPlugin === null || !newPlugin.success) {
-      this.log.error(
+      this.observableBackend.error(
         tTrace,
         "Failed to import service plugin: {name} from ({package}){file}",
         {
@@ -380,7 +372,7 @@ export class SBServices {
       return;
     }
 
-    this.log.debug(tTrace, `Get plugin config: {name}`, {
+    this.observableBackend.debug(tTrace, `Get plugin config: {name}`, {
       name: plugin.name,
     });
 
@@ -395,7 +387,7 @@ export class SBServices {
       Tools.isObject(newPlugin.data.serviceConfig) &&
       !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
     ) {
-      this.log.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
+      this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
         newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig);
     }
@@ -466,14 +458,14 @@ export class SBServices {
         this.sortByInitDependencies(type),
       );
 
-    this.log.debug(tTrace, "{key} plugins in order: {plugins}", {
+    this.observableBackend.debug(tTrace, "{key} plugins in order: {plugins}", {
       key: type,
       plugins: plugins.map((x) => x.pluginName)
         .join(", "),
     });
 
     for (const plugin of plugins) {
-      this.log.debug(tTrace, "{type} plugin {pluginName}", {
+      this.observableBackend.debug(tTrace, "{type} plugin {pluginName}", {
         type,
         pluginName: plugin.pluginName,
       });
@@ -484,7 +476,7 @@ export class SBServices {
         : tTrace;
 
       for (const client of plugin.clients) {
-        this.log.debug(tTrace, "  -> {type} client {pluginName}", {
+        this.observableBackend.debug(tTrace, "  -> {type} client {pluginName}", {
           type,
           pluginName: client.pluginName,
         });
@@ -512,7 +504,7 @@ export class SBServices {
     const tTrace = internalTrace(`gatherListOfPlugins:${ type }`);
     const list: Array<SortedPlugin> = [];
     for (const service of this._activeServices) {
-      this.log.debug(tTrace,
+      this.observableBackend.debug(tTrace,
         "Mapping required plugins list for {plugin} [{key}BeforePlugins: {beforePlugins}][{key}AfterPlugins:{afterPlugins}]",
         {
           key: type,
@@ -538,7 +530,7 @@ export class SBServices {
         clients: [],
       };
       for (const client of service._clients) {
-        this.log.debug(tTrace,
+        this.observableBackend.debug(tTrace,
           " -> {client} [{key}BeforePlugins:{beforePlugins}][{key}AfterPlugins:{afterPlugins}]",
           {
             key: type,
@@ -581,12 +573,12 @@ export class SBServices {
   }
 
   public async init() {
-    this.log.info(internalTrace("init"), "Init all services");
+    this.observableBackend.info(internalTrace("init"), "Init all services");
     await this.sortAndRunOrInitPlugins("init");
   }
 
   public async run() {
-    this.log.info(internalTrace("run"), "Run all services");
+    this.observableBackend.info(internalTrace("run"), "Run all services");
     await this.sortAndRunOrInitPlugins("run");
   }
 }

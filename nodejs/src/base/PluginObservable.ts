@@ -26,10 +26,8 @@
  */
 
 import { Observable } from '../interfaces/observable';
-import { DTrace, Trace } from '../interfaces/metrics';
+import { DTrace, Trace, IPluginObservable } from '../interfaces/metrics';
 import { ResourceContext } from './ResourceContext';
-import { PluginLogging } from './PluginLogging';
-import { PluginMetrics } from './PluginMetrics';
 import { BSBError } from './errorMessages';
 import { SmartLogMeta } from '../interfaces/logging';
 import { z } from 'zod';
@@ -47,31 +45,27 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
   private readonly _trace: DTrace;
   private readonly _resource: ResourceContext;
   private readonly _attributes: Record<string, string | number | boolean>;
-  private readonly _logging: PluginLogging;
-  private readonly _metrics: PluginMetrics;
+  private readonly _backend: IPluginObservable;
   private readonly _span?: Trace;
 
   /**
    * Create a PluginObservable
    * @param trace - DTrace object
    * @param resource - Resource context
-   * @param logging - PluginLogging instance
-   * @param metrics - PluginMetrics instance
+   * @param backend - IPluginObservable instance (unified logging and metrics backend)
    * @param attributes - Initial attributes
    * @param span - Optional Trace/Span object (if created via span())
    */
   constructor(
     trace: DTrace,
     resource: ResourceContext,
-    logging: PluginLogging,
-    metrics: PluginMetrics,
+    backend: IPluginObservable,
     attributes: Record<string, string | number | boolean> = {},
     span?: Trace
   ) {
     this._trace = trace;
     this._resource = resource;
-    this._logging = logging;
-    this._metrics = metrics;
+    this._backend = backend;
     this._attributes = attributes;
     this._span = span;
   }
@@ -96,43 +90,43 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     return { ...this._attributes };
   }
 
-  // Delegate logging to PluginLogging
+  // Delegate logging to unified backend
   log = {
     debug: <T extends string>(message: T, ...meta: SmartLogMeta<T>) =>
-      this._logging.debug(this._trace, message, ...meta),
+      this._backend.debug(this._trace, message, ...meta),
 
     info: <T extends string>(message: T, ...meta: SmartLogMeta<T>) =>
-      this._logging.info(this._trace, message, ...meta),
+      this._backend.info(this._trace, message, ...meta),
 
     warn: <T extends string>(message: T, ...meta: SmartLogMeta<T>) =>
-      this._logging.warn(this._trace, message, ...meta),
+      this._backend.warn(this._trace, message, ...meta),
 
     error: <T extends string>(messageOrError: T | Error, ...meta: SmartLogMeta<T>) => {
       if (messageOrError instanceof BSBError) {
-        this._logging.error(messageOrError);
+        this._backend.error(messageOrError);
       } else if (messageOrError instanceof Error) {
-        (this._logging.error as any)(this._trace, messageOrError.message);
+        (this._backend.error as any)(this._trace, messageOrError.message);
       } else {
-        this._logging.error(this._trace, messageOrError, ...meta);
+        this._backend.error(this._trace, messageOrError, ...meta);
       }
     }
   };
 
-  // Delegate metrics to PluginMetrics
+  // Delegate metrics to unified backend
   metrics = {
     counter: <LABELS extends string | undefined>(
       name: string,
       description: string,
       help: string,
       labels?: LABELS[]
-    ) => this._metrics.createCounter(name, description, help, labels),
+    ) => this._backend.createCounter(name, description, help, labels),
 
     gauge: <LABELS extends string | undefined>(
       name: string,
       description: string,
       help: string,
       labels?: LABELS[]
-    ) => this._metrics.createGauge(name, description, help, labels),
+    ) => this._backend.createGauge(name, description, help, labels),
 
     histogram: <LABELS extends string | undefined>(
       name: string,
@@ -140,9 +134,9 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
       help: string,
       boundaries?: number[],
       labels?: LABELS[]
-    ) => this._metrics.createHistogram(name, description, help, boundaries, labels),
+    ) => this._backend.createHistogram(name, description, help, boundaries, labels),
 
-    timer: () => this._metrics.createTimer()
+    timer: () => this._backend.createTimer()
   };
 
   /**
@@ -175,13 +169,12 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     attributes?: Record<string, string | number | boolean>
   ): Observable<TAttributeSchema> {
     const mergedAttributes = { ...this._attributes, ...attributes };
-    const childSpan = this._metrics.createSpan(this._trace, name, mergedAttributes);
+    const childSpan = this._backend.createSpan(this._trace, name, mergedAttributes);
 
     return new PluginObservable(
       childSpan.trace,
       this._resource,
-      this._logging,
-      this._metrics,
+      this._backend,
       mergedAttributes,
       childSpan
     );
@@ -215,8 +208,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     return new PluginObservable(
       this._trace,
       this._resource,
-      this._logging,
-      this._metrics,
+      this._backend,
       { ...this._attributes, [key]: value },
       this._span
     );
@@ -251,8 +243,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
     return new PluginObservable(
       this._trace,
       this._resource,
-      this._logging,
-      this._metrics,
+      this._backend,
       { ...this._attributes, ...attrs },
       this._span
     );
@@ -296,9 +287,9 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
 
     // Record to logs
     if (error instanceof BSBError) {
-      this._logging.error(error);
+      this._backend.error(error);
     } else {
-      this._logging.error(this._trace, error.message);
+      this._backend.error(this._trace, error.message);
     }
   }
 
