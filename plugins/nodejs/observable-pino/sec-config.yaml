@@ -1,0 +1,39 @@
+# Example BSB Configuration for @bsb/observable-pino
+
+plugins:
+  observables:
+    - plugin: "@bsb/observable-pino"
+      enabled: true
+      config:
+        # Minimum log level
+        level: "info"
+        
+        # Pretty print for development
+        prettyPrint:
+          enabled: false
+          colorize: true
+          translateTime: "SYS:standard"
+          ignore: "pid,hostname"
+        
+        # Custom transport (disabled by default)
+        transport:
+          enabled: false
+          target: "pino/file"
+          options:
+            destination: "./logs/app.log"
+        
+        # Serializers
+        serializers:
+          error: true
+        
+        # Base fields included in all logs
+        base:
+          app: "my-service"
+          environment: "production"
+        
+        # Redact sensitive fields
+        redact:
+          - "password"
+          - "token"
+          - "apiKey"
+          - "secret"

@@ -1091,6 +1091,27 @@ code {
 }
 
 /* ============================================
+   EXTERNAL LINK ICONS
+   ============================================ */
+
+.external-link-icon {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 0.25rem;
+    opacity: 0.6;
+    vertical-align: middle;
+}
+
+a[target="_blank"] .external-link-icon {
+    transition: opacity 0.2s;
+}
+
+a[target="_blank"]:hover .external-link-icon {
+    opacity: 1;
+}
+
+/* ============================================
    HIDE OLD SIDEBAR ELEMENTS
    ============================================ */
 

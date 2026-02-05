@@ -1,0 +1,39 @@
+# Example BSB Configuration for @bsb/observable-opentelemetry
+
+plugins:
+  observables:
+    - plugin: "@bsb/observable-opentelemetry"
+      enabled: true
+      config:
+        # Service identification
+        serviceName: "my-service"
+        serviceVersion: "1.0.0"
+        
+        # OTLP collector endpoint
+        endpoint: "http://localhost:4318"
+        
+        # Export settings
+        export:
+          # Protocol: "http" or "grpc"
+          protocol: "http"
+          
+          # Export interval in milliseconds
+          interval: 5000
+          
+          # Maximum batch size for exports
+          maxBatchSize: 512
+        
+        # Toggle telemetry types
+        enabled:
+          traces: true
+          metrics: true
+          logs: true
+        
+        # Custom resource attributes
+        resourceAttributes:
+          environment: "production"
+          region: "us-east-1"
+          team: "platform"
+        
+        # Trace sampling rate (0.0 to 1.0)
+        samplingRate: 1.0

@@ -1,0 +1,40 @@
+# Example BSB Configuration for @bsb/observable-winston
+
+plugins:
+  observables:
+    - plugin: "@bsb/observable-winston"
+      enabled: true
+      config:
+        # Minimum log level
+        level: "info"
+        
+        # Transport configurations
+        transports:
+          # Console transport
+          console:
+            enabled: true
+            colorize: true
+          
+          # Standard file transport
+          file:
+            enabled: false
+            filename: "./logs/application.log"
+            maxsize: 10485760  # 10MB
+            maxFiles: 5
+            tailable: true
+          
+          # Daily rotating file transport
+          dailyRotate:
+            enabled: true
+            dirname: "./logs"
+            filename: "application-%DATE%.log"
+            datePattern: "YYYY-MM-DD"
+            maxSize: "20m"
+            maxFiles: "14d"
+            zippedArchive: true
+        
+        # Format options
+        format:
+          timestamp: true
+          json: true
+          prettyPrint: false

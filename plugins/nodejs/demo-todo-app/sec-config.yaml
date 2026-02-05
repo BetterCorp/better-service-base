@@ -1,0 +1,255 @@
+# BSB Demo Todo App - Configuration File
+#
+# This configuration file sets up the demo-todo-app with all required dependencies.
+# Copy this file to your BSB project root or use it as a reference.
+
+default:
+  observable:
+    observable-default:
+      plugin: observable-default
+      package: "@bsb/base"
+      enabled: true
+      filter: [debug, info, warn, error]
+  events:
+    events-default:
+      package: "@bsb/base"
+      plugin: events-default
+      enabled: true
+
+  # ==========================================================================
+  # Demo Todo App Service - Main application
+  # ==========================================================================
+  services:
+    service-demo-todo:
+      plugin: service-demo-todo
+      enabled: true
+      config:
+        # Storage configuration
+        storage:
+          # Path to JSON storage file (relative to working directory)
+          # The .temp directory will be created automatically
+          path: "./.temp/demo-todos.json"
+
+          # Auto-save interval in milliseconds
+          # Todos are saved to disk every 5 seconds when changes are detected
+          autoSaveInterval: 5000
+
+          # Pretty-print JSON for readability
+          # Set to false for more compact storage
+          prettyPrint: true
+
+        # HTTP server configuration
+        http:
+          # Port to listen on
+          # Change this if port 3000 is already in use
+          port: 3000
+
+          # Host to bind to
+          # Use "0.0.0.0" to accept connections from any network interface
+          # Use "127.0.0.1" for localhost-only access
+          host: "0.0.0.0"
+
+          # Enable CORS headers
+          # Allows API calls from web browsers on different origins
+          cors: true
+
+        # Feature configuration
+        features:
+          # Broadcast statistics interval in seconds
+          # Set to 0 to disable periodic statistics broadcasts
+          # Stats are broadcast via the "todo.stats" event
+          statsInterval: 30
+
+          # Maximum number of todos allowed
+          # Prevents excessive storage usage
+          maxTodos: 1000
+
+# ==========================================================================
+# Alternative Configurations (Examples)
+# ==========================================================================
+
+# Development configuration with enhanced logging
+development:
+  observable:
+    observable-default:
+      plugin: observable-default
+      enabled: true
+      config:
+        logging:
+          console:
+            enabled: true
+            level: debug  # More verbose logging
+            colorize: true
+            timestamp: true
+          file:
+            enabled: true
+            path: "./logs"
+            level: debug
+
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
+
+  services:
+    service-demo-todo:
+      plugin: service-demo-todo
+      enabled: true
+      config:
+        storage:
+          path: "./.temp/demo-todos-dev.json"
+          autoSaveInterval: 2000  # Save more frequently in dev
+          prettyPrint: true
+        http:
+          port: 3000
+          host: "127.0.0.1"  # Localhost only in dev
+          cors: true
+        features:
+          statsInterval: 10  # More frequent stats in dev
+          maxTodos: 100
+
+# Production configuration with optimized settings
+production:
+  observable:
+    observable-default:
+      plugin: observable-default
+      enabled: true
+      config:
+        logging:
+          console:
+            enabled: true
+            level: warn  # Less verbose in production
+            colorize: false
+            timestamp: true
+          file:
+            enabled: true
+            path: "/var/log/bsb"
+            level: info
+            maxFiles: 30
+            maxSize: 52428800  # 50MB
+        metrics:
+          enabled: true
+          collectionInterval: 60000  # Collect less frequently
+        tracing:
+          enabled: true
+          sampleRate: 0.1  # Sample 10% of traces
+
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
+      config:
+        maxListeners: 1000
+        validateEvents: true
+        eventTimeout: 60000
+
+  services:
+    service-demo-todo:
+      plugin: service-demo-todo
+      enabled: true
+      config:
+        storage:
+          path: "/var/lib/bsb/demo-todos.json"
+          autoSaveInterval: 10000  # Save less frequently
+          prettyPrint: false  # Compact storage in production
+        http:
+          port: 8080
+          host: "0.0.0.0"
+          cors: false  # Disable CORS in production (use reverse proxy)
+        features:
+          statsInterval: 300  # Stats every 5 minutes
+          maxTodos: 10000
+
+# Testing configuration with minimal features
+testing:
+  observable:
+    observable-default:
+      plugin: observable-default
+      enabled: true
+      config:
+        logging:
+          console:
+            enabled: true
+            level: error  # Quiet during tests
+            colorize: false
+            timestamp: false
+
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
+
+  services:
+    service-demo-todo:
+      plugin: service-demo-todo
+      enabled: true
+      config:
+        storage:
+          path: "./.temp/test-todos.json"
+          autoSaveInterval: 1000
+          prettyPrint: true
+        http:
+          port: 13000  # Different port for tests
+          host: "127.0.0.1"
+          cors: true
+        features:
+          statsInterval: 0  # Disable stats broadcasts during tests
+          maxTodos: 50
+
+# ==========================================================================
+# Configuration Notes
+# ==========================================================================
+#
+# 1. Environment Selection:
+#    - BSB uses the "default" environment by default
+#    - Override with: BSB_ENV=development bsb start
+#    - Or: bsb start --env production
+#
+# 2. Port Configuration:
+#    - Ensure the port is not already in use
+#    - Common ports: 3000 (dev), 8080 (production), 80 (HTTP with privileges)
+#    - Check with: netstat -an | grep :3000 (Unix) or netstat -an | findstr :3000 (Windows)
+#
+# 3. Storage Path:
+#    - Relative paths are resolved from BSB working directory
+#    - Absolute paths can be used for production deployments
+#    - Ensure the directory is writable by the BSB process
+#
+# 4. CORS:
+#    - Enable in development for easy testing
+#    - Disable in production and use a reverse proxy (nginx, Apache)
+#    - Or configure specific origins in your reverse proxy
+#
+# 5. Auto-Save Interval:
+#    - Lower values (1000-2000ms) = more frequent saves, higher I/O
+#    - Higher values (10000+ms) = less frequent saves, lower I/O
+#    - Balance based on your tolerance for data loss vs. performance
+#
+# 6. Stats Interval:
+#    - Set to 0 to disable periodic broadcasts
+#    - Lower values increase network/processing overhead
+#    - Useful for monitoring dashboards and analytics
+#
+# 7. Max Todos:
+#    - Prevents unbounded memory/storage growth
+#    - Adjust based on expected usage
+#    - Consider pagination for large datasets
+#
+# ==========================================================================
+# Quick Start
+# ==========================================================================
+#
+# 1. Copy this file to your BSB project root as "sec-config.yaml"
+# 2. Adjust settings as needed (port, paths, etc.)
+# 3. Start BSB:
+#      bsb start
+# 4. Access the web interface:
+#      http://localhost:3000
+# 5. Test the API:
+#      curl http://localhost:3000/api/todos
+#
+# For more information, see:
+# - README.md - Full documentation
+# - QUICKSTART.md - Quick setup guide
+# - docs/plugin.md - Comprehensive reference
+#

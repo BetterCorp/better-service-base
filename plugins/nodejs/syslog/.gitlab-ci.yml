@@ -1,0 +1,4 @@
+include:
+  - project: 'BetterCorp/cicd'
+    ref: master
+    file: '/bsb-cicd.yml'

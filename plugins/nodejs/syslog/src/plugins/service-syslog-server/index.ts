@@ -1,0 +1,164 @@
+/**
+ * BSB (Better-Service-Base) is an event-bus based microservice framework.
+ * Copyright (C) 2016 - 2025 BetterCorp (PTY) Ltd
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Alternatively, you may obtain a commercial license for this program.
+ * The commercial license allows you to use the Program in a closed-source manner,
+ * including the right to create derivative works that are not subject to the terms
+ * of the AGPL.
+ *
+ * To obtain a commercial license, please contact the copyright holders at
+ * https://www.bettercorp.dev. The terms and conditions of the commercial license
+ * will be provided upon request.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+const SyslogServer = require("syslog-server");
+import { BSBService, BSBServiceConstructor, BSBPluginConfig, BSBServiceClient } from "@bsb/base";
+import { Observable } from "@bsb/base";
+import { z } from "zod";
+import { createFireAndForgetEvent } from "@bsb/base";
+
+/**
+ * Syslog message structure
+ */
+export const SyslogMessageSchema = z.object({
+  gatewayTime: z.number(),
+  date: z.number(),
+  host: z.string(),
+  protocol: z.string(),
+  message: z.string(),
+});
+
+export type SyslogMessage = z.infer<typeof SyslogMessageSchema>;
+
+/**
+ * Configuration schema for syslog server
+ */
+export const SyslogServerConfigSchema = z.object({
+  port: z.number().int().min(1).max(65535).default(514),
+  address: z.string().default("0.0.0.0"),
+  exclusive: z.boolean().default(false),
+});
+
+export type SyslogServerConfig = z.infer<typeof SyslogServerConfigSchema>;
+
+/**
+ * Configuration class
+ */
+export class Config extends BSBPluginConfig<typeof SyslogServerConfigSchema> {
+  validationSchema = SyslogServerConfigSchema;
+}
+
+/**
+ * Event schemas for syslog server
+ */
+export const EventSchemas = {
+  emitEvents: {
+    onMessage: createFireAndForgetEvent(
+      SyslogMessageSchema,
+      "Syslog message received from client"
+    ),
+  },
+  onEvents: {},
+  emitReturnableEvents: {},
+  onReturnableEvents: {},
+  emitBroadcast: {},
+  onBroadcast: {},
+} as const;
+
+/**
+ * Syslog server service plugin - receives syslog messages
+ */
+export class Plugin extends BSBService<Config, typeof EventSchemas> {
+  public initBeforePlugins?: string[] | undefined;
+  public initAfterPlugins?: string[] | undefined;
+  public runBeforePlugins?: string[] | undefined;
+  public runAfterPlugins?: string[] | undefined;
+
+  private _server: any;
+
+  constructor(config: BSBServiceConstructor<Config, typeof EventSchemas>) {
+    super({
+      ...config,
+      eventSchemas: EventSchemas,
+    });
+  }
+
+  public async init(): Promise<void> {
+    // No initialization needed
+  }
+
+  public async run(obs: Observable): Promise<void> {
+    this._server = new SyslogServer();
+
+    this._server.on("message", (value: any) => {
+      obs.log.info(
+        "Syslog message from {host}: {message}",
+        {
+          host: value.host,
+          message: value.message,
+        }
+      );
+
+      this.events.emitEvent("onMessage", obs, {
+        gatewayTime: Date.now(),
+        date: new Date(value.date).getTime(),
+        host: value.host,
+        protocol: value.protocol,
+        message: value.message,
+      });
+    });
+
+    this._server.start({
+      port: this.config.port,
+      address: this.config.address,
+      exclusive: this.config.exclusive,
+    });
+
+    obs.log.info("Syslog server listening on {address}:{port}", {
+      address: this.config.address,
+      port: this.config.port.toString(),
+    });
+  }
+
+  public dispose(): void {
+    if (this._server) {
+      this._server.stop();
+      this._server = null;
+    }
+  }
+}
+
+/**
+ * Syslog server client - allows other services to subscribe to syslog messages
+ */
+export class Client extends BSBServiceClient<Plugin> {
+  public initBeforePlugins?: string[] | undefined;
+  public initAfterPlugins?: string[] | undefined;
+  public runBeforePlugins?: string[] | undefined;
+  public runAfterPlugins?: string[] | undefined;
+  public dispose?(): void;
+  public run?(): Promise<void>;
+  public readonly pluginName: string = "service-syslog-server";
+
+  public async init(obs: Observable): Promise<void> {
+    // Clients can subscribe to onMessage event to receive syslog messages
+    // Example:
+    // this.events.onEvent("onMessage", obs, async (obs, message) => {
+    //   obs.log.info("Received syslog: {message}", { message: message.message });
+    // });
+  }
+}

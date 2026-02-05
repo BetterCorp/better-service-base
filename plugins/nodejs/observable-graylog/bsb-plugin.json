@@ -1,0 +1,17 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-graylog",
+      "name": "Graylog (GELF)",
+      "basePath": "./",
+      "image": "./observable-graylog.png",
+      "description": "Graylog GELF integration for centralized log management",
+      "tags": ["Graylog", "GELF", "Logging", "Observability", "Centralized Logging"],
+      "documentation": ["./docs/plugin.md"],
+      "pluginPath": "src/plugins/observable-graylog/",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
+    }
+  ]
+}

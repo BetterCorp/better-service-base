@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSB Demo Todo App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 BSB Demo Todo App</h1>
+            <p class="subtitle">Built with Best Service Base - Showcasing Event-Driven Architecture</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-total">0</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-pending">0</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-completed">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+        </div>
+
+        <div class="add-todo">
+            <form id="add-todo-form">
+                <input
+                    type="text"
+                    id="todo-title"
+                    placeholder="What needs to be done?"
+                    maxlength="200"
+                    required
+                />
+                <input
+                    type="text"
+                    id="todo-description"
+                    placeholder="Description (optional)"
+                    maxlength="1000"
+                />
+                <button type="submit" class="btn-primary">Add Todo</button>
+            </form>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
+        </div>
+
+        <div class="todos-container">
+            <div id="todos-list"></div>
+            <div id="empty-state" class="empty-state">
+                <p>No todos yet. Add one to get started! 🚀</p>
+            </div>
+        </div>
+
+        <div class="events-section">
+            <div class="events-header">
+                <h3>Event Log</h3>
+                <button id="clear-events" class="btn-secondary">Clear</button>
+            </div>
+            <div id="event-log" class="event-log"></div>
+        </div>
+
+        <footer>
+            <p>
+                Demo application showcasing BSB patterns:
+                <span class="tag">Events</span>
+                <span class="tag">Observable</span>
+                <span class="tag">Storage</span>
+                <span class="tag">HTTP</span>
+            </p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-logging-file",
+      "name": "File Logging",
+      "basePath": "./",
+      "image": "./observable-logging-file.png",
+      "description": "File logging with automatic rotation, compression, and retention management",
+      "tags": ["Logging", "File", "Rotation", "Compression", "Observability"],
+      "documentation": ["./docs/plugin.md"],
+      "pluginPath": "src/plugins/observable-logging-file/",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
+    }
+  ]
+}

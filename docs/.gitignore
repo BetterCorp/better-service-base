@@ -1,4 +1,13 @@
 dist/
 node_modules/
 .vite/
+src/.temp/
+public/assets/images/plugins/
+public/assets/data/plugins-registry.json
 TODO.md
+
+# Generated plugin pages (follow pattern: <category>-<name>)
+src/plugins/observable/observable-*/
+src/plugins/service/service-*/
+src/plugins/events/events-*/
+src/plugins/config/config-*/

@@ -1,0 +1,13 @@
+{
+  "id": "service-demo-todo",
+  "name": "Demo Todo App",
+  "version": "1.0.0",
+  "description": "Comprehensive demo application showcasing BSB best practices through a todo app with CRUD operations, file storage, and web interface",
+  "category": "service",
+  "tags": ["demo", "example", "todo", "crud", "web", "http", "storage"],
+  "author": "BSB Team",
+  "repository": "https://github.com/yourusername/service-base",
+  "documentation": "docs/plugin.md",
+  "entrypoint": "lib/plugins/service-demo-todo/index.js",
+  "configSchema": "lib/plugins/service-demo-todo/index.js#TodoConfigSchema"
+}

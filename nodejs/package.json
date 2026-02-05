@@ -1,5 +1,5 @@
 {
-  "name": "@bettercorp/service-base",
+  "name": "@bsb/base",
   "license": "(AGPL-3.0-only OR Commercial)",
   "repository": {
     "url": "git+https://github.com/BetterCorp/better-service-base.git"
@@ -10,7 +10,6 @@
   },
   "scripts": {
     "generate-docs": "typedoc --json ./docs.json --tsconfig ./tsconfig-release.json  --cacheBust src/index.ts",
-    "docs": "mkdir -p ../docs/dist/languages/nodejs/types && rimraf ../docs/dist/languages/nodejs/types/* && typedoc --out ../docs/dist/languages/nodejs/types --tsconfig ./tsconfig-release.json --cacheBust src/index.ts",
     "dev": "ts-node src/dev.ts",
     "start": "node lib/cli.js",
     "tsc": "echo 'cleaning...' && rm -rf ./lib && echo 'building...' && tsc && echo 'done'",
@@ -37,7 +36,7 @@
     "LICENSE"
   ],
   "main": "lib/index.js",
-  "version": "9.5.8-next",
+  "version": "9.0.0",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/assert": "^1.5.10",

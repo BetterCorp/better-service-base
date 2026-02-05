@@ -183,12 +183,12 @@ export class SBConfig {
   public async init(): Promise<void> {
     const tTrace = internalTrace(`init`);
     if (
-      Tools.isString(process.env.BSB_LOGGER_PLUGIN) &&
-      process.env.BSB_LOGGER_PLUGIN.startsWith("config-")
+      Tools.isString(process.env.BSB_CONFIG_PLUGIN) &&
+      process.env.BSB_CONFIG_PLUGIN.startsWith("config-")
     ) {
-      this.configPluginName = process.env.BSB_LOGGER_PLUGIN;
-      if (Tools.isString(process.env.BSB_LOGGER_PLUGIN_PACKAGE)) {
-        this.configPackage = process.env.BSB_LOGGER_PLUGIN_PACKAGE;
+      this.configPluginName = process.env.BSB_CONFIG_PLUGIN;
+      if (Tools.isString(process.env.BSB_CONFIG_PLUGIN_PACKAGE)) {
+        this.configPackage = process.env.BSB_CONFIG_PLUGIN_PACKAGE;
       }
     }
     this.observableBackend.debug(tTrace, "Add config {name} from ({package})", {

@@ -1,0 +1,37 @@
+# Example BSB Configuration for @bsb/observable-graylog
+
+plugins:
+  observables:
+    - plugin: "@bsb/observable-graylog"
+      enabled: true
+      config:
+        # Graylog server host
+        host: "localhost"
+        
+        # Graylog GELF input port
+        port: 12201
+        
+        # Protocol: "udp", "tcp", or "http"
+        protocol: "udp"
+        
+        # HTTP endpoint (only for "http" protocol)
+        # httpEndpoint: "http://localhost:12201/gelf"
+        
+        # Facility name for log categorization
+        facility: "bsb"
+        
+        # Additional fields included in all messages
+        additionalFields:
+          environment: "production"
+          datacenter: "us-east-1"
+          version: "1.0.0"
+        
+        # Enable gzip compression
+        compress: true
+        
+        # Log level filtering
+        levels:
+          debug: true
+          info: true
+          warn: true
+          error: true

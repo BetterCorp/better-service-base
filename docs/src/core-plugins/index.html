@@ -67,9 +67,16 @@
         <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
         <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
         <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
-        <div class="nav-dropdown"><button class="nav-link active">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/" class="active">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/logging-default/">logging-default</a><a href="/core-plugins/metrics-default/">metrics-default</a></div></div>
-        <a href="/languages/nodejs/types/" class="nav-link">API Reference</a>
-        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank">GitHub</a>
+        <div class="nav-dropdown"><button class="nav-link active">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/" class="active">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/observable-default/">observable-default</a></div></div>
+        <a href="/marketplace/" class="nav-link">Plugins</a><div class="nav-dropdown"><button class="nav-link">API Reference <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/languages/nodejs/types/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span><span class="coming-soon">Rust</span></div></div>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
+          GitHub
+          <svg class="external-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
       </nav>
       <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
     </div>
@@ -78,7 +85,7 @@
     <main class="main-content">
       <header class="page-header">
         <h1>Core Plugins</h1>
-        <p>BSB ships with sensible default plugins for configuration, events, logging, and metrics. These are part of the framework and work out of the box.</p>
+        <p>BSB ships with sensible default plugins for configuration, events, and observability. These are part of the framework and work out of the box.</p>
       </header>
 
       <div class="content-section">
@@ -111,26 +118,14 @@
             <span class="cta">View Documentation</span>
           </a>
 
-          <a href="/core-plugins/logging-default/" class="plugin-card logging">
-            <h3>logging-default</h3>
-            <p>Console logging with ANSI colors and structured output.</p>
+          <a href="/core-plugins/observable-default/" class="plugin-card logging">
+            <h3>observable-default</h3>
+            <p>Unified observability plugin with logging, metrics, and tracing support.</p>
             <ul class="features">
-              <li>Colored console output</li>
+              <li>Colored console logging</li>
               <li>Log levels (debug, info, warn, error)</li>
-              <li>Trace ID propagation</li>
-              <li>Structured metadata</li>
-            </ul>
-            <span class="cta">View Documentation</span>
-          </a>
-
-          <a href="/core-plugins/metrics-default/" class="plugin-card metrics">
-            <h3>metrics-default</h3>
-            <p>Basic metrics collection with counters, gauges, and histograms.</p>
-            <ul class="features">
-              <li>Counter metrics</li>
-              <li>Gauge metrics</li>
-              <li>Histogram metrics</li>
-              <li>Trace and span support</li>
+              <li>Metrics tracking (counters, gauges)</li>
+              <li>Distributed tracing</li>
             </ul>
             <span class="cta">View Documentation</span>
           </a>
@@ -141,10 +136,9 @@
         <p>The default plugins are designed for development and simple single-container deployments. You should replace them when:</p>
 
         <ul>
-          <li><strong>events-default</strong> - Replace when you need multiple containers/processes to communicate. Use events-rabbitmq, events-kafka, or events-redis.</li>
-          <li><strong>logging-default</strong> - Replace when you need centralized logging. Use logging-gelf (Graylog), logging-elasticsearch, or logging-datadog.</li>
           <li><strong>config-default</strong> - Replace when you need dynamic configuration or secrets management. Use config-consul, config-etcd, or config-vault.</li>
-          <li><strong>metrics-default</strong> - Replace when you need monitoring dashboards. Use metrics-prometheus or metrics-opentelemetry.</li>
+          <li><strong>events-default</strong> - Replace when you need multiple containers/processes to communicate. Use events-rabbitmq, events-kafka, or events-redis.</li>
+          <li><strong>observable-default</strong> - Replace when you need production-grade observability. Use observable-pino, observable-winston, observable-opentelemetry, or observable-graylog for centralized logging and monitoring.</li>
         </ul>
 
         <p>Check <a href="https://plugins.bsbcode.dev" style="color: var(--primary-color);">plugins.bsbcode.dev</a> for available plugins.</p>

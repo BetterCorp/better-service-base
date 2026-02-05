@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plugin Marketplace - BSB Documentation</title>
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <style>
+    .marketplace-header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-color));
+      padding: 3rem 2rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .marketplace-header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--text-color);
+    }
+
+    .marketplace-header p {
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      max-width: 800px;
+      margin: 0 auto 2rem;
+      line-height: 1.6;
+    }
+
+    .marketplace-stats {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .stat-number {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    .marketplace-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 3rem;
+      padding: 1.5rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar input {
+      flex: 1;
+      min-width: 250px;
+      padding: 0.625rem 1rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.375rem;
+      color: var(--text-color);
+      font-size: 0.875rem;
+    }
+
+    .filter-bar input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 0.5rem 1rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.375rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .filter-btn:hover {
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .filter-btn.active {
+      background: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+
+    .category-section {
+      margin-bottom: 4rem;
+    }
+
+    .category-section.hidden {
+      display: none;
+    }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .category-icon {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+    }
+
+    .category-title {
+      flex: 1;
+    }
+
+    .category-title h2 {
+      margin: 0;
+      font-size: 1.75rem;
+      color: var(--text-color);
+    }
+
+    .category-title p {
+      margin: 0.25rem 0 0;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .category-count {
+      padding: 0.375rem 0.75rem;
+      background: var(--code-bg);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .plugin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 2rem;
+    }
+
+    .plugin-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .plugin-card.hidden {
+      display: none;
+    }
+
+    .plugin-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      border-color: var(--primary-color);
+    }
+
+    .plugin-image {
+      width: 100%;
+      height: 200px;
+      background: linear-gradient(135deg, var(--bg-secondary), var(--code-bg));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+      padding: 1.5rem;
+    }
+
+    .plugin-image img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+    }
+
+    /* Add a subtle pattern overlay to help with white logo backgrounds */
+    .plugin-image::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 10px,
+          rgba(255, 255, 255, 0.01) 10px,
+          rgba(255, 255, 255, 0.01) 20px
+        );
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    .plugin-image.placeholder {
+      font-size: 4rem;
+      opacity: 0.3;
+    }
+
+    .plugin-badges {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .plugin-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: rgba(16, 185, 129, 0.9);
+      color: white;
+      backdrop-filter: blur(4px);
+    }
+
+    .badge-official {
+      background: rgba(59, 130, 246, 0.9);
+    }
+
+    .badge-multi {
+      background: rgba(245, 158, 11, 0.9);
+    }
+
+    .badge-lang {
+      background: rgba(139, 92, 246, 0.9);
+    }
+
+    .plugin-content {
+      padding: 1.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .plugin-header {
+      margin-bottom: 1rem;
+    }
+
+    .plugin-name {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      color: var(--text-color);
+    }
+
+    .plugin-package {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 0.75rem;
+      color: var(--primary-color);
+      background: var(--code-bg);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      display: inline-block;
+      word-break: break-all;
+    }
+
+    .plugin-description {
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      flex: 1;
+      font-size: 0.875rem;
+    }
+
+    .multi-plugin-note {
+      background: rgba(245, 158, 11, 0.1);
+      border-left: 3px solid rgba(245, 158, 11, 0.6);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      border-radius: 0.25rem;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+    }
+
+    .sub-plugins {
+      list-style: none;
+      padding: 0;
+      margin: 0.5rem 0;
+    }
+
+    .sub-plugins li {
+      padding: 0.375rem 0;
+      font-size: 0.8125rem;
+    }
+
+    .plugin-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .plugin-tag {
+      padding: 0.25rem 0.5rem;
+      background: var(--code-bg);
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .plugin-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: auto;
+    }
+
+    .plugin-actions .btn-primary {
+      width: 100%;
+      text-align: center;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      background: var(--primary-color);
+      color: #000;
+    }
+
+    .plugin-actions .btn-primary:hover {
+      background: #e65100;
+      transform: translateY(-1px);
+    }
+
+    .plugin-links {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      padding-top: 0.25rem;
+    }
+
+    .plugin-links a {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      background: transparent;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.75rem;
+      border-radius: 0.25rem;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .plugin-links a:hover {
+      color: var(--primary-color);
+      border-color: var(--border-color);
+      background: var(--code-bg);
+    }
+
+    .plugin-links svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0.7;
+    }
+
+    /* External link icon */
+    .external-link-icon {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-left: 0.25rem;
+      opacity: 0.6;
+      vertical-align: middle;
+    }
+
+    a[target="_blank"] .external-link-icon {
+      transition: opacity 0.2s;
+    }
+
+    a[target="_blank"]:hover .external-link-icon {
+      opacity: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-secondary);
+    }
+
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      opacity: 0.3;
+    }
+
+    .info-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 2rem;
+      margin-top: 3rem;
+    }
+
+    .info-section h2 {
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+    }
+
+    .info-section p {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 1rem;
+    }
+
+    .info-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .info-actions a {
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      <nav class="nav-menu" id="nav-menu">
+        <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/observable-default/">observable-default</a></div></div>
+        <a href="/marketplace/" class="nav-link active">Plugins</a>
+        <div class="nav-dropdown"><button class="nav-link">API Reference <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/languages/nodejs/types/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span><span class="coming-soon">Rust</span></div></div>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
+          GitHub
+          <svg class="external-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <main class="main-content">
+      <div class="marketplace-header">
+    <h1>Plugin Marketplace</h1>
+    <p>Extend BSB with official and community plugins for configuration, events, logging, observability, and services</p>
+    <div class="marketplace-stats">
+      <div class="stat-item">
+        <span class="stat-number" id="total-plugins">-</span>
+        <span>Plugins</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" id="total-categories">-</span>
+        <span>Categories</span>
+      </div>
+      <div class="stat-item">
+        <span>Last Updated: <span id="last-updated">-</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="marketplace-content">
+    <div class="filter-bar">
+      <input type="text" id="search-input" placeholder="Search plugins by name, description, or tags...">
+      <div class="filter-buttons">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="official">Official Only</button>
+        <!-- Category filters will be added dynamically -->
+      </div>
+    </div>
+
+    <div id="plugins-container" class="loading">
+      <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+      Loading plugins...
+    </div>
+
+    <div class="info-section">
+      <h2>🛠️ Developing Plugins</h2>
+      <p>Want to create your own plugin? BSB provides a flexible plugin system that allows you to extend configuration, events, logging, metrics, and services. Submit your plugin to the marketplace to share with the community!</p>
+      <div class="info-actions">
+        <a href="/extending/nodejs/" style="background: var(--primary-color); color: white;">Plugin Development Guide</a>
+        <a href="https://github.com/BetterCorp/better-service-base" style="background: var(--code-bg); color: var(--text-color); border: 1px solid var(--border-color);" target="_blank" rel="noopener">
+          View on GitHub
+          <svg class="external-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+      </div>
+      </div>
+    </div>
+    </main>
+  </div>
+
+  <script type="module" src="/assets/js/navbar.js"></script>
+  <script type="module" src="/assets/js/marketplace.js"></script>
+</body>
+</html>

@@ -61,12 +61,26 @@ function createNavbar(activePage = '') {
             </div>
           </div>
 
-          <a href="/languages/nodejs/types/" class="nav-link ${activePage === 'nodejs-types' ? 'active' : ''}">API Reference</a>
+          <a href="/marketplace/" class="nav-link ${activePage === 'marketplace' ? 'active' : ''}">Plugins</a>
+
+          <div class="nav-dropdown">
+            <button class="nav-link ${activePage === 'nodejs-types' ? 'active' : ''}">
+              API Reference <span class="dropdown-arrow">&#9662;</span>
+            </button>
+            <div class="dropdown-content">
+              <a href="/languages/nodejs/types/" class="${activePage === 'nodejs-types' ? 'active' : ''}">Node.js</a>
+              <span class="coming-soon">Go</span>
+              <span class="coming-soon">Python</span>
+              <span class="coming-soon">Rust</span>
+            </div>
+          </div>
 
           <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
             GitHub
-            <svg class="external-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>
+            <svg class="external-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
             </svg>
           </a>
         </nav>

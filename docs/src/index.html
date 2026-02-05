@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BSB - Better Service Base | Event-Driven Microservices Framework</title>
   <meta name="description" content="BSB is an event-driven microservices framework with a pluggable architecture. Build scalable, distributed services with type-safe events across multiple languages.">
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#fb8c00">
+
   <link rel="stylesheet" href="/assets/css/main.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
   <style>
@@ -449,8 +458,24 @@
             <a href="/core-plugins/metrics-default/">metrics-default</a>
           </div>
         </div>
-        <a href="/languages/nodejs/types/" class="nav-link">API Reference</a>
-        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">GitHub</a>
+        <a href="/marketplace/" class="nav-link">Plugins</a>
+        <div class="nav-dropdown">
+          <button class="nav-link">API Reference <span class="dropdown-arrow">&#9662;</span></button>
+          <div class="dropdown-content">
+            <a href="/languages/nodejs/types/">Node.js</a>
+            <span class="coming-soon">Go</span>
+            <span class="coming-soon">Python</span>
+            <span class="coming-soon">Rust</span>
+          </div>
+        </div>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
+          GitHub
+          <svg class="external-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
       </nav>
       <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">
         <span></span><span></span><span></span>

@@ -1,0 +1,17 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-opentelemetry",
+      "name": "OpenTelemetry",
+      "basePath": "./",
+      "image": "./observable-opentelemetry.png",
+      "description": "OpenTelemetry integration with full OTLP export support for traces, metrics, and logs",
+      "tags": ["OpenTelemetry", "OTLP", "Tracing", "Metrics", "Observability", "Distributed Tracing"],
+      "documentation": ["./docs/plugin.md"],
+      "pluginPath": "src/plugins/observable-opentelemetry/",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
+    }
+  ]
+}

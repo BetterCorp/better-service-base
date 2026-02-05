@@ -157,9 +157,16 @@
         <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
         <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
         <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
-        <div class="nav-dropdown"><button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/logging-default/">logging-default</a><a href="/core-plugins/metrics-default/">metrics-default</a></div></div>
-        <a href="/languages/nodejs/types/" class="nav-link active">API Reference</a>
-        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank">GitHub</a>
+        <div class="nav-dropdown"><button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/observable-default/">observable-default</a></div></div>
+        <a href="/marketplace/" class="nav-link">Plugins</a><div class="nav-dropdown"><button class="nav-link active">API Reference <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/languages/nodejs/types/" class="active">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span><span class="coming-soon">Rust</span></div></div>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
+          GitHub
+          <svg class="external-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
       </nav>
       <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
     </div>
@@ -1093,6 +1100,142 @@ const withContext = obs.setAttributes({
   c: 3,
   d: 4
 });</code></pre></div>
+        </div>
+
+        <div class="section">
+          <h2>Observable Plugins</h2>
+
+          <p>BSB provides several observable plugins to extend logging and observability capabilities beyond the default console output. These plugins integrate seamlessly with the Observable pattern and automatically receive all log events with trace context.</p>
+
+          <h3>Available Plugins</h3>
+
+          <div class="feature-grid">
+            <div class="feature-card">
+              <h4><a href="/plugins/observable/logging-file/">observable-logging-file</a></h4>
+              <p>File logging with automatic rotation, compression, and retention management. Perfect for persistent log storage with compliance requirements.</p>
+              <div class="code-block" style="margin-top: 1rem; font-size: 0.75rem;"><pre>npm install @bsb/observable-logging-file</pre></div>
+            </div>
+
+            <div class="feature-card">
+              <h4><a href="/plugins/observable/opentelemetry/">observable-opentelemetry</a></h4>
+              <p>Full OpenTelemetry integration with OTLP export for traces, metrics, and logs. Industry-standard observability for distributed systems.</p>
+              <div class="code-block" style="margin-top: 1rem; font-size: 0.75rem;"><pre>npm install @bsb/observable-opentelemetry</pre></div>
+            </div>
+
+            <div class="feature-card">
+              <h4><a href="/plugins/observable/graylog/">observable-graylog</a></h4>
+              <p>GELF protocol integration for Graylog. Send structured logs to Graylog servers with full trace context and custom fields.</p>
+              <div class="code-block" style="margin-top: 1rem; font-size: 0.75rem;"><pre>npm install @bsb/observable-graylog</pre></div>
+            </div>
+
+            <div class="feature-card">
+              <h4><a href="/plugins/observable/winston/">observable-winston</a></h4>
+              <p>Winston framework integration with multiple transports. Access the full Winston ecosystem for flexible logging.</p>
+              <div class="code-block" style="margin-top: 1rem; font-size: 0.75rem;"><pre>npm install @bsb/observable-winston</pre></div>
+            </div>
+
+            <div class="feature-card">
+              <h4><a href="/plugins/observable/pino/">observable-pino</a></h4>
+              <p>High-performance async logging with Pino. Minimal overhead with structured JSON output and sensitive data redaction.</p>
+              <div class="code-block" style="margin-top: 1rem; font-size: 0.75rem;"><pre>npm install @bsb/observable-pino</pre></div>
+            </div>
+
+            <div class="feature-card">
+              <h4><a href="/plugins/observable/syslog/">observable-syslog</a></h4>
+              <p>Syslog client for forwarding logs to syslog servers. RFC 3164 and RFC 5424 compliance with UDP/TCP/TLS support.</p>
+              <div class="code-block" style="margin-top: 1rem; font-size: 0.75rem;"><pre>npm install @bsb/syslog</pre></div>
+            </div>
+          </div>
+
+          <h3>Plugin Comparison</h3>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Plugin</th>
+                <th>Use Case</th>
+                <th>Performance</th>
+                <th>Best For</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>logging-file</strong></td>
+                <td>Local file storage</td>
+                <td>Medium</td>
+                <td>Development, audit trails, compliance</td>
+              </tr>
+              <tr>
+                <td><strong>opentelemetry</strong></td>
+                <td>Distributed tracing</td>
+                <td>Medium</td>
+                <td>Microservices, cloud-native apps</td>
+              </tr>
+              <tr>
+                <td><strong>graylog</strong></td>
+                <td>Centralized logging</td>
+                <td>High</td>
+                <td>Enterprise log management</td>
+              </tr>
+              <tr>
+                <td><strong>winston</strong></td>
+                <td>Flexible transports</td>
+                <td>Medium</td>
+                <td>Existing Winston infrastructure</td>
+              </tr>
+              <tr>
+                <td><strong>pino</strong></td>
+                <td>High-performance logging</td>
+                <td>Very High</td>
+                <td>High-throughput applications</td>
+              </tr>
+              <tr>
+                <td><strong>syslog</strong></td>
+                <td>Standard protocol</td>
+                <td>High</td>
+                <td>Traditional infrastructure integration</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Using Multiple Plugins</h3>
+
+          <p>You can enable multiple observable plugins simultaneously. For example, use console logging for development, file logging for audit trails, and OpenTelemetry for distributed tracing:</p>
+
+          <div class="code-block" data-title="sec-config.yaml"><pre><code class="language-yaml">plugins:
+  observables:
+    # Default console logging
+    - plugin: "@bsb/base"
+      enabled: true
+
+    # File logging for audit trails
+    - plugin: "@bsb/observable-logging-file"
+      enabled: true
+      config:
+        directory: "./logs"
+        filename: "audit-%DATE%.log"
+        rotation:
+          maxFiles: 90
+          compress: true
+
+    # OpenTelemetry for distributed tracing
+    - plugin: "@bsb/observable-opentelemetry"
+      enabled: true
+      config:
+        serviceName: "my-service"
+        endpoint: "http://otel-collector:4318"
+
+    # Graylog for centralized log management
+    - plugin: "@bsb/observable-graylog"
+      enabled: true
+      config:
+        host: "graylog.example.com"
+        port: 12201</code></pre></div>
+
+          <div class="info-box">
+            <h4>Automatic Integration</h4>
+            <p>All observable plugins automatically receive logs with full trace context. You don't need to change your code - simply configure the plugins and they'll start receiving all log events from your services.</p>
+          </div>
         </div>
 
         <div class="section">

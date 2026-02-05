@@ -1,0 +1,49 @@
+{
+  "name": "@bsb/syslog",
+  "version": "9.0.0",
+  "license": "(AGPL-3.0-only OR Commercial)",
+  "description": "Syslog server and client for BSB - receive syslog messages and send logs to syslog servers",
+  "keywords": [
+    "bsb",
+    "syslog",
+    "server",
+    "client",
+    "observable",
+    "rfc5424"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BetterCorp/better-service-base.git",
+    "directory": "plugins/nodejs/syslog"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests yet\"",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@bsb/base": "^9.0.0"
+  },
+  "dependencies": {
+    "syslog-client": "^1.1.1",
+    "syslog-server": "^1.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bsb/base": "file:../../../nodejs",
+    "@types/node": "^25.0.0",
+    "mocha": "^11.0.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=23.0.0",
+    "npm": ">=11.0.0"
+  }
+}

@@ -1,0 +1,49 @@
+# Example BSB Configuration for @bsb/observable-logging-file
+# This file demonstrates how to configure the file logging observable plugin
+
+plugins:
+  observables:
+    - plugin: "@bsb/observable-logging-file"
+      enabled: true
+      config:
+        # Directory where log files will be stored
+        directory: "./logs"
+        
+        # Filename pattern - %DATE% will be replaced with current date
+        filename: "application-%DATE%.log"
+        
+        # Date format for filename pattern
+        dateFormat: "YYYY-MM-DD"
+        
+        # Rotation settings
+        rotation:
+          # Maximum file size before rotation (supports K, M, G suffixes)
+          maxSize: "10M"
+          
+          # Maximum number of log files to keep (older files are deleted)
+          maxFiles: 7
+          
+          # Time-based rotation interval
+          # Options: "daily", "hourly", "none"
+          interval: "daily"
+          
+          # Compress rotated files using gzip
+          compress: true
+        
+        # Log level filtering
+        levels:
+          debug: true
+          info: true
+          warn: true
+          error: true
+        
+        # Format options
+        format:
+          # Include timestamps in log entries
+          timestamp: true
+          
+          # Include trace and span IDs
+          traceInfo: true
+          
+          # Use pretty text format (false for JSON)
+          prettyPrint: false

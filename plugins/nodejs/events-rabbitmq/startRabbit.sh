@@ -1,0 +1,1 @@
+docker run -td -p 15670:15672 -p 5670:5672 -e RABBITMQ_DEFAULT_USER=guest -e RABBITMQ_DEFAULT_PASS=guest rabbitmq:3-management

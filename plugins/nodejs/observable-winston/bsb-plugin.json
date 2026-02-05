@@ -1,0 +1,17 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-winston",
+      "name": "Winston",
+      "basePath": "./",
+      "image": "./observable-winston.png",
+      "description": "Winston integration for flexible, transport-based logging",
+      "tags": ["Winston", "Logging", "Transports", "Observability", "Flexible"],
+      "documentation": ["./docs/plugin.md"],
+      "pluginPath": "src/plugins/observable-winston/",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
+    }
+  ]
+}

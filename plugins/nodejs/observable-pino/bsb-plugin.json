@@ -1,0 +1,17 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-pino",
+      "name": "Pino",
+      "basePath": "./",
+      "image": "./observable-pino.png",
+      "description": "High-performance JSON logging with minimal overhead using Pino",
+      "tags": ["Pino", "Logging", "Performance", "JSON", "Observability"],
+      "documentation": ["./docs/plugin.md"],
+      "pluginPath": "src/plugins/observable-pino/",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+# Example BSB Configuration for @bsb/syslog
+
+plugins:
+  # Syslog Server - Receives syslog messages
+  services:
+    - plugin: "@bsb/syslog"
+      service: "SyslogServerPlugin"
+      enabled: true
+      config:
+        # Port to listen on (default syslog port is 514)
+        port: 514
+        
+        # Address to bind to (0.0.0.0 for all interfaces)
+        address: "0.0.0.0"
+        
+        # Exclusive binding
+        exclusive: false
+  
+  # Syslog Client Observable - Sends logs to syslog
+  observables:
+    - plugin: "@bsb/syslog"
+      observable: "SyslogClientPlugin"
+      enabled: true
+      config:
+        # Syslog server host
+        host: "localhost"
+        
+        # Syslog server port
+        port: 514
+        
+        # Protocol: "udp", "tcp", or "tls"
+        protocol: "udp"
+        
+        # TLS options (only for "tls" protocol)
+        # tls:
+        #   rejectUnauthorized: true
+        #   ca: "/path/to/ca.pem"
+        #   cert: "/path/to/cert.pem"
+        #   key: "/path/to/key.pem"
+        
+        # Syslog facility (0-23, 16 is local0)
+        facility: 16
+        
+        # Hostname to use in syslog messages (auto-detected if not specified)
+        # hostname: "my-server"
+        
+        # Application name in syslog messages
+        appName: "bsb-app"
+        
+        # RFC standard: "3164" or "5424"
+        rfc: "5424"
+        
+        # Log level filtering
+        levels:
+          debug: true
+          info: true
+          warn: true
+          error: true

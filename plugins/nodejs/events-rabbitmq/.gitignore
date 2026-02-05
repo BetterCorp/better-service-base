@@ -1,0 +1,12 @@
+/lib
+node_modules
+/_exports
+/junit.xml
+/test-file-*
+/.vuepress
+/.nyc_output
+/coverage
+/junit.json
+/sec.config.json
+/node_modules
+/dist-clients
