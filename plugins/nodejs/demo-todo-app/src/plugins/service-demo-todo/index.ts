@@ -3,16 +3,17 @@ import { z } from 'zod';
 import {
   BSBService,
   BSBServiceConstructor,
-  BSBPluginConfig,
-  BSBServiceClientDefinition,
   Observable,
   createFireAndForgetEvent,
   createReturnableEvent,
   createBroadcastEvent,
+  createEventSchemas,
+  createConfigSchema,
   type Counter,
   type Histogram,
+  BSBError,
 } from '@bsb/base';
-import { TodoStorage, type TodoItem } from './storage';
+import { TodoStorage } from './storage';
 import { TodoHttpServer } from './http-server';
 
 // ============================================================================
@@ -61,8 +62,9 @@ export const TodoListSchema = z.object({
 
 /**
  * Event schemas for the demo todo app.
+ * v9: Wrapped with createEventSchemas() for automatic type safety
  */
-export const EventSchemas = {
+export const EventSchemas = createEventSchemas({
   // Fire-and-forget notifications this service emits
   emitEvents: {
     'todo.created': createFireAndForgetEvent(TodoItemSchema, 'Emitted when a todo is created'),
@@ -135,7 +137,7 @@ export const EventSchemas = {
       'Broadcast todo statistics'
     ),
   },
-} as const;
+});
 
 // ============================================================================
 // Configuration
@@ -165,10 +167,21 @@ export type TodoConfig = z.infer<typeof TodoConfigSchema>;
 
 /**
  * Config class for demo todo app.
+ * v9: Created with createConfigSchema() for automatic metadata support
  */
-export class Config extends BSBPluginConfig<typeof TodoConfigSchema> {
-  validationSchema = TodoConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'service-demo-todo',
+    description: 'Demo Todo Service showcasing BSB best practices',
+    version: '1.0.0',
+    author: 'BSB Team',
+    license: 'MIT',
+    category: 'service',
+    tags: ['demo', 'todo', 'example', 'crud', 'http'],
+    initAfterPlugins: ['observable-default', 'events-default'],
+  },
+  TodoConfigSchema
+);
 
 // ============================================================================
 // Plugin
@@ -177,18 +190,20 @@ export class Config extends BSBPluginConfig<typeof TodoConfigSchema> {
 /**
  * Demo Todo App Plugin
  *
- * A comprehensive demonstration of BSB best practices including:
+ * A comprehensive demonstration of BSB v9 best practices including:
  * - Schema-first event architecture with Zod validation
  * - File-based JSON storage following observable-logging-file pattern
  * - Simple HTTP server with REST API
  * - Responsive web interface
  * - Observable pattern for logging, metrics, and tracing
  * - Event-driven CRUD operations
+ * - v9 patterns: createEventSchemas, createConfigSchema, auto-generated PLUGIN_CLIENT
  */
-export class Plugin extends BSBService<Config, typeof EventSchemas> {
-  public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
-    name: 'service-demo-todo',
-  };
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  // v9: Required static properties for auto-generation
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+  // PLUGIN_CLIENT is now auto-generated from Config.metadata
 
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
@@ -204,19 +219,14 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
   private requestCounter?: Counter<string>;
   private requestDuration?: Histogram<string>;
 
-  constructor(config: BSBServiceConstructor<Config, typeof EventSchemas>) {
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
     super({
       ...config,
       eventSchemas: EventSchemas,
     });
 
-    // Create storage client in constructor (following pattern)
-    // Note: Logger will be set in init() when Observable is available
-    this.storage = new TodoStorage(this.cwd, this.config.storage, {
-      info: (msg: string) => console.log(`[TodoStorage] ${msg}`),
-      error: (msg: string) => console.error(`[TodoStorage] ${msg}`),
-      debug: (msg: string) => console.log(`[TodoStorage] ${msg}`),
-    });
+    // Create storage client in constructor (no obs available yet)
+    this.storage = new TodoStorage(this.cwd, this.config.storage);
     // Create HTTP server with correct plugin static path
     const staticPath = path.join(this.pluginCwd, 'static');
     this.httpServer = new TodoHttpServer(
@@ -247,8 +257,8 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
       [10, 50, 100, 500, 1000]
     );
 
-    // Initialize storage (heavy I/O happens here)
-    await this.storage.init();
+    // Initialize storage (heavy I/O happens here, pass obs for logging)
+    await this.storage.init(obs);
 
     // Update initial metrics
     const stats = this.storage.getStats();
@@ -269,7 +279,8 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
     // Start HTTP server
     await this.httpServer.start(obs, (name, attributes) => {
       const trace = this.__internalObservable.createTrace(name, attributes ?? {});
-      return this.createObservable(trace.trace, attributes ?? {});
+      // Pass the Trace object so span lifecycle (end) works properly
+      return this.createObservable(trace.trace, attributes ?? {}, trace);
     });
 
     // Start stats broadcaster
@@ -318,13 +329,21 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
       eventObs.log.info(`Creating todo: ${data.title}`);
 
       // Check max todos limit
+      const maxSpan = obs.span('todo.create.maxcheck', {
+        maxTodos: this.config.features.maxTodos,
+      });
       const stats = this.storage.getStats();
       if (stats.total >= this.config.features.maxTodos) {
-        throw new Error(`Maximum number of todos reached (${this.config.features.maxTodos})`);
+        const error = new BSBError(obs.trace, 'Maximum number of todos reached ({maxTodos})', {
+          maxTodos: this.config.features.maxTodos,
+        });
+        maxSpan.error(error);
+        throw error;
       }
+      maxSpan.end();
 
-      // Create todo
-      const todo = this.storage.create(data.title, data.description);
+      // Create todo - storage.create will create its own child span
+      const todo = this.storage.create(eventObs, data.title, data.description);
 
       // Update metrics
       this.todoCounter?.increment(1);
@@ -340,7 +359,7 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
     await this.events.onReturnableEvent('todo.get', obs, async (eventObs: Observable, data) => {
       eventObs.log.debug(`Getting todo: ${data.id}`);
 
-      const todo = this.storage.get(data.id);
+      const todo = this.storage.get(eventObs, data.id);
       if (!todo) {
         throw new Error(`Todo not found: ${data.id}`);
       }
@@ -352,7 +371,7 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
     await this.events.onReturnableEvent('todo.list', obs, async (eventObs: Observable, _data) => {
       eventObs.log.debug('Listing todos');
 
-      const todos = this.storage.list();
+      const todos = this.storage.list(eventObs);
       return {
         todos,
         total: todos.length,
@@ -364,7 +383,7 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
       eventObs.log.info(`Updating todo: ${data.id}`);
 
       const { id, ...updates } = data;
-      const todo = this.storage.update(id, updates);
+      const todo = this.storage.update(eventObs, id, updates);
 
       // Emit notification event
       await this.events.emitEvent('todo.updated', eventObs, todo);
@@ -377,7 +396,7 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
     await this.events.onReturnableEvent('todo.delete', obs, async (eventObs: Observable, data) => {
       eventObs.log.info(`Deleting todo: ${data.id}`);
 
-      const success = this.storage.delete(data.id);
+      const success = this.storage.delete(eventObs, data.id);
       if (!success) {
         throw new Error(`Todo not found: ${data.id}`);
       }

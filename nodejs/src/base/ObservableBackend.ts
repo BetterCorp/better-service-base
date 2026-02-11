@@ -43,6 +43,53 @@ import { BSBError } from "./errorMessages";
 import { MS_PER_NS, NS_PER_SEC } from "./base";
 
 /**
+ * Generate OpenTelemetry-compliant trace ID (32 hex chars lowercase)
+ * @returns 32-character hexadecimal trace ID
+ */
+function generateTraceId(): string {
+  return uuidv7().replace(/-/g, '').toLowerCase();
+}
+
+/**
+ * Generate OpenTelemetry-compliant span ID (16 hex chars lowercase)
+ * Uses random bytes to ensure uniqueness even for spans created at the same millisecond
+ * @returns 16-character hexadecimal span ID
+ */
+function generateSpanId(): string {
+  // Generate 8 random bytes (64 bits) = 16 hex characters
+  const bytes = new Uint8Array(8);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    // Fallback for environments without crypto.getRandomValues
+    const nodeCrypto = require('crypto');
+    nodeCrypto.randomFillSync(bytes);
+  }
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toLowerCase();
+}
+
+/**
+ * Normalize attribute keys by replacing symbols with underscores
+ * OpenTelemetry and many backends prefer snake_case attribute names
+ * @param attributes - Original attributes
+ * @returns Normalized attributes with safe key names
+ */
+function normalizeAttributes(attributes?: Record<string, string | number | boolean>): Record<string, string | number | boolean> | undefined {
+  if (!attributes) return attributes;
+
+  const normalized: Record<string, string | number | boolean> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    // Replace periods, colons, slashes, and spaces with underscores
+    const normalizedKey = key.replace(/[.:/\s-]/g, '_');
+    normalized[normalizedKey] = value;
+  }
+  return normalized;
+}
+
+/**
  * Observable bus interface - unified for both logging and metrics
  * @hidden
  */
@@ -105,7 +152,9 @@ class ObservableBackendSpan implements Span {
     this.pluginName = pluginName;
     this._traceId = traceId;
     this._spanId = spanId;
-    this.backend.startSpan(Date.now(), this.appId, this.pluginName, traceId, parentSpanId, spanId, name, attributes);
+    // Normalize attribute keys for compatibility with observability backends
+    const normalizedAttrs = normalizeAttributes(attributes);
+    this.backend.startSpan(Date.now(), this.appId, this.pluginName, traceId, parentSpanId, spanId, name, normalizedAttrs);
   }
 
   /**
@@ -132,7 +181,8 @@ class ObservableBackendSpan implements Span {
    * @param attributes - Final attributes to attach before ending
    */
   public end(attributes?: Record<string, string | number | boolean>): void {
-    this.backend.endSpan(Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, attributes);
+    const normalizedAttrs = normalizeAttributes(attributes);
+    this.backend.endSpan(Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, normalizedAttrs);
   }
 
   /**
@@ -141,7 +191,8 @@ class ObservableBackendSpan implements Span {
    * @param attributes - Additional attributes to attach to the error
    */
   public error(error: BSBError<any> | Error, attributes?: Record<string, string | number | boolean>): void {
-    this.backend.errorSpan(Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, error, attributes);
+    const normalizedAttrs = normalizeAttributes(attributes);
+    this.backend.errorSpan(Date.now(), this.appId, this.pluginName, this._traceId, this._spanId, error, normalizedAttrs);
   }
 }
 
@@ -183,8 +234,9 @@ class ObservableBackendTrace implements Trace {
     this.backend = backend;
     this.appId = appId;
     this.pluginName = pluginName;
-    this._traceId = trace?.t ?? uuidv7();
-    const spanId = uuidv7();
+    // Use OpenTelemetry-compliant IDs: trace ID (32 hex chars), span ID (16 hex chars)
+    this._traceId = trace?.t ?? generateTraceId();
+    const spanId = generateSpanId();
 
     this._span = new ObservableBackendSpan(this.backend, this.appId, this.pluginName, this._traceId, trace?.s ?? null, spanId, opts!.name, opts?.attributes);
   }

@@ -200,15 +200,17 @@ export abstract class BSBObservable<
 
   /**
    * Tracing: Span start
-   * @param trace - Parent trace
+   * @param trace - Span trace (contains trace ID and new span ID)
    * @param pluginName - Name of the plugin creating the span
    * @param spanName - Name of the span
+   * @param parentSpanId - Parent span ID (null for root spans)
    * @param attributes - Span attributes
    */
   spanStart?(
     trace: DTrace,
     pluginName: string,
     spanName: string,
+    parentSpanId: string | null,
     attributes?: Record<string, string | number | boolean>
   ): void | Promise<void>;
 
@@ -333,6 +335,7 @@ export class BSBObservableRef extends BSBObservable {
     trace: DTrace,
     pluginName: string,
     spanName: string,
+    parentSpanId: string | null,
     attributes?: Record<string, string | number | boolean>
   ): void {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBObservableRef", "spanStart");

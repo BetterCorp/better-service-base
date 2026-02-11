@@ -2,6 +2,8 @@
 
 Better Service Base (BSB) is an event‑bus based microservice framework for Node.js/TypeScript. This package provides the Node.js implementation of the core runtime, plugin system, and developer tooling.
 
+**Version 9.0** introduces breaking changes with improved type safety, cross-language support, and automated code generation. See [Plugin Development Guide](./PLUGIN_DEVELOPMENT.md) for v9 patterns.
+
 ### Intended Usage (Container‑first)
 - This project is designed to run standalone inside a Docker container and execute plugins authored and published separately.
 - It is not intended to be embedded or imported as a library into another application package.
@@ -42,6 +44,27 @@ Better Service Base (BSB) is an event‑bus based microservice framework for Nod
 - `templates/`: Scaffolding for new plugins (`plugin.ts`, `pluginClient.ts`, `events.ts`, `logger.ts`)
 - `Dockerfile`, `entrypoint.sh`, `entrypoint.js`: Container build/runtime assets
 - `typedoc.json`, `docs.json`, `typedoc-theme/`: API docs generation configuration/theme
+
+### What's New in v9
+
+v9 introduces breaking changes focused on type safety, developer experience, and cross-language support:
+
+**Type Safety Improvements:**
+- `createEventSchemas()` - No more `as const` required, automatic type inference
+- Type branding - Compile-time validation that event types match categories
+- Duplicate name detection - Warns about confusing duplicate event names
+
+**Simplified Configuration:**
+- `createConfigSchema()` - Single function replaces class pattern
+- Plugin metadata - Define once, auto-generates PLUGIN_CLIENT and bsb-plugin.json
+- Centralized schemas - All generated JSON in lib/schemas/ with JSON $ref references
+
+**Cross-Language Support:**
+- Type helpers - int32, int64, uuid, datetime for precise type mapping
+- Schema export - Auto-generates JSON schemas for client code generation
+- Multi-language clients - Generate type-safe clients in TypeScript, C#, Go, Java
+
+See [Plugin Development Guide](./PLUGIN_DEVELOPMENT.md) for migration details and examples.
 
 ### Runtime Architecture
 The `ServiceBase` class is the primary entry point. It coordinates the framework subsystems and plugin lifecycle.
@@ -131,12 +154,15 @@ Built‑in plugin types include: `config-*`, `logging-*`, `metrics-*`, `events-*
 - `npm run dev`: Start development runner with hot-reload
 - `npm start`: Run production CLI (`lib/cli.js` or `bsb`)
 - `npm run tsc`: Clean and compile TypeScript to `lib/`
-- `npm run build`: Clean → tsc → tests → generate TypeDoc JSON (`docs.json`)
+- `npm run build`: Clean → tsc → tests → generate docs → export schemas → generate plugin metadata
 - `npm run build-release`: Compile using `tsconfig-release.json`
 - `npm run lint`: ESLint over `src/`
 - `npm test`: Mocha + NYC coverage in TS mode
+- `npm run testDev`: Run tests without coverage (faster for development)
 - `npm run generate-docs`: Generate TypeDoc JSON to `docs.json`
 - `npm run docs`: Build static docs to `../docs/dist/languages/nodejs/types`
+- `npm run export-schemas`: Export event schemas to `lib/schemas/{plugin-name}.json`
+- `npm run generate-plugin-json`: Generate plugin metadata in `lib/schemas/`
 
 ### Docker
 Multi‑stage build produces a minimal runtime image:
@@ -186,6 +212,12 @@ Notes
   - `BSB_LOGGER_PLUGIN_PACKAGE`: npm package name hosting the config plugin
 
 ### Documentation
+
+#### Plugin Development (v9)
+- [Plugin Development Guide](./PLUGIN_DEVELOPMENT.md) - Complete guide for creating BSB plugins
+- [Type System Guide](./TYPE_SYSTEM.md) - Cross-language type system reference
+
+#### API Documentation
 - API docs are generated with TypeDoc (`typedoc.json`).
   - `npm run generate-docs` → emits `docs.json`
   - `npm run docs` → builds static site under `../docs/dist/languages/nodejs/types`
@@ -196,12 +228,21 @@ Notes
   - `npm run testDev` → dev‑friendly TS execution
 
 ### Creating Plugins
-Use the templates under `templates/` as a starting point:
+
+**For v9 plugin development, see the [Plugin Development Guide](./PLUGIN_DEVELOPMENT.md) for complete examples and best practices.**
+
+Quick reference:
+- Use `createEventSchemas()` to define typed events with compile-time validation
+- Use `createConfigSchema()` to define plugin configuration with metadata
+- Use cross-language type helpers (`uuid`, `int32`, `datetime`, etc.) for better code generation
+- Plugin metadata auto-generates `PLUGIN_CLIENT` and schema files during build
+
+Legacy templates are available under `templates/` but use outdated v8 patterns:
 - `templates/plugin.ts`, `templates/pluginClient.ts` (service plugin + client)
 - `templates/events.ts` (events plugin)
 - `templates/logger.ts` (logging plugin)
 
-At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or `src/plugins/.../index.ts` in dev). For configurable plugins, also export a `Config` that extends `BSBPluginConfig` with optional validation. Publish your plugin as an npm package or ship its prebuilt folder structure under `BSB_PLUGIN_DIR`.
+At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or `src/plugins/.../index.ts` in dev). For configurable plugins, export a `Config` created with `createConfigSchema()`. Publish your plugin as an npm package or ship its prebuilt folder structure under `BSB_PLUGIN_DIR`.
 
 ### Quick Start (Container)
 ```bash

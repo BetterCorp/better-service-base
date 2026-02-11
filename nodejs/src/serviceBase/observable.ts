@@ -233,7 +233,7 @@ export class SBObservable {
   }
 
   private setupSpanEvents() {
-    this.observableBus.on("spanStart", async (trace: DTrace, pluginName: string, spanName: string, attributes?: Record<string, string | number | boolean>) => {
+    this.observableBus.on("spanStart", async (trace: DTrace, pluginName: string, spanName: string, parentSpanId: string | null, attributes?: Record<string, string | number | boolean>) => {
       this.triggerSpanEvent("spanStart", async (plugin) => {
         await SmartFunctionCallAsync(
           plugin,
@@ -241,6 +241,7 @@ export class SBObservable {
           trace,
           pluginName,
           spanName,
+          parentSpanId,
           attributes
         );
       });
@@ -668,7 +669,7 @@ export class SBObservable {
    * @param attributes - Optional span attributes
    */
   public startSpan(timestamp: number, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) {
-    this.observableBus.emit("spanStart", { t: traceId, s: spanId }, pluginName, name, attributes);
+    this.observableBus.emit("spanStart", { t: traceId, s: spanId }, pluginName, name, parentSpanId, attributes);
   }
 
   /**

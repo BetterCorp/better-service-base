@@ -27,14 +27,15 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { DTrace, BSBEventSchemas, Observable } from "../interfaces";
+import { DTrace, Trace, BSBEventSchemas, Observable, EventSchemaExport, exportEventSchemas } from "../interfaces";
 import { SBEvents, SBObservable } from "../serviceBase";
 import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base";
 import { BSBServiceClient } from "./BSBServiceClient";
-import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBPluginConfig, createConfigSchema } from "./PluginConfig";
 import { PluginEvents } from "./PluginEvents";
 import { ResourceContext, ResourceContextBuilder } from "./ResourceContext";
 import { PluginObservable } from "./PluginObservable";
+import { z } from "zod";
 
 /**
  * @hidden
@@ -71,6 +72,9 @@ export interface BSBServiceClientDefinition {
 /**
  * Base class for implementing a service plugin.
  *
+ * v9 Breaking Change: PLUGIN_CLIENT is now auto-generated from Config.metadata.
+ * You must provide a static Config property pointing to your Config class.
+ *
  * Lifecycle:
  *  - constructor(config)
  *  - init(trace): async initialization and event registration
@@ -78,6 +82,19 @@ export interface BSBServiceClientDefinition {
  *  - dispose(): cleanup resources
   *
   * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBService.html | API: BSBService}
+  *
+  * @example
+  * ```typescript
+  * export const Config = createConfigSchema(
+  *   { name: 'service-demo', description: 'Demo Service' },
+  *   ConfigSchema
+  * );
+  *
+  * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+  *   static Config = Config; // Required for auto-generation
+  *   // PLUGIN_CLIENT is auto-generated from Config.metadata
+  * }
+  * ```
  */
 export abstract class BSBService<
   ReferencedConfig extends BSBReferencePluginConfigType = any,
@@ -88,7 +105,136 @@ export abstract class BSBService<
     ? null
     : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
   > {
-  public static PLUGIN_CLIENT: BSBServiceClientDefinition;
+  /**
+   * Static reference to the Config class created with createConfigSchema().
+   * Required for auto-generating PLUGIN_CLIENT from metadata.
+   *
+   * v9: This must be set on your plugin class for PLUGIN_CLIENT auto-generation to work.
+   */
+  static Config: any;
+
+  /**
+   * Static reference to EventSchemas created with createEventSchemas().
+   * Required for schema export functionality.
+   *
+   * v9: Set this on your plugin class to enable schema export.
+   */
+  static EventSchemas: BSBEventSchemas;
+
+  /**
+   * Auto-generated from Config.metadata.
+   * Do not set this manually - it will be ignored and replaced with auto-generated value.
+   *
+   * v9 Breaking Change: This is now a getter that derives from Config.metadata.
+   * If you have a manual PLUGIN_CLIENT property, remove it and set static Config instead.
+   */
+  public static get PLUGIN_CLIENT(): BSBServiceClientDefinition {
+    // Check if Config is set
+    if (!(this as any).Config) {
+      throw new Error(
+        `[BSB v9] PLUGIN_CLIENT auto-generation requires a static Config property.\n` +
+        `Add this to your plugin class:\n` +
+        `  static Config = Config;\n` +
+        `\n` +
+        `See migration guide: https://bsbcode.dev/migration/v9-breaking-changes`
+      );
+    }
+
+    const ConfigClass = (this as any).Config as typeof BSBPluginConfig;
+
+    // Check if using old v8 Config class pattern (no metadata)
+    if (!ConfigClass.metadata) {
+      throw new Error(
+        `[BSB v9] Config class must be created with createConfigSchema() helper.\n` +
+        `Old v8 pattern (extending BSBPluginConfig directly) is not supported.\n` +
+        `\n` +
+        `Migration:\n` +
+        `  // OLD v8:\n` +
+        `  export class Config extends BSBPluginConfig<typeof ConfigSchema> {\n` +
+        `    validationSchema = ConfigSchema;\n` +
+        `  }\n` +
+        `\n` +
+        `  // NEW v9:\n` +
+        `  export const Config = createConfigSchema(\n` +
+        `    { name: 'plugin-name', description: 'Description' },\n` +
+        `    ConfigSchema\n` +
+        `  );\n` +
+        `\n` +
+        `See migration guide: https://bsbcode.dev/migration/v9-breaking-changes`
+      );
+    }
+
+    const meta = ConfigClass.metadata;
+
+    // Return auto-generated PLUGIN_CLIENT from metadata
+    return {
+      name: meta.name,
+      initBeforePlugins: meta.initBeforePlugins,
+      initAfterPlugins: meta.initAfterPlugins,
+      runBeforePlugins: meta.runBeforePlugins,
+      runAfterPlugins: meta.runAfterPlugins,
+    };
+  }
+
+  /**
+   * Export event schemas to JSON format for cross-language client generation.
+   *
+   * v9: Call this static method to generate JSON schemas for your plugin's events.
+   * The generated JSON can be consumed by code generators in other languages
+   * to create type-safe clients.
+   *
+   * @returns EventSchemaExport object with plugin metadata and event definitions
+   *
+   * @example
+   * ```typescript
+   * // In your plugin class:
+   * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+   *   static Config = Config;
+   *   static EventSchemas = EventSchemas;
+   * }
+   *
+   * // Export schemas (typically in build script):
+   * const schemas = Plugin.exportSchemas();
+   * fs.writeFileSync('schemas.json', JSON.stringify(schemas, null, 2));
+   * ```
+   */
+  public static exportSchemas(): EventSchemaExport {
+    // Check if Config is set
+    if (!(this as any).Config) {
+      throw new Error(
+        `[BSB v9] Schema export requires a static Config property.\n` +
+        `Add this to your plugin class:\n` +
+        `  static Config = Config;\n`
+      );
+    }
+
+    // Check if EventSchemas is set
+    if (!(this as any).EventSchemas) {
+      throw new Error(
+        `[BSB v9] Schema export requires a static EventSchemas property.\n` +
+        `Add this to your plugin class:\n` +
+        `  static EventSchemas = EventSchemas;\n`
+      );
+    }
+
+    const ConfigClass = (this as any).Config as typeof BSBPluginConfig;
+    const eventSchemas = (this as any).EventSchemas as BSBEventSchemas;
+
+    if (!ConfigClass.metadata) {
+      throw new Error(
+        `[BSB v9] Config class must be created with createConfigSchema() helper.`
+      );
+    }
+
+    const meta = ConfigClass.metadata;
+
+    return exportEventSchemas(
+      meta.name,
+      meta.version || '1.0.0',
+      eventSchemas
+    );
+  }
+
   public abstract readonly initBeforePlugins?: Array<string>;
   public abstract readonly initAfterPlugins?: Array<string>;
   public abstract readonly runBeforePlugins?: Array<string>;
@@ -138,28 +284,47 @@ export abstract class BSBService<
    *
    * @param trace - DTrace object
    * @param attributes - Optional initial attributes
+   * @param span - Optional Trace/Span object for lifecycle management (enables end() to work)
    * @returns Observable wrapping the trace
    *
    * @example
    * ```typescript
+   * // Create observable from DTrace
    * const obs = this.createObservable(trace, { "user.id": "123" });
    * obs.log.info("Processing request");
+   *
+   * // Create observable from Trace with span lifecycle
+   * const trace = this.__internalObservable.createTrace("http.request");
+   * const obs = this.createObservable(trace.trace, {}, trace);
+   * // ... do work ...
+   * obs.end(); // Properly ends the span
    * ```
    *
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBService.html#createObservable | API: BSBService.createObservable}
    */
   protected createObservable(
     trace: DTrace,
-    attributes?: Record<string, string | number | boolean>
+    attributes?: Record<string, string | number | boolean>,
+    span?: Trace
   ): Observable {
     return new PluginObservable(
       trace,
       this._resourceContext,
       this.__internalObservable,
-      attributes
+      attributes,
+      span
     );
   }
 }
+
+// Dummy Config for internal reference class
+const BSBServiceRefConfig = createConfigSchema(
+  {
+    name: "BSBServiceRef",
+    description: "Internal reference class",
+  },
+  z.null()
+);
 
 /**
  * @hidden
@@ -167,9 +332,8 @@ export abstract class BSBService<
  */
 export class BSBServiceRef
   extends BSBService<any, BSBEventSchemas> {
-  public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
-    name: "BSBServiceRef",
-  };
+  static Config = BSBServiceRefConfig;
+
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;

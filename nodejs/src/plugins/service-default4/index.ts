@@ -26,11 +26,22 @@
  */
 
 import { Observable } from "../../index";
-import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
-import { createReturnableEvent } from "../../interfaces/schema-events";
+import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
+import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
 import { z } from "zod";
 
-export const EventSchemas = {
+export const Config = createConfigSchema(
+  {
+    name: 'service-default4',
+    description: 'Default service plugin 4 for testing',
+    version: '1.0.0',
+    category: 'service',
+    tags: ['default', 'example', 'test'],
+  },
+  z.null()
+);
+
+export const EventSchemas = createEventSchemas({
   emitReturnableEvents: {
     onReverseReturnable: createReturnableEvent(
       z.object({
@@ -40,28 +51,26 @@ export const EventSchemas = {
       'Reverse text string'
     )
   }
-} as const;
+});
 
-export class Plugin
-  extends BSBService<null, typeof EventSchemas> {
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+  // PLUGIN_CLIENT auto-generated from Config.metadata
+
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
-  public methods = {};
   public override initAfterPlugins: string[] = [];
 
   dispose?(): void;
   init?(): void | Promise<void>;
 
-  constructor(config: BSBServiceConstructor<null, typeof EventSchemas>) {
-    super({
-      ...config,
-      eventSchemas: EventSchemas
-    });
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
+    super(config);
   }
 
   public override async run(obs: Observable) {
     obs.log.info("Running service-default4");
-
   }
 }

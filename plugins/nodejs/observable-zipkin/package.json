@@ -1,0 +1,39 @@
+{
+  "name": "@bsb/observable-zipkin",
+  "version": "1.0.0",
+  "description": "Zipkin tracing integration for BSB framework",
+  "main": "lib/plugins/observable-zipkin/index.js",
+  "types": "lib/plugins/observable-zipkin/index.d.ts",
+  "scripts": {
+    "clean": "rimraf lib",
+    "build": "npm run clean && tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "bsb",
+    "zipkin",
+    "tracing",
+    "observability",
+    "distributed-tracing",
+    "opentelemetry"
+  ],
+  "author": "BetterCorp (PTY) Ltd",
+  "license": "AGPL-3.0",
+  "peerDependencies": {
+    "@bsb/base": "^9.0.0"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-zipkin": "^1.28.0",
+    "@opentelemetry/resources": "^1.28.0",
+    "@opentelemetry/sdk-trace-base": "^1.28.0",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bsb/base": "file:../../../nodejs",
+    "@types/node": "^22.10.5",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.3"
+  }
+}

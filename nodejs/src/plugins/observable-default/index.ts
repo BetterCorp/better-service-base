@@ -83,7 +83,8 @@ export class Plugin extends BSBObservable<null> {
     let formattedMessage = this.logFormatter.formatLog<T>(trace, message, meta);
     formattedMessage = `[${plugin.toUpperCase()}] ${formattedMessage}`;
 
-    let func: any = console.debug;
+    type ConsoleMethod = typeof console.debug | typeof console.log | typeof console.warn | typeof console.error;
+    let func: ConsoleMethod = console.debug;
     let colour: Array<ConsoleColours> = [];
 
     switch (level) {

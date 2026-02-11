@@ -25,14 +25,26 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBService } from "../../base/BSBService";
-import { ServiceClient, BSBServiceClientDefinition } from "../../base";
+import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
+import { ServiceClient, createConfigSchema } from "../../base";
 import { Observable } from "../../interfaces/observable";
-import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
+import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events";
 import { Plugin as Service0, EventSchemas as Service0EventSchemas } from "../service-default0";
 import { z } from "zod";
 
-export const EventSchemas = {
+// v9: Config with metadata (no configuration options for this service)
+export const Config = createConfigSchema(
+  {
+    name: 'service-default1',
+    description: 'Default service demonstrating BSB event patterns',
+    version: '1.0.0',
+    category: 'service',
+    tags: ['default', 'example'],
+  },
+  z.null()
+);
+
+export const EventSchemas = createEventSchemas({
   // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
     'data.processed': createFireAndForgetEvent(
@@ -44,7 +56,7 @@ export const EventSchemas = {
       'Emitted when data processing is complete'
     )
   },
-  
+
   // Events this service listens to (fire-and-forget)
   onEvents: {
     'data.received': createFireAndForgetEvent(
@@ -56,7 +68,7 @@ export const EventSchemas = {
       'Handle incoming data for processing'
     )
   },
-  
+
   // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
     'calculation.request': createReturnableEvent(
@@ -68,7 +80,7 @@ export const EventSchemas = {
       'Request calculation from external service'
     )
   },
-  
+
   // Returnable events this service listens to (requests to this service)
   onReturnableEvents: {
     'text.transform': createReturnableEvent(
@@ -88,7 +100,7 @@ export const EventSchemas = {
       'Calculate with two numbers'
     )
   },
-  
+
   // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'service.status': createBroadcastEvent(
@@ -100,7 +112,7 @@ export const EventSchemas = {
       'Broadcast service status updates'
     )
   },
-  
+
   // Broadcast events this service listens to
   onBroadcast: {
     'config.updated': createBroadcastEvent(
@@ -112,23 +124,25 @@ export const EventSchemas = {
       'Listen for configuration update broadcasts'
     )
   }
-} as const;
+});
 
 export class Plugin
-  extends BSBService<null, typeof EventSchemas> {
-  
+  extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  // v9: Required static properties for auto-generation
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+  // PLUGIN_CLIENT is now auto-generated from Config.metadata
+
   private service0: ServiceClient<Service0, typeof Service0EventSchemas, typeof Service0>;
 
-  constructor(config: any) {
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
     super({
       ...config,
       eventSchemas: EventSchemas
     });
-    this.service0 = new ServiceClient<Service0>(Service0,this);
+    this.service0 = new ServiceClient<Service0>(Service0, this);
   }
-  public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
-    name: "service-default1",
-  }
+
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;

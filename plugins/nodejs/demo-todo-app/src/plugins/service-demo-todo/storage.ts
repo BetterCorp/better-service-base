@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { Observable } from '@bsb/base';
 
 export interface TodoItem {
   id: string;
@@ -16,12 +17,6 @@ export interface TodoStorageConfig {
   prettyPrint: boolean;
 }
 
-export interface TodoStorageLogger {
-  info: (msg: string) => void;
-  error: (msg: string) => void;
-  debug: (msg: string) => void;
-}
-
 /**
  * File-based todo storage client following observable-logging-file pattern.
  *
@@ -31,6 +26,7 @@ export interface TodoStorageLogger {
  * - Heavy I/O in init(), not constructor
  * - Proper cleanup in dispose() with final save
  * - Path resolution using cwd
+ * - Observable passed to methods for logging (never stored as class variable)
  */
 export class TodoStorage {
   private todos: Map<string, TodoItem> = new Map();
@@ -41,19 +37,18 @@ export class TodoStorage {
 
   constructor(
     private cwd: string,
-    private config: TodoStorageConfig,
-    private logger: TodoStorageLogger
+    private config: TodoStorageConfig
   ) {
     // Resolve path relative to cwd (not absolute path operations)
-    this.filePath = path.resolve(cwd, config.path);
+    this.filePath = path.resolve(this.cwd, this.config.path);
   }
 
   /**
    * Initialize storage - create directory, load existing data, start auto-save.
    * Heavy I/O operations happen here, not in constructor.
    */
-  async init(): Promise<void> {
-    this.logger.info(`Initializing todo storage at: ${this.filePath}`);
+  async init(obs: Observable): Promise<void> {
+    obs.log.info('Initializing todo storage at: {filePath}', { filePath: this.filePath });
 
     // Ensure directory exists
     const dir = path.dirname(this.filePath);
@@ -69,32 +64,33 @@ export class TodoStorage {
         this.todos.set(item.id, item);
       }
 
-      this.logger.info(`Loaded ${items.length} todos from storage`);
+      obs.log.info('Loaded {count} todos from storage', { count: items.length });
     } catch (error: any) {
       if (error.code === 'ENOENT') {
-        this.logger.info('No existing storage file, starting fresh');
+        obs.log.info('No existing storage file, starting fresh');
       } else {
-        this.logger.error(`Error loading storage: ${error.message}`);
+        obs.log.error('Error loading storage: {message}', { message: error.message });
         throw error;
       }
     }
 
-    // Start auto-save timer
+    // Start auto-save timer (errors silently ignored since no obs in timer callback)
     this.autoSaveTimer = setInterval(() => {
       if (this.isDirty) {
-        this.save().catch((err) => {
-          this.logger.error(`Auto-save failed: ${err.message}`);
+        this.save().catch(() => {
+          // Silently ignore auto-save errors (no obs available in timer callback)
         });
       }
     }, this.config.autoSaveInterval);
 
-    this.logger.debug(`Auto-save enabled with ${this.config.autoSaveInterval}ms interval`);
+    obs.log.info('Auto-save enabled with {interval}ms interval', { interval: this.config.autoSaveInterval });
   }
 
   /**
    * Create a new todo item.
    */
-  create(title: string, description?: string): TodoItem {
+  create(obs: Observable, title: string, description?: string): TodoItem {
+    const span = obs.span('storage:create', { operation: 'create' });
     this.guardDisposed();
 
     const now = new Date().toISOString();
@@ -110,34 +106,45 @@ export class TodoStorage {
     this.todos.set(todo.id, todo);
     this.isDirty = true;
 
-    this.logger.debug(`Created todo: ${todo.id}`);
+    span.log.debug('Created todo: {todoId}', { todoId: todo.id });
+    span.end({ todo_id: todo.id });
     return todo;
   }
 
   /**
    * Get a todo by ID.
    */
-  get(id: string): TodoItem | undefined {
+  get(obs: Observable, id: string): TodoItem | undefined {
+    const span = obs.span('storage:get', { operation: 'get', todo_id: id });
     this.guardDisposed();
-    return this.todos.get(id);
+
+    const todo = this.todos.get(id);
+    span.end({ found: !!todo });
+    return todo;
   }
 
   /**
    * List all todos.
    */
-  list(): TodoItem[] {
+  list(obs: Observable): TodoItem[] {
+    const span = obs.span('storage:list', { operation: 'list' });
     this.guardDisposed();
-    return Array.from(this.todos.values());
+
+    const todos = Array.from(this.todos.values());
+    span.end({ count: todos.length });
+    return todos;
   }
 
   /**
    * Update a todo item.
    */
-  update(id: string, updates: Partial<Pick<TodoItem, 'title' | 'description' | 'completed'>>): TodoItem {
+  update(obs: Observable, id: string, updates: Partial<Pick<TodoItem, 'title' | 'description' | 'completed'>>): TodoItem {
+    const span = obs.span('storage:update', { operation: 'update', todo_id: id });
     this.guardDisposed();
 
     const todo = this.todos.get(id);
     if (!todo) {
+      span.end({ success: false, error: 'not_found' });
       throw new Error(`Todo not found: ${id}`);
     }
 
@@ -151,22 +158,25 @@ export class TodoStorage {
     this.todos.set(id, updated);
     this.isDirty = true;
 
-    this.logger.debug(`Updated todo: ${id}`);
+    span.log.debug('Updated todo: {todoId}', { todoId: id });
+    span.end({ success: true });
     return updated;
   }
 
   /**
    * Delete a todo item.
    */
-  delete(id: string): boolean {
+  delete(obs: Observable, id: string): boolean {
+    const span = obs.span('storage:delete', { operation: 'delete', todo_id: id });
     this.guardDisposed();
 
     const result = this.todos.delete(id);
     if (result) {
       this.isDirty = true;
-      this.logger.debug(`Deleted todo: ${id}`);
+      span.log.debug('Deleted todo: {todoId}', { todoId: id });
     }
 
+    span.end({ success: result });
     return result;
   }
 
@@ -189,6 +199,7 @@ export class TodoStorage {
 
   /**
    * Manually save todos to disk.
+   * Note: Called from auto-save timer and dispose, so no obs available for logging.
    */
   async save(): Promise<void> {
     if (!this.isDirty) {
@@ -204,19 +215,16 @@ export class TodoStorage {
 
     await fs.writeFile(this.filePath, json, 'utf-8');
     this.isDirty = false;
-
-    this.logger.debug(`Saved ${items.length} todos to storage`);
   }
 
   /**
    * Cleanup resources - stop timer, final save.
+   * Note: No obs available during disposal, errors fail silently.
    */
   dispose(): void {
     if (this.isDisposed) {
       return;
     }
-
-    this.logger.info('Disposing todo storage');
 
     // Stop auto-save timer
     if (this.autoSaveTimer) {
@@ -224,20 +232,16 @@ export class TodoStorage {
       this.autoSaveTimer = undefined;
     }
 
-    // Final save if dirty
+    // Final save if dirty (silently fails if error)
     if (this.isDirty) {
-      this.logger.info('Performing final save');
-      // Sync save for cleanup
-      const items = Array.from(this.todos.values());
-      const json = this.config.prettyPrint
-        ? JSON.stringify(items, null, 2)
-        : JSON.stringify(items);
-
       try {
+        const items = Array.from(this.todos.values());
+        const json = this.config.prettyPrint
+          ? JSON.stringify(items, null, 2)
+          : JSON.stringify(items);
         require('fs').writeFileSync(this.filePath, json, 'utf-8');
-        this.logger.info('Final save completed');
-      } catch (error: any) {
-        this.logger.error(`Final save failed: ${error.message}`);
+      } catch {
+        // Silently fail - no obs available for logging during disposal
       }
     }
 

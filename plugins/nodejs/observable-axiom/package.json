@@ -1,0 +1,44 @@
+{
+  "name": "@bsb/observable-axiom",
+  "version": "1.0.0",
+  "description": "Axiom.co observability integration for BSB framework",
+  "main": "lib/plugins/observable-axiom/index.js",
+  "types": "lib/plugins/observable-axiom/index.d.ts",
+  "scripts": {
+    "clean": "rimraf lib",
+    "build": "npm run clean && tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "bsb",
+    "axiom",
+    "observability",
+    "logs",
+    "metrics",
+    "traces",
+    "analytics",
+    "opentelemetry"
+  ],
+  "author": "BetterCorp (PTY) Ltd",
+  "license": "AGPL-3.0",
+  "peerDependencies": {
+    "@bsb/base": "^9.0.0"
+  },
+  "dependencies": {
+    "@axiomhq/js": "^1.4.0",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
+    "@opentelemetry/resources": "^2.5.0",
+    "@opentelemetry/sdk-node": "^0.211.0",
+    "@opentelemetry/sdk-trace-base": "^2.5.0",
+    "@opentelemetry/sdk-trace-node": "^2.5.0",
+    "@opentelemetry/semantic-conventions": "^1.39.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@bsb/base": "file:../../../nodejs",
+    "@types/node": "^25.2.1",
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3"
+  }
+}

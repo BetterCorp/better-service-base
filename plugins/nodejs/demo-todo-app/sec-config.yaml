@@ -5,6 +5,45 @@
 
 default:
   observable:
+    observable-axiom:
+      plugin: observable-axiom
+      package: "@bsb/observable-axiom"
+      enabled: true
+      config:
+        serviceName: demo-todo-app
+        serviceVersion: "1.0.0"
+
+        axiom:
+          # Required: Your Axiom API token
+          # Store in environment variable for security
+          token: {TOKEN}
+
+          # Dataset name for logs, metrics, and traces
+          dataset: {DATASET}
+
+          # Optional: Organization ID (for Axiom Cloud)
+          orgId: {ORG_ID}
+
+          # Optional: Custom URL (for self-hosted Axiom)
+          # url: https://axiom.mycompany.com
+
+        # Enable all observability signals
+        enabled:
+          logs: false
+          metrics: false
+          traces: true
+
+        # Batch export configuration
+        export:
+          flushIntervalMs: 5000      # Flush every 5 seconds
+          maxBatchSize: 1000         # Max events per batch
+
+        # Resource attributes (added to all telemetry)
+        resourceAttributes:
+          environment: demo
+          application: todo-app
+          deployment: local
+
     observable-default:
       plugin: observable-default
       package: "@bsb/base"

@@ -26,12 +26,24 @@
  */
 
 import { Observable, ServiceClient } from "../../index";
-import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
+import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
 import { Plugin as Service1, EventSchemas as Service1EventSchemas } from "../service-default1";
 import { Plugin as Service3, EventSchemas as Service3EventSchemas } from "../service-default3";
-import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
+import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 import { z } from "zod";
-export const EventSchemas = {
+
+export const Config = createConfigSchema(
+  {
+    name: 'service-default2',
+    description: 'Default service plugin 2 for testing inter-service communication',
+    version: '1.0.0',
+    category: 'service',
+    tags: ['default', 'example', 'test'],
+  },
+  z.null()
+);
+
+export const EventSchemas = createEventSchemas({
   // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
     'task.completed': createFireAndForgetEvent(
@@ -118,56 +130,46 @@ export const EventSchemas = {
       'Listen for emergency stop broadcasts'
     )
   }
-} as const;
+});
 
-export class Plugin
-  extends BSBService<null, typeof EventSchemas> {
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+  // PLUGIN_CLIENT auto-generated from Config.metadata
+
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
+  public initAfterPlugins: string[] = [];
 
   dispose?(): void;
-  public initAfterPlugins: string[] = [];
+
   private service1: ServiceClient<Service1, typeof Service1EventSchemas, typeof Service1>;
   private service3: ServiceClient<Service3, typeof Service3EventSchemas, typeof Service3>;
 
-  constructor(config: BSBServiceConstructor<null, typeof EventSchemas>) {
-    super({
-      ...config,
-      eventSchemas: EventSchemas
-    });
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
+    super(config);
     this.service1 = new ServiceClient(Service1, this);
     this.service3 = new ServiceClient(Service3, this);
   }
 
   public async init(obs: Observable) {
     this.events.onReturnableEvent("calculate", obs, async (obs: Observable, input) => {
-      obs.log.info( "Calculating {a} * {b}", { a: input.a, b: input.b });
+      obs.log.info("Calculating {a} * {b}", { a: input.a, b: input.b });
       return input.a * input.b;
     });
   }
 
   public async run(obs: Observable) {
-    obs.log.info( "Running service-default2");
-    const result = await this.service1.events.emitEventAndReturn("calculate", obs, { 
-      a: 5, 
-      b: 5 
-    }, 5)
+    obs.log.info("Running service-default2");
+    const result = await this.service1.events.emitEventAndReturn("calculate", obs, {
+      a: 5,
+      b: 5
+    }, 5);
     await this.service3.events.onReturnableEvent("calculate", obs, async (obs: Observable, input) => {
-      obs.log.info( "Calculating {a} * {b}", { a: input.a, b: input.b });
+      obs.log.info("Calculating {a} * {b}", { a: input.a, b: input.b });
       return input.a * input.b;
     });
-    obs.log.info( "Calculation result: {result}", { result });
-
-    // Use events to calculate instead of direct method calls
-    // const result = await this.events.emitEventAndReturn(
-    //   "calculate",
-    //   trace,
-    //   5,
-    //   10,
-    //   12
-    // );
-
-    // this.log.info(obs.obs, "Calculation result: {result}", { result });
+    obs.log.info("Calculation result: {result}", { result });
   }
 }

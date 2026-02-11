@@ -79,6 +79,50 @@ default:
           maxTodos: 1000                    # Maximum number of todos
 ```
 
+## Axiom.co Integration
+
+The demo app includes full Axiom.co integration for production-grade observability.
+
+### Quick Setup
+
+```bash
+# 1. Copy Axiom example environment file
+cp .env.axiom.example .env
+
+# 2. Update with your Axiom credentials
+# Edit .env and set:
+#   AXIOM_TOKEN=xaat-your-token-here
+#   AXIOM_DATASET=bsb-demo
+
+# 3. Start with Axiom configuration
+BSB_ENV=axiom bsb start
+```
+
+### What Gets Sent to Axiom
+
+- **Logs**: All application logs with trace context
+- **Metrics**: Todo operations, HTTP requests, performance
+- **Traces**: Distributed tracing for all operations
+
+### Example Axiom Queries
+
+```apl
+# View all logs
+['bsb-demo'] | where service == "demo-todo-app"
+
+# Track todo creation rate
+['bsb-demo']
+| where message contains "Todo created"
+| summarize count() by bin(_time, 1m)
+
+# Monitor errors
+['bsb-demo']
+| where level == "error"
+| order by _time desc
+```
+
+See `sec-config.axiom.yaml` for full configuration options.
+
 ## Usage
 
 ### Starting the Application

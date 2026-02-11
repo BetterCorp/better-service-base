@@ -33,6 +33,7 @@ export * from "./metrics";
 export * from "./result";
 export * from "./options";
 export * from "./schema-events";
+export * from "./schema-types";
 export * from "./observable";
 export * from "./observable-types";
 export { 

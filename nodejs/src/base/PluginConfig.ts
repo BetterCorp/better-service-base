@@ -66,14 +66,45 @@ export type BSBConfigMigration<T extends BSBPluginConfigType> = (
 
 /**
  * Plugin metadata information for enhanced discoverability and documentation.
- * All fields are optional to maintain backward compatibility.
- * Version and BSB version information is typically read from package.json.
+ * Used for auto-generating PLUGIN_CLIENT and bsb-plugin.json.
+ *
+ * v9: This metadata is now the single source of truth for plugin information,
+ * used to auto-generate both PLUGIN_CLIENT (for ServiceClient) and bsb-plugin.json.
  */
 export interface BSBPluginMetadata {
-    /** Human-readable plugin name */
+    // Required fields
+    /** Plugin identifier (e.g., "service-demo-todo") */
     name: string;
-    /** Brief description of what the plugin does */
+    /** Short description of what the plugin does */
     description: string;
+
+    // Optional fields
+    /** Semantic version (e.g., "1.0.0") */
+    version?: string;
+    /** Author name or organization */
+    author?: string;
+    /** License type (e.g., "MIT", "AGPL-3.0") */
+    license?: string;
+    /** Documentation URL */
+    homepage?: string;
+    /** Source repository URL */
+    repository?: string;
+
+    // BSB-specific fields
+    /** Plugin category for marketplace organization */
+    category?: 'service' | 'observable' | 'events' | 'config' | 'other';
+    /** Searchable tags for plugin discovery */
+    tags?: string[];
+
+    // Plugin dependencies - controls initialization and run order
+    /** This plugin must initialize before these plugins */
+    initBeforePlugins?: string[];
+    /** This plugin must initialize after these plugins */
+    initAfterPlugins?: string[];
+    /** This plugin must run before these plugins */
+    runBeforePlugins?: string[];
+    /** This plugin must run after these plugins */
+    runAfterPlugins?: string[];
 }
 
 export type BSBConfigDefintionReference<
@@ -115,6 +146,12 @@ export abstract class BSBPluginConfig<
   public abstract validationSchema: MyPluginConfig;
 
   /**
+   * Static plugin metadata for v9 auto-generation features.
+   * Set by createConfigSchema() helper.
+   */
+  static readonly metadata: BSBPluginMetadata;
+
+  /**
    * Optional plugin metadata for enhanced discoverability and documentation.
    * Provides information about the plugin's purpose.
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBPluginConfig.html#metadata | API: BSBPluginConfig#metadata}
@@ -129,4 +166,66 @@ export abstract class BSBPluginConfig<
 export class BSBPluginConfigRef
     extends BSBPluginConfig<any> {
   public validationSchema = {};
+}
+
+/**
+ * Helper function to create a typed plugin configuration class with metadata.
+ *
+ * v9 Breaking Change: This replaces the manual Config class pattern.
+ * Instead of extending BSBPluginConfig directly, use this helper to create
+ * a Config class with built-in metadata support.
+ *
+ * The metadata is used to:
+ * - Auto-generate PLUGIN_CLIENT for ServiceClient usage
+ * - Auto-generate bsb-plugin.json during build
+ * - Provide plugin discovery and marketplace information
+ *
+ * @param metadata - Plugin metadata (name, description, version, dependencies, etc.)
+ * @param schema - Zod validation schema for the plugin configuration
+ * @returns A Config class that extends BSBPluginConfig with metadata
+ *
+ * @example
+ * ```typescript
+ * // v9 pattern:
+ * const TodoConfigSchema = z.object({
+ *   database: z.object({
+ *     host: z.string().default('localhost'),
+ *     port: z.number().default(5432),
+ *   }),
+ * });
+ *
+ * export const Config = createConfigSchema(
+ *   {
+ *     name: 'service-demo-todo',
+ *     description: 'Demo Todo Service',
+ *     version: '1.0.0',
+ *     author: 'BSB Team',
+ *     license: 'MIT',
+ *     category: 'service',
+ *     tags: ['demo', 'todo', 'example'],
+ *     initAfterPlugins: ['observable-default', 'events-default'],
+ *   },
+ *   TodoConfigSchema
+ * );
+ *
+ * // Usage in plugin:
+ * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+ *   static Config = Config; // Required for auto-generation
+ * }
+ * ```
+ *
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/createConfigSchema.html | API: createConfigSchema}
+ */
+export function createConfigSchema<const TSchema extends z.ZodTypeAny>(
+  metadata: BSBPluginMetadata,
+  schema: TSchema
+): typeof BSBPluginConfig & { new(cwd: string, packageCwd: string, pluginCwd: string, pluginName: string): BSBPluginConfig<TSchema>; metadata: BSBPluginMetadata } {
+  const ConfigClass = class extends BSBPluginConfig<TSchema> {
+    validationSchema = schema;
+    static readonly metadata = metadata;
+
+    // Also expose metadata on instance for backward compatibility
+    override metadata = metadata;
+  };
+  return ConfigClass as any;
 }

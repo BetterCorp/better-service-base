@@ -26,21 +26,23 @@
  */
 
 import { z } from "zod";
-import {
-  BSBPluginConfig,
-} from "../../index";
-import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
+import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
 import { Observable } from "../../interfaces";
-import { createReturnableEvent } from "../../interfaces/schema-events";
+import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
 
-export const secSchema = z.object({});
+export const Config = createConfigSchema(
+  {
+    name: 'service-default3',
+    description: 'Default service plugin 3 for testing',
+    version: '1.0.0',
+    category: 'service',
+    tags: ['default', 'example', 'test'],
+    initAfterPlugins: ['service-default2'],
+  },
+  z.object({})
+);
 
-export class Config
-  extends BSBPluginConfig<typeof secSchema> {
-  validationSchema = secSchema;
-}
-
-export const EventSchemas = {
+export const EventSchemas = createEventSchemas({
   onReturnableEvents: {
     onReverseReturnable: createReturnableEvent(
       z.object({
@@ -60,11 +62,13 @@ export const EventSchemas = {
       'Calculate with two numbers'
     )
   }
-} as const;
+});
 
-export class Plugin
-  extends BSBService<Config, typeof EventSchemas> {
-  public static PLUGIN_CLIENT = { name: "service-default3" };
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+  // PLUGIN_CLIENT auto-generated from Config.metadata
+
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
@@ -72,11 +76,8 @@ export class Plugin
 
   dispose?(): void;
 
-  constructor(config: BSBServiceConstructor<Config, typeof EventSchemas>) {
-    super({
-      ...config,
-      eventSchemas: EventSchemas
-    });
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
+    super(config);
   }
 
   public async init(obs: Observable) {

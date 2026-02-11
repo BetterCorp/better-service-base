@@ -25,23 +25,28 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBPluginConfig, BSBService, BSBServiceConstructor } from "../../base";
+import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
 import { z } from "zod";
-import { BSBServiceClientDefinition } from "../../base";
+import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 import { Observable } from "../../interfaces/observable";
-import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 
-export const secSchema = z.object({
+const secSchema = z.object({
   testa: z.number(),
   testb: z.number(),
 });
 
-export class Config
-  extends BSBPluginConfig<typeof secSchema> {
-  validationSchema = secSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'service-default0',
+    description: 'Default service plugin 0 for testing',
+    version: '1.0.0',
+    category: 'service',
+    tags: ['default', 'example', 'test'],
+  },
+  secSchema
+);
 
-export const EventSchemas = {
+export const EventSchemas = createEventSchemas({
   // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
     test: createFireAndForgetEvent(
@@ -52,7 +57,7 @@ export const EventSchemas = {
       'Test event with string parameters'
     )
   },
-  
+
   // Events this service listens to (fire-and-forget)
   onEvents: {
     startup: createFireAndForgetEvent(
@@ -63,7 +68,7 @@ export const EventSchemas = {
       'Handle system startup notification'
     )
   },
-  
+
   // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
     calculate: createReturnableEvent(
@@ -75,7 +80,7 @@ export const EventSchemas = {
       'Calculate with two numbers'
     )
   },
-  
+
   // Returnable events this service listens to (requests to this service)
   onReturnableEvents: {
     'data.validate': createReturnableEvent(
@@ -90,7 +95,7 @@ export const EventSchemas = {
       'Validate data against a schema'
     )
   },
-  
+
   // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'system.alert': createBroadcastEvent(
@@ -103,7 +108,7 @@ export const EventSchemas = {
       'System-wide alert broadcast'
     )
   },
-  
+
   // Broadcast events this service listens to
   onBroadcast: {
     'system.shutdown': createBroadcastEvent(
@@ -114,47 +119,40 @@ export const EventSchemas = {
       'Listen for system shutdown broadcasts'
     )
   }
-} as const; // Critical for type safety
+});
 
-export class Plugin
-  extends BSBService<Config, typeof EventSchemas> {
-  public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
-    name: "service-default0",
-  }
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+  // PLUGIN_CLIENT auto-generated from Config.metadata
+
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
 
-  public init?(): Promise<void>;
-  public dispose?(): void;
+  dispose?(): void;
+  init?(): void | Promise<void>;
 
-  constructor(config: BSBServiceConstructor<Config, typeof EventSchemas>) {
-    super({
-      ...config,
-      eventSchemas: EventSchemas
-    });
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
+    super(config);
   }
 
   public async run(obs: Observable) {
-    // v9: Observable provides unified logging, metrics, and tracing
     obs.log.info("Starting service-default0");
 
-    // Event methods accept Observable directly (no need to extract .trace)
     await this.events.emitEvent("test", obs, {
       a: "test",
       b: "test"
     });
 
-    // Calculate using returnable event with Observable
     const result = await this.events.emitEventAndReturn(
       "calculate",
       obs,
       {
         a: this.config.testa,
         b: this.config.testb
-      },
-      5 // timeout seconds
+      }
     );
 
     obs.log.info("Calculation result: {result}", { result });

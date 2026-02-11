@@ -13,8 +13,10 @@
     "dev": "ts-node src/dev.ts",
     "start": "node lib/cli.js",
     "tsc": "echo 'cleaning...' && rm -rf ./lib && echo 'building...' && tsc && echo 'done'",
-    "build": "rimraf ./lib && tsc && npm run testDev && npm run generate-docs",
-    "build-release": "rimraf ./lib && tsc --p ./tsconfig-release.json",
+    "build": "rimraf ./lib && tsc && npm run testDev && npm run generate-docs && npm run export-schemas && npm run generate-plugin-json",
+    "build-release": "rimraf ./lib && tsc --p ./tsconfig-release.json && npm run export-schemas && npm run generate-plugin-json",
+    "export-schemas": "node -r ts-node/register scripts/export-schemas.ts",
+    "generate-plugin-json": "node -r ts-node/register scripts/generate-plugin-json.ts",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc --reporter json --reporter lcov mocha --reporter json --reporter-options output=junit.json",
     "testDev": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc mocha",
@@ -28,6 +30,7 @@
     "lib/base/**/*",
     "lib/interfaces/**/*",
     "lib/serviceBase/**/*",
+    "lib/schemas/**/*",
     "lib/plugins/config-*/**/*",
     "lib/plugins/events-*/**/*",
     "lib/plugins/metrics-*/**/*",
@@ -63,6 +66,7 @@
   "dependencies": {
     "uuid": "^13.0.0",
     "yaml": "^2.8.2",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "zod-to-json-schema": "^3.24.1"
   }
 }

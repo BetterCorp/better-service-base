@@ -1,4 +1,4 @@
-import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import Fastify, { FastifyInstance, FastifyReply } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import type { Observable } from '@bsb/base';
 
@@ -68,10 +68,10 @@ export class TodoHttpServer {
       const startTime = Date.now();
 
       // Create a new root trace for this request
-      const reqObs = this.createTrace!('http.request', {
-        'http.method': request.method,
-        'http.url': request.url,
-        'http.user_agent': request.headers['user-agent'] || 'unknown',
+      const reqObs = this.createTrace!('http_request', {
+        'http_method': request.method,
+        'http_url': request.url,
+        'http_user_agent': request.headers['user-agent'] || 'unknown',
       });
 
       // Store Observable in request for use in handlers
