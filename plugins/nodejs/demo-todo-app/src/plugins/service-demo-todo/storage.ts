@@ -90,7 +90,7 @@ export class TodoStorage {
    * Create a new todo item.
    */
   create(obs: Observable, title: string, description?: string): TodoItem {
-    const span = obs.span('storage:create', { operation: 'create' });
+    const span = obs.startSpan('storage:create', { operation: 'create' });
     this.guardDisposed();
 
     const now = new Date().toISOString();
@@ -115,7 +115,7 @@ export class TodoStorage {
    * Get a todo by ID.
    */
   get(obs: Observable, id: string): TodoItem | undefined {
-    const span = obs.span('storage:get', { operation: 'get', todo_id: id });
+    const span = obs.startSpan('storage:get', { operation: 'get', todo_id: id });
     this.guardDisposed();
 
     const todo = this.todos.get(id);
@@ -127,7 +127,7 @@ export class TodoStorage {
    * List all todos.
    */
   list(obs: Observable): TodoItem[] {
-    const span = obs.span('storage:list', { operation: 'list' });
+    const span = obs.startSpan('storage:list', { operation: 'list' });
     this.guardDisposed();
 
     const todos = Array.from(this.todos.values());
@@ -139,7 +139,7 @@ export class TodoStorage {
    * Update a todo item.
    */
   update(obs: Observable, id: string, updates: Partial<Pick<TodoItem, 'title' | 'description' | 'completed'>>): TodoItem {
-    const span = obs.span('storage:update', { operation: 'update', todo_id: id });
+    const span = obs.startSpan('storage:update', { operation: 'update', todo_id: id });
     this.guardDisposed();
 
     const todo = this.todos.get(id);
@@ -167,7 +167,7 @@ export class TodoStorage {
    * Delete a todo item.
    */
   delete(obs: Observable, id: string): boolean {
-    const span = obs.span('storage:delete', { operation: 'delete', todo_id: id });
+    const span = obs.startSpan('storage:delete', { operation: 'delete', todo_id: id });
     this.guardDisposed();
 
     const result = this.todos.delete(id);

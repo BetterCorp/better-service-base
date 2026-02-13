@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
 import { z } from "zod";
 import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 import { Observable } from "../../interfaces/observable";
@@ -40,7 +40,6 @@ export const Config = createConfigSchema(
     name: 'service-default0',
     description: 'Default service plugin 0 for testing',
     version: '1.0.0',
-    category: 'service',
     tags: ['default', 'example', 'test'],
   },
   secSchema
@@ -50,10 +49,10 @@ export const EventSchemas = createEventSchemas({
   // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
     test: createFireAndForgetEvent(
-      z.object({
-        a: z.string(),
-        b: z.string()
-      }),
+      bsb.object({
+        a: bsb.string({ description: 'First string parameter' }),
+        b: bsb.string({ description: 'Second string parameter' })
+      }, 'Test event parameters'),
       'Test event with string parameters'
     )
   },
@@ -61,10 +60,10 @@ export const EventSchemas = createEventSchemas({
   // Events this service listens to (fire-and-forget)
   onEvents: {
     startup: createFireAndForgetEvent(
-      z.object({
-        timestamp: z.string().datetime(),
-        source: z.string()
-      }),
+      bsb.object({
+        timestamp: bsb.datetime('Startup timestamp'),
+        source: bsb.string({ description: 'Source identifier' })
+      }, 'Startup event parameters'),
       'Handle system startup notification'
     )
   },
@@ -72,11 +71,11 @@ export const EventSchemas = createEventSchemas({
   // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
     calculate: createReturnableEvent(
-      z.object({
-        a: z.number().min(0),
-        b: z.number().min(0)
-      }),
-      z.number(),
+      bsb.object({
+        a: bsb.number({ min: 0, description: 'First number' }),
+        b: bsb.number({ min: 0, description: 'Second number' })
+      }, 'Calculate input parameters'),
+      bsb.number({ description: 'Calculation result' }),
       'Calculate with two numbers'
     )
   },
@@ -84,14 +83,14 @@ export const EventSchemas = createEventSchemas({
   // Returnable events this service listens to (requests to this service)
   onReturnableEvents: {
     'data.validate': createReturnableEvent(
-      z.object({
-        data: z.unknown(),
-        schema: z.string()
-      }),
-      z.object({
-        valid: z.boolean(),
-        errors: z.array(z.string())
-      }),
+      bsb.object({
+        data: bsb.unknown('Data to validate'),
+        schema: bsb.string({ description: 'Schema name' })
+      }, 'Validation input'),
+      bsb.object({
+        valid: bsb.boolean('Validation result'),
+        errors: bsb.array(bsb.string({ description: 'Error message' }), { description: 'Validation errors' })
+      }, 'Validation output'),
       'Validate data against a schema'
     )
   },
@@ -99,12 +98,12 @@ export const EventSchemas = createEventSchemas({
   // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'system.alert': createBroadcastEvent(
-      z.object({
-        level: z.enum(['info', 'warning', 'error', 'critical']),
-        message: z.string(),
-        timestamp: z.string().datetime(),
-        source: z.string()
-      }),
+      bsb.object({
+        level: bsb.enum(['info', 'warning', 'error', 'critical'], 'Alert level'),
+        message: bsb.string({ description: 'Alert message' }),
+        timestamp: bsb.datetime('Alert timestamp'),
+        source: bsb.string({ description: 'Alert source' })
+      }, 'System alert parameters'),
       'System-wide alert broadcast'
     )
   },
@@ -112,10 +111,10 @@ export const EventSchemas = createEventSchemas({
   // Broadcast events this service listens to
   onBroadcast: {
     'system.shutdown': createBroadcastEvent(
-      z.object({
-        reason: z.string(),
-        gracefulTimeout: z.number().default(30000)
-      }),
+      bsb.object({
+        reason: bsb.string({ description: 'Shutdown reason' }),
+        gracefulTimeout: bsb.number({ description: 'Graceful timeout in milliseconds' })
+      }, 'Shutdown parameters'),
       'Listen for system shutdown broadcasts'
     )
   }

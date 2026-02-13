@@ -1,0 +1,53 @@
+# BSB Registry Configuration (Event-Driven Architecture)
+# Core registry communicates via events - works locally or distributed (RabbitMQ, Redis, etc.)
+
+# ============================================================================
+# Core Configuration
+# ============================================================================
+default:
+  config:
+    config-default:
+      plugin: config-default
+      enabled: true
+
+  observable:
+    observable-default:
+      plugin: observable-default
+      enabled: true
+      config:
+        level: info
+        colors: true
+
+  events:
+    events-default:                    # Use events-default for local, or events-rabbitmq for distributed
+      plugin: events-default
+      enabled: true
+
+  # ============================================================================
+  # Registry Core (Event-Driven)
+  # All operations via events - no HTTP
+  # ============================================================================
+  services:
+    service-bsb-registry:
+      plugin: service-bsb-registry
+      enabled: true
+      config:
+        database:
+          type: sqlite               # 'sqlite' or 'postgres'
+          path: ./.temp/registry.db  # SQLite database file
+          # url: postgresql://...    # PostgreSQL connection (if type: postgres)
+        auth:
+          tokensFile: ./.temp/api-tokens.json
+          requireAuth: true
+
+    # ============================================================================
+    # Registry Web UI (Server-Side Rendered with Handlebars)
+    # Uses events to communicate with core (not HTTP)
+    # ============================================================================
+    service-bsb-registry-ui:
+      plugin: service-bsb-registry-ui
+      enabled: true
+      config:
+        port: 3200                   # HTTP port for serving web pages
+        host: 0.0.0.0                # Listen address
+        pageSize: 20                 # Plugins per page

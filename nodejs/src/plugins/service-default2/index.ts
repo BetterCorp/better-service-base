@@ -26,7 +26,7 @@
  */
 
 import { Observable, ServiceClient } from "../../index";
-import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb, optional } from "../../base";
 import { Plugin as Service1, EventSchemas as Service1EventSchemas } from "../service-default1";
 import { Plugin as Service3, EventSchemas as Service3EventSchemas } from "../service-default3";
 import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
@@ -37,7 +37,6 @@ export const Config = createConfigSchema(
     name: 'service-default2',
     description: 'Default service plugin 2 for testing inter-service communication',
     version: '1.0.0',
-    category: 'service',
     tags: ['default', 'example', 'test'],
   },
   z.null()
@@ -47,11 +46,11 @@ export const EventSchemas = createEventSchemas({
   // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
     'task.completed': createFireAndForgetEvent(
-      z.object({
-        taskId: z.string(),
-        duration: z.number(),
-        success: z.boolean()
-      }),
+      bsb.object({
+        taskId: bsb.string({ description: 'Task identifier' }),
+        duration: bsb.number({ description: 'Task duration in milliseconds' }),
+        success: bsb.boolean('Whether the task completed successfully')
+      }, 'Task completion parameters'),
       'Emitted when a task is completed'
     )
   },
@@ -59,11 +58,11 @@ export const EventSchemas = createEventSchemas({
   // Events this service listens to (fire-and-forget)
   onEvents: {
     'task.assigned': createFireAndForgetEvent(
-      z.object({
-        taskId: z.string(),
-        type: z.string(),
-        priority: z.enum(['low', 'medium', 'high', 'urgent'])
-      }),
+      bsb.object({
+        taskId: bsb.string({ description: 'Task identifier' }),
+        type: bsb.string({ description: 'Task type' }),
+        priority: bsb.enum(['low', 'medium', 'high', 'urgent'], 'Task priority level')
+      }, 'Task assignment parameters'),
       'Handle new task assignments'
     )
   },
@@ -71,16 +70,16 @@ export const EventSchemas = createEventSchemas({
   // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
     'resource.request': createReturnableEvent(
-      z.object({
-        resourceType: z.string(),
-        amount: z.number(),
-        timeout: z.number().optional()
-      }),
-      z.object({
-        allocated: z.boolean(),
-        resourceId: z.string().optional(),
-        waitTime: z.number().optional()
-      }),
+      bsb.object({
+        resourceType: bsb.string({ description: 'Type of resource requested' }),
+        amount: bsb.number({ description: 'Amount of resources needed' }),
+        timeout: optional(bsb.number({ description: 'Request timeout in milliseconds' }))
+      }, 'Resource request parameters'),
+      bsb.object({
+        allocated: bsb.boolean('Whether resources were allocated'),
+        resourceId: optional(bsb.string({ description: 'Allocated resource identifier' })),
+        waitTime: optional(bsb.number({ description: 'Wait time in milliseconds' }))
+      }, 'Resource allocation response'),
       'Request resource allocation'
     )
   },
@@ -88,22 +87,22 @@ export const EventSchemas = createEventSchemas({
   // Returnable events this service listens to (requests to this service)
   onReturnableEvents: {
     calculate: createReturnableEvent(
-      z.object({
-        a: z.number(),
-        b: z.number()
-      }),
-      z.number(),
+      bsb.object({
+        a: bsb.number({ description: 'First number' }),
+        b: bsb.number({ description: 'Second number' })
+      }, 'Calculate input parameters'),
+      bsb.number({ description: 'Calculation result' }),
       'Calculate with two numbers'
     ),
     'health.check': createReturnableEvent(
-      z.object({
-        includeDetails: z.boolean().default(false)
-      }),
-      z.object({
-        status: z.enum(['healthy', 'degraded', 'unhealthy']),
-        uptime: z.number(),
-        details: z.record(z.string(), z.unknown()).optional()
-      }),
+      bsb.object({
+        includeDetails: bsb.boolean('Whether to include detailed information')
+      }, 'Health check parameters'),
+      bsb.object({
+        status: bsb.enum(['healthy', 'degraded', 'unhealthy'], 'Service health status'),
+        uptime: bsb.number({ description: 'Service uptime in milliseconds' }),
+        details: optional(bsb.record(bsb.string({ description: 'Detail key' }), bsb.unknown('Detail value'), 'Health check details'))
+      }, 'Health check response'),
       'Perform health check'
     )
   },
@@ -111,11 +110,11 @@ export const EventSchemas = createEventSchemas({
   // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'metrics.report': createBroadcastEvent(
-      z.object({
-        timestamp: z.string().datetime(),
-        metrics: z.record(z.string(), z.number()),
-        period: z.string()
-      }),
+      bsb.object({
+        timestamp: bsb.datetime('Metrics timestamp'),
+        metrics: bsb.record(bsb.string({ description: 'Metric name' }), bsb.number({ description: 'Metric value' }), 'Performance metrics'),
+        period: bsb.string({ description: 'Reporting period' })
+      }, 'Metrics report parameters'),
       'Broadcast performance metrics'
     )
   },
@@ -123,10 +122,10 @@ export const EventSchemas = createEventSchemas({
   // Broadcast events this service listens to
   onBroadcast: {
     'emergency.stop': createBroadcastEvent(
-      z.object({
-        reason: z.string(),
-        immediate: z.boolean().default(false)
-      }),
+      bsb.object({
+        reason: bsb.string({ description: 'Emergency stop reason' }),
+        immediate: bsb.boolean('Whether to stop immediately without cleanup')
+      }, 'Emergency stop parameters'),
       'Listen for emergency stop broadcasts'
     )
   }

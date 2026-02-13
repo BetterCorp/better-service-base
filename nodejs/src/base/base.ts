@@ -185,7 +185,7 @@ export abstract class Base
    * async run(obs: Observable) {
    *   obs.log.info("Running plugin");
    *   // Create child span for work
-   *   const workObs = obs.span("do-work");
+   *   const workObs = obs.startSpan("do-work");
    *   // ... do work ...
    *   workObs.end();
    * }

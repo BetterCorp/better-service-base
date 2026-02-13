@@ -91,8 +91,6 @@ export interface BSBPluginMetadata {
     repository?: string;
 
     // BSB-specific fields
-    /** Plugin category for marketplace organization */
-    category?: 'service' | 'observable' | 'events' | 'config' | 'other';
     /** Searchable tags for plugin discovery */
     tags?: string[];
 
@@ -228,4 +226,20 @@ export function createConfigSchema<const TSchema extends z.ZodTypeAny>(
     override metadata = metadata;
   };
   return ConfigClass as any;
+}
+
+/**
+ * Extract category from plugin name based on directory prefix.
+ * Examples:
+ * - service-demo-todo -> service
+ * - observable-axiom -> observable
+ * - events-rabbitmq -> events
+ * - config-default -> config
+ */
+export function getCategoryFromPluginName(pluginName: string): 'service' | 'observable' | 'events' | 'config' | 'other' {
+  if (pluginName.startsWith('service-')) return 'service';
+  if (pluginName.startsWith('observable-')) return 'observable';
+  if (pluginName.startsWith('events-')) return 'events';
+  if (pluginName.startsWith('config-')) return 'config';
+  return 'other';
 }

@@ -73,7 +73,6 @@ export const Config = createConfigSchema(
     name: 'observable-axiom',
     description: 'Axiom.co observability integration for logs, metrics, and traces',
     version: '1.0.0',
-    category: 'observable',
     tags: ['axiom', 'observability', 'logs', 'metrics', 'traces', 'analytics'],
   },
   ConfigSchema

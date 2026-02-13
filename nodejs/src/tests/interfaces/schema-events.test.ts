@@ -4,7 +4,6 @@
 
 import { describe, it } from 'mocha';
 import * as assert from 'assert';
-import { z } from 'zod';
 import {
   createEventSchemas,
   createFireAndForgetEvent,
@@ -12,13 +11,14 @@ import {
   createBroadcastEvent,
   exportEventSchemas,
 } from '../../interfaces/schema-events';
+import { bsb } from '../../interfaces/schema-types';
 
 describe('schema-events v9', () => {
   describe('createEventSchemas', () => {
     it('should create event schemas without requiring "as const"', () => {
       const schemas = createEventSchemas({
         emitEvents: {
-          'test.event': createFireAndForgetEvent(z.string(), 'Test event'),
+          'test.event': createFireAndForgetEvent(bsb.string(), 'Test event'),
         },
       });
 
@@ -30,7 +30,7 @@ describe('schema-events v9', () => {
     it('should preserve const type parameter for type inference', () => {
       const schemas = createEventSchemas({
         emitEvents: {
-          'test.event': createFireAndForgetEvent(z.object({ id: z.string() }), 'Test event'),
+          'test.event': createFireAndForgetEvent(bsb.object({ id: bsb.string() }), 'Test event'),
         },
       });
 
@@ -52,10 +52,10 @@ describe('schema-events v9', () => {
       try {
         createEventSchemas({
           emitEvents: {
-            'duplicate.event': createFireAndForgetEvent(z.string(), 'Event 1'),
+            'duplicate.event': createFireAndForgetEvent(bsb.string(), 'Event 1'),
           },
           emitReturnableEvents: {
-            'duplicate.event': createReturnableEvent(z.string(), z.number(), 'Event 2'),
+            'duplicate.event': createReturnableEvent(bsb.string(), bsb.int32(), 'Event 2'),
           },
         });
 
@@ -80,10 +80,10 @@ describe('schema-events v9', () => {
       try {
         createEventSchemas({
           emitEvents: {
-            'duplicate.event': createFireAndForgetEvent(z.string(), 'Event 1'),
+            'duplicate.event': createFireAndForgetEvent(bsb.string(), 'Event 1'),
           },
           emitReturnableEvents: {
-            'duplicate.event': createReturnableEvent(z.string(), z.number(), 'Event 2'),
+            'duplicate.event': createReturnableEvent(bsb.string(), bsb.int32(), 'Event 2'),
           },
         });
 
@@ -97,19 +97,19 @@ describe('schema-events v9', () => {
     it('should handle all event categories', () => {
       const schemas = createEventSchemas({
         emitEvents: {
-          'emit.event': createFireAndForgetEvent(z.string(), 'Emit event'),
+          'emit.event': createFireAndForgetEvent(bsb.string(), 'Emit event'),
         },
         emitReturnableEvents: {
-          'emit.returnable': createReturnableEvent(z.string(), z.number(), 'Emit returnable'),
+          'emit.returnable': createReturnableEvent(bsb.string(), bsb.int32(), 'Emit returnable'),
         },
         onReturnableEvents: {
-          'on.returnable': createReturnableEvent(z.string(), z.boolean(), 'On returnable'),
+          'on.returnable': createReturnableEvent(bsb.string(), bsb.boolean(), 'On returnable'),
         },
         onEvents: {
-          'on.event': createFireAndForgetEvent(z.number(), 'On event'),
+          'on.event': createFireAndForgetEvent(bsb.int32(), 'On event'),
         },
         emitBroadcast: {
-          'broadcast.event': createBroadcastEvent(z.object({ msg: z.string() }), 'Broadcast event'),
+          'broadcast.event': createBroadcastEvent(bsb.object({ msg: bsb.string() }), 'Broadcast event'),
         },
       });
 
@@ -123,17 +123,17 @@ describe('schema-events v9', () => {
 
   describe('Event type branding', () => {
     it('should add __brand to fire-and-forget events', () => {
-      const event = createFireAndForgetEvent(z.string(), 'Test event');
+      const event = createFireAndForgetEvent(bsb.string(), 'Test event');
       assert.strictEqual(event.__brand, 'fire-and-forget');
     });
 
     it('should add __brand to returnable events', () => {
-      const event = createReturnableEvent(z.string(), z.number(), 'Test event');
+      const event = createReturnableEvent(bsb.string(), bsb.int32(), 'Test event');
       assert.strictEqual(event.__brand, 'returnable');
     });
 
     it('should add __brand to broadcast events', () => {
-      const event = createBroadcastEvent(z.string(), 'Test event');
+      const event = createBroadcastEvent(bsb.string(), 'Test event');
       assert.strictEqual(event.__brand, 'broadcast');
     });
   });
@@ -142,7 +142,7 @@ describe('schema-events v9', () => {
     it('should export event schemas to JSON format', () => {
       const schemas = createEventSchemas({
         emitEvents: {
-          'test.event': createFireAndForgetEvent(z.object({ id: z.string() }), 'Test event'),
+          'test.event': createFireAndForgetEvent(bsb.object({ id: bsb.string() }), 'Test event'),
         },
       });
 
@@ -160,8 +160,8 @@ describe('schema-events v9', () => {
       const schemas = createEventSchemas({
         emitReturnableEvents: {
           'test.returnable': createReturnableEvent(
-            z.object({ input: z.string() }),
-            z.object({ output: z.number() }),
+            bsb.object({ input: bsb.string() }),
+            bsb.object({ output: bsb.int32() }),
             'Returnable event'
           ),
         },
@@ -179,7 +179,7 @@ describe('schema-events v9', () => {
     it('should export broadcast events', () => {
       const schemas = createEventSchemas({
         emitBroadcast: {
-          'test.broadcast': createBroadcastEvent(z.object({ message: z.string() }), 'Broadcast event'),
+          'test.broadcast': createBroadcastEvent(bsb.object({ message: bsb.string() }), 'Broadcast event'),
         },
       });
 
@@ -194,13 +194,13 @@ describe('schema-events v9', () => {
     it('should handle multiple events across categories', () => {
       const schemas = createEventSchemas({
         emitEvents: {
-          'event1': createFireAndForgetEvent(z.string(), 'Event 1'),
+          'event1': createFireAndForgetEvent(bsb.string(), 'Event 1'),
         },
         emitReturnableEvents: {
-          'event2': createReturnableEvent(z.string(), z.number(), 'Event 2'),
+          'event2': createReturnableEvent(bsb.string(), bsb.int32(), 'Event 2'),
         },
         onEvents: {
-          'event3': createFireAndForgetEvent(z.boolean(), 'Event 3'),
+          'event3': createFireAndForgetEvent(bsb.boolean(), 'Event 3'),
         },
       });
 
@@ -216,10 +216,10 @@ describe('schema-events v9', () => {
       const schemas = createEventSchemas({
         emitEvents: {
           'test.event': createFireAndForgetEvent(
-            z.object({
-              id: z.string().uuid(),
-              name: z.string().min(1).max(100),
-              count: z.number().int().min(0),
+            bsb.object({
+              id: bsb.uuid('ID'),
+              name: bsb.string({ min: 1, max: 100, description: 'Name' }),
+              count: bsb.int32({ min: 0, description: 'Count' }),
             }),
             'Test event with validation'
           ),
@@ -229,14 +229,14 @@ describe('schema-events v9', () => {
       const exported = exportEventSchemas('test-plugin', '1.0.0', schemas);
       const inputSchema = exported.events['test.event'].inputSchema as any;
 
-      // Check for JSON Schema structure
+      // BSB types convert to standard JSON Schema
       assert.ok(inputSchema, 'Input schema should exist');
       assert.ok(typeof inputSchema === 'object', 'Input schema should be an object');
-
-      // NOTE: zod-to-json-schema v3.25.1 with Zod 4.x currently only outputs $schema field
-      // This is a known limitation that needs investigation
-      // For now, we just verify the schema object exists
-      assert.ok(inputSchema.$schema || inputSchema.type || inputSchema.properties, 'Schema should have at least $schema field');
+      assert.strictEqual(inputSchema.type, 'object', 'Schema should have type property');
+      assert.ok(inputSchema.properties, 'Schema should have properties');
+      assert.ok(inputSchema.properties.id, 'Schema should have id property');
+      assert.ok(inputSchema.properties.name, 'Schema should have name property');
+      assert.ok(inputSchema.properties.count, 'Schema should have count property');
     });
   });
 });

@@ -26,7 +26,7 @@
  */
 
 import { Observable } from "../../index";
-import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
 import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
 import { z } from "zod";
 
@@ -35,7 +35,6 @@ export const Config = createConfigSchema(
     name: 'service-default4',
     description: 'Default service plugin 4 for testing',
     version: '1.0.0',
-    category: 'service',
     tags: ['default', 'example', 'test'],
   },
   z.null()
@@ -44,10 +43,10 @@ export const Config = createConfigSchema(
 export const EventSchemas = createEventSchemas({
   emitReturnableEvents: {
     onReverseReturnable: createReturnableEvent(
-      z.object({
-        text: z.string()
-      }),
-      z.string(),
+      bsb.object({
+        text: bsb.string({ description: 'Text to reverse' })
+      }, 'Reverse input parameters'),
+      bsb.string({ description: 'Reversed text' }),
       'Reverse text string'
     )
   }

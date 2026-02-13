@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{title}}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: #1a1a1a;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    header {
+      background-color: #2a2a2a;
+      border-bottom: 2px solid #FB8C00;
+      padding: 1rem 0;
+      margin-bottom: 2rem;
+    }
+
+    header .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      color: #FB8C00;
+      font-size: 1.5rem;
+    }
+
+    header nav a {
+      color: #e0e0e0;
+      text-decoration: none;
+      margin-left: 1.5rem;
+      transition: color 0.2s;
+    }
+
+    header nav a:hover {
+      color: #FB8C00;
+    }
+
+    main {
+      min-height: calc(100vh - 200px);
+      padding-bottom: 2rem;
+    }
+
+    footer {
+      background-color: #2a2a2a;
+      border-top: 1px solid #444;
+      padding: 2rem 0;
+      margin-top: 3rem;
+      text-align: center;
+      color: #888;
+    }
+
+    h2 {
+      color: #FB8C00;
+      margin-bottom: 1rem;
+    }
+
+    .card {
+      background-color: #2a2a2a;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(251, 140, 0, 0.2);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .badge-service { background-color: #a200ff; color: white; }
+    .badge-observable { background-color: #43A047; color: white; }
+    .badge-events { background-color: #FB8C00; color: white; }
+    .badge-config { background-color: #03A9F4; color: white; }
+    .badge-other { background-color: #666; color: white; }
+
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background-color: #FB8C00;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: background-color 0.2s;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .btn:hover {
+      background-color: #f57c00;
+    }
+
+    .btn-secondary {
+      background-color: #666;
+    }
+
+    .btn-secondary:hover {
+      background-color: #555;
+    }
+
+    input[type="text"],
+    input[type="search"] {
+      padding: 0.75rem;
+      border: 1px solid #444;
+      border-radius: 8px;
+      background-color: #333;
+      color: #e0e0e0;
+      font-size: 1rem;
+      width: 100%;
+    }
+
+    input[type="text"]:focus,
+    input[type="search"]:focus {
+      outline: none;
+      border-color: #FB8C00;
+    }
+
+    select {
+      padding: 0.75rem;
+      border: 1px solid #444;
+      border-radius: 8px;
+      background-color: #333;
+      color: #e0e0e0;
+      font-size: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    code {
+      background-color: #333;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: Monaco, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+    }
+
+    pre {
+      background-color: #333;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    pre code {
+      padding: 0;
+      background: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>BSB Plugin Registry</h1>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/plugins">Browse</a>
+        <a href="/search">Search</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {{{body}}}
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>BSB Framework - Multi-Language Plugin Registry</p>
+      <p>Event-Driven Architecture with Cross-Language Support</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<form method="GET" action="/search" style="margin-bottom: 2rem;">
+  <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: end;">
+    <div>
+      <label for="search" style="display: block; margin-bottom: 0.5rem; color: #bbb;">Search plugins</label>
+      <input
+        type="search"
+        id="search"
+        name="q"
+        placeholder="Search by name, tags, or description..."
+        value="{{searchQuery}}"
+        style="width: 100%;"
+      >
+    </div>
+    <button type="submit" class="btn">Search</button>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+    <div>
+      <label for="category" style="display: block; margin-bottom: 0.5rem; color: #bbb; font-size: 0.875rem;">Category</label>
+      <select id="category" name="category" onchange="this.form.submit()">
+        <option value="">All Categories</option>
+        <option value="service" {{#if (eq filters.category 'service')}}selected{{/if}}>Service</option>
+        <option value="observable" {{#if (eq filters.category 'observable')}}selected{{/if}}>Observable</option>
+        <option value="events" {{#if (eq filters.category 'events')}}selected{{/if}}>Events</option>
+        <option value="config" {{#if (eq filters.category 'config')}}selected{{/if}}>Config</option>
+        <option value="other" {{#if (eq filters.category 'other')}}selected{{/if}}>Other</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="language" style="display: block; margin-bottom: 0.5rem; color: #bbb; font-size: 0.875rem;">Language</label>
+      <select id="language" name="language" onchange="this.form.submit()">
+        <option value="">All Languages</option>
+        <option value="nodejs" {{#if (eq filters.language 'nodejs')}}selected{{/if}}>Node.js</option>
+        <option value="csharp" {{#if (eq filters.language 'csharp')}}selected{{/if}}>C#</option>
+        <option value="go" {{#if (eq filters.language 'go')}}selected{{/if}}>Go</option>
+        <option value="java" {{#if (eq filters.language 'java')}}selected{{/if}}>Java</option>
+        <option value="python" {{#if (eq filters.language 'python')}}selected{{/if}}>Python</option>
+      </select>
+    </div>
+  </div>
+</form>

@@ -54,7 +54,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    * @param resource - Resource context
    * @param backend - IPluginObservable instance (unified logging and metrics backend)
    * @param attributes - Initial attributes
-   * @param span - Optional Trace/Span object (if created via span())
+   * @param span - Optional Trace/Span object (if created via startSpan())
    */
   constructor(
     trace: DTrace,
@@ -153,7 +153,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    * ```typescript
    * public async processOrder(obs: Observable) {
    *   // Create child span for database operation
-   *   const dbSpan = obs.span("fetch-order", { "order.id": "123" });
+   *   const dbSpan = obs.startSpan("fetch-order", { "order.id": "123" });
    *   try {
    *     const order = await this.db.getOrder("123");
    *     dbSpan.end({ "order.status": order.status });
@@ -164,7 +164,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    * }
    * ```
    */
-  span(
+  startSpan(
     name: string,
     attributes?: Record<string, string | number | boolean>
   ): Observable<TAttributeSchema> {
@@ -197,7 +197,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    *   const withUser = obs.setAttribute("user.id", userId);
    *
    *   withUser.log.info("Processing request");  // Log includes user.id
-   *   const span = withUser.span("process");    // Span includes user.id
+   *   const span = withUser.startSpan("process");    // Span includes user.id
    * }
    * ```
    */
@@ -253,7 +253,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    * Record an error to both logs and traces
    *
    * This method automatically records the error to both the logging system and
-   * the active span (if this Observable was created via span()). This ensures
+   * the active span (if this Observable was created via startSpan()). This ensures
    * errors are captured in both systems for complete observability.
    *
    * @param error - Error or BSBError instance to record
@@ -262,7 +262,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    * @example
    * ```typescript
    * public async processData(obs: Observable) {
-   *   const span = obs.span("process-data");
+   *   const span = obs.startSpan("process-data");
    *   try {
    *     await this.riskyOperation();
    *   } catch (error) {
@@ -294,10 +294,10 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
   }
 
   /**
-   * End the span (only applies if this Observable was created via span())
+   * End the span (only applies if this Observable was created via startSpan())
    *
    * Completes the span and records the final state. If this Observable was not
-   * created via span(), this method does nothing. Always call end() when the
+   * created via startSpan(), this method does nothing. Always call end() when the
    * operation is complete to ensure proper trace completion.
    *
    * @param attributes - Final attributes to attach before ending the span
@@ -305,7 +305,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    * @example
    * ```typescript
    * public async fetchData(obs: Observable) {
-   *   const span = obs.span("fetch-data");
+   *   const span = obs.startSpan("fetch-data");
    *   try {
    *     const data = await this.api.fetch();
    *     span.end({ "data.size": data.length, "status": "success" });

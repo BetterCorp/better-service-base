@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { BSBService } from '../../base/BSBService';
 import { createConfigSchema } from '../../base/PluginConfig';
 import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent } from '../../interfaces/schema-events';
+import { bsb } from '../../interfaces/schema-types';
 
 describe('BSBService v9', () => {
   describe('PLUGIN_CLIENT auto-generation', () => {
@@ -22,7 +23,7 @@ describe('BSBService v9', () => {
 
       const EventSchemas = createEventSchemas({
         emitEvents: {
-          'test.event': createFireAndForgetEvent(z.string(), 'Test event'),
+          'test.event': createFireAndForgetEvent(bsb.string(), 'Test event'),
         },
       });
 
@@ -110,12 +111,12 @@ describe('BSBService v9', () => {
 
       const EventSchemas = createEventSchemas({
         emitEvents: {
-          'test.event': createFireAndForgetEvent(z.object({ id: z.string() }), 'Test event'),
+          'test.event': createFireAndForgetEvent(bsb.object({ id: bsb.string() }), 'Test event'),
         },
         emitReturnableEvents: {
           'test.returnable': createReturnableEvent(
-            z.object({ input: z.string() }),
-            z.object({ output: z.number() }),
+            bsb.object({ input: bsb.string() }),
+            bsb.object({ output: bsb.int32() }),
             'Test returnable'
           ),
         },
@@ -179,7 +180,7 @@ describe('BSBService v9', () => {
 
       const EventSchemas = createEventSchemas({
         emitEvents: {
-          'test.event': createFireAndForgetEvent(z.string(), 'Test event'),
+          'test.event': createFireAndForgetEvent(bsb.string(), 'Test event'),
         },
       });
 
@@ -204,16 +205,16 @@ describe('BSBService v9', () => {
 
       const EventSchemas = createEventSchemas({
         emitEvents: {
-          'emit.event': createFireAndForgetEvent(z.string(), 'Emit event'),
+          'emit.event': createFireAndForgetEvent(bsb.string(), 'Emit event'),
         },
         emitReturnableEvents: {
-          'emit.returnable': createReturnableEvent(z.string(), z.number(), 'Emit returnable'),
+          'emit.returnable': createReturnableEvent(bsb.string(), bsb.int32(), 'Emit returnable'),
         },
         onReturnableEvents: {
-          'on.returnable': createReturnableEvent(z.boolean(), z.string(), 'On returnable'),
+          'on.returnable': createReturnableEvent(bsb.boolean(), bsb.string(), 'On returnable'),
         },
         onEvents: {
-          'on.event': createFireAndForgetEvent(z.number(), 'On event'),
+          'on.event': createFireAndForgetEvent(bsb.int32(), 'On event'),
         },
       });
 
@@ -244,10 +245,10 @@ describe('BSBService v9', () => {
       const EventSchemas = createEventSchemas({
         emitEvents: {
           'test.event': createFireAndForgetEvent(
-            z.object({
-              id: z.string().uuid(),
-              name: z.string().min(1).max(100),
-              count: z.number().int().min(0),
+            bsb.object({
+              id: bsb.uuid('ID'),
+              name: bsb.string({ min: 1, max: 100, description: 'Name' }),
+              count: bsb.int32({ min: 0, description: 'Count' }),
             }),
             'Test event'
           ),
@@ -271,10 +272,12 @@ describe('BSBService v9', () => {
       assert.ok(inputSchema, 'Input schema should exist');
       assert.ok(typeof inputSchema === 'object', 'Input schema should be an object');
 
-      // NOTE: zod-to-json-schema v3.25.1 with Zod 4.x currently only outputs $schema field
-      // This is a known limitation that needs investigation
-      // For now, we just verify the schema object exists
-      assert.ok(inputSchema.$schema || inputSchema.type || inputSchema.properties, 'Schema should have at least $schema field');
+      // BSB types convert to standard JSON Schema
+      assert.strictEqual(inputSchema.type, 'object', 'Schema should have type=object');
+      assert.ok(inputSchema.properties, 'Schema should have properties');
+      assert.ok(inputSchema.properties.id, 'Schema should have id property');
+      assert.ok(inputSchema.properties.name, 'Schema should have name property');
+      assert.ok(inputSchema.properties.count, 'Schema should have count property');
     });
   });
 
@@ -337,13 +340,13 @@ describe('BSBService v9', () => {
 
       const EventSchemas1 = createEventSchemas({
         emitEvents: {
-          'event.1': createFireAndForgetEvent(z.string(), 'Event 1'),
+          'event.1': createFireAndForgetEvent(bsb.string(), 'Event 1'),
         },
       });
 
       const EventSchemas2 = createEventSchemas({
         emitEvents: {
-          'event.2': createFireAndForgetEvent(z.number(), 'Event 2'),
+          'event.2': createFireAndForgetEvent(bsb.int32(), 'Event 2'),
         },
       });
 

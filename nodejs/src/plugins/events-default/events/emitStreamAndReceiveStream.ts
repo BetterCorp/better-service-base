@@ -51,7 +51,7 @@ export class emitStreamAndReceiveStream
     timeoutSeconds: number = 60,
   ): Promise<string> {
     // Create child observable for receiving stream
-    const receiveObs = obs.span("receiveStream:receive", {
+    const receiveObs = obs.startSpan("receiveStream:receive", {
       event,
       pluginName,
       timeoutSeconds,
@@ -105,7 +105,7 @@ export class emitStreamAndReceiveStream
     stream: Readable,
   ): Promise<void> {
     // Create child observable for sending stream
-    const sendObs = obs.span("sendStream:send", {
+    const sendObs = obs.startSpan("sendStream:send", {
       event,
       pluginName,
       streamId

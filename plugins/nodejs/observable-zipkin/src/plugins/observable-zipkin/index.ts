@@ -71,7 +71,6 @@ export const Config = createConfigSchema(
     name: 'observable-zipkin',
     description: 'Zipkin tracing integration for BSB framework',
     version: '1.0.0',
-    category: 'observable',
     tags: ['zipkin', 'tracing', 'observability', 'distributed-tracing'],
   },
   ConfigSchema

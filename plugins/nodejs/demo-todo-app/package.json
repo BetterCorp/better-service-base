@@ -10,11 +10,15 @@
     "bsb-plugin.json"
   ],
   "scripts": {
-    "build": "npm run clean && tsc && npm run copy-static",
-    "copy-static": "node -e \"const fs=require('fs'); const path=require('path'); const src='src/plugins/service-demo-todo/static'; const dest='lib/plugins/service-demo-todo/static'; fs.mkdirSync(dest, {recursive: true}); fs.readdirSync(src).forEach(file => fs.copyFileSync(path.join(src, file), path.join(dest, file)));\"",
-    "clean": "rimraf lib",
-    "start": "node node_modules/@bsb/base/lib/cli.js",
-    "dev": "ts-node node_modules/@bsb/base/src/dev.ts"
+    "build": "bsb-plugin-cli build",
+    "clean": "bsb-plugin-cli clean",
+    "start": "bsb-plugin-cli start",
+    "dev": "bsb-plugin-cli dev",
+    "test": "bsb-plugin-cli test",
+    "bsb": "node node_modules/@bsb/base/lib/cli.js",
+    "client:sync": "node node_modules/@bsb/base/lib/cli.js client sync",
+    "client:export": "node node_modules/@bsb/base/lib/cli.js client export",
+    "client:generate": "node node_modules/@bsb/base/lib/cli.js client generate"
   },
   "keywords": [
     "bsb",

@@ -59,7 +59,7 @@ export class testClient extends BSBServiceClient<Plugin> {
   }
 
   async abc(a: number, b: number, c: number, d: number): Promise<void> {
-    const obs = this.initObs!.span('abc', { component: 'test' });
+    const obs = this.initObs!.startSpan('abc', { component: 'test' });
 
     try {
       const result = await this.events.emitEventAndReturn("onReturnable", obs, { a: c, b: d }, 5);

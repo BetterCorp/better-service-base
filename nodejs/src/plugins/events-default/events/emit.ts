@@ -65,7 +65,7 @@ export class emit
       this.lastReceivedMessageIds = args.msgID;
 
       // Create child observable for receiving the event
-      const receiveObs = eobs.span("onEvent:receive", {
+      const receiveObs = eobs.startSpan("onEvent:receive", {
         pluginName,
         event,
         messageId: args.msgID
@@ -92,7 +92,7 @@ export class emit
     const msgID = randomUUID();
 
     // Create child observable for sending the event
-    const sendObs = obs.span("emitEvent:send", {
+    const sendObs = obs.startSpan("emitEvent:send", {
       pluginName,
       event,
       messageId: msgID

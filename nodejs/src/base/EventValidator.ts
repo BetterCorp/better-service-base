@@ -21,7 +21,7 @@
  */
 
 import { z } from "zod";
-import { IPluginLogging, DTrace } from "../interfaces";
+import { IPluginLogging, DTrace, BSBType, bsbToZod } from "../interfaces";
 
 export interface ValidationResult<T = any> {
   success: boolean;
@@ -82,7 +82,7 @@ export class EventValidator {
    * Validate input data for an event.
    * @param eventName - Name of the event being validated
    * @param data - Data to validate
-   * @param schema - Schema to validate against
+   * @param schema - BSBType or Zod schema to validate against
    * @param trace - Trace for logging context
    * @param eventConfig - Override configuration for this validation
    * @returns Validation result with parsed data or error
@@ -91,18 +91,20 @@ export class EventValidator {
   public validateInput<T = unknown>(
     eventName: string,
     data: unknown,
-    schema: z.ZodSchema<T>,
+    schema: BSBType | z.ZodSchema<T>,
     trace: DTrace,
     eventConfig?: Partial<EventValidationConfig>
   ): ValidationResult<T> {
-    return this.performValidation(eventName, data, schema, trace, 'input', eventConfig);
+    // Convert BSBType to Zod schema if needed
+    const zodSchema = this.isBSBType(schema) ? bsbToZod(schema) : schema;
+    return this.performValidation(eventName, data, zodSchema as z.ZodSchema<T>, trace, 'input', eventConfig);
   }
 
   /**
    * Validate output/return data for an event.
    * @param eventName - Name of the event being validated
    * @param data - Data to validate
-   * @param schema - Schema to validate against
+   * @param schema - BSBType or Zod schema to validate against
    * @param trace - Trace for logging context
    * @param eventConfig - Override configuration for this validation
    * @returns Validation result with parsed data or error
@@ -111,11 +113,23 @@ export class EventValidator {
   public validateOutput<T = unknown>(
     eventName: string,
     data: unknown,
-    schema: z.ZodSchema<T>,
+    schema: BSBType | z.ZodSchema<T>,
     trace: DTrace,
     eventConfig?: Partial<EventValidationConfig>
   ): ValidationResult<T> {
-    return this.performValidation(eventName, data, schema, trace, 'output', eventConfig);
+    // Convert BSBType to Zod schema if needed
+    const zodSchema = this.isBSBType(schema) ? bsbToZod(schema) : schema;
+    return this.performValidation(eventName, data, zodSchema as z.ZodSchema<T>, trace, 'output', eventConfig);
+  }
+
+  /**
+   * Check if a schema is a BSBType or a Zod schema.
+   * @param schema - Schema to check
+   * @returns True if schema is a BSBType
+   * @private
+   */
+  private isBSBType(schema: any): schema is BSBType {
+    return schema && typeof schema === 'object' && '_bsb' in schema;
   }
 
   /**

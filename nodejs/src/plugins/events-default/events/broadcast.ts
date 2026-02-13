@@ -49,7 +49,7 @@ export class broadcast extends EventEmitter {
     });
     this.on(`${ pluginName }-${ event }`, async (eobs: Observable, args: any[]) => {
       // Create child observable for receiving the broadcast
-      const receiveObs = eobs.span("onBroadcast:receive", {
+      const receiveObs = eobs.startSpan("onBroadcast:receive", {
         pluginName,
         event,
       });
@@ -73,7 +73,7 @@ export class broadcast extends EventEmitter {
     args: Array<any>
   ): Promise<void> {
     // Create child observable for sending the broadcast
-    const sendObs = obs.span("emitBroadcast:send", {
+    const sendObs = obs.startSpan("emitBroadcast:send", {
       pluginName,
       event,
     });

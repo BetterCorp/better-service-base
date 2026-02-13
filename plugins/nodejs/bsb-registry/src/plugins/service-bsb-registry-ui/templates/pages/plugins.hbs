@@ -1,0 +1,21 @@
+<h1>Browse Plugins</h1>
+
+{{> search-form}}
+
+{{#if plugins}}
+  <div class="grid">
+    {{#each plugins}}
+      {{> plugin-card}}
+    {{/each}}
+  </div>
+
+  {{#if pagination}}
+    {{> pagination}}
+  {{/if}}
+{{else}}
+  <div style="text-align: center; margin: 3rem 0;">
+    <p style="color: #888; font-size: 1.125rem;">No plugins found matching your filters.</p>
+    <p style="color: #666; margin-top: 1rem;">Try adjusting your search criteria.</p>
+    <a href="/plugins" class="btn" style="margin-top: 1rem;">Clear Filters</a>
+  </div>
+{{/if}}

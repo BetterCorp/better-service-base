@@ -1,0 +1,60 @@
+<div style="text-align: center; margin: 3rem 0;">
+  <h1 style="font-size: 2.5rem; color: #FB8C00; margin-bottom: 1rem;">
+    BSB Plugin Registry
+  </h1>
+  <p style="font-size: 1.25rem; color: #bbb; margin-bottom: 2rem;">
+    Discover and publish multi-language plugins for the BSB Framework
+  </p>
+</div>
+
+{{#if stats}}
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
+  <div class="card" style="text-align: center;">
+    <div style="font-size: 2.5rem; color: #FB8C00; font-weight: bold;">{{stats.totalPlugins}}</div>
+    <div style="color: #bbb; margin-top: 0.5rem;">Total Plugins</div>
+  </div>
+
+  {{#if stats.byLanguage}}
+    {{#if stats.byLanguage.nodejs}}
+    <div class="card" style="text-align: center;">
+      <div style="font-size: 2.5rem; color: #43A047; font-weight: bold;">{{stats.byLanguage.nodejs}}</div>
+      <div style="color: #bbb; margin-top: 0.5rem;">Node.js Plugins</div>
+    </div>
+    {{/if}}
+
+    {{#if stats.byLanguage.csharp}}
+    <div class="card" style="text-align: center;">
+      <div style="font-size: 2.5rem; color: #a200ff; font-weight: bold;">{{stats.byLanguage.csharp}}</div>
+      <div style="color: #bbb; margin-top: 0.5rem;">C# Plugins</div>
+    </div>
+    {{/if}}
+
+    {{#if stats.byLanguage.go}}
+    <div class="card" style="text-align: center;">
+      <div style="font-size: 2.5rem; color: #03A9F4; font-weight: bold;">{{stats.byLanguage.go}}</div>
+      <div style="color: #bbb; margin-top: 0.5rem;">Go Plugins</div>
+    </div>
+    {{/if}}
+  {{/if}}
+</div>
+{{/if}}
+
+{{> search-form}}
+
+{{#if plugins}}
+  <h2 style="margin-top: 3rem;">Recent Plugins</h2>
+  <div class="grid">
+    {{#each plugins}}
+      {{> plugin-card}}
+    {{/each}}
+  </div>
+
+  <div style="text-align: center; margin-top: 2rem;">
+    <a href="/plugins" class="btn">Browse All Plugins</a>
+  </div>
+{{else}}
+  <div style="text-align: center; margin: 3rem 0;">
+    <p style="color: #888; font-size: 1.125rem;">No plugins published yet.</p>
+    <p style="color: #666; margin-top: 1rem;">Be the first to publish a plugin to the registry!</p>
+  </div>
+{{/if}}

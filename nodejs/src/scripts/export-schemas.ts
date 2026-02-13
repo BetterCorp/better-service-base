@@ -45,7 +45,7 @@ function discoverPlugins(libDir: string): string[] {
  * Main export function.
  */
 async function main() {
-  const projectRoot = path.resolve(__dirname, '..');
+  const projectRoot = path.resolve(__dirname, '..', '..');
   const libDir = path.join(projectRoot, 'lib');
   const schemasDir = path.join(libDir, 'schemas');
 
@@ -79,6 +79,9 @@ async function main() {
   // Process each plugin
   for (const pluginPath of pluginPaths) {
     try {
+      // Get plugin identifier from directory name
+      const pluginId = path.basename(path.dirname(pluginPath));
+
       // Import the plugin module
       const pluginModule = await import(pluginPath);
 
@@ -102,12 +105,12 @@ async function main() {
       // Export schemas
       const schemas = Plugin.exportSchemas();
 
-      // Write to file
-      const outputPath = path.join(schemasDir, `${schemas.pluginName}.json`);
+      // Write to file using plugin directory name (not display name)
+      const outputPath = path.join(schemasDir, `${pluginId}.json`);
       fs.writeFileSync(outputPath, JSON.stringify(schemas, null, 2), 'utf-8');
 
       // eslint-disable-next-line no-console
-      console.log(`  Exported schemas for ${schemas.pluginName} (v${schemas.version})`);
+      console.log(`  Exported schemas for ${pluginId} (v${schemas.version})`);
       exportCount++;
     } catch (error) {
       errorCount++;

@@ -25,20 +25,30 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Observable, ServiceClient, BSBServiceClientDefinition } from "../../index";
-import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
-import { createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent } from "../../interfaces/schema-events";
+import { Observable, ServiceClient } from "../../index";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb, optional } from "../../base";
+import { createEventSchemas, createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 import { z } from "zod";
 const Benchmarkify = require("benchmarkify");
 
-export const EventSchemas = {
+export const Config = createConfigSchema(
+  {
+    name: 'service-benchmarkify',
+    description: 'Benchmarking service for performance testing',
+    version: '1.0.0',
+    tags: ['benchmark', 'performance', 'test'],
+  },
+  z.null()
+);
+
+export const EventSchemas = createEventSchemas({
   // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
     'benchmark.started': createFireAndForgetEvent(
-      z.object({
-        name: z.string(),
-        timestamp: z.string().datetime()
-      }),
+      bsb.object({
+        name: bsb.string({ description: 'Benchmark name' }),
+        timestamp: bsb.datetime('Start timestamp')
+      }, 'Benchmark start parameters'),
       'Benchmark test started'
     )
   },
@@ -46,9 +56,9 @@ export const EventSchemas = {
   // Events this service listens to (fire-and-forget)
   onEvents: {
     'benchmark.trigger': createFireAndForgetEvent(
-      z.object({
-        testName: z.string().optional()
-      }),
+      bsb.object({
+        testName: optional(bsb.string({ description: 'Name of test to run' }))
+      }, 'Benchmark trigger parameters'),
       'Trigger benchmark execution'
     )
   },
@@ -56,14 +66,14 @@ export const EventSchemas = {
   // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
     'performance.test': createReturnableEvent(
-      z.object({
-        iterations: z.number().default(1000),
-        warmup: z.boolean().default(true)
-      }),
-      z.object({
-        duration: z.number(),
-        opsPerSecond: z.number()
-      }),
+      bsb.object({
+        iterations: bsb.number({ description: 'Number of iterations to run' }),
+        warmup: bsb.boolean('Whether to run warmup iterations')
+      }, 'Performance test parameters'),
+      bsb.object({
+        duration: bsb.number({ description: 'Test duration in milliseconds' }),
+        opsPerSecond: bsb.number({ description: 'Operations per second' })
+      }, 'Performance test results'),
       'Request performance test execution'
     )
   },
@@ -71,16 +81,16 @@ export const EventSchemas = {
   // Returnable events this service listens to (requests to this service)
   onReturnableEvents: {
     add: createReturnableEvent(
-      z.object({
-        a: z.number(),
-        b: z.number()
-      }),
-      z.number(),
+      bsb.object({
+        a: bsb.number({ description: 'First number' }),
+        b: bsb.number({ description: 'Second number' })
+      }, 'Add input parameters'),
+      bsb.number({ description: 'Sum of numbers' }),
       'Add two numbers'
     ),
     void: createReturnableEvent(
-      z.object({}),
-      z.void(),
+      bsb.object({}, 'Empty parameters'),
+      bsb.void(),
       'Void event for benchmarking'
     )
   },
@@ -88,15 +98,18 @@ export const EventSchemas = {
   // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'benchmark.results': createBroadcastEvent(
-      z.object({
-        testName: z.string(),
-        results: z.array(z.object({
-          operation: z.string(),
-          opsPerSecond: z.number(),
-          duration: z.number()
-        })),
-        timestamp: z.string().datetime()
-      }),
+      bsb.object({
+        testName: bsb.string({ description: 'Test name' }),
+        results: bsb.array(
+          bsb.object({
+            operation: bsb.string({ description: 'Operation name' }),
+            opsPerSecond: bsb.number({ description: 'Operations per second' }),
+            duration: bsb.number({ description: 'Duration in milliseconds' })
+          }, 'Benchmark result entry'),
+          { description: 'Array of benchmark results' }
+        ),
+        timestamp: bsb.datetime('Results timestamp')
+      }, 'Benchmark results parameters'),
       'Broadcast benchmark results to all interested parties'
     )
   },
@@ -104,30 +117,26 @@ export const EventSchemas = {
   // Broadcast events this service listens to
   onBroadcast: {
     'system.load': createBroadcastEvent(
-      z.object({
-        cpuUsage: z.number(),
-        memoryUsage: z.number(),
-        timestamp: z.string().datetime()
-      }),
+      bsb.object({
+        cpuUsage: bsb.number({ description: 'CPU usage percentage' }),
+        memoryUsage: bsb.number({ description: 'Memory usage percentage' }),
+        timestamp: bsb.datetime('Load measurement timestamp')
+      }, 'System load parameters'),
       'Listen for system load updates'
     )
   }
-} as const;
+});
 
-export class Plugin
-  extends BSBService<null, typeof EventSchemas> {
-  public static readonly PLUGIN_CLIENT: BSBServiceClientDefinition = {
-    name: "service-benchmarkify",
-    initBeforePlugins: [],
-    initAfterPlugins: [],
-    runBeforePlugins: [],
-    runAfterPlugins: []
-  }
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+  // PLUGIN_CLIENT auto-generated from Config.metadata
+
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
   public override initAfterPlugins: string[] = [];
-  private fakeSelf: ServiceClient<Plugin>
+  private self;
 
   dispose?(): void;
   async init(obs: Observable): Promise<void> {
@@ -143,16 +152,13 @@ export class Plugin
     });
   };
 
-  constructor(config: BSBServiceConstructor<null, typeof EventSchemas>) {
-    super({
-      ...config,
-      eventSchemas: EventSchemas
-    });
-    this.fakeSelf = new ServiceClient<Plugin>(Plugin, this);
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
+    super(config);
+    this.self = new ServiceClient<Plugin, typeof EventSchemas, typeof Plugin>(Plugin, this);
   }
 
   public override async run(obs: Observable) {
-    obs.log.info("Running service-default4");
+    obs.log.info("Running service-benchmarkify");
 
     let benchmark = new Benchmarkify("BSB benchmark").printHeader();
 
@@ -160,27 +166,13 @@ export class Plugin
 
     const self = this;
     bench.add("BSB:emitEventAndReturn:add", async (done: Function) => {
-      await self.fakeSelf.events.emitEventAndReturn('add', obs, { a: 5, b: 3 }, 1);
+      await self.self.events.emitEventAndReturn('add', obs, { a: 5, b: 3 }, 1);
       done();
     });
     bench.add("BSB:emitEventAndReturn:void", async (done: Function) => {
-      await self.fakeSelf.events.emitEventAndReturn('void', obs, {}, 1);
-      done();
-    });
-    bench.add("BSB:emitEvent:void", async (done: Function) => {
-      await self.fakeSelf.events.emitEvent('void', obs, {});
+      await self.self.events.emitEventAndReturn('void', obs, {}, 1);
       done();
     });
     await benchmark.run()
-    //console.log(JSON.stringify(await benchmark.run(), null, 2));
-    // Use events to reverse text
-    // const result = await this.events.emitEventAndReturn(
-    //   "onReverseReturnable",
-    //   trace,
-    //   5,
-    //   "teXt"
-    // );
-
-    // this.log.info(obs.trace, "Reverse result: {result}", { result });
   }
 }

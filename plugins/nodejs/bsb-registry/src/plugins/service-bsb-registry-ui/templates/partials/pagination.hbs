@@ -1,0 +1,39 @@
+{{#if (gt totalPages 1)}}
+<div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 2rem;">
+  {{#if (gt currentPage 1)}}
+    <a href="?page={{subtract currentPage 1}}" class="btn btn-secondary">Previous</a>
+  {{/if}}
+
+  <div style="display: flex; gap: 0.25rem;">
+    {{#if (gt currentPage 3)}}
+      <a href="?page=1" class="btn btn-secondary">1</a>
+      {{#if (gt currentPage 4)}}
+        <span style="padding: 0.5rem; color: #888;">...</span>
+      {{/if}}
+    {{/if}}
+
+    {{#each (range (subtract currentPage 2) (add currentPage 2) totalPages)}}
+      {{#if (eq this ../currentPage)}}
+        <span class="btn" style="background-color: #f57c00;">{{this}}</span>
+      {{else}}
+        <a href="?page={{this}}" class="btn btn-secondary">{{this}}</a>
+      {{/if}}
+    {{/each}}
+
+    {{#if (lt currentPage (subtract totalPages 2))}}
+      {{#if (lt currentPage (subtract totalPages 3))}}
+        <span style="padding: 0.5rem; color: #888;">...</span>
+      {{/if}}
+      <a href="?page={{totalPages}}" class="btn btn-secondary">{{totalPages}}</a>
+    {{/if}}
+  </div>
+
+  {{#if (lt currentPage totalPages)}}
+    <a href="?page={{add currentPage 1}}" class="btn btn-secondary">Next</a>
+  {{/if}}
+</div>
+
+<div style="text-align: center; margin-top: 1rem; color: #888; font-size: 0.875rem;">
+  Page {{currentPage}} of {{totalPages}} ({{total}} total plugins)
+</div>
+{{/if}}

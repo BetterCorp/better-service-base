@@ -1,0 +1,202 @@
+<div style="margin-bottom: 1rem;">
+  <a href="/plugins" style="color: #FB8C00; text-decoration: none;">&larr; Back to Browse</a>
+</div>
+
+<div class="card">
+  <h1 style="color: #FB8C00; margin-bottom: 0.5rem;">
+    {{plugin.displayName}}
+  </h1>
+
+  <div style="margin: 1rem 0;">
+    <code style="font-size: 1rem;">{{plugin.id}}</code>
+  </div>
+
+  <p style="color: #bbb; font-size: 1.125rem; margin: 1rem 0;">
+    {{plugin.description}}
+  </p>
+
+  <div style="margin: 1.5rem 0;">
+    <span class="badge badge-{{plugin.category}}">{{plugin.category}}</span>
+    <span class="badge" style="background-color: #555;">{{plugin.language}}</span>
+    <span class="badge" style="background-color: #333;">v{{plugin.version}}</span>
+  </div>
+
+  {{#if plugin.tags}}
+    <div style="margin: 1rem 0;">
+      <strong style="color: #bbb;">Tags:</strong>
+      {{#each plugin.tags}}
+        <span class="badge" style="background-color: #444;">{{this}}</span>
+      {{/each}}
+    </div>
+  {{/if}}
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 2rem 0;">
+    <div>
+      <div style="color: #888; font-size: 0.875rem;">Total Events</div>
+      <div style="color: #FB8C00; font-size: 1.5rem; font-weight: bold;">{{plugin.eventCount}}</div>
+    </div>
+    <div>
+      <div style="color: #888; font-size: 0.875rem;">Emit Events</div>
+      <div style="color: #43A047; font-size: 1.5rem; font-weight: bold;">{{plugin.emitEventCount}}</div>
+    </div>
+    <div>
+      <div style="color: #888; font-size: 0.875rem;">On Events</div>
+      <div style="color: #03A9F4; font-size: 1.5rem; font-weight: bold;">{{plugin.onEventCount}}</div>
+    </div>
+    <div>
+      <div style="color: #888; font-size: 0.875rem;">Returnable</div>
+      <div style="color: #a200ff; font-size: 1.5rem; font-weight: bold;">{{plugin.returnableEventCount}}</div>
+    </div>
+  </div>
+</div>
+
+{{#if plugin.package}}
+<div class="card">
+  <h2>Installation</h2>
+
+  {{#if plugin.package.nodejs}}
+    <div style="margin: 1rem 0;">
+      <div style="color: #bbb; margin-bottom: 0.5rem;">Node.js (npm)</div>
+      <pre><code>npm install {{plugin.package.nodejs}}</code></pre>
+    </div>
+  {{/if}}
+
+  {{#if plugin.package.csharp}}
+    <div style="margin: 1rem 0;">
+      <div style="color: #bbb; margin-bottom: 0.5rem;">C# (NuGet)</div>
+      <pre><code>dotnet add package {{plugin.package.csharp}}</code></pre>
+    </div>
+  {{/if}}
+
+  {{#if plugin.package.go}}
+    <div style="margin: 1rem 0;">
+      <div style="color: #bbb; margin-bottom: 0.5rem;">Go</div>
+      <pre><code>go get {{plugin.package.go}}</code></pre>
+    </div>
+  {{/if}}
+
+  {{#if plugin.package.java}}
+    <div style="margin: 1rem 0;">
+      <div style="color: #bbb; margin-bottom: 0.5rem;">Java (Maven)</div>
+      <pre><code>&lt;dependency&gt;
+  &lt;groupId&gt;{{plugin.package.java}}&lt;/groupId&gt;
+&lt;/dependency&gt;</code></pre>
+    </div>
+  {{/if}}
+</div>
+{{/if}}
+
+{{#if versions}}
+<div class="card">
+  <h2>Available Versions</h2>
+  <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+    {{#each versions}}
+      <span class="badge" style="background-color: {{#if (eq version ../plugin.version)}}#FB8C00{{else}}#444{{/if}};">
+        v{{version}}
+      </span>
+    {{/each}}
+  </div>
+</div>
+{{/if}}
+
+{{#if plugin.eventSchema}}
+<div class="card">
+  <h2>Event Schema</h2>
+  <p style="color: #bbb; margin-bottom: 1rem;">
+    This plugin emits and listens to the following events:
+  </p>
+
+  {{#if plugin.eventSchema.emitFireAndForgetEvents}}
+    <h3 style="color: #43A047; margin-top: 1.5rem;">Emit Events (Fire and Forget)</h3>
+    <div style="margin-top: 1rem;">
+      {{#each plugin.eventSchema.emitFireAndForgetEvents}}
+        <div style="background-color: #333; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+          <code style="color: #43A047; font-size: 1rem;">{{@key}}</code>
+          {{#if this.description}}
+            <div style="color: #bbb; margin-top: 0.5rem;">{{this.description}}</div>
+          {{/if}}
+        </div>
+      {{/each}}
+    </div>
+  {{/if}}
+
+  {{#if plugin.eventSchema.onFireAndForgetEvents}}
+    <h3 style="color: #03A9F4; margin-top: 1.5rem;">On Events (Fire and Forget)</h3>
+    <div style="margin-top: 1rem;">
+      {{#each plugin.eventSchema.onFireAndForgetEvents}}
+        <div style="background-color: #333; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+          <code style="color: #03A9F4; font-size: 1rem;">{{@key}}</code>
+          {{#if this.description}}
+            <div style="color: #bbb; margin-top: 0.5rem;">{{this.description}}</div>
+          {{/if}}
+        </div>
+      {{/each}}
+    </div>
+  {{/if}}
+
+  {{#if plugin.eventSchema.onReturnableEvents}}
+    <h3 style="color: #a200ff; margin-top: 1.5rem;">Returnable Events</h3>
+    <div style="margin-top: 1rem;">
+      {{#each plugin.eventSchema.onReturnableEvents}}
+        <div style="background-color: #333; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+          <code style="color: #a200ff; font-size: 1rem;">{{@key}}</code>
+          {{#if this.description}}
+            <div style="color: #bbb; margin-top: 0.5rem;">{{this.description}}</div>
+          {{/if}}
+        </div>
+      {{/each}}
+    </div>
+  {{/if}}
+</div>
+{{/if}}
+
+{{#if plugin.documentation}}
+  {{#if plugin.documentation.readme}}
+  <div class="card">
+    <h2>README</h2>
+    <div style="color: #bbb; line-height: 1.8;">
+      <pre style="white-space: pre-wrap;">{{plugin.documentation.readme}}</pre>
+    </div>
+  </div>
+  {{/if}}
+{{/if}}
+
+<div class="card">
+  <h2>Metadata</h2>
+  <div style="display: grid; grid-template-columns: 150px 1fr; gap: 0.5rem 1rem; margin-top: 1rem;">
+    {{#if plugin.author}}
+      <div style="color: #888;">Author</div>
+      <div style="color: #e0e0e0;">{{plugin.author}}</div>
+    {{/if}}
+
+    {{#if plugin.license}}
+      <div style="color: #888;">License</div>
+      <div style="color: #e0e0e0;">{{plugin.license}}</div>
+    {{/if}}
+
+    {{#if plugin.homepage}}
+      <div style="color: #888;">Homepage</div>
+      <div style="color: #e0e0e0;">
+        <a href="{{plugin.homepage}}" target="_blank" style="color: #FB8C00;">{{plugin.homepage}}</a>
+      </div>
+    {{/if}}
+
+    {{#if plugin.repository}}
+      <div style="color: #888;">Repository</div>
+      <div style="color: #e0e0e0;">
+        <a href="{{plugin.repository}}" target="_blank" style="color: #FB8C00;">{{plugin.repository}}</a>
+      </div>
+    {{/if}}
+
+    <div style="color: #888;">Published</div>
+    <div style="color: #e0e0e0;">{{plugin.publishedAt}}</div>
+
+    <div style="color: #888;">Updated</div>
+    <div style="color: #e0e0e0;">{{plugin.updatedAt}}</div>
+
+    {{#if plugin.visibility}}
+      <div style="color: #888;">Visibility</div>
+      <div style="color: #e0e0e0;">{{plugin.visibility}}</div>
+    {{/if}}
+  </div>
+</div>

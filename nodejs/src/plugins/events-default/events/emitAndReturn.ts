@@ -50,7 +50,7 @@ export class emitAndReturn
     });
     this.on(`${ pluginName }-${ event }`, async (eobs: Observable, resolve, reject, data) => {
       // Create child observable for receiving and handling the returnable event
-      const receiveObs = eobs.span("onReturnableEvent:receive", {
+      const receiveObs = eobs.startSpan("onReturnableEvent:receive", {
         pluginName,
         event,
       });
@@ -76,7 +76,7 @@ export class emitAndReturn
     args: Array<any>,
   ): Promise<any> {
     // Create child observable for sending the returnable event
-    const sendObs = obs.span("emitEventAndReturn:send", {
+    const sendObs = obs.startSpan("emitEventAndReturn:send", {
       pluginName,
       event,
       timeoutSeconds

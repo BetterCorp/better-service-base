@@ -23,8 +23,11 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
-    "test": "echo \"No tests yet\"",
+    "clean": "bsb-plugin-cli clean",
+    "build": "bsb-plugin-cli build",
+    "start": "bsb-plugin-cli start",
+    "dev": "bsb-plugin-cli dev",
+    "test": "bsb-plugin-cli test",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {

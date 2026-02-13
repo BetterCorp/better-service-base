@@ -55,7 +55,7 @@ import { z } from 'zod';
  *   const withUser = obs.setAttribute("user.id", "123");
  *
  *   // Create child span
- *   const childObs = withUser.span("database-query");
+ *   const childObs = withUser.startSpan("database-query");
  *   childObs.log.debug("Querying database");
  *   // ... do work ...
  *   childObs.end();
@@ -224,7 +224,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
    * @example
    * ```typescript
    * public async fetchUser(obs: Observable, userId: string) {
-   *   const span = obs.span("fetch-user", { "user.id": userId });
+   *   const span = obs.startSpan("fetch-user", { "user.id": userId });
    *   try {
    *     const user = await this.db.query("SELECT * FROM users WHERE id = ?", [userId]);
    *     span.end({ "user.found": true });
@@ -237,7 +237,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
    * }
    * ```
    */
-  span(name: string, attributes?: Record<string, string | number | boolean>): Observable<TAttributeSchema>;
+  startSpan(name: string, attributes?: Record<string, string | number | boolean>): Observable<TAttributeSchema>;
 
   /**
    * Create a new Observable with an additional attribute
@@ -258,7 +258,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
    *
    *   // Chain multiple attributes
    *   const withUser = withRequestId.setAttribute("user.id", req.userId);
-   *   const span = withUser.span("process-request");
+   *   const span = withUser.startSpan("process-request");
    * }
    * ```
    */
@@ -302,7 +302,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
    *
    * @example
    * ```typescript
-   * const span = obs.span("risky-operation");
+   * const span = obs.startSpan("risky-operation");
    * try {
    *   await this.doSomethingRisky();
    *   span.end({ "status": "success" });
@@ -325,7 +325,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
    *
    * @example
    * ```typescript
-   * const span = obs.span("process-batch");
+   * const span = obs.startSpan("process-batch");
    * const items = await this.fetchItems();
    * await this.processItems(items);
    * span.end({ "items.processed": items.length, "status": "complete" });

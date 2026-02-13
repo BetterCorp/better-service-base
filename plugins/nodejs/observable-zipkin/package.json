@@ -5,8 +5,11 @@
   "main": "lib/plugins/observable-zipkin/index.js",
   "types": "lib/plugins/observable-zipkin/index.d.ts",
   "scripts": {
-    "clean": "rimraf lib",
-    "build": "npm run clean && tsc",
+    "clean": "bsb-plugin-cli clean",
+    "build": "bsb-plugin-cli build",
+    "start": "bsb-plugin-cli start",
+    "dev": "bsb-plugin-cli dev",
+    "test": "bsb-plugin-cli test",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

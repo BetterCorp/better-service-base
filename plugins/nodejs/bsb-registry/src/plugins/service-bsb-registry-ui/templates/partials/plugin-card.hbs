@@ -1,0 +1,32 @@
+<div class="card">
+  <h3>
+    <a href="/plugins/{{org}}/{{name}}" style="color: #FB8C00; text-decoration: none;">
+      {{displayName}}
+    </a>
+  </h3>
+
+  <p style="color: #bbb; margin: 0.5rem 0;">{{description}}</p>
+
+  <div style="margin: 1rem 0;">
+    <span class="badge badge-{{category}}">{{category}}</span>
+    <span class="badge" style="background-color: #555;">{{language}}</span>
+    {{#if version}}
+      <span class="badge" style="background-color: #333;">v{{version}}</span>
+    {{/if}}
+  </div>
+
+  {{#if tags}}
+    <div style="margin-top: 0.5rem;">
+      {{#each tags}}
+        <span style="color: #888; font-size: 0.875rem; margin-right: 0.5rem;">{{this}}</span>
+      {{/each}}
+    </div>
+  {{/if}}
+
+  <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+    <div style="font-size: 0.875rem; color: #888;">
+      <strong>{{eventCount}}</strong> events
+    </div>
+    <code style="font-size: 0.75rem;">{{id}}</code>
+  </div>
+</div>

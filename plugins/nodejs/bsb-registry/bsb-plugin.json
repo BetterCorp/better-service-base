@@ -1,0 +1,30 @@
+{
+  "nodejs": [
+    {
+      "id": "service-bsb-registry",
+      "name": "BSB Registry API",
+      "basePath": "./",
+      "image": "./service-bsb-registry.png",
+      "description": "HTTP REST API for multi-language plugin discovery and publishing",
+      "tags": ["Registry", "Plugin", "Marketplace", "Discovery", "Publishing", "HTTP", "API", "SQLite", "PostgreSQL"],
+      "documentation": ["./docs/service-bsb-registry.md"],
+      "pluginPath": "src/plugins/service-bsb-registry/",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/bsb-registry"
+      }
+    },
+    {
+      "id": "service-bsb-registry-ui",
+      "name": "BSB Registry Web UI",
+      "basePath": "./",
+      "image": "./service-bsb-registry-ui.png",
+      "description": "Web interface for browsing and searching BSB plugins",
+      "tags": ["Registry", "UI", "Web", "Frontend", "Browse", "Search", "Documentation"],
+      "documentation": ["./docs/service-bsb-registry-ui.md"],
+      "pluginPath": "src/plugins/service-bsb-registry-ui/",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/bsb-registry"
+      }
+    }
+  ]
+}

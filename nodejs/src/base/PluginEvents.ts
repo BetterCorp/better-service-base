@@ -123,7 +123,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
                 if (!result.success) {
                     throw result.error;
                 }
-                validatedInput = result.data;
+                validatedInput = result.data as EventInputType<TBroadcast[K]>;
             }
 
             // Create Observable for handler
@@ -165,7 +165,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
             if (!result.success) {
                 throw result.error;
             }
-            validatedInput = result.data;
+            validatedInput = result.data as EventInputType<TBroadcast[K]>;
         }
 
         return this.events.emitBroadcast(
@@ -203,7 +203,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
                 if (!result.success) {
                     throw result.error;
                 }
-                validatedInput = result.data;
+                validatedInput = result.data as EventInputType<TEvents[K]>;
             }
 
             // Create Observable for handler
@@ -245,7 +245,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
             if (!result.success) {
                 throw result.error;
             }
-            validatedInput = result.data;
+            validatedInput = result.data as EventInputType<TEvents[K]>;
         }
 
         return this.events.emitEvent(
@@ -286,7 +286,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
                 if (!inputResult.success) {
                     throw inputResult.error;
                 }
-                validatedInput = inputResult.data;
+                validatedInput = inputResult.data as EventInputType<TEvents[K]>;
             }
 
             // Create Observable for handler
@@ -299,7 +299,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
                 if (!outputResult.success) {
                     throw outputResult.error;
                 }
-                return outputResult.data;
+                return outputResult.data as EventOutputType<TEvents[K]>;
             }
 
             return result;
@@ -341,7 +341,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
             if (!inputResult.success) {
                 throw inputResult.error;
             }
-            validatedInput = inputResult.data;
+            validatedInput = inputResult.data as EventInputType<TEvents[K]>;
         }
 
         const result = await this.events.emitEventAndReturn(
@@ -351,16 +351,16 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
             timeoutSeconds,
             validatedInput
         );
-        
+
         // Validate output if schema exists
         if (schema) {
             const outputResult = this.validator.validateOutput(eventName as string, result, schema.output, trace);
             if (!outputResult.success) {
                 throw outputResult.error;
             }
-            return outputResult.data;
+            return outputResult.data as EventOutputType<TEvents[K]>;
         }
-        
+
         return result;
     }
 

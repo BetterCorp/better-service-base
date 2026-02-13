@@ -26,7 +26,7 @@
  */
 
 import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
-import { ServiceClient, createConfigSchema } from "../../base";
+import { ServiceClient, createConfigSchema, bsb, optional } from "../../base";
 import { Observable } from "../../interfaces/observable";
 import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events";
 import { Plugin as Service0, EventSchemas as Service0EventSchemas } from "../service-default0";
@@ -38,7 +38,6 @@ export const Config = createConfigSchema(
     name: 'service-default1',
     description: 'Default service demonstrating BSB event patterns',
     version: '1.0.0',
-    category: 'service',
     tags: ['default', 'example'],
   },
   z.null()
@@ -48,11 +47,11 @@ export const EventSchemas = createEventSchemas({
   // Events this service emits (fire-and-forget, first listener receives)
   emitEvents: {
     'data.processed': createFireAndForgetEvent(
-      z.object({
-        itemId: z.string(),
-        result: z.unknown(),
-        processingTime: z.number()
-      }),
+      bsb.object({
+        itemId: bsb.string({ description: 'Processed item ID' }),
+        result: bsb.unknown('Processing result'),
+        processingTime: bsb.number({ description: 'Processing time in milliseconds' })
+      }, 'Data processing result'),
       'Emitted when data processing is complete'
     )
   },
@@ -60,11 +59,11 @@ export const EventSchemas = createEventSchemas({
   // Events this service listens to (fire-and-forget)
   onEvents: {
     'data.received': createFireAndForgetEvent(
-      z.object({
-        itemId: z.string(),
-        data: z.unknown(),
-        source: z.string()
-      }),
+      bsb.object({
+        itemId: bsb.string({ description: 'Received item ID' }),
+        data: bsb.unknown('Data payload'),
+        source: bsb.string({ description: 'Data source' })
+      }, 'Received data parameters'),
       'Handle incoming data for processing'
     )
   },
@@ -72,11 +71,11 @@ export const EventSchemas = createEventSchemas({
   // Returnable events this service emits (requests from this service)
   emitReturnableEvents: {
     'calculation.request': createReturnableEvent(
-      z.object({
-        operation: z.enum(['add', 'subtract', 'multiply', 'divide']),
-        operands: z.array(z.number()).min(2)
-      }),
-      z.number(),
+      bsb.object({
+        operation: bsb.enum(['add', 'subtract', 'multiply', 'divide'], 'Calculation operation'),
+        operands: bsb.array(bsb.number({ description: 'Operand' }), { min: 2, description: 'List of operands' })
+      }, 'Calculation request parameters'),
+      bsb.number({ description: 'Calculation result' }),
       'Request calculation from external service'
     )
   },
@@ -84,19 +83,19 @@ export const EventSchemas = createEventSchemas({
   // Returnable events this service listens to (requests to this service)
   onReturnableEvents: {
     'text.transform': createReturnableEvent(
-      z.object({
-        text: z.string(),
-        transformation: z.enum(['uppercase', 'lowercase', 'reverse', 'capitalize'])
-      }),
-      z.string(),
+      bsb.object({
+        text: bsb.string({ description: 'Text to transform' }),
+        transformation: bsb.enum(['uppercase', 'lowercase', 'reverse', 'capitalize'], 'Transformation type')
+      }, 'Text transformation parameters'),
+      bsb.string({ description: 'Transformed text' }),
       'Transform text according to specified operation'
     ),
     calculate: createReturnableEvent(
-      z.object({
-        a: z.number(),
-        b: z.number()
-      }),
-      z.number(),
+      bsb.object({
+        a: bsb.number({ description: 'First number' }),
+        b: bsb.number({ description: 'Second number' })
+      }, 'Calculation parameters'),
+      bsb.number({ description: 'Calculation result' }),
       'Calculate with two numbers'
     )
   },
@@ -104,11 +103,11 @@ export const EventSchemas = createEventSchemas({
   // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'service.status': createBroadcastEvent(
-      z.object({
-        status: z.enum(['starting', 'ready', 'busy', 'stopping']),
-        timestamp: z.string().datetime(),
-        details: z.string().optional()
-      }),
+      bsb.object({
+        status: bsb.enum(['starting', 'ready', 'busy', 'stopping'], 'Service status'),
+        timestamp: bsb.datetime('Status timestamp'),
+        details: optional(bsb.string({ description: 'Status details' }))
+      }, 'Service status parameters'),
       'Broadcast service status updates'
     )
   },
@@ -116,11 +115,11 @@ export const EventSchemas = createEventSchemas({
   // Broadcast events this service listens to
   onBroadcast: {
     'config.updated': createBroadcastEvent(
-      z.object({
-        section: z.string(),
-        changes: z.record(z.string(), z.unknown()),
-        version: z.string()
-      }),
+      bsb.object({
+        section: bsb.string({ description: 'Configuration section' }),
+        changes: bsb.record(bsb.string({ description: 'Setting name' }), bsb.unknown('Setting value'), 'Configuration changes'),
+        version: bsb.string({ description: 'Configuration version' })
+      }, 'Config update parameters'),
       'Listen for configuration update broadcasts'
     )
   }
@@ -175,16 +174,25 @@ export class Plugin
       });
 
       // Can create child spans for sub-operations
-      const workObs = handlerObs.span("transform-operation");
+      const workObs = handlerObs.startSpan("transform-operation");
       workObs.setAttribute("operation", input.transformation);
 
       let result: string;
       switch (input.transformation) {
-        case 'uppercase': result = input.text.toUpperCase(); break;
-        case 'lowercase': result = input.text.toLowerCase(); break;
-        case 'reverse': result = input.text.split('').reverse().join(''); break;
+        case 'uppercase':
+          result = input.text.toUpperCase();
+          break;
+        case 'lowercase':
+          result = input.text.toLowerCase();
+          break;
+        case 'reverse':
+          result = input.text.split('').reverse().join('');
+          break;
         case 'capitalize':
           result = input.text.charAt(0).toUpperCase() + input.text.slice(1).toLowerCase();
+          break;
+        default:
+          result = input.text;
           break;
       }
 

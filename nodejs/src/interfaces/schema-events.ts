@@ -25,28 +25,21 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { z } from "zod";
-import zodToJsonSchema from "zod-to-json-schema";
+import { BSBType, InferBSBType } from './schema-types';
 
 /**
  * Schema definition for a returnable event with input/output validation.
  * Type-branded to ensure returnable events are only used in appropriate categories.
+ * Uses BSBType for cross-language support instead of Zod schemas.
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
  */
-export interface ReturnableEventSchema<TInput = any, TOutput = any> {
+export interface ReturnableEventSchema {
   /** Schema for event input parameters (as a single object) */
-  input: z.ZodType<TInput>;
+  input: BSBType;
   /** Schema for event output/return value */
-  output: z.ZodType<TOutput>;
+  output: BSBType;
   /** Optional description of what this event does */
   description?: string;
-  /** Optional examples for documentation */
-  examples?: Array<{
-    name: string;
-    input: TInput;
-    output: TOutput;
-    description?: string;
-  }>;
   /** Type brand for compile-time category validation */
   readonly __brand: 'returnable';
 }
@@ -54,19 +47,14 @@ export interface ReturnableEventSchema<TInput = any, TOutput = any> {
 /**
  * Schema definition for fire-and-forget events.
  * Type-branded to ensure fire-and-forget events are only used in appropriate categories.
+ * Uses BSBType for cross-language support instead of Zod schemas.
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
  */
-export interface FireAndForgetEventSchema<TInput = any> {
+export interface FireAndForgetEventSchema {
   /** Schema for event input parameters (as a single object) */
-  input: z.ZodType<TInput>;
+  input: BSBType;
   /** Optional description of what this event does */
   description?: string;
-  /** Optional examples for documentation */
-  examples?: Array<{
-    name: string;
-    input: TInput;
-    description?: string;
-  }>;
   /** Type brand for compile-time category validation */
   readonly __brand: 'fire-and-forget';
 }
@@ -75,19 +63,14 @@ export interface FireAndForgetEventSchema<TInput = any> {
  * Schema definition for broadcast events.
  * Type-branded to ensure broadcast events are only used in appropriate categories.
  * Broadcast events are like fire-and-forget but delivered to ALL listeners.
+ * Uses BSBType for cross-language support instead of Zod schemas.
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
  */
-export interface BroadcastEventSchema<TInput = any> {
+export interface BroadcastEventSchema {
   /** Schema for event input parameters (as a single object) */
-  input: z.ZodType<TInput>;
+  input: BSBType;
   /** Optional description of what this event does */
   description?: string;
-  /** Optional examples for documentation */
-  examples?: Array<{
-    name: string;
-    input: TInput;
-    description?: string;
-  }>;
   /** Type brand for compile-time category validation */
   readonly __brand: 'broadcast';
 }
@@ -131,24 +114,22 @@ export interface BSBEventSchemas {
 }
 
 /**
- * Extract the input type from an event schema with improved type safety.
+ * Extract the input type from an event schema by inferring from BSB type.
+ * Uses direct property access to avoid excessive recursion.
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
  */
-export type EventInputType<T> = T extends ReturnableEventSchema<infer I, any>
-  ? I
-  : T extends FireAndForgetEventSchema<infer I>
-    ? I
-    : T extends BroadcastEventSchema<infer I>
-      ? I
-      : never;
+export type EventInputType<T> = T extends { input: infer Schema extends BSBType }
+  ? InferBSBType<Schema>
+  : never;
 
 /**
- * Extract the output type from an event schema.
- * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
+ * Extract the output type from an event schema by inferring from BSB type.
+ * Uses direct property access to avoid excessive recursion.
+ * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema-events | API: interfaces/schema-events}
  */
-export type EventOutputType<T> = T extends ReturnableEventSchema<any, infer O>
-  ? O
-  : void;
+export type EventOutputType<T> = T extends { output: infer Schema extends BSBType }
+  ? InferBSBType<Schema>
+  : never;
 
 /**
  * Extract event names from a schema definition with full type safety.
@@ -171,58 +152,67 @@ export type EventOutputForName<T extends Record<string, ReturnableEventSchema>, 
   EventOutputType<T[K]>;
 
 /**
- * Utility type to infer Zod schema type from schema definition.
- * This preserves full type safety when defining event schemas.
- * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
- */
-export type InferZodType<T extends z.ZodSchema> = z.infer<T>;
-
-/**
- * Helper function to create a fire-and-forget event schema with preserved type information.
+ * Helper function to create a fire-and-forget event schema.
  * Type-branded to ensure compile-time category validation.
- * @param input - Zod schema for input validation
+ * v9: Uses BSBType for cross-language support. Type inference via InferBSBType.
+ * @param input - BSB type schema for input validation
  * @param description - Optional description
- * @returns Event schema object with preserved types and brand
+ * @returns Event schema object with type brand
  * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/createFireAndForgetEvent.html | API: createFireAndForgetEvent}
  */
-export function createFireAndForgetEvent<T extends z.ZodSchema>(
-  input: T,
+export function createFireAndForgetEvent<TInput extends BSBType>(
+  input: TInput,
   description?: string
-): FireAndForgetEventSchema<InferZodType<T>> {
-  return { input, description, __brand: 'fire-and-forget' as const } as FireAndForgetEventSchema<InferZodType<T>>;
+): {
+  input: TInput;
+  description?: string;
+  readonly __brand: 'fire-and-forget';
+} {
+  return { input, description, __brand: 'fire-and-forget' as const };
 }
 
 /**
- * Helper function to create a returnable event schema with preserved type information.
+ * Helper function to create a returnable event schema.
  * Type-branded to ensure compile-time category validation.
- * @param input - Zod schema for input validation
- * @param output - Zod schema for output validation
+ * v9: Uses BSBType for cross-language support. Type inference via InferBSBType.
+ * @param input - BSB type schema for input validation
+ * @param output - BSB type schema for output validation
  * @param description - Optional description
- * @returns Event schema object with preserved types and brand
+ * @returns Event schema object with type brand
  * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/createReturnableEvent.html | API: createReturnableEvent}
  */
-export function createReturnableEvent<TInput extends z.ZodSchema, TOutput extends z.ZodSchema>(
+export function createReturnableEvent<TInput extends BSBType, TOutput extends BSBType>(
   input: TInput,
   output: TOutput,
   description?: string
-): ReturnableEventSchema<InferZodType<TInput>, InferZodType<TOutput>> {
-  return { input, output, description, __brand: 'returnable' as const } as ReturnableEventSchema<InferZodType<TInput>, InferZodType<TOutput>>;
+): {
+  input: TInput;
+  output: TOutput;
+  description?: string;
+  readonly __brand: 'returnable';
+} {
+  return { input, output, description, __brand: 'returnable' as const };
 }
 
 /**
- * Helper function to create a broadcast event schema with preserved type information.
+ * Helper function to create a broadcast event schema.
  * Broadcast events are fire-and-forget but delivered to ALL listeners, not just the first one.
  * Type-branded to ensure compile-time category validation.
- * @param input - Zod schema for input validation
+ * v9: Uses BSBType for cross-language support. Type inference via InferBSBType.
+ * @param input - BSB type schema for input validation
  * @param description - Optional description
- * @returns Event schema object with preserved types and brand
+ * @returns Event schema object with type brand
  * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/createBroadcastEvent.html | API: createBroadcastEvent}
  */
-export function createBroadcastEvent<T extends z.ZodSchema>(
-  input: T,
+export function createBroadcastEvent<TInput extends BSBType>(
+  input: TInput,
   description?: string
-): BroadcastEventSchema<InferZodType<T>> {
-  return { input, description, __brand: 'broadcast' as const } as BroadcastEventSchema<InferZodType<T>>;
+): {
+  input: TInput;
+  description?: string;
+  readonly __brand: 'broadcast';
+} {
+  return { input, description, __brand: 'broadcast' as const };
 }
 
 /**
@@ -230,16 +220,16 @@ export function createBroadcastEvent<T extends z.ZodSchema>(
  * Ensures that each category only contains the correct branded event types.
  * @internal
  */
-type ValidateEventSchemas<T> = {
-  [K in keyof T]: K extends 'emitEvents' | 'onEvents'
-    ? { [EventName: string]: FireAndForgetEventSchema<any> }
-    : K extends 'emitReturnableEvents' | 'onReturnableEvents'
-    ? { [EventName: string]: ReturnableEventSchema<any, any> }
-    : K extends 'emitBroadcast' | 'onBroadcast'
-    ? { [EventName: string]: BroadcastEventSchema<any> }
-    : T[K];
-};
-
+// type _ValidateEventSchemas<T> = {
+//   [K in keyof T]: K extends 'emitEvents' | 'onEvents'
+//     ? { [EventName: string]: FireAndForgetEventSchema }
+//     : K extends 'emitReturnableEvents' | 'onReturnableEvents'
+//     ? { [EventName: string]: ReturnableEventSchema }
+//     : K extends 'emitBroadcast' | 'onBroadcast'
+//     ? { [EventName: string]: BroadcastEventSchema }
+//     : T[K];
+// };
+// 
 /**
  * Helper function to create a complete event schema with all 6 event types and preserve type safety.
  *
@@ -276,7 +266,7 @@ type ValidateEventSchemas<T> = {
  * ```
  */
 export function createEventSchemas<const T extends BSBEventSchemas>(
-  schemas: T & ValidateEventSchemas<T>
+  schemas: T
 ): T {
   // Runtime duplicate name detection for developer clarity
   // Note: Duplicate names across categories are not technically invalid, but can be confusing
@@ -465,40 +455,6 @@ export interface EventSchemaExport {
 }
 
 /**
- * Convert a Zod schema to JSON Schema format with BSB type metadata.
- *
- * Extracts BSB type metadata from schemas created with type helpers
- * (int32, uuid, datetime, etc.) and includes it in the JSON Schema
- * as 'x-bsb-type' and 'format' hints for code generators.
- *
- * @param schema - Zod schema to convert
- * @returns JSON Schema with BSB type metadata
- * @internal
- */
-function zodToJsonSchemaWithMetadata(schema: any): JSONSchemaType {
-  const jsonSchema = zodToJsonSchema(schema) as JSONSchemaType;
-
-  // Check if schema has BSB type metadata
-  const bsbMetadata = (schema as any).__bsbMetadata;
-  if (bsbMetadata) {
-    // Add BSB-specific type hint
-    jsonSchema['x-bsb-type'] = bsbMetadata.bsbType;
-
-    // Add format hint if available
-    if (bsbMetadata.format) {
-      jsonSchema.format = bsbMetadata.format;
-    }
-
-    // Add description if available and not already set
-    if (bsbMetadata.description && !jsonSchema.description) {
-      jsonSchema.description = bsbMetadata.description;
-    }
-  }
-
-  return jsonSchema;
-}
-
-/**
  * Export event schemas to JSON format for cross-language client generation.
  *
  * v9: This function converts BSB EventSchemas to a standardized JSON format
@@ -559,13 +515,14 @@ export function exportEventSchemas(
         type = 'fire-and-forget';
       }
 
-      // Convert input schema
-      const inputSchema = zodToJsonSchemaWithMetadata(eventDef.input);
+      // Convert BSBType input schema to JSON Schema
+      const { bsbToJsonSchema } = require('./schema-types');
+      const inputSchema = bsbToJsonSchema(eventDef.input) as JSONSchemaType;
 
       // Convert output schema (if returnable)
       let outputSchema: JSONSchemaType | null = null;
       if (type === 'returnable' && 'output' in eventDef) {
-        outputSchema = zodToJsonSchemaWithMetadata(eventDef.output);
+        outputSchema = bsbToJsonSchema(eventDef.output) as JSONSchemaType;
       }
 
       events[eventName] = {

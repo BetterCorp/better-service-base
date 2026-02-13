@@ -578,7 +578,7 @@ export class ObservableBackend {
    * Create a child span within an existing trace
    *
    * Creates a child span that inherits the trace ID from the parent.
-   * This is used internally by Observable.span().
+   * This is used internally by Observable.startSpan().
    *
    * @param trace - Parent DTrace object
    * @param name - Name of the span (e.g., "database-query")

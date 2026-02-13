@@ -26,7 +26,7 @@
  */
 
 import { z } from "zod";
-import { BSBService, BSBServiceConstructor, createConfigSchema } from "../../base";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
 import { Observable } from "../../interfaces";
 import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
 
@@ -35,7 +35,6 @@ export const Config = createConfigSchema(
     name: 'service-default3',
     description: 'Default service plugin 3 for testing',
     version: '1.0.0',
-    category: 'service',
     tags: ['default', 'example', 'test'],
     initAfterPlugins: ['service-default2'],
   },
@@ -45,20 +44,20 @@ export const Config = createConfigSchema(
 export const EventSchemas = createEventSchemas({
   onReturnableEvents: {
     onReverseReturnable: createReturnableEvent(
-      z.object({
-        text: z.string()
-      }),
-      z.string(),
+      bsb.object({
+        text: bsb.string({ description: 'Text to reverse' })
+      }, 'Reverse input parameters'),
+      bsb.string({ description: 'Reversed text' }),
       'Reverse a string'
     )
   },
   emitReturnableEvents: {
     calculate: createReturnableEvent(
-      z.object({
-        a: z.number(),
-        b: z.number()
-      }),
-      z.number(),
+      bsb.object({
+        a: bsb.number({ description: 'First number' }),
+        b: bsb.number({ description: 'Second number' })
+      }, 'Calculate input parameters'),
+      bsb.number({ description: 'Calculation result' }),
       'Calculate with two numbers'
     )
   }

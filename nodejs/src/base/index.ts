@@ -42,3 +42,4 @@ export * from "./factory";
 export * from "./EventValidator";
 export * from "./ResourceContext";
 export * from "./PluginObservable";
+export { bsb, optional } from "../interfaces/schema-types";
