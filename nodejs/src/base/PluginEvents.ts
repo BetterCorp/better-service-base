@@ -52,7 +52,7 @@ export type BSBPluginEvents<T extends BSBEventSchemas = BSBEventSchemas> = T;
  * @category Plugin Development Tools
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginEvents.html | API: PluginEvents}
  */
-export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchemas> {
+export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchemas, TClientApi extends boolean = false> {
     private events: SBEvents;
     private service: BSBService<any, any> | BSBServiceClient<any>;
     private cachedPluginName: string;

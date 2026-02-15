@@ -11,3 +11,4 @@ coverage
 development/tsconfig.json
 TODO.md
 REVIEW.md
+src/.bsb/

@@ -105,10 +105,11 @@ export const ListQuerySchema = bsb.object({
 export type ListQuery = InferBSBType<typeof ListQuerySchema>;
 
 export const SearchQuerySchema = bsb.object({
-  q: bsb.string({ min: 1, max: 200, description: 'Search query string' }),
+  query: bsb.string({ min: 1, max: 200, description: 'Search query string' }),
   language: optional(bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Filter by language')),
   category: optional(bsb.enum(['service', 'observable', 'events', 'config', 'other'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 20)' })),
+  offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
 }, 'Query parameters for searching plugins');
 
 export type SearchQuery = InferBSBType<typeof SearchQuerySchema>;

@@ -457,14 +457,15 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
    */
   private async handlePluginSearch(trace: Observable, data: Types.SearchQuery): Promise<Types.SearchResults> {
     const span = trace.startSpan('registry.plugin.search', {
-      query: data.q,
+      query: data.query,
       ...(data.category && { category: data.category }),
       ...(data.language && { language: data.language }),
-      limit: data.limit || 50,
+      limit: data.limit || 20,
+      ...(data.offset && { offset: data.offset }),
     });
 
     try {
-      trace.log.debug('Searching plugins: {query}', { query: data.q });
+      trace.log.debug('Searching plugins: {query}', { query: data.query });
 
       const searchSpan = trace.startSpan('storage.search');
       const result = await this.storage.search(trace, data);
@@ -477,13 +478,13 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
       trace.log.info('Found {count} plugins matching "{query}"', {
         count: result.total,
-        query: data.q,
+        query: data.query,
       });
 
       return {
         results: result.results,
         total: result.total,
-        query: data.q,
+        query: data.query,
       };
     } catch (error) {
       trace.log.error('Failed to search plugins: {error}', { error: (error as Error).message });

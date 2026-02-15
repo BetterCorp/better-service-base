@@ -30,8 +30,8 @@ import {
   DTrace,
   BSBEventSchemas,
   Observable,
+  ServiceClientEventSchemas,
 } from "../interfaces";
-import { ServiceClientEventSchemas } from "../interfaces/schema-events";
 import { BSBService, BSBServiceClientDefinition } from "./BSBService";
 import { BSBError } from "./errorMessages";
 import { PluginEvents } from "./PluginEvents";
@@ -54,7 +54,7 @@ function internalTrace(span: string): DTrace {
 export abstract class BSBServiceClient<
   Service extends BSBService<any, any> = BSBService<any, BSBEventSchemas>
 > {
-  public declare readonly events: PluginEvents<BSBEventSchemas>;
+  public declare readonly events: PluginEvents<ServiceClientEventSchemas<BSBEventSchemas>>;
 
   constructor(context: BSBService) {
     context._clients.push(this);

@@ -164,42 +164,57 @@ function copyPluginAssets(plugin: PluginInfo): void {
   }
 }
 
-// Export schemas for a plugin
-function exportSchemas(plugin: PluginInfo): void {
+// Extract schemas directly from TypeScript source (pre-compilation)
+function extractSchemasFromSource(): void {
   try {
-    // Try to load the compiled plugin
-    const pluginPath = path.join(plugin.destDir, 'index.js');
-    if (!fs.existsSync(pluginPath)) {
-      return; // No index.js, skip
+    // Use the extraction script
+    const extractorPath = path.join(CWD, 'node_modules', '@bsb', 'base', 'lib', 'scripts', 'extract-schemas-from-source.js');
+
+    if (fs.existsSync(extractorPath)) {
+      info('Extracting schemas from TypeScript source');
+      execSync(`node "${extractorPath}"`, { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] });
+      success('Extracted schemas from TypeScript source');
+    } else {
+      // Fallback: use local compiled version or ts-node
+      const localCompiledPath = path.join(__dirname, 'extract-schemas-from-source.js');
+      const localTsPath = path.join(__dirname, 'extract-schemas-from-source.ts');
+
+      if (fs.existsSync(localCompiledPath)) {
+        info('Extracting schemas from TypeScript source');
+        execSync(`node "${localCompiledPath}"`, { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] });
+        success('Extracted schemas from TypeScript source');
+      } else if (fs.existsSync(localTsPath)) {
+        info('Extracting schemas from TypeScript source');
+        execSync(`node -r ts-node/register "${localTsPath}"`, { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] });
+        success('Extracted schemas from TypeScript source');
+      }
     }
-
-    // Clear require cache to get fresh module
-    delete require.cache[require.resolve(pluginPath)];
-    const pluginModule = require(pluginPath);
-
-    // Check if plugin has exportSchemas static method
-    if (!pluginModule.Plugin || typeof pluginModule.Plugin.exportSchemas !== 'function') {
-      return; // No exportSchemas method, skip
-    }
-
-    info(`Exporting schemas for ${plugin.name}`);
-
-    // Call exportSchemas
-    const schemas = pluginModule.Plugin.exportSchemas();
-
-    // Create schemas directory
-    const schemasDir = path.join(CWD, 'lib', 'schemas');
-    if (!fs.existsSync(schemasDir)) {
-      fs.mkdirSync(schemasDir, { recursive: true });
-    }
-
-    // Write schemas to file
-    const schemaFile = path.join(schemasDir, `${plugin.name}.json`);
-    fs.writeFileSync(schemaFile, JSON.stringify(schemas, null, 2), 'utf-8');
-
-    success(`Exported schemas for ${plugin.name}`);
   } catch (err) {
-    // Silently skip if export fails (plugin might not support it)
+    const message = err instanceof Error ? err.message : String(err);
+    log(`  Schema extraction failed: ${message}`, 'yellow');
+  }
+}
+
+// Copy schemas from src/.bsb/schemas/ to lib/schemas/ (post-compilation)
+function copySchemasToLib(): void {
+  const srcSchemas = path.join(CWD, 'src', '.bsb', 'schemas');
+  const libSchemas = path.join(CWD, 'lib', 'schemas');
+
+  if (!fs.existsSync(srcSchemas)) {
+    return;
+  }
+
+  if (!fs.existsSync(libSchemas)) {
+    fs.mkdirSync(libSchemas, { recursive: true });
+  }
+
+  const files = fs.readdirSync(srcSchemas).filter(f => f.endsWith('.json'));
+  for (const file of files) {
+    fs.copyFileSync(path.join(srcSchemas, file), path.join(libSchemas, file));
+  }
+
+  if (files.length > 0) {
+    success(`Copied ${files.length} schema(s) to lib/schemas/`);
   }
 }
 
@@ -265,42 +280,41 @@ function generatePluginJson(plugin: PluginInfo): void {
   }
 }
 
-// Generate TypeScript client types from exported schemas
-function generateClientTypes(): void {
+// Generate virtual client TypeScript files from exported schemas
+function generateVirtualClients(): void {
   try {
-    const schemasDir = path.join(CWD, 'lib', 'schemas');
+    const localSchemasDir = path.join(CWD, 'lib', 'schemas');
+    const remoteSchemasDir = path.join(CWD, 'src', '.bsb', 'schemas');
 
-    // Check if schemas directory exists and has files
-    if (!fs.existsSync(schemasDir)) {
+    // Check if any schema source exists
+    const hasLocal = fs.existsSync(localSchemasDir) &&
+      fs.readdirSync(localSchemasDir).some(f => f.endsWith('.json') && !f.endsWith('.plugin.json'));
+    const hasRemote = fs.existsSync(remoteSchemasDir) &&
+      fs.readdirSync(remoteSchemasDir).some(f => f.endsWith('.json'));
+
+    if (!hasLocal && !hasRemote) {
       return; // No schemas, skip
     }
 
-    const schemaFiles = fs.readdirSync(schemasDir).filter(f => f.endsWith('.json') && !f.endsWith('.plugin.json'));
-    if (schemaFiles.length === 0) {
-      return; // No schema files, skip
-    }
-
-    info('Generating TypeScript client types');
-
-    // Create types directory
-    const typesDir = path.join(CWD, 'lib', 'types');
-    if (!fs.existsSync(typesDir)) {
-      fs.mkdirSync(typesDir, { recursive: true });
-    }
+    info('Generating virtual client types');
 
     // Use the core generator from @bsb/base
     const generatorPath = path.join(CWD, 'node_modules', '@bsb', 'base', 'lib', 'scripts', 'generate-client-types.js');
 
     if (fs.existsSync(generatorPath)) {
-      // Call the core generator (it will process all schema files)
       execSync(`node "${generatorPath}"`, { cwd: CWD, stdio: 'pipe' });
-      success(`Generated TypeScript types for ${schemaFiles.length} plugin(s)`);
+      success('Generated virtual client types');
     } else {
-      // Fallback: use local ts-node version if available
-      const localGeneratorPath = path.join(__dirname, 'generate-client-types.ts');
-      if (fs.existsSync(localGeneratorPath)) {
-        execSync(`node -r ts-node/register "${localGeneratorPath}"`, { cwd: CWD, stdio: 'pipe' });
-        success(`Generated TypeScript types for ${schemaFiles.length} plugin(s)`);
+      // Fallback: use local compiled version or ts-node
+      const localCompiledPath = path.join(__dirname, 'generate-client-types.js');
+      const localTsPath = path.join(__dirname, 'generate-client-types.ts');
+
+      if (fs.existsSync(localCompiledPath)) {
+        execSync(`node "${localCompiledPath}"`, { cwd: CWD, stdio: 'pipe' });
+        success('Generated virtual client types');
+      } else if (fs.existsSync(localTsPath)) {
+        execSync(`node -r ts-node/register "${localTsPath}"`, { cwd: CWD, stdio: 'pipe' });
+        success('Generated virtual client types');
       }
     }
   } catch (err) {
@@ -345,30 +359,33 @@ function build(): void {
   // This ensures latest types are available during compilation
   syncParentSchemas();
 
-  // Step 2: Clean
+  // Step 2: Extract schemas from TypeScript source (pre-compilation)
+  // This reads TS files directly, no compiled JS needed — breaks circular dependency
+  extractSchemasFromSource();
+
+  // Step 3: Generate virtual clients from extracted schemas
+  // These will be compiled alongside the project in step 5
+  generateVirtualClients();
+
+  // Step 4: Clean
   clean();
 
-  // Step 3: Compile TypeScript (now has latest types from parent)
+  // Step 5: Compile TypeScript (virtual clients in src/.bsb/clients/ compile with the project)
   exec('npx tsc', 'Compiling TypeScript');
 
-  // Step 4: Copy non-TypeScript assets for each plugin
+  // Step 6: Copy non-TypeScript assets for each plugin
   const plugins = detectPluginStructure();
   for (const plugin of plugins) {
     copyPluginAssets(plugin);
   }
 
-  // Step 5: Export schemas for each plugin
-  for (const plugin of plugins) {
-    exportSchemas(plugin);
-  }
+  // Step 7: Copy extracted schemas to lib/schemas/
+  copySchemasToLib();
 
-  // Step 6: Generate plugin metadata JSON
+  // Step 8: Generate plugin metadata JSON (needs compiled JS for Config.metadata)
   for (const plugin of plugins) {
     generatePluginJson(plugin);
   }
-
-  // Step 7: Generate TypeScript client types (runs once for all plugins)
-  generateClientTypes();
 
   log('\n' + colors.green + colors.bright + '[BUILD COMPLETE]' + colors.reset + '\n');
 }

@@ -339,7 +339,47 @@ async function publishPlugin(): Promise<void> {
 }
 
 /**
- * Install plugin from registry (download schema and generate types)
+ * Ensure the project's .gitignore contains the src/.bsb/ entry.
+ */
+function ensureGitignore(): void {
+  const projectRoot = process.cwd();
+  const gitignorePath = path.join(projectRoot, '.gitignore');
+  const bsbDir = path.join(projectRoot, 'src', '.bsb');
+  let relativeBsbDir = path.relative(projectRoot, bsbDir).replace(/\\/g, '/');
+  if (!relativeBsbDir.endsWith('/')) {
+    relativeBsbDir += '/';
+  }
+
+  try {
+    if (fs.existsSync(gitignorePath)) {
+      const content = fs.readFileSync(gitignorePath, 'utf-8');
+      const lines = content.split(/\r?\n/);
+      const alreadyIgnored = lines.some(line => {
+        const trimmed = line.trim();
+        return trimmed === relativeBsbDir ||
+          trimmed === relativeBsbDir.replace(/\/$/, '') ||
+          trimmed === '.bsb/' ||
+          trimmed === '.bsb' ||
+          trimmed === 'src/.bsb/' ||
+          trimmed === 'src/.bsb';
+      });
+
+      if (!alreadyIgnored) {
+        const newline = content.endsWith('\n') ? '' : '\n';
+        fs.writeFileSync(gitignorePath, content + newline + relativeBsbDir + '\n', 'utf-8');
+        success(`Added '${relativeBsbDir}' to .gitignore`);
+      }
+    } else {
+      fs.writeFileSync(gitignorePath, relativeBsbDir + '\n', 'utf-8');
+      success(`Created .gitignore with '${relativeBsbDir}'`);
+    }
+  } catch {
+    // Non-fatal
+  }
+}
+
+/**
+ * Install plugin from registry (download schema and generate virtual client)
  */
 async function installPlugin(pluginId: string): Promise<void> {
   if (!pluginId) {
@@ -360,53 +400,65 @@ async function installPlugin(pluginId: string): Promise<void> {
     // Get plugin schema
     const schema = await registryRequest('GET', `/api/plugins/${org}/${name}/${plugin.version}/schema`);
 
-    // Create directories
-    const schemasDir = path.join(process.cwd(), 'lib', 'schemas', 'remote');
-    const typesDir = path.join(process.cwd(), 'lib', 'types', 'remote');
+    // Create directories for remote schemas and virtual clients
+    const schemasDir = path.join(process.cwd(), 'src', '.bsb', 'schemas');
+    const clientsDir = path.join(process.cwd(), 'src', '.bsb', 'clients');
 
     if (!fs.existsSync(schemasDir)) {
       fs.mkdirSync(schemasDir, { recursive: true });
     }
-    if (!fs.existsSync(typesDir)) {
-      fs.mkdirSync(typesDir, { recursive: true });
+    if (!fs.existsSync(clientsDir)) {
+      fs.mkdirSync(clientsDir, { recursive: true });
     }
+
+    // Ensure .gitignore covers the generated directory
+    ensureGitignore();
 
     // Save schema
     const schemaFile = path.join(schemasDir, `${name}.json`);
     fs.writeFileSync(schemaFile, JSON.stringify(schema, null, 2), 'utf-8');
     success(`Downloaded schema for ${pluginId}`);
 
-    // Generate TypeScript types by calling the generator
+    // Generate virtual client by calling the generator
     const generatorPath = path.join(__dirname, 'generate-client-types.js');
     if (fs.existsSync(generatorPath)) {
-      // Generate types for the specific schema
       const { execSync } = require('child_process');
       try {
         execSync(`node "${generatorPath}"`, {
           cwd: process.cwd(),
           stdio: 'pipe',
-          env: { ...process.env, BSB_SCHEMA_FILE: schemaFile }
         });
-        success(`Generated TypeScript types for ${pluginId}`);
+        success(`Generated virtual client for ${pluginId}`);
       } catch (err) {
-        warn('Failed to generate types automatically. Run "bsb client generate" manually.');
+        warn('Failed to generate virtual client automatically. Run your build to regenerate.');
       }
-    }
-
-    // Check if npm package exists and suggest installation
-    if (plugin.package?.nodejs) {
-      log('');
-      info(`To install the npm package, run:`);
-      log(`  npm install ${plugin.package.nodejs}`, 'cyan');
     }
 
     log('');
     success(`Plugin ${pluginId} @ ${plugin.version} installed`);
     log(`  Schema: ${schemaFile}`, 'reset');
-    log(`  Import types: import type { Plugin } from '@bsb/base/types/remote/${name}'`, 'reset');
+    log(`  Import: import ${pluginNameToClassName(name)} from './.bsb/clients/${name}'`, 'reset');
   } catch (err: any) {
     error(`Failed to install plugin: ${err.message}`);
   }
+}
+
+/**
+ * Convert plugin key/ID to PascalCase client class name.
+ * Strips non-alphanumeric characters to ensure valid TypeScript identifiers.
+ */
+function pluginNameToClassName(pluginId: string): string {
+  let name = pluginId;
+  if (name.startsWith('service-')) {
+    name = name.substring('service-'.length);
+  }
+  const pascal = name
+    .replace(/[^a-zA-Z0-9-]/g, '')
+    .split('-')
+    .filter(part => part.length > 0)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+  return pascal + 'Client';
 }
 
 /**

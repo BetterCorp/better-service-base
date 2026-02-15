@@ -38,6 +38,7 @@ import {
 import { createFakeDTrace, DTrace } from "../interfaces/metrics";
 import { SBConfig } from "./config";
 import { SBPlugins } from "./plugins";
+import { Plugin as DefaultObservable } from "../plugins/observable-default/index";
 
 /**
  * @hidden
@@ -476,6 +477,24 @@ export class SBObservable {
       }
     }
 
+    if (this.observablePlugins.length === 0) {
+      this.observableBackend.info(trace, "No observable plugins configured, enabling default console logger");
+      this.observablePlugins.push({
+        plugin: new DefaultObservable({
+          appId: this.appId,
+          mode: this.mode,
+          pluginName: "observable-default",
+          cwd: this.cwd,
+          packageCwd: this.cwd,
+          pluginCwd: this.cwd,
+          pluginVersion: "0.0.0",
+          config: undefined,
+        }),
+        on: undefined,
+        onTypeof: "all",
+      });
+    }
+
     this._ready = true;
     this.observableBackend.info(trace, "Observable plugins setup complete");
   }
@@ -512,6 +531,22 @@ export class SBObservable {
    */
   public async run(trace: DTrace) {
     this.observableBackend.info(trace, "Running observable plugins");
+
+    // If any non-default plugin handles all events, remove the default to avoid duplicate output
+    if (this.observablePlugins.length > 1) {
+      const nonDefault = this.observablePlugins.filter((x) => x.plugin.pluginName !== "observable-default");
+      const hasAllHandler = nonDefault.some((x) => x.onTypeof === "all");
+      if (hasAllHandler) {
+        const defaultPlugin = this.observablePlugins.find((x) => x.plugin.pluginName === "observable-default");
+        if (defaultPlugin) {
+          if (defaultPlugin.plugin.dispose) {
+            await SmartFunctionCallAsync(defaultPlugin.plugin, defaultPlugin.plugin.dispose);
+          }
+          this.observablePlugins = this.observablePlugins.filter((x) => x.plugin.pluginName !== "observable-default");
+        }
+      }
+    }
+
     for (const observablePlugin of this.observablePlugins) {
       if (observablePlugin.plugin.run) {
         await (observablePlugin.plugin.run as any).call(observablePlugin.plugin);

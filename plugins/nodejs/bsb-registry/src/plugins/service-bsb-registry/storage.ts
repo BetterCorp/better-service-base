@@ -224,11 +224,11 @@ export class RegistryStorage {
    * Search plugins using full-text search (simple implementation)
    */
   async search(obs: Observable, query: SearchQuery): Promise<{ results: RegistryEntry[]; total: number }> {
-    const span = obs.startSpan('RegistryStorage.search', { query: query.q });
+    const span = obs.startSpan('RegistryStorage.search', { query: query.query });
 
     try {
       const results: RegistryEntry[] = [];
-      const searchLower = query.q.toLowerCase();
+      const searchLower = query.query.toLowerCase();
 
       // Get latest version of each plugin
       for (const [id, versions] of this.plugins.entries()) {

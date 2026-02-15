@@ -10,6 +10,7 @@ import { Observable, BSBService, BSBServiceConstructor, createConfigSchema } fro
 import { createEventSchemas } from '@bsb/base';
 import { z } from 'zod';
 import { RegistryUIServer } from './http-server';
+import { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry';
 
 /**
  * Configuration for the Registry UI
@@ -50,6 +51,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
 
+  public registryClient;
   private server: RegistryUIServer;
 
   constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
@@ -57,6 +59,8 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       ...config,
       eventSchemas: EventSchemas,
     });
+
+    this.registryClient = new BsbRegistryClient(this);
 
     // Create HTTP server with events interface
     this.server = new RegistryUIServer(

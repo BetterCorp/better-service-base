@@ -40,6 +40,8 @@ export interface ReturnableEventSchema {
   output: BSBType;
   /** Optional description of what this event does */
   description?: string;
+  /** Default timeout in seconds for returnable event calls */
+  defaultTimeout?: number;
   /** Type brand for compile-time category validation */
   readonly __brand: 'returnable';
 }
@@ -184,14 +186,16 @@ export function createFireAndForgetEvent<TInput extends BSBType>(
 export function createReturnableEvent<TInput extends BSBType, TOutput extends BSBType>(
   input: TInput,
   output: TOutput,
-  description?: string
+  description?: string,
+  defaultTimeout?: number
 ): {
   input: TInput;
   output: TOutput;
   description?: string;
+  defaultTimeout?: number;
   readonly __brand: 'returnable';
 } {
-  return { input, output, description, __brand: 'returnable' as const };
+  return { input, output, description, defaultTimeout, __brand: 'returnable' as const };
 }
 
 /**
@@ -435,6 +439,8 @@ export interface EventExportDefinition {
   category: EventCategory;
   /** Human-readable description */
   description?: string;
+  /** Default timeout in seconds for returnable event calls */
+  defaultTimeout?: number;
   /** JSON Schema for input validation */
   inputSchema: JSONSchemaType;
   /** JSON Schema for output validation (null for fire-and-forget/broadcast) */
@@ -529,6 +535,9 @@ export function exportEventSchemas(
         type,
         category,
         description: eventDef.description,
+        ...(type === 'returnable' && 'defaultTimeout' in eventDef && eventDef.defaultTimeout !== undefined
+          ? { defaultTimeout: eventDef.defaultTimeout as number }
+          : {}),
         inputSchema,
         outputSchema,
       };

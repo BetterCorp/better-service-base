@@ -63,6 +63,7 @@ v9 introduces breaking changes focused on type safety, developer experience, and
 - Type helpers - int32, int64, uuid, datetime for precise type mapping
 - Schema export - Auto-generates JSON schemas for client code generation
 - Multi-language clients - Generate type-safe clients in TypeScript, C#, Go, Java
+- Cross-plugin events - Type-safe communication between plugins (no `any` types)
 
 See [Plugin Development Guide](./PLUGIN_DEVELOPMENT.md) for migration details and examples.
 

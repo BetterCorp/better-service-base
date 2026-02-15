@@ -135,7 +135,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   public initBeforePlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
-  public override initAfterPlugins: string[] = [];
+  public override initAfterPlugins?: string[] | undefined;
   private self;
 
   dispose?(): void;

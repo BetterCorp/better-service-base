@@ -123,24 +123,25 @@ export class RegistryRoutes {
 
   /**
    * Search plugins
-   * GET /api/plugins/search?q=...&language=...&category=...&limit=...
+   * GET /api/plugins/search?query=...&language=...&category=...&limit=...&offset=...
    */
   private async handleSearchPlugins(request: FastifyRequest, reply: FastifyReply, obs: Observable): Promise<void> {
     const query = request.query as any;
 
-    if (!query.q) {
+    if (!query.query) {
       reply.status(400).send({
-        error: 'Missing required query parameter: q',
+        error: 'Missing required query parameter: query',
         code: 'MISSING_QUERY',
       });
       return;
     }
 
     const searchQuery: SearchQuery = {
-      q: query.q,
+      query: query.query,
       language: query.language,
       category: query.category,
       limit: query.limit ? parseInt(query.limit) : undefined,
+      offset: query.offset ? parseInt(query.offset) : undefined,
     };
 
     const result = await this.storage.search(obs, searchQuery);
@@ -148,7 +149,7 @@ export class RegistryRoutes {
     reply.status(200).send({
       results: result.results,
       total: result.total,
-      query: searchQuery.q,
+      query: searchQuery.query,
     });
   }
 

@@ -2,7 +2,7 @@
  * Registry UI HTTP Server (Event-Driven with Handlebars)
  *
  * Server-side rendered HTML using Handlebars templates.
- * Communicates with registry core via events (not HTTP).
+ * Communicates with registry core via typed BsbRegistryClient.
  */
 
 import * as path from 'path';
@@ -11,13 +11,29 @@ import fastifyView from '@fastify/view';
 import handlebars from 'handlebars';
 import { Observable } from '@bsb/base';
 import type { Plugin } from './index';
+import type { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry';
+
+interface PaginationQuery {
+  page?: string;
+  category?: string;
+  language?: string;
+}
+
+interface SearchQuery extends PaginationQuery {
+  query?: string;
+}
+
+interface PluginDetailParams {
+  org: string;
+  name: string;
+}
 
 export class RegistryUIServer {
   private app: FastifyInstance;
   public readonly port: number;
   public readonly host: string;
   private readonly pageSize: number;
-  private events!: Plugin['events'];
+  private registryClient!: BsbRegistryClient;
   private createTrace!: Plugin['createTrace'];
 
   constructor(
@@ -36,9 +52,9 @@ export class RegistryUIServer {
   }
 
   private registerHandlebarsHelpers(): void {
-    handlebars.registerHelper('eq', (a: any, b: any) => a === b);
-    handlebars.registerHelper('gt', (a: any, b: any) => a > b);
-    handlebars.registerHelper('lt', (a: any, b: any) => a < b);
+    handlebars.registerHelper('eq', (a: unknown, b: unknown) => a === b);
+    handlebars.registerHelper('gt', (a: number, b: number) => a > b);
+    handlebars.registerHelper('lt', (a: number, b: number) => a < b);
     handlebars.registerHelper('add', (a: number, b: number) => a + b);
     handlebars.registerHelper('subtract', (a: number, b: number) => a - b);
 
@@ -53,20 +69,12 @@ export class RegistryUIServer {
     });
   }
 
-  private async callRegistryEvent<T = any>(
-    eventName: string,
-    data: any,
-    obs: Observable
-  ): Promise<T> {
-    return (this.events as any).emitEventAndReturn(eventName, data, obs);
-  }
-
   async init(obs: Observable, plugin: Plugin): Promise<void> {
     const span = obs.startSpan('RegistryUIServer.init');
 
     try {
       // Bind plugin context to this server instance
-      this.events = plugin.events;
+      this.registryClient = plugin.registryClient;
       this.createTrace = plugin.createTrace.bind(plugin);
 
       // Register Handlebars helpers
@@ -76,7 +84,7 @@ export class RegistryUIServer {
 
       // Register Handlebars view engine
       const viewSpan = obs.startSpan('register.handlebars');
-      const templatesPath = path.join(__dirname, 'templates');
+      const templatesPath = path.join(plugin.pluginCwd, 'templates');
       obs.log.debug('Registering Handlebars templates from {path}', { path: templatesPath });
 
       await this.app.register(fastifyView, {
@@ -147,12 +155,12 @@ export class RegistryUIServer {
     try {
       // Fetch stats from registry
       const statsSpan = trace.startSpan('events.registry.stats.get');
-      const stats = await this.callRegistryEvent('registry.stats.get', {}, trace);
+      const stats = await this.registryClient.registryStatsGet(trace, {});
       statsSpan.end();
 
       // Fetch recent plugins
       const listSpan = trace.startSpan('events.registry.plugin.list');
-      const listResult = await this.callRegistryEvent('registry.plugin.list', { limit: 12, offset: 0 }, trace);
+      const listResult = await this.registryClient.registryPluginList(trace, { limit: 12, offset: 0 });
       listSpan.end();
 
       // Content negotiation: JSON or HTML
@@ -165,7 +173,7 @@ export class RegistryUIServer {
         });
       } else {
         const renderSpan = trace.startSpan('handlebars.render');
-        reply.view('pages/home.hbs', {
+        await reply.view('pages/home.hbs', {
           title: 'BSB Plugin Registry',
           stats,
           plugins: listResult.results,
@@ -191,20 +199,19 @@ export class RegistryUIServer {
     const span = trace.startSpan('render.plugins-list');
 
     try {
-      const query = request.query as any;
+      const query = request.query as PaginationQuery;
       const page = parseInt(query.page || '1', 10);
       const offset = (page - 1) * this.pageSize;
 
       const listSpan = trace.startSpan('events.registry.plugin.list');
-      const listResult = await this.callRegistryEvent(
-        'registry.plugin.list',
+      const listResult = await this.registryClient.registryPluginList(
+        trace,
         {
           limit: this.pageSize,
           offset,
-          category: query.category,
-          language: query.language,
-        },
-        trace
+          category: query.category as "service" | "observable" | "events" | "config" | "other" | undefined,
+          language: query.language as "nodejs" | "csharp" | "go" | "java" | "python" | undefined,
+        }
       );
       listSpan.end();
 
@@ -226,7 +233,7 @@ export class RegistryUIServer {
         });
       } else {
         const renderSpan = trace.startSpan('handlebars.render');
-        reply.view('pages/plugins.hbs', {
+        await reply.view('pages/plugins.hbs', {
           title: 'Browse Plugins',
           plugins: listResult.results,
           pagination: {
@@ -263,14 +270,13 @@ export class RegistryUIServer {
     const span = trace.startSpan('render.plugin-detail');
 
     try {
-      const params = request.params as any;
+      const params = request.params as PluginDetailParams;
       const pluginId = `${params.org}/${params.name}`;
 
       const getSpan = trace.startSpan('events.registry.plugin.get');
-      const plugin = await this.callRegistryEvent(
-        'registry.plugin.get',
-        { id: pluginId },
-        trace
+      const plugin = await this.registryClient.registryPluginGet(
+        trace,
+        { org: params.org, name: params.name }
       );
       getSpan.end();
 
@@ -278,7 +284,7 @@ export class RegistryUIServer {
         if (request.headers.accept?.includes('application/json')) {
           reply.code(404).send({ error: 'Plugin not found', pluginId });
         } else {
-          reply.code(404).view('pages/not-found.hbs', {
+          await reply.code(404).view('pages/not-found.hbs', {
             title: 'Plugin Not Found',
             message: `Plugin ${pluginId} not found`,
           });
@@ -287,10 +293,9 @@ export class RegistryUIServer {
       }
 
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
-      const versions = await this.callRegistryEvent(
-        'registry.plugin.versions',
-        { org: params.org, name: params.name },
-        trace
+      const versions = await this.registryClient.registryPluginVersions(
+        trace,
+        { org: params.org, name: params.name }
       );
       versionsSpan.end();
 
@@ -328,22 +333,39 @@ export class RegistryUIServer {
     const span = trace.startSpan('render.search');
 
     try {
-      const query = request.query as any;
-      const searchQuery = query.q || '';
+      const query = request.query as SearchQuery;
+      const searchQuery = query.query || '';
       const page = parseInt(query.page || '1', 10);
+
+      // No query provided - render empty search page
+      if (!searchQuery) {
+        if (request.headers.accept?.includes('application/json')) {
+          reply.send({ query: '', plugins: [], total: 0, page: 1, totalPages: 0, pageSize: this.pageSize, filters: {} });
+        } else {
+          await reply.view('pages/search.hbs', {
+            title: 'Search Plugins',
+            searchQuery: '',
+            plugins: [],
+            pagination: { currentPage: 1, totalPages: 0, total: 0, pageSize: this.pageSize },
+            filters: { category: query.category, language: query.language },
+          });
+        }
+        span.end();
+        return;
+      }
+
       const offset = (page - 1) * this.pageSize;
 
       const searchSpan = trace.startSpan('events.registry.plugin.search');
-      const searchResult = await this.callRegistryEvent(
-        'registry.plugin.search',
+      const searchResult = await this.registryClient.registryPluginSearch(
+        trace,
         {
           query: searchQuery,
           limit: this.pageSize,
           offset,
-          category: query.category,
-          language: query.language,
-        },
-        trace
+          category: query.category as "service" | "observable" | "events" | "config" | "other" | undefined,
+          language: query.language as "nodejs" | "csharp" | "go" | "java" | "python" | undefined,
+        }
       );
       searchSpan.end();
 
@@ -369,7 +391,7 @@ export class RegistryUIServer {
         });
       } else {
         const renderSpan = trace.startSpan('handlebars.render');
-        reply.view('pages/search.hbs', {
+        await reply.view('pages/search.hbs', {
           title: `Search Results: ${searchQuery}`,
           searchQuery,
           plugins: searchResult.results,

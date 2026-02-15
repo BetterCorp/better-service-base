@@ -10,8 +10,7 @@
     "bsb-plugin.json"
   ],
   "scripts": {
-    "build": "bsb-plugin-cli build && npm run copy:templates",
-    "copy:templates": "node -e \"const fs = require('fs'); const path = require('path'); const src = 'src/plugins/service-bsb-registry-ui/templates'; const dest = 'lib/plugins/service-bsb-registry-ui/templates'; if (fs.existsSync(src)) { fs.cpSync(src, dest, { recursive: true }); console.log('Templates copied to lib/'); }\"",
+    "build": "bsb-plugin-cli build",
     "clean": "bsb-plugin-cli clean",
     "start": "bsb-plugin-cli start",
     "dev": "bsb-plugin-cli dev",

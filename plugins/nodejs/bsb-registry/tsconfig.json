@@ -8,7 +8,10 @@
     "sourceMap": true,
     "outDir": "./lib",
     "rootDir": "./src",
-    "strict": true,
+    // Strict type checking - NO `any` types allowed!
+    // BSB is designed to be fully type-safe across languages
+    "strict": true, // Includes noImplicitAny
+    "noImplicitAny": true, // Explicit: error on implicit any
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
