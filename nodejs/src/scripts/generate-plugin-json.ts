@@ -105,23 +105,39 @@ async function main() {
         version = packageJson.version || version;
       }
 
-      // Create plugin metadata object
-      const pluginMetadata = {
-        id: pluginName, // Plugin identifier from directory name
-        name: metadata.name, // Display name
+      // Create plugin metadata object - only include fields with actual values
+      const pluginMetadata: Record<string, any> = {
+        id: pluginName,
+        name: metadata.name,
         version,
         description: metadata.description || '',
-        author: metadata.author || '',
-        license: metadata.license || '',
-        homepage: metadata.homepage || '',
-        repository: metadata.repository || '',
-        category: getCategoryFromPluginName(pluginName), // Auto-detect from directory prefix
+        category: getCategoryFromPluginName(pluginName),
         tags: metadata.tags || [],
-        initBeforePlugins: metadata.initBeforePlugins || [],
-        initAfterPlugins: metadata.initAfterPlugins || [],
-        runBeforePlugins: metadata.runBeforePlugins || [],
-        runAfterPlugins: metadata.runAfterPlugins || [],
+        documentation: metadata.documentation || [],
+        dependencies: [] as Array<{ id: string; version: string }>,
       };
+
+      // Only include optional fields if they have real values
+      if (metadata.author) pluginMetadata.author = metadata.author;
+      if (metadata.license) pluginMetadata.license = metadata.license;
+      if (metadata.homepage) pluginMetadata.homepage = metadata.homepage;
+      if (metadata.repository) pluginMetadata.repository = metadata.repository;
+
+      // Read auto-detected dependencies and config schema from schema JSON
+      const schemaJsonPath = path.join(schemasDir, `${pluginName}.json`);
+      if (fs.existsSync(schemaJsonPath)) {
+        try {
+          const schema = JSON.parse(fs.readFileSync(schemaJsonPath, 'utf-8'));
+          if (Array.isArray(schema.dependencies) && schema.dependencies.length > 0) {
+            pluginMetadata.dependencies = schema.dependencies;
+          }
+          if (schema.configSchema && typeof schema.configSchema === 'object') {
+            pluginMetadata.configSchema = schema.configSchema;
+          }
+        } catch {
+          // Non-fatal — schema may be malformed
+        }
+      }
 
       // Write to file
       const outputPath = path.join(schemasDir, `${pluginName}.plugin.json`);

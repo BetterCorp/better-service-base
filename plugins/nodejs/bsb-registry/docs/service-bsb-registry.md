@@ -1,377 +1,161 @@
-# BSB Registry API
+# BSB Registry Core
 
-Multi-language plugin discovery and publishing system for the BSB framework. The Registry API provides an HTTP REST interface for publishing, discovering, and managing BSB plugins across all languages (Node.js, C#, Go, Java, Python).
-
-## Overview
-
-The BSB Registry is similar to npm registry, but designed specifically for BSB plugins with support for multi-language implementations, organization-based naming, and flexible version matching. It serves as the central hub for plugin distribution and discovery in the BSB ecosystem.
-
-### Key Features
-
-✅ **Multi-Language Support** - Serve plugins for Node.js, C#, Go, Java, Python
-✅ **Organization Naming** - Docker-style `org/plugin-name` format
-✅ **HTTP REST API** - Publish and discover plugins via HTTP
-✅ **Flexible Storage** - SQLite for single instance or PostgreSQL for production
-✅ **Bearer Authentication** - Token-based auth for write operations
-✅ **Full-Text Search** - Fast plugin discovery
-✅ **Version Matching** - Flexible major.minor with patch interchangeability
-✅ **Documentation Hosting** - README, changelog, API reference
-✅ **Self-Hostable** - Run your own private registry
-
-### Architecture
-
-The registry consists of two plugins (can be deployed together or separately):
-
-1. **service-bsb-registry** (this plugin) - HTTP API backend on port 3100
-2. **service-bsb-registry-ui** - Web interface on port 3200
-
----
-
-## Installation
-
-### Prerequisites
-
-Ensure you have the following:
-
-- BSB core plugins (observable, events, config)
-- Node.js 18+ for runtime
-- SQLite (included) or PostgreSQL (for production)
-
-### Install the Plugin
-
-```bash
-npm install @bsb/registry
-```
-
-Or install from source:
-
-```bash
-cd plugins/nodejs/bsb-registry
-npm install
-npm run build
-```
+Event-driven plugin storage and business logic for the BSB plugin registry. This plugin has no HTTP server -- it exposes all operations as BSB returnable events. The companion `service-bsb-registry-ui` plugin provides the HTTP/web layer.
 
 ## Configuration
 
-Add to your BSB `sec-config.yaml`:
-
-```yaml
-# Registry API Backend
-service-bsb-registry:
-  database:
-    type: sqlite              # 'sqlite' or 'postgres'
-    path: ./.temp/registry.db # SQLite database file
-    # url: postgresql://... # PostgreSQL connection string
-  http:
-    port: 3100                # API server port
-    host: 0.0.0.0             # Listen address
-    cors: true                # Enable CORS
-  auth:
-    tokensFile: ./.temp/api-tokens.json
-    requireAuth: true         # Require auth for write ops
-```
-
-### Production Configuration (PostgreSQL)
-
 ```yaml
 service-bsb-registry:
   database:
-    type: postgres
-    url: ${DATABASE_URL}      # From environment variable
-  http:
-    port: ${PORT:-3100}
-    host: 0.0.0.0
-    cors: true
+    type: file                   # 'file' or 'postgres'
+    path: ./.temp/data           # file storage directory (type: file)
   auth:
-    tokensFile: /etc/bsb-registry/api-tokens.json
-    requireAuth: true
+    requireAuth: true            # require bearer token for write operations
 ```
 
-### Configuration Options
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `database.type` | `'file'` or `'postgres'` | `'file'` | Storage backend |
+| `database.path` | string | `./.temp/data` | Directory for file-based storage |
+| `auth.requireAuth` | boolean | `true` | Require authentication for publish/delete |
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `database.type` | Database type: sqlite or postgres | `sqlite` |
-| `database.path` | SQLite database file path | `./.temp/registry.db` |
-| `database.url` | PostgreSQL connection string | `undefined` |
-| `http.port` | HTTP server port | `3100` |
-| `http.host` | Bind address | `0.0.0.0` |
-| `http.cors` | Enable CORS headers | `true` |
-| `auth.tokensFile` | API tokens JSON file path | `./.temp/api-tokens.json` |
-| `auth.requireAuth` | Require authentication for write operations | `true` |
+## Events
 
----
+All operations are exposed as returnable events. The UI/API plugin (or any other BSB plugin) calls these via the generated `BsbRegistryClient`.
 
-## API Reference
+### Plugin Operations
 
-### Health & Stats
+| Event | Input | Output | Description |
+|-------|-------|--------|-------------|
+| `registry.plugin.publish` | PublishRequest | PublishResponse | Publish a new plugin version |
+| `registry.plugin.get` | `{ org, name, version? }` | RegistryEntry | Get plugin details (latest if no version) |
+| `registry.plugin.list` | ListQuery | ListResults | List plugins with filtering and pagination |
+| `registry.plugin.search` | SearchQuery | SearchResults | Full-text search across names, tags, descriptions |
+| `registry.plugin.delete` | `{ org, name, version? }` | `{ success, deleted }` | Delete a plugin or specific version |
+| `registry.plugin.versions` | `{ org, name, majorMinor? }` | VersionList | Get all versions of a plugin |
 
-```bash
-GET /health                     # Health check
-GET /api/stats                  # Registry statistics
-```
+### Stats and Auth
 
-### Plugin Discovery (Public)
+| Event | Input | Output | Description |
+|-------|-------|--------|-------------|
+| `registry.stats.get` | `{}` | RegistryStats | Total plugins, counts by language/category |
+| `registry.auth.login` | `{ username, password }` | `{ success, token?, message? }` | Login (not yet implemented -- use tokens) |
+| `registry.auth.verify` | `{ token }` | `{ valid, userId?, permissions? }` | Verify a bearer token |
 
-```bash
-# List all plugins
-GET /api/plugins
-  ?org=bettercorp              # Filter by organization
-  &language=nodejs             # Filter by language
-  &category=service            # Filter by category
-  &limit=50                    # Results per page
-  &offset=0                    # Pagination offset
+## Publish Request Schema
 
-# Search plugins
-GET /api/plugins/search?q=todo
+The publish request is the primary write operation. The body is validated by the UI/API plugin at the HTTP boundary and passed as a structured object through events.
 
-# Get plugin details
-GET /api/plugins/{org}/{name}
-
-# Get all versions
-GET /api/plugins/{org}/{name}/versions
-
-# Match version (find latest patch for major.minor)
-GET /api/plugins/{org}/{name}/match?version=1.0
-
-# Get event schema
-GET /api/plugins/{org}/{name}/{version}/schema
-
-# Get type definitions
-GET /api/plugins/{org}/{name}/{version}/types/{language}
-
-# Get documentation
-GET /api/plugins/{org}/{name}/{version}/docs
-
-# Get organization
-GET /api/orgs/{org}
-```
-
-### Plugin Publishing (Authenticated)
-
-```bash
-# Publish new plugin
-POST /api/plugins
-Authorization: Bearer {token}
-Content-Type: application/json
-
-# Update plugin
-PUT /api/plugins/{org}/{name}
-Authorization: Bearer {token}
-
-# Delete plugin
-DELETE /api/plugins/{org}/{name}
-Authorization: Bearer {token}
-```
-
-### Example: Publish Plugin
-
-```bash
-curl -X POST http://localhost:3100/api/plugins \
-  -H "Authorization: Bearer bsb_your_token" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "org": "bettercorp",
-    "name": "service-demo",
+```json
+{
+  "org": "mycompany",
+  "name": "service-my-plugin",
+  "version": "1.0.0",
+  "language": "nodejs",
+  "metadata": {
+    "displayName": "My Plugin",
+    "description": "Short description of the plugin",
+    "category": "service",
+    "tags": ["example", "demo"],
+    "author": "Author Name",
+    "license": "MIT",
+    "homepage": "https://example.com",
+    "repository": "https://github.com/org/repo"
+  },
+  "eventSchema": {
+    "pluginName": "service-my-plugin",
     "version": "1.0.0",
-    "language": "nodejs",
-    "metadata": {
-      "displayName": "Demo Service",
-      "description": "Example service plugin",
-      "category": "service",
-      "tags": ["demo", "example"]
+    "events": {
+      "my-plugin.do-something": {
+        "type": "returnable",
+        "category": "onReturnableEvents",
+        "description": "Does something",
+        "inputSchema": { "type": "object", "properties": {} },
+        "outputSchema": { "type": "object", "properties": {} }
+      }
     },
-    "eventSchema": {...},
-    "typeDefinitions": {...},
-    "documentation": {
-      "readme": "# Demo Service\\n\\nDescription...",
-      "changelog": "# Changelog\\n\\n## 1.0.0\\n- Initial release"
-    }
-  }'
+    "dependencies": []
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "port": { "type": "number", "default": 3000, "description": "Server port" }
+    },
+    "required": ["port"]
+  },
+  "documentation": [
+    "# My Plugin\n\nThis is the main readme content...",
+    "# API Reference\n\nDetailed API documentation..."
+  ],
+  "dependencies": [
+    { "id": "bettercorp/service-other", "version": "^1.0.0" }
+  ],
+  "package": {
+    "nodejs": "@mycompany/my-plugin"
+  },
+  "runtime": {
+    "nodejs": ">=18.0.0"
+  },
+  "visibility": "public"
+}
 ```
 
-### Example: Search Plugins
+### Field Reference
 
-```bash
-curl http://localhost:3100/api/plugins/search?q=todo
-```
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `org` | yes | string | Organization name (use `_` for unaffiliated) |
+| `name` | yes | string | Plugin name |
+| `version` | yes | string | Semver version (e.g. `1.0.0`) |
+| `language` | yes | enum | `nodejs`, `csharp`, `go`, `java`, `python` |
+| `metadata` | yes | object | Display info (displayName, description, category, tags, etc.) |
+| `eventSchema` | yes | object | EventSchemaExport object from build |
+| `configSchema` | no | object | JSON Schema for plugin configuration (must have `type: "object"`) |
+| `documentation` | yes | string[] | Array of markdown strings (min 1, max 20). Title extracted from first `# heading` |
+| `dependencies` | no | array | Plugin dependencies `[{ id, version }]` |
+| `package` | no | object | Language-specific package names (npm, NuGet, etc.) |
+| `runtime` | no | object | Runtime version requirements |
+| `visibility` | no | enum | `public` (default) or `private` |
 
----
+### Version Immutability
+
+Published versions are immutable. Attempting to publish the same org/name/version will return an error. Publish a new version instead.
+
+## Storage
+
+### File Storage (Default)
+
+Stores plugin data as JSON files in the configured directory. Suitable for development and single-instance deployments.
+
+### PostgreSQL (Production)
+
+For multi-instance or high-availability deployments. Set `database.type: postgres` and provide the connection URL. Migrations run automatically on first start.
 
 ## Authentication
 
-API tokens are stored in a JSON file (default: `./.temp/api-tokens.json`):
+Authentication is enforced at the HTTP layer (by `service-bsb-registry-ui`). The core plugin trusts event callers -- if you are calling events directly from another BSB plugin, no token is needed.
+
+API tokens are stored in a JSON file:
 
 ```json
 {
   "tokens": [
     {
-      "name": "admin",
+      "name": "ci-deploy",
       "token": "bsb_abc123...",
       "createdAt": "2026-02-13T00:00:00Z",
-      "permissions": ["read", "write", "admin"]
+      "permissions": ["read", "write"]
     }
   ]
 }
 ```
 
-### Generate a Token
-
-```bash
-# Generate random token
-node -e "console.log('bsb_' + require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Then add it to your tokens file.
-
-### Using Tokens
-
-Send tokens in the `Authorization` header:
-
-```bash
-Authorization: Bearer bsb_your_token_here
-```
-
----
-
-## Usage with BSB CLI
-
-### Configure CLI
-
-```bash
-# Set registry URL (optional if using default)
-export BSB_REGISTRY_URL=http://localhost:3100
-
-# Set API token for publishing
-export BSB_REGISTRY_TOKEN=bsb_your_token_here
-```
-
-### Publish Plugin
-
-From your plugin project:
-
-```bash
-# Export schemas and generate types
-npx bsb client sync
-
-# Publish to registry
-npx bsb client publish
-```
-
-### Install Plugin
-
-```bash
-# List available plugins
-npx bsb client list
-
-# Search for plugins
-npx bsb client search todo
-
-# Install plugin (downloads schema + generates types)
-npx bsb client install org/plugin-name
-```
-
-Installed schemas and types go to:
-- `lib/schemas/remote/{plugin-name}.json`
-- `lib/types/remote/{plugin-name}.d.ts`
-
----
-
-## Database
-
-### SQLite (Default)
-
-Automatically created at configured path. Ideal for:
-- Development environments
-- Single-instance deployments
-- Low-traffic registries
-
-### PostgreSQL (Production)
-
-Recommended for:
-- Multi-instance deployments
-- High-availability setups
-- Large registries (1000+ plugins)
-
-The registry automatically runs migrations on first start.
-
----
-
-## Deployment
-
-### Local Development
-
-```bash
-# Start with minimal config
-npm run dev
-```
-
-Access at http://localhost:3100
-
-### Production with Docker
-
-```bash
-# Start PostgreSQL
-docker-compose up -d postgres
-
-# Configure environment
-export DATABASE_URL=postgresql://registry:password@localhost:5432/bsb_registry
-export BSB_REGISTRY_TOKEN=bsb_your_production_token
-
-# Start registry
-BSB_CONFIG_PATH=sec-config.production.yaml npm start
-```
-
-### Behind Reverse Proxy (nginx)
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name registry.bsbcode.dev;
-
-    location /api/ {
-        proxy_pass http://localhost:3100;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
----
-
-## Troubleshooting
-
-### Database Locked (SQLite)
-
-**Problem**: SQLite database locked errors
-
-**Solution**: Use PostgreSQL for multi-instance deployments. SQLite is single-writer.
-
-### CORS Errors
-
-**Problem**: CORS errors from web UI
-
-**Solution**: Ensure `http.cors: true` in configuration
-
-### Authentication Failures
-
-**Problem**: 401 Unauthorized errors
-
-**Solution**:
-1. Verify token in `./.temp/api-tokens.json`
-2. Check `Authorization: Bearer {token}` header format
-3. Ensure `auth.requireAuth: true` if auth is expected
-
-### Port Conflicts
-
-**Problem**: Port already in use
-
-**Solution**: Change `http.port` in configuration (default 3100)
-
----
+Permissions:
+- `read` -- list, search, get plugin details
+- `write` -- publish and delete plugins
+- `admin` -- all operations
 
 ## See Also
 
-- [BSB Registry Web UI](/plugins/service/service-bsb-registry-ui/) - Browse plugins in your browser
-- [BSB CLI Documentation](/guides/cli/) - Command-line plugin management
-- [Publishing Plugins](/guides/publishing/) - How to publish your plugins
+- [service-bsb-registry-ui](service-bsb-registry-ui.md) -- Web UI and REST API
+- [BSB Registry README](../README.md) -- Project overview

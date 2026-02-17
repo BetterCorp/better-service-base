@@ -93,6 +93,8 @@ export interface BSBPluginMetadata {
     // BSB-specific fields
     /** Searchable tags for plugin discovery */
     tags?: string[];
+    /** Relative paths to markdown documentation files (e.g., ["./docs/plugin.md"]) */
+    documentation?: string[];
 
     // Plugin dependencies - controls initialization and run order
     /** This plugin must initialize before these plugins */

@@ -1,60 +1,62 @@
-<div style="text-align: center; margin: 3rem 0;">
-  <h1 style="font-size: 2.5rem; color: #FB8C00; margin-bottom: 1rem;">
-    BSB Plugin Registry
-  </h1>
-  <p style="font-size: 1.25rem; color: #bbb; margin-bottom: 2rem;">
-    Discover and publish multi-language plugins for the BSB Framework
-  </p>
-</div>
+<section class="hero">
+  <div class="container">
+    <h1 class="hero-title">BSB Plugin Registry</h1>
+    <p class="hero-subtitle">Discover and publish multi-language plugins for the BSB Framework</p>
+
+    <form method="GET" action="/plugins" class="search-box">
+      <input
+        type="search"
+        name="query"
+        class="search-input"
+        placeholder="Search plugins by name, description, or tags..."
+      >
+      <button type="submit" class="search-btn">Search</button>
+    </form>
+
+    <div class="quick-filters">
+      <span class="filter-label">Popular:</span>
+      <a href="/plugins?language=nodejs" class="filter-tag">Node.js</a>
+      <a href="/plugins?language=csharp" class="filter-tag">C#</a>
+      <a href="/plugins?language=go" class="filter-tag">Go</a>
+      <a href="/plugins?language=java" class="filter-tag">Java</a>
+      <a href="/plugins?language=python" class="filter-tag">Python</a>
+    </div>
+  </div>
+</section>
 
 {{#if stats}}
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin: 2rem 0;">
-  <div class="card" style="text-align: center;">
-    <div style="font-size: 2.5rem; color: #FB8C00; font-weight: bold;">{{stats.totalPlugins}}</div>
-    <div style="color: #bbb; margin-top: 0.5rem;">Total Plugins</div>
+<section class="stats">
+  <div class="stats-grid container">
+    <div class="stat-card">
+      <div class="stat-value">{{stats.totalPlugins}}</div>
+      <div class="stat-label">Total Plugins</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{stats.totalDownloads}}</div>
+      <div class="stat-label">Total Downloads</div>
+    </div>
   </div>
-
-  {{#if stats.byLanguage}}
-    {{#if stats.byLanguage.nodejs}}
-    <div class="card" style="text-align: center;">
-      <div style="font-size: 2.5rem; color: #43A047; font-weight: bold;">{{stats.byLanguage.nodejs}}</div>
-      <div style="color: #bbb; margin-top: 0.5rem;">Node.js Plugins</div>
-    </div>
-    {{/if}}
-
-    {{#if stats.byLanguage.csharp}}
-    <div class="card" style="text-align: center;">
-      <div style="font-size: 2.5rem; color: #a200ff; font-weight: bold;">{{stats.byLanguage.csharp}}</div>
-      <div style="color: #bbb; margin-top: 0.5rem;">C# Plugins</div>
-    </div>
-    {{/if}}
-
-    {{#if stats.byLanguage.go}}
-    <div class="card" style="text-align: center;">
-      <div style="font-size: 2.5rem; color: #03A9F4; font-weight: bold;">{{stats.byLanguage.go}}</div>
-      <div style="color: #bbb; margin-top: 0.5rem;">Go Plugins</div>
-    </div>
-    {{/if}}
-  {{/if}}
-</div>
+</section>
 {{/if}}
 
-{{> search-form}}
+<section class="plugins">
+  <div class="container">
+    {{#if plugins}}
+      <div class="section-header">
+        <h2 class="section-title">Recent Plugins</h2>
+        <a href="/plugins" class="nav-link">Browse All &rarr;</a>
+      </div>
 
-{{#if plugins}}
-  <h2 style="margin-top: 3rem;">Recent Plugins</h2>
-  <div class="grid">
-    {{#each plugins}}
-      {{> plugin-card}}
-    {{/each}}
+      <div class="plugin-grid">
+        {{#each plugins}}
+          {{> plugin-card}}
+        {{/each}}
+      </div>
+    {{else}}
+      <div class="empty-state">
+        <h2 class="empty-state-title">No plugins published yet</h2>
+        <p class="empty-state-text">Be the first to publish a plugin to the registry.</p>
+      </div>
+    {{/if}}
   </div>
-
-  <div style="text-align: center; margin-top: 2rem;">
-    <a href="/plugins" class="btn">Browse All Plugins</a>
-  </div>
-{{else}}
-  <div style="text-align: center; margin: 3rem 0;">
-    <p style="color: #888; font-size: 1.125rem;">No plugins published yet.</p>
-    <p style="color: #666; margin-top: 1rem;">Be the first to publish a plugin to the registry!</p>
-  </div>
-{{/if}}
+</section>

@@ -2,6 +2,11 @@
   "name": "@bsb/observable-logging-file",
   "version": "9.0.0",
   "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "nick@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
   "description": "File logging observable plugin for BSB with rotation and compression",
   "keywords": ["bsb", "observable", "logging", "file", "rotation"],
   "repository": {

@@ -29,8 +29,12 @@
     "observable",
     "events"
   ],
-  "author": "BSB Team",
-  "license": "MIT",
+  "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "nick@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
   "dependencies": {
     "@bsb/observable-axiom": "file:../observable-axiom",
     "@fastify/cors": "^10.0.1",

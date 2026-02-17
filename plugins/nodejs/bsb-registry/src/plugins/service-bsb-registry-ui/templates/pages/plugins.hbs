@@ -1,21 +1,40 @@
-<h1>Browse Plugins</h1>
+<section class="plugins">
+  <div class="container">
+    <div class="section-header">
+      {{#if searchQuery}}
+        <h1 class="section-title">Results for "{{searchQuery}}"</h1>
+      {{else}}
+        <h1 class="section-title">Browse Plugins</h1>
+      {{/if}}
+      {{#if pagination}}
+        <span class="result-count">{{pagination.total}} plugin{{#if (gt pagination.total 1)}}s{{/if}}</span>
+      {{/if}}
+    </div>
 
-{{> search-form}}
+    {{> search-form}}
 
-{{#if plugins}}
-  <div class="grid">
-    {{#each plugins}}
-      {{> plugin-card}}
-    {{/each}}
+    {{#if plugins}}
+      <div class="plugin-grid">
+        {{#each plugins}}
+          {{> plugin-card}}
+        {{/each}}
+      </div>
+
+      {{#if pagination}}
+        {{> pagination}}
+      {{/if}}
+    {{else}}
+      <div class="empty-state">
+        {{#if searchQuery}}
+          <h2 class="empty-state-title">No plugins found</h2>
+          <p class="empty-state-text">No plugins match "{{searchQuery}}". Try a different search or adjust your filters.</p>
+          <a href="/plugins" class="btn">Clear Search</a>
+        {{else}}
+          <h2 class="empty-state-title">No plugins yet</h2>
+          <p class="empty-state-text">No plugins match your current filters.</p>
+          <a href="/plugins" class="btn">Clear Filters</a>
+        {{/if}}
+      </div>
+    {{/if}}
   </div>
-
-  {{#if pagination}}
-    {{> pagination}}
-  {{/if}}
-{{else}}
-  <div style="text-align: center; margin: 3rem 0;">
-    <p style="color: #888; font-size: 1.125rem;">No plugins found matching your filters.</p>
-    <p style="color: #666; margin-top: 1rem;">Try adjusting your search criteria.</p>
-    <a href="/plugins" class="btn" style="margin-top: 1rem;">Clear Filters</a>
-  </div>
-{{/if}}
+</section>

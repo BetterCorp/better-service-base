@@ -2,6 +2,11 @@
   "name": "@bsb/observable-graylog",
   "version": "9.0.0",
   "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "nick@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
   "description": "Graylog (GELF) observable plugin for BSB - send logs to Graylog servers",
   "keywords": [
     "bsb",

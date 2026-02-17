@@ -8,9 +8,10 @@
  * Usage:
  *   bsb-client list                 - List all plugins from registry
  *   bsb-client search <query>       - Search plugins
- *   bsb-client publish              - Publish current plugin to registry
- *   bsb-client schema <org/name>    - Get plugin event schema
- *   bsb-client info <org/name>      - Get plugin details
+ *   bsb-client publish              - Publish current plugin(s) to registry
+ *   bsb-client schema <name>        - Get plugin event schema
+ *   bsb-client info <name>          - Get plugin details
+ *   bsb-client install <name>       - Download schema and generate types
  *   bsb-client token generate       - Generate a new API token
  *
  * Environment:
@@ -58,11 +59,32 @@ function warn(message: string): void {
 }
 
 // Get registry URL from env or use default
-const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'http://localhost:3100';
+const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'http://localhost:3200';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
 
 const COMMAND = process.argv[2];
 const ARGS = process.argv.slice(3);
+
+/**
+ * Parse a plugin ID into org and name.
+ * Accepts both "org/name" and plain "name" formats.
+ * When no org is provided, defaults to "_" (unaffiliated).
+ */
+function parsePluginId(pluginId: string): { org: string; name: string } {
+  if (pluginId.includes('/')) {
+    const [org, ...rest] = pluginId.split('/');
+    return { org, name: rest.join('/') };
+  }
+  return { org: '_', name: pluginId };
+}
+
+/**
+ * Format a plugin ID for display.
+ * Hides the "_" sentinel org for unaffiliated plugins.
+ */
+function displayPluginId(org: string, name: string): string {
+  return org === '_' ? name : `${org}/${name}`;
+}
 
 /**
  * Make HTTP request to registry
@@ -85,6 +107,7 @@ async function registryRequest(
       method,
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         ...(requireAuth && REGISTRY_TOKEN ? { Authorization: `Bearer ${REGISTRY_TOKEN}` } : {}),
       },
     };
@@ -134,7 +157,7 @@ async function listPlugins(): Promise<void> {
   info('Fetching plugins from registry...');
 
   try {
-    const result = await registryRequest('GET', '/api/plugins?limit=100');
+    const result = await registryRequest('GET', '/plugins?limit=100');
 
     if (result.results.length === 0) {
       warn('No plugins found in registry');
@@ -167,7 +190,7 @@ async function searchPlugins(query: string): Promise<void> {
   info(`Searching for "${query}"...`);
 
   try {
-    const result = await registryRequest('GET', `/api/plugins/search?q=${encodeURIComponent(query)}`);
+    const result = await registryRequest('GET', `/plugins?query=${encodeURIComponent(query)}&limit=100`);
 
     if (result.results.length === 0) {
       warn(`No plugins found matching "${query}"`);
@@ -194,18 +217,17 @@ async function searchPlugins(query: string): Promise<void> {
  */
 async function getPluginInfo(pluginId: string): Promise<void> {
   if (!pluginId) {
-    error('Please provide a plugin ID: bsb-client info <org/name>');
+    error('Please provide a plugin ID: bsb-client info <name> or bsb-client info <org/name>');
   }
 
-  const [org, name] = pluginId.split('/');
-  if (!org || !name) {
-    error('Invalid plugin ID format. Expected: org/name');
-  }
+  const { org, name } = parsePluginId(pluginId);
+  const display = displayPluginId(org, name);
 
-  info(`Fetching plugin info for ${pluginId}...`);
+  info(`Fetching plugin info for ${display}...`);
 
   try {
-    const plugin = await registryRequest('GET', `/api/plugins/${org}/${name}`);
+    const result = await registryRequest('GET', `/plugins/${org}/${name}`);
+    const plugin = result.plugin || result;
 
     log(`\nPlugin: ${plugin.displayName}\n`, 'bright');
     log(`  ID:           ${plugin.id}`, 'reset');
@@ -232,20 +254,19 @@ async function getPluginInfo(pluginId: string): Promise<void> {
  */
 async function getPluginSchema(pluginId: string): Promise<void> {
   if (!pluginId) {
-    error('Please provide a plugin ID: bsb-client schema <org/name>');
+    error('Please provide a plugin ID: bsb-client schema <name> or bsb-client schema <org/name>');
   }
 
-  const [org, name] = pluginId.split('/');
-  if (!org || !name) {
-    error('Invalid plugin ID format. Expected: org/name');
-  }
+  const { org, name } = parsePluginId(pluginId);
+  const display = displayPluginId(org, name);
 
-  info(`Fetching schema for ${pluginId}...`);
+  info(`Fetching schema for ${display}...`);
 
   try {
     // Get plugin to find latest version
-    const plugin = await registryRequest('GET', `/api/plugins/${org}/${name}`);
-    const schema = await registryRequest('GET', `/api/plugins/${org}/${name}/${plugin.version}/schema`);
+    const result = await registryRequest('GET', `/plugins/${org}/${name}`);
+    const plugin = result.plugin || result;
+    const schema = await registryRequest('GET', `/plugins/${org}/${name}/${plugin.version}/schema`);
 
     log(`\nEvent Schema for ${pluginId} @ ${plugin.version}:\n`, 'bright');
     log(JSON.stringify(schema, null, 2), 'reset');
@@ -257,14 +278,16 @@ async function getPluginSchema(pluginId: string): Promise<void> {
 }
 
 /**
- * Publish plugin to registry
+ * Publish plugin(s) to registry.
+ * Iterates over all plugins in bsb-plugin.json and publishes each separately.
+ * Org is read from package.json "bsb.orgId" field, defaulting to "_" (unaffiliated).
  */
 async function publishPlugin(): Promise<void> {
   if (!REGISTRY_TOKEN) {
     error('BSB_REGISTRY_TOKEN environment variable not set. Get a token from the registry admin.');
   }
 
-  info('Publishing plugin to registry...');
+  info('Publishing plugin(s) to registry...');
 
   try {
     // Read package.json
@@ -275,64 +298,137 @@ async function publishPlugin(): Promise<void> {
 
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
 
-    // Read bsb-plugin.json (generated by exportSchemas)
-    const pluginJsonPath = path.join(process.cwd(), 'bsb-plugin.json');
-    if (!fs.existsSync(pluginJsonPath)) {
-      error('No bsb-plugin.json found. Run "bsb plugin export" first to generate schemas.');
+    // Discover plugins from generated lib/schemas/*.plugin.json files
+    const schemasDir = path.join(process.cwd(), 'lib', 'schemas');
+    if (!fs.existsSync(schemasDir)) {
+      error('No lib/schemas/ directory found. Run "bsb-plugin-cli build" first.');
     }
 
-    const pluginData = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf-8'));
+    const pluginJsonFiles = fs.readdirSync(schemasDir)
+      .filter((f: string) => f.endsWith('.plugin.json'));
 
-    // Read README.md
+    if (pluginJsonFiles.length === 0) {
+      error('No .plugin.json files found in lib/schemas/. Run "bsb-plugin-cli build" first.');
+    }
+
+    // Read project README.md as fallback documentation
     const readmePath = path.join(process.cwd(), 'README.md');
-    const readme = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf-8') : 'No README available';
+    const readmeContent = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf-8') : undefined;
 
-    // Extract org/name from package name (e.g., @bettercorp/service-demo-todo -> bettercorp/service-demo-todo)
-    let org: string;
-    let name: string;
+    // Org from package.json bsb.orgId, default to "_" (unaffiliated)
+    const org: string = pkg.bsb?.orgId || '_';
 
-    if (pkg.name.startsWith('@')) {
-      const parts = pkg.name.substring(1).split('/');
-      org = parts[0];
-      name = parts[1] || pkg.name;
-    } else {
-      org = 'default';
-      name = pkg.name;
+    let published = 0;
+    let errors = 0;
+
+    for (const pluginJsonFile of pluginJsonFiles) {
+      const pluginMeta = JSON.parse(fs.readFileSync(path.join(schemasDir, pluginJsonFile), 'utf-8'));
+      const pluginName: string = pluginMeta.id;
+      const display = displayPluginId(org, pluginName);
+
+      try {
+        // Read event schema from lib/schemas/{pluginId}.json
+        const schemaPath = path.join(schemasDir, `${pluginName}.json`);
+        let eventSchema: Record<string, any> = { pluginName, version: pkg.version, events: {} };
+        let configSchema: Record<string, any> | undefined;
+        let schemaDeps: Array<{ id: string; version: string }> | undefined;
+
+        if (fs.existsSync(schemaPath)) {
+          try {
+            const parsed = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+            eventSchema = {
+              pluginName: parsed.pluginName || pluginName,
+              version: parsed.version || pkg.version,
+              events: parsed.events || {},
+            };
+            if (Array.isArray(parsed.dependencies) && parsed.dependencies.length > 0) {
+              eventSchema.dependencies = parsed.dependencies;
+              schemaDeps = parsed.dependencies;
+            }
+            if (parsed.configSchema && typeof parsed.configSchema === 'object') {
+              configSchema = parsed.configSchema;
+            }
+          } catch {
+            // Non-fatal -- use defaults
+          }
+        }
+
+        // Fallback: configSchema from plugin.json
+        if (!configSchema && pluginMeta.configSchema && typeof pluginMeta.configSchema === 'object') {
+          configSchema = pluginMeta.configSchema;
+        }
+
+        // Read documentation files listed in plugin metadata
+        const documentation: string[] = [];
+        const docPaths: string[] = Array.isArray(pluginMeta.documentation) ? pluginMeta.documentation : [];
+        for (const docPath of docPaths) {
+          const fullPath = path.resolve(process.cwd(), docPath);
+          if (fs.existsSync(fullPath)) {
+            documentation.push(fs.readFileSync(fullPath, 'utf-8'));
+          } else {
+            warn(`Documentation file not found: ${docPath}`);
+          }
+        }
+
+        // Fallback to project README.md
+        if (documentation.length === 0) {
+          if (readmeContent) {
+            documentation.push(readmeContent);
+          } else {
+            error(`No documentation found for ${display}. Add documentation paths to Config metadata or provide a README.md.`);
+          }
+        }
+
+        const publishRequest: Record<string, any> = {
+          org,
+          name: pluginName,
+          version: pkg.version,
+          language: 'nodejs',
+          metadata: {
+            displayName: pluginMeta.name || pluginName,
+            description: pluginMeta.description || pkg.description || '',
+            category: pluginMeta.category || 'other',
+            tags: pluginMeta.tags || pkg.keywords || [],
+            author: pluginMeta.author || pkg.author,
+            license: pluginMeta.license || pkg.license,
+            homepage: pluginMeta.homepage || pkg.homepage,
+            repository: pluginMeta.repository || (typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url),
+          },
+          eventSchema,
+          documentation,
+          package: {
+            nodejs: pkg.name,
+          },
+          visibility: 'public',
+        };
+
+        if (configSchema) {
+          publishRequest.configSchema = configSchema;
+        }
+
+        // Top-level dependencies (registry gives these priority over eventSchema.dependencies)
+        if (schemaDeps) {
+          publishRequest.dependencies = schemaDeps;
+        }
+
+        info(`Publishing ${display} @ ${pkg.version}...`);
+
+        const result = await registryRequest('POST', '/plugins', publishRequest, true);
+        success(`Published: ${display} @ ${result.version}`);
+        published++;
+      } catch (err: any) {
+        log(`  Failed to publish ${display}: ${err.message}`, 'red');
+        errors++;
+      }
     }
-
-    // Prepare publish request
-    const publishRequest = {
-      org,
-      name,
-      version: pkg.version,
-      language: 'nodejs',
-      metadata: {
-        displayName: pluginData.metadata?.name || name,
-        description: pkg.description || '',
-        category: pluginData.metadata?.category || 'other',
-        tags: pkg.keywords || [],
-        author: pkg.author,
-        license: pkg.license,
-        homepage: pkg.homepage,
-        repository: typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url,
-      },
-      eventSchema: JSON.stringify(pluginData.eventSchema),
-      documentation: {
-        readme,
-      },
-      package: {
-        nodejs: pkg.name,
-      },
-      visibility: 'public',
-    };
-
-    info(`Publishing ${org}/${name} @ ${pkg.version}...`);
-
-    const result = await registryRequest('POST', '/api/plugins', publishRequest, true);
 
     log('');
-    success(`Plugin published: ${result.pluginId} @ ${result.version}`);
-    log(`  ${result.message}`, 'reset');
+    if (published > 0) {
+      success(`Published ${published} plugin(s)${errors > 0 ? `, ${errors} failed` : ''}`);
+    }
+    if (errors > 0 && published === 0) {
+      error(`All ${errors} plugin(s) failed to publish`);
+    }
   } catch (err: any) {
     error(`Failed to publish plugin: ${err.message}`);
   }
@@ -383,22 +479,21 @@ function ensureGitignore(): void {
  */
 async function installPlugin(pluginId: string): Promise<void> {
   if (!pluginId) {
-    error('Please provide a plugin ID: bsb-client install <org/name>');
+    error('Please provide a plugin ID: bsb-client install <name> or bsb-client install <org/name>');
   }
 
-  const [org, name] = pluginId.split('/');
-  if (!org || !name) {
-    error('Invalid plugin ID format. Expected: org/name');
-  }
+  const { org, name } = parsePluginId(pluginId);
+  const display = displayPluginId(org, name);
 
-  info(`Installing plugin ${pluginId}...`);
+  info(`Installing plugin ${display}...`);
 
   try {
     // Get plugin metadata
-    const plugin = await registryRequest('GET', `/api/plugins/${org}/${name}`);
+    const detailResult = await registryRequest('GET', `/plugins/${org}/${name}`);
+    const plugin = detailResult.plugin || detailResult;
 
     // Get plugin schema
-    const schema = await registryRequest('GET', `/api/plugins/${org}/${name}/${plugin.version}/schema`);
+    const schema = await registryRequest('GET', `/plugins/${org}/${name}/${plugin.version}/schema`);
 
     // Create directories for remote schemas and virtual clients
     const schemasDir = path.join(process.cwd(), 'src', '.bsb', 'schemas');
@@ -417,7 +512,7 @@ async function installPlugin(pluginId: string): Promise<void> {
     // Save schema
     const schemaFile = path.join(schemasDir, `${name}.json`);
     fs.writeFileSync(schemaFile, JSON.stringify(schema, null, 2), 'utf-8');
-    success(`Downloaded schema for ${pluginId}`);
+    success(`Downloaded schema for ${display}`);
 
     // Generate virtual client by calling the generator
     const generatorPath = path.join(__dirname, 'generate-client-types.js');
@@ -428,14 +523,14 @@ async function installPlugin(pluginId: string): Promise<void> {
           cwd: process.cwd(),
           stdio: 'pipe',
         });
-        success(`Generated virtual client for ${pluginId}`);
+        success(`Generated virtual client for ${display}`);
       } catch (err) {
         warn('Failed to generate virtual client automatically. Run your build to regenerate.');
       }
     }
 
     log('');
-    success(`Plugin ${pluginId} @ ${plugin.version} installed`);
+    success(`Plugin ${display} @ ${plugin.version} installed`);
     log(`  Schema: ${schemaFile}`, 'reset');
     log(`  Import: import ${pluginNameToClassName(name)} from './.bsb/clients/${name}'`, 'reset');
   } catch (err: any) {
@@ -479,11 +574,15 @@ async function main(): Promise<void> {
     log('Usage:', 'cyan');
     log('  bsb-client list                  - List all plugins from registry');
     log('  bsb-client search <query>        - Search plugins');
-    log('  bsb-client info <org/name>       - Get plugin details');
-    log('  bsb-client schema <org/name>     - Get plugin event schema');
-    log('  bsb-client install <org/name>    - Download schema and generate types');
-    log('  bsb-client publish               - Publish current plugin to registry');
+    log('  bsb-client info <name>           - Get plugin details');
+    log('  bsb-client schema <name>         - Get plugin event schema');
+    log('  bsb-client install <name>        - Download schema and generate types');
+    log('  bsb-client publish               - Publish current plugin(s) to registry');
     log('  bsb-client token generate        - Generate a new API token');
+    log('');
+    log('Plugin IDs:', 'cyan');
+    log('  Use plain name:    bsb-client info service-bsb-registry');
+    log('  Or with org:       bsb-client info myorg/service-bsb-registry');
     log('');
     log('Environment:', 'cyan');
     log(`  BSB_REGISTRY_URL    = ${REGISTRY_URL}`);

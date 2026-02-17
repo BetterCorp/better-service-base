@@ -368,10 +368,80 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   outputLines.push(`  : "1.0.0";`);
   outputLines.push('');
   outputLines.push('const _schemaResult = exportEventSchemas(_pluginName, _pluginVersion, EventSchemas as any);');
+  outputLines.push('');
+  outputLines.push('// Extract config schema as JSON Schema if Config has a Zod validationSchema');
+  outputLines.push('try {');
+  outputLines.push('  if (typeof Config !== "undefined" && Config) {');
+  outputLines.push('    const _configInstance = new (Config as any)("", "", "", "");');
+  outputLines.push('    if (_configInstance.validationSchema && typeof _configInstance.validationSchema === "object") {');
+  outputLines.push('      const { toJSONSchema: _toJSONSchema } = require("zod");');
+  outputLines.push('      (_schemaResult as any).configSchema = _toJSONSchema(_configInstance.validationSchema);');
+  outputLines.push('    }');
+  outputLines.push('  }');
+  outputLines.push('} catch (_e) {');
+  outputLines.push('  // Config schema extraction is optional - skip on error');
+  outputLines.push('}');
+  outputLines.push('');
   outputLines.push('process.stdout.write(JSON.stringify(_schemaResult));');
   outputLines.push('');
 
   return outputLines.join('\n');
+}
+
+/**
+ * Detect plugin dependencies by scanning for .bsb/clients/ imports.
+ * Returns structured dependency objects with org-qualified ID and version
+ * read from the dependency's schema JSON.
+ */
+function detectClientDependencies(sourceContent: string): Array<{ id: string; version: string }> {
+  const lines = normalizeMultilineImports(sourceContent.split('\n'));
+  const pluginIds = new Set<string>();
+
+  for (const line of lines) {
+    const parsed = parseImportLine(line.trim());
+    if (!parsed) continue;
+
+    // Match any relative import ending in .bsb/clients/{pluginId}
+    const match = parsed.source.match(/\.bsb\/clients\/([^/]+)$/);
+    if (match) {
+      pluginIds.add(match[1]);
+    }
+  }
+
+  if (pluginIds.size === 0) return [];
+
+  // Read orgId from package.json (bsb.orgId field)
+  const pkgJsonPath = path.join(CWD, 'package.json');
+  let orgId = '_';
+  if (fs.existsSync(pkgJsonPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
+      orgId = pkg.bsb?.orgId || '_';
+    } catch {
+      // use default
+    }
+  }
+
+  // Resolve each plugin ID to a structured dependency
+  const schemasDir = path.join(CWD, 'src', '.bsb', 'schemas');
+  const deps: Array<{ id: string; version: string }> = [];
+
+  for (const pluginId of pluginIds) {
+    // Read the dependency's schema to get its version
+    let version = '1.0.0';
+    const schemaPath = path.join(schemasDir, `${pluginId}.json`);
+    if (fs.existsSync(schemaPath)) {
+      try {
+        const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+        version = schema.version || '1.0.0';
+      } catch {
+        // use fallback
+      }
+    }
+    deps.push({ id: `${orgId}/${pluginId}`, version });
+  }
+
+  return deps;
 }
 
 /**
@@ -430,6 +500,13 @@ async function main() {
 
       // Parse and write the schema JSON
       const schemaExport = JSON.parse(result.trim());
+
+      // Auto-detect dependencies from .bsb/clients/ imports
+      const deps = detectClientDependencies(sourceContent);
+      if (deps.length > 0) {
+        schemaExport.dependencies = deps;
+      }
+
       const schemaFile = path.join(schemasDir, `${plugin.dirName}.json`);
       fs.writeFileSync(schemaFile, JSON.stringify(schemaExport, null, 2), 'utf-8');
 

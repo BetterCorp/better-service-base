@@ -22,8 +22,12 @@
     "analytics",
     "opentelemetry"
   ],
-  "author": "BetterCorp (PTY) Ltd",
-  "license": "AGPL-3.0",
+  "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "nick@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
   "peerDependencies": {
     "@bsb/base": "^9.0.0"
   },

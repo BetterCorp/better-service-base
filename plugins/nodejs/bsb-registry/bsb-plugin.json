@@ -1,30 +1,46 @@
 {
   "nodejs": [
     {
-      "id": "service-bsb-registry",
-      "name": "BSB Registry API",
-      "basePath": "./",
-      "image": "./service-bsb-registry.png",
-      "description": "HTTP REST API for multi-language plugin discovery and publishing",
-      "tags": ["Registry", "Plugin", "Marketplace", "Discovery", "Publishing", "HTTP", "API", "SQLite", "PostgreSQL"],
-      "documentation": ["./docs/service-bsb-registry.md"],
-      "pluginPath": "src/plugins/service-bsb-registry/",
-      "links": {
-        "github": "https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/bsb-registry"
-      }
-    },
-    {
       "id": "service-bsb-registry-ui",
-      "name": "BSB Registry Web UI",
+      "name": "BSB Registry UI & API",
       "basePath": "./",
       "image": "./service-bsb-registry-ui.png",
-      "description": "Web interface for browsing and searching BSB plugins",
-      "tags": ["Registry", "UI", "Web", "Frontend", "Browse", "Search", "Documentation"],
-      "documentation": ["./docs/service-bsb-registry-ui.md"],
-      "pluginPath": "src/plugins/service-bsb-registry-ui/",
-      "links": {
-        "github": "https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/bsb-registry"
-      }
+      "description": "Web UI and REST API for browsing, searching, and publishing BSB plugins (content negotiation: HTML or JSON)",
+      "tags": [
+        "registry",
+        "ui",
+        "api",
+        "web",
+        "rest",
+        "handlebars",
+        "server-side-rendering",
+        "content-negotiation",
+        "publishing"
+      ],
+      "documentation": [
+        "./docs/service-bsb-registry-ui.md"
+      ],
+      "pluginPath": "src/plugins/service-bsb-registry-ui/"
+    },
+    {
+      "id": "service-bsb-registry",
+      "name": "BSB Registry Core",
+      "basePath": "./",
+      "image": "./service-bsb-registry.png",
+      "description": "Event-driven plugin registry core for multi-language BSB plugin storage and discovery",
+      "tags": [
+        "registry",
+        "plugin",
+        "marketplace",
+        "discovery",
+        "publishing",
+        "events",
+        "storage"
+      ],
+      "documentation": [
+        "./docs/service-bsb-registry.md"
+      ],
+      "pluginPath": "src/plugins/service-bsb-registry/"
     }
   ]
 }

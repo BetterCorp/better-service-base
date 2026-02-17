@@ -458,6 +458,10 @@ export interface EventSchemaExport {
   version: string;
   /** Map of event names to their definitions */
   events: Record<string, EventExportDefinition>;
+  /** Auto-detected plugin dependencies (from .bsb/clients/ imports) */
+  dependencies?: Array<{ id: string; version: string }>;
+  /** Config schema as JSON Schema (from Zod validation schema) */
+  configSchema?: Record<string, any>;
 }
 
 /**

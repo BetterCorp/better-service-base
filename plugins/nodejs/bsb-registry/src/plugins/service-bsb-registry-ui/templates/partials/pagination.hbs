@@ -1,39 +1,41 @@
-{{#if (gt totalPages 1)}}
-<div style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; margin-top: 2rem;">
-  {{#if (gt currentPage 1)}}
-    <a href="?page={{subtract currentPage 1}}" class="btn btn-secondary">Previous</a>
+{{#if (gt pagination.totalPages 1)}}
+<div class="pagination">
+  {{#if (gt pagination.currentPage 1)}}
+    <a href="/plugins?page={{subtract pagination.currentPage 1}}{{#if searchQuery}}&query={{searchQuery}}{{/if}}{{#if filters.category}}&category={{filters.category}}{{/if}}{{#if filters.language}}&language={{filters.language}}{{/if}}" class="page-btn">Prev</a>
+  {{else}}
+    <span class="page-btn disabled">Prev</span>
   {{/if}}
 
-  <div style="display: flex; gap: 0.25rem;">
-    {{#if (gt currentPage 3)}}
-      <a href="?page=1" class="btn btn-secondary">1</a>
-      {{#if (gt currentPage 4)}}
-        <span style="padding: 0.5rem; color: #888;">...</span>
-      {{/if}}
+  {{#if (gt pagination.currentPage 3)}}
+    <a href="/plugins?page=1{{#if searchQuery}}&query={{searchQuery}}{{/if}}{{#if filters.category}}&category={{filters.category}}{{/if}}{{#if filters.language}}&language={{filters.language}}{{/if}}" class="page-btn">1</a>
+    {{#if (gt pagination.currentPage 4)}}
+      <span class="page-btn disabled">...</span>
     {{/if}}
+  {{/if}}
 
-    {{#each (range (subtract currentPage 2) (add currentPage 2) totalPages)}}
-      {{#if (eq this ../currentPage)}}
-        <span class="btn" style="background-color: #f57c00;">{{this}}</span>
-      {{else}}
-        <a href="?page={{this}}" class="btn btn-secondary">{{this}}</a>
-      {{/if}}
-    {{/each}}
-
-    {{#if (lt currentPage (subtract totalPages 2))}}
-      {{#if (lt currentPage (subtract totalPages 3))}}
-        <span style="padding: 0.5rem; color: #888;">...</span>
-      {{/if}}
-      <a href="?page={{totalPages}}" class="btn btn-secondary">{{totalPages}}</a>
+  {{#each (range (subtract pagination.currentPage 2) (add pagination.currentPage 2) pagination.totalPages)}}
+    {{#if (eq this ../pagination.currentPage)}}
+      <span class="page-btn active">{{this}}</span>
+    {{else}}
+      <a href="/plugins?page={{this}}{{#if ../searchQuery}}&query={{../searchQuery}}{{/if}}{{#if ../filters.category}}&category={{../filters.category}}{{/if}}{{#if ../filters.language}}&language={{../filters.language}}{{/if}}" class="page-btn">{{this}}</a>
     {{/if}}
-  </div>
+  {{/each}}
 
-  {{#if (lt currentPage totalPages)}}
-    <a href="?page={{add currentPage 1}}" class="btn btn-secondary">Next</a>
+  {{#if (lt pagination.currentPage (subtract pagination.totalPages 2))}}
+    {{#if (lt pagination.currentPage (subtract pagination.totalPages 3))}}
+      <span class="page-btn disabled">...</span>
+    {{/if}}
+    <a href="/plugins?page={{pagination.totalPages}}{{#if searchQuery}}&query={{searchQuery}}{{/if}}{{#if filters.category}}&category={{filters.category}}{{/if}}{{#if filters.language}}&language={{filters.language}}{{/if}}" class="page-btn">{{pagination.totalPages}}</a>
+  {{/if}}
+
+  {{#if (lt pagination.currentPage pagination.totalPages)}}
+    <a href="/plugins?page={{add pagination.currentPage 1}}{{#if searchQuery}}&query={{searchQuery}}{{/if}}{{#if filters.category}}&category={{filters.category}}{{/if}}{{#if filters.language}}&language={{filters.language}}{{/if}}" class="page-btn">Next</a>
+  {{else}}
+    <span class="page-btn disabled">Next</span>
   {{/if}}
 </div>
 
-<div style="text-align: center; margin-top: 1rem; color: #888; font-size: 0.875rem;">
-  Page {{currentPage}} of {{totalPages}} ({{total}} total plugins)
+<div class="pagination-summary">
+  Page {{pagination.currentPage}} of {{pagination.totalPages}} ({{pagination.total}} total)
 </div>
 {{/if}}

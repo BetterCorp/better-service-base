@@ -768,6 +768,13 @@ export function bsbToZod(type: BSBType): z.ZodTypeAny {
     }
 
     case 'union': {
+      // Empty union = unknown/any type (used by bsb.unknown() and bsb.void())
+      if (type.types.length === 0) {
+        let schema: z.ZodTypeAny = z.unknown();
+        if (type.optional) return schema.optional();
+        if (type.nullable) return schema.nullable();
+        return schema;
+      }
       const schemas = type.types.map(bsbToZod);
       let schema = z.union(schemas as any);
       if (type.optional) return schema.optional();

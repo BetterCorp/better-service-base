@@ -491,7 +491,886 @@ body {
     color: #e65100;
 }
 
-/* Container */
+/* Links in cards/pagination - reset anchor styling */
+a.plugin-card,
+a.page-btn {
+    text-decoration: none;
+    color: inherit;
+}
+
+a.filter-tag {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Browse Filters (search-form partial) */
+.browse-filters {
+    max-width: 1200px;
+    margin: 0 auto 2rem;
+}
+
+.search-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.filter-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Result Count */
+.result-count {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    padding: 0.25rem 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+/* Pagination Summary */
+.pagination-summary {
+    text-align: center;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    background: #e65100;
+}
+
+.btn-secondary {
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--hover-bg);
+    border-color: var(--primary-color);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.empty-state-code {
+    font-size: 6rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    line-height: 1;
+}
+
+.empty-state-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 0.75rem;
+}
+
+.empty-state-text {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.empty-state-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    margin-bottom: 1.5rem;
+}
+
+.breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.15s ease;
+}
+
+.breadcrumb a:hover {
+    color: var(--primary-color);
+}
+
+/* Detail Page */
+.detail-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.detail-id {
+    margin-bottom: 1rem;
+}
+
+.detail-id code {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    background: var(--code-bg);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.detail-description {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.detail-section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 1rem;
+}
+
+
+/* Event type colors */
+.event-emit {
+    color: var(--warning-color);
+}
+
+.event-on {
+    color: var(--config-color);
+}
+
+.event-returnable {
+    color: var(--service-color);
+}
+
+.event-broadcast {
+    color: var(--success-color);
+}
+
+/* Top tags (category/language/version above title) */
+.detail-top-tags {
+    margin-bottom: 0.75rem;
+}
+
+/* README / Documentation inside first card */
+.detail-card > .readme-content {
+    margin-top: 1.5rem;
+}
+
+/* Documentation tabs */
+.doc-tabs {
+    margin-top: 1.5rem;
+}
+
+.doc-tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0;
+    overflow-x: auto;
+}
+
+.doc-tab-btn {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.doc-tab-btn:hover {
+    color: var(--text-color);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.doc-tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.doc-tab-panel {
+    display: none;
+}
+
+.doc-tab-panel.active {
+    display: block;
+}
+
+/* Event Schema */
+.event-section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 2rem 0 0.25rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.event-section-title:first-of-type {
+    margin-top: 0.5rem;
+}
+
+.event-section-desc {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+details.event-item {
+    padding: 0;
+    margin-bottom: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: border-color 0.15s ease;
+}
+
+details.event-item:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+details.event-item:last-child {
+    margin-bottom: 0;
+}
+
+details.event-item[open] {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Summary (collapsed header) */
+.event-item-summary {
+    padding: 1rem;
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    padding-right: 2.5rem;
+}
+
+.event-item-summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Expand indicator */
+.event-item-summary::after {
+    content: '+';
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    font-size: 1.125rem;
+    font-weight: 300;
+    color: var(--text-secondary);
+    line-height: 1;
+    transition: transform 0.15s ease;
+}
+
+details.event-item[open] > .event-item-summary::after {
+    content: '-';
+}
+
+/* Expanded body */
+.event-item-body {
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 0;
+    padding-top: 0.75rem;
+}
+
+.event-item-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.event-item-header code {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: var(--code-bg);
+    padding: 0.25rem 0.625rem;
+    border-radius: 4px;
+}
+
+.event-type-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid;
+}
+
+.event-type-badge.returnable {
+    color: var(--service-color);
+    border-color: var(--service-color);
+    background: rgba(162, 0, 255, 0.08);
+}
+
+.event-type-badge.emit {
+    color: var(--warning-color);
+    border-color: var(--warning-color);
+    background: rgba(251, 140, 0, 0.08);
+}
+
+.event-type-badge.on {
+    color: var(--config-color);
+    border-color: var(--config-color);
+    background: rgba(3, 169, 244, 0.08);
+}
+
+.event-type-badge.broadcast {
+    color: var(--success-color);
+    border-color: var(--success-color);
+    background: rgba(67, 160, 71, 0.08);
+}
+
+.event-description {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* Event schema property blocks */
+.event-schema-block {
+    margin-top: 0.75rem;
+}
+
+.event-schema-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    margin-bottom: 0.375rem;
+}
+
+.event-props {
+    background: var(--code-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.5rem 0;
+    overflow-x: auto;
+}
+
+.event-prop {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8125rem;
+    flex-wrap: wrap;
+}
+
+.event-prop:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.event-prop-name {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-weight: 600;
+    color: var(--text-color);
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: 0.8125rem;
+}
+
+.event-prop-type {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0.85;
+}
+
+.event-prop-optional {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    opacity: 0.65;
+    font-style: italic;
+}
+
+.event-prop-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    flex-basis: 100%;
+    padding-left: 0;
+    margin-top: 0.125rem;
+}
+
+/* Config section */
+.config-group {
+    margin-bottom: 1.5rem;
+    padding-left: 0;
+}
+
+.config-group:last-child {
+    margin-bottom: 0;
+}
+
+.config-group-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.config-default {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    background: var(--code-bg);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+}
+
+/* Installation blocks */
+.install-block {
+    margin-bottom: 1.5rem;
+}
+
+.install-block:last-child {
+    margin-bottom: 0;
+}
+
+.install-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.install-block pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+}
+
+.install-block code {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.875rem;
+    color: var(--text-color);
+}
+
+/* Version List */
+.version-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Dependencies */
+.dependency-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.dependency-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: border-color 0.15s ease;
+}
+
+.dependency-item:hover {
+    border-color: var(--primary-color);
+}
+
+.dependency-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    flex: 1;
+}
+
+.dependency-id {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    background: var(--code-bg);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.dependency-version {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+.dependency-none {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 0;
+}
+
+/* README / Rendered Markdown */
+.readme-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 2rem 2.5rem;
+    overflow-x: auto;
+}
+
+/* Markdown body - rendered HTML content */
+.markdown-body {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--text-color);
+    word-wrap: break-word;
+}
+
+.markdown-body > *:first-child {
+    margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+    margin-bottom: 0;
+}
+
+/* Headings */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    color: var(--text-color);
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 1.75em;
+    margin-bottom: 0.75em;
+}
+
+.markdown-body h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.markdown-body h2 {
+    font-size: 1.375rem;
+    padding-bottom: 0.4em;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.markdown-body h3 {
+    font-size: 1.125rem;
+}
+
+.markdown-body h4 {
+    font-size: 1rem;
+}
+
+.markdown-body h5 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+}
+
+.markdown-body h6 {
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+}
+
+/* Paragraphs */
+.markdown-body p {
+    margin-top: 0;
+    margin-bottom: 1em;
+}
+
+/* Links */
+.markdown-body a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.markdown-body a:hover {
+    text-decoration: underline;
+    color: #e65100;
+}
+
+/* Inline code */
+.markdown-body code {
+    font-family: 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
+    font-size: 0.8125em;
+    padding: 0.2em 0.45em;
+    background: var(--code-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--primary-color);
+}
+
+/* Code blocks */
+.markdown-body pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    margin-top: 0;
+    margin-bottom: 1.25em;
+    line-height: 1.5;
+}
+
+.markdown-body pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.8125rem;
+    color: var(--text-color);
+    border-radius: 0;
+}
+
+/* highlight.js overrides -- keep our background, let hljs handle token colors */
+.markdown-body pre code.hljs {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+.markdown-body pre .hljs {
+    background: none;
+}
+
+/* Blockquotes */
+.markdown-body blockquote {
+    margin: 0 0 1.25em;
+    padding: 0.5em 1.25em;
+    border-left: 4px solid var(--primary-color);
+    background: rgba(251, 140, 0, 0.05);
+    border-radius: 0 6px 6px 0;
+    color: var(--text-secondary);
+}
+
+.markdown-body blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+.markdown-body blockquote blockquote {
+    border-left-color: var(--border-color);
+}
+
+/* Lists */
+.markdown-body ul,
+.markdown-body ol {
+    margin-top: 0;
+    margin-bottom: 1em;
+    padding-left: 1.75em;
+}
+
+.markdown-body li {
+    margin-bottom: 0.35em;
+}
+
+.markdown-body li > ul,
+.markdown-body li > ol {
+    margin-top: 0.35em;
+    margin-bottom: 0;
+}
+
+.markdown-body ul {
+    list-style: disc;
+}
+
+.markdown-body ul ul {
+    list-style: circle;
+}
+
+.markdown-body ul ul ul {
+    list-style: square;
+}
+
+/* Task lists */
+.markdown-body input[type="checkbox"] {
+    margin-right: 0.5em;
+    vertical-align: middle;
+    position: relative;
+    top: -1px;
+}
+
+/* Tables */
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1.25em;
+    overflow: auto;
+    display: block;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+    padding: 0.625rem 1rem;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.markdown-body table th {
+    background: var(--code-bg);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+}
+
+.markdown-body table tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.markdown-body table tr:hover {
+    background: rgba(251, 140, 0, 0.04);
+}
+
+/* Horizontal rules */
+.markdown-body hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 2em 0;
+}
+
+/* Images */
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 0.5em 0;
+}
+
+/* Strong and emphasis */
+.markdown-body strong {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.markdown-body em {
+    font-style: italic;
+}
+
+/* Definition lists (dl/dt/dd) */
+.markdown-body dl {
+    margin-bottom: 1em;
+}
+
+.markdown-body dt {
+    font-weight: 600;
+    margin-top: 0.75em;
+}
+
+.markdown-body dd {
+    margin-left: 1.5em;
+    margin-bottom: 0.5em;
+    color: var(--text-secondary);
+}
+
+/* Keyboard */
+.markdown-body kbd {
+    display: inline-block;
+    padding: 0.15em 0.4em;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.75em;
+    line-height: 1;
+    color: var(--text-color);
+    vertical-align: middle;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: inset 0 -1px 0 var(--border-color);
+}
+
+/* Metadata Grid */
+.metadata-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem 1.5rem;
+    align-items: baseline;
+}
+
+.metadata-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metadata-value {
+    font-size: 0.875rem;
+    color: var(--text-color);
+    word-break: break-word;
+}
+
+.metadata-value a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.metadata-value a:hover {
+    text-decoration: underline;
+}
+
+/* Container (override) */
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -512,6 +1391,14 @@ body {
         flex-direction: column;
     }
 
+    .search-row {
+        flex-direction: column;
+    }
+
+    .filter-row {
+        flex-direction: column;
+    }
+
     .plugin-grid {
         grid-template-columns: 1fr;
     }
@@ -524,6 +1411,15 @@ body {
         flex-direction: column;
         gap: 1rem;
         align-items: flex-start;
+    }
+
+    .metadata-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .empty-state-actions {
+        flex-direction: column;
+        align-items: center;
     }
 }
 
@@ -544,4 +1440,13 @@ body {
     .modal-content {
         padding: 1.5rem;
     }
+
+    .detail-card {
+        padding: 1.25rem;
+    }
+
+    .detail-title {
+        font-size: 1.5rem;
+    }
+
 }

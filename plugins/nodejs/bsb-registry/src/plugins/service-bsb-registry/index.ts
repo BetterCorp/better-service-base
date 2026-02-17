@@ -9,7 +9,7 @@ import {
   bsb,
   optional,
 } from '@bsb/base';
-import { RegistryStorage, StorageConfig } from './storage';
+import { type RegistryDB, createStorage } from './db';
 import { AuthManager } from './auth';
 import * as Types from './types';
 
@@ -22,12 +22,10 @@ import * as Types from './types';
  */
 export const RegistryConfigSchema = z.object({
   database: z.object({
-    type: z.enum(['sqlite', 'postgres']).default('sqlite'),
-    path: z.string().default('./.temp/registry.db'), // For SQLite
-    url: z.string().optional(), // For PostgreSQL
+    type: z.enum(['file', 'postgres']).default('file'),
+    path: z.string().default('./.temp/data'),
   }),
   auth: z.object({
-    tokensFile: z.string().default('./.temp/api-tokens.json'),
     requireAuth: z.boolean().default(true),
   }),
 });
@@ -128,8 +126,9 @@ export const EventSchemas = createEventSchemas({
 export const Config = createConfigSchema(
   {
     name: 'BSB Registry Core',
-    description: 'Event-driven plugin registry core for multi-language BSB plugin discovery',
-    tags: ['registry', 'plugin', 'marketplace', 'discovery', 'publishing', 'events'],
+    description: 'Event-driven plugin registry core for multi-language BSB plugin storage and discovery',
+    tags: ['registry', 'plugin', 'marketplace', 'discovery', 'publishing', 'events', 'storage'],
+    documentation: ['./docs/service-bsb-registry.md'],
   },
   RegistryConfigSchema
 );
@@ -178,7 +177,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   public runBeforePlugins?: string[] | undefined;
   public runAfterPlugins?: string[] | undefined;
 
-  private storage: RegistryStorage;
+  private storage: RegistryDB;
   private authManager: AuthManager;
 
   constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
@@ -187,16 +186,17 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       eventSchemas: EventSchemas,
     });
 
-    // Create storage client
-    const storageConfig: StorageConfig = {
+    // Create storage backend via factory
+    this.storage = createStorage({
       type: this.config.database.type,
       path: this.config.database.path,
-      url: this.config.database.url,
-    };
-    this.storage = new RegistryStorage(storageConfig);
+    });
 
-    // Create auth manager
-    this.authManager = new AuthManager(this.config.auth);
+    // Create auth manager -- delegates all storage to the same RegistryDB
+    this.authManager = new AuthManager(
+      { requireAuth: this.config.auth.requireAuth },
+      this.storage,
+    );
   }
 
   /**
@@ -301,20 +301,58 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
         version: data.version,
       });
 
-      // Validate authentication if required
-      if (this.config.auth.requireAuth) {
-        const authSpan = trace.startSpan('auth.check');
-        // TODO: Check auth token from trace context
-        trace.log.debug('Auth check skipped (token from trace context)');
-        authSpan.end();
+      // Auth is enforced at the HTTP layer (UI server authenticates
+      // the request and resolves the token to a userId before calling
+      // this event). The core plugin trusts the caller.
+
+      // Check if version already exists (immutable versions)
+      const pluginId = `${data.org}/${data.name}`;
+      const existsSpan = trace.startSpan('storage.versionExists');
+      const exists = await this.storage.versionExists(trace, data.org, data.name, data.version);
+      existsSpan.end();
+
+      if (exists) {
+        trace.log.warn('Version already exists: {id}@{version}', {
+          id: pluginId,
+          version: data.version,
+        });
+        return {
+          success: false,
+          pluginId,
+          version: data.version,
+          message: `Version ${data.version} already exists. Published versions are immutable - publish a new version instead.`,
+        };
       }
 
       // Build registry entry
       const buildSpan = trace.startSpan('build.entry');
-      const pluginId = `${data.org}/${data.name}`;
       const majorMinor = data.version.split('.').slice(0, 2).join('.');
 
-      const entry: Types.RegistryEntry = {
+      // eventSchema arrives as a parsed object (validated at the HTTP boundary).
+      // It's the full EventSchemaExport: { pluginName, version, events, dependencies? }
+      const parsedExport = (data.eventSchema && typeof data.eventSchema === 'object')
+        ? data.eventSchema as Record<string, unknown>
+        : {};
+
+      // Store only the events map -- pluginName and version are already
+      // at the root level of the registry entry; no need to duplicate them.
+      const eventsMap = (parsedExport as any).events ?? {};
+
+      // Compute event counts from the events map
+      const counts = this.countEvents(eventsMap);
+
+      // configSchema arrives as a parsed JSON Schema object (validated at HTTP boundary).
+      // If present, it must have type: "object" and properties -- the HTTP layer enforces this.
+      const configSchema = (data.configSchema && typeof data.configSchema === 'object')
+        ? data.configSchema
+        : undefined;
+
+      // Extract dependencies from the full export if not provided at top level
+      const dependencies = (data.dependencies && data.dependencies.length > 0)
+        ? data.dependencies
+        : (parsedExport as any).dependencies ?? [];
+
+      const entry = {
         id: pluginId,
         org: data.org,
         name: data.name,
@@ -330,28 +368,29 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
         homepage: data.metadata.homepage,
         repository: data.metadata.repository,
         visibility: data.visibility || 'public',
-        orgId: data.org,
-        eventSchema: data.eventSchema,
+        eventSchema: eventsMap,
+        configSchema,
         typeDefinitions: data.typeDefinitions,
         documentation: data.documentation,
+        dependencies,
         package: data.package,
         runtime: data.runtime,
-        eventCount: 0, // TODO: Parse from eventSchema
-        emitEventCount: 0,
-        onEventCount: 0,
-        returnableEventCount: 0,
-        broadcastEventCount: 0,
-        publishedBy: 'system', // TODO: Get from auth token
+        eventCount: counts.total,
+        emitEventCount: counts.emit,
+        onEventCount: counts.on,
+        returnableEventCount: counts.returnable,
+        broadcastEventCount: counts.broadcast,
+        publishedBy: data.publishedBy || 'system',
         publishedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         downloads: 0,
-      };
+      } as unknown as Types.RegistryEntry;
       buildSpan.end();
 
-      // Store in database
-      const upsertSpan = trace.startSpan('storage.upsert');
-      await this.storage.upsert(trace, entry);
-      upsertSpan.end();
+      // Store in database (will reject if version exists - double check)
+      const insertSpan = trace.startSpan('storage.insert');
+      await this.storage.insert(trace, entry);
+      insertSpan.end();
 
       trace.log.info('Plugin published successfully: {id}@{version}', {
         id: pluginId,
@@ -503,13 +542,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     try {
       trace.log.debug('Deleting plugin {org}/{name}', { org: data.org, name: data.name });
 
-      // Check authentication
-      if (this.config.auth.requireAuth) {
-        const authSpan = trace.startSpan('auth.check');
-        // TODO: Verify token has delete permissions
-        trace.log.debug('Auth check for delete operation');
-        authSpan.end();
-      }
+      // Auth is enforced at the HTTP layer.
 
       // Get current versions count
       const countSpan = trace.startSpan('storage.getVersions');
@@ -646,13 +679,15 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       trace.log.debug('Verifying auth token');
 
       const verifySpan = trace.startSpan('auth.manager.verify');
-      const isValid = this.authManager.isValidToken(data.token);
+      const resolved = await this.authManager.resolveToken(trace, data.token);
       verifySpan.end();
 
-      if (isValid) {
-        trace.log.debug('Token is valid');
+      if (resolved) {
+        trace.log.debug('Token is valid for user {userId}', { userId: resolved.userId });
         return {
           valid: true,
+          userId: resolved.userId,
+          permissions: resolved.effectivePermissions,
         };
       } else {
         trace.log.warn('Token verification failed');
@@ -668,6 +703,42 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     } finally {
       span.end();
     }
+  }
+
+  // ============================================================================
+  // Helpers
+  // ============================================================================
+
+  /**
+   * Count events by type from an events map (Record<string, EventExportEntry>).
+   * The events map is the flat map of event name to definition with `category`.
+   * Gracefully returns zeros if the map is invalid.
+   */
+  private countEvents(eventsMap: any): {
+    total: number;
+    emit: number;
+    on: number;
+    returnable: number;
+    broadcast: number;
+  } {
+    const counts = { total: 0, emit: 0, on: 0, returnable: 0, broadcast: 0 };
+    if (!eventsMap || typeof eventsMap !== 'object') return counts;
+
+    for (const def of Object.values(eventsMap) as any[]) {
+      switch (def.category) {
+        case 'emitEvents': counts.emit++; break;
+        case 'onEvents': counts.on++; break;
+        case 'emitReturnableEvents':
+        case 'onReturnableEvents':
+          counts.returnable++; break;
+        case 'emitBroadcast':
+        case 'onBroadcast':
+          counts.broadcast++; break;
+      }
+    }
+
+    counts.total = counts.emit + counts.on + counts.returnable + counts.broadcast;
+    return counts;
   }
 }
 

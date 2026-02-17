@@ -26,8 +26,9 @@ export type UIConfig = z.infer<typeof UIConfigSchema>;
 export const Config = createConfigSchema(
   {
     name: 'BSB Registry UI & API',
-    description: 'Event-driven web interface and REST API for browsing BSB plugins (content negotiation: HTML or JSON)',
-    tags: ['registry', 'ui', 'api', 'web', 'rest', 'handlebars', 'server-side-rendering', 'content-negotiation'],
+    description: 'Web UI and REST API for browsing, searching, and publishing BSB plugins (content negotiation: HTML or JSON)',
+    tags: ['registry', 'ui', 'api', 'web', 'rest', 'handlebars', 'server-side-rendering', 'content-negotiation', 'publishing'],
+    documentation: ['./docs/service-bsb-registry-ui.md'],
   },
   UIConfigSchema
 );

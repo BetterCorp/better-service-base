@@ -14,7 +14,8 @@
     "clean": "bsb-plugin-cli clean",
     "start": "bsb-plugin-cli start",
     "dev": "bsb-plugin-cli dev",
-    "test": "bsb-plugin-cli test"
+    "test": "bsb-plugin-cli test",
+    "publish:client": "bsb client publish"
   },
   "keywords": [
     "bsb",
@@ -26,15 +27,20 @@
     "multi-language",
     "api"
   ],
-  "author": "BSB Team",
-  "license": "MIT",
+  "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "nick@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
     "@fastify/static": "^8.0.2",
     "@fastify/view": "^10.0.1",
-    "handlebars": "^4.7.8",
-    "sql.js": "^1.12.0",
     "fastify": "^5.2.0",
+    "handlebars": "^4.7.8",
+    "marked": "^17.0.2",
+    "sql.js": "^1.12.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
@@ -45,5 +51,8 @@
   },
   "peerDependencies": {
     "@bsb/base": "file:../../../nodejs"
+  },
+  "bsb": {
+    "orgId": "bettercorp"
   }
 }

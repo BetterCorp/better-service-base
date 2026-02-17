@@ -246,23 +246,39 @@ function generatePluginJson(plugin: PluginInfo): void {
                      plugin.name.startsWith('events-') ? 'events' :
                      plugin.name.startsWith('config-') ? 'config' : 'other';
 
-    // Create plugin metadata object
-    const pluginMetadata = {
-      id: plugin.name, // Plugin identifier from directory name
-      name: metadata.name, // Display name
+    // Create plugin metadata object - only include fields with actual values
+    const pluginMetadata: Record<string, any> = {
+      id: plugin.name,
+      name: metadata.name,
       version: metadata.version || '1.0.0',
       description: metadata.description || '',
-      author: metadata.author || '',
-      license: metadata.license || '',
-      homepage: metadata.homepage || '',
-      repository: metadata.repository || '',
-      category, // Auto-detected from directory prefix
+      category,
       tags: metadata.tags || [],
-      initBeforePlugins: metadata.initBeforePlugins || [],
-      initAfterPlugins: metadata.initAfterPlugins || [],
-      runBeforePlugins: metadata.runBeforePlugins || [],
-      runAfterPlugins: metadata.runAfterPlugins || [],
+      documentation: metadata.documentation || [],
+      dependencies: [] as Array<{ id: string; version: string }>,
     };
+
+    // Only include optional fields if they have real values
+    if (metadata.author) pluginMetadata.author = metadata.author;
+    if (metadata.license) pluginMetadata.license = metadata.license;
+    if (metadata.homepage) pluginMetadata.homepage = metadata.homepage;
+    if (metadata.repository) pluginMetadata.repository = metadata.repository;
+
+    // Read auto-detected dependencies and config schema from schema JSON
+    const schemaPath = path.join(CWD, 'src', '.bsb', 'schemas', `${plugin.name}.json`);
+    if (fs.existsSync(schemaPath)) {
+      try {
+        const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+        if (Array.isArray(schema.dependencies) && schema.dependencies.length > 0) {
+          pluginMetadata.dependencies = schema.dependencies;
+        }
+        if (schema.configSchema && typeof schema.configSchema === 'object') {
+          pluginMetadata.configSchema = schema.configSchema;
+        }
+      } catch {
+        // Non-fatal — schema may be malformed
+      }
+    }
 
     // Create schemas directory
     const schemasDir = path.join(CWD, 'lib', 'schemas');
@@ -351,6 +367,79 @@ function syncParentSchemas(): void {
   }
 }
 
+// Generate root bsb-plugin.json as a registry-facing snippet
+// This follows the hand-written schema format (id, name, basePath, image, description, tags, documentation, pluginPath, links)
+// NOT a dump of the full per-plugin .plugin.json metadata
+function generateRootPluginJson(): void {
+  const schemasDir = path.join(CWD, 'lib', 'schemas');
+  if (!fs.existsSync(schemasDir)) {
+    return;
+  }
+
+  const pluginJsonFiles = fs.readdirSync(schemasDir)
+    .filter((f: string) => f.endsWith('.plugin.json'));
+
+  if (pluginJsonFiles.length === 0) {
+    return;
+  }
+
+  info('Generating bsb-plugin.json');
+
+  // Read package.json for links
+  let packageJson: Record<string, any> = {};
+  const packageJsonPath = path.join(CWD, 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    try {
+      packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  const plugins: Record<string, any>[] = [];
+  for (const file of pluginJsonFiles) {
+    try {
+      const meta = JSON.parse(fs.readFileSync(path.join(schemasDir, file), 'utf-8'));
+      const id = meta.id as string;
+
+      // Build the snippet entry following the hand-written schema
+      const snippet: Record<string, any> = {
+        id,
+        name: meta.name,
+        basePath: './',
+        image: `./${id}.png`,
+        description: meta.description || '',
+        tags: meta.tags || [],
+        documentation: meta.documentation || [],
+        pluginPath: `src/plugins/${id}/`,
+      };
+
+      // Add links from package.json repository or metadata
+      const repoUrl = meta.repository || packageJson.repository?.url || packageJson.repository || '';
+      if (repoUrl) {
+        snippet.links = { github: typeof repoUrl === 'string' ? repoUrl : '' };
+      }
+
+      plugins.push(snippet);
+    } catch {
+      // Skip malformed files
+    }
+  }
+
+  if (plugins.length === 0) {
+    return;
+  }
+
+  const rootPluginJson = { nodejs: plugins };
+  fs.writeFileSync(
+    path.join(CWD, 'bsb-plugin.json'),
+    JSON.stringify(rootPluginJson, null, 2),
+    'utf-8'
+  );
+
+  success(`Generated bsb-plugin.json with ${plugins.length} plugin(s)`);
+}
+
 // Build the plugin
 function build(): void {
   log('\n=== Building BSB Plugin ===\n', 'bright');
@@ -382,10 +471,13 @@ function build(): void {
   // Step 7: Copy extracted schemas to lib/schemas/
   copySchemasToLib();
 
-  // Step 8: Generate plugin metadata JSON (needs compiled JS for Config.metadata)
+  // Step 8: Generate per-plugin metadata JSON (needs compiled JS for Config.metadata)
   for (const plugin of plugins) {
     generatePluginJson(plugin);
   }
+
+  // Step 9: Generate root bsb-plugin.json (aggregates all per-plugin metadata)
+  generateRootPluginJson();
 
   log('\n' + colors.green + colors.bright + '[BUILD COMPLETE]' + colors.reset + '\n');
 }

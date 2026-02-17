@@ -167,6 +167,7 @@ export const Config = createConfigSchema(
     name: 'Demo Todo App',
     description: 'Demo Todo Service showcasing BSB v9 best practices with cross-language event support',
     tags: ['demo', 'todo', 'example', 'crud', 'http', 'bsb-types'],
+    documentation: ['./docs/plugin.md'],
   },
   TodoConfigSchema
 );

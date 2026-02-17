@@ -1,202 +1,444 @@
-<div style="margin-bottom: 1rem;">
-  <a href="/plugins" style="color: #FB8C00; text-decoration: none;">&larr; Back to Browse</a>
-</div>
-
-<div class="card">
-  <h1 style="color: #FB8C00; margin-bottom: 0.5rem;">
-    {{plugin.displayName}}
-  </h1>
-
-  <div style="margin: 1rem 0;">
-    <code style="font-size: 1rem;">{{plugin.id}}</code>
-  </div>
-
-  <p style="color: #bbb; font-size: 1.125rem; margin: 1rem 0;">
-    {{plugin.description}}
-  </p>
-
-  <div style="margin: 1.5rem 0;">
-    <span class="badge badge-{{plugin.category}}">{{plugin.category}}</span>
-    <span class="badge" style="background-color: #555;">{{plugin.language}}</span>
-    <span class="badge" style="background-color: #333;">v{{plugin.version}}</span>
-  </div>
-
-  {{#if plugin.tags}}
-    <div style="margin: 1rem 0;">
-      <strong style="color: #bbb;">Tags:</strong>
-      {{#each plugin.tags}}
-        <span class="badge" style="background-color: #444;">{{this}}</span>
-      {{/each}}
+<section class="plugins">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="/plugins">&larr; Back to Browse</a>
     </div>
-  {{/if}}
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 2rem 0;">
-    <div>
-      <div style="color: #888; font-size: 0.875rem;">Total Events</div>
-      <div style="color: #FB8C00; font-size: 1.5rem; font-weight: bold;">{{plugin.eventCount}}</div>
-    </div>
-    <div>
-      <div style="color: #888; font-size: 0.875rem;">Emit Events</div>
-      <div style="color: #43A047; font-size: 1.5rem; font-weight: bold;">{{plugin.emitEventCount}}</div>
-    </div>
-    <div>
-      <div style="color: #888; font-size: 0.875rem;">On Events</div>
-      <div style="color: #03A9F4; font-size: 1.5rem; font-weight: bold;">{{plugin.onEventCount}}</div>
-    </div>
-    <div>
-      <div style="color: #888; font-size: 0.875rem;">Returnable</div>
-      <div style="color: #a200ff; font-size: 1.5rem; font-weight: bold;">{{plugin.returnableEventCount}}</div>
-    </div>
-  </div>
-</div>
+    <div class="detail-card">
+      <div class="plugin-tags detail-top-tags">
+        <span class="tag category">{{plugin.category}}</span>
+        <span class="tag language">{{plugin.language}}</span>
+        <span class="tag">v{{plugin.version}}</span>
+      </div>
 
-{{#if plugin.package}}
-<div class="card">
-  <h2>Installation</h2>
+      <h1 class="detail-title">{{plugin.displayName}}</h1>
+      <div class="detail-id"><code>{{pluginDisplayId plugin.id}}</code></div>
+      <p class="detail-description">{{plugin.description}}</p>
 
-  {{#if plugin.package.nodejs}}
-    <div style="margin: 1rem 0;">
-      <div style="color: #bbb; margin-bottom: 0.5rem;">Node.js (npm)</div>
-      <pre><code>npm install {{plugin.package.nodejs}}</code></pre>
+      {{#if plugin.tags}}
+        <div class="plugin-tags">
+          {{#each plugin.tags}}
+            <span class="tag">{{this}}</span>
+          {{/each}}
+        </div>
+      {{/if}}
+
+      {{#if plugin.docTabs}}
+        {{#if (gt plugin.docTabs.length 1)}}
+          <div class="doc-tabs">
+            <div class="doc-tab-bar">
+              {{#each plugin.docTabs}}
+                <button class="doc-tab-btn{{#if active}} active{{/if}}" data-tab="{{id}}">{{title}}</button>
+              {{/each}}
+            </div>
+            {{#each plugin.docTabs}}
+              <div class="doc-tab-panel{{#if active}} active{{/if}}" id="{{id}}">
+                <div class="readme-content markdown-body">
+                  {{{html}}}
+                </div>
+              </div>
+            {{/each}}
+          </div>
+          <script>
+            document.querySelector('.doc-tab-bar').addEventListener('click', function(e) {
+              var btn = e.target.closest('.doc-tab-btn');
+              if (!btn) return;
+              var tabId = btn.getAttribute('data-tab');
+              var tabs = this.parentElement;
+              tabs.querySelectorAll('.doc-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+              tabs.querySelectorAll('.doc-tab-panel').forEach(function(p) { p.classList.remove('active'); });
+              btn.classList.add('active');
+              document.getElementById(tabId).classList.add('active');
+            });
+          </script>
+        {{else}}
+          <div class="readme-content markdown-body">
+            {{{plugin.docTabs.0.html}}}
+          </div>
+        {{/if}}
+      {{/if}}
     </div>
-  {{/if}}
 
-  {{#if plugin.package.csharp}}
-    <div style="margin: 1rem 0;">
-      <div style="color: #bbb; margin-bottom: 0.5rem;">C# (NuGet)</div>
-      <pre><code>dotnet add package {{plugin.package.csharp}}</code></pre>
-    </div>
-  {{/if}}
+    <div class="detail-card">
+      <h2 class="detail-section-title">Installation</h2>
 
-  {{#if plugin.package.go}}
-    <div style="margin: 1rem 0;">
-      <div style="color: #bbb; margin-bottom: 0.5rem;">Go</div>
-      <pre><code>go get {{plugin.package.go}}</code></pre>
-    </div>
-  {{/if}}
+      {{#if (eq plugin.category 'service')}}
+        <div class="install-block">
+          <span class="install-label">Use as a dependency (client reference)</span>
+          <pre><code>bsb client install {{pluginDisplayId plugin.id}}</code></pre>
+        </div>
+        <div class="install-block">
+          <span class="install-label">Deploy as a service</span>
+          <pre><code>bsb plugin install {{pluginDisplayId plugin.id}}</code></pre>
+        </div>
+      {{else}}
+        <div class="install-block">
+          <span class="install-label">Install plugin</span>
+          <pre><code>bsb plugin install {{pluginDisplayId plugin.id}}</code></pre>
+        </div>
+      {{/if}}
 
-  {{#if plugin.package.java}}
-    <div style="margin: 1rem 0;">
-      <div style="color: #bbb; margin-bottom: 0.5rem;">Java (Maven)</div>
-      <pre><code>&lt;dependency&gt;
+      {{#if plugin.package}}
+        {{#if plugin.package.nodejs}}
+          <div class="install-block">
+            <span class="install-label">Node.js (npm)</span>
+            <pre><code>npm install {{plugin.package.nodejs}}</code></pre>
+          </div>
+        {{/if}}
+        {{#if plugin.package.csharp}}
+          <div class="install-block">
+            <span class="install-label">C# (NuGet)</span>
+            <pre><code>dotnet add package {{plugin.package.csharp}}</code></pre>
+          </div>
+        {{/if}}
+        {{#if plugin.package.go}}
+          <div class="install-block">
+            <span class="install-label">Go</span>
+            <pre><code>go get {{plugin.package.go}}</code></pre>
+          </div>
+        {{/if}}
+        {{#if plugin.package.java}}
+          <div class="install-block">
+            <span class="install-label">Java (Maven)</span>
+            <pre><code>&lt;dependency&gt;
   &lt;groupId&gt;{{plugin.package.java}}&lt;/groupId&gt;
 &lt;/dependency&gt;</code></pre>
+          </div>
+        {{/if}}
+      {{/if}}
     </div>
-  {{/if}}
-</div>
-{{/if}}
 
-{{#if versions}}
-<div class="card">
-  <h2>Available Versions</h2>
-  <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
-    {{#each versions}}
-      <span class="badge" style="background-color: {{#if (eq version ../plugin.version)}}#FB8C00{{else}}#444{{/if}};">
-        v{{version}}
-      </span>
-    {{/each}}
-  </div>
-</div>
-{{/if}}
+    {{#if plugin.configProps}}
+    <div class="detail-card">
+      <h2 class="detail-section-title">Configuration</h2>
+      <p class="detail-description">Configuration options for this plugin:</p>
 
-{{#if plugin.eventSchema}}
-<div class="card">
-  <h2>Event Schema</h2>
-  <p style="color: #bbb; margin-bottom: 1rem;">
-    This plugin emits and listens to the following events:
-  </p>
-
-  {{#if plugin.eventSchema.emitFireAndForgetEvents}}
-    <h3 style="color: #43A047; margin-top: 1.5rem;">Emit Events (Fire and Forget)</h3>
-    <div style="margin-top: 1rem;">
-      {{#each plugin.eventSchema.emitFireAndForgetEvents}}
-        <div style="background-color: #333; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-          <code style="color: #43A047; font-size: 1rem;">{{@key}}</code>
-          {{#if this.description}}
-            <div style="color: #bbb; margin-top: 0.5rem;">{{this.description}}</div>
-          {{/if}}
-        </div>
+      {{#each plugin.configProps}}
+        {{#if isGroup}}
+          <div class="config-group">
+            <h3 class="config-group-title">{{name}}</h3>
+            {{#if description}}<p class="event-section-desc">{{description}}</p>{{/if}}
+            <div class="event-props">
+              {{#each props}}
+                <div class="event-prop">
+                  <code class="event-prop-name">{{name}}</code>
+                  <span class="event-prop-type">{{type}}</span>
+                  {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                  {{#if defaultValue}}<span class="config-default">default: {{defaultValue}}</span>{{/if}}
+                  {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                </div>
+              {{/each}}
+            </div>
+          </div>
+        {{else}}
+          <div class="event-props">
+            {{#each props}}
+              <div class="event-prop">
+                <code class="event-prop-name">{{name}}</code>
+                <span class="event-prop-type">{{type}}</span>
+                {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                {{#if defaultValue}}<span class="config-default">default: {{defaultValue}}</span>{{/if}}
+                {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+              </div>
+            {{/each}}
+          </div>
+        {{/if}}
       {{/each}}
     </div>
-  {{/if}}
-
-  {{#if plugin.eventSchema.onFireAndForgetEvents}}
-    <h3 style="color: #03A9F4; margin-top: 1.5rem;">On Events (Fire and Forget)</h3>
-    <div style="margin-top: 1rem;">
-      {{#each plugin.eventSchema.onFireAndForgetEvents}}
-        <div style="background-color: #333; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-          <code style="color: #03A9F4; font-size: 1rem;">{{@key}}</code>
-          {{#if this.description}}
-            <div style="color: #bbb; margin-top: 0.5rem;">{{this.description}}</div>
-          {{/if}}
-        </div>
-      {{/each}}
-    </div>
-  {{/if}}
-
-  {{#if plugin.eventSchema.onReturnableEvents}}
-    <h3 style="color: #a200ff; margin-top: 1.5rem;">Returnable Events</h3>
-    <div style="margin-top: 1rem;">
-      {{#each plugin.eventSchema.onReturnableEvents}}
-        <div style="background-color: #333; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-          <code style="color: #a200ff; font-size: 1rem;">{{@key}}</code>
-          {{#if this.description}}
-            <div style="color: #bbb; margin-top: 0.5rem;">{{this.description}}</div>
-          {{/if}}
-        </div>
-      {{/each}}
-    </div>
-  {{/if}}
-</div>
-{{/if}}
-
-{{#if plugin.documentation}}
-  {{#if plugin.documentation.readme}}
-  <div class="card">
-    <h2>README</h2>
-    <div style="color: #bbb; line-height: 1.8;">
-      <pre style="white-space: pre-wrap;">{{plugin.documentation.readme}}</pre>
-    </div>
-  </div>
-  {{/if}}
-{{/if}}
-
-<div class="card">
-  <h2>Metadata</h2>
-  <div style="display: grid; grid-template-columns: 150px 1fr; gap: 0.5rem 1rem; margin-top: 1rem;">
-    {{#if plugin.author}}
-      <div style="color: #888;">Author</div>
-      <div style="color: #e0e0e0;">{{plugin.author}}</div>
     {{/if}}
 
-    {{#if plugin.license}}
-      <div style="color: #888;">License</div>
-      <div style="color: #e0e0e0;">{{plugin.license}}</div>
+    {{#if plugin.eventSchema}}
+    <div class="detail-card">
+      <h2 class="detail-section-title">Events</h2>
+      <p class="detail-description">Events available to clients of this plugin:</p>
+
+      {{#if plugin.eventSchema.emitReturnableEvents}}
+        <h3 class="event-section-title event-returnable">Emit and Return</h3>
+        <p class="event-section-desc">Call these events and receive a response.</p>
+        {{#each plugin.eventSchema.emitReturnableEvents}}
+          <details class="event-item">
+            <summary class="event-item-summary">
+              <div class="event-item-header">
+                <code class="event-returnable">{{name}}</code>
+                <span class="event-type-badge returnable">returnable</span>
+              </div>
+              {{#if description}}<p class="event-description">{{description}}</p>{{/if}}
+            </summary>
+            <div class="event-item-body">
+              {{#if inputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Input</span>
+                  <div class="event-props">
+                    {{#each inputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+              {{#if outputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Returns</span>
+                  <div class="event-props">
+                    {{#each outputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+            </div>
+          </details>
+        {{/each}}
+      {{/if}}
+
+      {{#if plugin.eventSchema.emitEvents}}
+        <h3 class="event-section-title event-emit">Fire and Forget</h3>
+        <p class="event-section-desc">Emit these events with no response expected.</p>
+        {{#each plugin.eventSchema.emitEvents}}
+          <details class="event-item">
+            <summary class="event-item-summary">
+              <div class="event-item-header">
+                <code class="event-emit">{{name}}</code>
+                <span class="event-type-badge emit">fire-and-forget</span>
+              </div>
+              {{#if description}}<p class="event-description">{{description}}</p>{{/if}}
+            </summary>
+            <div class="event-item-body">
+              {{#if inputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Input</span>
+                  <div class="event-props">
+                    {{#each inputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+            </div>
+          </details>
+        {{/each}}
+      {{/if}}
+
+      {{#if plugin.eventSchema.onReturnableEvents}}
+        <h3 class="event-section-title event-returnable">Listen and Respond</h3>
+        <p class="event-section-desc">Events this plugin listens for and responds to.</p>
+        {{#each plugin.eventSchema.onReturnableEvents}}
+          <details class="event-item">
+            <summary class="event-item-summary">
+              <div class="event-item-header">
+                <code class="event-returnable">{{name}}</code>
+                <span class="event-type-badge returnable">returnable</span>
+              </div>
+              {{#if description}}<p class="event-description">{{description}}</p>{{/if}}
+            </summary>
+            <div class="event-item-body">
+              {{#if inputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Receives</span>
+                  <div class="event-props">
+                    {{#each inputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+              {{#if outputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Returns</span>
+                  <div class="event-props">
+                    {{#each outputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+            </div>
+          </details>
+        {{/each}}
+      {{/if}}
+
+      {{#if plugin.eventSchema.onEvents}}
+        <h3 class="event-section-title event-on">Listen (Fire and Forget)</h3>
+        <p class="event-section-desc">Events this plugin handles silently.</p>
+        {{#each plugin.eventSchema.onEvents}}
+          <details class="event-item">
+            <summary class="event-item-summary">
+              <div class="event-item-header">
+                <code class="event-on">{{name}}</code>
+                <span class="event-type-badge on">fire-and-forget</span>
+              </div>
+              {{#if description}}<p class="event-description">{{description}}</p>{{/if}}
+            </summary>
+            <div class="event-item-body">
+              {{#if inputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Receives</span>
+                  <div class="event-props">
+                    {{#each inputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+            </div>
+          </details>
+        {{/each}}
+      {{/if}}
+
+      {{#if plugin.eventSchema.emitBroadcast}}
+        <h3 class="event-section-title event-broadcast">Broadcast</h3>
+        <p class="event-section-desc">Broadcast events to all listeners.</p>
+        {{#each plugin.eventSchema.emitBroadcast}}
+          <details class="event-item">
+            <summary class="event-item-summary">
+              <div class="event-item-header">
+                <code class="event-broadcast">{{name}}</code>
+                <span class="event-type-badge broadcast">broadcast</span>
+              </div>
+              {{#if description}}<p class="event-description">{{description}}</p>{{/if}}
+            </summary>
+            <div class="event-item-body">
+              {{#if inputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Payload</span>
+                  <div class="event-props">
+                    {{#each inputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+            </div>
+          </details>
+        {{/each}}
+      {{/if}}
+
+      {{#if plugin.eventSchema.onBroadcast}}
+        <h3 class="event-section-title event-broadcast">Listen to Broadcasts</h3>
+        <p class="event-section-desc">Broadcast events this plugin subscribes to.</p>
+        {{#each plugin.eventSchema.onBroadcast}}
+          <details class="event-item">
+            <summary class="event-item-summary">
+              <div class="event-item-header">
+                <code class="event-broadcast">{{name}}</code>
+                <span class="event-type-badge broadcast">broadcast</span>
+              </div>
+              {{#if description}}<p class="event-description">{{description}}</p>{{/if}}
+            </summary>
+            <div class="event-item-body">
+              {{#if inputProps.length}}
+                <div class="event-schema-block">
+                  <span class="event-schema-label">Payload</span>
+                  <div class="event-props">
+                    {{#each inputProps}}
+                      <div class="event-prop">
+                        <code class="event-prop-name">{{name}}</code>
+                        <span class="event-prop-type">{{type}}</span>
+                        {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
+                        {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+                      </div>
+                    {{/each}}
+                  </div>
+                </div>
+              {{/if}}
+            </div>
+          </details>
+        {{/each}}
+      {{/if}}
+    </div>
     {{/if}}
 
-    {{#if plugin.homepage}}
-      <div style="color: #888;">Homepage</div>
-      <div style="color: #e0e0e0;">
-        <a href="{{plugin.homepage}}" target="_blank" style="color: #FB8C00;">{{plugin.homepage}}</a>
+    {{#if versions}}
+    <div class="detail-card">
+      <h2 class="detail-section-title">Available Versions</h2>
+      <div class="version-list">
+        {{#each versions}}
+          <span class="tag{{#if (eq version ../plugin.version)}} category{{/if}}">v{{version}}</span>
+        {{/each}}
       </div>
+    </div>
     {{/if}}
 
-    {{#if plugin.repository}}
-      <div style="color: #888;">Repository</div>
-      <div style="color: #e0e0e0;">
-        <a href="{{plugin.repository}}" target="_blank" style="color: #FB8C00;">{{plugin.repository}}</a>
+    <div class="detail-card">
+      <h2 class="detail-section-title">Dependencies</h2>
+      {{#if (hasItems plugin.dependencies)}}
+        <div class="dependency-list">
+          {{#each plugin.dependencies}}
+            <div class="dependency-item">
+              <a href="{{dependencyHref id}}" class="dependency-link">
+                <code class="dependency-id">{{pluginDisplayId id}}</code>
+                <span class="dependency-version">{{version}}</span>
+              </a>
+            </div>
+          {{/each}}
+        </div>
+      {{else}}
+        <p class="detail-description dependency-none">No dependencies</p>
+      {{/if}}
+    </div>
+
+    <div class="detail-card">
+      <h2 class="detail-section-title">Metadata</h2>
+      <div class="metadata-grid">
+        {{#if plugin.author}}
+          <span class="metadata-label">Author</span>
+          <span class="metadata-value">{{formatAuthor plugin.author}}</span>
+        {{/if}}
+        {{#if plugin.license}}
+          <span class="metadata-label">License</span>
+          <span class="metadata-value">{{plugin.license}}</span>
+        {{/if}}
+        {{#if plugin.homepage}}
+          <span class="metadata-label">Homepage</span>
+          <span class="metadata-value"><a href="{{plugin.homepage}}" target="_blank">{{plugin.homepage}}</a></span>
+        {{/if}}
+        {{#if plugin.repository}}
+          <span class="metadata-label">Repository</span>
+          <span class="metadata-value"><a href="{{plugin.repository}}" target="_blank">{{plugin.repository}}</a></span>
+        {{/if}}
+        <span class="metadata-label">Published</span>
+        <span class="metadata-value">{{plugin.publishedAt}}</span>
+        <span class="metadata-label">Updated</span>
+        <span class="metadata-value">{{plugin.updatedAt}}</span>
+        {{#if plugin.visibility}}
+          <span class="metadata-label">Visibility</span>
+          <span class="metadata-value">{{plugin.visibility}}</span>
+        {{/if}}
       </div>
-    {{/if}}
-
-    <div style="color: #888;">Published</div>
-    <div style="color: #e0e0e0;">{{plugin.publishedAt}}</div>
-
-    <div style="color: #888;">Updated</div>
-    <div style="color: #e0e0e0;">{{plugin.updatedAt}}</div>
-
-    {{#if plugin.visibility}}
-      <div style="color: #888;">Visibility</div>
-      <div style="color: #e0e0e0;">{{plugin.visibility}}</div>
-    {{/if}}
+    </div>
   </div>
-</div>
+</section>
