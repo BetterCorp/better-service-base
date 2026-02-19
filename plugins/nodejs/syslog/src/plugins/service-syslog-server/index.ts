@@ -26,7 +26,7 @@
  */
 
 const SyslogServer = require("syslog-server");
-import { BSBService, BSBServiceConstructor, BSBServiceClient, createConfigSchema } from "@bsb/base";
+import { BSBService, BSBServiceConstructor, BSBServiceClient, createConfigSchema, bsb } from "@bsb/base";
 import { Observable } from "@bsb/base";
 import { z } from "zod";
 import { createFireAndForgetEvent } from "@bsb/base";
@@ -60,7 +60,7 @@ export const Config = createConfigSchema(
     name: 'service-syslog-server',
     description: 'Syslog server service plugin that receives messages and emits events',
     version: '9.0.0',
-    image: '../../../docs/public/assets/images/bsb-logo.png',
+    image: './assets/syslog-icon.png',
     tags: ['syslog', 'server', 'service', 'events'],
   },
   SyslogServerConfigSchema
@@ -72,7 +72,13 @@ export const Config = createConfigSchema(
 export const EventSchemas = {
   emitEvents: {
     onMessage: createFireAndForgetEvent(
-      SyslogMessageSchema,
+      bsb.object({
+        gatewayTime: bsb.number({ description: "Gateway timestamp (epoch ms)" }),
+        date: bsb.number({ description: "Original syslog timestamp (epoch ms)" }),
+        host: bsb.string({ description: "Source host" }),
+        protocol: bsb.string({ description: "Transport protocol" }),
+        message: bsb.string({ description: "Syslog message content" }),
+      }, "Syslog message payload"),
       "Syslog message received from client"
     ),
   },

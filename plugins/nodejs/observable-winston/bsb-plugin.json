@@ -2,15 +2,22 @@
   "nodejs": [
     {
       "id": "observable-winston",
-      "name": "Winston",
+      "name": "observable-winston",
       "basePath": "./",
       "image": "./observable-winston.png",
-      "description": "Winston integration for flexible, transport-based logging",
-      "tags": ["Winston", "Logging", "Transports", "Observability", "Flexible"],
-      "documentation": ["./docs/plugin.md"],
+      "description": "Winston observable plugin with console, file, and rotation transports",
+      "tags": [
+        "winston",
+        "logging",
+        "observability",
+        "transports"
+      ],
+      "documentation": [
+        "./docs/plugin.md"
+      ],
       "pluginPath": "src/plugins/observable-winston/",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base"
+        "github": "https://github.com/BetterCorp/better-service-base.git"
       }
     }
   ]

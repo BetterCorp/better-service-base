@@ -4,5 +4,4 @@ node_modules
 /src/plugins/service-syslog-to-file
 /log.log
 .bsb/
-
 lib/

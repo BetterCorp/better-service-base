@@ -1,0 +1,18 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-zipkin",
+      "name": "observable-zipkin",
+      "basePath": "./",
+      "description": "Zipkin tracing integration for BSB framework",
+      "tags": [
+        "zipkin",
+        "tracing",
+        "observability",
+        "distributed-tracing"
+      ],
+      "documentation": [],
+      "pluginPath": "src/plugins/observable-zipkin/"
+    }
+  ]
+}

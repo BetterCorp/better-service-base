@@ -2,44 +2,35 @@
 lib/
 dist/
 *.tsbuildinfo
-
 # Dependencies
 node_modules/
-
 # Logs
 logs/
 *.log
 npm-debug.log*
-
 # Runtime data
 *.pid
 *.seed
 *.pid.lock
-
 # Coverage
 coverage/
 .nyc_output/
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
 # OS
 .DS_Store
 Thumbs.db
-
 # Testing
 .temp/
 test-output.txt
 test-results.txt
 test_output.txt
-
 # BSB
 .bsbdevwatch
-
 # Environment
 .env
 .env.local

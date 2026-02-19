@@ -91,12 +91,14 @@ function buildRootManifestEntries(
       id,
       name: meta.name,
       basePath: './',
-      image: meta.image || `./${id}.png`,
       description: meta.description || '',
       tags: meta.tags || [],
       documentation: meta.documentation || [],
       pluginPath: `src/plugins/${id}/`,
     };
+    if (meta.image) {
+      entry.image = meta.image;
+    }
 
     const repoUrl = meta.repository || packageJson.repository?.url || packageJson.repository || '';
     if (repoUrl) {

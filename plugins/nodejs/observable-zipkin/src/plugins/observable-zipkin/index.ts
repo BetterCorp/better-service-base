@@ -71,13 +71,10 @@ export const Config = createConfigSchema(
     name: 'observable-zipkin',
     description: 'Zipkin tracing integration for BSB framework',
     version: '1.0.0',
-    image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['zipkin', 'tracing', 'observability', 'distributed-tracing'],
   },
   ConfigSchema
 );
-
-type ZipkinConfig = z.infer<typeof ConfigSchema>;
 
 /**
  * Zipkin observable plugin for distributed tracing
@@ -265,6 +262,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     trace: DTrace,
     pluginName: string,
     spanName: string,
+    parentSpanId: string | null,
     attributes?: Record<string, string | number | boolean>
   ): void {
     if (!this.tracer || this.isDisposed) {
@@ -279,6 +277,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
           "bsb.plugin": pluginName,
           "bsb.trace.t": trace.t,
           "bsb.trace.s": trace.s,
+          ...(parentSpanId ? { "bsb.parent_span_id": parentSpanId } : {}),
           ...attributes,
         },
       },

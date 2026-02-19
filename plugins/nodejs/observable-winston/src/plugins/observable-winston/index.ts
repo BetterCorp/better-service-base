@@ -76,7 +76,7 @@ export const Config = createConfigSchema(
     name: 'observable-winston',
     description: 'Winston observable plugin with console, file, and rotation transports',
     version: '9.0.0',
-    image: '../../../docs/public/assets/images/bsb-logo.png',
+    image: './observable-winston.png',
     tags: ['winston', 'logging', 'observability', 'transports'],
     documentation: ['./docs/plugin.md'],
   },

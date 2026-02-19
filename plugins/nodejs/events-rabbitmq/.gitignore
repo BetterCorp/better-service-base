@@ -10,3 +10,5 @@ node_modules
 /sec.config.json
 /node_modules
 /dist-clients
+.bsb/
+lib/

@@ -422,12 +422,14 @@ function generateRootPluginJson(): void {
         id,
         name: meta.name,
         basePath: './',
-        image: meta.image || `./${id}.png`,
         description: meta.description || '',
         tags: meta.tags || [],
         documentation: meta.documentation || [],
         pluginPath: `src/plugins/${id}/`,
       };
+      if (meta.image) {
+        snippet.image = meta.image;
+      }
 
       // Add links from package.json repository or metadata
       const repoUrl = meta.repository || packageJson.repository?.url || packageJson.repository || '';

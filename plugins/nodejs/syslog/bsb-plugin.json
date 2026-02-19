@@ -2,28 +2,38 @@
   "nodejs": [
     {
       "id": "observable-syslog",
-      "name": "Syslog Client",
+      "name": "observable-syslog",
       "basePath": "./",
-      "description": "Send BSB logs to remote syslog servers over UDP, TCP, or TLS. Supports RFC 3164 and RFC 5424 formats with facility and severity mapping.",
-      "tags": ["Syslog", "RFC 5424", "RFC 3164", "Client", "Logging"],
       "image": "./assets/syslog-icon.png",
-      "documentation": ["./docs/syslog-client.md"],
+      "description": "Syslog client observable plugin for forwarding logs to syslog servers",
+      "tags": [
+        "syslog",
+        "logging",
+        "observable",
+        "network"
+      ],
+      "documentation": [],
       "pluginPath": "src/plugins/observable-syslog/",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base"
+        "github": "https://github.com/BetterCorp/better-service-base.git"
       }
     },
     {
       "id": "service-syslog-server",
-      "name": "Syslog Server",
+      "name": "service-syslog-server",
       "basePath": "./",
-      "description": "Receive and process syslog messages over UDP/TCP with RFC 3164 and RFC 5424 compliance. Perfect for centralized logging infrastructure.",
-      "tags": ["Syslog", "RFC 5424", "RFC 3164", "Server", "UDP", "TCP"],
       "image": "./assets/syslog-icon.png",
-      "documentation": ["./docs/syslog-server.md"],
+      "description": "Syslog server service plugin that receives messages and emits events",
+      "tags": [
+        "syslog",
+        "server",
+        "service",
+        "events"
+      ],
+      "documentation": [],
       "pluginPath": "src/plugins/service-syslog-server/",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base"
+        "github": "https://github.com/BetterCorp/better-service-base.git"
       }
     }
   ]
