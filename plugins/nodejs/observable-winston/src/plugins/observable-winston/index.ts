@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, BSBPluginConfig, LogFormatter, BSBError } from "@bsb/base";
+import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { z } from "zod";
 import * as winston from "winston";
@@ -71,12 +71,17 @@ export const WinstonConfigSchema = z.object({
 
 export type WinstonConfig = z.infer<typeof WinstonConfigSchema>;
 
-/**
- * Configuration class
- */
-export class Config extends BSBPluginConfig<typeof WinstonConfigSchema> {
-  validationSchema = WinstonConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'observable-winston',
+    description: 'Winston observable plugin with console, file, and rotation transports',
+    version: '9.0.0',
+    image: '../../../docs/public/assets/images/bsb-logo.png',
+    tags: ['winston', 'logging', 'observability', 'transports'],
+    documentation: ['./docs/plugin.md'],
+  },
+  WinstonConfigSchema
+);
 
 /**
  * Convert BSB log level to Winston log level
@@ -101,12 +106,13 @@ function bsbLevelToWinstonLevel(level: string): string {
 /**
  * Winston observable plugin - integrate with Winston logger
  */
-export class Plugin extends BSBObservable<Config> {
+export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
+  static Config = Config;
   private logFormatter = new LogFormatter();
   private logger!: winston.Logger;
   private isDisposed = false;
 
-  constructor(config: BSBObservableConstructor<Config>) {
+  constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 

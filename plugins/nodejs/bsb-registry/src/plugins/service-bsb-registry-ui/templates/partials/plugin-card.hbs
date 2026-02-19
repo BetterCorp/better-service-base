@@ -1,20 +1,40 @@
 <a href="/plugins/{{org}}/{{name}}" class="plugin-card">
-  <div class="plugin-tags card-top-tags">
-    <span class="tag category">{{category}}</span>
-    <span class="tag language">{{language}}</span>
-    <span class="tag">v{{version}}</span>
+  <div class="plugin-image{{#unless imageUrl}} placeholder{{/unless}}">
+    {{#if imageUrl}}
+      <img src="{{imageUrl}}" alt="{{displayName}}" loading="lazy">
+    {{else}}
+      <div class="plugin-image-fallback">{{category}}</div>
+    {{/if}}
+
   </div>
 
-  <div class="plugin-name">{{displayName}}</div>
-  <div class="plugin-id">{{pluginDisplayId id}}</div>
-
-  <p class="plugin-description">{{description}}</p>
-
-  {{#if tags}}
-    <div class="plugin-tags">
-      {{#each tags}}
-        <span class="tag">{{this}}</span>
-      {{/each}}
+  <div class="plugin-content">
+    <div class="plugin-header">
+      <div class="plugin-name">{{displayName}}</div>
+      <div class="plugin-id">{{pluginDisplayId id}}</div>
     </div>
-  {{/if}}
+
+    <div class="plugin-meta-right">
+      <div class="plugin-badges">
+        <span class="plugin-badge badge-language">{{language}}</span>
+        <span class="plugin-badge badge-category">{{category}}</span>
+        {{#if badges}}
+          {{#each badges}}
+            <span class="plugin-badge badge-{{type}}">{{label}}</span>
+          {{/each}}
+        {{/if}}
+        <span class="plugin-badge badge-version">v{{version}}</span>
+      </div>
+    </div>
+
+    <p class="plugin-description">{{description}}</p>
+
+    {{#if tags}}
+      <div class="plugin-tags">
+        {{#each tags}}
+          <span class="tag">{{this}}</span>
+        {{/each}}
+      </div>
+    {{/if}}
+  </div>
 </a>

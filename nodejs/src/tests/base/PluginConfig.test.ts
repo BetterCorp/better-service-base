@@ -58,6 +58,19 @@ describe('PluginConfig v9', () => {
       assert.strictEqual(instance.validationSchema, schema);
     });
 
+    it('should support omitted schema (no config)', () => {
+      const Config = createConfigSchema(
+        {
+          name: 'test-no-config',
+          description: 'Test plugin without config schema',
+        }
+      );
+
+      const instance = new Config();
+      assert.strictEqual(instance.validationSchema, undefined);
+      assert.strictEqual(Config.metadata.name, 'test-no-config');
+    });
+
     it('should support full metadata fields', () => {
       const Config = createConfigSchema(
         {

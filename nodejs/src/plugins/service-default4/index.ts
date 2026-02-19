@@ -35,6 +35,7 @@ export const Config = createConfigSchema(
     name: 'service-default4',
     description: 'Default service plugin 4 for testing',
     version: '1.0.0',
+    image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example', 'test'],
   },
   z.null()

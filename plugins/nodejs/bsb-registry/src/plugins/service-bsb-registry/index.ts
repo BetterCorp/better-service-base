@@ -127,6 +127,7 @@ export const Config = createConfigSchema(
   {
     name: 'BSB Registry Core',
     description: 'Event-driven plugin registry core for multi-language BSB plugin storage and discovery',
+    image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['registry', 'plugin', 'marketplace', 'discovery', 'publishing', 'events', 'storage'],
     documentation: ['./docs/service-bsb-registry.md', './docs/bsb-registry-db-file.md'],
   },
@@ -346,6 +347,11 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       const configSchema = (data.configSchema && typeof data.configSchema === 'object')
         ? data.configSchema
         : undefined;
+      const capabilities = (data.capabilities && typeof data.capabilities === 'object')
+        ? data.capabilities
+        : ((parsedExport as any).capabilities && typeof (parsedExport as any).capabilities === 'object')
+          ? (parsedExport as any).capabilities
+          : undefined;
 
       // Extract dependencies from the full export if not provided at top level
       const dependencies = (data.dependencies && data.dependencies.length > 0)
@@ -369,6 +375,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
         repository: data.metadata.repository,
         visibility: data.visibility || 'public',
         eventSchema: eventsMap,
+        capabilities,
         configSchema,
         typeDefinitions: data.typeDefinitions,
         documentation: data.documentation,

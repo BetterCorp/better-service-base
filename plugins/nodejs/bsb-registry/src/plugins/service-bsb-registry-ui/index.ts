@@ -19,6 +19,9 @@ const UIConfigSchema = z.object({
   port: z.number().min(1).max(65535).default(3200),
   host: z.string().default('0.0.0.0'),
   pageSize: z.number().min(1).max(100).default(20),
+  uploadDir: z.string().default('./.temp/registry-images'),
+  badgesFile: z.string().default('./BADGES.json'),
+  maxImageUploadMb: z.number().min(1).max(20).default(5),
 });
 
 export type UIConfig = z.infer<typeof UIConfigSchema>;
@@ -27,6 +30,7 @@ export const Config = createConfigSchema(
   {
     name: 'BSB Registry UI & API',
     description: 'Web UI and REST API for browsing, searching, and publishing BSB plugins (content negotiation: HTML or JSON)',
+    image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['registry', 'ui', 'api', 'web', 'rest', 'handlebars', 'server-side-rendering', 'content-negotiation', 'publishing'],
     documentation: ['./docs/service-bsb-registry-ui.md'],
   },
@@ -67,7 +71,10 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     this.server = new RegistryUIServer(
       this.config.port,
       this.config.host,
-      this.config.pageSize
+      this.config.pageSize,
+      this.config.uploadDir,
+      this.config.badgesFile,
+      this.config.maxImageUploadMb
     );
   }
 

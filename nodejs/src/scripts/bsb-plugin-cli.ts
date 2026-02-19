@@ -15,7 +15,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync, spawn } from 'child_process';
+import { execSync, execFileSync, spawn } from 'child_process';
 
 interface PluginInfo {
   name: string;
@@ -165,14 +165,24 @@ function copyPluginAssets(plugin: PluginInfo): void {
 }
 
 // Extract schemas directly from TypeScript source (pre-compilation)
-function extractSchemasFromSource(): void {
+async function extractSchemasFromSource(): Promise<void> {
   try {
+    const runExtractorModule = async (scriptPath: string): Promise<void> => {
+      delete require.cache[require.resolve(scriptPath)];
+      const mod = require(scriptPath);
+      const run = mod.extractSchemasFromSource || mod.main || mod.default;
+      if (typeof run !== 'function') {
+        throw new Error(`Extractor entry function not found: ${scriptPath}`);
+      }
+      await run();
+    };
+
     // Use the extraction script
     const extractorPath = path.join(CWD, 'node_modules', '@bsb', 'base', 'lib', 'scripts', 'extract-schemas-from-source.js');
 
     if (fs.existsSync(extractorPath)) {
       info('Extracting schemas from TypeScript source');
-      execSync(`node "${extractorPath}"`, { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] });
+      await runExtractorModule(extractorPath);
       success('Extracted schemas from TypeScript source');
     } else {
       // Fallback: use local compiled version or ts-node
@@ -181,11 +191,15 @@ function extractSchemasFromSource(): void {
 
       if (fs.existsSync(localCompiledPath)) {
         info('Extracting schemas from TypeScript source');
-        execSync(`node "${localCompiledPath}"`, { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] });
+        await runExtractorModule(localCompiledPath);
         success('Extracted schemas from TypeScript source');
       } else if (fs.existsSync(localTsPath)) {
         info('Extracting schemas from TypeScript source');
-        execSync(`node -r ts-node/register "${localTsPath}"`, { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] });
+        execFileSync(
+          process.execPath,
+          ['-r', 'ts-node/register', localTsPath],
+          { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] }
+        );
         success('Extracted schemas from TypeScript source');
       }
     }
@@ -263,6 +277,7 @@ function generatePluginJson(plugin: PluginInfo): void {
     if (metadata.license) pluginMetadata.license = metadata.license;
     if (metadata.homepage) pluginMetadata.homepage = metadata.homepage;
     if (metadata.repository) pluginMetadata.repository = metadata.repository;
+    if (metadata.image) pluginMetadata.image = metadata.image;
 
     // Read auto-detected dependencies and config schema from schema JSON
     const schemaPath = path.join(CWD, 'src', '.bsb', 'schemas', `${plugin.name}.json`);
@@ -407,7 +422,7 @@ function generateRootPluginJson(): void {
         id,
         name: meta.name,
         basePath: './',
-        image: `./${id}.png`,
+        image: meta.image || `./${id}.png`,
         description: meta.description || '',
         tags: meta.tags || [],
         documentation: meta.documentation || [],
@@ -441,7 +456,7 @@ function generateRootPluginJson(): void {
 }
 
 // Build the plugin
-function build(): void {
+async function build(): Promise<void> {
   log('\n=== Building BSB Plugin ===\n', 'bright');
 
   // Step 1: Sync schemas with parent @bsb/base core plugins FIRST
@@ -450,7 +465,7 @@ function build(): void {
 
   // Step 2: Extract schemas from TypeScript source (pre-compilation)
   // This reads TS files directly, no compiled JS needed — breaks circular dependency
-  extractSchemasFromSource();
+  await extractSchemasFromSource();
 
   // Step 3: Generate virtual clients from extracted schemas
   // These will be compiled alongside the project in step 5
@@ -517,11 +532,11 @@ function start(): void {
 }
 
 // Development mode (build + start)
-function dev(): void {
+async function dev(): Promise<void> {
   log('\n=== Development Mode ===\n', 'bright');
 
   // Build first
-  build();
+  await build();
 
   // Then start
   start();
@@ -586,7 +601,7 @@ ${colors.cyan}Package.json Integration:${colors.reset}
 }
 
 // Main entry point
-function main(): void {
+async function main(): Promise<void> {
   if (!COMMAND) {
     usage();
     process.exit(1);
@@ -594,10 +609,10 @@ function main(): void {
 
   switch (COMMAND) {
     case 'build':
-      build();
+      await build();
       break;
     case 'dev':
-      dev();
+      await dev();
       break;
     case 'start':
       start();
@@ -620,4 +635,7 @@ function main(): void {
   }
 }
 
-main();
+main().catch((err) => {
+  const message = err instanceof Error ? err.message : String(err);
+  error(message);
+});

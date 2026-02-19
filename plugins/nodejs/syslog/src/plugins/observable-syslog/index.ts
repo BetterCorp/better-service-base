@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, BSBPluginConfig, LogFormatter, BSBError } from "@bsb/base";
+import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { z } from "zod";
 // @ts-ignore - no types available
@@ -62,12 +62,16 @@ export const SyslogClientConfigSchema = z.object({
 
 export type SyslogClientConfig = z.infer<typeof SyslogClientConfigSchema>;
 
-/**
- * Configuration class
- */
-export class Config extends BSBPluginConfig<typeof SyslogClientConfigSchema> {
-  validationSchema = SyslogClientConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'observable-syslog',
+    description: 'Syslog client observable plugin for forwarding logs to syslog servers',
+    version: '9.0.0',
+    image: '../../../docs/public/assets/images/bsb-logo.png',
+    tags: ['syslog', 'logging', 'observable', 'network'],
+  },
+  SyslogClientConfigSchema
+);
 
 /**
  * Convert BSB log level to syslog severity
@@ -92,12 +96,13 @@ function bsbLevelToSyslogSeverity(level: string): number {
 /**
  * Syslog client observable plugin - sends logs to syslog servers
  */
-export class Plugin extends BSBObservable<Config> {
+export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
+  static Config = Config;
   private logFormatter = new LogFormatter();
   private client: any = null;
   private isDisposed = false;
 
-  constructor(config: BSBObservableConstructor<Config>) {
+  constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 

@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 import path from 'node:path'
-import { discoverPlugins } from './scripts/plugin-discovery.js'
 
 function copyVersionTxt() {
   let outDirAbs = ''
@@ -29,47 +28,12 @@ function copyVersionTxt() {
   }
 }
 
-function pluginDiscoveryPlugin() {
-  return {
-    name: 'bsb-plugin-discovery',
-
-    async config(config) {
-      console.log('🔌 Discovering BSB plugins...')
-
-      // Clean .temp directory first
-      const tempCleanDir = path.resolve(__dirname, 'src', '.temp')
-      if (fsSync.existsSync(tempCleanDir)) {
-        fsSync.rmSync(tempCleanDir, { recursive: true })
-      }
-
-      // Generate plugin pages directly to src/ root
-      // This allows files at src/plugins/<category>/<id>/ to be served at /plugins/<category>/<id>/
-      const result = await discoverPlugins({
-        pluginsDir: path.resolve(__dirname, '../plugins/nodejs'),
-        tempDir: path.resolve(__dirname, 'src'),
-        publicDir: path.resolve(__dirname, 'public'),
-      })
-
-      console.log(`✅ Found ${result.plugins.length} plugins`)
-
-      // Merge generated plugin pages with existing static pages
-      return {
-        build: {
-          rollupOptions: {
-            input: {
-              ...config.build?.rollupOptions?.input,
-              ...result.inputPages,
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
 export default defineConfig({
   root: 'src',
   publicDir: '../public',
+  define: {
+    __BSB_REGISTRY_URL__: JSON.stringify(process.env.BSB_DOCS_REGISTRY_URL || 'http://localhost:3200/plugins'),
+  },
   build: {
     outDir: '../dist',
     emptyOutDir: true,
@@ -92,17 +56,14 @@ export default defineConfig({
         'core-plugins-events': 'src/core-plugins/events-default/index.html',
         'core-plugins-observable': 'src/core-plugins/observable-default/index.html',
 
-        // Plugin Marketplace
-        'marketplace': 'src/marketplace/index.html',
+        // External Plugin Registry Redirect
+        'registry': 'src/registry/index.html',
 
-        // Note: Plugin pages are auto-generated via pluginDiscoveryPlugin()
-
-        // Legacy pages (keep for now, can remove later)
+        // Legacy pages
         'get-started': 'src/get-started/index.html',
         'architecture': 'src/architecture/index.html',
         'developer': 'src/developer/index.html',
-        'nodejs-guide': 'src/languages/nodejs/index.html',
-        'plugins': 'src/plugins/index.html'
+        'nodejs-guide': 'src/languages/nodejs/index.html'
       }
     }
   },
@@ -114,7 +75,6 @@ export default defineConfig({
     port: 4174
   },
   plugins: [
-    pluginDiscoveryPlugin(),
     copyVersionTxt(),
     {
       name: 'custom-404',

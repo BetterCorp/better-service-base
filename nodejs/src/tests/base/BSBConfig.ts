@@ -47,6 +47,7 @@ describe("BSBConfig", () => {
         pluginCwd: process.cwd(),
         pluginName: "test-plugin",
         pluginVersion: "0.0.0",
+        config: undefined,
         sbObservable: MockSBObservable(),
       });
     });
@@ -166,6 +167,7 @@ describe("BSBConfig", () => {
         pluginCwd: process.cwd(),
         pluginName: "test-plugin",
         pluginVersion: "0.0.0",
+        config: undefined,
         sbObservable: MockSBObservable(),
       });
     });

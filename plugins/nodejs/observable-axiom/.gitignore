@@ -4,3 +4,5 @@ lib/
 .DS_Store
 *.tsbuildinfo
 .env
+src/.bsb/
+.bsb/

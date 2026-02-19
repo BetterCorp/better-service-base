@@ -38,10 +38,30 @@ import {
   Observable,
 } from "../../index";
 import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig";
+import { createConfigSchema } from "../../base/PluginConfig";
+import { z } from "zod";
 import { ConfigDefinition } from "./interfaces";
 
+const ConfigSchema = z.object({
+  BSB_PROFILE: z.string().optional().default("default"),
+  BSB_CONFIG_FILE: z.string().optional().default("./sec-config.yaml"),
+});
+
+export const Config = createConfigSchema(
+  {
+    name: "config-default",
+    description: "Default configuration plugin for profile and plugin resolution",
+    version: "1.0.0",
+    image: "../docs/public/assets/images/bsb-logo.png",
+    tags: ["core", "config", "default"],
+    documentation: ["./docs/core-plugins/config-default.md"],
+  },
+  ConfigSchema
+);
+
 export class Plugin
-  extends BSBConfig {
+  extends BSBConfig<InstanceType<typeof Config>> {
+  static Config = Config;
   async getServicePluginDefinition(
     obs: Observable,
     pluginName: string,
@@ -175,24 +195,14 @@ export class Plugin
   private _secConfigFilePath: string;
   private _deploymentProfile: string = "default";
 
-  constructor(config: BSBConfigConstructor) {
+  constructor(config: BSBConfigConstructor<InstanceType<typeof Config>>) {
     super(config);
-    this._secConfigFilePath = path.join(this.cwd, "./sec-config.yaml");
+    this._secConfigFilePath = path.join(this.cwd, this.config.BSB_CONFIG_FILE);
   }
 
   init(obs: Observable): void {
-    if (
-      Tools.isString(process.env.BSB_PROFILE) &&
-      process.env.BSB_PROFILE.length > 2
-    ) {
-      this._deploymentProfile = process.env.BSB_PROFILE!;
-    }
-    if (
-      Tools.isString(process.env.BSB_CONFIG_FILE) &&
-      process.env.BSB_CONFIG_FILE.length > 2
-    ) {
-      this._secConfigFilePath = process.env.BSB_CONFIG_FILE!;
-    }
+    this._deploymentProfile = this.config.BSB_PROFILE;
+    this._secConfigFilePath = this.config.BSB_CONFIG_FILE;
     this._appConfig = {
       default: {
         observable: {},

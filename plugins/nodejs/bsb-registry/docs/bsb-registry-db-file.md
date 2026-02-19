@@ -103,7 +103,7 @@ One file per published version. Created on publish, never modified (versions are
 | `version` | string | yes | Semver (`1.0.0`) |
 | `majorMinor` | string | yes | Major.minor only (`1.0`) |
 | `language` | enum | yes | `nodejs`, `csharp`, `go`, `java`, `python` |
-| `category` | enum | yes | `service`, `observable`, `events`, `config`, `other` |
+| `category` | enum | yes | `service`, `observable`, `events`, `config` |
 | `tags` | string[] | yes | Searchable keywords |
 | `visibility` | enum | yes | `public` or `private` |
 | `eventSchema` | object | yes | Events map (`Record<eventName, EventExportEntry>`) |

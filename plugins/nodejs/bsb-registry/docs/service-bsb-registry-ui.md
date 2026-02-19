@@ -11,6 +11,9 @@ service-bsb-registry-ui:
   port: 3200                     # single HTTP port for UI + API
   host: 0.0.0.0
   pageSize: 20                   # plugins per page in browse view
+  uploadDir: ./.temp/registry-images
+  badgesFile: ./BADGES.json
+  maxImageUploadMb: 5
 ```
 
 | Option | Type | Default | Description |
@@ -18,6 +21,9 @@ service-bsb-registry-ui:
 | `port` | number | `3200` | HTTP server port |
 | `host` | string | `0.0.0.0` | Bind address |
 | `pageSize` | number | `20` | Plugins per page |
+| `uploadDir` | string | `./.temp/registry-images` | Directory to store plugin images |
+| `badgesFile` | string | `./BADGES.json` | Badge map file keyed by `org/name` |
+| `maxImageUploadMb` | number | `5` | Max image upload size in MB |
 
 ## Content Negotiation
 
@@ -53,6 +59,7 @@ This means the CLI, CI/CD tools, and the web browser all use the same URL paths.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/plugins` | Publish a new plugin version |
+| POST | `/plugins/:org/:name/image` | Upload/replace a single plugin image |
 
 Authentication is via `Authorization: Bearer {token}` header.
 
@@ -64,7 +71,7 @@ Authentication is via `Authorization: Bearer {token}` header.
 |-------|------|-------------|
 | `page` | int | Page number (1-based) |
 | `query` | string | Search query |
-| `category` | enum | `service`, `observable`, `events`, `config`, `other` |
+| `category` | enum | `service`, `observable`, `events`, `config` |
 | `language` | enum | `nodejs`, `csharp`, `go`, `java`, `python` |
 | `limit` | int | Results per page (1-100) |
 | `offset` | int | Pagination offset |
@@ -111,6 +118,22 @@ curl -X POST http://localhost:3200/plugins \
 ```
 
 See [service-bsb-registry.md](service-bsb-registry.md) for the full publish request schema.
+
+## Plugin Badges
+
+Create a `BADGES.json` file to force specific badges:
+
+```json
+{
+  "bettercorp/config-default": ["CORE", "OFFICIAL"],
+  "bettercorp/events-rabbitmq": "OFFICIAL"
+}
+```
+
+Badge fallback order:
+1. Entry in `BADGES.json`
+2. Organization name (for `org/name` plugins)
+3. `COMMUNITY`
 
 ## How It Works
 

@@ -604,12 +604,105 @@ a.filter-tag {
 }
 
 /* Detail Page */
+.detail-tab-nav {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    padding-bottom: 0.25rem;
+}
+
+.detail-tab-btn {
+    appearance: none;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.625rem 0.875rem;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.detail-tab-btn:hover {
+    color: var(--text-color);
+    border-color: var(--primary-color);
+}
+
+.detail-tab-btn.active {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+    border-bottom-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+.detail-tab-panel {
+    display: none;
+}
+
+.detail-tab-panel.active {
+    display: block;
+}
+
 .detail-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 2rem;
     margin-bottom: 1.5rem;
+}
+
+.detail-tabs-shell {
+    padding: 0;
+    overflow: hidden;
+}
+
+.detail-tabs-shell > .detail-tab-nav {
+    margin: 0;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+    gap: 0.5rem;
+}
+
+.detail-tabs-shell > .detail-tab-nav .detail-tab-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    padding: 0.6rem 1rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+}
+
+.detail-tabs-shell > .detail-tab-nav .detail-tab-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    box-shadow: 0 6px 14px rgba(251, 140, 0, 0.28);
+}
+
+.detail-tabs-shell > .detail-tab-nav .detail-tab-btn:hover {
+    color: var(--text-color);
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.detail-tabs-shell > .detail-tab-nav .detail-tab-btn.active:hover {
+    color: #fff;
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+}
+
+.detail-tabs-shell .detail-tab-panels {
+    background: var(--card-bg);
+}
+
+.detail-tabs-shell .detail-tab-panel {
+    padding: 1.75rem 2rem 2rem;
 }
 
 .detail-title {
@@ -675,7 +768,7 @@ a.filter-tag {
 
 /* Documentation tabs */
 .doc-tabs {
-    margin-top: 1.5rem;
+    margin-top: 0;
 }
 
 .doc-tab-bar {
@@ -922,29 +1015,154 @@ details.event-item[open] > .event-item-summary::after {
 }
 
 /* Config section */
-.config-group {
-    margin-bottom: 1.5rem;
-    padding-left: 0;
+.config-tree {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+    padding: 0.35rem 0;
 }
 
-.config-group:last-child {
+.config-tree-node {
+    padding: 0.45rem 0.75rem 0.5rem;
+    margin-left: calc(var(--config-level) * 1.1rem);
+    border-left: 2px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+}
+
+.config-tree-node::before {
+    content: "";
+    position: absolute;
+    left: -2px;
+    top: 1.1rem;
+    width: 0.7rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.config-tree-node.is-object {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.config-tree-node.is-field {
+    background: transparent;
+}
+
+.config-tree-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.55rem;
+}
+
+.config-key {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.config-row-path {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
+
+.config-type {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+    color: var(--primary-color);
+}
+
+.config-pill {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+}
+
+.config-pill-default {
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.config-pill-branch {
+    border-color: rgba(3, 169, 244, 0.45);
+    color: #81d4fa;
+}
+
+.config-tree-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.2rem;
+    margin-left: 0.1rem;
+}
+
+/* Supported feature groups */
+.feature-group {
+    margin-bottom: 1.5rem;
+}
+
+.feature-group:last-child {
     margin-bottom: 0;
 }
 
-.config-group-title {
+.feature-group-title {
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--primary-color);
-    margin-bottom: 0.5rem;
+    color: var(--text-color);
+    margin: 0 0 0.6rem;
 }
 
-.config-default {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+.feature-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.feature-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
     background: var(--code-bg);
-    padding: 0.1rem 0.4rem;
-    border-radius: 3px;
+}
+
+.feature-chip-name {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.75rem;
+    color: var(--text-color);
+}
+
+.feature-chip-state {
+    font-size: 0.67rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+
+.feature-chip.is-supported {
+    border-color: rgba(67, 160, 71, 0.45);
+    background: rgba(67, 160, 71, 0.12);
+}
+
+.feature-chip.is-supported .feature-chip-state {
+    color: #66bb6a;
+}
+
+.feature-chip.is-unsupported {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.feature-chip.is-unsupported .feature-chip-state {
+    color: var(--text-secondary);
+    opacity: 0.8;
 }
 
 /* Installation blocks */
@@ -1425,8 +1643,207 @@ details.event-item[open] > .event-item-summary::after {
         padding: 1.25rem;
     }
 
+    .detail-tabs-shell {
+        padding: 0;
+    }
+
+    .detail-tabs-shell > .detail-tab-nav {
+        padding: 0.625rem 0.625rem 0;
+    }
+
+    .detail-tabs-shell .detail-tab-panel {
+        padding: 1.1rem 1rem 1.25rem;
+    }
+
     .detail-title {
         font-size: 1.5rem;
     }
 
+}
+
+/* Marketplace-style plugin cards */
+.plugin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.plugin-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    position: relative;
+    padding: 0;
+}
+
+.plugin-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
+}
+
+.plugin-image {
+    width: 100%;
+    height: 210px;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    background: linear-gradient(135deg, var(--bg-secondary), var(--code-bg));
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    display: block;
+}
+
+.plugin-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.plugin-image.placeholder {
+    background: linear-gradient(135deg, #2f2f2f, #1f1f1f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plugin-image-fallback {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    border: 1px dashed var(--border-color);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+}
+
+.plugin-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+}
+
+.plugin-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border-radius: 6px;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    text-transform: uppercase;
+    background: #2f2f2f;
+}
+
+.badge-version {
+    background: #111111;
+    border-color: #2d2d2d;
+}
+
+.badge-category {
+    background: #fb8c00;
+    border-color: #fb8c00;
+}
+
+.badge-language {
+    background: #43a047;
+    border-color: #43a047;
+}
+
+.badge-core {
+    background: #03a9f4;
+    border-color: #03a9f4;
+}
+
+.badge-official {
+    background: #1e88e5;
+    border-color: #1e88e5;
+}
+
+.badge-org,
+.badge-custom {
+    background: #5e35b1;
+    border-color: #5e35b1;
+}
+
+.badge-community {
+    background: #616161;
+    border-color: #616161;
+}
+
+.plugin-content {
+    padding: 1rem 1.2rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.plugin-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.plugin-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.plugin-id {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    word-break: break-all;
+}
+
+.plugin-description {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.plugin-meta-right {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+    z-index: 2;
+}
+
+.plugin-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+@media (max-width: 900px) {
+    .plugin-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .plugin-meta-right {
+        position: static;
+        align-items: flex-start;
+    }
+
+    .plugin-badges {
+        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
 }

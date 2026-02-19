@@ -19,7 +19,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 
 const CWD = process.cwd();
 
@@ -41,6 +40,60 @@ interface PluginSource {
   dirName: string;
 }
 
+type PluginType = 'service' | 'observable' | 'events' | 'config' | 'unknown';
+
+const OBSERVABLE_METHODS = {
+  logging: ['debug', 'info', 'warn', 'error'],
+  metrics: ['createCounter', 'createGauge', 'createHistogram', 'incrementCounter', 'setGauge', 'observeHistogram'],
+  tracing: ['spanStart', 'spanEnd', 'spanError'],
+} as const;
+
+const EVENTS_METHODS = [
+  'onBroadcast',
+  'emitBroadcast',
+  'onEvent',
+  'emitEvent',
+  'onReturnableEvent',
+  'emitEventAndReturn',
+  'receiveStream',
+  'sendStream',
+] as const;
+
+const CONFIG_METHODS = [
+  'getObservablePlugins',
+  'getEventsPlugins',
+  'getServicePlugins',
+  'getServicePluginDefinition',
+  'getPluginConfig',
+] as const;
+
+function resolveTsNodeRegister(): string | null {
+  const searchRoots = [
+    CWD,
+    __dirname,
+    path.join(CWD, 'node_modules', '@bsb', 'base'),
+    path.join(__dirname, '..', '..'),
+  ];
+
+  for (const root of searchRoots) {
+    try {
+      return require.resolve('ts-node/register/transpile-only', { paths: [root] });
+    } catch {
+      // Try next location
+    }
+  }
+
+  for (const root of searchRoots) {
+    try {
+      return require.resolve('ts-node/register', { paths: [root] });
+    } catch {
+      // Try next location
+    }
+  }
+
+  return null;
+}
+
 /**
  * Detect whether this is a self-build (@bsb/base project) or an external plugin.
  */
@@ -60,9 +113,9 @@ function detectProjectType(): 'self' | 'external' {
 }
 
 /**
- * Discover service plugins that have EventSchemas exports.
+ * Discover plugin source files from src/plugins/<plugin>/index.ts.
  */
-function discoverServicePlugins(): PluginSource[] {
+function discoverPlugins(): PluginSource[] {
   const pluginsDir = path.join(CWD, 'src', 'plugins');
   const results: PluginSource[] = [];
 
@@ -78,14 +131,75 @@ function discoverServicePlugins(): PluginSource[] {
     const indexPath = path.join(pluginsDir, dir, 'index.ts');
     if (!fs.existsSync(indexPath)) continue;
 
-    const content = fs.readFileSync(indexPath, 'utf-8');
-    // Only process plugins that export EventSchemas
-    if (content.includes('EventSchemas')) {
-      results.push({ srcPath: indexPath, dirName: dir });
-    }
+    results.push({ srcPath: indexPath, dirName: dir });
   }
 
   return results;
+}
+
+function inferPluginType(pluginDirName: string, sourceContent: string): PluginType {
+  if (pluginDirName.startsWith('service-')) return 'service';
+  if (pluginDirName.startsWith('observable-')) return 'observable';
+  if (pluginDirName.startsWith('events-')) return 'events';
+  if (pluginDirName.startsWith('config-')) return 'config';
+
+  if (/extends\s+BSBService\b/.test(sourceContent)) return 'service';
+  if (/extends\s+BSBObservable\b/.test(sourceContent)) return 'observable';
+  if (/extends\s+BSBEvents\b/.test(sourceContent)) return 'events';
+  if (/extends\s+BSBConfig\b/.test(sourceContent)) return 'config';
+  return 'unknown';
+}
+
+function extractPluginClassBody(sourceContent: string): string {
+  const classMatch = sourceContent.match(/export\s+(?:default\s+)?class\s+Plugin\b/);
+  if (!classMatch || classMatch.index === undefined) return '';
+
+  const classStart = classMatch.index;
+  const openBrace = sourceContent.indexOf('{', classStart);
+  if (openBrace < 0) return '';
+
+  let depth = 0;
+  for (let i = openBrace; i < sourceContent.length; i++) {
+    const ch = sourceContent[i];
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        return sourceContent.slice(openBrace + 1, i);
+      }
+    }
+  }
+
+  return '';
+}
+
+function classHasMethod(classBody: string, methodName: string): boolean {
+  const escaped = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const methodRegex = new RegExp(`\\b(?:public\\s+|protected\\s+|private\\s+|static\\s+|override\\s+|async\\s+)*(?:readonly\\s+)?${escaped}\\s*\\(`);
+  return methodRegex.test(classBody);
+}
+
+function buildCapabilities(pluginType: PluginType, classBody: string): Record<string, unknown> | undefined {
+  if (pluginType === 'observable') {
+    const logging = Object.fromEntries(OBSERVABLE_METHODS.logging.map((name) => [name, classHasMethod(classBody, name)]));
+    const metrics = Object.fromEntries(OBSERVABLE_METHODS.metrics.map((name) => [name, classHasMethod(classBody, name)]));
+    const tracing = Object.fromEntries(OBSERVABLE_METHODS.tracing.map((name) => [name, classHasMethod(classBody, name)]));
+    return { logging, metrics, tracing };
+  }
+
+  if (pluginType === 'events') {
+    return {
+      eventsApi: Object.fromEntries(EVENTS_METHODS.map((name) => [name, classHasMethod(classBody, name)])),
+    };
+  }
+
+  if (pluginType === 'config') {
+    return {
+      configApi: Object.fromEntries(CONFIG_METHODS.map((name) => [name, classHasMethod(classBody, name)])),
+    };
+  }
+
+  return undefined;
 }
 
 /**
@@ -253,9 +367,9 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   // Normalize multiline imports into single lines before processing
   const lines = normalizeMultilineImports(sourceContent.split('\n'));
 
-  // Find the class declaration line
+  // Find the Plugin class declaration line (not helper classes like Config)
   const classLineIndex = lines.findIndex(line =>
-    /^\s*export\s+(default\s+)?class\s+\w+/.test(line)
+    /^\s*export\s+(default\s+)?class\s+Plugin\b/.test(line)
   );
 
   // Take everything before the class
@@ -360,29 +474,41 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   outputLines.push('// --- Schema extraction footer (auto-generated) ---');
   outputLines.push(exportEventSchemasImport);
   outputLines.push('');
-  outputLines.push(`const _pluginName = typeof Config !== 'undefined' && (Config as any).metadata`);
-  outputLines.push(`  ? (Config as any).metadata.name`);
+  outputLines.push(`let _Config: any;`);
+  outputLines.push(`let _EventSchemas: any;`);
+  outputLines.push(`try { _Config = eval('Config'); } catch { _Config = undefined; }`);
+  outputLines.push(`try { _EventSchemas = eval('EventSchemas'); } catch { _EventSchemas = undefined; }`);
+  outputLines.push(`if (!_Config && (module as any)?.exports?.Config) { _Config = (module as any).exports.Config; }`);
+  outputLines.push(`if (!_EventSchemas && (module as any)?.exports?.EventSchemas) { _EventSchemas = (module as any).exports.EventSchemas; }`);
+  outputLines.push('');
+  outputLines.push(`const _pluginName = _Config && _Config.metadata`);
+  outputLines.push(`  ? (_Config as any).metadata.name`);
   outputLines.push(`  : ${JSON.stringify(pluginDirName)};`);
-  outputLines.push(`const _pluginVersion = typeof Config !== 'undefined' && (Config as any).metadata && (Config as any).metadata.version`);
-  outputLines.push(`  ? (Config as any).metadata.version`);
+  outputLines.push(`const _pluginVersion = _Config && _Config.metadata && _Config.metadata.version`);
+  outputLines.push(`  ? (_Config as any).metadata.version`);
   outputLines.push(`  : "1.0.0";`);
   outputLines.push('');
-  outputLines.push('const _schemaResult = exportEventSchemas(_pluginName, _pluginVersion, EventSchemas as any);');
+  outputLines.push('const _schemaResult = (_EventSchemas)');
+  outputLines.push('  ? exportEventSchemas(_pluginName, _pluginVersion, _EventSchemas as any)');
+  outputLines.push('  : { pluginName: _pluginName, version: _pluginVersion, events: {} };');
   outputLines.push('');
   outputLines.push('// Extract config schema as JSON Schema if Config has a Zod validationSchema');
   outputLines.push('try {');
-  outputLines.push('  if (typeof Config !== "undefined" && Config) {');
-  outputLines.push('    const _configInstance = new (Config as any)("", "", "", "");');
+  outputLines.push('  if (_Config) {');
+  outputLines.push('    const _configInstance = new (_Config as any)("", "", "", "");');
   outputLines.push('    if (_configInstance.validationSchema && typeof _configInstance.validationSchema === "object") {');
-  outputLines.push('      const { toJSONSchema: _toJSONSchema } = require("zod");');
-  outputLines.push('      (_schemaResult as any).configSchema = _toJSONSchema(_configInstance.validationSchema);');
+  outputLines.push('      const _zod = require("zod");');
+  outputLines.push('      const _toJSONSchema = _zod.toJSONSchema || (_zod.z && _zod.z.toJSONSchema);');
+  outputLines.push('      if (typeof _toJSONSchema === "function") {');
+  outputLines.push('        (_schemaResult as any).configSchema = _toJSONSchema(_configInstance.validationSchema);');
+  outputLines.push('      }');
   outputLines.push('    }');
   outputLines.push('  }');
   outputLines.push('} catch (_e) {');
   outputLines.push('  // Config schema extraction is optional - skip on error');
   outputLines.push('}');
   outputLines.push('');
-  outputLines.push('process.stdout.write(JSON.stringify(_schemaResult));');
+  outputLines.push('(module as any).exports.__BSB_SCHEMA_RESULT = _schemaResult;');
   outputLines.push('');
 
   return outputLines.join('\n');
@@ -449,11 +575,18 @@ function detectClientDependencies(sourceContent: string): Array<{ id: string; ve
  */
 async function main() {
   const projectType = detectProjectType();
-  const plugins = discoverServicePlugins();
+  const plugins = discoverPlugins();
+  const tsNodeRegisterPath = resolveTsNodeRegister();
 
   if (plugins.length === 0) {
     // eslint-disable-next-line no-console
-    console.log('No plugins with EventSchemas found.');
+    console.log('No plugins found in src/plugins.');
+    return;
+  }
+
+  if (!tsNodeRegisterPath) {
+    // eslint-disable-next-line no-console
+    console.log('Skipping schema extraction: ts-node/register is not available in this project.');
     return;
   }
 
@@ -462,6 +595,10 @@ async function main() {
   if (!fs.existsSync(schemasDir)) {
     fs.mkdirSync(schemasDir, { recursive: true });
   }
+
+  // Register ts-node once so temp TypeScript files can be required in-process.
+  // This avoids spawning child processes (more reliable on restricted Windows environments).
+  require(tsNodeRegisterPath);
 
   let extracted = 0;
   let errors = 0;
@@ -473,10 +610,9 @@ async function main() {
     try {
       const sourceContent = fs.readFileSync(plugin.srcPath, 'utf-8');
 
-      // Check that it actually exports EventSchemas
-      if (!sourceContent.includes('export const EventSchemas')) {
-        continue;
-      }
+      const pluginType = inferPluginType(plugin.dirName, sourceContent);
+      const classBody = extractPluginClassBody(sourceContent);
+      const capabilities = buildCapabilities(pluginType, classBody);
 
       const tempSource = extractSchemaSource(sourceContent, plugin.dirName, projectType);
 
@@ -487,19 +623,19 @@ async function main() {
 
       fs.writeFileSync(tempFile, tempSource, 'utf-8');
 
-      // Execute with ts-node to get the JSON schema output
-      const result = execSync(
-        `node -r ts-node/register "${tempFile}"`,
-        {
-          cwd: CWD,
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
-          timeout: 30000,
-        }
-      );
+      // Execute extraction in-process via ts-node/register
+      delete require.cache[require.resolve(tempFile)];
+      const loaded = require(tempFile) as { __BSB_SCHEMA_RESULT?: Record<string, unknown> };
+      if (!loaded || !loaded.__BSB_SCHEMA_RESULT || typeof loaded.__BSB_SCHEMA_RESULT !== 'object') {
+        throw new Error('Schema extraction did not return a result');
+      }
 
       // Parse and write the schema JSON
-      const schemaExport = JSON.parse(result.trim());
+      const schemaExport = loaded.__BSB_SCHEMA_RESULT as Record<string, unknown>;
+      schemaExport.pluginType = pluginType;
+      if (capabilities) {
+        schemaExport.capabilities = capabilities;
+      }
 
       // Auto-detect dependencies from .bsb/clients/ imports
       const deps = detectClientDependencies(sourceContent);
@@ -521,14 +657,16 @@ async function main() {
     }
   }
 
-  // Cleanup temp files
-  for (const tempFile of tempFiles) {
-    try {
-      if (fs.existsSync(tempFile)) {
-        fs.unlinkSync(tempFile);
+  // Cleanup temp files (opt-out for debugging)
+  if (process.env.BSB_KEEP_EXTRACT_TEMP !== '1') {
+    for (const tempFile of tempFiles) {
+      try {
+        if (fs.existsSync(tempFile)) {
+          fs.unlinkSync(tempFile);
+        }
+      } catch {
+        // Non-fatal
       }
-    } catch {
-      // Non-fatal
     }
   }
 

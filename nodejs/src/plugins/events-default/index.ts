@@ -34,9 +34,22 @@ import {
 } from "../../plugins/events-default/events/index";
 import { Observable } from "../../index";
 import { BSBEvents, BSBEventsConstructor } from "../../base/BSBEvents";
+import { createConfigSchema } from "../../base/PluginConfig";
+
+export const Config = createConfigSchema(
+  {
+    name: "events-default",
+    description: "Default in-process events plugin for BSB event routing",
+    version: "1.0.0",
+    image: "../docs/public/assets/images/bsb-logo.png",
+    tags: ["core", "events", "default"],
+    documentation: ["./docs/core-plugins/events-default.md"],
+  }
+);
 
 export class Plugin
-  extends BSBEvents {
+  extends BSBEvents<InstanceType<typeof Config>> {
+  static Config = Config;
   init?(): void;
 
   protected broadcast!: broadcast;
@@ -44,7 +57,7 @@ export class Plugin
   protected ear!: emitAndReturn;
   protected eas!: emitStreamAndReceiveStream;
 
-  constructor(config: BSBEventsConstructor) {
+  constructor(config: BSBEventsConstructor<InstanceType<typeof Config>>) {
     super(config);
 
     this.broadcast = new broadcast(this.__internalObservable);

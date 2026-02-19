@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, BSBPluginConfig, LogFormatter, BSBError } from "@bsb/base";
+import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { z } from "zod";
 import pino from "pino";
@@ -59,12 +59,17 @@ export const PinoConfigSchema = z.object({
 
 export type PinoConfig = z.infer<typeof PinoConfigSchema>;
 
-/**
- * Configuration class
- */
-export class Config extends BSBPluginConfig<typeof PinoConfigSchema> {
-  validationSchema = PinoConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'observable-pino',
+    description: 'Pino-based high-performance structured logging observable',
+    version: '9.0.0',
+    image: '../../../docs/public/assets/images/bsb-logo.png',
+    tags: ['pino', 'logging', 'observability', 'json'],
+    documentation: ['./docs/plugin.md'],
+  },
+  PinoConfigSchema
+);
 
 /**
  * Convert BSB log level to Pino log level
@@ -89,12 +94,13 @@ function bsbLevelToPinoLevel(level: string): pino.Level {
 /**
  * Pino observable plugin - high-performance JSON logger
  */
-export class Plugin extends BSBObservable<Config> {
+export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
+  static Config = Config;
   private logFormatter = new LogFormatter();
   private logger!: pino.Logger;
   private isDisposed = false;
 
-  constructor(config: BSBObservableConstructor<Config>) {
+  constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 

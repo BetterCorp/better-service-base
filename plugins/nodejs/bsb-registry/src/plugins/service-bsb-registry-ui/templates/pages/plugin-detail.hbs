@@ -4,11 +4,16 @@
       <a href="/plugins">&larr; Back to Browse</a>
     </div>
 
-    <div class="detail-card">
+    <div class="detail-card plugin-hero-card">
       <div class="plugin-tags detail-top-tags">
-        <span class="tag category">{{plugin.category}}</span>
-        <span class="tag language">{{plugin.language}}</span>
-        <span class="tag">v{{plugin.version}}</span>
+        <span class="plugin-badge badge-language">{{plugin.language}}</span>
+        <span class="plugin-badge badge-category">{{plugin.category}}</span>
+        {{#if plugin.badges}}
+          {{#each plugin.badges}}
+            <span class="plugin-badge badge-{{type}}">{{label}}</span>
+          {{/each}}
+        {{/if}}
+        <span class="plugin-badge badge-version">v{{plugin.version}}</span>
       </div>
 
       <h1 class="detail-title">{{plugin.displayName}}</h1>
@@ -22,7 +27,32 @@
           {{/each}}
         </div>
       {{/if}}
+    </div>
 
+    <div class="detail-card detail-tabs-shell">
+    <div class="detail-tab-nav" role="tablist" aria-label="Plugin sections">
+      <button class="detail-tab-btn active" type="button" data-tab-target="documentation">Documentation</button>
+      <button class="detail-tab-btn" type="button" data-tab-target="installation">Installation</button>
+      {{#if plugin.showConfigCard}}
+        <button class="detail-tab-btn" type="button" data-tab-target="configuration">Configuration</button>
+      {{/if}}
+      {{#if plugin.showEventsCard}}
+        <button class="detail-tab-btn" type="button" data-tab-target="events">Events</button>
+      {{/if}}
+      {{#if plugin.showSupportedFeaturesCard}}
+        <button class="detail-tab-btn" type="button" data-tab-target="features">Supported Features</button>
+      {{/if}}
+      {{#if versions}}
+        <button class="detail-tab-btn" type="button" data-tab-target="versions">Versions</button>
+      {{/if}}
+      {{#if plugin.showDependenciesCard}}
+        <button class="detail-tab-btn" type="button" data-tab-target="dependencies">Dependencies</button>
+      {{/if}}
+      <button class="detail-tab-btn" type="button" data-tab-target="metadata">Metadata</button>
+    </div>
+
+    <div class="detail-tab-panels">
+    <div class="detail-tab-panel active" data-tab-panel="documentation">
       {{#if plugin.docTabs}}
         {{#if (gt plugin.docTabs.length 1)}}
           <div class="doc-tabs">
@@ -56,10 +86,12 @@
             {{{plugin.docTabs.0.html}}}
           </div>
         {{/if}}
+      {{else}}
+        <p class="detail-description dependency-none">No documentation available</p>
       {{/if}}
     </div>
 
-    <div class="detail-card">
+    <div class="detail-tab-panel" data-tab-panel="installation">
       <h2 class="detail-section-title">Installation</h2>
 
       {{#if (eq plugin.category 'service')}}
@@ -73,11 +105,16 @@
         </div>
       {{else}}
         <div class="install-block">
-          <span class="install-label">Install plugin</span>
-          <pre><code>bsb plugin install {{pluginDisplayId plugin.id}}</code></pre>
+          <span class="install-label">Install plugin (Node.js)</span>
+          {{#if plugin.package.nodejs}}
+            <pre><code>npm i {{plugin.package.nodejs}}</code></pre>
+          {{else}}
+            <pre><code>npm i {{pluginDisplayId plugin.id}}</code></pre>
+          {{/if}}
         </div>
       {{/if}}
 
+      {{#if (eq plugin.category 'service')}}
       {{#if plugin.package}}
         {{#if plugin.package.nodejs}}
           <div class="install-block">
@@ -106,49 +143,44 @@
           </div>
         {{/if}}
       {{/if}}
+      {{/if}}
     </div>
 
-    {{#if plugin.configProps}}
-    <div class="detail-card">
+    {{#if plugin.showConfigCard}}
+    <div class="detail-tab-panel" data-tab-panel="configuration">
       <h2 class="detail-section-title">Configuration</h2>
-      <p class="detail-description">Configuration options for this plugin:</p>
+      <p class="detail-description">{{plugin.configDescription}}</p>
+      {{#if plugin.hasNestedConfigProps}}
+        <p class="event-section-desc">Tree view shows nested config fields and object branches.</p>
+      {{/if}}
 
-      {{#each plugin.configProps}}
-        {{#if isGroup}}
-          <div class="config-group">
-            <h3 class="config-group-title">{{name}}</h3>
-            {{#if description}}<p class="event-section-desc">{{description}}</p>{{/if}}
-            <div class="event-props">
-              {{#each props}}
-                <div class="event-prop">
-                  <code class="event-prop-name">{{name}}</code>
-                  <span class="event-prop-type">{{type}}</span>
-                  {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
-                  {{#if defaultValue}}<span class="config-default">default: {{defaultValue}}</span>{{/if}}
-                  {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
-                </div>
-              {{/each}}
-            </div>
-          </div>
-        {{else}}
-          <div class="event-props">
-            {{#each props}}
-              <div class="event-prop">
-                <code class="event-prop-name">{{name}}</code>
-                <span class="event-prop-type">{{type}}</span>
-                {{#unless required}}<span class="event-prop-optional">optional</span>{{/unless}}
-                {{#if defaultValue}}<span class="config-default">default: {{defaultValue}}</span>{{/if}}
-                {{#if description}}<span class="event-prop-desc">{{description}}</span>{{/if}}
+      {{#if plugin.configProps}}
+        <div class="config-tree">
+          {{#each plugin.configProps}}
+            <div class="config-tree-node {{#if isObject}}is-object{{else}}is-field{{/if}}" style="--config-level: {{level}};">
+              <div class="config-tree-head">
+                <code class="config-key">{{name}}</code>
+                <span class="config-row-path">{{fullPath}}</span>
+                {{#if isObject}}
+                  <span class="config-pill config-pill-branch">object</span>
+                {{else}}
+                  <span class="config-type">{{type}}</span>
+                {{/if}}
+                {{#unless required}}<span class="config-pill">optional</span>{{/unless}}
+                {{#if defaultValue}}<span class="config-pill config-pill-default">default: {{defaultValue}}</span>{{/if}}
               </div>
-            {{/each}}
-          </div>
-        {{/if}}
-      {{/each}}
+              {{#if description}}<div class="config-tree-desc">{{description}}</div>{{/if}}
+            </div>
+          {{/each}}
+        </div>
+      {{else}}
+        <p class="detail-description dependency-none">No configuration required</p>
+      {{/if}}
     </div>
     {{/if}}
 
-    {{#if plugin.eventSchema}}
-    <div class="detail-card">
+    {{#if plugin.showEventsCard}}
+    <div class="detail-tab-panel" data-tab-panel="events">
       <h2 class="detail-section-title">Events</h2>
       <p class="detail-description">Events available to clients of this plugin:</p>
 
@@ -382,8 +414,32 @@
     </div>
     {{/if}}
 
+    {{#if plugin.showSupportedFeaturesCard}}
+    <div class="detail-tab-panel" data-tab-panel="features">
+      <h2 class="detail-section-title">Supported Features</h2>
+      <p class="detail-description">Observable capabilities implemented by this plugin:</p>
+      {{#if (hasItems plugin.observableFeatureGroups)}}
+        {{#each plugin.observableFeatureGroups}}
+          <div class="feature-group">
+            <h3 class="feature-group-title">{{title}}</h3>
+            <div class="feature-chip-list">
+              {{#each items}}
+                <div class="feature-chip {{#if supported}}is-supported{{else}}is-unsupported{{/if}}">
+                  <code class="feature-chip-name">{{name}}</code>
+                  <span class="feature-chip-state">{{#if supported}}available{{else}}unavailable{{/if}}</span>
+                </div>
+              {{/each}}
+            </div>
+          </div>
+        {{/each}}
+      {{else}}
+        <p class="detail-description dependency-none">No capability metadata published</p>
+      {{/if}}
+    </div>
+    {{/if}}
+
     {{#if versions}}
-    <div class="detail-card">
+    <div class="detail-tab-panel" data-tab-panel="versions">
       <h2 class="detail-section-title">Available Versions</h2>
       <div class="version-list">
         {{#each versions}}
@@ -393,7 +449,8 @@
     </div>
     {{/if}}
 
-    <div class="detail-card">
+    {{#if plugin.showDependenciesCard}}
+    <div class="detail-tab-panel" data-tab-panel="dependencies">
       <h2 class="detail-section-title">Dependencies</h2>
       {{#if (hasItems plugin.dependencies)}}
         <div class="dependency-list">
@@ -410,8 +467,9 @@
         <p class="detail-description dependency-none">No dependencies</p>
       {{/if}}
     </div>
+    {{/if}}
 
-    <div class="detail-card">
+    <div class="detail-tab-panel" data-tab-panel="metadata">
       <h2 class="detail-section-title">Metadata</h2>
       <div class="metadata-grid">
         {{#if plugin.author}}
@@ -440,5 +498,40 @@
         {{/if}}
       </div>
     </div>
+    </div>
+    </div>
+
+    <script>
+      (function () {
+        var nav = document.querySelector('.detail-tab-nav');
+        if (!nav) return;
+        var buttons = nav.querySelectorAll('.detail-tab-btn');
+        var panels = document.querySelectorAll('.detail-tab-panel[data-tab-panel]');
+
+        nav.addEventListener('click', function (e) {
+          var btn = e.target.closest('.detail-tab-btn');
+          if (!btn) return;
+          var target = btn.getAttribute('data-tab-target');
+          if (!target) return;
+
+          buttons.forEach(function (b) { b.classList.remove('active'); });
+          panels.forEach(function (p) {
+            p.classList.remove('active');
+            p.setAttribute('hidden', 'hidden');
+          });
+
+          btn.classList.add('active');
+          var panel = document.querySelector('.detail-tab-panel[data-tab-panel="' + target + '"]');
+          if (panel) {
+            panel.classList.add('active');
+            panel.removeAttribute('hidden');
+          }
+        });
+
+        panels.forEach(function (p, index) {
+          if (index !== 0) p.setAttribute('hidden', 'hidden');
+        });
+      })();
+    </script>
   </div>
 </section>

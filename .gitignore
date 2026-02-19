@@ -40,3 +40,4 @@ docs/src/assets/images/plugins/
 docs/src/plugins/
 plugins/nodejs/bsb-registry/.temp/
 plugins/nodejs/*/lib/
+.bsb/

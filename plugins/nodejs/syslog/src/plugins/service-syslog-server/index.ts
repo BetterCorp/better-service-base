@@ -26,7 +26,7 @@
  */
 
 const SyslogServer = require("syslog-server");
-import { BSBService, BSBServiceConstructor, BSBPluginConfig, BSBServiceClient } from "@bsb/base";
+import { BSBService, BSBServiceConstructor, BSBServiceClient, createConfigSchema } from "@bsb/base";
 import { Observable } from "@bsb/base";
 import { z } from "zod";
 import { createFireAndForgetEvent } from "@bsb/base";
@@ -55,12 +55,16 @@ export const SyslogServerConfigSchema = z.object({
 
 export type SyslogServerConfig = z.infer<typeof SyslogServerConfigSchema>;
 
-/**
- * Configuration class
- */
-export class Config extends BSBPluginConfig<typeof SyslogServerConfigSchema> {
-  validationSchema = SyslogServerConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'service-syslog-server',
+    description: 'Syslog server service plugin that receives messages and emits events',
+    version: '9.0.0',
+    image: '../../../docs/public/assets/images/bsb-logo.png',
+    tags: ['syslog', 'server', 'service', 'events'],
+  },
+  SyslogServerConfigSchema
+);
 
 /**
  * Event schemas for syslog server
@@ -82,7 +86,9 @@ export const EventSchemas = {
 /**
  * Syslog server service plugin - receives syslog messages
  */
-export class Plugin extends BSBService<Config, typeof EventSchemas> {
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
   public initBeforePlugins?: string[] | undefined;
   public initAfterPlugins?: string[] | undefined;
   public runBeforePlugins?: string[] | undefined;
@@ -90,7 +96,7 @@ export class Plugin extends BSBService<Config, typeof EventSchemas> {
 
   private _server: any;
 
-  constructor(config: BSBServiceConstructor<Config, typeof EventSchemas>) {
+  constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
     super({
       ...config,
       eventSchemas: EventSchemas,

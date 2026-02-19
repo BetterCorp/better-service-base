@@ -37,6 +37,16 @@ Note: The current distribution folder is `docs/dist/`. A future task is to move 
 
 ---
 
+## Plugin Registry Redirect
+
+Plugin marketplace content is no longer built inside `docs/`.
+
+- `/registry/` is a redirect page to the external registry UI.
+- Set `BSB_DOCS_REGISTRY_URL` to control the redirect target.
+- Default target is `http://localhost:3200/plugins`.
+
+---
+
 ## Type Definitions (Node.js)
 
 Type pages are generated from the Node.js implementation.

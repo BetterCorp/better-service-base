@@ -61,7 +61,7 @@ function createNavbar(activePage = '') {
             </div>
           </div>
 
-          <a href="/marketplace/" class="nav-link ${activePage === 'marketplace' ? 'active' : ''}">Plugins</a>
+          <a href="/registry/" class="nav-link ${activePage === 'registry' ? 'active' : ''}">Plugins</a>
 
           <div class="nav-dropdown">
             <button class="nav-link ${activePage === 'nodejs-types' ? 'active' : ''}">

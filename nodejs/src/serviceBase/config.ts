@@ -27,6 +27,7 @@
 
 import {
   BSBConfig,
+  BSBError,
   ObservableBackend,
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
@@ -44,9 +45,10 @@ import {
   createFakeDTrace,
   Observable,
 } from "../interfaces";
-import { Plugin as DefaultConfig } from "../plugins/config-default/index";
+import { Config as DefaultConfigDefinition, Plugin as DefaultConfig } from "../plugins/config-default/index";
 import { SBObservable } from "./observable";
 import { SBPlugins } from "./plugins";
+import { z } from "zod";
 
 /**
  * @hidden
@@ -65,6 +67,7 @@ function internalTrace(span: string): DTrace {
  * @category Core
  */
 export class SBConfig {
+  private static readonly DEFAULT_CONFIG_ENV_KEYS = ["BSB_PROFILE", "BSB_CONFIG_FILE"] as const;
   /**
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBConfig.html | API: SBConfig}
    */
@@ -91,6 +94,16 @@ export class SBConfig {
     this.sbObservable = sbObservable;
     this.sbPlugins = sbPlugins;
     this.createObservable = createObservable;
+    const defaultConfigSchema = new DefaultConfigDefinition(
+      cwd,
+      cwd,
+      cwd,
+      "config-default"
+    ).validationSchema;
+    const defaultConfig = this.resolveConfigPluginConfig(
+      defaultConfigSchema,
+      SBConfig.DEFAULT_CONFIG_ENV_KEYS
+    );
     this.observableBackend = new ObservableBackend(mode, appId, "sb-config", sbObservable);
     this.configPlugin = new DefaultConfig({
       appId,
@@ -99,9 +112,80 @@ export class SBConfig {
       cwd,
       packageCwd: cwd,
       pluginCwd: cwd,
+      config: defaultConfig,
       sbObservable,
       pluginVersion: "0.0.0",
     });
+  }
+
+  private getConfigPluginEnvSubset(
+    validationSchema: z.ZodTypeAny | undefined,
+    fallbackKeys: readonly string[] = [],
+  ): NodeJS.ProcessEnv {
+    const scopedEnv: NodeJS.ProcessEnv = {};
+    const allowedKeys = new Set<string>(fallbackKeys);
+
+    if (!Tools.isNullOrUndefined(validationSchema)) {
+      const jsonSchema = z.toJSONSchema(validationSchema) as {
+        type?: unknown;
+        properties?: Record<string, unknown>;
+      };
+      if (jsonSchema.type === "object" && Tools.isObject(jsonSchema.properties)) {
+        Object.keys(jsonSchema.properties).forEach((key) => allowedKeys.add(key));
+      }
+    }
+
+    for (const key of allowedKeys) {
+      const value = process.env[key];
+      if (typeof value === "string") {
+        scopedEnv[key] = value;
+      }
+    }
+
+    return scopedEnv;
+  }
+
+  private resolveConfigPluginConfig(
+    validationSchema: undefined,
+    fallbackKeys?: readonly string[],
+  ): undefined;
+  private resolveConfigPluginConfig<TSchema extends z.ZodTypeAny>(
+    validationSchema: TSchema,
+    fallbackKeys?: readonly string[],
+  ): z.infer<TSchema>;
+  private resolveConfigPluginConfig(
+    validationSchema: z.ZodTypeAny | undefined,
+    fallbackKeys: readonly string[] = [],
+  ): unknown {
+    if (Tools.isNullOrUndefined(validationSchema)) {
+      return undefined;
+    }
+    const scopedEnv = this.getConfigPluginEnvSubset(validationSchema, fallbackKeys);
+    return validationSchema.parse(scopedEnv);
+  }
+
+  private isFlatJsonSchemaProperty(schema: any): boolean {
+    if (!schema || typeof schema !== "object") return false;
+    const t = schema.type;
+    if (t === "object" || t === "array") return false;
+    if (Array.isArray(t) && (t.includes("object") || t.includes("array"))) return false;
+    if (Array.isArray(schema.oneOf) && schema.oneOf.some((x: any) => !this.isFlatJsonSchemaProperty(x))) return false;
+    if (Array.isArray(schema.anyOf) && schema.anyOf.some((x: any) => !this.isFlatJsonSchemaProperty(x))) return false;
+    return true;
+  }
+
+  private validateConfigPluginSchemaShape(trace: DTrace, validationSchema: any): void {
+    const obs = this.createObservable(trace, "config");
+    const jsonSchema = z.toJSONSchema(validationSchema as z.ZodTypeAny) as any;
+    if (jsonSchema?.type !== "object") {
+      throw new BSBError(obs.trace, "Config plugin schema must be an object or omitted");
+    }
+    const properties = jsonSchema?.properties || {};
+    for (const [key, propSchema] of Object.entries(properties)) {
+      if (!this.isFlatJsonSchemaProperty(propSchema)) {
+        throw new BSBError(obs.trace, "Config plugin schema property {key} must be flat (no object/array)", { key });
+      }
+    }
   }
 
   public async getPluginConfig(trace: DTrace, pluginType: PluginType, name: string) {
@@ -149,6 +233,13 @@ export class SBConfig {
    */
   public async setConfigPlugin(reference: LoadedPlugin<"config">) {
     const tTrace = internalTrace(`setConfigPlugin`);
+    if (reference.serviceConfig && !Tools.isNullOrUndefined(reference.serviceConfig.validationSchema)) {
+      this.validateConfigPluginSchemaShape(tTrace, reference.serviceConfig.validationSchema);
+    }
+    const pluginConfig = this.resolveConfigPluginConfig(
+      reference.serviceConfig?.validationSchema
+    );
+    type ConfigCtorInput = ConstructorParameters<typeof reference.plugin>[0]["config"];
     this.configPlugin = new reference.plugin({
       appId: this.appId,
       mode: this.mode,
@@ -156,6 +247,7 @@ export class SBConfig {
       cwd: this.cwd,
       packageCwd: reference.packageCwd,
       pluginCwd: reference.pluginCwd,
+      config: pluginConfig as ConfigCtorInput,
       sbObservable: this.sbObservable,
       pluginVersion: reference.version,
     });

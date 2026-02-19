@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, BSBPluginConfig, LogFormatter, BSBError } from "@bsb/base";
+import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { z } from "zod";
 import * as api from "@opentelemetry/api";
@@ -66,12 +66,17 @@ export const OpenTelemetryConfigSchema = z.object({
 
 export type OpenTelemetryConfig = z.infer<typeof OpenTelemetryConfigSchema>;
 
-/**
- * Configuration class for OpenTelemetry plugin
- */
-export class Config extends BSBPluginConfig<typeof OpenTelemetryConfigSchema> {
-  validationSchema = OpenTelemetryConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'observable-opentelemetry',
+    description: 'OpenTelemetry integration for logs, metrics, and traces via OTLP',
+    version: '9.0.0',
+    image: './observable-opentelemetry.png',
+    tags: ['opentelemetry', 'otlp', 'observability', 'logs', 'metrics', 'traces'],
+    documentation: ['./docs/plugin.md'],
+  },
+  OpenTelemetryConfigSchema
+);
 
 /**
  * Convert BSB log level to OpenTelemetry severity number
@@ -116,7 +121,8 @@ function bsbLevelToOtelSeverityText(level: string): string {
 /**
  * OpenTelemetry observable plugin with OTLP export
  */
-export class Plugin extends BSBObservable<Config> {
+export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
+  static Config = Config;
   private logFormatter = new LogFormatter();
   private sdk: NodeSDK | null = null;
   private tracer: api.Tracer | null = null;
@@ -133,7 +139,7 @@ export class Plugin extends BSBObservable<Config> {
   // Cache for active spans
   private spans = new Map<string, api.Span>();
 
-  constructor(config: BSBObservableConstructor<Config>) {
+  constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 
@@ -395,6 +401,7 @@ export class Plugin extends BSBObservable<Config> {
     trace: DTrace,
     pluginName: string,
     spanName: string,
+    parentSpanId: string | null,
     attributes?: Record<string, string | number | boolean>
   ): void {
     if (!this.tracer || this.isDisposed) {
@@ -407,6 +414,7 @@ export class Plugin extends BSBObservable<Config> {
       {
         attributes: {
           "bsb.plugin": pluginName,
+          ...(parentSpanId ? { "bsb.parent_span_id": parentSpanId } : {}),
           ...attributes,
         },
       },

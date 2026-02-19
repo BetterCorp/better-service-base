@@ -44,3 +44,4 @@ test_output.txt
 .env
 .env.local
 .env.*.local
+.bsb/

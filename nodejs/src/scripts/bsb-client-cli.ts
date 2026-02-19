@@ -59,8 +59,9 @@ function warn(message: string): void {
 }
 
 // Get registry URL from env or use default
-const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'http://localhost:3200';
+const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'https://io.bsbcode.dev';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
+const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
 
 const COMMAND = process.argv[2];
 const ARGS = process.argv.slice(3);
@@ -84,6 +85,86 @@ function parsePluginId(pluginId: string): { org: string; name: string } {
  */
 function displayPluginId(org: string, name: string): string {
   return org === '_' ? name : `${org}/${name}`;
+}
+
+type RootPluginManifest = {
+  nodejs?: Array<{
+    id: string;
+    name?: string;
+    basePath?: string;
+    image?: string;
+    description?: string;
+    tags?: string[];
+    documentation?: string[];
+    configSchema?: Record<string, unknown>;
+    category?: string;
+    author?: string | Record<string, unknown>;
+    license?: string;
+    homepage?: string;
+    repository?: string;
+    links?: Record<string, string>;
+  }>;
+};
+
+function normalizeIgnoredPluginId(raw: string, org: string): string {
+  const value = raw.trim();
+  if (value.startsWith(`${org}/`)) {
+    return value.substring(org.length + 1);
+  }
+  if (value.startsWith('_/')) {
+    return value.substring(2);
+  }
+  return value;
+}
+
+function isPng(buffer: Buffer): boolean {
+  if (buffer.length < 8) return false;
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  return signature.every((byte, idx) => buffer[idx] === byte);
+}
+
+function resolveCategory(pluginMeta: { id: string; category?: string }): string {
+  const raw = (pluginMeta.category || pluginMeta.id.split('-')[0] || '').toLowerCase();
+  if (!VALID_CATEGORIES.has(raw)) {
+    throw new Error(
+      `Invalid category "${raw}" for plugin "${pluginMeta.id}". Valid categories: service, observable, events, config.`
+    );
+  }
+  return raw;
+}
+
+function resolveImagePath(pluginMeta: { basePath?: string; image?: string }): string | null {
+  if (!pluginMeta.image) return null;
+  const basePath = pluginMeta.basePath || '.';
+  return path.resolve(process.cwd(), basePath, pluginMeta.image);
+}
+
+function formatRegistryError(parsed: any, statusCode?: number, raw?: string): string {
+  if (!parsed || typeof parsed !== 'object') {
+    return raw && raw.trim().length > 0
+      ? raw
+      : `HTTP ${statusCode ?? 'error'}`;
+  }
+
+  const base = parsed.error || `HTTP ${statusCode ?? 'error'}`;
+  const code = parsed.code ? ` [${parsed.code}]` : '';
+
+  if (Array.isArray(parsed.details) && parsed.details.length > 0) {
+    const detailText = parsed.details
+      .map((detail: any) => {
+        const path = detail?.path ? String(detail.path) : '<root>';
+        const message = detail?.message ? String(detail.message) : 'Invalid value';
+        return `${path}: ${message}`;
+      })
+      .join('; ');
+    return `${base}${code} - ${detailText}`;
+  }
+
+  if (parsed.message && typeof parsed.message === 'string' && parsed.message.trim().length > 0) {
+    return `${base}${code} - ${parsed.message}`;
+  }
+
+  return `${base}${code}`;
 }
 
 /**
@@ -126,13 +207,13 @@ async function registryRequest(
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             resolve(parsed);
           } else {
-            reject(new Error(parsed.error || `HTTP ${res.statusCode}`));
+            reject(new Error(formatRegistryError(parsed, res.statusCode, data)));
           }
         } catch (err) {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             resolve(data);
           } else {
-            reject(new Error(`Failed to parse response: ${data}`));
+            reject(new Error(formatRegistryError(undefined, res.statusCode, data)));
           }
         }
       });
@@ -146,6 +227,80 @@ async function registryRequest(
       req.write(JSON.stringify(body));
     }
 
+    req.end();
+  });
+}
+
+async function uploadPluginImage(org: string, pluginName: string, imagePath: string): Promise<any> {
+  if (!REGISTRY_TOKEN) {
+    throw new Error('BSB_REGISTRY_TOKEN environment variable not set');
+  }
+  if (!imagePath.toLowerCase().endsWith('.png')) {
+    throw new Error(`Only PNG images are supported for upload: ${imagePath}`);
+  }
+  if (!fs.existsSync(imagePath)) {
+    throw new Error(`Image file not found: ${imagePath}`);
+  }
+
+  const imageBuffer = fs.readFileSync(imagePath);
+  if (!isPng(imageBuffer)) {
+    throw new Error(`Image is not a valid PNG file: ${imagePath}`);
+  }
+
+  const boundary = `----bsb-boundary-${Date.now().toString(16)}`;
+  const fileName = path.basename(imagePath);
+  const multipartHeader =
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="image"; filename="${fileName}"\r\n` +
+    `Content-Type: image/png\r\n\r\n`;
+  const multipartFooter = `\r\n--${boundary}--\r\n`;
+  const body = Buffer.concat([
+    Buffer.from(multipartHeader, 'utf-8'),
+    imageBuffer,
+    Buffer.from(multipartFooter, 'utf-8'),
+  ]);
+
+  return new Promise((resolve, reject) => {
+    const uploadPath = `/plugins/${encodeURIComponent(org)}/${encodeURIComponent(pluginName)}/image`;
+    const url = new URL(uploadPath, REGISTRY_URL);
+    const isHttps = url.protocol === 'https:';
+    const lib = isHttps ? https : http;
+
+    const req = lib.request(
+      {
+        hostname: url.hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: url.pathname + url.search,
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${REGISTRY_TOKEN}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': body.length,
+        },
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          let parsed: any = {};
+          try {
+            parsed = data ? JSON.parse(data) : {};
+          } catch {
+            // Keep raw payload fallback for error messages
+          }
+
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(parsed);
+          } else {
+            reject(new Error(parsed.error || data || `HTTP ${res.statusCode}`));
+          }
+        });
+      }
+    );
+
+    req.on('error', reject);
+    req.write(body);
     req.end();
   });
 }
@@ -298,17 +453,21 @@ async function publishPlugin(): Promise<void> {
 
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
 
-    // Discover plugins from generated lib/schemas/*.plugin.json files
+    // Read publish manifest from bsb-plugin.json
+    const manifestPath = path.join(process.cwd(), 'bsb-plugin.json');
+    if (!fs.existsSync(manifestPath)) {
+      error('No bsb-plugin.json found. Run "bsb-plugin-cli build" first.');
+    }
+    const manifest: RootPluginManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    const plugins = Array.isArray(manifest.nodejs) ? manifest.nodejs : [];
+    if (plugins.length === 0) {
+      error('No Node.js plugins found in bsb-plugin.json');
+    }
+
+    // Schemas are still sourced from generated lib/schemas/{plugin}.json
     const schemasDir = path.join(process.cwd(), 'lib', 'schemas');
     if (!fs.existsSync(schemasDir)) {
       error('No lib/schemas/ directory found. Run "bsb-plugin-cli build" first.');
-    }
-
-    const pluginJsonFiles = fs.readdirSync(schemasDir)
-      .filter((f: string) => f.endsWith('.plugin.json'));
-
-    if (pluginJsonFiles.length === 0) {
-      error('No .plugin.json files found in lib/schemas/. Run "bsb-plugin-cli build" first.');
     }
 
     // Read project README.md as fallback documentation
@@ -317,16 +476,32 @@ async function publishPlugin(): Promise<void> {
 
     // Org from package.json bsb.orgId, default to "_" (unaffiliated)
     const org: string = pkg.bsb?.orgId || '_';
+    const publishIgnoreRaw = pkg.bsb?.publishIgnore;
+    const publishIgnore = new Set<string>(
+      Array.isArray(publishIgnoreRaw)
+        ? publishIgnoreRaw
+            .filter((entry: unknown): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+            .map((entry: string) => normalizeIgnoredPluginId(entry, org))
+        : []
+    );
 
     let published = 0;
+    let skipped = 0;
     let errors = 0;
 
-    for (const pluginJsonFile of pluginJsonFiles) {
-      const pluginMeta = JSON.parse(fs.readFileSync(path.join(schemasDir, pluginJsonFile), 'utf-8'));
+    for (const pluginMeta of plugins) {
       const pluginName: string = pluginMeta.id;
       const display = displayPluginId(org, pluginName);
+      if (publishIgnore.has(pluginName)) {
+        info(`Skipping ${display} (listed in package.json bsb.publishIgnore)`);
+        skipped++;
+        continue;
+      }
 
       try {
+        const category = resolveCategory({ id: pluginName, category: pluginMeta.category });
+        const imagePath = resolveImagePath({ basePath: pluginMeta.basePath, image: pluginMeta.image });
+
         // Read event schema from lib/schemas/{pluginId}.json
         const schemaPath = path.join(schemasDir, `${pluginName}.json`);
         let eventSchema: Record<string, any> = { pluginName, version: pkg.version, events: {} };
@@ -341,6 +516,9 @@ async function publishPlugin(): Promise<void> {
               version: parsed.version || pkg.version,
               events: parsed.events || {},
             };
+            if (parsed.capabilities && typeof parsed.capabilities === 'object') {
+              eventSchema.capabilities = parsed.capabilities;
+            }
             if (Array.isArray(parsed.dependencies) && parsed.dependencies.length > 0) {
               eventSchema.dependencies = parsed.dependencies;
               schemaDeps = parsed.dependencies;
@@ -387,7 +565,7 @@ async function publishPlugin(): Promise<void> {
           metadata: {
             displayName: pluginMeta.name || pluginName,
             description: pluginMeta.description || pkg.description || '',
-            category: pluginMeta.category || 'other',
+            category,
             tags: pluginMeta.tags || pkg.keywords || [],
             author: pluginMeta.author || pkg.author,
             license: pluginMeta.license || pkg.license,
@@ -414,7 +592,12 @@ async function publishPlugin(): Promise<void> {
         info(`Publishing ${display} @ ${pkg.version}...`);
 
         const result = await registryRequest('POST', '/plugins', publishRequest, true);
-        success(`Published: ${display} @ ${result.version}`);
+        if (imagePath) {
+          info(`Uploading image for ${display}...`);
+          await uploadPluginImage(org, pluginName, imagePath);
+        }
+
+        success(`Published: ${display} @ ${result.version}${imagePath ? ' (with image)' : ''}`);
         published++;
       } catch (err: any) {
         log(`  Failed to publish ${display}: ${err.message}`, 'red');
@@ -424,7 +607,10 @@ async function publishPlugin(): Promise<void> {
 
     log('');
     if (published > 0) {
-      success(`Published ${published} plugin(s)${errors > 0 ? `, ${errors} failed` : ''}`);
+      success(`Published ${published} plugin(s)${skipped > 0 ? `, ${skipped} skipped` : ''}${errors > 0 ? `, ${errors} failed` : ''}`);
+    }
+    if (published === 0 && skipped > 0 && errors === 0) {
+      success(`No plugins published (${skipped} skipped via package.json bsb.publishIgnore).`);
     }
     if (errors > 0 && published === 0) {
       error(`All ${errors} plugin(s) failed to publish`);

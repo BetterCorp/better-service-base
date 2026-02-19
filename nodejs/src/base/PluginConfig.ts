@@ -35,7 +35,11 @@ import {z} from "zod";
  * });
  */
 export type BSBPluginConfigType = z.ZodTypeAny | undefined;
-export type BSBPluginConfigDefinition = BSBPluginConfig<z.ZodTypeAny>;
+export type BSBPluginConfigDefinition = BSBPluginConfig<BSBPluginConfigType>;
+export type BSBPluginConfigClass<TSchema extends BSBPluginConfigType = BSBPluginConfigType> = {
+  new(cwd: string, packageCwd: string, pluginCwd: string, pluginName: string): BSBPluginConfig<TSchema>;
+  metadata: BSBPluginMetadata;
+};
 
 /**
  * Config migration handler, allows for config migrations when the plugin version changes or a new plugin setup is done
@@ -95,6 +99,8 @@ export interface BSBPluginMetadata {
     tags?: string[];
     /** Relative paths to markdown documentation files (e.g., ["./docs/plugin.md"]) */
     documentation?: string[];
+    /** Relative path to plugin image file (PNG recommended) */
+    image?: string;
 
     // Plugin dependencies - controls initialization and run order
     /** This plugin must initialize before these plugins */
@@ -110,10 +116,10 @@ export interface BSBPluginMetadata {
 export type BSBConfigDefintionReference<
     T extends BSBPluginConfigType,
     AS = undefined
-> = T extends undefined ? AS : z.infer<Exclude<T, undefined>>;
+> = [T] extends [undefined] ? AS : z.infer<Exclude<T, undefined>>;
 
 export type BSBReferenceConfigType = BSBPluginConfigType | null;
-export type BSBReferencePluginConfigType = BSBPluginConfigDefinition | null;
+export type BSBReferencePluginConfigType = BSBPluginConfig<BSBPluginConfigType> | null;
 export type BSBReferenceConfigDefinition<
     ReferencedConfig extends BSBReferenceConfigType
 > = ReferencedConfig extends null ? null : ReferencedConfig;
@@ -121,8 +127,8 @@ export type BSBReferencePluginConfigDefinition<
     ReferencedConfig extends BSBReferencePluginConfigType
 > = ReferencedConfig extends null
     ? null
-    : ReferencedConfig extends BSBPluginConfigDefinition
-      ? z.infer<ReferencedConfig["validationSchema"]>
+    : ReferencedConfig extends BSBPluginConfig<infer TSchema>
+      ? BSBConfigDefintionReference<TSchema, never>
       : null;
 
 /**
@@ -137,7 +143,7 @@ export type BSBReferencePluginConfigDefinition<
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBPluginConfig.html | API: BSBPluginConfig}
  */
 export abstract class BSBPluginConfig<
-    MyPluginConfig extends Exclude<BSBPluginConfigType, undefined> | null = null
+    MyPluginConfig extends BSBPluginConfigType = undefined
 > {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(cwd: string, packageCwd: string, pluginCwd: string, pluginName: string) {
@@ -219,15 +225,24 @@ export class BSBPluginConfigRef
 export function createConfigSchema<const TSchema extends z.ZodTypeAny>(
   metadata: BSBPluginMetadata,
   schema: TSchema
-): typeof BSBPluginConfig & { new(cwd: string, packageCwd: string, pluginCwd: string, pluginName: string): BSBPluginConfig<TSchema>; metadata: BSBPluginMetadata } {
+): BSBPluginConfigClass<TSchema>;
+
+export function createConfigSchema(
+  metadata: BSBPluginMetadata
+): BSBPluginConfigClass<undefined>;
+
+export function createConfigSchema<const TSchema extends BSBPluginConfigType>(
+  metadata: BSBPluginMetadata,
+  schema?: TSchema
+): BSBPluginConfigClass<TSchema> {
   const ConfigClass = class extends BSBPluginConfig<TSchema> {
-    validationSchema = schema;
+    validationSchema = schema as TSchema;
     static readonly metadata = metadata;
 
     // Also expose metadata on instance for backward compatibility
     override metadata = metadata;
   };
-  return ConfigClass as any;
+  return ConfigClass as BSBPluginConfigClass<TSchema>;
 }
 
 /**

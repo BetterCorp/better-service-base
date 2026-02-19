@@ -29,11 +29,38 @@
 import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../interfaces";
 import { BaseWithObservable, BaseWithObservableConfig } from "./base";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
 
 /**
  * @hidden
  */
-export type BSBConfigConstructor = BaseWithObservableConfig;
+type BSBConfigResolvedConfig<
+  ReferencedConfig extends BSBReferencePluginConfigType
+> = ReferencedConfig extends null
+  ? null
+  : BSBReferencePluginConfigDefinition<ReferencedConfig>;
+
+type BSBConfigPropertyTypeSafe<T> = [T] extends [never]
+  ? never
+  : T extends undefined | null
+  ? never
+  : T;
+
+type BSBConfigConstructorTypeSafe<T> = [T] extends [never]
+  ? undefined
+  : T extends undefined | null
+  ? undefined
+  : T;
+
+/**
+ * @hidden
+ */
+export interface BSBConfigConstructor<
+  ReferencedConfig extends BSBReferencePluginConfigType = any
+>
+  extends BaseWithObservableConfig {
+  config: BSBConfigConstructorTypeSafe<BSBConfigResolvedConfig<ReferencedConfig>>;
+}
 
 /**
  * @group Config
@@ -43,9 +70,13 @@ export type BSBConfigConstructor = BaseWithObservableConfig;
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBConfig.html | API: BSBConfig}
  */
 export abstract class BSBConfig
+<ReferencedConfig extends BSBReferencePluginConfigType = any>
   extends BaseWithObservable {
-  constructor(config: BSBConfigConstructor) {
+  public readonly config: BSBConfigPropertyTypeSafe<BSBConfigResolvedConfig<ReferencedConfig>>;
+
+  constructor(config: BSBConfigConstructor<ReferencedConfig>) {
     super(config);
+    this.config = config.config as BSBConfigPropertyTypeSafe<BSBConfigResolvedConfig<ReferencedConfig>>;
   }
 
   /**
@@ -125,7 +156,7 @@ export abstract class BSBConfig
  * @hidden
  */
 export class BSBConfigRef
-  extends BSBConfig {
+  extends BSBConfig<null> {
   getObservablePlugins(obs: Observable): Promise<Record<string, ObservableConfig>> {
     throw BSB_ERROR_METHOD_NOT_IMPLEMENTED("BSBConfigRef", "getObservablePlugins");
   }

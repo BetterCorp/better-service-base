@@ -1,19 +1,52 @@
 /**
  * BSB Plugin Metadata Generation Script
  *
- * Discovers all BSB plugins and generates plugin metadata JSON files
- * for plugin discovery and marketplace listing.
+ * Discovers publishable core plugins and generates plugin metadata JSON files.
  *
  * Usage:
  *   npm run generate-plugin-json
  *
  * Output:
- *   Writes plugin metadata files to lib/schemas/{plugin-name}.plugin.json
+ *   - lib/schemas/{plugin-name}.plugin.json
+ *   - bsb-plugin.json (registry-facing root manifest)
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { getCategoryFromPluginName } from '../base/PluginConfig';
+
+type PluginMeta = {
+  name: string;
+  description: string;
+  tags: string[];
+  documentation: string[];
+  image?: string;
+  author?: string;
+  license?: string;
+  homepage?: string;
+  repository?: string;
+};
+
+const CORE_PLUGIN_OVERRIDES: Record<string, PluginMeta> = {
+  'config-default': {
+    name: 'config-default',
+    description: 'Default configuration plugin for BSB profile and plugin resolution.',
+    tags: ['core', 'config', 'default'],
+    documentation: ['./docs/core-plugins/config-default.md'],
+  },
+  'events-default': {
+    name: 'events-default',
+    description: 'In-process events plugin with emit, returnable, and broadcast support.',
+    tags: ['core', 'events', 'default'],
+    documentation: ['./docs/core-plugins/events-default.md'],
+  },
+  'observable-default': {
+    name: 'observable-default',
+    description: 'Default console-based observable plugin for logs and diagnostics.',
+    tags: ['core', 'observable', 'default'],
+    documentation: ['./docs/core-plugins/observable-default.md'],
+  },
+};
 
 /**
  * Discover all plugin modules in the lib directory.
@@ -41,6 +74,39 @@ function discoverPlugins(libDir: string): string[] {
   return pluginPaths;
 }
 
+function shouldPublishPlugin(pluginId: string): boolean {
+  if (pluginId.startsWith('service-')) {
+    return false;
+  }
+  return Object.prototype.hasOwnProperty.call(CORE_PLUGIN_OVERRIDES, pluginId);
+}
+
+function buildRootManifestEntries(
+  pluginMetaFiles: Array<Record<string, any>>,
+  packageJson: Record<string, any>,
+): Array<Record<string, any>> {
+  return pluginMetaFiles.map((meta) => {
+    const id = meta.id as string;
+    const entry: Record<string, any> = {
+      id,
+      name: meta.name,
+      basePath: './',
+      image: meta.image || `./${id}.png`,
+      description: meta.description || '',
+      tags: meta.tags || [],
+      documentation: meta.documentation || [],
+      pluginPath: `src/plugins/${id}/`,
+    };
+
+    const repoUrl = meta.repository || packageJson.repository?.url || packageJson.repository || '';
+    if (repoUrl) {
+      entry.links = { github: typeof repoUrl === 'string' ? repoUrl : '' };
+    }
+
+    return entry;
+  });
+}
+
 /**
  * Main generation function.
  */
@@ -61,6 +127,12 @@ async function main() {
     fs.mkdirSync(schemasDir, { recursive: true });
   }
 
+  const packageJsonPath = path.join(projectRoot, 'package.json');
+  let packageJson: Record<string, any> = {};
+  if (fs.existsSync(packageJsonPath)) {
+    packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  }
+
   // Discover all plugins
   const pluginPaths = discoverPlugins(libDir);
 
@@ -75,10 +147,16 @@ async function main() {
 
   let generatedCount = 0;
   let errorCount = 0;
+  const generatedPluginMetadata: Array<Record<string, any>> = [];
 
   // Process each plugin
   for (const pluginPath of pluginPaths) {
     try {
+      const pluginName = path.basename(path.dirname(pluginPath));
+      if (!shouldPublishPlugin(pluginName)) {
+        continue;
+      }
+
       // Import the plugin module
       const pluginModule = await import(pluginPath);
 
@@ -88,22 +166,16 @@ async function main() {
       }
 
       const Plugin = pluginModule.Plugin;
+      const metadata = (Plugin.Config && Plugin.Config.metadata)
+        ? Plugin.Config.metadata
+        : CORE_PLUGIN_OVERRIDES[pluginName];
 
-      // Check if plugin has Config with metadata
-      if (!Plugin.Config || !Plugin.Config.metadata) {
+      if (!metadata) {
         continue;
       }
 
-      const metadata = Plugin.Config.metadata;
-      const pluginName = path.basename(path.dirname(pluginPath));
-
       // Read version from package.json if available
-      let version = metadata.version || '1.0.0';
-      const packageJsonPath = path.join(projectRoot, 'package.json');
-      if (fs.existsSync(packageJsonPath)) {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-        version = packageJson.version || version;
-      }
+      const version = packageJson.version || metadata.version || '1.0.0';
 
       // Create plugin metadata object - only include fields with actual values
       const pluginMetadata: Record<string, any> = {
@@ -113,7 +185,7 @@ async function main() {
         description: metadata.description || '',
         category: getCategoryFromPluginName(pluginName),
         tags: metadata.tags || [],
-        documentation: metadata.documentation || [],
+        documentation: Array.isArray(metadata.documentation) ? metadata.documentation : [],
         dependencies: [] as Array<{ id: string; version: string }>,
       };
 
@@ -122,6 +194,7 @@ async function main() {
       if (metadata.license) pluginMetadata.license = metadata.license;
       if (metadata.homepage) pluginMetadata.homepage = metadata.homepage;
       if (metadata.repository) pluginMetadata.repository = metadata.repository;
+      if (metadata.image) pluginMetadata.image = metadata.image;
 
       // Read auto-detected dependencies and config schema from schema JSON
       const schemaJsonPath = path.join(schemasDir, `${pluginName}.json`);
@@ -135,13 +208,14 @@ async function main() {
             pluginMetadata.configSchema = schema.configSchema;
           }
         } catch {
-          // Non-fatal — schema may be malformed
+          // Non-fatal, skip malformed schema
         }
       }
 
       // Write to file
       const outputPath = path.join(schemasDir, `${pluginName}.plugin.json`);
       fs.writeFileSync(outputPath, JSON.stringify(pluginMetadata, null, 2), 'utf-8');
+      generatedPluginMetadata.push(pluginMetadata);
 
       // eslint-disable-next-line no-console
       console.log(`  Generated metadata for ${metadata.name} (v${version})`);
@@ -151,6 +225,18 @@ async function main() {
       // eslint-disable-next-line no-console
       console.error(`  Error generating metadata for ${path.basename(path.dirname(pluginPath))}: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  // Generate root bsb-plugin.json manifest for registry publish workflow
+  if (generatedPluginMetadata.length > 0) {
+    const rootPluginJson = {
+      nodejs: buildRootManifestEntries(generatedPluginMetadata, packageJson),
+    };
+    fs.writeFileSync(
+      path.join(projectRoot, 'bsb-plugin.json'),
+      JSON.stringify(rootPluginJson, null, 2),
+      'utf-8',
+    );
   }
 
   // eslint-disable-next-line no-console

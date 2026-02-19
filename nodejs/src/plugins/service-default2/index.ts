@@ -37,6 +37,7 @@ export const Config = createConfigSchema(
     name: 'service-default2',
     description: 'Default service plugin 2 for testing inter-service communication',
     version: '1.0.0',
+    image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example', 'test'],
   },
   z.null()

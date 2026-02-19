@@ -165,7 +165,7 @@ export const RegistryEntrySchema = bsb.object({
   package: optional(PackageInfo),
 
   // Classification
-  category: bsb.enum(['service', 'observable', 'events', 'config', 'other'], 'Plugin category'),
+  category: bsb.enum(['service', 'observable', 'events', 'config'], 'Plugin category'),
   tags: bsb.array(bsb.string({ max: 50 }), { description: 'Searchable keywords' }),
 
   // Optional metadata
@@ -179,6 +179,8 @@ export const RegistryEntrySchema = bsb.object({
 
   // Event definitions (stored as events map -- name and version live at root level)
   eventSchema: bsb.unknown('Events map (Record<eventName, EventExportEntry>)'),
+  // Optional plugin capability map (for observable/events/config support display)
+  capabilities: optional(bsb.unknown('Plugin capabilities object')),
   // Configuration schema (stored as parsed JSON Schema object)
   configSchema: optional(bsb.unknown('Configuration JSON Schema object')),
   typeDefinitions: optional(TypeDefinitions),
@@ -218,7 +220,7 @@ export type RegistryEntry = InferBSBType<typeof RegistryEntrySchema>;
 export const ListQuerySchema = bsb.object({
   org: optional(bsb.string({ max: 100, description: 'Filter by organization' })),
   language: optional(bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Filter by language')),
-  category: optional(bsb.enum(['service', 'observable', 'events', 'config', 'other'], 'Filter by category')),
+  category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 50)' })),
   offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
 }, 'Query parameters for listing plugins');
@@ -228,7 +230,7 @@ export type ListQuery = InferBSBType<typeof ListQuerySchema>;
 export const SearchQuerySchema = bsb.object({
   query: bsb.string({ min: 1, max: 200, description: 'Search query string' }),
   language: optional(bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Filter by language')),
-  category: optional(bsb.enum(['service', 'observable', 'events', 'config', 'other'], 'Filter by category')),
+  category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 20)' })),
   offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
 }, 'Query parameters for searching plugins');
@@ -243,7 +245,7 @@ export const PublishRequestSchema = bsb.object({
   metadata: bsb.object({
     displayName: bsb.string({ min: 1, max: 200, description: 'Human-readable name' }),
     description: bsb.string({ min: 1, max: 1000, description: 'Short description' }),
-    category: bsb.enum(['service', 'observable', 'events', 'config', 'other'], 'Plugin category'),
+    category: bsb.enum(['service', 'observable', 'events', 'config'], 'Plugin category'),
     tags: bsb.array(bsb.string({ max: 50 }), { description: 'Searchable keywords' }),
     author: optional(Author),
     license: optional(bsb.string({ max: 50 })),
@@ -251,6 +253,7 @@ export const PublishRequestSchema = bsb.object({
     repository: optional(bsb.uri()),
   }, 'Plugin metadata'),
   eventSchema: bsb.unknown('EventSchemaExport object (parsed at HTTP boundary, transported as object)'),
+  capabilities: optional(bsb.unknown('Plugin capabilities object (parsed at HTTP boundary, optional top-level override)')),
   configSchema: optional(bsb.unknown('Configuration JSON Schema object (parsed at HTTP boundary)')),
   typeDefinitions: optional(TypeDefinitions),
   documentation: Documentation,

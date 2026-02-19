@@ -15,6 +15,7 @@
     "start": "bsb-plugin-cli start",
     "dev": "bsb-plugin-cli dev",
     "test": "bsb-plugin-cli test",
+    "publish:client": "bsb client publish",
     "bsb": "node node_modules/@bsb/base/lib/cli.js",
     "client:sync": "node node_modules/@bsb/base/lib/cli.js client sync",
     "client:export": "node node_modules/@bsb/base/lib/cli.js client export",

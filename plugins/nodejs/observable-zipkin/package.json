@@ -10,6 +10,7 @@
     "start": "bsb-plugin-cli start",
     "dev": "bsb-plugin-cli dev",
     "test": "bsb-plugin-cli test",
+    "publish:client": "bsb client publish",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

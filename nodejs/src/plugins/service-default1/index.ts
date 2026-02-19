@@ -38,6 +38,7 @@ export const Config = createConfigSchema(
     name: 'service-default1',
     description: 'Default service demonstrating BSB event patterns',
     version: '1.0.0',
+    image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example'],
   },
   z.null()

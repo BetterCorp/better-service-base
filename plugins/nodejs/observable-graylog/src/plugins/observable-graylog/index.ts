@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, BSBPluginConfig, LogFormatter, BSBError } from "@bsb/base";
+import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { z } from "zod";
 import * as gelfPro from "gelf-pro";
@@ -65,12 +65,17 @@ export const GraylogConfigSchema = z.object({
 
 export type GraylogConfig = z.infer<typeof GraylogConfigSchema>;
 
-/**
- * Configuration class
- */
-export class Config extends BSBPluginConfig<typeof GraylogConfigSchema> {
-  validationSchema = GraylogConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'observable-graylog',
+    description: 'Graylog GELF observable plugin for centralized log ingestion',
+    version: '9.0.0',
+    image: './observable-graylog.png',
+    tags: ['graylog', 'gelf', 'observability', 'logging'],
+    documentation: ['./docs/plugin.md'],
+  },
+  GraylogConfigSchema
+);
 
 /**
  * Convert BSB log level to GELF/syslog severity level
@@ -95,11 +100,12 @@ function bsbLevelToGelfLevel(level: string): number {
 /**
  * Graylog (GELF) observable plugin - sends logs to Graylog servers
  */
-export class Plugin extends BSBObservable<Config> {
+export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
+  static Config = Config;
   private logFormatter = new LogFormatter();
   private isDisposed = false;
 
-  constructor(config: BSBObservableConstructor<Config>) {
+  constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 

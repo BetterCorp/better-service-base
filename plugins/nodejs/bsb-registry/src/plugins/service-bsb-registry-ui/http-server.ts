@@ -7,8 +7,12 @@
  */
 
 import * as path from 'path';
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyCors from '@fastify/cors';
+import fastifyMultipart, { MultipartFile } from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import fastifyView from '@fastify/view';
 import handlebars from 'handlebars';
@@ -38,10 +42,12 @@ const packageNamePattern = /^(@[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9._-]+$/;
 const slugField = z.string().min(1).max(100).regex(slugPattern, 'Only alphanumeric, dash, underscore, dot, @, /');
 const semverField = z.string().min(5).max(50).regex(semverPattern, 'Must be semver (e.g. 1.0.0)');
 const languageEnum = z.enum(['nodejs', 'csharp', 'go', 'java', 'python']);
-const categoryEnum = z.enum(['service', 'observable', 'events', 'config', 'other']);
+const categoryEnum = z.enum(['service', 'observable', 'events', 'config']);
 const visibilityEnum = z.enum(['public', 'private']);
 const safeString = (max: number) => z.string().max(max).regex(safeAscii, 'ASCII printable characters only');
 const safeStringRequired = (min: number, max: number) => z.string().min(min).max(max).regex(safeAscii, 'ASCII printable characters only');
+const optionalNonEmpty = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => value === '' ? undefined : value, schema.optional());
 
 // ---- Route param schemas ----
 
@@ -72,9 +78,9 @@ const PluginTypesParamsSchema = z.object({
 
 const BrowseQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).optional(),
-  query: safeString(200).optional(),
-  category: categoryEnum.optional(),
-  language: languageEnum.optional(),
+  query: optionalNonEmpty(safeString(200)),
+  category: optionalNonEmpty(categoryEnum),
+  language: optionalNonEmpty(languageEnum),
   limit: z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).max(100000).optional(),
 }).passthrough(); // ignore unexpected query params (referrer tracking etc.)
@@ -110,6 +116,7 @@ const EventSchemaExportZod = z.object({
   pluginName: safeStringRequired(1, 200),
   version: semverField,
   events: z.record(z.string(), EventExportEntryZod).default({}),
+  capabilities: z.unknown().optional(),
   dependencies: z.array(z.object({
     id: z.string().min(1).max(200),
     version: safeStringRequired(1, 50),
@@ -143,6 +150,7 @@ const PublishBodySchema = z.object({
     repository: z.string().max(500).url().optional(),
   }).strict(),
   eventSchema: EventSchemaExportZod, // parsed object, validated at HTTP boundary
+  capabilities: z.unknown().optional(),
   configSchema: z.object({
     type: z.literal('object'),
     properties: z.record(z.string(), z.unknown()),
@@ -182,17 +190,30 @@ export class RegistryUIServer {
   public readonly port: number;
   public readonly host: string;
   private readonly pageSize: number;
+  private readonly uploadDir: string;
+  private readonly badgesFile: string;
+  private readonly maxImageUploadBytes: number;
+  private readonly imageIndexPath: string;
+  private imageIndex: Record<string, string> = {};
+  private badgeMap: Record<string, string | string[]> = {};
   private registryClient!: BsbRegistryClient;
   private createTrace!: Plugin['createTrace'];
 
   constructor(
     port: number,
     host: string,
-    pageSize: number
+    pageSize: number,
+    uploadDir: string,
+    badgesFile: string,
+    maxImageUploadMb: number
   ) {
     this.port = port;
     this.host = host;
     this.pageSize = pageSize;
+    this.uploadDir = path.resolve(uploadDir);
+    this.badgesFile = path.resolve(badgesFile);
+    this.maxImageUploadBytes = maxImageUploadMb * 1024 * 1024;
+    this.imageIndexPath = path.join(this.uploadDir, 'images.json');
 
     this.app = Fastify({
       logger: false,
@@ -294,6 +315,16 @@ export class RegistryUIServer {
       });
       corsSpan.end();
 
+      // Register multipart upload handling for plugin images
+      const multipartSpan = obs.startSpan('register.multipart');
+      await this.app.register(fastifyMultipart, {
+        limits: {
+          fileSize: this.maxImageUploadBytes,
+          files: 1,
+        },
+      });
+      multipartSpan.end();
+
       // Register Handlebars helpers
       const helpersSpan = obs.startSpan('register.helpers');
       this.registerHandlebarsHelpers();
@@ -306,7 +337,17 @@ export class RegistryUIServer {
         root: staticPath,
         prefix: '/static/',
       });
+
+      await fsp.mkdir(this.uploadDir, { recursive: true });
+      await this.app.register(fastifyStatic, {
+        root: this.uploadDir,
+        prefix: '/images/',
+        decorateReply: false,
+      });
       staticSpan.end();
+
+      await this.loadImageIndex(obs);
+      await this.loadBadgeMap(obs);
 
       // Register Handlebars view engine
       const viewSpan = obs.startSpan('register.handlebars');
@@ -441,6 +482,11 @@ export class RegistryUIServer {
       return this.handlePublish(request, reply);
     });
 
+    // Upload/replace plugin image
+    this.app.post('/plugins/:org/:name/image', async (request, reply) => {
+      return this.handleImageUpload(request, reply);
+    });
+
     // Health check
     this.app.get('/health', async (_request, _reply) => {
       return { status: 'ok' };
@@ -546,6 +592,101 @@ export class RegistryUIServer {
         message,
       });
     }
+  }
+
+  private async loadImageIndex(obs: Observable): Promise<void> {
+    try {
+      const raw = await fsp.readFile(this.imageIndexPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        this.imageIndex = parsed as Record<string, string>;
+      }
+    } catch {
+      this.imageIndex = {};
+    }
+    obs.log.debug('Loaded image index with {count} entries', { count: Object.keys(this.imageIndex).length });
+  }
+
+  private async saveImageIndex(): Promise<void> {
+    await fsp.mkdir(this.uploadDir, { recursive: true });
+    await fsp.writeFile(this.imageIndexPath, JSON.stringify(this.imageIndex, null, 2), 'utf-8');
+  }
+
+  private async loadBadgeMap(obs: Observable): Promise<void> {
+    try {
+      const raw = await fsp.readFile(this.badgesFile, 'utf-8');
+      const parsed = JSON.parse(raw);
+      this.badgeMap = parsed && typeof parsed === 'object'
+        ? parsed as Record<string, string | string[]>
+        : {};
+    } catch {
+      this.badgeMap = {};
+    }
+    obs.log.debug('Loaded badge map with {count} entries', { count: Object.keys(this.badgeMap).length });
+  }
+
+  private resolvePluginImageUrl(pluginId: string): string | null {
+    const filename = this.imageIndex[pluginId];
+    if (!filename) return null;
+    const filePath = path.join(this.uploadDir, filename);
+    if (!fs.existsSync(filePath)) {
+      delete this.imageIndex[pluginId];
+      return null;
+    }
+    return `/images/${filename}`;
+  }
+
+  private normalizeBadgeLabel(raw: string): string {
+    return raw.trim().toUpperCase();
+  }
+
+  private resolvePluginBadges(plugin: Record<string, unknown>): Array<{ label: string; type: string }> {
+    const id = String(plugin.id || '');
+    const org = String(plugin.org || '').trim();
+    const mapped = this.badgeMap[id];
+
+    if (typeof mapped === 'string' && mapped.trim()) {
+      const label = this.normalizeBadgeLabel(mapped);
+      const type = label === 'CORE' ? 'core' : label === 'OFFICIAL' ? 'official' : 'custom';
+      return [{ label, type }];
+    }
+    if (Array.isArray(mapped) && mapped.length > 0) {
+      return mapped
+        .filter((item) => typeof item === 'string' && item.trim().length > 0)
+        .map((item) => {
+          const label = this.normalizeBadgeLabel(item as string);
+          const type = label === 'CORE' ? 'core' : label === 'OFFICIAL' ? 'official' : 'custom';
+          return { label, type };
+        });
+    }
+    if (org && org !== '_') {
+      return [{ label: org.toUpperCase(), type: 'org' }];
+    }
+    return [{ label: 'COMMUNITY', type: 'community' }];
+  }
+
+  private enrichPlugin(plugin: Record<string, unknown>): Record<string, unknown> {
+    const id = String(plugin.id || '');
+    return {
+      ...plugin,
+      imageUrl: this.resolvePluginImageUrl(id),
+      badges: this.resolvePluginBadges(plugin),
+    };
+  }
+
+  private enrichPluginList(plugins: unknown[]): Record<string, unknown>[] {
+    return plugins.map((plugin) => this.enrichPlugin(plugin as Record<string, unknown>));
+  }
+
+  private getImageExtension(mimeType: string): string | null {
+    const map: Record<string, string> = {
+      'image/png': '.png',
+      'image/jpeg': '.jpg',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'image/svg+xml': '.svg',
+    };
+    return map[mimeType] || null;
   }
 
   /**
@@ -710,58 +851,65 @@ a.s:hover{background:#333;border-color:#FB8C00}
 
   /**
    * Extract config properties from a JSON Schema for template display.
-   * Handles nested objects by creating groups with dotted paths.
-   * Returns an array of groups: [{ name, description, props }]
+   * Builds a tree-like flattened node list preserving hierarchy depth.
    */
   private extractConfigProps(schema: any): any[] {
     if (!schema || schema.type !== 'object' || !schema.properties) return [];
+    const nodes: Array<{
+      name: string;
+      fullPath: string;
+      level: number;
+      isObject: boolean;
+      required: boolean;
+      description: string;
+      type?: string;
+      defaultValue?: string | null;
+    }> = [];
 
-    const groups: any[] = [];
-    const required = new Set(Array.isArray(schema.required) ? schema.required : []);
+    const toStringSet = (values: unknown): Set<string> => {
+      if (!Array.isArray(values)) return new Set<string>();
+      return new Set<string>(
+        values.filter((v): v is string => typeof v === 'string')
+      );
+    };
 
-    for (const [name, def] of Object.entries(schema.properties)) {
-      const d = def as any;
+    const walk = (current: any, parentPath: string, required: Set<string>, level: number) => {
+      const props = current?.properties;
+      if (!props || typeof props !== 'object') return;
 
-      if (d.type === 'object' && d.properties) {
-        // Nested object -- create a group
-        const nestedRequired = new Set(Array.isArray(d.required) ? d.required : []);
-        const props: any[] = [];
+      for (const [name, def] of Object.entries(props)) {
+        const d = def as any;
+        const fullPath = parentPath ? `${parentPath}.${name}` : name;
 
-        for (const [subName, subDef] of Object.entries(d.properties)) {
-          const sd = subDef as any;
-          props.push({
-            name: subName,
-            type: this.configTypeLabel(sd),
-            required: nestedRequired.has(subName),
-            description: sd.description || '',
-            defaultValue: sd.default !== undefined ? JSON.stringify(sd.default) : null,
-          });
-        }
-
-        groups.push({
-          name,
-          description: d.description || '',
-          isGroup: true,
-          props,
-        });
-      } else {
-        // Top-level property
-        groups.push({
-          name,
-          description: d.description || '',
-          isGroup: false,
-          props: [{
+        if (d.type === 'object' && d.properties && typeof d.properties === 'object') {
+          nodes.push({
             name,
-            type: this.configTypeLabel(d),
+            fullPath,
+            level,
+            isObject: true,
             required: required.has(name),
             description: d.description || '',
-            defaultValue: d.default !== undefined ? JSON.stringify(d.default) : null,
-          }],
+          });
+          const nestedRequired = toStringSet(d.required);
+          walk(d, fullPath, nestedRequired, level + 1);
+          continue;
+        }
+
+        nodes.push({
+          name,
+          fullPath,
+          level,
+          isObject: false,
+          type: this.configTypeLabel(d),
+          required: required.has(name),
+          description: d.description || '',
+          defaultValue: d.default !== undefined ? JSON.stringify(d.default) : null,
         });
       }
-    }
+    };
 
-    return groups;
+    walk(schema, '', toStringSet(schema.required), 0);
+    return nodes;
   }
 
   /** Get a human-readable type label from a JSON Schema property definition */
@@ -770,6 +918,54 @@ a.s:hover{background:#333;border-color:#FB8C00}
     if (def.type === 'array' && def.items) return `${def.items.type || 'unknown'}[]`;
     if (def.format) return def.format;
     return def.type || 'unknown';
+  }
+
+  private extractObservableFeatureGroups(capabilities: any): Array<{
+    title: string;
+    items: Array<{ name: string; supported: boolean }>;
+  }> {
+    const groups: Array<{ title: string; key: string; labels: Record<string, string> }> = [
+      {
+        title: 'Logging',
+        key: 'logging',
+        labels: { debug: 'debug', info: 'info', warn: 'warn', error: 'error' },
+      },
+      {
+        title: 'Metrics',
+        key: 'metrics',
+        labels: {
+          createCounter: 'createCounter',
+          createGauge: 'createGauge',
+          createHistogram: 'createHistogram',
+          incrementCounter: 'incrementCounter',
+          setGauge: 'setGauge',
+          observeHistogram: 'observeHistogram',
+        },
+      },
+      {
+        title: 'Tracing',
+        key: 'tracing',
+        labels: { spanStart: 'spanStart', spanEnd: 'spanEnd', spanError: 'spanError' },
+      },
+    ];
+
+    if (!capabilities || typeof capabilities !== 'object') {
+      return [];
+    }
+
+    return groups
+      .map((group) => {
+        const source = (capabilities as Record<string, any>)[group.key];
+        if (!source || typeof source !== 'object') {
+          return null;
+        }
+        const items = Object.entries(group.labels).map(([key, label]) => ({
+          name: label,
+          supported: source[key] === true,
+        }));
+        return { title: group.title, items };
+      })
+      .filter((g): g is { title: string; items: Array<{ name: string; supported: boolean }> } => g !== null);
   }
 
   /**
@@ -872,12 +1068,13 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const listSpan = trace.startSpan('events.registry.plugin.list');
       const listResult = await this.registryClient.registryPluginList(trace, { limit: 12, offset: 0 });
       listSpan.end();
+      const plugins = this.enrichPluginList(listResult.results as unknown[]);
 
       if (this.wantsJson(request)) {
         trace.log.debug('Returned home data as JSON');
         reply.send({
           stats,
-          plugins: listResult.results,
+          plugins,
           total: listResult.total,
         });
       } else {
@@ -886,7 +1083,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
           title: 'BSB Plugin Registry',
           activePage: 'home',
           stats,
-          plugins: listResult.results,
+          plugins,
           pageSize: this.pageSize,
         });
         renderSpan.end();
@@ -978,13 +1175,14 @@ a.s:hover{background:#333;border-color:#FB8C00}
         total = listResult.total;
       }
 
+      const enrichedPlugins = this.enrichPluginList(plugins);
       const totalPages = Math.ceil(total / limit);
 
       if (isJson) {
         trace.log.debug('Returned browse data as JSON');
         reply.send({
           query: searchQuery || undefined,
-          plugins,
+          plugins: enrichedPlugins,
           total,
           page: Math.floor(offset / limit) + 1,
           totalPages,
@@ -1005,7 +1203,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
             : 'Browse Plugins',
           activePage: 'browse',
           searchQuery,
-          plugins,
+          plugins: enrichedPlugins,
           pagination: {
             currentPage: page,
             totalPages,
@@ -1068,9 +1266,17 @@ a.s:hover{background:#333;border-color:#FB8C00}
       versionsSpan.end();
 
       if (this.wantsJson(request)) {
+        const category = String(plugin.category || '');
+        const pluginView = {
+          ...this.enrichPlugin(plugin),
+          showEventsCard: category === 'service',
+          showDependenciesCard: category === 'service',
+          showSupportedFeaturesCard: category === 'observable',
+          showConfigCard: category === 'service' || category === 'config' || category === 'events' || category === 'observable',
+        };
         trace.log.debug('Returned plugin detail as JSON for {id}', { id: pluginId });
         reply.send({
-          plugin,
+          plugin: pluginView,
           versions: versions.versions,
         });
       } else {
@@ -1089,6 +1295,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
         const groupedEvents = eventsMap
           ? this.groupEventsByCategory(eventsMap)
           : null;
+        const category = String(plugin.category || '');
+        const showEventsCard = category === 'service' && !!groupedEvents && Object.keys(groupedEvents).length > 0;
+        const showDependenciesCard = category === 'service';
+        const showSupportedFeaturesCard = category === 'observable';
 
         // Build documentation tabs from the array of markdown strings.
         // Each doc's title is extracted from the first # heading.
@@ -1099,11 +1309,26 @@ a.s:hover{background:#333;border-color:#FB8C00}
         const configProps = plugin.configSchema
           ? this.extractConfigProps(plugin.configSchema)
           : null;
+        const hasNestedConfigProps = !!configProps && configProps.some((node: any) => Number(node.level || 0) > 0);
+        const showConfigCard = category === 'service' || category === 'config' || category === 'events' || category === 'observable';
+        const configDescription = category === 'config'
+          ? 'Configuration for config plugins is provided through environment variables:'
+          : 'Configuration options for this plugin:';
+        const observableFeatureGroups = category === 'observable'
+          ? this.extractObservableFeatureGroups(plugin.capabilities)
+          : [];
 
         const pluginView = {
-          ...plugin,
+          ...this.enrichPlugin(plugin),
           eventSchema: groupedEvents,
           configProps,
+          hasNestedConfigProps,
+          configDescription,
+          showConfigCard,
+          showEventsCard,
+          showDependenciesCard,
+          showSupportedFeaturesCard,
+          observableFeatureGroups,
           docTabs,
         };
 
@@ -1285,6 +1510,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
         pluginName: plugin.displayName || plugin.name,
         version: plugin.version,
         events: eventsMap || {},
+        ...(plugin.capabilities ? { capabilities: plugin.capabilities } : {}),
         ...(plugin.configSchema ? { configSchema: plugin.configSchema } : {}),
       });
     } catch (error) {
@@ -1406,6 +1632,103 @@ a.s:hover{background:#333;border-color:#FB8C00}
   // ============================================================================
   // Write Handlers (require auth)
   // ============================================================================
+
+  /** POST /plugins/:org/:name/image — Upload or replace plugin image */
+  private async handleImageUpload(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const params = this.validateInput(PluginDetailParamsSchema, request.params, reply);
+    if (!params) return;
+
+    const trace = this.createTrace('api.image.upload', {
+      url: request.url,
+      method: request.method,
+    });
+
+    try {
+      const userId = await this.authenticateRequest(request, reply, trace);
+      if (!userId) return;
+
+      const getSpan = trace.startSpan('events.registry.plugin.get');
+      let plugin: any;
+      try {
+        plugin = await this.registryClient.registryPluginGet(
+          trace,
+          { org: params.org, name: params.name }
+        );
+      } catch {
+        plugin = null;
+      }
+      getSpan.end();
+
+      if (!plugin) {
+        reply.code(404).send({
+          error: `Plugin not found: ${params.org}/${params.name}`,
+          code: 'PLUGIN_NOT_FOUND',
+        });
+        return;
+      }
+
+      const parts = (request as any).parts?.();
+      if (!parts) {
+        reply.code(400).send({ error: 'Expected multipart/form-data body', code: 'INVALID_UPLOAD' });
+        return;
+      }
+
+      let filePart: MultipartFile | null = null;
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          filePart = part;
+          break;
+        }
+      }
+
+      if (!filePart) {
+        reply.code(400).send({ error: 'No image file provided', code: 'MISSING_FILE' });
+        return;
+      }
+
+      const ext = this.getImageExtension(filePart.mimetype);
+      if (!ext) {
+        reply.code(400).send({
+          error: `Unsupported image type: ${filePart.mimetype}`,
+          code: 'UNSUPPORTED_IMAGE_TYPE',
+        });
+        return;
+      }
+
+      const pluginId = `${params.org}/${params.name}`;
+      const safeFileName = `${params.org}__${params.name}${ext}`;
+      const outputPath = path.join(this.uploadDir, safeFileName);
+      await fsp.mkdir(this.uploadDir, { recursive: true });
+
+      await pipeline(filePart.file, fs.createWriteStream(outputPath));
+      if (filePart.file.truncated) {
+        await fsp.unlink(outputPath).catch(() => {});
+        reply.code(413).send({
+          error: 'Image exceeds configured upload size limit',
+          code: 'IMAGE_TOO_LARGE',
+        });
+        return;
+      }
+
+      const previousFile = this.imageIndex[pluginId];
+      this.imageIndex[pluginId] = safeFileName;
+      await this.saveImageIndex();
+
+      if (previousFile && previousFile !== safeFileName) {
+        await fsp.unlink(path.join(this.uploadDir, previousFile)).catch(() => {});
+      }
+
+      trace.log.info('Plugin image updated for {id} by {userId}', { id: pluginId, userId });
+      reply.send({
+        success: true,
+        pluginId,
+        imageUrl: `/images/${safeFileName}`,
+      });
+    } catch (error) {
+      trace.log.error('Failed to upload plugin image: {error}', { error: (error as Error).message });
+      reply.code(500).send({ error: 'Internal Server Error' });
+    }
+  }
 
   /** POST /plugins — Publish a plugin (immutable versions) */
   private async handlePublish(request: FastifyRequest, reply: FastifyReply): Promise<void> {

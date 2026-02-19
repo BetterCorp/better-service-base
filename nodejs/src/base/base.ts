@@ -201,9 +201,20 @@ export abstract class Base
  */
 export type ConfigPropertyTypeSafe<
   ReferencedConfig extends BSBReferenceConfigType
-> = ReferencedConfig extends undefined
+> = [ReferencedConfig] extends [never]
+  ? never
+  : ReferencedConfig extends undefined | null
+  ? never
+  : ReferencedConfig;
+
+/**
+ * @hidden
+ */
+export type ConfigConstructorTypeSafe<
+  ReferencedConfig extends BSBReferenceConfigType
+> = [ReferencedConfig] extends [never]
   ? undefined
-  : ReferencedConfig extends null
+  : ReferencedConfig extends undefined | null
   ? undefined
   : ReferencedConfig;
 
@@ -214,7 +225,7 @@ export interface BaseWithConfigConfig<
   ReferencedConfig extends BSBReferenceConfigType
 >
   extends MainBaseConfig {
-  config: ConfigPropertyTypeSafe<ReferencedConfig>;
+  config: ConfigConstructorTypeSafe<ReferencedConfig>;
 }
 
 /**
@@ -234,7 +245,7 @@ export abstract class BaseWithConfig<
 
   constructor(config: BaseWithConfigConfig<ReferencedConfig>) {
     super(config);
-    this.config = config.config;
+    this.config = config.config as unknown as ConfigPropertyTypeSafe<ReferencedConfig>;
   }
 }
 

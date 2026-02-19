@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, BSBPluginConfig, LogFormatter, BSBError } from "@bsb/base";
+import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { createStream, RotatingFileStream } from "rotating-file-stream";
 import { z } from "zod";
@@ -71,12 +71,17 @@ export const FileLoggingConfigSchema = z.object({
 
 export type FileLoggingConfig = z.infer<typeof FileLoggingConfigSchema>;
 
-/**
- * Configuration class for file logging plugin
- */
-export class Config extends BSBPluginConfig<typeof FileLoggingConfigSchema> {
-  validationSchema = FileLoggingConfigSchema;
-}
+export const Config = createConfigSchema(
+  {
+    name: 'observable-logging-file',
+    description: 'File-based observable logging with rotation and retention controls',
+    version: '9.0.0',
+    image: './observable-logging-file.png',
+    tags: ['logging', 'file', 'rotation', 'observability'],
+    documentation: ['./docs/plugin.md'],
+  },
+  FileLoggingConfigSchema
+);
 
 /**
  * Parse size string to bytes (e.g., "10M", "100K", "1G")
@@ -92,12 +97,13 @@ function parseSize(size: string): string {
 /**
  * File logging observable plugin with rotation and compression
  */
-export class Plugin extends BSBObservable<Config> {
+export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
+  static Config = Config;
   private logFormatter = new LogFormatter();
   private logStream: RotatingFileStream | null = null;
   private isDisposed = false;
 
-  constructor(config: BSBObservableConstructor<Config>) {
+  constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 

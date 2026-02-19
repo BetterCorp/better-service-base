@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plugin Registry - BSB Documentation</title>
+  <meta name="robots" content="noindex">
+  <script type="module">
+    const target = __BSB_REGISTRY_URL__;
+    window.location.replace(target);
+  </script>
+</head>
+<body>
+  <p>Redirecting to the plugin registry...</p>
+  <p><a id="registry-link" href="#">Open plugin registry</a></p>
+  <script>
+    (function () {
+      var target = typeof __BSB_REGISTRY_URL__ !== 'undefined' ? __BSB_REGISTRY_URL__ : 'http://localhost:3200/plugins';
+      var link = document.getElementById('registry-link');
+      if (link) {
+        link.href = target;
+      }
+    })();
+  </script>
+</body>
+</html>

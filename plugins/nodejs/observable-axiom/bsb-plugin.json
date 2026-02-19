@@ -1,0 +1,21 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-axiom",
+      "name": "observable-axiom",
+      "basePath": "./",
+      "image": "./axiom-co-logo.png",
+      "description": "Axiom.co observability integration for logs, metrics, and traces",
+      "tags": [
+        "axiom",
+        "observability",
+        "logs",
+        "metrics",
+        "traces",
+        "analytics"
+      ],
+      "documentation": [],
+      "pluginPath": "src/plugins/observable-axiom/"
+    }
+  ]
+}

@@ -51,7 +51,7 @@ const ConfigSchema = z.object({
     token: z.string().describe("Axiom API token"),
     dataset: z.string().default("bsb-logs").describe("Axiom dataset name"),
     orgId: z.string().optional().describe("Axiom organization ID (for cloud)"),
-    url: z.string().url().optional().describe("Custom Axiom URL (for self-hosted)"),
+    url: z.url().optional().describe("Custom Axiom URL (for self-hosted)"),
   }),
 
   enabled: z.object({
@@ -73,12 +73,11 @@ export const Config = createConfigSchema(
     name: 'observable-axiom',
     description: 'Axiom.co observability integration for logs, metrics, and traces',
     version: '1.0.0',
+    image: './axiom-co-logo.png',
     tags: ['axiom', 'observability', 'logs', 'metrics', 'traces', 'analytics'],
   },
   ConfigSchema
 );
-
-type AxiomConfig = z.infer<typeof ConfigSchema>;
 
 /**
  * Custom ID generator that uses BSB's trace and span IDs

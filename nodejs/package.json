@@ -18,6 +18,15 @@
   "repository": {
     "url": "git+https://github.com/BetterCorp/better-service-base.git"
   },
+  "bsb": {
+    "publishIgnore": [
+      "service-default0",
+      "service-default1",
+      "service-default2",
+      "service-default3",
+      "service-default4"
+    ]
+  },
   "engines": {
     "npm": ">=11.0.0",
     "node": ">=23.0.0"
@@ -32,6 +41,7 @@
     "export-schemas": "node -r ts-node/register src/scripts/export-schemas.ts",
     "generate-client-types": "node -r ts-node/register src/scripts/generate-client-types.ts",
     "generate-plugin-json": "node -r ts-node/register src/scripts/generate-plugin-json.ts",
+    "publish:client": "node lib/cli.js client publish",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
     "test": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc --reporter json --reporter lcov mocha --reporter json --reporter-options output=junit.json",
     "testDev": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc mocha",

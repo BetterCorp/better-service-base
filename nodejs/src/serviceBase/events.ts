@@ -241,7 +241,7 @@ export class SBEvents {
         cwd: this.cwd,
         packageCwd: this.cwd,
         pluginCwd: this.cwd,
-        config: null,
+        config: undefined,
         sbObservable,
         pluginVersion: "0.0.0"
       }),

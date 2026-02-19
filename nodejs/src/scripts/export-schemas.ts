@@ -13,6 +13,34 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { toJSONSchema } from 'zod';
+
+type PluginType = 'service' | 'observable' | 'events' | 'config' | 'unknown';
+
+const OBSERVABLE_METHODS = {
+  logging: ['debug', 'info', 'warn', 'error'],
+  metrics: ['createCounter', 'createGauge', 'createHistogram', 'incrementCounter', 'setGauge', 'observeHistogram'],
+  tracing: ['spanStart', 'spanEnd', 'spanError'],
+} as const;
+
+const EVENTS_METHODS = [
+  'onBroadcast',
+  'emitBroadcast',
+  'onEvent',
+  'emitEvent',
+  'onReturnableEvent',
+  'emitEventAndReturn',
+  'receiveStream',
+  'sendStream',
+] as const;
+
+const CONFIG_METHODS = [
+  'getObservablePlugins',
+  'getEventsPlugins',
+  'getServicePlugins',
+  'getServicePluginDefinition',
+  'getPluginConfig',
+] as const;
 
 /**
  * Discover all plugin modules in the lib directory.
@@ -39,6 +67,45 @@ function discoverPlugins(libDir: string): string[] {
   }
 
   return pluginPaths;
+}
+
+function inferPluginType(pluginId: string, pluginClass: any): PluginType {
+  if (pluginId.startsWith('service-')) return 'service';
+  if (pluginId.startsWith('observable-')) return 'observable';
+  if (pluginId.startsWith('events-')) return 'events';
+  if (pluginId.startsWith('config-')) return 'config';
+
+  const baseName = pluginClass?.prototype?.constructor?.__proto__?.name || '';
+  if (baseName === 'BSBService') return 'service';
+  if (baseName === 'BSBObservable') return 'observable';
+  if (baseName === 'BSBEvents') return 'events';
+  if (baseName === 'BSBConfig') return 'config';
+  return 'unknown';
+}
+
+function hasMethod(proto: any, methodName: string): boolean {
+  return typeof proto?.[methodName] === 'function';
+}
+
+function buildCapabilities(pluginType: PluginType, proto: any): Record<string, unknown> | undefined {
+  if (pluginType === 'observable') {
+    return {
+      logging: Object.fromEntries(OBSERVABLE_METHODS.logging.map((name) => [name, hasMethod(proto, name)])),
+      metrics: Object.fromEntries(OBSERVABLE_METHODS.metrics.map((name) => [name, hasMethod(proto, name)])),
+      tracing: Object.fromEntries(OBSERVABLE_METHODS.tracing.map((name) => [name, hasMethod(proto, name)])),
+    };
+  }
+  if (pluginType === 'events') {
+    return {
+      eventsApi: Object.fromEntries(EVENTS_METHODS.map((name) => [name, hasMethod(proto, name)])),
+    };
+  }
+  if (pluginType === 'config') {
+    return {
+      configApi: Object.fromEntries(CONFIG_METHODS.map((name) => [name, hasMethod(proto, name)])),
+    };
+  }
+  return undefined;
 }
 
 /**
@@ -92,25 +159,44 @@ async function main() {
 
       const Plugin = pluginModule.Plugin;
 
-      // Check if plugin has exportSchemas method
-      if (typeof Plugin.exportSchemas !== 'function') {
-        continue;
+      const pluginType = inferPluginType(pluginId, Plugin);
+      const pluginName = Plugin.Config?.metadata?.name || pluginId;
+      const pluginVersion = Plugin.Config?.metadata?.version || '1.0.0';
+
+      let schemas: Record<string, any>;
+      if (typeof Plugin.exportSchemas === 'function' && Plugin.Config && Plugin.EventSchemas) {
+        schemas = Plugin.exportSchemas();
+      } else {
+        schemas = {
+          pluginName,
+          version: pluginVersion,
+          events: {},
+        };
       }
 
-      // Check if plugin has required static properties
-      if (!Plugin.Config || !Plugin.EventSchemas) {
-        continue;
+      schemas.pluginType = pluginType;
+      const capabilities = buildCapabilities(pluginType, Plugin.prototype);
+      if (capabilities) {
+        schemas.capabilities = capabilities;
       }
 
-      // Export schemas
-      const schemas = Plugin.exportSchemas();
+      if (Plugin.Config) {
+        try {
+          const configInstance = new Plugin.Config('', '', '', '');
+          if (configInstance.validationSchema && typeof configInstance.validationSchema === 'object') {
+            schemas.configSchema = toJSONSchema(configInstance.validationSchema as any);
+          }
+        } catch {
+          // Optional: if config schema extraction fails, keep going
+        }
+      }
 
       // Write to file using plugin directory name (not display name)
       const outputPath = path.join(schemasDir, `${pluginId}.json`);
       fs.writeFileSync(outputPath, JSON.stringify(schemas, null, 2), 'utf-8');
 
       // eslint-disable-next-line no-console
-      console.log(`  Exported schemas for ${pluginId} (v${schemas.version})`);
+      console.log(`  Exported schemas for ${pluginId} (v${schemas.version}, type=${pluginType})`);
       exportCount++;
     } catch (error) {
       errorCount++;

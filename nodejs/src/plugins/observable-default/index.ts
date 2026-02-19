@@ -25,8 +25,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, LogFormatter, BSBError } from "../../base";
+import { BSBObservable, BSBObservableConstructor, LogFormatter, BSBError, createConfigSchema } from "../../base";
 import { DTrace, LogMeta } from "../../interfaces";
+import { z } from "zod";
 
 // Console colours for log output
 const CONSOLE_COLOURS = {
@@ -66,10 +67,23 @@ const LOG_LEVELS = {
 
 type LogLevels = (typeof LOG_LEVELS)[keyof typeof LOG_LEVELS];
 
-export class Plugin extends BSBObservable<null> {
+export const Config = createConfigSchema(
+  {
+    name: "observable-default",
+    description: "Default console observable plugin for logging output",
+    version: "1.0.0",
+    image: "../docs/public/assets/images/bsb-logo.png",
+    tags: ["core", "observable", "default", "console"],
+    documentation: ["./docs/core-plugins/observable-default.md"],
+  },
+  z.object({})
+);
+
+export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
+  static Config = Config;
   private logFormatter = new LogFormatter();
 
-  constructor(config: BSBObservableConstructor<null>) {
+  constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 

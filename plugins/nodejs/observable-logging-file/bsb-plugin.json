@@ -2,15 +2,22 @@
   "nodejs": [
     {
       "id": "observable-logging-file",
-      "name": "File Logging",
+      "name": "observable-logging-file",
       "basePath": "./",
       "image": "./observable-logging-file.png",
-      "description": "File logging with automatic rotation, compression, and retention management",
-      "tags": ["Logging", "File", "Rotation", "Compression", "Observability"],
-      "documentation": ["./docs/plugin.md"],
+      "description": "File-based observable logging with rotation and retention controls",
+      "tags": [
+        "logging",
+        "file",
+        "rotation",
+        "observability"
+      ],
+      "documentation": [
+        "./docs/plugin.md"
+      ],
       "pluginPath": "src/plugins/observable-logging-file/",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base"
+        "github": "https://github.com/BetterCorp/better-service-base.git"
       }
     }
   ]

@@ -23,7 +23,8 @@
     "start": "bsb-plugin-cli start",
     "dev": "bsb-plugin-cli dev",
     "test": "bsb-plugin-cli test",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "publish:client": "bsb client publish"
   },
   "peerDependencies": {
     "@bsb/base": "^9.0.0"

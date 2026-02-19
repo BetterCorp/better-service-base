@@ -4,7 +4,7 @@
       "id": "service-bsb-registry-ui",
       "name": "BSB Registry UI & API",
       "basePath": "./",
-      "image": "./service-bsb-registry-ui.png",
+      "image": "../../../docs/public/assets/images/bsb-logo.png",
       "description": "Web UI and REST API for browsing, searching, and publishing BSB plugins (content negotiation: HTML or JSON)",
       "tags": [
         "registry",
@@ -26,7 +26,7 @@
       "id": "service-bsb-registry",
       "name": "BSB Registry Core",
       "basePath": "./",
-      "image": "./service-bsb-registry.png",
+      "image": "../../../docs/public/assets/images/bsb-logo.png",
       "description": "Event-driven plugin registry core for multi-language BSB plugin storage and discovery",
       "tags": [
         "registry",
