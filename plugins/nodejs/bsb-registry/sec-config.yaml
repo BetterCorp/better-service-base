@@ -33,11 +33,10 @@ default:
       enabled: true
       config:
         database:
-          type: sqlite               # 'sqlite' or 'postgres'
-          path: ./.temp/registry.db  # SQLite database file
+          type: file
+          path: ./.temp/data
           # url: postgresql://...    # PostgreSQL connection (if type: postgres)
         auth:
-          tokensFile: ./.temp/api-tokens.json
           requireAuth: true
 
     # ============================================================================

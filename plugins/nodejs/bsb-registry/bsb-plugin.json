@@ -38,7 +38,8 @@
         "storage"
       ],
       "documentation": [
-        "./docs/service-bsb-registry.md"
+        "./docs/service-bsb-registry.md",
+        "./docs/bsb-registry-db-file.md"
       ],
       "pluginPath": "src/plugins/service-bsb-registry/"
     }

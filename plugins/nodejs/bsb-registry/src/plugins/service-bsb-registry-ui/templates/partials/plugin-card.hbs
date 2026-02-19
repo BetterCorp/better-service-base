@@ -1,24 +1,20 @@
 <a href="/plugins/{{org}}/{{name}}" class="plugin-card">
-  <div class="plugin-header">
-    <div>
-      <div class="plugin-name">{{displayName}}</div>
-      <div class="plugin-id">{{pluginDisplayId id}}</div>
-    </div>
-    <span class="plugin-version">v{{version}}</span>
+  <div class="plugin-tags card-top-tags">
+    <span class="tag category">{{category}}</span>
+    <span class="tag language">{{language}}</span>
+    <span class="tag">v{{version}}</span>
   </div>
+
+  <div class="plugin-name">{{displayName}}</div>
+  <div class="plugin-id">{{pluginDisplayId id}}</div>
 
   <p class="plugin-description">{{description}}</p>
 
-  <div class="plugin-tags">
-    <span class="tag category">{{category}}</span>
-    <span class="tag language">{{language}}</span>
-    {{#each tags}}
-      <span class="tag">{{this}}</span>
-    {{/each}}
-  </div>
-
-  <div class="plugin-meta">
-    <span>{{eventCount}} events</span>
-    {{#if author}}<span>{{formatAuthor author}}</span>{{/if}}
-  </div>
+  {{#if tags}}
+    <div class="plugin-tags">
+      {{#each tags}}
+        <span class="tag">{{this}}</span>
+      {{/each}}
+    </div>
+  {{/if}}
 </a>
