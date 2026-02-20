@@ -679,4 +679,4 @@ Use this as a reference for:
 
 ## License
 
-MIT - Free to use as a reference for your own BSB plugins.
+(AGPL-3.0-only OR Commercial)
