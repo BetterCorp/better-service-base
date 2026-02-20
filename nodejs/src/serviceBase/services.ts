@@ -168,7 +168,7 @@ export class SBServices {
         name: plugin,
         package: plugins[plugin].package,
         plugin: plugins[plugin].plugin,
-        version: "",
+        version: plugins[plugin].version ?? "",
       });
     }
     for (const activeService of this._activeServices) {
@@ -358,6 +358,7 @@ export class SBServices {
       plugin.package ?? null,
       plugin.plugin,
       plugin.name,
+      plugin.version ?? null,
     );
     if (newPlugin === null || !newPlugin.success) {
       this.observableBackend.error(

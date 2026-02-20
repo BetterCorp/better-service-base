@@ -1,81 +1,284 @@
 /**
- * BSB (Better-Service-Base) is an event-bus based microservice framework.  
- * Copyright (C) 2024 BetterCorp (PTY) Ltd  
+ * BSB plugin installer for container startup.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Reads BSB_PLUGINS and installs into BSB plugin-dir structure:
+ *   <pluginDir>/<npmPackage>/<major>/<minor>/<micro>/...
+ *   <pluginDir>/<npmPackage>/latest/...
  *
- * Alternatively, you may obtain a commercial license for this program. 
- * The commercial license allows you to use the Program in a closed-source manner, 
- * including the right to create derivative works that are not subject to the terms 
- * of the AGPL. 
+ * Supported selectors:
+ *   - @scope/name            -> highest available version
+ *   - @scope/name@X.Y        -> highest X.Y.micro
+ *   - @scope/name@X.Y.Z      -> exact
+ *   - @scope/name:X.Y or :X.Y.Z (legacy delimiter)
  *
- * To obtain a commercial license, please contact the copyright holders at 
- * https://www.bettercorp.dev. The terms and conditions of the commercial license 
- * will be provided upon request.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ * Rejected:
+ *   - @scope/name@X          (major-only selector)
+ *   - @scope/name@latest     (use no selector instead)
  */
 
-const fs = require("fs");
-const execSync = require("child_process").execSync;
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
-if (!fs.existsSync("./package.json")) {
-  fs.writeFileSync(
-    "./package.json",
-    '{"name": "@bettercorp/service-base-docker-container", "version": "1.0.0", "devDependencies": {}, "dependencies": {}}'
-  );
-  execSync("time npm i", { encoding: "utf-8" });
+const TRUTHY = new Set(["1", "true", "yes", "y"]);
+const MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
+const EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
+const SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
+
+function isTruthy(value) {
+  return TRUTHY.has(String(value || "").trim().toLowerCase());
 }
 
-const packageConfig = JSON.parse(fs.readFileSync("./package.json").toString());
+function parsePluginSpec(specRaw) {
+  const spec = String(specRaw || "").trim();
+  if (!spec) return null;
 
-for (let plugin of (process.env.BSB_PLUGINS || "")
-  .split(",")
-  .filter((x) => x != "")) {
-  console.log("INSTALL PLUGIN?: " + plugin);
-  let pluginString = plugin.split(":");
-  let existingPlugin = null;
-  for (let ePlugin of Object.keys(packageConfig.dependencies)) {
-    if (pluginString[0] === ePlugin) {
-      existingPlugin = packageConfig.dependencies[ePlugin];
-      break;
-    }
-  }
+  let pkg = spec;
+  let selector = null;
 
-  let installString = pluginString[0];
-  if (pluginString.length > 1) installString += `@${pluginString[1]}`;
-  if (existingPlugin === null) {
-    console.log("INSTALL PLUGIN: " + installString);
-    // not found, we need to install
-    execSync(`time npm install ${installString}`, { encoding: "utf-8" });
+  if (spec.includes(":")) {
+    const split = spec.split(/:(.+)/);
+    pkg = split[0];
+    selector = split[1] || null;
   } else {
-    if (pluginString.length > 1 && pluginString[1] !== existingPlugin) {
-      console.log("UPDATE PLUGIN: " + installString);
-      // version specific, so lets see if we need to update
-      execSync(`time npm install ${installString}`, { encoding: "utf-8" });
+    const lastAt = spec.lastIndexOf("@");
+    if (lastAt > 0) {
+      pkg = spec.slice(0, lastAt);
+      selector = spec.slice(lastAt + 1) || null;
     }
+  }
+
+  if (!pkg) return null;
+  if (!selector) {
+    return { pkg, type: "none", selector: null };
+  }
+
+  const normalized = selector.trim();
+  if (normalized.toLowerCase() === "latest") {
+    throw new Error(`Invalid selector "${selector}" for ${pkg}. Use no selector, X.Y, or X.Y.Z.`);
+  }
+  if (/^\d+$/.test(normalized)) {
+    throw new Error(`Invalid selector "${selector}" for ${pkg}. Major-only is not allowed; use X.Y or X.Y.Z.`);
+  }
+  if (MINOR_SELECTOR_REGEX.test(normalized)) {
+    return { pkg, type: "minor", selector: normalized };
+  }
+  if (EXACT_VERSION_REGEX.test(normalized)) {
+    return { pkg, type: "exact", selector: normalized };
+  }
+
+  throw new Error(`Invalid selector "${selector}" for ${pkg}. Allowed formats: X.Y or X.Y.Z.`);
+}
+
+function runNpm(cwd, args, capture = false) {
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  const result = spawnSync(npmCmd, args, {
+    cwd,
+    stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    env: process.env,
+    encoding: "utf-8",
+  });
+  if (result.status !== 0) {
+    throw new Error(`npm ${args.join(" ")} failed in ${cwd}${capture ? `\n${result.stderr || ""}` : ""}`);
+  }
+  return result;
+}
+
+async function ensureDir(dir) {
+  await fs.mkdir(dir, { recursive: true });
+}
+
+async function removeDir(dir) {
+  await fs.rm(dir, { recursive: true, force: true });
+}
+
+async function copyDir(from, to) {
+  await removeDir(to);
+  await ensureDir(path.dirname(to));
+  await fs.cp(from, to, { recursive: true });
+}
+
+async function fileExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
   }
 }
 
-/*if ((process.env.BSB_PLUGINS || "").length > 3) {
-  console.log("INSTALL PLUGINS: DEPS");
-  execSync(`time pnpm i`, { encoding: "utf-8" });
-}*/
-
-if (
-  ["yes", "y", "true"].indexOf(
-    (process.env.BSB_PLUGIN_UPDATE || "").toLowerCase()
-  ) >= 0
-) {
-  console.log("UPDATE PLUGINS");
-  execSync(`time npm update`, { encoding: "utf-8" });
+function parseSemver(version) {
+  const m = String(version || "").match(SEMVER_REGEX);
+  if (!m) return null;
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
+
+function compareSemver(a, b) {
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+  if (!pa || !pb) return 0;
+  if (pa[0] !== pb[0]) return pa[0] - pb[0];
+  if (pa[1] !== pb[1]) return pa[1] - pb[1];
+  return pa[2] - pb[2];
+}
+
+function resolveRequestSpec(pkg, parsedSpec) {
+  if (parsedSpec.type === "none") return `${pkg}@latest`;
+  if (parsedSpec.type === "minor") return `${pkg}@${parsedSpec.selector}`;
+  return `${pkg}@${parsedSpec.selector}`;
+}
+
+async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
+  const pkg = parsedSpec.pkg;
+  const pluginRoot = path.join(pluginDir, pkg);
+  const latestDir = path.join(pluginRoot, "latest");
+  const hasExplicitSelector = parsedSpec.type !== "none";
+
+  if (
+    !forceUpdate &&
+    !hasExplicitSelector &&
+    (await fileExists(path.join(latestDir, "package.json")))
+  ) {
+    console.log(`[BSB] Plugin ${pkg} already present at latest. Skipping (set BSB_PLUGIN_UPDATE=true to refresh).`);
+    return;
+  }
+
+  const requestSpec = resolveRequestSpec(pkg, parsedSpec);
+  const stageDir = path.join(
+    tempRoot,
+    `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
+
+  console.log(`[BSB] Installing plugin ${requestSpec}`);
+  await ensureDir(stageDir);
+
+  try {
+    await fs.writeFile(
+      path.join(stageDir, "package.json"),
+      JSON.stringify({ name: "bsb-plugin-installer", version: "1.0.0", private: true }, null, 2),
+      "utf-8",
+    );
+
+    runNpm(stageDir, ["install", "--omit=dev", "--no-audit", "--no-fund", requestSpec]);
+
+    const installedPkgDir = path.join(stageDir, "node_modules", pkg);
+    const installedPkgJsonPath = path.join(installedPkgDir, "package.json");
+    const installedPkgJson = JSON.parse(await fs.readFile(installedPkgJsonPath, "utf-8"));
+    const resolvedVersion = String(installedPkgJson.version || "");
+    const semver = parseSemver(resolvedVersion);
+    if (!semver) {
+      throw new Error(`Unable to resolve installed semver version for ${pkg}: ${resolvedVersion}`);
+    }
+
+    if (parsedSpec.type === "minor") {
+      const [maj, min] = parsedSpec.selector.split(".").map((x) => Number(x));
+      if (semver[0] !== maj || semver[1] !== min) {
+        throw new Error(
+          `Resolved version ${resolvedVersion} does not match selector ${parsedSpec.selector} for ${pkg}`
+        );
+      }
+    }
+    if (parsedSpec.type === "exact" && parsedSpec.selector !== resolvedVersion) {
+      throw new Error(
+        `Resolved version ${resolvedVersion} does not match exact selector ${parsedSpec.selector} for ${pkg}`
+      );
+    }
+
+    const [major, minor, micro] = semver.map((x) => String(x));
+    const versionDir = path.join(pluginRoot, major, minor, micro);
+    await ensureDir(path.join(pluginRoot, major, minor));
+
+    await copyDir(path.join(stageDir, "node_modules"), path.join(versionDir, "node_modules"));
+    await fs.cp(installedPkgDir, versionDir, { recursive: true });
+    await copyDir(versionDir, latestDir);
+
+    const pluginEntryPath = path.join(versionDir, "lib", "plugins");
+    if (!(await fileExists(pluginEntryPath))) {
+      console.warn(`[BSB] Warning: ${pkg}@${resolvedVersion} does not contain lib/plugins`);
+    }
+
+    console.log(`[BSB] Installed ${pkg} -> ${versionDir} and ${latestDir}`);
+  } finally {
+    await removeDir(stageDir);
+  }
+}
+
+async function listInstalledPlugins(pluginDir) {
+  const out = [];
+  let topEntries = [];
+  try {
+    topEntries = await fs.readdir(pluginDir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+
+  for (const entry of topEntries) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith("@")) {
+      const scopeDir = path.join(pluginDir, entry.name);
+      const scopedEntries = await fs.readdir(scopeDir, { withFileTypes: true });
+      for (const scopedEntry of scopedEntries) {
+        if (!scopedEntry.isDirectory()) continue;
+        const pkg = `${entry.name}/${scopedEntry.name}`;
+        if (await fileExists(path.join(pluginDir, pkg, "latest", "package.json"))) {
+          out.push(pkg);
+        }
+      }
+    } else {
+      const pkg = entry.name;
+      if (await fileExists(path.join(pluginDir, pkg, "latest", "package.json"))) {
+        out.push(pkg);
+      }
+    }
+  }
+  return out;
+}
+
+async function main() {
+  const pluginDir = process.env.BSB_PLUGINS_DIR || process.env.BSB_PLUGIN_DIR;
+  const tempRoot = process.env.BSB_PLUGIN_TEMP_DIR || "/mnt/temp/bsb-plugin-installer";
+  const forceUpdate = isTruthy(process.env.BSB_PLUGIN_UPDATE);
+  const rawPlugins = String(process.env.BSB_PLUGINS || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (!pluginDir || pluginDir.trim().length === 0) {
+    console.log("[BSB] No BSB_PLUGINS_DIR/BSB_PLUGIN_DIR set. Skipping plugin bootstrap.");
+    return;
+  }
+
+  await ensureDir(pluginDir);
+  await ensureDir(tempRoot);
+
+  let parsedPlugins = rawPlugins
+    .map(parsePluginSpec)
+    .filter(Boolean);
+
+  if (parsedPlugins.length === 0 && forceUpdate) {
+    const existing = await listInstalledPlugins(pluginDir);
+    parsedPlugins = existing.map((pkg) => ({ pkg, type: "none", selector: null }));
+    if (parsedPlugins.length > 0) {
+      console.log(`[BSB] BSB_PLUGIN_UPDATE requested. Refreshing ${parsedPlugins.length} installed plugin(s).`);
+    }
+  }
+
+  if (parsedPlugins.length === 0) {
+    console.log("[BSB] No BSB_PLUGINS requested. Nothing to install.");
+    return;
+  }
+
+  for (const plugin of parsedPlugins) {
+    await installPlugin({
+      parsedSpec: plugin,
+      pluginDir,
+      tempRoot,
+      forceUpdate,
+    });
+  }
+}
+
+main().catch((err) => {
+  console.error("[BSB] Plugin installation failed:", err && err.stack ? err.stack : err);
+  process.exit(1);
+});

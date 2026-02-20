@@ -4,13 +4,15 @@
     "exclude": [
       "src/plugins/-*/**/*.*",
       "src/plugins/*-test/**/*.*",
-      "src/tests/**/*.*"
+      "src/plugins/service-*/**/*.*",
+      "src/tests/**"
     ]
   },
   "exclude": [
     "node_modules/**",
     "src/plugins/*-test/**/*.*",
     "src/plugins/-*/**/*.*",
-    "src/tests/**/*.*"
+    "src/plugins/service-*/**/*.*",
+    "src/tests/**"
   ]
 }

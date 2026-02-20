@@ -4,7 +4,6 @@
       "id": "config-default",
       "name": "config-default",
       "basePath": "./",
-      "image": "../docs/public/assets/images/bsb-logo.png",
       "description": "Default configuration plugin for profile and plugin resolution",
       "tags": [
         "core",
@@ -15,6 +14,7 @@
         "./docs/core-plugins/config-default.md"
       ],
       "pluginPath": "src/plugins/config-default/",
+      "image": "../docs/public/assets/images/bsb-logo.png",
       "links": {
         "github": "git+https://github.com/BetterCorp/better-service-base.git"
       }
@@ -23,7 +23,6 @@
       "id": "events-default",
       "name": "events-default",
       "basePath": "./",
-      "image": "../docs/public/assets/images/bsb-logo.png",
       "description": "Default in-process events plugin for BSB event routing",
       "tags": [
         "core",
@@ -34,6 +33,7 @@
         "./docs/core-plugins/events-default.md"
       ],
       "pluginPath": "src/plugins/events-default/",
+      "image": "../docs/public/assets/images/bsb-logo.png",
       "links": {
         "github": "git+https://github.com/BetterCorp/better-service-base.git"
       }
@@ -42,7 +42,6 @@
       "id": "observable-default",
       "name": "observable-default",
       "basePath": "./",
-      "image": "../docs/public/assets/images/bsb-logo.png",
       "description": "Default console observable plugin for logging output",
       "tags": [
         "core",
@@ -54,6 +53,7 @@
         "./docs/core-plugins/observable-default.md"
       ],
       "pluginPath": "src/plugins/observable-default/",
+      "image": "../docs/public/assets/images/bsb-logo.png",
       "links": {
         "github": "git+https://github.com/BetterCorp/better-service-base.git"
       }

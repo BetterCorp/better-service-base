@@ -70,6 +70,7 @@ ENV BSB_CONTAINER=true
 ENV BSB_PLUGIN_DIR=/mnt/plugins
 
 COPY entrypoint.sh /home/bsb/entrypoint.sh
+COPY entrypoint.js /home/bsb/entrypoint.js
 COPY LICENSE /home/bsb/LICENSE
 
 # Copy compiled TypeScript from builder

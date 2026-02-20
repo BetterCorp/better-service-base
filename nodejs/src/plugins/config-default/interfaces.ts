@@ -42,10 +42,10 @@ export interface DeploymentProfile {
   /**
    * @name NPM Package version
    * @description The NPM package version that holds the plugin
-   * @example 1.0.0
-   * @example 1.0.1
+   * @example 1.2
+   * @example 1.2.3
    */
-  //version: string;
+  version?: string;
   /**
    * @name Plugin name
    * @description The name of the plugin

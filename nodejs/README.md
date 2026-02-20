@@ -86,34 +86,6 @@ Boot flow (high level):
 
 Timekeeping metrics are recorded for each step and logged as timers. A heartbeat counter runs hourly.
 
-### ServiceBase APIs (for BSB contributors only)
-- Construction (modern):
-  ```ts
-  import { ServiceBase, BSBPreset } from "@bettercorp/service-base";
-
-  // Simple defaults (local dev only)
-  const app = ServiceBase.development();
-
-  // Preset with overrides (local dev only)
-  const prod = ServiceBase.fromPreset(BSBPreset.PRODUCTION, { cwd: "/app" });
-
-  // Fully custom options (local dev only)
-  const custom = ServiceBase.create({ cwd: process.cwd(), plugins: ["logging-default", "events-default"] });
-  ```
-- Lifecycle:
-  ```ts
-  await app.init();
-  await app.run();
-  // app.dispose(code, reason) is called automatically on signals/errors
-  ```
-- Add a service plugin programmatically (local dev only, before services init):
-  ```ts
-  import { BSBService } from "@bettercorp/service-base";
-
-  class MyService extends BSBService<{ greeting: string }> { /* ... */ }
-  await app.addService("service-my", MyService as any, { greeting: "hi" });
-  ```
-
 ### Subsystems
 - `SBConfig` (configuration)
   - Defaults to `config-default` plugin; can be replaced via environment variables
@@ -161,7 +133,7 @@ Built‑in plugin types include: `config-*`, `logging-*`, `metrics-*`, `events-*
 - `npm test`: Mocha + NYC coverage in TS mode
 - `npm run testDev`: Run tests without coverage (faster for development)
 - `npm run generate-docs`: Generate TypeDoc JSON to `docs.json`
-- `npm run docs`: Build static docs to `../docs/dist/languages/nodejs/types`
+- API Reference: Hosted at `https://types.bsbcode.dev/nodejs/`
 - `npm run export-schemas`: Export event schemas to `lib/schemas/{plugin-name}.json`
 - `npm run generate-plugin-json`: Generate plugin metadata in `lib/schemas/`
 
@@ -179,7 +151,7 @@ Example run (with mounted plugins directory):
 docker run --rm \
   -e BSB_PLUGINS="@bettercorp/your-plugin" \
   -v $(pwd)/plugins:/mnt/plugins \
-  bettercorp/bsb-node:latest
+  betterweb/service-base:9
 ```
 
 Recommended plugin directory layout (when using `BSB_PLUGIN_DIR`):
@@ -209,8 +181,8 @@ Notes
 - `BSB_PLUGINS`: Comma‑separated list of npm packages to install at container start (entrypoint.js)
 - `BSB_PLUGIN_UPDATE`: `yes|y|true` to run `npm update` at container start
 - Config plugin override (advanced):
-  - `BSB_LOGGER_PLUGIN`: Name of config plugin (must start with `config-`)
-  - `BSB_LOGGER_PLUGIN_PACKAGE`: npm package name hosting the config plugin
+  - `BSB_CONFIG_PLUGIN`: Name of config plugin (must start with `config-`)
+  - `BSB_CONFIG_PLUGIN_PACKAGE`: npm package name hosting the config plugin
 
 ### Documentation
 
@@ -221,7 +193,7 @@ Notes
 #### API Documentation
 - API docs are generated with TypeDoc (`typedoc.json`).
   - `npm run generate-docs` → emits `docs.json`
-  - `npm run docs` → builds static site under `../docs/dist/languages/nodejs/types`
+  - API docs are served at `https://types.bsbcode.dev/nodejs/`
 
 ### Testing
 - Tests: Mocha + ts-node with NYC coverage
@@ -238,11 +210,6 @@ Quick reference:
 - Use cross-language type helpers (`uuid`, `int32`, `datetime`, etc.) for better code generation
 - Plugin metadata auto-generates `PLUGIN_CLIENT` and schema files during build
 
-Legacy templates are available under `templates/` but use outdated v8 patterns:
-- `templates/plugin.ts`, `templates/pluginClient.ts` (service plugin + client)
-- `templates/events.ts` (events plugin)
-- `templates/logger.ts` (logging plugin)
-
 At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or `src/plugins/.../index.ts` in dev). For configurable plugins, export a `Config` created with `createConfigSchema()`. Publish your plugin as an npm package or ship its prebuilt folder structure under `BSB_PLUGIN_DIR`.
 
 ### Quick Start (Container)
@@ -251,7 +218,7 @@ At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or 
 docker run --rm \
   -v $(pwd)/plugins:/mnt/plugins:ro \
   -e BSB_PLUGIN_DIR=/mnt/plugins \
-  bettercorp/bsb-node:latest
+  betterweb/service-base:9
 ```
 
 Local development (for contributors only):
@@ -259,5 +226,3 @@ Local development (for contributors only):
 npm install
 npm run dev
 ```
-
-

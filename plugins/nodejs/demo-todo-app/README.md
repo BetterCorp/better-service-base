@@ -344,7 +344,7 @@ Ensure the following plugins are enabled:
 
 ## License
 
-MIT
+(AGPL-3.0-only OR Commercial)
 
 ## Contributing
 

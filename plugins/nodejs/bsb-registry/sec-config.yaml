@@ -50,3 +50,5 @@ default:
         port: 3200                   # HTTP port for serving web pages
         host: 0.0.0.0                # Listen address
         pageSize: 20                 # Plugins per page
+        uploadDir: ./.temp/data/registry-images
+        badgesFile: ./BADGES.json

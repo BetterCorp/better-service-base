@@ -1,6 +1,6 @@
 {
   "name": "@bsb/base",
-  "version": "9.0.0",
+  "version": "9.0.1",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
@@ -53,19 +53,11 @@
     "bsb-client-cli": "lib/scripts/bsb-client-cli.js"
   },
   "files": [
-    "lib/*.*",
-    "lib/base/**/*",
-    "lib/interfaces/**/*",
-    "lib/serviceBase/**/*",
-    "lib/schemas/**/*",
-    "lib/types/**/*",
-    "lib/scripts/**/*",
-    "lib/plugins/config-*/**/*",
-    "lib/plugins/events-*/**/*",
-    "lib/plugins/metrics-*/**/*",
-    "lib/plugins/logging-*/**/*",
+    "lib/**/*",
+    "bsb-plugin.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "LICENSE.commercial"
   ],
   "main": "lib/index.js",
   "devDependencies": {

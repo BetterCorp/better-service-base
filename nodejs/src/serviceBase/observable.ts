@@ -433,7 +433,8 @@ export class SBObservable {
           this.observableBackend,
           pluginDef.package ?? null,
           pluginDef.plugin,
-          pluginKey
+          pluginKey,
+          pluginDef.version ?? null,
         );
 
         if (!loadResult || !loadResult.success) {

@@ -25,22 +25,33 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+PLUGIN_DIR="${BSB_PLUGINS_DIR:-${BSB_PLUGIN_DIR:-}}"
+PLUGIN_DIR_EXISTS=0
+if [ -n "$PLUGIN_DIR" ] && [ -d "$PLUGIN_DIR" ]; then
+  PLUGIN_DIR_EXISTS=1
+fi
 
-# if [ "$BSB_CONTAINER" == "true" ]; then
-#   cd /mnt/bsb-plugins
-#   node /root/entrypoint.js
-#   cd /home/bsb
-#   # node ./node_modules/@bettercorp/service-base/postinstall.js --cwd=$(pwd)
-# fi
+mkdir -p /mnt/.temp /mnt/temp
+if [ -n "$PLUGIN_DIR" ] && [ "$PLUGIN_DIR_EXISTS" -eq 0 ]; then
+  mkdir -p "$PLUGIN_DIR"
+fi
 
-mkdir /mnt/.temp
+if [ -n "$PLUGIN_DIR" ] && { [ "$PLUGIN_DIR_EXISTS" -eq 0 ] || [ -n "$BSB_PLUGINS" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "1" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "true" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "TRUE" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "yes" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "YES" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "y" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "Y" ]; }; then
+  echo "BSB plugin bootstrap: syncing plugins into $PLUGIN_DIR"
+  node /home/bsb/entrypoint.js
+fi
 
 chown -R node:node /home/bsb
-chown -R node:node /mnt/plugins
+if [ -n "$PLUGIN_DIR" ]; then
+  chown -R node:node "$PLUGIN_DIR"
+fi
 
 chmod -R 440 /home/bsb || true
-chmod -R 640 /home/bsb/.temp || true
-chmod -R 440 /mnt/plugins || true
+chmod -R 640 /mnt/.temp || true
+chmod -R 640 /mnt/temp || true
+if [ -n "$PLUGIN_DIR" ]; then
+  chmod -R 440 "$PLUGIN_DIR" || true
+fi
 chmod 400 /home/bsb/sec-config.yaml || true
 
 # Check if the first argument is BSBDEBUG for debugging purposes

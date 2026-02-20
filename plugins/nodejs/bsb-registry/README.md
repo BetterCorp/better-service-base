@@ -23,6 +23,20 @@ npm run dev          # starts with sec-config.minimal.yaml (file storage, no aut
 
 Web UI: http://localhost:3200
 
+## Docker Packaging For BSB
+
+This project includes `Dockerfile` to build and package the registry as a BSB plugin repository artifact.
+
+- Build image from repo root:
+  ```bash
+  docker build -f plugins/nodejs/bsb-registry/Dockerfile -t betterweb/bsb-registry-plugin:1.0.1 .
+  ```
+- Packaged output inside image:
+  - `/mnt/plugins/@bsb/registry/<version>/`
+  - `/mnt/plugins/@bsb/registry/latest/`
+
+Use this output with BSB runtime images (`betterweb/service-base:9.0.0` or `betterweb/service-base:9`) by mounting/copying into `BSB_PLUGIN_DIR` (default `/mnt/plugins`).
+
 ## Configuration
 
 All configuration lives in `sec-config.yaml`:

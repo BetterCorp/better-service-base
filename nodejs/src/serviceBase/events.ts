@@ -226,7 +226,7 @@ export class SBEvents {
           name: plugin,
           package: plugins[plugin].package,
           plugin: plugins[plugin].plugin,
-          version: "",
+          version: plugins[plugin].version ?? "",
         },
         plugins[plugin].filter,
       );
@@ -373,6 +373,7 @@ export class SBEvents {
       plugin.package ?? null,
       plugin.plugin,
       plugin.name,
+      plugin.version ?? null,
     );
     if (newPlugin === null || !newPlugin.success) {
       this.observableBackend.error(tTrace,
