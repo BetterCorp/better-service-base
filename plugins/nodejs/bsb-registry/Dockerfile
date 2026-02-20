@@ -27,7 +27,7 @@ RUN set -eux; \
   cp -a package.json package-lock.json bsb-plugin.json README.md docs lib node_modules "${PKG_ROOT}/${VERSION}/"; \
   cp -a "${PKG_ROOT}/${VERSION}/." "${PKG_ROOT}/latest/"
 
-FROM alpine:3.20
+FROM betterweb/service-base:9
 
 WORKDIR /mnt/plugins
 

@@ -8,7 +8,13 @@
     "url": "https://bettercorp.dev/"
   },
   "description": "File logging observable plugin for BSB with rotation and compression",
-  "keywords": ["bsb", "observable", "logging", "file", "rotation"],
+  "keywords": [
+    "bsb",
+    "observable",
+    "logging",
+    "file",
+    "rotation"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/BetterCorp/better-service-base.git",
@@ -16,7 +22,11 @@
   },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "files": ["lib/**/*", "README.md", "LICENSE"],
+  "files": [
+    "lib/**/*",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "clean": "bsb-plugin-cli clean",
     "build": "bsb-plugin-cli build",
@@ -42,5 +52,6 @@
   "engines": {
     "node": ">=23.0.0",
     "npm": ">=11.0.0"
-  }
+  },
+  "homepage": "https://registry.bsbcode.dev/plugins/bsb/observable-logging-file"
 }

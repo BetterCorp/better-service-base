@@ -54,5 +54,6 @@
   "peerDependencies": {
     "@bsb/base": "^9.0.0"
   },
-  "bsb": {}
+  "bsb": {},
+  "homepage": "https://registry.bsbcode.dev/plugins/bsb/registry"
 }
