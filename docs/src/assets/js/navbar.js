@@ -96,6 +96,16 @@ function createNavbar(activePage = '') {
 }
 
 function initNavbar() {
+  const registryUrl = (typeof __BSB_REGISTRY_URL__ !== 'undefined' && __BSB_REGISTRY_URL__)
+    ? __BSB_REGISTRY_URL__
+    : '/registry/';
+
+  document.querySelectorAll('a[href="/registry/"], a[href="/registry"]').forEach((link) => {
+    if (link instanceof HTMLAnchorElement) {
+      link.href = registryUrl;
+    }
+  });
+
   const toggle = document.getElementById('nav-toggle');
   const menu = document.getElementById('nav-menu');
 
