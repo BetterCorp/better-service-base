@@ -69,7 +69,7 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    allowedHosts: ['durmr03.tail178679.ts.net']
+    allowedHosts: ['bsbcode.dev','www.bsbcode.dev']
   },
   preview: {
     port: 4174

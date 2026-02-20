@@ -68,7 +68,7 @@ function createNavbar(activePage = '') {
               API Reference <span class="dropdown-arrow">&#9662;</span>
             </button>
             <div class="dropdown-content">
-              <a href="/languages/nodejs/types/" class="${activePage === 'nodejs-types' ? 'active' : ''}">Node.js</a>
+              <a href="https://types.bsbcode.dev/nodejs/" class="${activePage === 'nodejs-types' ? 'active' : ''}">Node.js</a>
               <span class="coming-soon">Go</span>
               <span class="coming-soon">Python</span>
               <span class="coming-soon">Rust</span>

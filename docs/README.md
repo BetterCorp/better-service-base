@@ -49,18 +49,12 @@ Plugin marketplace content is no longer built inside `docs/`.
 
 ## Type Definitions (Node.js)
 
-Type pages are generated from the Node.js implementation.
+Type pages are hosted separately at:
 
-- Generate types (from `docs/`):
-  ```bash
-  npm run build-types:nodejs
-  ```
-  This runs `npm run docs` in `../nodejs` and copies the artifacts consumed by the site.
+- `https://types.bsbcode.dev/nodejs/`
 
-- Full build including types:
-  ```bash
-  npm run build
-  ```
+Generation and hosting are handled by the root-level `Dockerfile.types`.
+The docs site does not build or bundle TypeDoc output anymore.
 
 ---
 
