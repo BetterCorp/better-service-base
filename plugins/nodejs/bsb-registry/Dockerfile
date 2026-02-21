@@ -5,7 +5,7 @@
 # Build from repo root:
 #   docker build -f plugins/nodejs/bsb-registry/Dockerfile -t betterweb/bsb-registry-plugin:1.0.1 .
 
-FROM betterweb/node:23 AS builder
+FROM betterweb/node:24 AS builder
 
 WORKDIR /workspace/plugins/nodejs/bsb-registry
 
