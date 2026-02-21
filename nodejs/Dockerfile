@@ -56,7 +56,7 @@ COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
 RUN npm install --production
 
 # Stage 3: Final image
-FROM betterweb/node:23
+FROM betterweb/node:24
 
 RUN mkdir -p /mnt /mnt/plugins /mnt/temp /home/bsb
 

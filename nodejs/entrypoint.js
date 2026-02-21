@@ -3,7 +3,6 @@
  *
  * Reads BSB_PLUGINS and installs into BSB plugin-dir structure:
  *   <pluginDir>/<npmPackage>/<major>/<minor>/<micro>/...
- *   <pluginDir>/<npmPackage>/latest/...
  *
  * Supported selectors:
  *   - @scope/name            -> highest available version
@@ -98,6 +97,48 @@ async function copyDir(from, to) {
   await fs.cp(from, to, { recursive: true });
 }
 
+async function ensureHostBaseShim(targetDir) {
+  const scopeDir = path.join(targetDir, "node_modules", "@bsb");
+  const baseLink = path.join(scopeDir, "base");
+  await ensureDir(scopeDir);
+  await removeDir(baseLink);
+  await fs.symlink("/home/bsb", baseLink);
+}
+
+async function listVersionsForPackage(pluginRoot) {
+  const versions = [];
+  if (!(await fileExists(pluginRoot))) {
+    return versions;
+  }
+
+  // Hierarchical layout: /pkg/<major>/<minor>/<micro>/
+  const majorEntries = await fs.readdir(pluginRoot, { withFileTypes: true });
+  for (const majorEntry of majorEntries) {
+    if (!majorEntry.isDirectory() || !/^\d+$/.test(majorEntry.name)) continue;
+    const majorPath = path.join(pluginRoot, majorEntry.name);
+    const minorEntries = await fs.readdir(majorPath, { withFileTypes: true });
+    for (const minorEntry of minorEntries) {
+      if (!minorEntry.isDirectory() || !/^\d+$/.test(minorEntry.name)) continue;
+      const minorPath = path.join(majorPath, minorEntry.name);
+      const microEntries = await fs.readdir(minorPath, { withFileTypes: true });
+      for (const microEntry of microEntries) {
+        if (!microEntry.isDirectory() || !/^\d+$/.test(microEntry.name)) continue;
+        versions.push(`${majorEntry.name}.${minorEntry.name}.${microEntry.name}`);
+      }
+    }
+  }
+
+  // Legacy layout: /pkg/<major.minor.micro>/
+  for (const entry of majorEntries) {
+    if (!entry.isDirectory()) continue;
+    if (EXACT_VERSION_REGEX.test(entry.name)) versions.push(entry.name);
+  }
+
+  const dedup = Array.from(new Set(versions));
+  dedup.sort(compareSemver);
+  return dedup;
+}
+
 async function fileExists(filePath) {
   try {
     await fs.access(filePath);
@@ -131,15 +172,16 @@ function resolveRequestSpec(pkg, parsedSpec) {
 async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
   const pkg = parsedSpec.pkg;
   const pluginRoot = path.join(pluginDir, pkg);
-  const latestDir = path.join(pluginRoot, "latest");
   const hasExplicitSelector = parsedSpec.type !== "none";
+  const installedVersions = await listVersionsForPackage(pluginRoot);
 
   if (
     !forceUpdate &&
     !hasExplicitSelector &&
-    (await fileExists(path.join(latestDir, "package.json")))
+    installedVersions.length > 0
   ) {
-    console.log(`[BSB] Plugin ${pkg} already present at latest. Skipping (set BSB_PLUGIN_UPDATE=true to refresh).`);
+    const highest = installedVersions[installedVersions.length - 1];
+    console.log(`[BSB] Plugin ${pkg} already present at ${highest}. Skipping (set BSB_PLUGIN_UPDATE=true to refresh).`);
     return;
   }
 
@@ -190,14 +232,14 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
 
     await copyDir(path.join(stageDir, "node_modules"), path.join(versionDir, "node_modules"));
     await fs.cp(installedPkgDir, versionDir, { recursive: true });
-    await copyDir(versionDir, latestDir);
+    await ensureHostBaseShim(versionDir);
 
     const pluginEntryPath = path.join(versionDir, "lib", "plugins");
     if (!(await fileExists(pluginEntryPath))) {
       console.warn(`[BSB] Warning: ${pkg}@${resolvedVersion} does not contain lib/plugins`);
     }
 
-    console.log(`[BSB] Installed ${pkg} -> ${versionDir} and ${latestDir}`);
+    console.log(`[BSB] Installed ${pkg} -> ${versionDir}`);
   } finally {
     await removeDir(stageDir);
   }
@@ -220,13 +262,13 @@ async function listInstalledPlugins(pluginDir) {
       for (const scopedEntry of scopedEntries) {
         if (!scopedEntry.isDirectory()) continue;
         const pkg = `${entry.name}/${scopedEntry.name}`;
-        if (await fileExists(path.join(pluginDir, pkg, "latest", "package.json"))) {
+        if ((await listVersionsForPackage(path.join(pluginDir, pkg))).length > 0) {
           out.push(pkg);
         }
       }
     } else {
       const pkg = entry.name;
-      if (await fileExists(path.join(pluginDir, pkg, "latest", "package.json"))) {
+      if ((await listVersionsForPackage(path.join(pluginDir, pkg))).length > 0) {
         out.push(pkg);
       }
     }

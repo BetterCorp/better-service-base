@@ -1,7 +1,6 @@
 # BSB Registry plugin package image
 # Builds @bsb/registry and packages it in BSB plugin-dir format:
-#   /mnt/plugins/@bsb/registry/<version>/
-#   /mnt/plugins/@bsb/registry/latest/
+#   /mnt/plugins/@bsb/registry/<major>/<minor>/<micro>/
 #
 # Build from repo root:
 #   docker build -f plugins/nodejs/bsb-registry/Dockerfile -t betterweb/bsb-registry-plugin:1.0.1 .
@@ -27,10 +26,16 @@ RUN npm prune --omit=dev
 # Package output in BSB plugin-dir layout.
 RUN set -eux; \
   VERSION="$(node -p "require('./package.json').version")"; \
+  MAJOR="$(echo "${VERSION}" | cut -d. -f1)"; \
+  MINOR="$(echo "${VERSION}" | cut -d. -f2)"; \
+  MICRO="$(echo "${VERSION}" | cut -d. -f3)"; \
   PKG_ROOT="/out/@bsb/registry"; \
-  mkdir -p "${PKG_ROOT}/${VERSION}" "${PKG_ROOT}/latest"; \
-  cp -a package.json package-lock.json bsb-plugin.json lib node_modules "${PKG_ROOT}/${VERSION}/"; \
-  cp -a "${PKG_ROOT}/${VERSION}/." "${PKG_ROOT}/latest/"
+  VERSION_DIR="${PKG_ROOT}/${MAJOR}/${MINOR}/${MICRO}"; \
+  mkdir -p "${VERSION_DIR}"; \
+  cp -a package.json package-lock.json bsb-plugin.json lib node_modules "${VERSION_DIR}/"; \
+  mkdir -p "${VERSION_DIR}/node_modules/@bsb"; \
+  rm -rf "${VERSION_DIR}/node_modules/@bsb/base"; \
+  ln -s /home/bsb "${VERSION_DIR}/node_modules/@bsb/base"
 
 FROM betterweb/service-base:9
 

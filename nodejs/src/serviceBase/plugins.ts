@@ -136,7 +136,10 @@ export class SBPlugins {
 
     const dedup = new Map<string, ResolvedPackageVersion>();
     for (const item of out) {
-      dedup.set(item.version, item);
+      // Prefer first-seen entries (hierarchical layout is collected first).
+      if (!dedup.has(item.version)) {
+        dedup.set(item.version, item);
+      }
     }
     return Array.from(dedup.values());
   }
@@ -232,28 +235,13 @@ export class SBPlugins {
           }
         }
 
-        if (pluginPath == "") {
-          const T2pluginPath = join(this.referencedPluginDir, npmPackage, "latest", "./lib/plugins/" + plugin);
-          const T2packageCwd = join(this.referencedPluginDir, npmPackage, "latest");
-          if (existsSync(T2pluginPath)) {
-            pluginPath = T2pluginPath;
-            packageCwd = T2packageCwd;
-            if (existsSync(join(T2packageCwd, "./package.json"))) {
-              const packageJSON = JSON.parse(
-                readFileSync(join(T2packageCwd, "./package.json"), "utf-8")
-                  .toString(),
-              );
-              version = packageJSON.version ?? version;
-            }
-          }
-        }
       }
-      if (pluginPath == '') {
-        const T3pluginPath = join(this.nodeModulesPluginDir, npmPackage, "./lib/plugins/" + plugin);
-        const T3packageCwd = join(this.nodeModulesPluginDir, npmPackage);
-        if (existsSync(T3pluginPath)) {
-          pluginPath = T3pluginPath;
-          packageCwd = T3packageCwd;
+      if (pluginPath == "") {
+        const nodeModulesPluginPath = join(this.nodeModulesPluginDir, npmPackage, "./lib/plugins/" + plugin);
+        const nodeModulesPackageCwd = join(this.nodeModulesPluginDir, npmPackage);
+        if (existsSync(nodeModulesPluginPath)) {
+          pluginPath = nodeModulesPluginPath;
+          packageCwd = nodeModulesPackageCwd;
         }
       }
 

@@ -106,7 +106,7 @@ Timekeeping metrics are recorded for each step and logged as timers. A heartbeat
 `SBPlugins` looks for plugins in the following order (container usage prefers the first external option):
 - Local project (dev): `src/plugins/<type>-<name>/index.ts`
 - Local build: `lib/plugins/<type>-<name>/index.js`
-- External plugin directory (`BSB_PLUGIN_DIR`) [preferred in container]: `<dir>/<npmPackage>/<version or latest>/lib/plugins/<type>-<name>/index.js`
+- External plugin directory (`BSB_PLUGIN_DIR`) [preferred in container]: `<dir>/<npmPackage>/<major>/<minor>/<micro>/lib/plugins/<type>-<name>/index.js`
 - Node modules: `node_modules/<npmPackage>/lib/plugins/<type>-<name>/index.js`
 
 Each plugin folder must export at least a `Plugin` class. Optionally export a `Config` class that extends `BSBPluginConfig` to provide validation and structured config.
@@ -158,21 +158,18 @@ Recommended plugin directory layout (when using `BSB_PLUGIN_DIR`):
 ```
 /mnt/plugins/
   @org/plugin-a/
-    latest/
-      package.json            # version field used when resolving
-      lib/plugins/service-plugin-a/index.js
-      lib/plugins/logging-xyz/index.js
-    1.2.3/
+    1/2/3/
       package.json
       lib/plugins/service-plugin-a/index.js
+      lib/plugins/logging-xyz/index.js
   @org/plugin-b/
-    latest/
+    2/4/1/
       package.json
       lib/plugins/events-abc/index.js
 ```
 
 Notes
-- In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIR` as above. This avoids network installs on boot and ensures deterministic versions via versioned folders or `latest`.
+- In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIR` as above. This avoids network installs on boot and ensures deterministic versions via immutable versioned folders.
 - `BSB_PLUGINS` is available for dynamic `npm install` at startup, but mounting a curated plugin repository via `BSB_PLUGIN_DIR` is recommended for production.
 
 ### Environment Variables
