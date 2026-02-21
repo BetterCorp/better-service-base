@@ -24,7 +24,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 # Stage 1: Build TypeScript
-FROM betterweb/node:23 as builder
+FROM betterweb/node:24 AS builder
 
 ARG BSB_VERSION=0.0.0
 
@@ -45,7 +45,7 @@ RUN npm run build-release
 RUN rm -rf /home/bsb/lib/plugins/service-*
 
 # Stage 2: Install production dependencies
-FROM betterweb/node:23 as dependencies
+FROM betterweb/node:24 AS dependencies
 
 WORKDIR /home/bsb
 
