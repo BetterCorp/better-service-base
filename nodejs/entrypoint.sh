@@ -45,14 +45,25 @@ chown -R node:node /home/bsb
 if [ -n "$PLUGIN_DIR" ]; then
   chown -R node:node "$PLUGIN_DIR"
 fi
+chown -R node:node /mnt/.temp /mnt/temp || true
 
-chmod -R 440 /home/bsb || true
-chmod -R 640 /mnt/.temp || true
-chmod -R 640 /mnt/temp || true
-if [ -n "$PLUGIN_DIR" ]; then
-  chmod -R 440 "$PLUGIN_DIR" || true
-fi
+# Secure pattern:
+# - directories need execute bit for traversal
+# - files are non-executable by default
+find /home/bsb -type d -exec chmod 550 {} \; 2>/dev/null || true
+find /home/bsb -type f -exec chmod 440 {} \; 2>/dev/null || true
+chmod 550 /home/bsb/entrypoint.sh || true
 chmod 400 /home/bsb/sec-config.yaml || true
+
+find /mnt/.temp -type d -exec chmod 770 {} \; 2>/dev/null || true
+find /mnt/.temp -type f -exec chmod 660 {} \; 2>/dev/null || true
+find /mnt/temp -type d -exec chmod 770 {} \; 2>/dev/null || true
+find /mnt/temp -type f -exec chmod 660 {} \; 2>/dev/null || true
+
+if [ -n "$PLUGIN_DIR" ]; then
+  find "$PLUGIN_DIR" -type d -exec chmod 550 {} \; 2>/dev/null || true
+  find "$PLUGIN_DIR" -type f -exec chmod 440 {} \; 2>/dev/null || true
+fi
 
 # Check if the first argument is BSBDEBUG for debugging purposes
 if [ "$1" = "BSBDEBUG" ]; then
@@ -66,5 +77,5 @@ if [ "$1" = "BSBDEBUG" ]; then
   echo " - RUNNING YOUR COMMAND [$@]"
   exec gosu node:node "$@"
 else
-  exec gosu node:node node lib/cli.js
+  exec gosu node:node node /home/bsb/lib/cli.js
 fi

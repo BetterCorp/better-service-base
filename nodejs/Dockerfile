@@ -81,7 +81,12 @@ COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
 # Copy production node_modules from dependencies stage
 COPY --from=dependencies /home/bsb/node_modules /home/bsb/node_modules
 
-RUN chown -R node:node /home/bsb && chown -R node:node /mnt/temp && chown -R node:node /mnt/plugins && chmod -R 440 /home/bsb && chmod 111 /home/bsb/entrypoint.sh
+RUN chown -R node:node /home/bsb \
+    && chown -R node:node /mnt/temp \
+    && chown -R node:node /mnt/plugins \
+    && find /home/bsb -type d -exec chmod 550 {} \; \
+    && find /home/bsb -type f -exec chmod 440 {} \; \
+    && chmod 550 /home/bsb/entrypoint.sh
 
 ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]
 CMD -
