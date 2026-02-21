@@ -53,7 +53,9 @@ chown -R node:node /mnt/.temp /mnt/temp || true
 find /home/bsb -type d -exec chmod 550 {} \; 2>/dev/null || true
 find /home/bsb -type f -exec chmod 440 {} \; 2>/dev/null || true
 chmod 550 /home/bsb/entrypoint.sh || true
-chmod 400 /home/bsb/sec-config.yaml || true
+if [ -f /home/bsb/sec-config.yaml ]; then
+  chmod 400 /home/bsb/sec-config.yaml || true
+fi
 
 find /mnt/.temp -type d -exec chmod 770 {} \; 2>/dev/null || true
 find /mnt/.temp -type f -exec chmod 660 {} \; 2>/dev/null || true
