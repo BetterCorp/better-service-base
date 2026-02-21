@@ -34,8 +34,6 @@ RUN set -eux; \
 
 FROM betterweb/service-base:9
 
-WORKDIR /mnt/plugins
-
 COPY --from=builder /out/ /mnt/plugins/
 
 ENV BSB_PLUGIN_DIR=/mnt/plugins
