@@ -52,6 +52,19 @@ module.exports = [
     },
   },
   {
+    files: ['src/plugins/**/*.ts', 'src/plugins/**/*.tsx'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'process',
+          property: 'env',
+          message: 'Plugins must not access process.env directly. Use BSB-injected config values.',
+        },
+      ],
+    },
+  },
+  {
     ignores: [
       'lib/**',
       'node_modules/**',

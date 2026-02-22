@@ -63,27 +63,14 @@ Note:
 - `BSB_CONFIG_PLUGIN`: optional override plugin name
 - `BSB_CONFIG_PLUGIN_PACKAGE`: optional override package for config plugin
 
-## Environment References In Config
+## Environment Values Inside YAML
 
-You can keep environment placeholders directly in config values (for plugin/runtime resolution), for example:
+`config-default` does **not** perform `${VAR}` or `${VAR:-default}` interpolation inside `sec-config.yaml`.
 
-```yaml
-default:
-  services:
-    service-api:
-      plugin: service-api
-      package: "@org/service-api"
-      enabled: true
-      config:
-        port: ${PORT:-3200}
-        databaseUrl: ${DATABASE_URL}
-        redisHost: ${REDIS_HOST:-localhost}
-```
+If you need environment-driven values in plugin config, use one of:
 
-Common patterns:
-
-- `${VAR_NAME}`: required environment value
-- `${VAR_NAME:-default}`: fallback default when env value is missing
+- A custom config plugin that resolves env placeholders before returning config
+- Explicit static values in YAML
 
 ## When To Replace
 
