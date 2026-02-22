@@ -19,18 +19,18 @@ For production-grade operations, switch to one of:
 - `observable-graylog`
 - `syslog`
 
-## Quick Swap Example
+## Default Plugin Config Example
 
 ```yaml
 default:
   observable:
-    observable-pino:
-      plugin: observable-pino
-      package: "@bsb/observable-pino"
+    observable-default:
+      plugin: observable-default
       enabled: true
-      config:
-        level: info
+      config: {}
 ```
+
+`observable-default` itself has no required plugin-specific options.
 
 ## Why Replace
 

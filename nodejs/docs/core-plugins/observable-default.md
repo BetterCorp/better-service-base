@@ -18,12 +18,14 @@ default:
     observable-default:
       plugin: observable-default
       enabled: true
+      config: {}
 ```
 
 ## Behavior Notes
 
 - Debug logs are typically suppressed in production mode
 - Output is console-based (no external collector by default)
+- No plugin-specific config fields are required for `observable-default`
 
 ## When To Replace
 

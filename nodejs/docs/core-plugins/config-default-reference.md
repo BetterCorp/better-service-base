@@ -28,6 +28,7 @@ Each plugin entry supports:
 - `plugin` is the implementation id loaded from package/lib.
 - If `enabled: false`, plugin definition can still be read but is not started.
 - Missing profile key causes startup failure.
+- `BSB_PROFILE` and `BSB_CONFIG_FILE` are environment bootstrap values, not read from the YAML itself.
 
 ## Example With Versioned External Package
 

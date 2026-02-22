@@ -11,7 +11,8 @@
         "default"
       ],
       "documentation": [
-        "./docs/core-plugins/config-default.md"
+        "./docs/core-plugins/config-default.md",
+        "./docs/core-plugins/config-default-reference.md"
       ],
       "pluginPath": "src/plugins/config-default/",
       "image": "../docs/public/assets/images/bsb-logo.png",
@@ -30,7 +31,8 @@
         "default"
       ],
       "documentation": [
-        "./docs/core-plugins/events-default.md"
+        "./docs/core-plugins/events-default.md",
+        "./docs/core-plugins/events-default-patterns.md"
       ],
       "pluginPath": "src/plugins/events-default/",
       "image": "../docs/public/assets/images/bsb-logo.png",
@@ -50,7 +52,8 @@
         "console"
       ],
       "documentation": [
-        "./docs/core-plugins/observable-default.md"
+        "./docs/core-plugins/observable-default.md",
+        "./docs/core-plugins/observable-default-production.md"
       ],
       "pluginPath": "src/plugins/observable-default/",
       "image": "../docs/public/assets/images/bsb-logo.png",

@@ -14,21 +14,28 @@ It loads your deployment profile from YAML, resolves enabled plugins, and expose
   - `observable`
 - Returns each plugin's `config` object to that plugin at startup
 
-## Typical Config Shape
+## Bootstrap Source Of Truth
+
+`config-default` bootstraps from environment variables first.
+
+It cannot rely on `sec-config.yaml` to configure itself, because it is the component responsible for loading that file.
+
+Use:
+
+- `BSB_PROFILE`
+- `BSB_CONFIG_FILE`
+- `BSB_CONFIG_PLUGIN` (when overriding)
+- `BSB_CONFIG_PLUGIN_PACKAGE` (when overriding)
+
+## Typical `sec-config.yaml` Shape
 
 ```yaml
 default:
-  config:
-    config-default:
-      plugin: config-default
-      enabled: true
-
   observable:
     observable-default:
       plugin: observable-default
       enabled: true
-      config:
-        level: info
+      config: {}
 
   events:
     events-default:
@@ -43,6 +50,11 @@ default:
       config:
         port: 3200
 ```
+
+Note:
+
+- You may include a `config.config-default` block for explicit metadata if desired.
+- It is not the bootstrap source for `BSB_PROFILE` / `BSB_CONFIG_FILE`.
 
 ## Environment Variables
 
