@@ -1160,7 +1160,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
             plugin = null;
           }
           if (plugin) {
-            reply.redirect(302, `/plugins/_/${params.org}`);
+            reply.redirect(`/plugins/_/${params.org}`, 302);
             return;
           }
         }
