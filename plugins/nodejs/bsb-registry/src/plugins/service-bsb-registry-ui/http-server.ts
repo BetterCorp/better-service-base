@@ -336,6 +336,7 @@ export class RegistryUIServer {
       await this.app.register(fastifyStatic, {
         root: staticPath,
         prefix: '/static/',
+        index: false,
       });
 
       await fsp.mkdir(this.uploadDir, { recursive: true });
