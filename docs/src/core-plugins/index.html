@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Core Plugins - BSB Documentation</title>
-  <meta name="description" content="BSB's built-in core plugins: config-default, events-default, logging-default, and metrics-default.">
+  <meta name="description" content="BSB's built-in core plugins: config-default, events-default, and observable-default.">
   <link rel="stylesheet" href="/assets/css/main.css">
   <style>
     .page-header {
@@ -67,7 +67,7 @@
         <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
         <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
         <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
-        <div class="nav-dropdown"><button class="nav-link active">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/" class="active">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/observable-default/">observable-default</a></div></div>
+        <a href="/core-plugins/" class="nav-link active">Core Plugins</a>
         <a href="/registry/" class="nav-link">Plugins</a><div class="nav-dropdown"><button class="nav-link">API Reference <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="https://types.bsbcode.dev/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span><span class="coming-soon">Rust</span></div></div>
         <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
           GitHub
@@ -94,7 +94,7 @@
         <p>These core plugins are included with BSB and enabled by default. They provide a solid foundation for development and simple deployments.</p>
 
         <div class="plugin-grid">
-          <a href="https://io.bsbcode.dev/plugins/bsb/config-default" class="plugin-card config">
+          <a href="https://io.bsbcode.dev/plugins/_/config-default" class="plugin-card config">
             <h3>config-default</h3>
             <p>YAML-based configuration with environment variable support and validation.</p>
             <ul class="features">
@@ -106,7 +106,7 @@
             <span class="cta">View Documentation</span>
           </a>
 
-          <a href="https://io.bsbcode.dev/plugins/bsb/events-default" class="plugin-card events">
+          <a href="https://io.bsbcode.dev/plugins/_/events-default" class="plugin-card events">
             <h3>events-default</h3>
             <p>In-memory event bus for single-process deployments and development.</p>
             <ul class="features">
@@ -118,7 +118,7 @@
             <span class="cta">View Documentation</span>
           </a>
 
-          <a href="https://io.bsbcode.dev/plugins/bsb/observable-default" class="plugin-card logging">
+          <a href="https://io.bsbcode.dev/plugins/_/observable-default" class="plugin-card logging">
             <h3>observable-default</h3>
             <p>Unified observability plugin with logging, metrics, and tracing support.</p>
             <ul class="features">

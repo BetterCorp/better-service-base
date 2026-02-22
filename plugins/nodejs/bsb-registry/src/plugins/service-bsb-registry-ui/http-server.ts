@@ -1134,6 +1134,43 @@ a.s:hover{background:#333;border-color:#FB8C00}
   private async handleOrgBrowse(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const params = this.validateInput(OrgParamsSchema, request.params, reply);
     if (!params) return;
+
+    // If the org slug doesn't exist, try redirecting to the unaffiliated org "_" plugin.
+    // Example: /plugins/events-default -> /plugins/_/events-default
+    if (!request.url.includes('?') && params.org !== '_') {
+      const trace = this.createTrace('ui.org.redirect', {
+        url: request.url,
+        method: request.method,
+        accept: request.headers.accept || 'text/html',
+        org: params.org,
+      });
+      const span = trace.startSpan('redirect.check');
+      try {
+        const listResult = await this.registryClient.registryPluginList(trace, {
+          org: params.org,
+          limit: 1,
+          offset: 0,
+        });
+
+        if (!Number(listResult.total || 0)) {
+          let plugin: any = null;
+          try {
+            plugin = await this.registryClient.registryPluginGet(trace, { org: '_', name: params.org });
+          } catch {
+            plugin = null;
+          }
+          if (plugin) {
+            reply.redirect(302, `/plugins/_/${params.org}`);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to normal org browse on any error.
+      } finally {
+        span.end();
+      }
+    }
+
     return this._handleBrowseInternal(request, reply, params.org);
   }
 
@@ -1178,6 +1215,18 @@ a.s:hover{background:#333;border-color:#FB8C00}
         if (!pkg || typeof pkg !== 'object') return false;
         return String(pkg[params.language] ?? '').trim() === packageId;
       });
+
+      if (!matches.length) {
+        if (this.wantsJson(request)) {
+          reply.code(404).send({
+            error: 'Not Found',
+            message: `No package found for ${params.language}/${packageId}`,
+          });
+        } else {
+          await this.renderError(request, reply, 404, 'Package Not Found', `No package found for ${params.language}/${packageId}.`);
+        }
+        return;
+      }
 
       if (matches.length === 1) {
         const only = matches[0];

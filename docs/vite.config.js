@@ -52,9 +52,6 @@ export default defineConfig({
 
         // Core Plugins
         'core-plugins': 'src/core-plugins/index.html',
-        'core-plugins-config': 'src/core-plugins/config-default/index.html',
-        'core-plugins-events': 'src/core-plugins/events-default/index.html',
-        'core-plugins-observable': 'src/core-plugins/observable-default/index.html',
 
         // External Plugin Registry Redirect
         'registry': 'src/registry/index.html',

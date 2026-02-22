@@ -1,6 +1,6 @@
 {
   "name": "@bsb/registry",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "BSB Plugin Registry - Multi-language plugin discovery and publishing system",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -57,7 +57,6 @@
   "bsb": {},
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/registry"
 }
-
 
 
 

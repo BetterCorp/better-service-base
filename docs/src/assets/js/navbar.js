@@ -47,19 +47,7 @@ function createNavbar(activePage = '') {
             </div>
           </div>
 
-          <div class="nav-dropdown">
-            <button class="nav-link ${['core-plugins', 'config-default', 'events-default', 'logging-default', 'metrics-default'].includes(activePage) ? 'active' : ''}">
-              Core Plugins <span class="dropdown-arrow">&#9662;</span>
-            </button>
-            <div class="dropdown-content">
-              <a href="/core-plugins/" class="${activePage === 'core-plugins' ? 'active' : ''}">Overview</a>
-              <div class="dropdown-divider"></div>
-              <a href="/core-plugins/config-default/" class="${activePage === 'config-default' ? 'active' : ''}">config-default</a>
-              <a href="/core-plugins/events-default/" class="${activePage === 'events-default' ? 'active' : ''}">events-default</a>
-              <a href="/core-plugins/logging-default/" class="${activePage === 'logging-default' ? 'active' : ''}">logging-default</a>
-              <a href="/core-plugins/metrics-default/" class="${activePage === 'metrics-default' ? 'active' : ''}">metrics-default</a>
-            </div>
-          </div>
+          <a href="/core-plugins/" class="nav-link ${activePage === 'core-plugins' ? 'active' : ''}">Core Plugins</a>
 
           <a href="/registry/" class="nav-link ${activePage === 'registry' ? 'active' : ''}">Plugins</a>
 

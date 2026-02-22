@@ -177,7 +177,7 @@
         <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
         <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
         <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
-        <div class="nav-dropdown"><button class="nav-link">Core Plugins <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/core-plugins/">Overview</a><div class="dropdown-divider"></div><a href="/core-plugins/config-default/">config-default</a><a href="/core-plugins/events-default/">events-default</a><a href="/core-plugins/observable-default/">observable-default</a></div></div>
+        <a href="/core-plugins/" class="nav-link">Core Plugins</a>
         <a href="/registry/" class="nav-link">Plugins</a><div class="nav-dropdown"><button class="nav-link active">API Reference <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="https://types.bsbcode.dev/nodejs/" class="active">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span><span class="coming-soon">Rust</span></div></div>
         <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
           GitHub
@@ -239,7 +239,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
             <h4>🔎 Discovery & Runtime</h4>
             <ul>
                 <li>Production: run the BSB container and provide plugins via <code>BSB_PLUGIN_DIR</code></li>
-                <li>Optional: specify explicit versions with <code>BSB_PLUGINS</code> (e.g. <code>service-my-api@1.2.3;logging-default@latest</code>)</li>
+                <li>Optional: specify explicit versions with <code>BSB_PLUGINS</code> (e.g. <code>service-my-api@1.2.3;observable-default@latest</code>)</li>
                 <li>Development: install BSB in your plugin project for types and run locally if needed</li>
             </ul>
         </div>
@@ -543,13 +543,9 @@ export class Config extends BSBPluginConfig&lt;typeof MyConfigSchema&gt; {
                     <h3>Create Configuration</h3>
                     <div class="code-block" data-title="sec-config.yaml"><pre><code class="language-yaml">default:
   # Core BSB plugins (required)
-  metrics:
-    metrics-default:
-      plugin: metrics-default
-      enabled: true
-  logging:
-    logging-default:
-      plugin: logging-default
+  observable:
+    observable-default:
+      plugin: observable-default
       enabled: true
   events:
     events-default:
