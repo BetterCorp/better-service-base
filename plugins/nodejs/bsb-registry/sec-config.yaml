@@ -30,6 +30,7 @@ default:
   services:
     service-bsb-registry:
       plugin: service-bsb-registry
+      #package: "@bsb/registry"
       enabled: true
       config:
         database:
@@ -45,6 +46,7 @@ default:
     # ============================================================================
     service-bsb-registry-ui:
       plugin: service-bsb-registry-ui
+      #package: "@bsb/registry"
       enabled: true
       config:
         port: 3200                   # HTTP port for serving web pages

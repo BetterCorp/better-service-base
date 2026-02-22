@@ -73,6 +73,23 @@ const PluginTypesParamsSchema = z.object({
   language: languageEnum,
 });
 
+const packageLookupIdPattern = /^[A-Za-z0-9@._\-/:]+$/;
+
+const PackageLookupParamsSchema = z.object({
+  language: languageEnum,
+  '*': z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') return value;
+      try {
+        return decodeURIComponent(value).trim();
+      } catch {
+        return '__INVALID_PACKAGE_ID__';
+      }
+    },
+    z.string().min(1).max(300).regex(packageLookupIdPattern, 'Invalid package identifier'),
+  ),
+});
+
 // ---- Query string schemas ----
 // Note: z.coerce handles string-to-number conversion for query params
 
@@ -432,6 +449,18 @@ export class RegistryUIServer {
     // Browse + search plugins (combined list/search)
     this.app.get('/plugins', async (request, reply) => {
       return this.handleBrowse(request, reply);
+    });
+
+    // Package lookup page (exact package id match by language)
+    // Example: /packages/nodejs/@bsb/registry
+    this.app.get('/packages/:language/*', async (request, reply) => {
+      return this.handlePackageLookup(request, reply);
+    });
+
+    // Language-first package lookup alias.
+    // Example: /nodejs/@bsb/registry or /go/github.com/acme/plugin
+    this.app.get('/:language/*', async (request, reply) => {
+      return this.handlePackageLookup(request, reply);
     });
 
     // Org-scoped browse + search
@@ -1106,6 +1135,102 @@ a.s:hover{background:#333;border-color:#FB8C00}
     const params = this.validateInput(OrgParamsSchema, request.params, reply);
     if (!params) return;
     return this._handleBrowseInternal(request, reply, params.org);
+  }
+
+  private async listAllPluginsByLanguage(trace: Observable, language: z.infer<typeof languageEnum>): Promise<any[]> {
+    const all: any[] = [];
+    const limit = 100;
+    let offset = 0;
+    let total = 0;
+
+    do {
+      const pageSpan = trace.startSpan('events.registry.plugin.list.page', { limit, offset, language });
+      const page = await this.registryClient.registryPluginList(trace, { language, limit, offset });
+      pageSpan.end();
+
+      all.push(...(page.results || []));
+      total = Number(page.total || 0);
+      offset += limit;
+    } while (offset < total);
+
+    return all;
+  }
+
+  private async handlePackageLookup(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const params = this.validateInput(PackageLookupParamsSchema, request.params, reply);
+    if (!params) return;
+
+    const packageId = params['*'];
+
+    const trace = this.createTrace('ui.package.lookup', {
+      url: request.url,
+      method: request.method,
+      accept: request.headers.accept || 'text/html',
+      language: params.language,
+      packageId,
+    });
+    const span = trace.startSpan('render.package-lookup');
+
+    try {
+      const allLanguagePlugins = await this.listAllPluginsByLanguage(trace, params.language);
+      const matches = allLanguagePlugins.filter((plugin: any) => {
+        const pkg = plugin?.package;
+        if (!pkg || typeof pkg !== 'object') return false;
+        return String(pkg[params.language] ?? '').trim() === packageId;
+      });
+
+      if (matches.length === 1) {
+        const only = matches[0];
+        const org = String(only.org || '').trim();
+        const name = String(only.name || '').trim();
+        if (org && name) {
+          const location = `/plugins/${org}/${name}`;
+          if (this.wantsJson(request)) {
+            reply.send({
+              packageId,
+              language: params.language,
+              total: 1,
+              redirect: location,
+              plugin: this.enrichPlugin(only),
+            });
+          } else {
+            reply.redirect(location, 307);
+          }
+          return;
+        }
+      }
+
+      const enrichedPlugins = this.enrichPluginList(matches);
+      if (this.wantsJson(request)) {
+        reply.send({
+          packageId,
+          language: params.language,
+          total: matches.length,
+          plugins: enrichedPlugins,
+        });
+      } else {
+        await reply.view('pages/plugins.hbs', {
+          title: `Package: ${packageId}`,
+          activePage: 'browse',
+          searchQuery: packageId,
+          plugins: enrichedPlugins,
+          pagination: {
+            currentPage: 1,
+            totalPages: 1,
+            total: matches.length,
+            pageSize: this.pageSize,
+          },
+          filters: {
+            language: params.language,
+          },
+        });
+      }
+    } catch (error) {
+      trace.log.error('Failed to render package lookup page: {error}', { error: (error as Error).message });
+      await this.renderError(request, reply, 500, 'Internal Server Error', 'Something went wrong resolving this package.');
+    } finally {
+      span.end();
+    }
   }
 
   /**

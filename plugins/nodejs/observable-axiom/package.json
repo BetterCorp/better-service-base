@@ -1,6 +1,6 @@
 {
   "name": "@bsb/observable-axiom",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Axiom.co observability integration for BSB framework",
   "main": "lib/plugins/observable-axiom/index.js",
   "types": "lib/plugins/observable-axiom/index.d.ts",
@@ -49,6 +49,9 @@
     "rimraf": "^6.1.2",
     "typescript": "^5.9.3"
   },
-  "homepage": "https://io.bsbcode.dev/plugins/bsb/observable-axiom"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-axiom"
 }
+
+
+
 

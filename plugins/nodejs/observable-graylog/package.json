@@ -1,6 +1,6 @@
 {
   "name": "@bsb/observable-graylog",
-  "version": "9.0.0",
+  "version": "9.0.1",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
@@ -53,6 +53,9 @@
     "node": ">=23.0.0",
     "npm": ">=11.0.0"
   },
-  "homepage": "https://io.bsbcode.dev/plugins/bsb/observable-graylog"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-graylog"
 }
+
+
+
 

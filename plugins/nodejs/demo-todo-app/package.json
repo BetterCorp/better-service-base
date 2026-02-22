@@ -1,6 +1,6 @@
 {
   "name": "@bsb/demo-todo-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "BSB Demo Todo Application - Comprehensive example showcasing BSB best practices",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -52,6 +52,9 @@
   "peerDependencies": {
     "@bsb/base": "file:../../../nodejs"
   },
-  "homepage": "https://io.bsbcode.dev/plugins/bsb/demo-todo-app"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/demo-todo-app"
 }
+
+
+
 
