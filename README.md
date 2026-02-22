@@ -1,9 +1,9 @@
 # About
 
-BSB (Better-Service-Base) is an event-bus based microservice framework.  
-It is completely opensource and can work as a single node, or geo-scaled cluster.  
-Simplicity, flexibility and expandability were the key points when developing this framework.  
-*(currently only in nodejs, however it is ready for several other languages)*  
+BSB (Better-Service-Base) is an event-driven microservices framework for Node.js and TypeScript with built-in Zod schema validation, type-safe events, and a pluggable architecture for config, logging, metrics, and events.  
+It is production-ready and secure-by-default for validated APIs and distributed services, and can run as a single node or a geo-scaled cluster.  
+Simplicity, flexibility, and expandability are core design goals.  
+*(Currently only Node.js is implemented, but the system is designed for multiple languages.)*  
 
 [![Intro 1](http://img.youtube.com/vi/-ulXL44D_ZI/0.jpg)](http://www.youtube.com/watch?v=-ulXL44D_ZI)  
 `#Sales pitch`
@@ -45,7 +45,6 @@ Simplicity, flexibility and expandability were the key points when developing th
 
 ## Sponsors  
 [![Static Badge](https://img.shields.io/badge/BetterCorp-Open%20Source%20Initiative-19b5fe?logo)](https://bettercorp.dev/?ref=better-service-base-s-os) 
-[![Static Badge](https://img.shields.io/badge/Docker-Sponsored%20Open%20Source-0db7ed)](https://hub.docker.com/r/betterweb/service-base?ref=better-service-base-s-os) 
 [![Static Badge](https://img.shields.io/badge/BrowserStack-Sponsored%20Open%20Source-0070F0?logo=browserstack)](https://www.browserstack.com/?ref=better-service-base-s-os) 
 
 

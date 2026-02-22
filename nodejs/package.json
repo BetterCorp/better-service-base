@@ -1,10 +1,10 @@
 {
   "name": "@bsb/base",
-  "version": "9.0.3",
+  "version": "9.0.4",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
-    "email": "nick@bettercorp.dev",
+    "email": "ninja@bettercorp.dev",
     "url": "https://bettercorp.dev/"
   },
   "keywords": [

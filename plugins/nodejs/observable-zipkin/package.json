@@ -24,7 +24,7 @@
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
-    "email": "nick@bettercorp.dev",
+    "email": "ninja@bettercorp.dev",
     "url": "https://bettercorp.dev/"
   },
   "peerDependencies": {
