@@ -4,7 +4,6 @@
       "id": "observable-winston",
       "name": "observable-winston",
       "basePath": "./",
-      "image": "./observable-winston.png",
       "description": "Winston observable plugin with console, file, and rotation transports",
       "tags": [
         "winston",
@@ -16,6 +15,7 @@
         "./docs/plugin.md"
       ],
       "pluginPath": "src/plugins/observable-winston/",
+      "image": "./observable-winston.png",
       "links": {
         "github": "https://github.com/BetterCorp/better-service-base.git"
       }

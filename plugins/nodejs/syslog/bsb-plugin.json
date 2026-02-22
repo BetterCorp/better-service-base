@@ -4,7 +4,6 @@
       "id": "observable-syslog",
       "name": "observable-syslog",
       "basePath": "./",
-      "image": "./assets/syslog-icon.png",
       "description": "Syslog client observable plugin for forwarding logs to syslog servers",
       "tags": [
         "syslog",
@@ -14,6 +13,7 @@
       ],
       "documentation": [],
       "pluginPath": "src/plugins/observable-syslog/",
+      "image": "./assets/syslog-icon.png",
       "links": {
         "github": "https://github.com/BetterCorp/better-service-base.git"
       }
@@ -22,7 +22,6 @@
       "id": "service-syslog-server",
       "name": "service-syslog-server",
       "basePath": "./",
-      "image": "./assets/syslog-icon.png",
       "description": "Syslog server service plugin that receives messages and emits events",
       "tags": [
         "syslog",
@@ -32,6 +31,7 @@
       ],
       "documentation": [],
       "pluginPath": "src/plugins/service-syslog-server/",
+      "image": "./assets/syslog-icon.png",
       "links": {
         "github": "https://github.com/BetterCorp/better-service-base.git"
       }

@@ -55,5 +55,6 @@
     "node": ">=23.0.0",
     "npm": ">=11.0.0"
   },
-  "homepage": "https://registry.bsbcode.dev/plugins/bsb/syslog"
+  "homepage": "https://io.bsbcode.dev/plugins/bsb/syslog"
 }
+

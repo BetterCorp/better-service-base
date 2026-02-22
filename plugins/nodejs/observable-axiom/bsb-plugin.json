@@ -4,7 +4,6 @@
       "id": "observable-axiom",
       "name": "observable-axiom",
       "basePath": "./",
-      "image": "./axiom-co-logo.png",
       "description": "Axiom.co observability integration for logs, metrics, and traces",
       "tags": [
         "axiom",
@@ -15,7 +14,8 @@
         "analytics"
       ],
       "documentation": [],
-      "pluginPath": "src/plugins/observable-axiom/"
+      "pluginPath": "src/plugins/observable-axiom/",
+      "image": "./axiom-co-logo.png"
     }
   ]
 }

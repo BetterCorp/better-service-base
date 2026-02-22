@@ -4,7 +4,6 @@
       "id": "observable-logging-file",
       "name": "observable-logging-file",
       "basePath": "./",
-      "image": "./observable-logging-file.png",
       "description": "File-based observable logging with rotation and retention controls",
       "tags": [
         "logging",
@@ -16,6 +15,7 @@
         "./docs/plugin.md"
       ],
       "pluginPath": "src/plugins/observable-logging-file/",
+      "image": "./observable-logging-file.png",
       "links": {
         "github": "https://github.com/BetterCorp/better-service-base.git"
       }

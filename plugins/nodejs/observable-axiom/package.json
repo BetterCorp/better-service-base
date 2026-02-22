@@ -49,5 +49,6 @@
     "rimraf": "^6.1.2",
     "typescript": "^5.9.3"
   },
-  "homepage": "https://registry.bsbcode.dev/plugins/bsb/observable-axiom"
+  "homepage": "https://io.bsbcode.dev/plugins/bsb/observable-axiom"
 }
+

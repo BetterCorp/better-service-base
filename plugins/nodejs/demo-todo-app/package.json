@@ -52,5 +52,6 @@
   "peerDependencies": {
     "@bsb/base": "file:../../../nodejs"
   },
-  "homepage": "https://registry.bsbcode.dev/plugins/bsb/demo-todo-app"
+  "homepage": "https://io.bsbcode.dev/plugins/bsb/demo-todo-app"
 }
+

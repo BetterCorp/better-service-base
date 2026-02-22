@@ -55,5 +55,6 @@
     "@bsb/base": "^9.0.0"
   },
   "bsb": {},
-  "homepage": "https://registry.bsbcode.dev/plugins/bsb/registry"
+  "homepage": "https://io.bsbcode.dev/plugins/bsb/registry"
 }
+

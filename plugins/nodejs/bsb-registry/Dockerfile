@@ -40,5 +40,6 @@ RUN set -eux; \
 FROM betterweb/service-base:9.0.3
 
 COPY --from=builder /out/ /mnt/plugins/
+COPY --from=builder /BADGES.json /mnt/packages/@bsb/registry/BADGES.json
 
 ENV BSB_PLUGIN_DIR=/mnt/plugins

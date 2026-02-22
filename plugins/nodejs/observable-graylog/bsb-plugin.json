@@ -4,7 +4,6 @@
       "id": "observable-graylog",
       "name": "observable-graylog",
       "basePath": "./",
-      "image": "./observable-graylog.png",
       "description": "Graylog GELF observable plugin for centralized log ingestion",
       "tags": [
         "graylog",
@@ -16,6 +15,7 @@
         "./docs/plugin.md"
       ],
       "pluginPath": "src/plugins/observable-graylog/",
+      "image": "./observable-graylog.png",
       "links": {
         "github": "https://github.com/BetterCorp/better-service-base.git"
       }

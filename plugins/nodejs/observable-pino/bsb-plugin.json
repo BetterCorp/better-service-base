@@ -4,7 +4,6 @@
       "id": "observable-pino",
       "name": "observable-pino",
       "basePath": "./",
-      "image": "./observable-pino.png",
       "description": "Pino-based high-performance structured logging observable",
       "tags": [
         "pino",
@@ -16,6 +15,7 @@
         "./docs/plugin.md"
       ],
       "pluginPath": "src/plugins/observable-pino/",
+      "image": "./observable-pino.png",
       "links": {
         "github": "https://github.com/BetterCorp/better-service-base.git"
       }

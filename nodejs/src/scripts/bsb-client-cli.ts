@@ -15,7 +15,7 @@
  *   bsb-client token generate       - Generate a new API token
  *
  * Environment:
- *   BSB_REGISTRY_URL    - Registry URL (default: https://registry.bsbcode.dev)
+ *   BSB_REGISTRY_URL    - Registry URL (default: https://io.bsbcode.dev)
  *   BSB_REGISTRY_TOKEN  - API token for authentication
  */
 
@@ -819,3 +819,4 @@ async function main(): Promise<void> {
 main().catch((err) => {
   error(`Unexpected error: ${err.message}`);
 });
+
