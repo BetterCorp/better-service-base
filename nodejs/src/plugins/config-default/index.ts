@@ -54,7 +54,10 @@ export const Config = createConfigSchema(
     version: "1.0.0",
     image: "../docs/public/assets/images/bsb-logo.png",
     tags: ["core", "config", "default"],
-    documentation: ["./docs/core-plugins/config-default.md"],
+    documentation: [
+      "./docs/core-plugins/config-default.md",
+      "./docs/core-plugins/config-default-reference.md",
+    ],
   },
   ConfigSchema
 );

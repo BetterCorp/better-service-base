@@ -43,7 +43,10 @@ export const Config = createConfigSchema(
     version: "1.0.0",
     image: "../docs/public/assets/images/bsb-logo.png",
     tags: ["core", "events", "default"],
-    documentation: ["./docs/core-plugins/events-default.md"],
+    documentation: [
+      "./docs/core-plugins/events-default.md",
+      "./docs/core-plugins/events-default-patterns.md",
+    ],
   }
 );
 

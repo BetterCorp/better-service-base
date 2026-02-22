@@ -74,7 +74,10 @@ export const Config = createConfigSchema(
     version: "1.0.0",
     image: "../docs/public/assets/images/bsb-logo.png",
     tags: ["core", "observable", "default", "console"],
-    documentation: ["./docs/core-plugins/observable-default.md"],
+    documentation: [
+      "./docs/core-plugins/observable-default.md",
+      "./docs/core-plugins/observable-default-production.md",
+    ],
   },
   z.object({})
 );
