@@ -1,15 +1,13 @@
-# BSB Observable Zipkin
+# @bsb/observable-zipkin
 
-Zipkin tracing integration for the Better Service Base (BSB) framework.
+Zipkin tracing integration for BSB. Exports distributed traces to Zipkin and provides optional console logging.
 
-## Features
+## Key Features
 
-- Direct Zipkin v2 API integration
-- Distributed tracing with OpenTelemetry instrumentation
-- Configurable sampling rates
-- Batch span export with configurable flush intervals
-- Console logging fallback for non-trace observability
-- Full TypeScript support
+- Zipkin v2 API export
+- OpenTelemetry-based tracing
+- Configurable sampling and batching
+- Optional console logging for non-trace output
 
 ## Installation
 
@@ -19,137 +17,77 @@ npm install @bsb/observable-zipkin
 
 ## Configuration
 
-Add to your BSB configuration file:
+Add the plugin to your BSB configuration file:
 
 ```yaml
 plugins:
-  observable:
-    - observable-zipkin
-
-observable-zipkin:
-  serviceName: my-service
-  serviceVersion: 1.0.0
-
-  zipkin:
-    url: http://localhost:9411/api/v2/spans
-    # Optional custom headers for authentication
-    # headers:
-    #   Authorization: Bearer token123
-
-  export:
-    maxBatchSize: 100
-    maxQueueSize: 2048
-    scheduledDelayMillis: 5000
-
-  samplingRate: 1.0  # 1.0 = 100%, 0.5 = 50%
-
-  # Console logging (Zipkin doesn't handle logs/metrics)
-  console:
-    enabled: true
-    logLevel: info  # debug | info | warn | error
-
-  # Optional resource attributes
-  resourceAttributes:
-    environment: production
-    region: us-east-1
+  observables:
+    - plugin: "@bsb/observable-zipkin"
+      enabled: true
+      config:
+        serviceName: "my-service"
+        serviceVersion: "1.0.0"
+        zipkin:
+          url: "http://localhost:9411/api/v2/spans"
+          # headers:
+          #   Authorization: "Bearer token123"
+        export:
+          maxBatchSize: 100
+          maxQueueSize: 2048
+          scheduledDelayMillis: 5000
+        samplingRate: 1.0
+        console:
+          enabled: true
+          logLevel: "info"
+        resourceAttributes:
+          environment: "production"
+          region: "us-east-1"
 ```
 
-## What Gets Exported
+### Configuration Options
 
-### Traces (to Zipkin)
-- All span lifecycle events (start, end, error)
-- Span attributes and context
-- Distributed trace propagation
-- Exception tracking
-
-### Logs (to Console)
-- Debug, info, warn, error levels
-- Structured logging with trace context
-- Configurable log level filtering
-
-### Metrics (No-op)
-- Zipkin is trace-only, no metrics support
-- Use `observable-opentelemetry` or `observable-prometheus` for metrics
+| Option | Description | Default |
+|--------|-------------|---------|
+| `serviceName` | Service identifier | `"bsb-service"` |
+| `serviceVersion` | Service version tag | - |
+| `zipkin.url` | Zipkin API endpoint | `"http://localhost:9411/api/v2/spans"` |
+| `zipkin.headers` | Custom HTTP headers | - |
+| `export.maxBatchSize` | Max spans per batch | `100` |
+| `export.maxQueueSize` | Max queued spans | `2048` |
+| `export.scheduledDelayMillis` | Flush interval (ms) | `5000` |
+| `samplingRate` | Sampling probability (0-1) | `1.0` |
+| `console.enabled` | Enable console logs | `true` |
+| `console.logLevel` | Minimum log level | `"info"` |
+| `resourceAttributes` | Custom attributes | `{}` |
 
 ## Usage
 
-The plugin automatically integrates with BSB's Observable pattern:
+Once configured, traces are exported automatically:
 
 ```typescript
-export class MyService extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
-  static Config = Config;
-  static EventSchemas = EventSchemas;
-
-  public async run(obs: Observable) {
-    // Traces automatically sent to Zipkin
-    obs.log.info("Service started");  // Console log
-
-    // Create child span
-    const workObs = obs.span("heavy-work");
-    workObs.setAttribute("work.type", "batch");
-
-    try {
-      await this.doWork();
-      workObs.end();
-    } catch (error) {
-      workObs.recordException(error);
-      workObs.end();
-    }
-  }
-}
+this.log.info("Service started");
+const workObs = this.obs.span("heavy-work");
+await this.doWork();
+workObs.end();
 ```
 
 ## Zipkin Setup
 
-Run Zipkin locally with Docker:
+Run Zipkin locally:
 
 ```bash
 docker run -d -p 9411:9411 openzipkin/zipkin
 ```
 
-Access UI at: http://localhost:9411
+## Documentation
 
-## Architecture
+Detailed documentation (used by the BSB Registry): `https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/observable-zipkin/docs/plugin.md`
 
-```
-BSB Application
-    ↓
-Observable (DTrace)
-    ↓
-observable-zipkin
-    ↓
-OpenTelemetry SDK
-    ↓
-Zipkin Exporter
-    ↓
-Zipkin Server (HTTP)
-```
+## Links
 
-## Configuration Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `serviceName` | string | `"bsb-service"` | Service identifier in Zipkin |
-| `serviceVersion` | string | - | Service version tag |
-| `zipkin.url` | string | `"http://localhost:9411/api/v2/spans"` | Zipkin API endpoint |
-| `zipkin.headers` | object | - | Custom HTTP headers |
-| `export.maxBatchSize` | number | `100` | Max spans per batch |
-| `export.maxQueueSize` | number | `2048` | Max queued spans |
-| `export.scheduledDelayMillis` | number | `5000` | Flush interval (ms) |
-| `samplingRate` | number | `1.0` | Sampling probability (0-1) |
-| `console.enabled` | boolean | `true` | Enable console logs |
-| `console.logLevel` | string | `"info"` | Minimum log level |
-
-## Comparison with Other Observability Plugins
-
-| Plugin | Traces | Metrics | Logs | Backend |
-|--------|--------|---------|------|---------|
-| observable-zipkin | ✅ | ❌ | Console | Zipkin |
-| observable-opentelemetry | ✅ | ✅ | ✅ | OTLP Collector |
-| observable-default | ❌ | ❌ | Console | - |
+- GitHub: `https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/observable-zipkin`
+- BSB Registry (package): `https://io.bsbcode.dev/packages/nodejs/@bsb/observable-zipkin`
 
 ## License
 
-AGPL-3.0 - See LICENSE file for details.
-
-Commercial licenses available at https://www.bettercorp.dev
+(AGPL-3.0-only OR Commercial)

@@ -1,6 +1,15 @@
 # @bsb/observable-logging-file
 
-File logging observable plugin for BSB (Better-Service-Base) with automatic rotation, compression, and retention management.
+File logging observable plugin for BSB with automatic rotation, compression, and retention management.
+
+## Key Features
+
+- Rotating file streams with size and time-based rotation
+- Automatic gzip compression of rotated log files
+- Retention management to delete old log files
+- Flexible formatting with JSON or plain text output
+- Date-based filenames with customizable patterns
+- Level filtering for log output control
 
 ## Installation
 
@@ -8,18 +17,9 @@ File logging observable plugin for BSB (Better-Service-Base) with automatic rota
 npm install @bsb/observable-logging-file
 ```
 
-## Features
-
-- **Rotating file streams** - Automatic rotation based on file size or time intervals
-- **Compression** - Gzip compression of rotated log files
-- **Retention management** - Automatically delete old log files
-- **Flexible formatting** - JSON or plain text output with customizable timestamps
-- **Date-based filenames** - Support for date patterns in filenames
-- **Level filtering** - Control which log levels are written to files
-
 ## Configuration
 
-Add the plugin to your BSB configuration:
+Add the plugin to your BSB configuration file:
 
 ```yaml
 plugins:
@@ -48,15 +48,44 @@ plugins:
 
 ### Configuration Options
 
-- **directory**: Base directory for log files
-- **filename**: Filename pattern (use %DATE% for date substitution)
-- **dateFormat**: Date format for filename
-- **rotation.maxSize**: Maximum file size before rotation (e.g., "10M", "100K")
-- **rotation.maxFiles**: Number of old log files to keep
-- **rotation.interval**: Time-based rotation ("daily", "hourly", "none")
-- **rotation.compress**: Gzip rotated files
-- **levels**: Enable/disable specific log levels
-- **format**: Timestamp, trace info, and pretty print options
+| Option | Description | Default |
+|--------|-------------|---------|
+| `directory` | Base directory for log files | `./logs` |
+| `filename` | Filename pattern (use `%DATE%` for date substitution) | `application.log` |
+| `dateFormat` | Date format for filename | `YYYY-MM-DD` |
+| `rotation.maxSize` | Maximum file size before rotation | `10M` |
+| `rotation.maxFiles` | Number of old log files to keep | `7` |
+| `rotation.interval` | Time-based rotation: `daily`, `hourly`, `none` | `daily` |
+| `rotation.compress` | Gzip rotated files | `true` |
+| `levels` | Enable or disable specific log levels | All enabled |
+| `format` | Timestamp, trace info, and pretty print options | - |
+
+## Usage
+
+Once configured, logs are automatically written to files:
+
+```typescript
+this.log.info("Service initialized");
+this.log.debug("Debug information", { details: "..." });
+```
+
+## Log Rotation Example
+
+```text
+logs/
+  application-2026-02-04.log
+  application-2026-02-03.log.gz
+  application-2026-02-02.log.gz
+```
+
+## Documentation
+
+Detailed documentation (used by the BSB Registry): `https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/observable-logging-file/docs/plugin.md`
+
+## Links
+
+- GitHub: `https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/observable-logging-file`
+- BSB Registry (package): `https://io.bsbcode.dev/packages/nodejs/@bsb/observable-logging-file`
 
 ## License
 

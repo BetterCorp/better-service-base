@@ -21,7 +21,7 @@ npm run build
 npm run dev          # starts with sec-config.minimal.yaml (file storage, no auth)
 ```
 
-Web UI: http://localhost:3200
+Web UI: `http://localhost:3200`
 
 ## Docker Packaging For BSB
 
@@ -100,7 +100,7 @@ Installed schemas go to `src/.bsb/schemas/` and generated typed clients to `src/
 
 ## API Tokens
 
-Tokens are stored in a JSON file (default `./.temp/api-tokens.json`):
+Tokens are stored in the file DB data directory (default `./.temp/data/tokens.json`):
 
 ```json
 {
@@ -123,10 +123,17 @@ node -e "console.log('bsb_' + require('crypto').randomBytes(32).toString('hex'))
 
 ## Documentation
 
-Detailed documentation for each plugin:
+Detailed documentation for each plugin and storage backend:
 
-- [service-bsb-registry](docs/service-bsb-registry.md) -- Core registry (events, storage, auth)
-- [service-bsb-registry-ui](docs/service-bsb-registry-ui.md) -- Web UI and REST API
+- [service-bsb-registry](https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/bsb-registry/docs/service-bsb-registry.md) -- Core registry (events, storage, auth)
+- [service-bsb-registry-ui](https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/bsb-registry/docs/service-bsb-registry-ui.md) -- Web UI and REST API
+- [bsb-registry-db-file](https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/bsb-registry/docs/bsb-registry-db-file.md) -- File storage layout and schemas
+These docs are used by the BSB Registry.
+
+## Links
+
+- GitHub: `https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/bsb-registry`
+- BSB Registry (package): `https://io.bsbcode.dev/packages/nodejs/@bsb/registry`
 
 ## License
 

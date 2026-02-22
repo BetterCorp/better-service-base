@@ -342,6 +342,16 @@ Ensure the following plugins are enabled:
 - `observable-default` (or another Observable plugin)
 - `events-default` (or another Events plugin)
 
+## Documentation
+
+Detailed plugin documentation: `https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/demo-todo-app/docs/plugin.md`
+This doc is used by the BSB Registry.
+
+## Links
+
+- GitHub: `https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/demo-todo-app`
+- BSB Registry (package): `https://io.bsbcode.dev/packages/nodejs/@bsb/demo-todo-app`
+
 ## License
 
 (AGPL-3.0-only OR Commercial)

@@ -1,6 +1,14 @@
 # @bsb/syslog
 
-Syslog server and client for BSB - receive syslog messages and send logs to syslog servers.
+Syslog server and client plugins for BSB. Receive syslog messages from devices and forward BSB logs to syslog servers using UDP, TCP, or TLS.
+
+## Features
+
+- Syslog server for UDP and TCP
+- Syslog client (observable) for UDP, TCP, and TLS
+- RFC 3164 and RFC 5424 support
+- Event-driven processing of incoming syslog messages
+- Log level filtering and facility configuration
 
 ## Installation
 
@@ -8,29 +16,15 @@ Syslog server and client for BSB - receive syslog messages and send logs to sysl
 npm install @bsb/syslog
 ```
 
-## Features
-
-### Syslog Server
-- **Receive syslog messages** - UDP/TCP protocols
-- **RFC compliance** - Supports RFC 3164 and RFC 5424
-- **Event emission** - Emit received messages as BSB events
-- **Client API** - Subscribe to syslog messages from other services
-
-### Syslog Client (Observable)
-- **Send BSB logs to syslog** - Forward application logs
-- **Multiple protocols** - UDP, TCP, TLS support
-- **RFC compliance** - RFC 3164 and RFC 5424
-- **Level filtering** - Control which log levels are sent
-
 ## Configuration
 
-### Server Configuration
+### Syslog Server (Service Plugin)
 
 ```yaml
 plugins:
   services:
     - plugin: "@bsb/syslog"
-      service: "SyslogServerPlugin"
+      service: "service-syslog-server"
       enabled: true
       config:
         port: 514
@@ -38,13 +32,13 @@ plugins:
         exclusive: false
 ```
 
-### Client (Observable) Configuration
+### Syslog Client (Observable Plugin)
 
 ```yaml
 plugins:
   observables:
     - plugin: "@bsb/syslog"
-      observable: "SyslogClientPlugin"
+      observable: "observable-syslog"
       enabled: true
       config:
         host: "localhost"
@@ -60,16 +54,35 @@ plugins:
           error: true
 ```
 
+### Notes
+
+- Port 514 is privileged on Unix-like systems. Use a port above 1024 if you cannot run as root.
+- Use `facility` values 16-23 (local0-local7) for custom applications.
+
 ## Usage
 
+Subscribe to incoming syslog messages with the server client:
+
 ```typescript
-import { 
-  SyslogServerPlugin, 
-  SyslogServerClient, 
-  SyslogClientPlugin 
-} from "@bsb/syslog";
+import { Client as SyslogServerClient } from "@bsb/syslog/lib/plugins/service-syslog-server";
+
+const syslogClient = new SyslogServerClient(this);
+await syslogClient.events.onEvent("onMessage", this.obs, async (obs, message) => {
+  obs.log.info("Received syslog from {host}", { host: message.host });
+});
 ```
+
+## Documentation
+
+- Syslog Server: `https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/syslog/docs/syslog-server.md`
+- Syslog Client: `https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/syslog/docs/syslog-client.md`
+These docs are used by the BSB Registry.
+
+## Links
+
+- GitHub: `https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/syslog`
+- BSB Registry (package): `https://io.bsbcode.dev/packages/nodejs/@bsb/syslog`
 
 ## License
 
-Dual-licensed under AGPL-3.0-only OR Commercial License.
+(AGPL-3.0-only OR Commercial)

@@ -1,6 +1,14 @@
 # @bsb/observable-winston
 
-Winston observable plugin for BSB - integrate with the popular Winston logging framework.
+Winston observable plugin for BSB that integrates with the Winston logging framework.
+
+## Key Features
+
+- Full Winston ecosystem support with child loggers
+- Multiple transports: console, file, daily-rotate-file
+- Flexible formatting: JSON, pretty-print, or simple text
+- Per-plugin child loggers for isolated logging
+- Proper error serialization with stack traces
 
 ## Installation
 
@@ -8,15 +16,9 @@ Winston observable plugin for BSB - integrate with the popular Winston logging f
 npm install @bsb/observable-winston
 ```
 
-## Features
-
-- **Winston integration** - Full Winston ecosystem support
-- **Multiple transports** - Console, file, daily-rotate-file
-- **Flexible formatting** - JSON, pretty-print, or simple text
-- **Child loggers** - Per-plugin Winston loggers
-- **Error serialization** - Proper error stack trace handling
-
 ## Configuration
+
+Add the plugin to your BSB configuration file:
 
 ```yaml
 plugins:
@@ -51,11 +53,42 @@ plugins:
 
 ### Configuration Options
 
-- **level**: Minimum log level ("error", "warn", "info", "debug")
-- **transports.console**: Console output settings
-- **transports.file**: Standard file output
-- **transports.dailyRotate**: Daily rotating files with retention
-- **format**: Timestamp, JSON, and pretty-print options
+| Option | Description | Default |
+|--------|-------------|---------|
+| `level` | Minimum log level: `error`, `warn`, `info`, `debug` | `info` |
+| `transports.console` | Console output settings | Enabled |
+| `transports.file` | Standard file output with size-based rotation | Disabled |
+| `transports.dailyRotate` | Daily rotating files with retention | Disabled |
+| `format.timestamp` | Include timestamps in logs | `true` |
+| `format.json` | Output in JSON format | `true` |
+| `format.prettyPrint` | Pretty-print JSON output | `false` |
+
+## Usage
+
+Once configured, logs are handled by Winston automatically:
+
+```typescript
+this.log.info("Service initialized");
+this.log.error("Error occurred", new Error("Something went wrong"));
+```
+
+## Daily Rotation Output
+
+```text
+logs/
+  application-2026-02-04.log
+  application-2026-02-03.log.gz
+  application-2026-02-02.log.gz
+```
+
+## Documentation
+
+Detailed documentation (used by the BSB Registry): `https://github.com/BetterCorp/better-service-base/blob/master/plugins/nodejs/observable-winston/docs/plugin.md`
+
+## Links
+
+- GitHub: `https://github.com/BetterCorp/better-service-base/tree/master/plugins/nodejs/observable-winston`
+- BSB Registry (package): `https://io.bsbcode.dev/packages/nodejs/@bsb/observable-winston`
 
 ## License
 
