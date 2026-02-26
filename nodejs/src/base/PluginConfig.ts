@@ -83,8 +83,6 @@ export interface BSBPluginMetadata {
     description: string;
 
     // Optional fields
-    /** Semantic version (e.g., "1.0.0") */
-    version?: string;
     /** Author name or organization */
     author?: string;
     /** License type (e.g., "MIT", "AGPL-3.0") */

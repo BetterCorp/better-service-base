@@ -108,6 +108,12 @@ function buildCapabilities(pluginType: PluginType, proto: any): Record<string, u
   return undefined;
 }
 
+function readPackageVersion(projectRoot: string): string {
+  const pkgPath = path.join(projectRoot, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as { version?: string };
+  return pkg.version ?? '';
+}
+
 /**
  * Main export function.
  */
@@ -140,6 +146,8 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`Found ${pluginPaths.length} plugin(s) to export schemas from...`);
 
+  const packageVersion = readPackageVersion(projectRoot);
+
   let exportCount = 0;
   let errorCount = 0;
 
@@ -161,7 +169,6 @@ async function main() {
 
       const pluginType = inferPluginType(pluginId, Plugin);
       const pluginName = Plugin.Config?.metadata?.name || pluginId;
-      const pluginVersion = Plugin.Config?.metadata?.version || '1.0.0';
 
       let schemas: Record<string, any>;
       if (typeof Plugin.exportSchemas === 'function' && Plugin.Config && Plugin.EventSchemas) {
@@ -169,10 +176,11 @@ async function main() {
       } else {
         schemas = {
           pluginName,
-          version: pluginVersion,
           events: {},
         };
       }
+
+      schemas.version = packageVersion;
 
       schemas.pluginType = pluginType;
       const capabilities = buildCapabilities(pluginType, Plugin.prototype);

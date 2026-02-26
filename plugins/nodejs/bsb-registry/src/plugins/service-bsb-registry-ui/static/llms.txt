@@ -1,0 +1,36 @@
+BSB Registry API (LLM Guidance)
+
+Base URL:
+https://io.bsbcode.dev
+
+Plugin browser:
+- GET /plugins
+- GET /plugins?query=...&category=service|observable|events|config&language=nodejs|csharp|go|java|python
+- GET /plugins/{org}
+- GET /plugins/{org}/{name}
+
+Package lookup:
+- GET /packages/{language}/{packageId}
+- GET /{language}/{packageId} (alias)
+
+Versions:
+- GET /plugins/{org}/{name}/versions
+- GET /plugins/{org}/{name}/versions?majorMinor=1.2
+- GET /plugins/{org}/{name}/match?version=1.2
+
+Schema + docs:
+- GET /plugins/{org}/{name}/{version}/schema
+- GET /plugins/{org}/{name}/{version}/docs?index=0
+- GET /plugins/{org}/{name}/{version}/types/{language}
+
+Stats + health:
+- GET /stats
+- GET /health
+
+Publishing (auth required):
+- POST /plugins
+- POST /plugins/{org}/{name}/image
+
+Notes:
+- Unscoped plugins use org "_" (underscore).
+- Accept: application/json for API responses.

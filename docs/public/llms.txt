@@ -1,0 +1,21 @@
+BSB (Better-Service-Base) - LLM Index
+
+Use this index to keep context minimal. Each link is a focused guide.
+
+Node.js:
+- Bootstrap a new project:
+  https://bsbcode.dev/llms/nodejs-bootstrap.txt
+- Create a new plugin:
+  https://bsbcode.dev/llms/nodejs-plugin-new.txt
+- Service plugin guidance:
+  https://bsbcode.dev/llms/nodejs-plugin-service.txt
+- Events plugin guidance:
+  https://bsbcode.dev/llms/nodejs-plugin-events.txt
+- Observable plugin guidance:
+  https://bsbcode.dev/llms/nodejs-plugin-observable.txt
+- Config plugin guidance:
+  https://bsbcode.dev/llms/nodejs-plugin-config.txt
+
+Testing (Node.js):
+- Test runner and bsb-tests.json format:
+  https://bsbcode.dev/llms/nodejs-tests.txt

@@ -90,7 +90,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
       // Initialize server with plugin instance
       const initSpan = obs.startSpan('server.init');
-      await this.server.init(obs, this);
+      await this.server.init(initSpan, this);
       initSpan.end();
 
       obs.log.info('Registry UI initialized successfully');

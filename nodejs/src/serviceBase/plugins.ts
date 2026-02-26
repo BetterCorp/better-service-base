@@ -282,7 +282,7 @@ export class SBPlugins {
       return Err(new Error(`Failed to load plugin ${name}: ${loadResult.error.message}`));
     }
 
-    log.info(tTrace, `Successfully loaded plugin {name}`, { name: plugin });
+    log.info(tTrace, `Successfully loaded plugin {name} v{version}`, { name: plugin, version: version });
     return Ok(loadResult.data);
   }
 

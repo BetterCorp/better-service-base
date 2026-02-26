@@ -491,7 +491,7 @@ export interface EventSchemaExport {
  *   static exportSchemas(): EventSchemaExport {
  *     return exportEventSchemas(
  *       Config.metadata.name,
- *       Config.metadata.version || '1.0.0',
+ *       '',
  *       EventSchemas
  *     );
  *   }

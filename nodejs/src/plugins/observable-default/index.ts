@@ -71,7 +71,6 @@ export const Config = createConfigSchema(
   {
     name: "observable-default",
     description: "Default console observable plugin for logging output",
-    version: "1.0.0",
     image: "../docs/public/assets/images/bsb-logo.png",
     tags: ["core", "observable", "default", "console"],
     documentation: [

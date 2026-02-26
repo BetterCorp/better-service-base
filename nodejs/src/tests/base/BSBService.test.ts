@@ -368,7 +368,7 @@ describe('BSBService v9', () => {
       assert.ok(exported1.events['event.1']);
 
       assert.strictEqual(exported2.pluginName, 'plugin-2');
-      assert.strictEqual(exported2.version, '2.0.0');
+      assert.strictEqual(exported2.version, '1.0.0');
       assert.ok(exported2.events['event.2']);
     });
   });

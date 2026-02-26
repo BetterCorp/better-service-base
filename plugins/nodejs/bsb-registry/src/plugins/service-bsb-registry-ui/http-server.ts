@@ -215,6 +215,7 @@ export class RegistryUIServer {
   private badgeMap: Record<string, string | string[]> = {};
   private registryClient!: BsbRegistryClient;
   private createTrace!: Plugin['createTrace'];
+  private pluginCwd!: string;
 
   constructor(
     port: number,
@@ -322,6 +323,7 @@ export class RegistryUIServer {
       // Bind plugin context to this server instance
       this.registryClient = plugin.registryClient;
       this.createTrace = plugin.createTrace.bind(plugin);
+      this.pluginCwd = plugin.pluginCwd;
 
       // Register CORS
       const corsSpan = obs.startSpan('register.cors');
@@ -444,6 +446,16 @@ export class RegistryUIServer {
     // Homepage
     this.app.get('/', async (request, reply) => {
       return this.handleHome(request, reply);
+    });
+
+    // LLM guidance
+    this.app.get('/llms.txt', async (_request, reply) => {
+      const llmsPath = path.join(this.pluginCwd, 'static', 'llms.txt');
+      if (fs.existsSync(llmsPath)) {
+        reply.type('text/plain').send(fs.readFileSync(llmsPath, 'utf8'));
+      } else {
+        reply.code(404).type('text/plain').send('Not found');
+      }
     });
 
     // Browse + search plugins (combined list/search)

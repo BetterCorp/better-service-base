@@ -51,7 +51,6 @@ export const Config = createConfigSchema(
   {
     name: "config-default",
     description: "Default configuration plugin for profile and plugin resolution",
-    version: "1.0.0",
     image: "../docs/public/assets/images/bsb-logo.png",
     tags: ["core", "config", "default"],
     documentation: [

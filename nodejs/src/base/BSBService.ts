@@ -230,7 +230,7 @@ export abstract class BSBService<
 
     return exportEventSchemas(
       meta.name,
-      meta.version || '1.0.0',
+      '1.0.0',
       eventSchemas
     );
   }

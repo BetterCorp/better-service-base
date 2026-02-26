@@ -40,7 +40,6 @@ export const Config = createConfigSchema(
   {
     name: "events-default",
     description: "Default in-process events plugin for BSB event routing",
-    version: "1.0.0",
     image: "../docs/public/assets/images/bsb-logo.png",
     tags: ["core", "events", "default"],
     documentation: [

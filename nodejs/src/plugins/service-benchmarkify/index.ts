@@ -35,7 +35,6 @@ export const Config = createConfigSchema(
   {
     name: 'service-benchmarkify',
     description: 'Benchmarking service for performance testing',
-    version: '1.0.0',
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['benchmark', 'performance', 'test'],
   },

@@ -457,6 +457,50 @@ function generateRootPluginJson(): void {
   success(`Generated bsb-plugin.json with ${plugins.length} plugin(s)`);
 }
 
+// Generate root bsb-tests.json with default ignore entries
+function generateRootTestsJson(plugins: Record<string, any>[]): void {
+  const testsPath = path.join(CWD, 'bsb-tests.json');
+  let existing: any = { nodejs: [] };
+  if (fs.existsSync(testsPath)) {
+    try {
+      existing = JSON.parse(fs.readFileSync(testsPath, 'utf-8'));
+    } catch {
+      existing = { nodejs: [] };
+    }
+  }
+
+  const existingEntries: Record<string, any> = {};
+  if (Array.isArray(existing.nodejs)) {
+    for (const entry of existing.nodejs) {
+      if (entry && entry.id) {
+        existingEntries[entry.id] = entry;
+      }
+    }
+  }
+
+  for (const plugin of plugins) {
+    if (!existingEntries[plugin.id]) {
+      existingEntries[plugin.id] = {
+        id: plugin.id,
+        skip: true,
+        default: {
+          config: {},
+          setup: null,
+          dispose: null,
+        },
+        tests: [],
+      };
+    }
+  }
+
+  const updated = {
+    nodejs: Object.values(existingEntries),
+  };
+
+  fs.writeFileSync(testsPath, JSON.stringify(updated, null, 2), 'utf-8');
+  success(`Generated bsb-tests.json with ${plugins.length} plugin(s)`);
+}
+
 // Build the plugin
 async function build(): Promise<void> {
   log('\n=== Building BSB Plugin ===\n', 'bright');
@@ -495,6 +539,9 @@ async function build(): Promise<void> {
 
   // Step 9: Generate root bsb-plugin.json (aggregates all per-plugin metadata)
   generateRootPluginJson();
+
+  // Step 10: Generate root bsb-tests.json (default ignore entries)
+  generateRootTestsJson(plugins.map(p => ({ id: p.name })));
 
   log('\n' + colors.green + colors.bright + '[BUILD COMPLETE]' + colors.reset + '\n');
 }
@@ -548,23 +595,9 @@ async function dev(): Promise<void> {
 function test(): void {
   log('\n=== Running Tests ===\n', 'bright');
 
-  // Check if test script exists in package.json
-  const packageJsonPath = path.join(CWD, 'package.json');
-  if (!fs.existsSync(packageJsonPath)) {
-    error('package.json not found');
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-  const testScript = packageJson.scripts?.['test:run'];
-
-  if (!testScript) {
-    log('No test:run script defined in package.json', 'yellow');
-    info('Define a "test:run" script in package.json to enable testing');
-    process.exit(0);
-  }
-
-  // Run the test script
-  exec('npm run test:run', 'Running tests');
+  const args = process.argv.slice(3);
+  const cmd = ['npx', '@bsb/tests', '--cwd', CWD, ...args].join(' ');
+  exec(cmd, 'Running tests via @bsb/tests');
 
   log('\n' + colors.green + colors.bright + '[TESTS COMPLETE]' + colors.reset + '\n');
 }
@@ -581,7 +614,7 @@ ${colors.cyan}Commands:${colors.reset}
   ${colors.green}build${colors.reset}   - Clean, compile TypeScript, copy static files
   ${colors.green}dev${colors.reset}     - Build and start in development mode
   ${colors.green}start${colors.reset}   - Start the BSB service
-  ${colors.green}test${colors.reset}    - Run tests (requires test:run script)
+  ${colors.green}test${colors.reset}    - Run tests via @bsb/tests (npx)
   ${colors.green}clean${colors.reset}   - Remove build artifacts (lib directory)
 
 ${colors.cyan}Examples:${colors.reset}
