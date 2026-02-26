@@ -19,3 +19,7 @@ Node.js:
 Testing (Node.js):
 - Test runner and bsb-tests.json format:
   https://bsbcode.dev/llms/nodejs-tests.txt
+
+Registry:
+- Registry API LLM guide:
+  https://io.bsbcode.dev/llms.txt
