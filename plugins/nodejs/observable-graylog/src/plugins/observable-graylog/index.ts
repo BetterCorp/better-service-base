@@ -27,43 +27,33 @@
 
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import * as gelfPro from "gelf-pro";
 
 /**
  * Configuration schema for Graylog observable
  */
-export const GraylogConfigSchema = z.object({
-  host: z.string().default("localhost"),
-  port: z.number().int().min(1).max(65535).default(12201),
-  protocol: z.enum(["udp", "tcp", "http"]).default("udp"),
+export const GraylogConfigSchema = av.object({
+  host: av.optional(av.string()).default("localhost"),
+  port: av.optional(av.int32().min(1).max(65535)).default(12201),
+  protocol: av.optional(av.enum_(["udp", "tcp", "http"])).default("udp"),
+  httpEndpoint: av.optional(av.string().format("url")),
+  facility: av.optional(av.string()).default("bsb"),
+  additionalFields: av.optional(av.record(av.union([
+    av.string(),
+    av.number(),
+    av.bool(),
+  ]))).default({}),
+  compress: av.optional(av.bool()).default(true),
+  levels: av.object({
+    debug: av.optional(av.bool()).default(true),
+    info: av.optional(av.bool()).default(true),
+    warn: av.optional(av.bool()).default(true),
+    error: av.optional(av.bool()).default(true),
+  }, { unknownKeys: "strip" }),
+}, { unknownKeys: "strip" });
 
-  // HTTP-specific settings
-  httpEndpoint: z.string().url().optional(),
-
-  // GELF settings
-  facility: z.string().default("bsb"),
-
-  // Additional fields to include in all messages
-  additionalFields: z.record(z.string(), z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-  ])).default({}),
-
-  // Compression (for UDP/TCP)
-  compress: z.boolean().default(true),
-
-  // Log level filtering
-  levels: z.object({
-    debug: z.boolean().default(true),
-    info: z.boolean().default(true),
-    warn: z.boolean().default(true),
-    error: z.boolean().default(true),
-  }),
-});
-
-export type GraylogConfig = z.infer<typeof GraylogConfigSchema>;
+export type GraylogConfig = av.Infer<typeof GraylogConfigSchema>;
 
 export const Config = createConfigSchema(
   {

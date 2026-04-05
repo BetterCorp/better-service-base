@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
 import { Observable } from "../../interfaces";
 import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
@@ -38,7 +38,7 @@ export const Config = createConfigSchema(
     tags: ['default', 'example', 'test'],
     initAfterPlugins: ['service-default2'],
   },
-  z.object({})
+  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
 );
 
 export const EventSchemas = createEventSchemas({

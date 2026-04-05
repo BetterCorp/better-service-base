@@ -35,7 +35,7 @@ import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBPl
 import { PluginEvents } from "./PluginEvents";
 import { ResourceContext, ResourceContextBuilder } from "./ResourceContext";
 import { PluginObservable } from "./PluginObservable";
-import { z } from "zod";
+import { bsb } from "../interfaces/schema-types";
 
 /**
  * @hidden
@@ -230,7 +230,7 @@ export abstract class BSBService<
 
     return exportEventSchemas(
       meta.name,
-      '1.0.0',
+      meta.version ?? '1.0.0',
       eventSchemas
     );
   }
@@ -454,7 +454,7 @@ const BSBServiceRefConfig = createConfigSchema(
     name: "BSBServiceRef",
     description: "Internal reference class",
   },
-  z.null()
+  bsb.unknown('internal')
 );
 
 /**

@@ -29,7 +29,6 @@ import { DTrace } from './metrics';
 import { SmartLogMeta } from './logging';
 import { Counter, Gauge, Histogram, Timer } from './metrics';
 import { ResourceContext } from '../base/ResourceContext';
-import { z } from 'zod';
 
 /**
  * Observable context for unified observability across logging, metrics, and tracing.
@@ -62,7 +61,7 @@ import { z } from 'zod';
  * }
  * ```
  */
-export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
+export interface Observable {
   /**
    * Core trace information (W3C compatible)
    * @readonly
@@ -237,7 +236,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
    * }
    * ```
    */
-  startSpan(name: string, attributes?: Record<string, string | number | boolean>): Observable<TAttributeSchema>;
+  startSpan(name: string, attributes?: Record<string, string | number | boolean>): Observable;
 
   /**
    * Create a new Observable with an additional attribute
@@ -265,7 +264,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
   setAttribute<K extends string, V extends string | number | boolean>(
     key: K,
     value: V
-  ): Observable<TAttributeSchema>;
+  ): Observable;
 
   /**
    * Create a new Observable with multiple attributes
@@ -289,7 +288,7 @@ export interface Observable<TAttributeSchema extends z.ZodSchema = z.ZodAny> {
    * }
    * ```
    */
-  setAttributes(attrs: Record<string, string | number | boolean>): Observable<TAttributeSchema>;
+  setAttributes(attrs: Record<string, string | number | boolean>): Observable;
 
   /**
    * Record an error to both logs and traces

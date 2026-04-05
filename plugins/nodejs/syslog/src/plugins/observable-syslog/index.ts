@@ -27,40 +27,36 @@
 
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 // @ts-ignore - no types available
 import * as SyslogClient from "syslog-client";
 
 /**
  * Configuration schema for syslog client observable
  */
-export const SyslogClientConfigSchema = z.object({
-  host: z.string().default("localhost"),
-  port: z.number().int().min(1).max(65535).default(514),
-  protocol: z.enum(["udp", "tcp", "tls"]).default("udp"),
+export const SyslogClientConfigSchema = av.object({
+  host: av.optional(av.string()).default("localhost"),
+  port: av.optional(av.int32().min(1).max(65535)).default(514),
+  protocol: av.optional(av.enum_(["udp", "tcp", "tls"])).default("udp"),
+  tls: av.optional(av.object({
+    rejectUnauthorized: av.optional(av.bool()).default(true),
+    ca: av.optional(av.string()),
+    cert: av.optional(av.string()),
+    key: av.optional(av.string()),
+  }, { unknownKeys: "strip" })),
+  facility: av.optional(av.int32().min(0).max(23)).default(16),
+  hostname: av.optional(av.string()),
+  appName: av.optional(av.string()).default("bsb-app"),
+  rfc: av.optional(av.enum_(["3164", "5424"])).default("5424"),
+  levels: av.object({
+    debug: av.optional(av.bool()).default(true),
+    info: av.optional(av.bool()).default(true),
+    warn: av.optional(av.bool()).default(true),
+    error: av.optional(av.bool()).default(true),
+  }, { unknownKeys: "strip" }),
+}, { unknownKeys: "strip" });
 
-  tls: z.object({
-    rejectUnauthorized: z.boolean().default(true),
-    ca: z.string().optional(),
-    cert: z.string().optional(),
-    key: z.string().optional(),
-  }).optional(),
-
-  facility: z.number().int().min(0).max(23).default(16), // local0
-  hostname: z.string().optional(),
-  appName: z.string().default("bsb-app"),
-  rfc: z.enum(["3164", "5424"]).default("5424"),
-
-  // Log level filtering
-  levels: z.object({
-    debug: z.boolean().default(true),
-    info: z.boolean().default(true),
-    warn: z.boolean().default(true),
-    error: z.boolean().default(true),
-  }),
-});
-
-export type SyslogClientConfig = z.infer<typeof SyslogClientConfigSchema>;
+export type SyslogClientConfig = av.Infer<typeof SyslogClientConfigSchema>;
 
 export const Config = createConfigSchema(
   {

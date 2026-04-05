@@ -33,7 +33,7 @@ import {
   BSBError
 } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import { Axiom } from "@axiomhq/js";
 import * as api from "@opentelemetry/api";
 import { defaultResource, resourceFromAttributes } from "@opentelemetry/resources";
@@ -43,30 +43,26 @@ import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import type { IdGenerator } from "@opentelemetry/sdk-trace-base";
 
-const ConfigSchema = z.object({
-  serviceName: z.string().default("bsb-service"),
-  serviceVersion: z.string().optional(),
-
-  axiom: z.object({
-    token: z.string().describe("Axiom API token"),
-    dataset: z.string().default("bsb-logs").describe("Axiom dataset name"),
-    orgId: z.string().optional().describe("Axiom organization ID (for cloud)"),
-    url: z.url().optional().describe("Custom Axiom URL (for self-hosted)"),
-  }),
-
-  enabled: z.object({
-    logs: z.boolean().default(true),
-    metrics: z.boolean().default(true),
-    traces: z.boolean().default(true),
-  }),
-
-  export: z.object({
-    flushIntervalMs: z.number().int().min(100).default(5000),
-    maxBatchSize: z.number().int().min(1).default(1000),
-  }),
-
-  resourceAttributes: z.record(z.string(), z.string()).default({}),
-});
+const ConfigSchema = av.object({
+  serviceName: av.optional(av.string()).default("bsb-service"),
+  serviceVersion: av.optional(av.string()),
+  axiom: av.object({
+    token: av.string(),
+    dataset: av.optional(av.string()).default("bsb-logs"),
+    orgId: av.optional(av.string()),
+    url: av.optional(av.string().format("url")),
+  }, { unknownKeys: "strip" }),
+  enabled: av.object({
+    logs: av.optional(av.bool()).default(true),
+    metrics: av.optional(av.bool()).default(true),
+    traces: av.optional(av.bool()).default(true),
+  }, { unknownKeys: "strip" }),
+  export: av.object({
+    flushIntervalMs: av.optional(av.int32().min(100)).default(5000),
+    maxBatchSize: av.optional(av.int32().min(1)).default(1000),
+  }, { unknownKeys: "strip" }),
+  resourceAttributes: av.optional(av.record(av.string())).default({}),
+}, { unknownKeys: "strip" });
 
 export const Config = createConfigSchema(
   {

@@ -1,6 +1,6 @@
 {
   "name": "@bsb/demo-todo-app",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "BSB Demo Todo Application - Comprehensive example showcasing BSB best practices",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -38,10 +38,10 @@
   },
   "dependencies": {
     "@bsb/observable-axiom": "file:../observable-axiom",
+    "@anyvali/js": "^0.2.0",
     "@fastify/cors": "^10.0.1",
     "@fastify/static": "^8.0.2",
-    "fastify": "^5.2.0",
-    "zod": "^4.0.0"
+    "fastify": "^5.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -54,7 +54,3 @@
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/demo-todo-app"
 }
-
-
-
-

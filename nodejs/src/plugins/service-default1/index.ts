@@ -30,7 +30,7 @@ import { ServiceClient, createConfigSchema, bsb, optional } from "../../base";
 import { Observable } from "../../interfaces/observable";
 import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events";
 import { Plugin as Service0, EventSchemas as Service0EventSchemas } from "../service-default0";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 
 // v9: Config with metadata (no configuration options for this service)
 export const Config = createConfigSchema(
@@ -40,7 +40,7 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example'],
   },
-  z.null()
+  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
 );
 
 export const EventSchemas = createEventSchemas({

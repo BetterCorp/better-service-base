@@ -1,6 +1,6 @@
 {
   "name": "@bsb/base",
-  "version": "9.0.5",
+  "version": "9.1.0",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
@@ -84,9 +84,9 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@anyvali/js": "^0.2.0",
     "uuid": "^13.0.0",
-    "yaml": "^2.8.2",
-    "zod": "^4.3.6"
+    "yaml": "^2.8.2"
   },
   "homepage": "https://bsbcode.dev/"
 }

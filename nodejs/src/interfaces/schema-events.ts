@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBType, InferBSBType } from './schema-types';
+import { AnyValiDocument, BSBType, InferBSBType } from './schema-types';
 
 /**
  * Schema definition for a returnable event with input/output validation.
@@ -410,23 +410,7 @@ export type EventCategory =
  * JSON Schema type definition for cross-language code generation.
  * Uses standard JSON Schema format with BSB-specific extensions.
  */
-export interface JSONSchemaType {
-  $schema?: string;
-  type?: string | string[];
-  format?: string;
-  properties?: Record<string, JSONSchemaType>;
-  items?: JSONSchemaType;
-  required?: string[];
-  enum?: any[];
-  description?: string;
-  minLength?: number;
-  maxLength?: number;
-  minimum?: number;
-  maximum?: number;
-  // BSB-specific extension for cross-language type hints
-  'x-bsb-type'?: string;
-  [key: string]: any;
-}
+export type JSONSchemaType = AnyValiDocument;
 
 /**
  * Exported event definition in JSON format.
@@ -442,9 +426,9 @@ export interface EventExportDefinition {
   /** Default timeout in seconds for returnable event calls */
   defaultTimeout?: number;
   /** JSON Schema for input validation */
-  inputSchema: JSONSchemaType;
+  inputSchema: AnyValiDocument;
   /** JSON Schema for output validation (null for fire-and-forget/broadcast) */
-  outputSchema: JSONSchemaType | null;
+  outputSchema: AnyValiDocument | null;
 }
 
 /**

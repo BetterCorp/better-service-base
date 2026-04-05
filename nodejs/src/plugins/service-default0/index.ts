@@ -26,14 +26,14 @@
  */
 
 import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
 import { Observable } from "../../interfaces/observable";
 
-const secSchema = z.object({
-  testa: z.number(),
-  testb: z.number(),
-});
+const secSchema = av.object({
+  testa: av.number(),
+  testb: av.number(),
+}, { unknownKeys: "strip" });
 
 export const Config = createConfigSchema(
   {

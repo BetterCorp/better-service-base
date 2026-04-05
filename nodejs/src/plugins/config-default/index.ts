@@ -39,13 +39,13 @@ import {
 } from "../../index";
 import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig";
 import { createConfigSchema } from "../../base/PluginConfig";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import { ConfigDefinition, ConfigProfile } from "./interfaces";
 
-const ConfigSchema = z.object({
-  BSB_PROFILE: z.string().optional().default("default"),
-  BSB_CONFIG_FILE: z.string().optional().default("./sec-config.yaml"),
-});
+const ConfigSchema = av.object({
+  BSB_PROFILE: av.optional(av.string()).default("default"),
+  BSB_CONFIG_FILE: av.optional(av.string()).default("./sec-config.yaml"),
+}, { unknownKeys: "strip" });
 
 export const Config = createConfigSchema(
   {
@@ -228,12 +228,12 @@ export class Plugin
 
   constructor(config: BSBConfigConstructor<InstanceType<typeof Config>>) {
     super(config);
-    this._secConfigFilePath = path.join(this.cwd, this.config.BSB_CONFIG_FILE);
+    this._secConfigFilePath = path.join(this.cwd, this.config.BSB_CONFIG_FILE ?? "./sec-config.yaml");
   }
 
   init(obs: Observable): void {
-    this._deploymentProfile = this.config.BSB_PROFILE;
-    this._secConfigFilePath = this.config.BSB_CONFIG_FILE;
+    this._deploymentProfile = this.config.BSB_PROFILE ?? "default";
+    this._secConfigFilePath = this.config.BSB_CONFIG_FILE ?? "./sec-config.yaml";
     const defaultProfile = this.createDefaultProfile();
     this._appConfig = {
       default: defaultProfile,

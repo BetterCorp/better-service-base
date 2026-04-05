@@ -30,7 +30,6 @@ import { DTrace, Trace, IPluginObservable } from '../interfaces/metrics';
 import { ResourceContext } from './ResourceContext';
 import { BSBError } from './errorMessages';
 import { SmartLogMeta } from '../interfaces/logging';
-import { z } from 'zod';
 
 /**
  * Implementation of Observable interface that wraps DTrace with observability features
@@ -39,8 +38,7 @@ import { z } from 'zod';
  * @category Plugin Development Tools
  * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/PluginObservable.html | API: PluginObservable}
  */
-export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
-  implements Observable<TAttributeSchema> {
+export class PluginObservable implements Observable {
 
   private readonly _trace: DTrace;
   private readonly _resource: ResourceContext;
@@ -167,7 +165,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
   startSpan(
     name: string,
     attributes?: Record<string, string | number | boolean>
-  ): Observable<TAttributeSchema> {
+  ): Observable {
     const mergedAttributes = { ...this._attributes, ...attributes };
     const childSpan = this._backend.createSpan(this._trace, name, mergedAttributes);
 
@@ -204,7 +202,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
   setAttribute<K extends string, V extends string | number | boolean>(
     key: K,
     value: V
-  ): Observable<TAttributeSchema> {
+  ): Observable {
     return new PluginObservable(
       this._trace,
       this._resource,
@@ -239,7 +237,7 @@ export class PluginObservable<TAttributeSchema extends z.ZodSchema = z.ZodAny>
    */
   setAttributes(
     attrs: Record<string, string | number | boolean>
-  ): Observable<TAttributeSchema> {
+  ): Observable {
     return new PluginObservable(
       this._trace,
       this._resource,

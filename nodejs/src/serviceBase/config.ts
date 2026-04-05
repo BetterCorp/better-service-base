@@ -48,7 +48,13 @@ import {
 import { Config as DefaultConfigDefinition, Plugin as DefaultConfig } from "../plugins/config-default/index";
 import { SBObservable } from "./observable";
 import { SBPlugins } from "./plugins";
-import { z } from "zod";
+import type { BaseSchema, Infer, SchemaNode } from '@anyvali/js';
+
+type AnySchema = BaseSchema<any, any>;
+
+function exportRootNode(schema: AnySchema): SchemaNode {
+  return schema.export('extended').root;
+}
 
 /**
  * @hidden
@@ -119,19 +125,16 @@ export class SBConfig {
   }
 
   private getConfigPluginEnvSubset(
-    validationSchema: z.ZodTypeAny | undefined,
+    validationSchema: AnySchema | undefined,
     fallbackKeys: readonly string[] = [],
   ): NodeJS.ProcessEnv {
     const scopedEnv: NodeJS.ProcessEnv = {};
     const allowedKeys = new Set<string>(fallbackKeys);
 
     if (!Tools.isNullOrUndefined(validationSchema)) {
-      const jsonSchema = z.toJSONSchema(validationSchema) as {
-        type?: unknown;
-        properties?: Record<string, unknown>;
-      };
-      if (jsonSchema.type === "object" && Tools.isObject(jsonSchema.properties)) {
-        Object.keys(jsonSchema.properties).forEach((key) => allowedKeys.add(key));
+      const root = exportRootNode(validationSchema);
+      if (root.kind === 'object' && Tools.isObject(root.properties)) {
+        Object.keys(root.properties).forEach((key) => allowedKeys.add(key));
       }
     }
 
@@ -149,12 +152,12 @@ export class SBConfig {
     validationSchema: undefined,
     fallbackKeys?: readonly string[],
   ): undefined;
-  private resolveConfigPluginConfig<TSchema extends z.ZodTypeAny>(
+  private resolveConfigPluginConfig<TSchema extends AnySchema>(
     validationSchema: TSchema,
     fallbackKeys?: readonly string[],
-  ): z.infer<TSchema>;
+  ): Infer<TSchema>;
   private resolveConfigPluginConfig(
-    validationSchema: z.ZodTypeAny | undefined,
+    validationSchema: AnySchema | undefined,
     fallbackKeys: readonly string[] = [],
   ): unknown {
     if (Tools.isNullOrUndefined(validationSchema)) {
@@ -166,21 +169,22 @@ export class SBConfig {
 
   private isFlatJsonSchemaProperty(schema: any): boolean {
     if (!schema || typeof schema !== "object") return false;
-    const t = schema.type;
-    if (t === "object" || t === "array") return false;
-    if (Array.isArray(t) && (t.includes("object") || t.includes("array"))) return false;
-    if (Array.isArray(schema.oneOf) && schema.oneOf.some((x: any) => !this.isFlatJsonSchemaProperty(x))) return false;
-    if (Array.isArray(schema.anyOf) && schema.anyOf.some((x: any) => !this.isFlatJsonSchemaProperty(x))) return false;
+    if (schema.kind === "object" || schema.kind === "array" || schema.kind === "record" || schema.kind === "tuple") return false;
+    if (schema.kind === "union" && Array.isArray(schema.variants) && schema.variants.some((x: any) => !this.isFlatJsonSchemaProperty(x))) return false;
+    if (schema.kind === "intersection" && Array.isArray(schema.allOf) && schema.allOf.some((x: any) => !this.isFlatJsonSchemaProperty(x))) return false;
+    if (schema.kind === "optional" || schema.kind === "nullable") {
+      return this.isFlatJsonSchemaProperty(schema.inner);
+    }
     return true;
   }
 
   private validateConfigPluginSchemaShape(trace: DTrace, validationSchema: any): void {
     const obs = this.createObservable(trace, "config");
-    const jsonSchema = z.toJSONSchema(validationSchema as z.ZodTypeAny) as any;
-    if (jsonSchema?.type !== "object") {
+    const root = exportRootNode(validationSchema as AnySchema) as any;
+    if (root?.kind !== "object") {
       throw new BSBError(obs.trace, "Config plugin schema must be an object or omitted");
     }
-    const properties = jsonSchema?.properties || {};
+    const properties = root?.properties || {};
     for (const [key, propSchema] of Object.entries(properties)) {
       if (!this.isFlatJsonSchemaProperty(propSchema)) {
         throw new BSBError(obs.trace, "Config plugin schema property {key} must be flat (no object/array)", { key });

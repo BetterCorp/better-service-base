@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import {z} from "zod";
+import type { BaseSchema, Infer } from '@anyvali/js';
 
 /**
  * The definition of the config with zod validation
@@ -34,7 +34,7 @@ import {z} from "zod";
  *  a: z.string(),
  * });
  */
-export type BSBPluginConfigType = z.ZodTypeAny | undefined;
+export type BSBPluginConfigType = BaseSchema<any, any> | undefined;
 export type BSBPluginConfigDefinition = BSBPluginConfig<BSBPluginConfigType>;
 export type BSBPluginConfigClass<TSchema extends BSBPluginConfigType = BSBPluginConfigType> = {
   new(cwd: string, packageCwd: string, pluginCwd: string, pluginName: string): BSBPluginConfig<TSchema>;
@@ -65,8 +65,8 @@ export type BSBPluginConfigClass<TSchema extends BSBPluginConfigType = BSBPlugin
 export type BSBConfigMigration<T extends BSBPluginConfigType> = (
     versionFrom: string | null,
     versionTo: string,
-    existingConfig?: z.infer<Exclude<T, undefined>>,
-) => Promise<z.infer<Exclude<T, undefined>>>;
+    existingConfig?: Infer<Exclude<T, undefined>>,
+) => Promise<Infer<Exclude<T, undefined>>>;
 
 /**
  * Plugin metadata information for enhanced discoverability and documentation.
@@ -85,6 +85,8 @@ export interface BSBPluginMetadata {
     // Optional fields
     /** Author name or organization */
     author?: string;
+    /** Plugin version */
+    version?: string;
     /** License type (e.g., "MIT", "AGPL-3.0") */
     license?: string;
     /** Documentation URL */
@@ -99,6 +101,8 @@ export interface BSBPluginMetadata {
     documentation?: string[];
     /** Relative path to plugin image file (PNG recommended) */
     image?: string;
+    /** Logical plugin category */
+    category?: 'service' | 'observable' | 'events' | 'config' | 'other';
 
     // Plugin dependencies - controls initialization and run order
     /** This plugin must initialize before these plugins */
@@ -114,7 +118,7 @@ export interface BSBPluginMetadata {
 export type BSBConfigDefintionReference<
     T extends BSBPluginConfigType,
     AS = undefined
-> = [T] extends [undefined] ? AS : z.infer<Exclude<T, undefined>>;
+> = [T] extends [undefined] ? AS : Infer<Exclude<T, undefined>>;
 
 export type BSBReferenceConfigType = BSBPluginConfigType | null;
 export type BSBReferencePluginConfigType = BSBPluginConfig<BSBPluginConfigType> | null;
@@ -220,7 +224,7 @@ export class BSBPluginConfigRef
  *
  * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/createConfigSchema.html | API: createConfigSchema}
  */
-export function createConfigSchema<const TSchema extends z.ZodTypeAny>(
+export function createConfigSchema<const TSchema extends BaseSchema<any, any>>(
   metadata: BSBPluginMetadata,
   schema: TSchema
 ): BSBPluginConfigClass<TSchema>;

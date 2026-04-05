@@ -1,6 +1,6 @@
 {
   "name": "@bsb/observable-zipkin",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Zipkin tracing integration for BSB framework",
   "main": "lib/plugins/observable-zipkin/index.js",
   "types": "lib/plugins/observable-zipkin/index.d.ts",
@@ -31,12 +31,12 @@
     "@bsb/base": "^9.0.0"
   },
   "dependencies": {
+    "@anyvali/js": "^0.2.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-zipkin": "^1.28.0",
     "@opentelemetry/resources": "^1.28.0",
     "@opentelemetry/sdk-trace-base": "^1.28.0",
-    "@opentelemetry/semantic-conventions": "^1.28.0",
-    "zod": "^4.3.6"
+    "@opentelemetry/semantic-conventions": "^1.28.0"
   },
   "devDependencies": {
     "@bsb/base": "file:../../../nodejs",
@@ -46,7 +46,3 @@
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-zipkin"
 }
-
-
-
-

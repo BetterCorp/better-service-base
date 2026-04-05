@@ -28,7 +28,7 @@
 import { Observable } from "../../index";
 import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
 import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 
 export const Config = createConfigSchema(
   {
@@ -37,7 +37,7 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example', 'test'],
   },
-  z.null()
+  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
 );
 
 export const EventSchemas = createEventSchemas({

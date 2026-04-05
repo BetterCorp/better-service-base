@@ -1,57 +1,36 @@
-import { z } from 'zod'
+import * as av from '@anyvali/js'
+
+const validCategories = ['observable', 'service', 'events', 'config']
+const pluginIdPattern = `^(${validCategories.join('|')})-`
 
 // Plugin category enum
-const CategorySchema = z.enum([
-  'observable',
-  'service',
-  'events',
-  'config'
-])
+const CategorySchema = av.enum_(validCategories)
 
 // Plugin links schema
-const LinksSchema = z.object({
-  npm: z.string().url().optional(),
-  github: z.string().url().optional(),
-  website: z.string().url().optional()
-})
-
-// Valid category prefixes
-const validCategories = ['observable', 'service', 'events', 'config']
+const LinksSchema = av.object({
+  npm: av.optional(av.string().format('url')),
+  github: av.optional(av.string().format('url')),
+  website: av.optional(av.string().format('url'))
+}, { unknownKeys: 'strip' })
 
 // Individual plugin schema
-const PluginSchema = z.object({
-  id: z.string()
-    .min(1)
-    .refine(
-      (id) => {
-        const category = id.split('-')[0]
-        return validCategories.includes(category)
-      },
-      (id) => ({
-        message: `Plugin ID "${id}" must start with one of: ${validCategories.join(', ')} (e.g., "observable-syslog")`
-      })
-    ), // Technical plugin identifier (e.g., "observable-syslog")
-  name: z.string().min(1), // Human-readable display name (e.g., "Syslog Client")
-  basePath: z.string().default('./'),
-  description: z.string().min(1),
-  tags: z.array(z.string()).default([]),
-  image: z.string().optional(),
-  documentation: z.array(z.string()).min(1),
-  pluginPath: z.string().min(1),
-  links: LinksSchema.optional()
-  // Auto-detected/pulled from other sources:
-  // - category: extracted from plugin id prefix (observable-, service-, events-, config-)
-  // - version: from package.json
-  // - package: from package.json
-  // - official: based on plugin location (in official repo or not)
-  // - links.npm: from package.json name
-})
+const PluginSchema = av.object({
+  id: av.string().minLength(1).pattern(pluginIdPattern),
+  name: av.string().minLength(1),
+  basePath: av.optional(av.string()).default('./'),
+  description: av.string().minLength(1),
+  tags: av.array(av.string()).default([]),
+  image: av.optional(av.string()),
+  documentation: av.array(av.string()).minItems(1),
+  pluginPath: av.string().minLength(1),
+  links: av.optional(LinksSchema)
+}, { unknownKeys: 'strip' })
 
 // Manifest schema (multi-language support)
-const ManifestSchema = z.object({
-  nodejs: z.array(PluginSchema).optional(),
-  go: z.array(PluginSchema).optional(),
-  python: z.array(PluginSchema).optional()
-})
+const ManifestSchema = av.object({
+  nodejs: av.optional(av.array(PluginSchema)),
+  go: av.optional(av.array(PluginSchema)),
+  python: av.optional(av.array(PluginSchema))
+}, { unknownKeys: 'strip' })
 
 export { PluginSchema, ManifestSchema, CategorySchema }

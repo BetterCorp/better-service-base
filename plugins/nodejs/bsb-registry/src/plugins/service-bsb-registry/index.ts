@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as av from '@anyvali/js';
 import {
   BSBService,
   BSBServiceConstructor,
@@ -20,17 +20,17 @@ import * as Types from './types';
 /**
  * Configuration schema for BSB Registry (Core - Event-Driven).
  */
-export const RegistryConfigSchema = z.object({
-  database: z.object({
-    type: z.enum(['file', 'postgres']).default('file'),
-    path: z.string().default('./.temp/data'),
-  }),
-  auth: z.object({
-    requireAuth: z.boolean().default(true),
-  }),
-});
+export const RegistryConfigSchema = av.object({
+  database: av.object({
+    type: av.optional(av.enum_(['file', 'postgres'])).default('file'),
+    path: av.optional(av.string()).default('./.temp/data'),
+  }, { unknownKeys: 'strip' }),
+  auth: av.object({
+    requireAuth: av.optional(av.bool()).default(true),
+  }, { unknownKeys: 'strip' }),
+}, { unknownKeys: 'strip' });
 
-export type RegistryConfig = z.infer<typeof RegistryConfigSchema>;
+export type RegistryConfig = av.Infer<typeof RegistryConfigSchema>;
 
 /**
  * Event schemas for BSB Registry Core.

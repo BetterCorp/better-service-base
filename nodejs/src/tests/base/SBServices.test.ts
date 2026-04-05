@@ -1,6 +1,6 @@
 import { describe, it } from "mocha";
 import * as assert from "assert";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import { SBServices } from "../../serviceBase/services";
 import { MockSBEvents, MockSBObservable } from "../mocks";
 
@@ -74,9 +74,9 @@ describe("SBServices", () => {
   });
 
   it("should preserve explicit service config objects during validation", async () => {
-    const schema = z.object({
-      enabled: z.boolean().default(true),
-    });
+    const schema = av.object({
+      enabled: av.optional(av.bool()).default(true),
+    }, { unknownKeys: "strip" });
     const sbPlugins = {
       loadPlugin: async () => ({
         success: true,

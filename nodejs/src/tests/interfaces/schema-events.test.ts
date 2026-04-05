@@ -139,7 +139,7 @@ describe('schema-events v9', () => {
   });
 
   describe('exportEventSchemas', () => {
-    it('should export event schemas to JSON format', () => {
+    it('should export event schemas to AnyVali documents', () => {
       const schemas = createEventSchemas({
         emitEvents: {
           'test.event': createFireAndForgetEvent(bsb.object({ id: bsb.string() }), 'Test event'),
@@ -212,7 +212,7 @@ describe('schema-events v9', () => {
       assert.ok(exported.events['event3']);
     });
 
-    it('should produce valid JSON Schema format', () => {
+    it('should produce valid AnyVali document format', () => {
       const schemas = createEventSchemas({
         emitEvents: {
           'test.event': createFireAndForgetEvent(
@@ -229,14 +229,13 @@ describe('schema-events v9', () => {
       const exported = exportEventSchemas('test-plugin', '1.0.0', schemas);
       const inputSchema = exported.events['test.event'].inputSchema as any;
 
-      // BSB types convert to standard JSON Schema
       assert.ok(inputSchema, 'Input schema should exist');
       assert.ok(typeof inputSchema === 'object', 'Input schema should be an object');
-      assert.strictEqual(inputSchema.type, 'object', 'Schema should have type property');
-      assert.ok(inputSchema.properties, 'Schema should have properties');
-      assert.ok(inputSchema.properties.id, 'Schema should have id property');
-      assert.ok(inputSchema.properties.name, 'Schema should have name property');
-      assert.ok(inputSchema.properties.count, 'Schema should have count property');
+      assert.strictEqual(inputSchema.root.kind, 'object', 'Schema should have object root');
+      assert.ok(inputSchema.root.properties, 'Schema should have properties');
+      assert.ok(inputSchema.root.properties.id, 'Schema should have id property');
+      assert.ok(inputSchema.root.properties.name, 'Schema should have name property');
+      assert.ok(inputSchema.root.properties.count, 'Schema should have count property');
     });
   });
 });

@@ -27,37 +27,33 @@
 
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import pino from "pino";
 
 /**
  * Configuration schema for Pino observable
  */
-export const PinoConfigSchema = z.object({
-  level: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+export const PinoConfigSchema = av.object({
+  level: av.optional(av.enum_(["fatal", "error", "warn", "info", "debug", "trace"])).default("info"),
+  prettyPrint: av.object({
+    enabled: av.optional(av.bool()).default(false),
+    colorize: av.optional(av.bool()).default(true),
+    translateTime: av.optional(av.string()).default("SYS:standard"),
+    ignore: av.optional(av.string()).default("pid,hostname"),
+  }, { unknownKeys: "strip" }),
+  transport: av.object({
+    enabled: av.optional(av.bool()).default(false),
+    target: av.optional(av.string()),
+    options: av.optional(av.record(av.unknown())),
+  }, { unknownKeys: "strip" }),
+  serializers: av.object({
+    error: av.optional(av.bool()).default(true),
+  }, { unknownKeys: "strip" }),
+  base: av.optional(av.record(av.unknown())),
+  redact: av.optional(av.array(av.string())).default([]),
+}, { unknownKeys: "strip" });
 
-  prettyPrint: z.object({
-    enabled: z.boolean().default(false),
-    colorize: z.boolean().default(true),
-    translateTime: z.string().default("SYS:standard"),
-    ignore: z.string().default("pid,hostname"),
-  }),
-
-  transport: z.object({
-    enabled: z.boolean().default(false),
-    target: z.string().optional(),
-    options: z.record(z.string(), z.any()).optional(),
-  }),
-
-  serializers: z.object({
-    error: z.boolean().default(true),
-  }),
-
-  base: z.record(z.string(), z.any()).optional(),
-  redact: z.array(z.string()).default([]),
-});
-
-export type PinoConfig = z.infer<typeof PinoConfigSchema>;
+export type PinoConfig = av.Infer<typeof PinoConfigSchema>;
 
 export const Config = createConfigSchema(
   {

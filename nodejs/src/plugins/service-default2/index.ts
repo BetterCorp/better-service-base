@@ -30,7 +30,7 @@ import { BSBService, BSBServiceConstructor, createConfigSchema, bsb, optional } 
 import { Plugin as Service1, EventSchemas as Service1EventSchemas } from "../service-default1";
 import { Plugin as Service3, EventSchemas as Service3EventSchemas } from "../service-default3";
 import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 
 export const Config = createConfigSchema(
   {
@@ -39,7 +39,7 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example', 'test'],
   },
-  z.null()
+  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
 );
 
 export const EventSchemas = createEventSchemas({

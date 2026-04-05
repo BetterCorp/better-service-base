@@ -27,7 +27,7 @@
 
 import { createFakeDTrace, DTrace } from '../interfaces/metrics';
 import { BSBError } from "./errorMessages";
-import { z } from "zod";
+import * as av from '@anyvali/js';
 
 /**
  * @hidden
@@ -150,18 +150,18 @@ export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
  *
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#ENV_PROPS | API: ENV_PROPS}
  */
-export const ENV_PROPS = z.object({
+export const ENV_PROPS = av.object({
   /** Active configuration profile (e.g. "default", "prod") */
-  BSB_PROFILE: z.string().optional().default("default"),
+  BSB_PROFILE: av.optional(av.string()).default("default"),
   /** Path to the root config file when not using plugin-based sources */
-  BSB_CONFIG_FILE: z.string().optional().default("config.yaml"),
+  BSB_CONFIG_FILE: av.optional(av.string()).default("config.yaml"),
   /** Application working directory */
-  APP_DIR: z.string().optional().default(process.cwd()),
+  APP_DIR: av.optional(av.string()).default(process.cwd()),
   /** Logger plugin name to load */
-  BSB_LOGGER_PLUGIN: z.string().optional().default("config-default"),
+  BSB_LOGGER_PLUGIN: av.optional(av.string()).default("config-default"),
   /** Logger plugin package (if different from name) */
-  BSB_LOGGER_PLUGIN_PACKAGE: z.string().optional().default("config-default"),
-});
+  BSB_LOGGER_PLUGIN_PACKAGE: av.optional(av.string()).default("config-default"),
+}, { unknownKeys: 'strip' });
 
 /**
  * Parse and validate the current environment against {@link ENV_PROPS}.

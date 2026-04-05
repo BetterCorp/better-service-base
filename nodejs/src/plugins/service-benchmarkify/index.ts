@@ -28,7 +28,7 @@
 import { Observable, ServiceClient } from "../../index";
 import { BSBService, BSBServiceConstructor, createConfigSchema, bsb, optional } from "../../base";
 import { createEventSchemas, createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent } from "../../interfaces/schema-events";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 const Benchmarkify = require("benchmarkify");
 
 export const Config = createConfigSchema(
@@ -38,7 +38,7 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['benchmark', 'performance', 'test'],
   },
-  z.null()
+  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
 );
 
 export const EventSchemas = createEventSchemas({

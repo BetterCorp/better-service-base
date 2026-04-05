@@ -27,7 +27,7 @@
 
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import * as api from "@opentelemetry/api";
 import { Resource } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
@@ -43,28 +43,25 @@ import type { Logger } from "@opentelemetry/api-logs";
 /**
  * Configuration schema for OpenTelemetry plugin
  */
-export const OpenTelemetryConfigSchema = z.object({
-  serviceName: z.string().default("bsb-service"),
-  serviceVersion: z.string().optional(),
-  endpoint: z.string().url().default("http://localhost:4318"),
+export const OpenTelemetryConfigSchema = av.object({
+  serviceName: av.optional(av.string()).default("bsb-service"),
+  serviceVersion: av.optional(av.string()),
+  endpoint: av.optional(av.string().format("url")).default("http://localhost:4318"),
+  export: av.object({
+    protocol: av.optional(av.enum_(["http", "grpc"])).default("http"),
+    interval: av.optional(av.int32().min(100)).default(5000),
+    maxBatchSize: av.optional(av.int32().min(1)).default(512),
+  }, { unknownKeys: "strip" }),
+  enabled: av.object({
+    traces: av.optional(av.bool()).default(true),
+    metrics: av.optional(av.bool()).default(true),
+    logs: av.optional(av.bool()).default(true),
+  }, { unknownKeys: "strip" }),
+  resourceAttributes: av.optional(av.record(av.string())).default({}),
+  samplingRate: av.optional(av.number().min(0).max(1)).default(1.0),
+}, { unknownKeys: "strip" });
 
-  export: z.object({
-    protocol: z.enum(["http", "grpc"]).default("http"),
-    interval: z.number().int().min(100).default(5000),
-    maxBatchSize: z.number().int().min(1).default(512),
-  }),
-
-  enabled: z.object({
-    traces: z.boolean().default(true),
-    metrics: z.boolean().default(true),
-    logs: z.boolean().default(true),
-  }),
-
-  resourceAttributes: z.record(z.string(), z.string()).default({}),
-  samplingRate: z.number().min(0).max(1).default(1.0),
-});
-
-export type OpenTelemetryConfig = z.infer<typeof OpenTelemetryConfigSchema>;
+export type OpenTelemetryConfig = av.Infer<typeof OpenTelemetryConfigSchema>;
 
 export const Config = createConfigSchema(
   {

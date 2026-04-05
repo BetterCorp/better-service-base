@@ -8,23 +8,23 @@
 
 import { Observable, BSBService, BSBServiceConstructor, createConfigSchema } from '@bsb/base';
 import { createEventSchemas } from '@bsb/base';
-import { z } from 'zod';
+import * as av from '@anyvali/js';
 import { RegistryUIServer } from './http-server';
 import { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry';
 
 /**
  * Configuration for the Registry UI
  */
-const UIConfigSchema = z.object({
-  port: z.number().min(1).max(65535).default(3200),
-  host: z.string().default('0.0.0.0'),
-  pageSize: z.number().min(1).max(100).default(20),
-  uploadDir: z.string().default('./.temp/registry-images'),
-  badgesFile: z.string().default('./BADGES.json'),
-  maxImageUploadMb: z.number().min(1).max(20).default(5),
-});
+const UIConfigSchema = av.object({
+  port: av.optional(av.int32().min(1).max(65535)).default(3200),
+  host: av.optional(av.string()).default('0.0.0.0'),
+  pageSize: av.optional(av.int32().min(1).max(100)).default(20),
+  uploadDir: av.optional(av.string()).default('./.temp/registry-images'),
+  badgesFile: av.optional(av.string()).default('./BADGES.json'),
+  maxImageUploadMb: av.optional(av.int32().min(1).max(20)).default(5),
+}, { unknownKeys: 'strip' });
 
-export type UIConfig = z.infer<typeof UIConfigSchema>;
+export type UIConfig = av.Infer<typeof UIConfigSchema>;
 
 export const Config = createConfigSchema(
   {

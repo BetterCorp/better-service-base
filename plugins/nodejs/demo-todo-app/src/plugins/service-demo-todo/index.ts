@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { z } from 'zod';
+import * as av from '@anyvali/js';
 import {
   BSBService,
   BSBServiceConstructor,
@@ -14,7 +14,6 @@ import {
   BSBError,
   bsb,
   optional,
-  type InferBSBType,
 } from '@bsb/base';
 import { TodoStorage } from './storage';
 import { TodoHttpServer } from './http-server';
@@ -138,24 +137,24 @@ export const EventSchemas = createEventSchemas({
 /**
  * Configuration schema for demo todo app.
  */
-export const TodoConfigSchema = z.object({
-  storage: z.object({
-    path: z.string().default('./.temp/demo-todos.json'),
-    autoSaveInterval: z.number().min(1000).default(5000),
-    prettyPrint: z.boolean().default(true),
-  }),
-  http: z.object({
-    port: z.number().min(1).max(65535).default(3000),
-    host: z.string().default('0.0.0.0'),
-    cors: z.boolean().default(true),
-  }),
-  features: z.object({
-    statsInterval: z.number().min(0).default(30),
-    maxTodos: z.number().min(1).default(1000),
-  }),
-});
+export const TodoConfigSchema = av.object({
+  storage: av.object({
+    path: av.optional(av.string()).default('./.temp/demo-todos.json'),
+    autoSaveInterval: av.optional(av.int32().min(1000)).default(5000),
+    prettyPrint: av.optional(av.bool()).default(true),
+  }, { unknownKeys: 'strip' }),
+  http: av.object({
+    port: av.optional(av.int32().min(1).max(65535)).default(3000),
+    host: av.optional(av.string()).default('0.0.0.0'),
+    cors: av.optional(av.bool()).default(true),
+  }, { unknownKeys: 'strip' }),
+  features: av.object({
+    statsInterval: av.optional(av.int32().min(0)).default(30),
+    maxTodos: av.optional(av.int32().min(1)).default(1000),
+  }, { unknownKeys: 'strip' }),
+}, { unknownKeys: 'strip' });
 
-export type TodoConfig = z.infer<typeof TodoConfigSchema>;
+export type TodoConfig = av.Infer<typeof TodoConfigSchema>;
 
 /**
  * Config for demo todo app.

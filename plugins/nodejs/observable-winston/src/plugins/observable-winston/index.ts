@@ -27,49 +27,45 @@
 
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import * as winston from "winston";
 import "winston-daily-rotate-file";
 
 /**
  * Configuration schema for Winston observable
  */
-export const WinstonConfigSchema = z.object({
-  level: z.enum(["error", "warn", "info", "debug"]).default("info"),
+export const WinstonConfigSchema = av.object({
+  level: av.optional(av.enum_(["error", "warn", "info", "debug"])).default("info"),
+  transports: av.object({
+    console: av.object({
+      enabled: av.optional(av.bool()).default(true),
+      colorize: av.optional(av.bool()).default(true),
+    }, { unknownKeys: "strip" }),
+    file: av.object({
+      enabled: av.optional(av.bool()).default(false),
+      filename: av.optional(av.string()).default("./logs/application.log"),
+      maxsize: av.optional(av.int32()).default(10485760),
+      maxFiles: av.optional(av.int32()).default(5),
+      tailable: av.optional(av.bool()).default(true),
+    }, { unknownKeys: "strip" }),
+    dailyRotate: av.object({
+      enabled: av.optional(av.bool()).default(false),
+      dirname: av.optional(av.string()).default("./logs"),
+      filename: av.optional(av.string()).default("application-%DATE%.log"),
+      datePattern: av.optional(av.string()).default("YYYY-MM-DD"),
+      maxSize: av.optional(av.string()).default("20m"),
+      maxFiles: av.optional(av.string()).default("14d"),
+      zippedArchive: av.optional(av.bool()).default(true),
+    }, { unknownKeys: "strip" }),
+  }, { unknownKeys: "strip" }),
+  format: av.object({
+    timestamp: av.optional(av.bool()).default(true),
+    json: av.optional(av.bool()).default(true),
+    prettyPrint: av.optional(av.bool()).default(false),
+  }, { unknownKeys: "strip" }),
+}, { unknownKeys: "strip" });
 
-  transports: z.object({
-    console: z.object({
-      enabled: z.boolean().default(true),
-      colorize: z.boolean().default(true),
-    }),
-
-    file: z.object({
-      enabled: z.boolean().default(false),
-      filename: z.string().default("./logs/application.log"),
-      maxsize: z.number().int().default(10485760), // 10MB
-      maxFiles: z.number().int().default(5),
-      tailable: z.boolean().default(true),
-    }),
-
-    dailyRotate: z.object({
-      enabled: z.boolean().default(false),
-      dirname: z.string().default("./logs"),
-      filename: z.string().default("application-%DATE%.log"),
-      datePattern: z.string().default("YYYY-MM-DD"),
-      maxSize: z.string().default("20m"),
-      maxFiles: z.string().default("14d"),
-      zippedArchive: z.boolean().default(true),
-    }),
-  }),
-
-  format: z.object({
-    timestamp: z.boolean().default(true),
-    json: z.boolean().default(true),
-    prettyPrint: z.boolean().default(false),
-  }),
-});
-
-export type WinstonConfig = z.infer<typeof WinstonConfigSchema>;
+export type WinstonConfig = av.Infer<typeof WinstonConfigSchema>;
 
 export const Config = createConfigSchema(
   {

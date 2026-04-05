@@ -13,7 +13,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { toJSONSchema } from 'zod';
 
 type PluginType = 'service' | 'observable' | 'events' | 'config' | 'unknown';
 
@@ -192,7 +191,7 @@ async function main() {
         try {
           const configInstance = new Plugin.Config('', '', '', '');
           if (configInstance.validationSchema && typeof configInstance.validationSchema === 'object') {
-            schemas.configSchema = toJSONSchema(configInstance.validationSchema as any);
+            schemas.configSchema = (configInstance.validationSchema as { export: (mode?: 'portable' | 'extended') => unknown }).export('extended');
           }
         } catch {
           // Optional: if config schema extraction fails, keep going

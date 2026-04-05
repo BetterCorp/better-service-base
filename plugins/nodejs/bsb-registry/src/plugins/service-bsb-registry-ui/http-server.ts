@@ -17,10 +17,62 @@ import fastifyStatic from '@fastify/static';
 import fastifyView from '@fastify/view';
 import handlebars from 'handlebars';
 import { marked } from 'marked';
-import { z } from 'zod';
+import * as av from '@anyvali/js';
 import { Observable } from '@bsb/base';
 import type { Plugin } from './index';
 import type { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry';
+
+type ValidationIssue = av.ValidationIssue;
+
+interface InputValidator<T> {
+  safeParse(input: unknown): av.ParseResult<T>;
+}
+
+function objectSchema<T extends Record<string, av.BaseSchema<any, any>>>(shape: T) {
+  return av.object(shape, { unknownKeys: 'strip' });
+}
+
+function createValidator<T>(
+  schema: av.BaseSchema<any, T>,
+  options?: {
+    normalize?: (input: unknown) => unknown;
+    extraIssues?: (data: T) => ValidationIssue[];
+  },
+): InputValidator<T> {
+  return {
+    safeParse(input: unknown): av.ParseResult<T> {
+      const normalized = options?.normalize ? options.normalize(input) : input;
+      const result = schema.safeParse(normalized);
+      if (!result.success) {
+        return result;
+      }
+
+      const extraIssues = options?.extraIssues?.(result.data) ?? [];
+      if (extraIssues.length > 0) {
+        return {
+          success: false,
+          issues: extraIssues,
+        };
+      }
+
+      return result;
+    },
+  };
+}
+
+function mapObjectInput(
+  input: unknown,
+  transform: (value: Record<string, unknown>) => Record<string, unknown>,
+): unknown {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return input;
+  }
+  return transform({ ...(input as Record<string, unknown>) });
+}
+
+function emptyStringToUndefined(value: unknown): unknown {
+  return value === '' ? undefined : value;
+}
 
 // ============================================================================
 // Zod Validation Schemas — all external input validated at the boundary
@@ -39,168 +91,233 @@ const majorMinorPattern = /^\d{1,5}\.\d{1,5}$/;
 // Package name: npm-style scoped or unscoped
 const packageNamePattern = /^(@[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9._-]+$/;
 
-const slugField = z.string().min(1).max(100).regex(slugPattern, 'Only alphanumeric, dash, underscore, dot, @, /');
-const semverField = z.string().min(5).max(50).regex(semverPattern, 'Must be semver (e.g. 1.0.0)');
-const languageEnum = z.enum(['nodejs', 'csharp', 'go', 'java', 'python']);
-const categoryEnum = z.enum(['service', 'observable', 'events', 'config']);
-const visibilityEnum = z.enum(['public', 'private']);
-const safeString = (max: number) => z.string().max(max).regex(safeAscii, 'ASCII printable characters only');
-const safeStringRequired = (min: number, max: number) => z.string().min(min).max(max).regex(safeAscii, 'ASCII printable characters only');
-const optionalNonEmpty = <T extends z.ZodTypeAny>(schema: T) =>
-  z.preprocess((value) => value === '' ? undefined : value, schema.optional());
+const slugField = av.string().minLength(1).maxLength(100).pattern(slugPattern.source);
+const semverField = av.string().minLength(5).maxLength(50).pattern(semverPattern.source);
+const languageEnum = av.enum_(['nodejs', 'csharp', 'go', 'java', 'python'] as const);
+const categoryEnum = av.enum_(['service', 'observable', 'events', 'config'] as const);
+const visibilityEnum = av.enum_(['public', 'private'] as const);
+const safeString = (max: number) => av.string().maxLength(max).pattern(safeAscii.source);
+const safeStringRequired = (min: number, max: number) => av.string().minLength(min).maxLength(max).pattern(safeAscii.source);
 
 // ---- Route param schemas ----
 
-const OrgParamsSchema = z.object({
+const OrgParamsSchema = createValidator(objectSchema({
   org: slugField,
-});
+}));
 
-const PluginDetailParamsSchema = z.object({
+const PluginDetailParamsSchema = createValidator(objectSchema({
   org: slugField,
   name: slugField,
-});
+}));
 
-const PluginVersionParamsSchema = z.object({
+const PluginVersionParamsSchema = createValidator(objectSchema({
   org: slugField,
   name: slugField,
   version: semverField,
-});
+}));
 
-const PluginTypesParamsSchema = z.object({
+const PluginTypesParamsSchema = createValidator(objectSchema({
   org: slugField,
   name: slugField,
   version: semverField,
   language: languageEnum,
-});
+}));
 
 const packageLookupIdPattern = /^[A-Za-z0-9@._\-/:]+$/;
 
-const PackageLookupParamsSchema = z.object({
+const PackageLookupParamsSchema = createValidator(objectSchema({
   language: languageEnum,
-  '*': z.preprocess(
-    (value) => {
-      if (typeof value !== 'string') return value;
-      try {
-        return decodeURIComponent(value).trim();
-      } catch {
-        return '__INVALID_PACKAGE_ID__';
-      }
-    },
-    z.string().min(1).max(300).regex(packageLookupIdPattern, 'Invalid package identifier'),
-  ),
+  '*': av.string().minLength(1).maxLength(300).pattern(packageLookupIdPattern.source),
+}), {
+  normalize: (input) => mapObjectInput(input, (value) => {
+    const packageId = value['*'];
+    if (typeof packageId !== 'string') {
+      return value;
+    }
+
+    try {
+      return {
+        ...value,
+        '*': decodeURIComponent(packageId).trim(),
+      };
+    } catch {
+      return {
+        ...value,
+        '*': '__INVALID_PACKAGE_ID__',
+      };
+    }
+  }),
 });
 
 // ---- Query string schemas ----
-// Note: z.coerce handles string-to-number conversion for query params
+const BrowseQuerySchema = createValidator(objectSchema({
+  page: av.optional(av.int32().coerce({ from: 'string' }).min(1).max(10000)),
+  query: av.optional(safeString(200)),
+  category: av.optional(categoryEnum),
+  language: av.optional(languageEnum),
+  limit: av.optional(av.int32().coerce({ from: 'string' }).min(1).max(100)),
+  offset: av.optional(av.int32().coerce({ from: 'string' }).min(0).max(100000)),
+}), {
+  normalize: (input) => mapObjectInput(input, (value) => ({
+    ...value,
+    query: emptyStringToUndefined(value.query),
+    category: emptyStringToUndefined(value.category),
+    language: emptyStringToUndefined(value.language),
+  })),
+});
 
-const BrowseQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).max(10000).optional(),
-  query: optionalNonEmpty(safeString(200)),
-  category: optionalNonEmpty(categoryEnum),
-  language: optionalNonEmpty(languageEnum),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-  offset: z.coerce.number().int().min(0).max(100000).optional(),
-}).passthrough(); // ignore unexpected query params (referrer tracking etc.)
+const VersionsQuerySchema = createValidator(objectSchema({
+  majorMinor: av.optional(av.string().maxLength(11).pattern(majorMinorPattern.source)),
+}));
 
-const VersionsQuerySchema = z.object({
-  majorMinor: z.string().max(11).regex(majorMinorPattern, 'Must be major.minor (e.g. 1.0)').optional(),
-}).passthrough();
+const MatchQuerySchema = createValidator(objectSchema({
+  version: av.string().minLength(1).maxLength(20).pattern(safeAscii.source),
+}));
 
-const MatchQuerySchema = z.object({
-  version: z.string().min(1).max(20).regex(safeAscii, 'ASCII only'),
-}).passthrough();
-
-const DocsQuerySchema = z.object({
-  index: z.coerce.number().int().min(0).max(100).optional(),
-}).passthrough();
+const DocsQuerySchema = createValidator(objectSchema({
+  index: av.optional(av.int32().coerce({ from: 'string' }).min(0).max(100)),
+}));
 
 // ---- EventSchemaExport validation (parsed from the JSON string clients send) ----
 
-const EventExportEntryZod = z.object({
-  type: z.enum(['fire-and-forget', 'returnable', 'broadcast']),
-  category: z.enum([
+const AnyValiDocumentSchema = av.record(av.unknown());
+
+const EventExportEntrySchema = objectSchema({
+  type: av.enum_(['fire-and-forget', 'returnable', 'broadcast'] as const),
+  category: av.enum_([
     'emitEvents', 'onEvents',
     'emitReturnableEvents', 'onReturnableEvents',
     'emitBroadcast', 'onBroadcast',
-  ]),
-  description: z.string().max(1000).optional(),
-  defaultTimeout: z.number().int().min(0).max(300).optional(),
-  inputSchema: z.record(z.string(), z.unknown()),
-  outputSchema: z.record(z.string(), z.unknown()).nullable(),
-}).passthrough();
+  ] as const),
+  description: av.optional(av.string().maxLength(1000)),
+  defaultTimeout: av.optional(av.int32().min(0).max(300)),
+  inputSchema: AnyValiDocumentSchema,
+  outputSchema: av.nullable(AnyValiDocumentSchema),
+});
 
-const EventSchemaExportZod = z.object({
+const EventSchemaExportObjectSchema = objectSchema({
   pluginName: safeStringRequired(1, 200),
   version: semverField,
-  events: z.record(z.string(), EventExportEntryZod).default({}),
-  capabilities: z.unknown().optional(),
-  dependencies: z.array(z.object({
-    id: z.string().min(1).max(200),
+  events: av.record(EventExportEntrySchema).default({}),
+  capabilities: av.optional(av.unknown()),
+  dependencies: av.optional(av.array(objectSchema({
+    id: av.string().minLength(1).maxLength(200),
     version: safeStringRequired(1, 50),
-  })).max(100).optional(),
-}).passthrough();
+  })).maxItems(100)),
+});
+
+type EventSchemaExportData = av.Infer<typeof EventSchemaExportObjectSchema>;
 
 // ---- Publish body schema ----
 
-const AuthorSchema = z.union([
+const AuthorSchema = av.union([
   safeString(200),
-  z.object({
+  objectSchema({
     name: safeStringRequired(1, 200),
-    email: z.string().max(200).email().optional(),
-    url: z.string().max(500).url().optional(),
-  }).strict(),
-]);
+    email: av.optional(av.string().maxLength(200).format('email')),
+    url: av.optional(av.string().maxLength(500).format('url')),
+  }),
+] as const);
 
-const PublishBodySchema = z.object({
-  org: z.string().min(1).max(100).regex(slugPattern, 'Invalid org name'),
-  name: z.string().min(1).max(100).regex(packageNamePattern, 'Invalid plugin name'),
+const PublishBodyObjectSchema = objectSchema({
+  org: av.string().minLength(1).maxLength(100).pattern(slugPattern.source),
+  name: av.string().minLength(1).maxLength(100).pattern(packageNamePattern.source),
   version: semverField,
   language: languageEnum,
-  metadata: z.object({
+  metadata: objectSchema({
     displayName: safeStringRequired(1, 200),
-    description: z.string().min(1).max(1000),
+    description: av.string().minLength(1).maxLength(1000),
     category: categoryEnum,
-    tags: z.array(safeString(50)).max(30),
-    author: AuthorSchema.optional(),
-    license: safeString(50).optional(),
-    homepage: z.string().max(500).url().optional(),
-    repository: z.string().max(500).url().optional(),
-  }).strict(),
-  eventSchema: EventSchemaExportZod, // parsed object, validated at HTTP boundary
-  capabilities: z.unknown().optional(),
-  configSchema: z.object({
-    type: z.literal('object'),
-    properties: z.record(z.string(), z.unknown()),
-    required: z.array(z.string()).optional(),
-    description: z.string().optional(),
-  }).passthrough().optional(),
-  typeDefinitions: z.object({
-    nodejs: z.string().max(5_000_000).optional(),
-    csharp: z.string().max(5_000_000).optional(),
-    go: z.string().max(5_000_000).optional(),
-    java: z.string().max(5_000_000).optional(),
-  }).strict().optional(),
-  documentation: z.array(z.string().max(1_000_000)).min(1).max(20),
-  dependencies: z.array(z.object({
-    id: z.string().min(1).max(200).regex(slugPattern, 'Invalid plugin ID'),
+    tags: av.array(safeString(50)).maxItems(30),
+    author: av.optional(AuthorSchema),
+    license: av.optional(safeString(50)),
+    homepage: av.optional(av.string().maxLength(500).format('url')),
+    repository: av.optional(av.string().maxLength(500).format('url')),
+  }),
+  eventSchema: EventSchemaExportObjectSchema,
+  capabilities: av.optional(av.unknown()),
+  configSchema: av.optional(AnyValiDocumentSchema),
+  typeDefinitions: av.optional(objectSchema({
+    nodejs: av.optional(av.string().maxLength(5_000_000)),
+    csharp: av.optional(av.string().maxLength(5_000_000)),
+    go: av.optional(av.string().maxLength(5_000_000)),
+    java: av.optional(av.string().maxLength(5_000_000)),
+  })),
+  documentation: av.array(av.string().maxLength(1_000_000)).minItems(1).maxItems(20),
+  dependencies: av.optional(av.array(objectSchema({
+    id: av.string().minLength(1).maxLength(200).pattern(slugPattern.source),
     version: safeStringRequired(1, 50),
-  }).strict()).max(100).optional(),
-  package: z.object({
-    nodejs: safeString(200).optional(),
-    csharp: safeString(200).optional(),
-    go: safeString(200).optional(),
-    java: safeString(200).optional(),
-    python: safeString(200).optional(),
-  }).strict().optional(),
-  runtime: z.object({
-    nodejs: safeString(50).optional(),
-    dotnet: safeString(50).optional(),
-    go: safeString(50).optional(),
-    java: safeString(50).optional(),
-    python: safeString(50).optional(),
-  }).strict().optional(),
-  visibility: visibilityEnum.optional(),
-}).strict();
+  })).maxItems(100)),
+  package: av.optional(objectSchema({
+    nodejs: av.optional(safeString(200)),
+    csharp: av.optional(safeString(200)),
+    go: av.optional(safeString(200)),
+    java: av.optional(safeString(200)),
+    python: av.optional(safeString(200)),
+  })),
+  runtime: av.optional(objectSchema({
+    nodejs: av.optional(safeString(50)),
+    dotnet: av.optional(safeString(50)),
+    go: av.optional(safeString(50)),
+    java: av.optional(safeString(50)),
+    python: av.optional(safeString(50)),
+  })),
+  visibility: av.optional(visibilityEnum),
+});
+
+type PublishBodyData = av.Infer<typeof PublishBodyObjectSchema>;
+
+function validateAnyValiDocument(value: unknown, path: Array<string | number>): ValidationIssue[] {
+  if (!value || typeof value !== 'object') {
+    return [{
+      code: 'invalid_type',
+      message: 'Expected AnyVali document object',
+      path,
+      expected: 'object',
+      received: typeof value,
+    }];
+  }
+
+  try {
+    av.importSchema(value as av.AnyValiDocument);
+    return [];
+  } catch (error: unknown) {
+    const issues: ValidationIssue[] = error instanceof av.ValidationError
+      ? error.issues
+      : [{
+          code: 'invalid_schema',
+          message: error instanceof Error ? error.message : 'Invalid AnyVali document',
+          path: [],
+        }];
+    return issues.map((issue) => ({
+      ...issue,
+      path: [...path, ...issue.path],
+    }));
+  }
+}
+
+function validateEventSchemaExportDocuments(
+  value: EventSchemaExportData,
+  path: Array<string | number> = [],
+): ValidationIssue[] {
+  const nestedIssues: ValidationIssue[] = [];
+  for (const [eventName, eventDef] of Object.entries(value.events)) {
+    nestedIssues.push(...validateAnyValiDocument(eventDef.inputSchema, [...path, 'events', eventName, 'inputSchema']));
+    if (eventDef.outputSchema !== null) {
+      nestedIssues.push(...validateAnyValiDocument(eventDef.outputSchema, [...path, 'events', eventName, 'outputSchema']));
+    }
+  }
+  return nestedIssues;
+}
+
+const PublishBodySchema = createValidator(PublishBodyObjectSchema, {
+  extraIssues: (value: PublishBodyData) => [
+    ...validateEventSchemaExportDocuments(value.eventSchema, ['eventSchema']),
+    ...(value.configSchema !== undefined
+      ? validateAnyValiDocument(value.configSchema, ['configSchema'])
+      : []),
+  ],
+});
 
 export class RegistryUIServer {
   private app: FastifyInstance;
@@ -593,28 +710,29 @@ export class RegistryUIServer {
   }
 
   /**
-   * Validate input against a Zod schema. Returns parsed data on success,
+   * Validate input against an AnyVali-backed schema. Returns parsed data on success,
    * or sends a 400 response and returns null on failure.
    */
   private validateInput<T>(
-    schema: z.ZodType<T>,
+    schema: InputValidator<T>,
     data: unknown,
     reply: FastifyReply,
   ): T | null {
     const result = schema.safeParse(data);
-    if (!result.success) {
-      const issues = result.error.issues.map((issue: z.ZodIssue) => ({
-        path: issue.path.join('.'),
-        message: issue.message,
-      }));
-      reply.code(400).send({
-        error: 'Validation Error',
-        code: 'INVALID_INPUT',
-        details: issues,
-      });
-      return null;
+    if (result.success) {
+      return result.data;
     }
-    return result.data;
+
+    const issues = result.issues.map((issue: ValidationIssue) => ({
+      path: issue.path.join('.'),
+      message: issue.message,
+    }));
+    reply.code(400).send({
+      error: 'Validation Error',
+      code: 'INVALID_INPUT',
+      details: issues,
+    });
+    return null;
   }
 
   /** Render an error page (HTML) or send JSON error depending on Accept header */
@@ -1186,7 +1304,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
     return this._handleBrowseInternal(request, reply, params.org);
   }
 
-  private async listAllPluginsByLanguage(trace: Observable, language: z.infer<typeof languageEnum>): Promise<any[]> {
+  private async listAllPluginsByLanguage(trace: Observable, language: 'nodejs' | 'csharp' | 'go' | 'java' | 'python'): Promise<any[]> {
     const all: any[] = [];
     const limit = 100;
     let offset = 0;
@@ -2013,3 +2131,4 @@ a.s:hover{background:#333;border-color:#FB8C00}
     this.app.close();
   }
 }
+

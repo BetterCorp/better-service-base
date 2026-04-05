@@ -27,7 +27,7 @@
 
 import { BSBObservable, BSBObservableConstructor, LogFormatter, BSBError, createConfigSchema } from "../../base";
 import { DTrace, LogMeta } from "../../interfaces";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 
 // Console colours for log output
 const CONSOLE_COLOURS = {
@@ -78,7 +78,7 @@ export const Config = createConfigSchema(
       "./docs/core-plugins/observable-default-production.md",
     ],
   },
-  z.object({})
+  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
 );
 
 export class Plugin extends BSBObservable<InstanceType<typeof Config>> {

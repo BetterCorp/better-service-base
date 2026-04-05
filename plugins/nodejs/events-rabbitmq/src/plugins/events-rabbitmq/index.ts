@@ -1,6 +1,5 @@
 import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
-import {Tools} from "@bettercorp/tools/lib/Tools";
 import {broadcast} from "./events/broadcast";
 import {emit} from "./events/emit";
 import {emitAndReturn} from "./events/emitAndReturn";
@@ -11,62 +10,44 @@ import {Readable} from "stream";
 import {
   BSBEvents,
   BSBEventsConstructor,
-  BSBPluginConfig,
+  createConfigSchema,
+  Observable,
+  DTrace,
+  PluginObservable,
+  ResourceContextBuilder,
+  createFakeDTrace,
 } from "@bsb/base";
-import {z} from "zod";
+import * as av from "@anyvali/js";
 
-export const secSchema = z
-    .object({
-      platformKey: z
-          .string()
-          .nullable()
-          .default(null)
-          .describe(
-              "If you want to run multiple bsb platforms on a single rabbitmq"
-          ),
-      fatalOnDisconnect: z
-          .boolean()
-          .default(true)
-          .describe(
-              "Disconnect on error: Cause the bsb service to exit code 1 if the connection drops"
-          ),
-      prefetch: z
-          .number()
-          .default(10)
-          .describe("Prefetch: The RabbitMQ Prefetch amount"),
-      endpoints: z
-          .array(z.string())
-          .default(["amqp://localhost"])
-          .describe("Endpoints: The list of servers(cluster) to connect too"),
-      credentials: z
-          .object({
-            username: z.string().default("guest").describe("Username"),
-            password: z.string().default("guest").describe("Password"),
-          })
-          .default({}),
-      uniqueId: z
-          .string()
-          .nullable()
-          .default(null)
-          .describe(
-              "Unique Client ID: A static client Id - hostname is used when not set"
-          ),
-    })
-    .default({});
+const ConfigSchema = av.object({
+  platformKey: av.nullable(av.string()).default(null),
+  fatalOnDisconnect: av.optional(av.bool()).default(true),
+  prefetch: av.optional(av.int32()).default(10),
+  endpoints: av.optional(av.array(av.string())).default(["amqp://localhost"]),
+  credentials: av.object({
+    username: av.optional(av.string()).default("guest"),
+    password: av.optional(av.string()).default("guest"),
+  }, { unknownKeys: "strip" }).default({ username: "guest", password: "guest" }),
+  uniqueId: av.nullable(av.string()).default(null),
+}, { unknownKeys: "strip" });
 
-export class Config extends BSBPluginConfig<typeof secSchema> {
-  validationSchema = secSchema;
+export const Config = createConfigSchema(
+  {
+    name: 'events-rabbitmq',
+    description: 'RabbitMQ events plugin for distributed event bus',
+    version: '9.0.0',
+    image: './assets/events-rabbitmq.png',
+    author: 'BetterCorp (PTY) Ltd',
+    license: 'AGPL-3.0',
+    tags: ['rabbitmq', 'amqp', 'event-bus', 'distributed'],
+    documentation: ['./docs/plugin.md'],
+  },
+  ConfigSchema
+);
 
-  migrate(
-      toVersion: string,
-      fromVersion: string | null,
-      fromConfig: any | null
-  ) {
-    return fromConfig;
-  }
-}
+export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
+  static Config = Config;
 
-export class Plugin extends BSBEvents<Config> {
   public publishConnection!: amqplib.AmqpConnectionManager;
   public receiveConnection!: amqplib.AmqpConnectionManager;
   public myId!: string;
@@ -75,15 +56,12 @@ export class Plugin extends BSBEvents<Config> {
   private emit: emit;
   private eas: emitStreamAndReceiveStream;
 
-  constructor(config: BSBEventsConstructor) {
+  constructor(config: BSBEventsConstructor<InstanceType<typeof Config>>) {
     super(config);
-    this.broadcast = new broadcast(this, this.createNewLogger("broadcast"));
-    this.emit = new emit(this, this.createNewLogger("emit"));
-    this.ear = new emitAndReturn(this, this.createNewLogger("emitAndReturn"));
-    this.eas = new emitStreamAndReceiveStream(
-        this,
-        this.createNewLogger("stream")
-    );
+    this.broadcast = new broadcast(this);
+    this.emit = new emit(this);
+    this.ear = new emitAndReturn(this);
+    this.eas = new emitStreamAndReceiveStream(this);
   }
 
   getPlatformName(name: string): string {
@@ -91,94 +69,107 @@ export class Plugin extends BSBEvents<Config> {
     return `${name}-${this.config.platformKey}`;
   }
 
-  async init(): Promise<void> {
-    await this._connectToAMQP();
+  async init(obs: Observable): Promise<void> {
+    await this._connectToAMQP(obs);
   }
 
-  private async _connectToAMQP() {
-    this.log.info(`Connect to {endpoints}`, {
-      endpoints: this.config.endpoints,
+  public createObservableFromTrace(trace?: DTrace, attributes?: Record<string, string | number | boolean>): Observable {
+    const safeTrace = trace ?? createFakeDTrace("events-rabbitmq", "missing-trace");
+    const resource = ResourceContextBuilder.build({
+      appId: this.appId,
+      mode: this.mode,
+      pluginName: this.pluginName,
+      cwd: this.cwd,
+      packageCwd: this.packageCwd,
+      pluginCwd: this.pluginCwd,
+      pluginVersion: (this as any).pluginVersion || 'unknown',
+    }, this.region);
+    return new PluginObservable(
+      safeTrace,
+      resource,
+      this.__internalObservable,
+      attributes || {},
+    );
+  }
+
+  private async _connectToAMQP(obs: Observable) {
+    const endpoints = this.config.endpoints ?? ["amqp://localhost"];
+    const fatalOnDisconnect = this.config.fatalOnDisconnect ?? true;
+    const credentials = this.config.credentials;
+
+    obs.log.info('Connect to {endpoints}', {
+      endpoints,
     });
     const socketOptions: amqplib.AmqpConnectionManagerOptions = {
       connectionOptions: {},
     };
-    if (!Tools.isNullOrUndefined(this.config.credentials)) {
+    if (credentials?.username) {
       socketOptions.connectionOptions!.credentials =
           amqplibCore.credentials.plain(
-              this.config.credentials.username,
-              this.config.credentials.password
+              credentials.username,
+              credentials.password ?? "guest"
           );
     }
     this.publishConnection = amqplib.connect(
-        this.config.endpoints,
+        endpoints,
         socketOptions
     );
     this.receiveConnection = amqplib.connect(
-        this.config.endpoints,
+        endpoints,
         socketOptions
     );
-    const self = this;
+    // Connection event handlers (no obs available, using console at module level)
     this.publishConnection.on("connect", async (data: any) => {
-      self.log.info("AMQP CONNECTED: {url}", {url: data.url});
+      console.log(`[events-rabbitmq] AMQP CONNECTED: ${data.url}`);
     });
     this.publishConnection.on(
         "connectFailed",
         async (data: any): Promise<any> => {
           if (
-              self.config.fatalOnDisconnect ||
-              self.config.endpoints.length === 1
+              fatalOnDisconnect ||
+              endpoints.length === 1
           ) {
-            self.log.error("AMQP CONNECT FAIL: {url} ({msg})", {
-              url: data.url,
-              msg: data.err.toString(),
-            });
+            console.error(`[events-rabbitmq] AMQP CONNECT FAIL: ${data.url} (${data.err.toString()})`);
             process.exit(5);
           }
-          self.log.error("AMQP CONNECT FAIL: {url} ({msg})", {
-            url: data.url,
-            msg: data.err.toString(),
-          });
+          console.error(`[events-rabbitmq] AMQP CONNECT FAIL: ${data.url} (${data.err.toString()})`);
         }
     );
     this.publishConnection.on("error", async (err: any) => {
       if (err.message !== "Connection closing") {
-        self.log.error("AMQP ERROR: {message}", {message: err.message});
+        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
       }
-      if (self.config.fatalOnDisconnect) {
-        self.log.error("AMQP ERROR: {message}", {
-          message: err.message,
-        });
+      if (fatalOnDisconnect) {
+        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
         process.exit(5);
       }
     });
     this.receiveConnection.on("error", async (err: any) => {
       if (err.message !== "Connection closing") {
-        self.log.error("AMQP ERROR: {message}", {message: err.message});
+        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
       }
-      if (self.config.fatalOnDisconnect) {
-        self.log.error("AMQP ERROR: {message}", {
-          message: err.message,
-        });
+      if (fatalOnDisconnect) {
+        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
         process.exit(5);
       }
     });
     this.publishConnection.on("close", async (): Promise<any> => {
-      self.log.warn("AMQP CONNECTION CLOSED");
+      console.warn("[events-rabbitmq] AMQP CONNECTION CLOSED");
     });
     this.receiveConnection.on("close", async (): Promise<any> => {
-      self.log.warn("AMQP CONNECTION CLOSED");
+      console.warn("[events-rabbitmq] AMQP CONNECTION CLOSED");
     });
 
-    this.log.info(`Connected to {endpoints}x2? (s:{sendS}/p:{pubS})`, {
-      endpoints: this.config.endpoints,
+    obs.log.info('Connected to {endpoints}x2? (s:{sendS}/p:{pubS})', {
+      endpoints,
       sendS: this.receiveConnection.isConnected(),
       pubS: this.publishConnection.isConnected(),
     });
 
     this.myId = `${this.config.uniqueId ?? hostname()}-${randomUUID()}`;
-    await this.broadcast.init();
-    await this.emit.init();
-    await this.ear.init();
+    await this.broadcast.init(obs);
+    await this.emit.init(obs);
+    await this.ear.init(obs);
   }
 
   public dispose() {
@@ -191,76 +182,83 @@ export class Plugin extends BSBEvents<Config> {
   }
 
   async onBroadcast(
+      obs: Observable,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, args: any[]): Promise<void> }
+      listener: { (obs: Observable, args: any[]): Promise<void> }
   ): Promise<void> {
-    await this.broadcast.onBroadcast(pluginName, event, listener);
+    await this.broadcast.onBroadcast(obs, pluginName, event, listener);
   }
 
   async emitBroadcast(
+      obs: Observable,
       pluginName: string,
       event: string,
-      traceId: string,
       args: any[]
   ): Promise<void> {
-    await this.broadcast.emitBroadcast(pluginName, event, traceId, args);
+    await this.broadcast.emitBroadcast(obs, pluginName, event, args);
   }
 
   async onEvent(
+      obs: Observable,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, args: any[]): Promise<void> }
+      listener: { (obs: Observable, args: any[]): Promise<void> }
   ): Promise<void> {
-    await this.emit.onEvent(pluginName, event, listener);
+    await this.emit.onEvent(obs, pluginName, event, listener);
   }
 
   async emitEvent(
+      obs: Observable,
       pluginName: string,
       event: string,
-      traceId: string | undefined,
       args: any[]
   ): Promise<void> {
-    await this.emit.emitEvent(pluginName, event, traceId, args);
+    await this.emit.emitEvent(obs, pluginName, event, args);
   }
 
   async onReturnableEvent(
+      obs: Observable,
       pluginName: string,
       event: string,
-      listener: {(traceId: string | undefined, args: any[]): Promise<any>}
+      listener: {(obs: Observable, args: any[]): Promise<any>}
   ): Promise<void> {
-    await this.ear.onReturnableEvent(pluginName, event, listener);
+    await this.ear.onReturnableEvent(obs, pluginName, event, listener);
   }
 
   async emitEventAndReturn(
+      obs: Observable,
       pluginName: string,
       event: string,
-      traceId: string | undefined,
       timeoutSeconds: number,
       args: any[]
   ): Promise<any> {
     return await this.ear.emitEventAndReturn(
+        obs,
         pluginName,
         event,
-        traceId,
         timeoutSeconds,
         args
     );
   }
 
   async receiveStream(
+      obs: Observable,
+      pluginName: string,
       event: string,
-      listener: (error: Error | null, stream: Readable) => Promise<void>,
+      listener: (obs: Observable, error: Error | null, stream: Readable) => Promise<void>,
       timeoutSeconds?: number | undefined
   ): Promise<string> {
-    return this.eas.receiveStream(listener, timeoutSeconds);
+    return this.eas.receiveStream(obs, pluginName, event, listener, timeoutSeconds);
   }
 
   async sendStream(
+      obs: Observable,
+      pluginName: string,
       event: string,
       streamId: string,
       stream: Readable
   ): Promise<void> {
-    return this.eas.sendStream(streamId, stream);
+    return this.eas.sendStream(obs, pluginName, event, streamId, stream);
   }
 }

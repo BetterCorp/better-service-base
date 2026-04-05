@@ -1,6 +1,6 @@
 {
   "name": "@bsb/observable-winston",
-  "version": "9.0.1",
+  "version": "9.1.0",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
@@ -39,9 +39,9 @@
     "@bsb/base": "^9.0.0"
   },
   "dependencies": {
+    "@anyvali/js": "^0.2.0",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0",
-    "zod": "^4.3.6"
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@bsb/base": "file:../../../nodejs",
@@ -55,7 +55,3 @@
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-winston"
 }
-
-
-
-

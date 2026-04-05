@@ -33,38 +33,34 @@ import {
   BSBError
 } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import * as api from "@opentelemetry/api";
 import { Resource } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { BasicTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { ZipkinExporter } from "@opentelemetry/exporter-zipkin";
 
-const ConfigSchema = z.object({
-    serviceName: z.string().default("bsb-service"),
-    serviceVersion: z.string().optional(),
-
-    zipkin: z.object({
-      url: z.string().url().default("http://localhost:9411/api/v2/spans"),
-      headers: z.record(z.string(), z.string()).optional(),
-      statusCodeTagName: z.string().default("http.status_code"),
-      statusDescriptionTagName: z.string().default("http.status_text"),
-    }),
-
-    export: z.object({
-      maxBatchSize: z.number().int().min(1).default(100),
-      maxQueueSize: z.number().int().min(1).default(2048),
-      scheduledDelayMillis: z.number().int().min(100).default(5000),
-    }),
-
-    resourceAttributes: z.record(z.string(), z.string()).default({}),
-    samplingRate: z.number().min(0).max(1).default(1.0),
-
-    console: z.object({
-      enabled: z.boolean().default(true),
-      logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
-    }),
-  });
+const ConfigSchema = av.object({
+    serviceName: av.optional(av.string()).default("bsb-service"),
+    serviceVersion: av.optional(av.string()),
+    zipkin: av.object({
+      url: av.optional(av.string().format("url")).default("http://localhost:9411/api/v2/spans"),
+      headers: av.optional(av.record(av.string())),
+      statusCodeTagName: av.optional(av.string()).default("http.status_code"),
+      statusDescriptionTagName: av.optional(av.string()).default("http.status_text"),
+    }, { unknownKeys: "strip" }),
+    export: av.object({
+      maxBatchSize: av.optional(av.int32().min(1)).default(100),
+      maxQueueSize: av.optional(av.int32().min(1)).default(2048),
+      scheduledDelayMillis: av.optional(av.int32().min(100)).default(5000),
+    }, { unknownKeys: "strip" }),
+    resourceAttributes: av.optional(av.record(av.string())).default({}),
+    samplingRate: av.optional(av.number().min(0).max(1)).default(1.0),
+    console: av.object({
+      enabled: av.optional(av.bool()).default(true),
+      logLevel: av.optional(av.enum_(['debug', 'info', 'warn', 'error'])).default('info'),
+    }, { unknownKeys: "strip" }),
+  }, { unknownKeys: "strip" });
 
 export const Config = createConfigSchema(
   {

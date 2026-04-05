@@ -28,32 +28,32 @@
 const SyslogServer = require("syslog-server");
 import { BSBService, BSBServiceConstructor, BSBServiceClient, createConfigSchema, bsb } from "@bsb/base";
 import { Observable } from "@bsb/base";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import { createFireAndForgetEvent } from "@bsb/base";
 
 /**
  * Syslog message structure
  */
-export const SyslogMessageSchema = z.object({
-  gatewayTime: z.number(),
-  date: z.number(),
-  host: z.string(),
-  protocol: z.string(),
-  message: z.string(),
-});
+export const SyslogMessageSchema = av.object({
+  gatewayTime: av.number(),
+  date: av.number(),
+  host: av.string(),
+  protocol: av.string(),
+  message: av.string(),
+}, { unknownKeys: "strip" });
 
-export type SyslogMessage = z.infer<typeof SyslogMessageSchema>;
+export type SyslogMessage = av.Infer<typeof SyslogMessageSchema>;
 
 /**
  * Configuration schema for syslog server
  */
-export const SyslogServerConfigSchema = z.object({
-  port: z.number().int().min(1).max(65535).default(514),
-  address: z.string().default("0.0.0.0"),
-  exclusive: z.boolean().default(false),
-});
+export const SyslogServerConfigSchema = av.object({
+  port: av.optional(av.int32().min(1).max(65535)).default(514),
+  address: av.optional(av.string()).default("0.0.0.0"),
+  exclusive: av.optional(av.bool()).default(false),
+}, { unknownKeys: "strip" });
 
-export type SyslogServerConfig = z.infer<typeof SyslogServerConfigSchema>;
+export type SyslogServerConfig = av.Infer<typeof SyslogServerConfigSchema>;
 
 export const Config = createConfigSchema(
   {

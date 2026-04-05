@@ -398,8 +398,13 @@ export class SBEvents {
       !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
     ) {
       this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
+      const schema = newPlugin.data.serviceConfig.validationSchema as {
+        export: (mode?: 'portable' | 'extended') => { root: { kind: string } };
+        parse: (input: unknown) => unknown;
+      };
+      const rootKind = schema.export('extended').root.kind;
       pluginConfig =
-        newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
+        schema.parse(pluginConfig ?? (rootKind === 'object' ? {} : undefined)) as object | null;
     }
 
     await this.addPlugin(sbObservable, plugin, newPlugin.data, pluginConfig, filter);

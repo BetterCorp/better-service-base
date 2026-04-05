@@ -1,6 +1,6 @@
 {
   "name": "@bsb/observable-graylog",
-  "version": "9.0.1",
+  "version": "9.1.0",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
@@ -40,8 +40,8 @@
     "@bsb/base": "^9.0.0"
   },
   "dependencies": {
-    "gelf-pro": "^1.3.2",
-    "zod": "^4.3.6"
+    "@anyvali/js": "^0.2.0",
+    "gelf-pro": "^1.3.2"
   },
   "devDependencies": {
     "@bsb/base": "file:../../../nodejs",
@@ -55,7 +55,3 @@
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-graylog"
 }
-
-
-
-

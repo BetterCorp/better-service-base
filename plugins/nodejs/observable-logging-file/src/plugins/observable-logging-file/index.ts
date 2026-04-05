@@ -28,48 +28,37 @@
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { createStream, RotatingFileStream } from "rotating-file-stream";
-import { z } from "zod";
+import * as av from "@anyvali/js";
 import * as fs from "fs";
 import * as path from "path";
 
 /**
  * Configuration schema for file logging plugin
  */
-export const FileLoggingConfigSchema = z.object({
-  // Base directory for log files
-  directory: z.string().default("./logs"),
+export const FileLoggingConfigSchema = av.object({
+  directory: av.optional(av.string()).default("./logs"),
+  filename: av.optional(av.string()).default("application-%DATE%.log"),
+  dateFormat: av.optional(av.string()).default("YYYY-MM-DD"),
+  rotation: av.object({
+    maxSize: av.optional(av.string()).default("10M"),
+    maxFiles: av.optional(av.int32().min(0)).default(7),
+    interval: av.optional(av.enum_(["daily", "hourly", "none"])).default("daily"),
+    compress: av.optional(av.bool()).default(true),
+  }, { unknownKeys: "strip" }),
+  levels: av.object({
+    debug: av.optional(av.bool()).default(true),
+    info: av.optional(av.bool()).default(true),
+    warn: av.optional(av.bool()).default(true),
+    error: av.optional(av.bool()).default(true),
+  }, { unknownKeys: "strip" }),
+  format: av.object({
+    timestamp: av.optional(av.bool()).default(true),
+    traceInfo: av.optional(av.bool()).default(true),
+    prettyPrint: av.optional(av.bool()).default(false),
+  }, { unknownKeys: "strip" }),
+}, { unknownKeys: "strip" });
 
-  // Filename pattern (supports date tokens: %DATE%)
-  filename: z.string().default("application-%DATE%.log"),
-
-  // Date format for filename
-  dateFormat: z.string().default("YYYY-MM-DD"),
-
-  // Rotation settings
-  rotation: z.object({
-    maxSize: z.string().default("10M"),      // "10M", "100K"
-    maxFiles: z.number().int().min(0).default(7),
-    interval: z.enum(["daily", "hourly", "none"]).default("daily"),
-    compress: z.boolean().default(true),      // gzip old files
-  }),
-
-  // Log level filtering
-  levels: z.object({
-    debug: z.boolean().default(true),
-    info: z.boolean().default(true),
-    warn: z.boolean().default(true),
-    error: z.boolean().default(true),
-  }),
-
-  // Format options
-  format: z.object({
-    timestamp: z.boolean().default(true),
-    traceInfo: z.boolean().default(true),
-    prettyPrint: z.boolean().default(false),  // JSON or text
-  }),
-});
-
-export type FileLoggingConfig = z.infer<typeof FileLoggingConfigSchema>;
+export type FileLoggingConfig = av.Infer<typeof FileLoggingConfigSchema>;
 
 export const Config = createConfigSchema(
   {

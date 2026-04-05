@@ -20,8 +20,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { z } from "zod";
-import { IPluginLogging, DTrace, BSBType, bsbToZod } from "../interfaces";
+import { IPluginLogging, DTrace, BSBType } from "../interfaces";
+import type { ParseResult } from '@anyvali/js';
 
 export interface ValidationResult<T = any> {
   success: boolean;
@@ -48,7 +48,7 @@ const DEFAULT_VALIDATION_CONFIG: EventValidationConfig = {
 };
 
 /**
- * Utility class for validating event data using Zod schemas.
+ * Utility class for validating event data using AnyVali schemas.
  * Provides performance monitoring and configurable validation behavior.
  * @group Validation
  * @category Tools
@@ -82,7 +82,7 @@ export class EventValidator {
    * Validate input data for an event.
    * @param eventName - Name of the event being validated
    * @param data - Data to validate
-   * @param schema - BSBType or Zod schema to validate against
+   * @param schema - AnyVali schema to validate against
    * @param trace - Trace for logging context
    * @param eventConfig - Override configuration for this validation
    * @returns Validation result with parsed data or error
@@ -91,20 +91,18 @@ export class EventValidator {
   public validateInput<T = unknown>(
     eventName: string,
     data: unknown,
-    schema: BSBType | z.ZodSchema<T>,
+    schema: BSBType,
     trace: DTrace,
     eventConfig?: Partial<EventValidationConfig>
   ): ValidationResult<T> {
-    // Convert BSBType to Zod schema if needed
-    const zodSchema = this.isBSBType(schema) ? bsbToZod(schema) : schema;
-    return this.performValidation(eventName, data, zodSchema as z.ZodSchema<T>, trace, 'input', eventConfig);
+    return this.performValidation(eventName, data, schema as BSBType, trace, 'input', eventConfig);
   }
 
   /**
    * Validate output/return data for an event.
    * @param eventName - Name of the event being validated
    * @param data - Data to validate
-   * @param schema - BSBType or Zod schema to validate against
+   * @param schema - AnyVali schema to validate against
    * @param trace - Trace for logging context
    * @param eventConfig - Override configuration for this validation
    * @returns Validation result with parsed data or error
@@ -113,23 +111,11 @@ export class EventValidator {
   public validateOutput<T = unknown>(
     eventName: string,
     data: unknown,
-    schema: BSBType | z.ZodSchema<T>,
+    schema: BSBType,
     trace: DTrace,
     eventConfig?: Partial<EventValidationConfig>
   ): ValidationResult<T> {
-    // Convert BSBType to Zod schema if needed
-    const zodSchema = this.isBSBType(schema) ? bsbToZod(schema) : schema;
-    return this.performValidation(eventName, data, zodSchema as z.ZodSchema<T>, trace, 'output', eventConfig);
-  }
-
-  /**
-   * Check if a schema is a BSBType or a Zod schema.
-   * @param schema - Schema to check
-   * @returns True if schema is a BSBType
-   * @private
-   */
-  private isBSBType(schema: any): schema is BSBType {
-    return schema && typeof schema === 'object' && '_bsb' in schema;
+    return this.performValidation(eventName, data, schema as BSBType, trace, 'output', eventConfig);
   }
 
   /**
@@ -179,7 +165,7 @@ export class EventValidator {
   private performValidation<T = unknown>(
     eventName: string,
     data: unknown,
-    schema: z.ZodSchema<T>,
+    schema: BSBType,
     trace: DTrace,
     direction: 'input' | 'output',
     eventConfig?: Partial<EventValidationConfig>
@@ -193,7 +179,7 @@ export class EventValidator {
     const startTime = performance.now();
     
     try {
-      const parsedData = schema.parse(data);
+      const parsedData = schema.parse(data) as T;
       const duration = performance.now() - startTime;
       
       // Log performance warning if threshold exceeded
@@ -208,15 +194,12 @@ export class EventValidator {
         data: parsedData
       };
     } catch (error) {
-      const zodError = error as z.ZodError;
-
       if (config.logValidationErrors && this.logger) {
-        const errorMsg = `Event validation failed for '${eventName}' ${direction}: ${zodError.message}`;
+        const errorMsg = `Event validation failed for '${eventName}' ${direction}: ${error instanceof Error ? error.message : String(error)}`;
         this.logger.error(trace, errorMsg);
       }
 
       if (config.throwOnValidationFailure) {
-        // Throw the original Zod error
         throw error;
       }
 
@@ -238,14 +221,14 @@ export class ValidationError extends Error {
   /**
    * Create a new validation error.
    * @param message - Error message
-   * @param zodError - The underlying Zod validation error
+   * @param issues - The underlying AnyVali validation issues
    * @param eventName - Name of the event that failed validation
    * @param direction - Whether the failure was on 'input' or 'output'
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ValidationError.html#constructor | API: ValidationError#constructor}
    */
   constructor(
     message: string,
-    public readonly zodError: z.ZodError<any>,
+    public readonly issues: ParseResult<unknown> extends { success: false; issues: infer TIssues } ? TIssues : unknown,
     public readonly eventName: string,
     public readonly direction: 'input' | 'output'
   ) {
@@ -264,7 +247,7 @@ export class ValidationError extends Error {
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/ValidationError.html#getFormattedErrors | API: ValidationError#getFormattedErrors}
    */
   public getFormattedErrors(): string {
-    return this.zodError.issues.map((err: any) =>
+    return (this.issues as any[]).map((err: any) =>
       `${err.path.join('.')}: ${err.message}`
     ).join('; ');
   }
