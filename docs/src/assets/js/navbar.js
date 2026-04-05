@@ -123,12 +123,50 @@ function initNavbar() {
   });
 }
 
+function initFooter() {
+  const year = new Date().getFullYear();
+  const buildVersion = (typeof __BSB_DOCS_BUILD_VERSION__ !== 'undefined') ? __BSB_DOCS_BUILD_VERSION__ : '';
+  const buildTime = (typeof __BSB_DOCS_BUILD_TIME__ !== 'undefined') ? __BSB_DOCS_BUILD_TIME__ : '';
+
+  const footer = document.createElement('footer');
+  footer.className = 'site-footer';
+
+  const left = document.createElement('div');
+  left.className = 'site-footer-left';
+  left.textContent = 'Copyright BetterCorp (PTY) Ltd 2016 - ' + year + ' - All Rights Reserved';
+
+  const right = document.createElement('div');
+  right.className = 'site-footer-right';
+  if (buildVersion) {
+    const parts = ['v' + buildVersion];
+    if (buildTime) {
+      const d = new Date(buildTime);
+      if (!isNaN(d.getTime())) {
+        parts.push('built ' + d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }));
+      }
+    }
+    right.textContent = parts.join(' - ');
+  }
+
+  footer.appendChild(left);
+  footer.appendChild(right);
+
+  // Insert after .doc-layout (or at end of body as fallback)
+  const layout = document.querySelector('.doc-layout');
+  if (layout && layout.parentNode) {
+    layout.parentNode.insertBefore(footer, layout.nextSibling);
+  } else {
+    document.body.appendChild(footer);
+  }
+}
+
 // Auto-initialize when this script loads
 (function() {
   // Just initialize event handlers - HTML is already in the page
   initNavbar();
+  initFooter();
 
-  // Fetch and display version if element exists
+  // Fetch and display version badge in nav
   fetch('/version.txt', { cache: 'no-store' })
     .then(res => {
       if (!res.ok) return '';

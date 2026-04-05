@@ -32,7 +32,9 @@ export default defineConfig({
   root: 'src',
   publicDir: '../public',
   define: {
-    __BSB_REGISTRY_URL__: JSON.stringify(process.env.BSB_DOCS_REGISTRY_URL || 'http://localhost:3200/plugins'),
+    __BSB_REGISTRY_URL__: JSON.stringify(process.env.BSB_DOCS_REGISTRY_URL || 'https://io.bsbcode.dev/plugins'),
+    __BSB_DOCS_BUILD_VERSION__: JSON.stringify(JSON.parse(fsSync.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version),
+    __BSB_DOCS_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
   build: {
     outDir: '../dist',
