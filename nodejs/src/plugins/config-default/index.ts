@@ -40,7 +40,7 @@ import {
 import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig";
 import { createConfigSchema } from "../../base/PluginConfig";
 import { z } from "zod";
-import { ConfigDefinition } from "./interfaces";
+import { ConfigDefinition, ConfigProfile } from "./interfaces";
 
 const ConfigSchema = z.object({
   BSB_PROFILE: z.string().optional().default("default"),
@@ -64,6 +64,37 @@ export const Config = createConfigSchema(
 export class Plugin
   extends BSBConfig<InstanceType<typeof Config>> {
   static Config = Config;
+
+  private createDefaultProfile(): ConfigProfile {
+    return {
+      observable: {},
+      events: {},
+      services: {},
+    };
+  }
+
+  private getRequiredServices(obs?: Observable) {
+    const services = this._appConfig[this._deploymentProfile].services ?? {};
+    const enabledServices = Object.keys(services)
+      .filter((x) => services[x].enabled === true);
+
+    if (enabledServices.length === 0) {
+      const message = "No enabled service plugins found in deployment profile ({deploymentProfile}); at least one service is required.";
+      if (obs !== undefined) {
+        throw new BSBError(
+          obs.trace,
+          message,
+          { deploymentProfile: this._deploymentProfile },
+        );
+      }
+      throw new Error(
+        message.replace("{deploymentProfile}", this._deploymentProfile),
+      );
+    }
+
+    return services;
+  }
+
   async getServicePluginDefinition(
     obs: Observable,
     pluginName: string,
@@ -105,7 +136,7 @@ export class Plugin
     );
   }
 
-  async getObservablePlugins(): Promise<Record<string, ObservableConfig>> {
+  async getObservablePlugins(_obs: Observable): Promise<Record<string, ObservableConfig>> {
     const plugins = Object.keys(
       this._appConfig[this._deploymentProfile].observable ?? {},
     )
@@ -126,7 +157,7 @@ export class Plugin
     }, {} as Record<string, ObservableConfig>);
   }
 
-  async getEventsPlugins(): Promise<Record<string, EventsConfig>> {
+  async getEventsPlugins(_obs: Observable): Promise<Record<string, EventsConfig>> {
     const plugins = Object.keys(
       this._appConfig[this._deploymentProfile].events ?? {},
     )
@@ -148,22 +179,21 @@ export class Plugin
     }, {} as Record<string, EventsConfig>);
   }
 
-  async getServicePlugins(): Promise<Record<string, PluginDefinition>> {
-    const plugins = Object.keys(
-      this._appConfig[this._deploymentProfile].services ?? {},
-    )
+  async getServicePlugins(obs: Observable): Promise<Record<string, PluginDefinition>> {
+    const services = this.getRequiredServices(obs);
+    const plugins = Object.keys(services)
       .filter((x) => {
         return (
-          this._appConfig[this._deploymentProfile].services[x].enabled === true
+          services[x].enabled === true
         );
       });
     return plugins.reduce((acc, x) => {
       acc[x] = {
-        //name: this._appConfig[this._deploymentProfile].services[x].name,
-        version: this._appConfig[this._deploymentProfile].services[x].version,
-        plugin: this._appConfig[this._deploymentProfile].services[x].plugin,
-        package: this._appConfig[this._deploymentProfile].services[x].package,
-        enabled: this._appConfig[this._deploymentProfile].services[x].enabled,
+        //name: services[x].name,
+        version: services[x].version,
+        plugin: services[x].plugin,
+        package: services[x].package,
+        enabled: services[x].enabled,
       };
       return acc;
     }, {} as Record<string, PluginDefinition>);
@@ -184,9 +214,8 @@ export class Plugin
     if (pluginType === PluginTypes.observable) {
       configKey = "observable";
     }
-    return (
-      this._appConfig[this._deploymentProfile][configKey][plugin].config ?? null
-    );
+    const pluginConfig = this._appConfig[this._deploymentProfile][configKey]?.[plugin]?.config;
+    return Tools.isNullOrUndefined(pluginConfig) ? {} : pluginConfig;
   }
 
   dispose() {
@@ -205,12 +234,9 @@ export class Plugin
   init(obs: Observable): void {
     this._deploymentProfile = this.config.BSB_PROFILE;
     this._secConfigFilePath = this.config.BSB_CONFIG_FILE;
+    const defaultProfile = this.createDefaultProfile();
     this._appConfig = {
-      default: {
-        observable: {},
-        events: {},
-        services: {},
-      },
+      default: defaultProfile,
     };
     if (fs.existsSync(this._secConfigFilePath)) {
       this._appConfig =
@@ -236,6 +262,10 @@ export class Plugin
         },
       );
     }
+    this._appConfig[this._deploymentProfile] = Tools.mergeObjects(
+      defaultProfile,
+      this._appConfig[this._deploymentProfile],
+    );
     obs.log.debug(
       "Config ready, using profile: {profile}", {
       profile: this._deploymentProfile,
@@ -250,16 +280,17 @@ export class Plugin
       enabled: boolean;
     }[]
   > {
-    return Object.keys(this._appConfig[this._deploymentProfile].services)
+    const services = this.getRequiredServices();
+    return Object.keys(services)
       .map(
         (x) => {
           return {
             npmPackage:
-              this._appConfig[this._deploymentProfile].services[x].package,
-            plugin: this._appConfig[this._deploymentProfile].services[x].plugin,
+              services[x].package,
+            plugin: services[x].plugin,
             name: x,
             enabled:
-              this._appConfig[this._deploymentProfile].services[x].enabled ===
+              services[x].enabled ===
               true,
           };
         },

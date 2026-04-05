@@ -383,14 +383,13 @@ export class SBServices {
       ) ?? null;
 
     if (
-      this.mode !== "production" &&
       !Tools.isNullOrUndefined(newPlugin.data.serviceConfig) &&
       Tools.isObject(newPlugin.data.serviceConfig) &&
       !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
     ) {
       this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
       pluginConfig =
-        newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig);
+        newPlugin.data.serviceConfig.validationSchema.parse(pluginConfig ?? undefined);
     }
 
     await this.addPlugin(
