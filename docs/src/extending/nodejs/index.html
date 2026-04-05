@@ -150,9 +150,9 @@
 
         <p>An events plugin routes messages between services. Here's a skeleton for a RabbitMQ implementation:</p>
 
-        <pre><code class="language-typescript">import { BSBEvents, BSBEventsConstructor } from "@bettercorp/service-base";
+        <pre><code class="language-typescript">import { BSBEvents, BSBEventsConstructor } from "@bsb/base";
 import { Readable } from "node:stream";
-import { DTrace } from "@bettercorp/service-base";
+import { DTrace } from "@bsb/base";
 
 export class Plugin extends BSBEvents&lt;null&gt; {
   private connection: any; // Your RabbitMQ connection
@@ -235,8 +235,8 @@ export class Plugin extends BSBEvents&lt;null&gt; {
 
         <p>A logging plugin receives log messages and sends them to an external system:</p>
 
-        <pre><code class="language-typescript">import { BSBLogging, BSBLoggingConstructor } from "@bettercorp/service-base";
-import { DTrace, LogMeta } from "@bettercorp/service-base";
+        <pre><code class="language-typescript">import { BSBLogging, BSBLoggingConstructor } from "@bsb/base";
+import { DTrace, LogMeta } from "@bsb/base";
 
 export class Plugin extends BSBLogging&lt;null&gt; {
   constructor(config: BSBLoggingConstructor&lt;null&gt;) {

@@ -213,7 +213,7 @@
         <div class="info-box">
             <h4>⚡ Quick Installation (Dev)</h4>
             <p>For local plugin development and type support:</p>
-            <div class="code-block" data-title="bash"><pre><code class="language-bash">npm install @bettercorp/service-base
+            <div class="code-block" data-title="bash"><pre><code class="language-bash">npm install @bsb/base
 
 # Create your plugin structure (dev)
 mkdir -p src/plugins/service-my-api
@@ -296,7 +296,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
                     <div class="code-block" data-title="bash"><pre><code class="language-bash"># Create plugin project and install BSB (dev only)
 mkdir my-bsb-project && cd my-bsb-project
 npm init -y
-npm install @bettercorp/service-base
+npm install @bsb/base
 
 # Install TypeScript for development
 npm install -D typescript @types/node</code></pre></div>
@@ -311,7 +311,7 @@ npm install -D typescript @types/node</code></pre></div>
     "dev": "tsc && node lib/index.js"
   },
   "dependencies": {
-    "@bettercorp/service-base": "^9.5.8"
+    "@bsb/base": "^9.5.8"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
@@ -331,8 +331,8 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
                     <h3>Create Your First Service Plugin</h3>
                     <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor → init → run → dispose</code>):</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
-<pre><code class="language-ts">import { BSBService, BSBServiceConstructor, BSBServiceClientDefinition, Observable, z } from '@bettercorp/service-base';
-import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from '@bettercorp/service-base';
+<pre><code class="language-ts">import { BSBService, BSBServiceConstructor, BSBServiceClientDefinition, Observable, z } from '@bsb/base';
+import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from '@bsb/base';
 
 // Schema-first event definitions with automatic validation
 export const EventSchemas = {
@@ -488,7 +488,7 @@ export class Plugin extends BSBService<null, typeof EventSchemas> {
                     <h3>Create Plugin Config (Optional)</h3>
                     <p>Define configuration schema and metadata for your plugin:</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/config.ts (Optional)">
-<pre><code class="language-ts">import { BSBPluginConfig, z } from '@bettercorp/service-base';
+<pre><code class="language-ts">import { BSBPluginConfig, z } from '@bsb/base';
 
 // Define your config schema using Zod
 const MyConfigSchema = z.object({

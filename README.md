@@ -30,10 +30,10 @@ Simplicity, flexibility, and expandability are core design goals.
 ## NodeJS
 [![GitHub](https://img.shields.io/badge/license-AGPL--3.0_/_Commercial-orange)](https://github.com/BetterCorp/better-service-base) 
 [![codecov](https://codecov.io/gh/BetterCorp/better-service-base/branch/master/graph/badge.svg)](https://codecov.io/gh/BetterCorp/better-service-base) 
-[![node-current (scoped)](https://img.shields.io/node/v/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base) 
-[![npm](https://img.shields.io/npm/dt/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base) 
-[![npm bundle size (scoped)](https://img.shields.io/bundlephobia/min/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base) 
-[![npm (scoped)](https://img.shields.io/npm/v/@bettercorp/service-base)](https://www.npmjs.com/package/@bettercorp/service-base)  
+[![node-current (scoped)](https://img.shields.io/node/v/@bsb/base)](https://www.npmjs.com/package/@bsb/base)
+[![npm](https://img.shields.io/npm/dt/@bsb/base)](https://www.npmjs.com/package/@bsb/base)
+[![npm bundle size (scoped)](https://img.shields.io/bundlephobia/min/@bsb/base)](https://www.npmjs.com/package/@bsb/base)
+[![npm (scoped)](https://img.shields.io/npm/v/@bsb/base)](https://www.npmjs.com/package/@bsb/base)
 
 ### - Plugins  
 [![NodeJS Plugins](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FBetterCorp%2Fbetter-service-base%2Fdocumentation%2Fplugin-stats.json&query=%24.nodejs.total&label=NodeJS%20Plugins)](https://bsbcode.dev/Market/) 

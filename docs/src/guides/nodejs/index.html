@@ -289,7 +289,7 @@
           <pre><code class="language-bash">mkdir my-bsb-service
 cd my-bsb-service
 npm init -y
-npm install @bettercorp/service-base typescript @types/node
+npm install @bsb/base typescript @types/node
 npx tsc --init</code></pre>
         </div>
 
@@ -302,9 +302,9 @@ npx tsc --init</code></pre>
           <pre><code class="language-bash">mkdir -p src/plugins/service-hello</code></pre>
 
           <span class="file-path">src/plugins/service-hello/index.ts</span>
-          <pre><code class="language-typescript">import { BSBService, BSBServiceConstructor } from "@bettercorp/service-base";
+          <pre><code class="language-typescript">import { BSBService, BSBServiceConstructor } from "@bsb/base";
 import { z } from "zod";
-import { createReturnableEvent, createFireAndForgetEvent } from "@bettercorp/service-base";
+import { createReturnableEvent, createFireAndForgetEvent } from "@bsb/base";
 
 // Define your event schemas
 export const EventSchemas = {
@@ -456,7 +456,7 @@ await this.events.onBroadcast("cache.invalidate", trace, async (t, input) =&gt; 
 
         <p>To add configuration to your plugin, create a Config class:</p>
 
-        <pre><code class="language-typescript">import { BSBPluginConfig } from "@bettercorp/service-base";
+        <pre><code class="language-typescript">import { BSBPluginConfig } from "@bsb/base";
 import { z } from "zod";
 
 const configSchema = z.object({
