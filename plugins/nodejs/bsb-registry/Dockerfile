@@ -37,7 +37,7 @@ RUN set -eux; \
   rm -rf "${VERSION_DIR}/node_modules/@bsb/base"; \
   ln -s /home/bsb "${VERSION_DIR}/node_modules/@bsb/base"
 
-FROM betterweb/service-base:9.0.3
+FROM betterweb/service-base:latest
 
 COPY --from=builder /out/ /mnt/plugins/
 COPY plugins/nodejs/bsb-registry/BADGES.json /mnt/plugins/@bsb/registry/BADGES.json
