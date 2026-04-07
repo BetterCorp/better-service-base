@@ -18,7 +18,7 @@ COPY plugins/nodejs/bsb-registry/docs ./docs
 COPY plugins/nodejs/bsb-registry/tsconfig.json ./tsconfig.json
 COPY plugins/nodejs/bsb-registry/bsb-plugin.json ./bsb-plugin.json
 COPY plugins/nodejs/bsb-registry/README.md ./README.md
-RUN ./node_modules/.bin/bsb-plugin-cli build
+RUN npm run build
 
 # Keep runtime package lean for plugin loading in BSB container.
 RUN npm prune --omit=dev
