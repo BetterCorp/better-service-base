@@ -1,6 +1,6 @@
 // THIS FILE IS SUBJECT TO COPYRIGHT FROM THE SOURCE - https://github.com/BetterCorp/Node-Tools.git 
 // @bettercorp/tools
-import {CleanStringStrength, MergeObjectsKey, SimpleStatu} from "../interfaces";
+import {CleanStringStrength, MergeObjectsKey, SimpleStatu} from "../interfaces/index.js";
 
 /**
  * Just a bunch of utility functions - some are used within the framework, others are just general purpose.

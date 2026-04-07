@@ -25,16 +25,34 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ServiceBase } from "./serviceBase/serviceBase";
-import * as chokidar from 'chokidar';
-import * as readline from 'readline';
-import * as fs from 'fs';
-import * as path from 'path';
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as readline from "node:readline";
+import chokidar, { FSWatcher } from "chokidar";
+import { ServiceBase } from "./serviceBase/serviceBase.js";
+import { isMainModule } from "./base/module-runtime.js";
+
+if (isMainModule(import.meta.url) && process.env.BSB_DEV_LOADER !== "tsx") {
+  const child = spawnSync(
+    process.execPath,
+    ["--import", "tsx", process.argv[1], ...process.argv.slice(2)],
+    {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        BSB_DEV_LOADER: "tsx",
+      },
+    },
+  );
+
+  process.exit(child.status ?? 0);
+}
 
 let currentSB: ServiceBase | null = null;
 let restartTimeout: NodeJS.Timeout | null = null;
 let isRestarting = false;
-let watcher: chokidar.FSWatcher | null = null;
+let watcher: FSWatcher | null = null;
 
 interface WatchConfig {
   watch: string[];
@@ -97,7 +115,8 @@ const startApp = async () => {
   const SB = new ServiceBase({
     debug: true,
     live: false,
-    cwd: CWD
+    cwd: CWD,
+    runtimeMode: "dev",
   });
   await SB.init();
   await SB.run();
@@ -206,8 +225,8 @@ const runApp = async () => {
       persistent: true
     });
 
-    watcher.on('change', (path) => {
-      console.log(`File ${path} has been changed`);
+    watcher.on('change', (changedPath: string) => {
+      console.log(`File ${changedPath} has been changed`);
       restartApp();
     });
 

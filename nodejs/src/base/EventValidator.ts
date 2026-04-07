@@ -20,7 +20,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { IPluginLogging, DTrace, BSBType } from "../interfaces";
+import { IPluginLogging, DTrace, BSBType } from "../interfaces/index.js";
 import type { ParseResult } from '@anyvali/js';
 
 export interface ValidationResult<T = any> {

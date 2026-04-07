@@ -27,15 +27,15 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { DTrace, Trace, BSBEventSchemas, Observable, EventSchemaExport, exportEventSchemas, ServiceClientEventSchemas } from "../interfaces";
-import { SBEvents, SBObservable } from "../serviceBase";
-import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base";
-import { BSBServiceClient } from "./BSBServiceClient";
-import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBPluginConfig, createConfigSchema } from "./PluginConfig";
-import { PluginEvents } from "./PluginEvents";
-import { ResourceContext, ResourceContextBuilder } from "./ResourceContext";
-import { PluginObservable } from "./PluginObservable";
-import { bsb } from "../interfaces/schema-types";
+import { DTrace, Trace, BSBEventSchemas, Observable, EventSchemaExport, exportEventSchemas, ServiceClientEventSchemas } from "../interfaces/index.js";
+import { SBEvents, SBObservable } from "../serviceBase/index.js";
+import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base.js";
+import { BSBServiceClient } from "./BSBServiceClient.js";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBPluginConfig, createConfigSchema } from "./PluginConfig.js";
+import { PluginEvents } from "./PluginEvents.js";
+import { ResourceContext, ResourceContextBuilder } from "./ResourceContext.js";
+import { PluginObservable } from "./PluginObservable.js";
+import { bsb } from "../interfaces/schema-types.js";
 
 /**
  * @hidden

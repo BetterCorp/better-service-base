@@ -26,8 +26,8 @@
  */
 
 // import assert from "assert";
-// import { BaseWithLogging } from "../../base/base";
-// import { ErrorMessages } from "../../base/errorMessages";
+// import { BaseWithLogging } from "../../base/base.js";
+// import { ErrorMessages } from "../../base/errorMessages.js";
 
 // describe("DefaultBase", function () {
 //   describe("Default methods", function () {

@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace } from './metrics';
-import {DynamicallyReferencedMethodBase} from "./tools";
+import { DTrace } from './metrics.js';
+import {DynamicallyReferencedMethodBase} from "./tools.js";
 
 export type DynamicallyReferencedMethodOnIEvents<
     Interface extends DynamicallyReferencedMethodBase,

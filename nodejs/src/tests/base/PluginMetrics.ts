@@ -26,11 +26,11 @@
  */
 
 import { expect } from "chai";
-import { ObservableBackend } from "../../base/ObservableBackend";
-import { BSBError } from "../../base/errorMessages";
-import { DTrace } from "../../interfaces";
-import { MockSBObservable } from "../mocks";
-import { SBObservable } from "../../serviceBase/observable";
+import { ObservableBackend } from "../../base/ObservableBackend.js";
+import { BSBError } from "../../base/errorMessages.js";
+import { DTrace } from "../../interfaces/index.js";
+import { MockSBObservable } from "../mocks.js";
+import { SBObservable } from "../../serviceBase/observable.js";
 
 describe("ObservableBackend", () => {
   let mockObservable: SBObservable;

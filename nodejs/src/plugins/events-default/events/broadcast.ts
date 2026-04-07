@@ -26,7 +26,7 @@
  */
 
 import { EventEmitter } from "node:events";
-import { Observable, IPluginLogging } from "../../../index";
+import { Observable, IPluginLogging } from "../../../index.js";
 
 export class broadcast extends EventEmitter {
   constructor(_log: IPluginLogging) {

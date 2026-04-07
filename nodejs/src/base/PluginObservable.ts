@@ -25,11 +25,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Observable } from '../interfaces/observable';
-import { DTrace, Trace, IPluginObservable } from '../interfaces/metrics';
-import { ResourceContext } from './ResourceContext';
-import { BSBError } from './errorMessages';
-import { SmartLogMeta } from '../interfaces/logging';
+import { Observable } from '../interfaces/observable.js';
+import { DTrace, Trace, IPluginObservable } from '../interfaces/metrics.js';
+import { ResourceContext } from './ResourceContext.js';
+import { BSBError } from './errorMessages.js';
+import { SmartLogMeta } from '../interfaces/logging.js';
 
 /**
  * Implementation of Observable interface that wraps DTrace with observability features

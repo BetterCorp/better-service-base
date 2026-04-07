@@ -26,8 +26,8 @@
  */
 
 import { assert } from "chai";
-import { LogFormatter } from "../../index";
-import { createFakeDTrace } from "../trace"
+import { LogFormatter } from "../../index.js";
+import { createFakeDTrace } from "../trace.js"
 import { randomUUID } from "crypto";
 
 describe("logFormatter", function () {

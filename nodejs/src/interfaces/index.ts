@@ -25,19 +25,18 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-export * from "./events";
-export * from "./logging";
-export * from "./plugins";
-export * from "./service";
-export * from "./metrics";
-export * from "./result";
-export * from "./options";
-export * from "./schema-events";
-export * from "./schema-types";
-export * from "./observable";
-export * from "./observable-types";
-export { 
-  CleanStringStrength, 
+export * from "./events.js";
+export * from "./logging.js";
+export * from "./plugins.js";
+export * from "./service.js";
+export * from "./metrics.js";
+export * from "./result.js";
+export * from "./options.js";
+export * from "./schema-events.js";
+export * from "./schema-types.js";
+export * from "./observable.js";
+export * from "./observable-types.js";
+export type {
   DynamicallyReferencedMethodBase,
   DynamicallyReferencedMethodType,
   DynamicallyReferencedMethod,
@@ -45,6 +44,9 @@ export {
   MergeObjectsKey,
   ParamsFromString,
   SimpleStatu,
+} from "./tools.js";
+export {
+  CleanStringStrength,
   generateAppIdHash,
-  generateTimeBasedId
-} from "./tools";
+  generateTimeBasedId,
+} from "./tools.js";

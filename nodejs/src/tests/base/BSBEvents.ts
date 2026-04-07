@@ -26,10 +26,10 @@
  */
 
 import { expect } from "chai";
-import { BSBEventsRef } from "../../base/BSBEvents";
-import { createTestObservable } from "../trace";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "../../base/errorMessages";
-import { MockSBObservable } from "../mocks";
+import { BSBEventsRef } from "../../base/BSBEvents.js";
+import { createTestObservable } from "../trace.js";
+import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "../../base/errorMessages.js";
+import { MockSBObservable } from "../mocks.js";
 import { Readable } from "node:stream";
 
 describe("BSBEvents", () => {

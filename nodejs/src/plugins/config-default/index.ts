@@ -36,11 +36,11 @@ import {
   PluginTypes, Tools,
   BSBError,
   Observable,
-} from "../../index";
-import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig";
-import { createConfigSchema } from "../../base/PluginConfig";
+} from "../../index.js";
+import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig.js";
+import { createConfigSchema } from "../../base/PluginConfig.js";
 import * as av from "@anyvali/js";
-import { ConfigDefinition, ConfigProfile } from "./interfaces";
+import { ConfigDefinition, ConfigProfile } from "./interfaces.js";
 
 const ConfigSchema = av.object({
   BSB_PROFILE: av.optional(av.string()).default("default"),

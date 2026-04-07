@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import {DTrace} from "./metrics";
+import {DTrace} from "./metrics.js";
 
 /**
  * Base interface for service events

@@ -10,8 +10,8 @@ import {
   createReturnableEvent,
   createBroadcastEvent,
   exportEventSchemas,
-} from '../../interfaces/schema-events';
-import { bsb } from '../../interfaces/schema-types';
+} from '../../interfaces/schema-events.js';
+import { bsb } from '../../interfaces/schema-types.js';
 
 describe('schema-events v9', () => {
   describe('createEventSchemas', () => {

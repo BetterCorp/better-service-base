@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBObservable, BSBObservableConstructor, LogFormatter, BSBError, createConfigSchema } from "../../base";
-import { DTrace, LogMeta } from "../../interfaces";
+import { BSBObservable, BSBObservableConstructor, LogFormatter, BSBError, createConfigSchema } from "../../base/index.js";
+import { DTrace, LogMeta } from "../../interfaces/index.js";
 import * as av from "@anyvali/js";
 
 // Console colours for log output

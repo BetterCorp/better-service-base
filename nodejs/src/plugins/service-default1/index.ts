@@ -25,11 +25,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBService, BSBServiceConstructor } from "../../base/BSBService";
-import { ServiceClient, createConfigSchema, bsb, optional } from "../../base";
-import { Observable } from "../../interfaces/observable";
-import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events";
-import { Plugin as Service0, EventSchemas as Service0EventSchemas } from "../service-default0";
+import { BSBService, BSBServiceConstructor } from "../../base/BSBService.js";
+import { ServiceClient, createConfigSchema, bsb, optional } from "../../base/index.js";
+import { Observable } from "../../interfaces/observable.js";
+import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events.js";
+import { Plugin as Service0, EventSchemas as Service0EventSchemas } from "../service-default0/index.js";
 import * as av from "@anyvali/js";
 
 // v9: Config with metadata (no configuration options for this service)

@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { createFakeDTrace, DTrace } from '../interfaces/metrics';
-import { BSBError } from "./errorMessages";
+import { createFakeDTrace, DTrace } from '../interfaces/metrics.js';
+import { BSBError } from "./errorMessages.js";
 import * as av from '@anyvali/js';
 
 /**

@@ -26,10 +26,10 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { DTrace, LogMeta } from "../interfaces";
-import { BaseWithConfig, BaseWithConfigConfig } from "./base";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "./errorMessages";
-import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
+import { DTrace, LogMeta } from "../interfaces/index.js";
+import { BaseWithConfig, BaseWithConfigConfig } from "./base.js";
+import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "./errorMessages.js";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig.js";
 
 export interface BSBObservableConstructor<
   ReferencedConfig extends BSBReferencePluginConfigType = any

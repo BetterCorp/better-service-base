@@ -26,9 +26,9 @@
  */
 
 import * as av from "@anyvali/js";
-import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
-import { Observable } from "../../interfaces";
-import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base/index.js";
+import { Observable } from "../../interfaces/index.js";
+import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events.js";
 
 export const Config = createConfigSchema(
   {

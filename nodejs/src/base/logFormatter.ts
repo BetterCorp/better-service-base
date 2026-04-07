@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace, LogMeta, SafeLogData, UnsafeLogData } from "../interfaces";
-import { Tools } from "./tools";
+import { DTrace, LogMeta, SafeLogData, UnsafeLogData } from "../interfaces/index.js";
+import { Tools } from "./tools.js";
 
 /**
  * Log Formatter

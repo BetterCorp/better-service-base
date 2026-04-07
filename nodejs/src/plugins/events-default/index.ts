@@ -31,10 +31,10 @@ import {
   broadcast,
   emitAndReturn,
   emitStreamAndReceiveStream,
-} from "../../plugins/events-default/events/index";
-import { Observable } from "../../index";
-import { BSBEvents, BSBEventsConstructor } from "../../base/BSBEvents";
-import { createConfigSchema } from "../../base/PluginConfig";
+} from "../../plugins/events-default/events/index.js";
+import { Observable } from "../../index.js";
+import { BSBEvents, BSBEventsConstructor } from "../../base/BSBEvents.js";
+import { createConfigSchema } from "../../base/PluginConfig.js";
 
 export const Config = createConfigSchema(
   {

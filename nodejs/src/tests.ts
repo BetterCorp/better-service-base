@@ -25,4 +25,4 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-//export * from "./tests/sb/plugins/events";
+//export * from "./tests/sb/plugins/events/index.js";

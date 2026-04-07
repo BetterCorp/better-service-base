@@ -27,8 +27,9 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BSBPluginConfig, BSBPluginConfigRef } from "../base";
-import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef, Result, Ok, Err, fromPromise } from "../interfaces";
+import { BSBPluginConfig, BSBPluginConfigRef } from "../base/index.js";
+import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef, Result, Ok, Err, fromPromise, BSBRuntimeMode } from "../interfaces/index.js";
+import { toImportUrl } from "../base/module-runtime.js";
 
 /**
  * @hidden
@@ -59,15 +60,15 @@ export class SBPlugins {
   protected cwd: string;
   protected nodeModulesPluginDir: string;
   protected referencedPluginDir: string | null = null;
-  protected devMode: boolean;
+  protected runtimeMode: BSBRuntimeMode;
 
   private static readonly MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
   private static readonly EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
   private static readonly SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
 
-  constructor(cwd: string, devMode: boolean) {
+  constructor(cwd: string, runtimeMode: BSBRuntimeMode) {
     this.cwd = cwd;
-    this.devMode = devMode;
+    this.runtimeMode = runtimeMode;
     this.nodeModulesPluginDir = join(this.cwd, "./node_modules/");
     const pluginDirEnv = process.env.BSB_PLUGINS_DIR ?? process.env.BSB_PLUGIN_DIR;
     if (
@@ -200,7 +201,7 @@ export class SBPlugins {
       : "1.0.0";
     if (!nodeModulesLib) {
       // If no package is defined in the config, we will not look anywhere else except for the local plugins
-      if (this.devMode) {
+      if (this.runtimeMode === "dev") {
         pluginPath = join(this.cwd, "./src/plugins/" + plugin);
         if (!existsSync(pluginPath)) {
           pluginPath = "";
@@ -295,20 +296,16 @@ export class SBPlugins {
     packageCwd: string,
     version: string
   ): Promise<LoadedPlugin<NamedType, ClassType>> {
-    let pluginFile = join(pluginPath, './index.js');
+    const candidateFiles = this.runtimeMode === "dev"
+      ? [join(pluginPath, "./index.ts"), join(pluginPath, "./index.js")]
+      : [join(pluginPath, "./index.js")];
+    const pluginFile = candidateFiles.find((candidate) => existsSync(candidate));
 
-    if (this.devMode) {
-      const tsPluginFile = join(pluginPath, './index.ts');
-      if (existsSync(tsPluginFile)) {
-        pluginFile = tsPluginFile;
-      }
+    if (!pluginFile) {
+      throw new Error(`Plugin ${ pluginName } not found in ${ pluginPath }`);
     }
 
-    if (!existsSync(pluginFile)) {
-      throw new Error(`Plugin ${ pluginName } not found at ${ pluginFile }`);
-    }
-
-    const pluginExports = await import(pluginFile);
+    const pluginExports = await import(toImportUrl(pluginFile));
 
     if (!pluginExports.Plugin) {
       throw new Error(`Plugin ${ pluginName } does not export a Plugin class`);

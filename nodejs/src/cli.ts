@@ -26,14 +26,17 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ServiceBase } from "./serviceBase/serviceBase";
-import * as path from "path";
+import { spawn } from "node:child_process";
+import * as path from "node:path";
+import { ServiceBase } from "./serviceBase/serviceBase.js";
+import { getModuleDir, toImportUrl } from "./base/module-runtime.js";
 /**
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#cli | API: CLI}
  */
 
 const COMMAND = process.argv[2];
 const SUBCOMMAND = process.argv[3];
+const MODULE_DIR = getModuleDir(import.meta.url);
 
 /**
  * Run the BSB service (default behavior).
@@ -43,7 +46,8 @@ const runApp = async () => {
   const SB = new ServiceBase({
     debug: false,
     live: true,
-    cwd: CWD
+    cwd: CWD,
+    runtimeMode: "prod",
   });
   await SB.init();
   await SB.run();
@@ -55,8 +59,8 @@ const runApp = async () => {
 const exportSchemas = async () => {
   // eslint-disable-next-line no-console
   console.log('\n=== Exporting Event Schemas ===\n');
-  const scriptPath = path.join(__dirname, 'scripts', 'export-schemas');
-  const { exportSchemas: runExport } = require(scriptPath);
+  const scriptPath = path.join(MODULE_DIR, "scripts", "export-schemas.js");
+  const { exportSchemas: runExport } = await import(toImportUrl(scriptPath));
   await runExport();
 };
 
@@ -66,8 +70,8 @@ const exportSchemas = async () => {
 const generateClientTypes = async () => {
   // eslint-disable-next-line no-console
   console.log('\n=== Generating TypeScript Client Types ===\n');
-  const scriptPath = path.join(__dirname, 'scripts', 'generate-client-types');
-  const { generateClientTypes: runGenerate } = require(scriptPath);
+  const scriptPath = path.join(MODULE_DIR, "scripts", "generate-client-types.js");
+  const { generateClientTypes: runGenerate } = await import(toImportUrl(scriptPath));
   await runGenerate();
 };
 
@@ -127,8 +131,7 @@ For more information, visit: https://bsbcode.dev
  * Spawn bsb-client-cli with arguments.
  */
 const spawnClientCli = async (args: string[]) => {
-  const { spawn } = require('child_process');
-  const clientCliPath = path.join(__dirname, 'scripts', 'bsb-client-cli.js');
+  const clientCliPath = path.join(MODULE_DIR, "scripts", "bsb-client-cli.js");
 
   return new Promise<void>((resolve, reject) => {
     const child = spawn('node', [clientCliPath, ...args], {

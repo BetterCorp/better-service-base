@@ -25,9 +25,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-export * from "./base/index";
-export * from "./interfaces/index";
-export * from "./serviceBase/index";
+export * from "./base/index.js";
+export * from "./interfaces/index.js";
+export * from "./serviceBase/index.js";
 /**
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html | API: Module Index}
  */

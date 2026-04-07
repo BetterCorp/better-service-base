@@ -26,10 +26,10 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../interfaces";
-import { BaseWithObservable, BaseWithObservableConfig } from "./base";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
-import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig";
+import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../interfaces/index.js";
+import { BaseWithObservable, BaseWithObservableConfig } from "./base.js";
+import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages.js";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig.js";
 
 /**
  * @hidden

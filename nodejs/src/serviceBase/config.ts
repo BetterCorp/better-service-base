@@ -32,7 +32,7 @@ import {
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
   Tools
-} from "../base";
+} from "../base/index.js";
 import {
   DEBUG_MODE,
   DTrace,
@@ -44,10 +44,10 @@ import {
   PluginType,
   createFakeDTrace,
   Observable,
-} from "../interfaces";
-import { Config as DefaultConfigDefinition, Plugin as DefaultConfig } from "../plugins/config-default/index";
-import { SBObservable } from "./observable";
-import { SBPlugins } from "./plugins";
+} from "../interfaces/index.js";
+import { Config as DefaultConfigDefinition, Plugin as DefaultConfig } from "../plugins/config-default/index.js";
+import { SBObservable } from "./observable.js";
+import { SBPlugins } from "./plugins.js";
 import type { BaseSchema, Infer, SchemaNode } from '@anyvali/js';
 
 type AnySchema = BaseSchema<any, any>;

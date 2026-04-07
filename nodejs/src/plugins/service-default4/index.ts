@@ -25,9 +25,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Observable } from "../../index";
-import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
-import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events";
+import { Observable } from "../../index.js";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base/index.js";
+import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events.js";
 import * as av from "@anyvali/js";
 
 export const Config = createConfigSchema(

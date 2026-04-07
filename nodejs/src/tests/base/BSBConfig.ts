@@ -26,11 +26,11 @@
  */
 
 import { expect } from "chai";
-import { BSBConfig, BSBConfigRef } from "../../base/BSBConfig";
-import { createTestObservable } from "../trace";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "../../base/errorMessages";
-import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../../interfaces";
-import { MockSBObservable } from "../mocks";
+import { BSBConfig, BSBConfigRef } from "../../base/BSBConfig.js";
+import { createTestObservable } from "../trace.js";
+import { BSB_ERROR_METHOD_NOT_IMPLEMENTED, BSBError } from "../../base/errorMessages.js";
+import { Observable, EventsConfig, ObservableConfig, PluginDefinition, PluginType } from "../../interfaces/index.js";
+import { MockSBObservable } from "../mocks.js";
 
 describe("BSBConfig", () => {
   const obs = createTestObservable();

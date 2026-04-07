@@ -26,7 +26,7 @@
  */
 
 // import assert from "assert";
-// import { ErrorMessages } from "../../base/errorMessages";
+// import { ErrorMessages } from "../../base/errorMessages.js";
 
 // describe("ErrorMessages", function () {
 //   describe("Throw errors", async function () {

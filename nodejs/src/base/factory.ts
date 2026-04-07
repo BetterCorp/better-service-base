@@ -27,12 +27,12 @@
 
 import { v7 as randomUUID } from "uuid";
 import { hostname } from "node:os";
-import { BSBOptions, ResolvedBSBOptions, SimpleBSBOptions, BSBPreset, DEBUG_MODE } from "../interfaces";
-import { SBConfig } from "../serviceBase/config";
-import { SBPlugins } from "../serviceBase/plugins";
-import { SBObservable } from "../serviceBase/observable";
-import { SBEvents } from "../serviceBase/events";
-import { SBServices } from "../serviceBase/services";
+import { BSBOptions, ResolvedBSBOptions, SimpleBSBOptions, BSBPreset, DEBUG_MODE, BSBRuntimeMode } from "../interfaces/index.js";
+import { SBConfig } from "../serviceBase/config.js";
+import { SBPlugins } from "../serviceBase/plugins.js";
+import { SBObservable } from "../serviceBase/observable.js";
+import { SBEvents } from "../serviceBase/events.js";
+import { SBServices } from "../serviceBase/services.js";
 
 /**
  * Resolves BSB options with defaults
@@ -50,6 +50,7 @@ export function resolveBSBOptions(options: BSBOptions = {}): ResolvedBSBOptions 
     cwd = process.cwd(),
     appId,
     region,
+    runtimeMode,
     config = SBConfig,
     plugins = SBPlugins,
     observable = SBObservable,
@@ -66,6 +67,8 @@ export function resolveBSBOptions(options: BSBOptions = {}): ResolvedBSBOptions 
   } else {
     mode = "production";
   }
+
+  const resolvedRuntimeMode: BSBRuntimeMode = runtimeMode ?? (live ? "prod" : "dev");
 
   // Generate app ID if not provided
   let resolvedAppId: string;
@@ -94,6 +97,7 @@ export function resolveBSBOptions(options: BSBOptions = {}): ResolvedBSBOptions 
     appId: resolvedAppId,
     region: resolvedRegion,
     mode,
+    runtimeMode: resolvedRuntimeMode,
     config,
     plugins,
     observable,

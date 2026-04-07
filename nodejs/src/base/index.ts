@@ -25,21 +25,21 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-export * from "./base";
-export * from "./PluginConfig";
-export * from "./tools";
-export * from "./errorMessages";
-export * from "./functions";
-export * from "./logFormatter";
-export * from "./PluginEvents";
-export * from "./ObservableBackend";
-export * from "./BSBService";
-export * from "./BSBEvents";
-export * from "./BSBConfig";
-export * from "./BSBObservable";
-export * from "./BSBServiceClient";
-export * from "./factory";
-export * from "./EventValidator";
-export * from "./ResourceContext";
-export * from "./PluginObservable";
-export { bsb, optional } from "../interfaces/schema-types";
+export * from "./base.js";
+export * from "./PluginConfig.js";
+export * from "./tools.js";
+export * from "./errorMessages.js";
+export * from "./functions.js";
+export * from "./logFormatter.js";
+export * from "./PluginEvents.js";
+export * from "./ObservableBackend.js";
+export * from "./BSBService.js";
+export * from "./BSBEvents.js";
+export * from "./BSBConfig.js";
+export * from "./BSBObservable.js";
+export * from "./BSBServiceClient.js";
+export * from "./factory.js";
+export * from "./EventValidator.js";
+export * from "./ResourceContext.js";
+export * from "./PluginObservable.js";
+export { bsb, optional } from "../interfaces/schema-types.js";

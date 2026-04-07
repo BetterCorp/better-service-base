@@ -19,6 +19,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { isMainModule, toImportUrl } from '../base/module-runtime.js';
 
 const CWD = process.cwd();
 
@@ -66,33 +67,6 @@ const CONFIG_METHODS = [
   'getServicePluginDefinition',
   'getPluginConfig',
 ] as const;
-
-function resolveTsNodeRegister(): string | null {
-  const searchRoots = [
-    CWD,
-    __dirname,
-    path.join(CWD, 'node_modules', '@bsb', 'base'),
-    path.join(__dirname, '..', '..'),
-  ];
-
-  for (const root of searchRoots) {
-    try {
-      return require.resolve('ts-node/register/transpile-only', { paths: [root] });
-    } catch {
-      // Try next location
-    }
-  }
-
-  for (const root of searchRoots) {
-    try {
-      return require.resolve('ts-node/register', { paths: [root] });
-    } catch {
-      // Try next location
-    }
-  }
-
-  return null;
-}
 
 /**
  * Detect whether this is a self-build (@bsb/base project) or an external plugin.
@@ -272,11 +246,11 @@ function rewriteBsbImport(identifiers: string[], projectType: 'self' | 'external
   for (const id of schemaIds) {
     let target: string;
     if (id === 'createConfigSchema') {
-      target = '../../base/PluginConfig';
+      target = '../../base/PluginConfig.js';
     } else if (['createEventSchemas', 'createReturnableEvent', 'createFireAndForgetEvent', 'createBroadcastEvent'].includes(id)) {
-      target = '../../interfaces/schema-events';
+      target = '../../interfaces/schema-events.js';
     } else {
-      target = '../../interfaces/schema-types';
+      target = '../../interfaces/schema-types.js';
     }
     if (!byModule[target]) byModule[target] = [];
     byModule[target].push(id);
@@ -467,7 +441,7 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
 
   // Append the extraction footer
   const exportEventSchemasImport = projectType === 'self'
-    ? `import { exportEventSchemas } from "../../interfaces/schema-events";`
+    ? `import { exportEventSchemas } from "../../interfaces/schema-events.js";`
     : `import { exportEventSchemas } from '@bsb/base';`;
 
   outputLines.push('');
@@ -478,8 +452,6 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   outputLines.push(`let _EventSchemas: any;`);
   outputLines.push(`try { _Config = eval('Config'); } catch { _Config = undefined; }`);
   outputLines.push(`try { _EventSchemas = eval('EventSchemas'); } catch { _EventSchemas = undefined; }`);
-  outputLines.push(`if (!_Config && (module as any)?.exports?.Config) { _Config = (module as any).exports.Config; }`);
-  outputLines.push(`if (!_EventSchemas && (module as any)?.exports?.EventSchemas) { _EventSchemas = (module as any).exports.EventSchemas; }`);
   outputLines.push('');
   outputLines.push(`const _pluginName = _Config && _Config.metadata`);
   outputLines.push(`  ? (_Config as any).metadata.name`);
@@ -497,8 +469,8 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   outputLines.push('  if (_Config) {');
   outputLines.push('    const _configInstance = new (_Config as any)("", "", "", "");');
   outputLines.push('    if (_configInstance.validationSchema && typeof _configInstance.validationSchema === "object") {');
-  outputLines.push('      const _zod = require("zod");');
-  outputLines.push('      const _toJSONSchema = _zod.toJSONSchema || (_zod.z && _zod.z.toJSONSchema);');
+  outputLines.push('      const _zod = await import("zod").catch(() => null);');
+  outputLines.push('      const _toJSONSchema = _zod?.toJSONSchema || (_zod?.z && _zod.z.toJSONSchema);');
   outputLines.push('      if (typeof _toJSONSchema === "function") {');
   outputLines.push('        (_schemaResult as any).configSchema = _toJSONSchema(_configInstance.validationSchema);');
   outputLines.push('      }');
@@ -508,7 +480,7 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   outputLines.push('  // Config schema extraction is optional - skip on error');
   outputLines.push('}');
   outputLines.push('');
-  outputLines.push('(module as any).exports.__BSB_SCHEMA_RESULT = _schemaResult;');
+  outputLines.push('export const __BSB_SCHEMA_RESULT = _schemaResult;');
   outputLines.push('');
 
   return outputLines.join('\n');
@@ -576,17 +548,10 @@ function detectClientDependencies(sourceContent: string): Array<{ id: string; ve
 async function main() {
   const projectType = detectProjectType();
   const plugins = discoverPlugins();
-  const tsNodeRegisterPath = resolveTsNodeRegister();
 
   if (plugins.length === 0) {
     // eslint-disable-next-line no-console
     console.log('No plugins found in src/plugins.');
-    return;
-  }
-
-  if (!tsNodeRegisterPath) {
-    // eslint-disable-next-line no-console
-    console.log('Skipping schema extraction: ts-node/register is not available in this project.');
     return;
   }
 
@@ -595,10 +560,6 @@ async function main() {
   if (!fs.existsSync(schemasDir)) {
     fs.mkdirSync(schemasDir, { recursive: true });
   }
-
-  // Register ts-node once so temp TypeScript files can be required in-process.
-  // This avoids spawning child processes (more reliable on restricted Windows environments).
-  require(tsNodeRegisterPath);
 
   let extracted = 0;
   let errors = 0;
@@ -623,9 +584,9 @@ async function main() {
 
       fs.writeFileSync(tempFile, tempSource, 'utf-8');
 
-      // Execute extraction in-process via ts-node/register
-      delete require.cache[require.resolve(tempFile)];
-      const loaded = require(tempFile) as { __BSB_SCHEMA_RESULT?: Record<string, unknown> };
+      const loaded = await import(
+        `${toImportUrl(tempFile)}?t=${Date.now()}`
+      ) as { __BSB_SCHEMA_RESULT?: Record<string, unknown> };
       if (!loaded || !loaded.__BSB_SCHEMA_RESULT || typeof loaded.__BSB_SCHEMA_RESULT !== 'object') {
         throw new Error('Schema extraction did not return a result');
       }
@@ -681,7 +642,7 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (isMainModule(import.meta.url)) {
   main().catch(error => {
     // eslint-disable-next-line no-console
     console.error('Fatal error during schema extraction:', error);

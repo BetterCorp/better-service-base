@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-export { emit } from "./emit";
-export { emitAndReturn } from "./emitAndReturn";
-export { emitStreamAndReceiveStream } from "./emitStreamAndReceiveStream";
-export { broadcast } from "./broadcast";
+export { emit } from "./emit.js";
+export { emitAndReturn } from "./emitAndReturn.js";
+export { emitStreamAndReceiveStream } from "./emitStreamAndReceiveStream.js";
+export { broadcast } from "./broadcast.js";

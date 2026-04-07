@@ -27,10 +27,10 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Readable } from "node:stream";
-import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base";
-import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages";
-import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBReferenceConfigType } from "./PluginConfig";
-import { Observable } from '../interfaces/observable';
+import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base.js";
+import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages.js";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBReferenceConfigType } from "./PluginConfig.js";
+import { Observable } from '../interfaces/observable.js';
 
 export interface BSBEventsConstructor<
     ReferencedConfig extends BSBReferencePluginConfigType = any

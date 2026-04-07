@@ -33,11 +33,11 @@ import {
     EventOutputType,
     Observable,
     IPluginObservable,
-} from "../interfaces";
-import { SBEvents } from "../serviceBase";
-import { BSBService } from "./BSBService";
-import { BSBServiceClient } from "./BSBServiceClient";
-import { EventValidator } from "./EventValidator";
+} from "../interfaces/index.js";
+import { SBEvents } from "../serviceBase/index.js";
+import { BSBService } from "./BSBService.js";
+import { BSBServiceClient } from "./BSBServiceClient.js";
+import { EventValidator } from "./EventValidator.js";
 
 /**
  * Plugin event schema definition.

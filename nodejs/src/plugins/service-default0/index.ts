@@ -25,10 +25,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base/index.js";
 import * as av from "@anyvali/js";
-import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
-import { Observable } from "../../interfaces/observable";
+import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events.js";
+import { Observable } from "../../interfaces/observable.js";
 
 const secSchema = av.object({
   testa: av.number(),

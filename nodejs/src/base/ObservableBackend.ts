@@ -26,7 +26,8 @@
  */
 
 import { v7 as uuidv7 } from "uuid";
-import { Tools } from './tools';
+import { randomFillSync } from "node:crypto";
+import { Tools } from './tools.js';
 import {
   Counter,
   createFakeDTrace,
@@ -38,9 +39,9 @@ import {
   Span,
   Timer,
   Trace
-} from "../interfaces";
-import { BSBError } from "./errorMessages";
-import { MS_PER_NS, NS_PER_SEC } from "./base";
+} from "../interfaces/index.js";
+import { BSBError } from "./errorMessages.js";
+import { MS_PER_NS, NS_PER_SEC } from "./base.js";
 
 /**
  * Generate OpenTelemetry-compliant trace ID (32 hex chars lowercase)
@@ -61,9 +62,7 @@ function generateSpanId(): string {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(bytes);
   } else {
-    // Fallback for environments without crypto.getRandomValues
-    const nodeCrypto = require('crypto');
-    nodeCrypto.randomFillSync(bytes);
+    randomFillSync(bytes);
   }
   return Array.from(bytes)
     .map(b => b.toString(16).padStart(2, '0'))

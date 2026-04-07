@@ -1,7 +1,7 @@
 import { describe, it } from 'mocha';
 import * as assert from 'assert';
 import * as av from '@anyvali/js';
-import { createConfigSchema, BSBPluginConfig } from '../../base/PluginConfig';
+import { createConfigSchema, BSBPluginConfig } from '../../base/PluginConfig.js';
 
 describe('PluginConfig', () => {
   it('creates a config class with metadata and schema', () => {

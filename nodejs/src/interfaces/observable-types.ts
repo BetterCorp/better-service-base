@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { PluginDefinition, FilterDetailed } from "./plugins";
+import { PluginDefinition, FilterDetailed } from "./plugins.js";
 
 /**
  * Observable event types - unified logging, metrics, and tracing events

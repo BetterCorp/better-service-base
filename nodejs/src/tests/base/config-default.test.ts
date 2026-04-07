@@ -3,9 +3,9 @@ import * as assert from "assert";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { Plugin as DefaultConfigPlugin } from "../../plugins/config-default/index";
-import { createTestObservable } from "../trace";
-import { MockSBObservable } from "../mocks";
+import { Plugin as DefaultConfigPlugin } from "../../plugins/config-default/index.js";
+import { createTestObservable } from "../trace.js";
+import { MockSBObservable } from "../mocks.js";
 
 describe("config-default plugin", () => {
   const tempDirs: string[] = [];

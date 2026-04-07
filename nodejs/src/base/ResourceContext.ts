@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { MainBaseConfig } from "./base";
+import { MainBaseConfig } from "./base.js";
 
 /**
  * Resource context following OpenTelemetry semantic conventions

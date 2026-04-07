@@ -25,10 +25,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DEBUG_MODE, IPluginObservable, Observable } from "../interfaces";
-import { SBObservable } from "../serviceBase";
-import { BSBReferenceConfigType } from "./PluginConfig";
-import { ObservableBackend } from "./ObservableBackend";
+import { DEBUG_MODE, IPluginObservable, Observable } from "../interfaces/index.js";
+import { SBObservable } from "../serviceBase/index.js";
+import { BSBReferenceConfigType } from "./PluginConfig.js";
+import { ObservableBackend } from "./ObservableBackend.js";
 
 /**
  * Main base config

@@ -35,7 +35,7 @@
 //   PluginLogger,
 //   DEBUG_MODE,
 //   SBLogging, MainBaseConfig, BaseWithConfigConfig,
-// } from "../../index";
+// } from "../../index.js";
 // import {z} from "zod";
 // import {expect} from "chai";
 //

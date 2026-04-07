@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// import { PluginEvents, BSBService } from '../../base';
-// import { SBEvents } from '../../serviceBase';
+// import { PluginEvents, BSBService } from '../../base/index.js';
+// import { SBEvents } from '../../serviceBase/index.js';
 
 
 // describe('PluginEvents', () => {

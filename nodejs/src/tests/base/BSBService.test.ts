@@ -1,9 +1,9 @@
 import { describe, it } from 'mocha';
 import * as assert from 'assert';
 import * as av from '@anyvali/js';
-import { BSBService } from '../../base/BSBService';
-import { createConfigSchema } from '../../base/PluginConfig';
-import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent } from '../../interfaces/schema-events';
+import { BSBService } from '../../base/BSBService.js';
+import { createConfigSchema } from '../../base/PluginConfig.js';
+import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent } from '../../interfaces/schema-events.js';
 
 describe('BSBService', () => {
   const Config = createConfigSchema(

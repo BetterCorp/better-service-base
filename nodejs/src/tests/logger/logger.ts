@@ -26,8 +26,8 @@
  */
 
 // import assert from "assert";
-// import { LoggerBase } from "../../../src/logger/logger";
-// import { ErrorMessages } from "../../base/errorMessages";
+// import { LoggerBase } from "../../../src/logger/logger.js";
+// import { ErrorMessages } from "../../base/errorMessages.js";
 
 // describe("LoggerBase", function () {
 //   describe("Default methods", function () {

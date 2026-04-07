@@ -25,12 +25,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DEBUG_MODE, SBConfig, DTrace, SBEvents, SBPlugins, BSBEventsConstructor, ObservableBackend, BSBObservableConstructor } from "../index";
+import { DEBUG_MODE, SBConfig, DTrace, SBEvents, SBPlugins, BSBEventsConstructor, ObservableBackend, BSBObservableConstructor } from "../index.js";
 import { EventEmitter } from 'events';
-import { SBObservable } from '../serviceBase/observable';
-import { Observable } from '../interfaces/observable';
-import { BSBError } from '../base/errorMessages';
-import { LogMeta } from '../interfaces/logging';
+import { SBObservable } from '../serviceBase/observable.js';
+import { Observable } from '../interfaces/observable.js';
+import { BSBError } from '../base/errorMessages.js';
+import { LogMeta } from '../interfaces/logging.js';
 
 export const MockSBObservable = (): SBObservable => {
   const observableBus = new EventEmitter();

@@ -34,8 +34,8 @@ import {
   BSBPluginConfig,
   BSBService,
   BSBServiceRef,
-} from "../base";
-import {EventsEventTypes} from "./events";
+} from "../base/index.js";
+import {EventsEventTypes} from "./events.js";
 
 /**
  * @hidden

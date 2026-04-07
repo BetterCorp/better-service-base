@@ -1,8 +1,8 @@
 import { describe, it } from "mocha";
 import * as assert from "assert";
 import * as av from "@anyvali/js";
-import { SBServices } from "../../serviceBase/services";
-import { MockSBEvents, MockSBObservable } from "../mocks";
+import { SBServices } from "../../serviceBase/services.js";
+import { MockSBEvents, MockSBObservable } from "../mocks.js";
 
 describe("SBServices", () => {
   class TestServicePlugin {

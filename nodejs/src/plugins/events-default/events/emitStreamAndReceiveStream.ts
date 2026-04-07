@@ -28,7 +28,7 @@
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import { randomUUID } from "node:crypto";
-import { BSBError, Observable, IPluginLogging } from "../../../index";
+import { BSBError, Observable, IPluginLogging } from "../../../index.js";
 
 export class emitStreamAndReceiveStream
   extends EventEmitter {

@@ -13,9 +13,10 @@
  *   bsb-plugin-cli clean   - Remove build artifacts
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { execSync, execFileSync, spawn } from 'child_process';
+import { execSync, execFileSync, spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { getModuleDir, toImportUrl } from '../base/module-runtime.js';
 
 interface PluginInfo {
   name: string;
@@ -56,6 +57,7 @@ function info(message: string): void {
 // Get the current working directory (plugin root)
 const CWD = process.cwd();
 const COMMAND = process.argv[2];
+const MODULE_DIR = getModuleDir(import.meta.url);
 
 // Detect plugin structure
 function detectPluginStructure(): PluginInfo[] {
@@ -168,8 +170,7 @@ function copyPluginAssets(plugin: PluginInfo): void {
 async function extractSchemasFromSource(): Promise<void> {
   try {
     const runExtractorModule = async (scriptPath: string): Promise<void> => {
-      delete require.cache[require.resolve(scriptPath)];
-      const mod = require(scriptPath);
+      const mod = await import(`${toImportUrl(scriptPath)}?t=${Date.now()}`);
       const run = mod.extractSchemasFromSource || mod.main || mod.default;
       if (typeof run !== 'function') {
         throw new Error(`Extractor entry function not found: ${scriptPath}`);
@@ -186,8 +187,8 @@ async function extractSchemasFromSource(): Promise<void> {
       success('Extracted schemas from TypeScript source');
     } else {
       // Fallback: use local compiled version or ts-node
-      const localCompiledPath = path.join(__dirname, 'extract-schemas-from-source.js');
-      const localTsPath = path.join(__dirname, 'extract-schemas-from-source.ts');
+      const localCompiledPath = path.join(MODULE_DIR, 'extract-schemas-from-source.js');
+      const localTsPath = path.join(MODULE_DIR, 'extract-schemas-from-source.ts');
 
       if (fs.existsSync(localCompiledPath)) {
         info('Extracting schemas from TypeScript source');
@@ -197,7 +198,7 @@ async function extractSchemasFromSource(): Promise<void> {
         info('Extracting schemas from TypeScript source');
         execFileSync(
           process.execPath,
-          ['-r', 'ts-node/register', localTsPath],
+          ['--import', 'tsx', localTsPath],
           { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] }
         );
         success('Extracted schemas from TypeScript source');
@@ -233,7 +234,7 @@ function copySchemasToLib(): void {
 }
 
 // Generate plugin metadata JSON
-function generatePluginJson(plugin: PluginInfo): void {
+async function generatePluginJson(plugin: PluginInfo): Promise<void> {
   try {
     // Try to load the compiled plugin
     const pluginPath = path.join(plugin.destDir, 'index.js');
@@ -242,8 +243,7 @@ function generatePluginJson(plugin: PluginInfo): void {
     }
 
     // Clear require cache to get fresh module
-    delete require.cache[require.resolve(pluginPath)];
-    const pluginModule = require(pluginPath);
+    const pluginModule = await import(`${toImportUrl(pluginPath)}?t=${Date.now()}`);
 
     // Check if plugin has Config with metadata
     if (!pluginModule.Config || !pluginModule.Config.metadata) {
@@ -337,14 +337,14 @@ function generateVirtualClients(): void {
       success('Generated virtual client types');
     } else {
       // Fallback: use local compiled version or ts-node
-      const localCompiledPath = path.join(__dirname, 'generate-client-types.js');
-      const localTsPath = path.join(__dirname, 'generate-client-types.ts');
+      const localCompiledPath = path.join(MODULE_DIR, 'generate-client-types.js');
+      const localTsPath = path.join(MODULE_DIR, 'generate-client-types.ts');
 
       if (fs.existsSync(localCompiledPath)) {
         execSync(`node "${localCompiledPath}"`, { cwd: CWD, stdio: 'pipe' });
         success('Generated virtual client types');
       } else if (fs.existsSync(localTsPath)) {
-        execSync(`node -r ts-node/register "${localTsPath}"`, { cwd: CWD, stdio: 'pipe' });
+        execSync(`node --import tsx "${localTsPath}"`, { cwd: CWD, stdio: 'pipe' });
         success('Generated virtual client types');
       }
     }
@@ -534,7 +534,7 @@ async function build(): Promise<void> {
 
   // Step 8: Generate per-plugin metadata JSON (needs compiled JS for Config.metadata)
   for (const plugin of plugins) {
-    generatePluginJson(plugin);
+    await generatePluginJson(plugin);
   }
 
   // Step 9: Generate root bsb-plugin.json (aggregates all per-plugin metadata)

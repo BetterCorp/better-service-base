@@ -25,10 +25,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-export * from "./config";
-export * from "./events";
-export * from "../base/functions";
-export * from "./observable";
-export * from "./plugins";
-export * from "./serviceBase";
-export * from "./services";
+export * from "./config.js";
+export * from "./events.js";
+export * from "../base/functions.js";
+export * from "./observable.js";
+export * from "./plugins.js";
+export * from "./serviceBase.js";
+export * from "./services.js";

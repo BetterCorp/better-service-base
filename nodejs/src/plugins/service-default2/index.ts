@@ -25,11 +25,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Observable, ServiceClient } from "../../index";
-import { BSBService, BSBServiceConstructor, createConfigSchema, bsb, optional } from "../../base";
-import { Plugin as Service1, EventSchemas as Service1EventSchemas } from "../service-default1";
-import { Plugin as Service3, EventSchemas as Service3EventSchemas } from "../service-default3";
-import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events";
+import { Observable, ServiceClient } from "../../index.js";
+import { BSBService, BSBServiceConstructor, createConfigSchema, bsb, optional } from "../../base/index.js";
+import { Plugin as Service1, EventSchemas as Service1EventSchemas } from "../service-default1/index.js";
+import { Plugin as Service3, EventSchemas as Service3EventSchemas } from "../service-default3/index.js";
+import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events.js";
 import * as av from "@anyvali/js";
 
 export const Config = createConfigSchema(

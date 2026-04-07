@@ -25,10 +25,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace } from './metrics';
-import { SmartLogMeta } from './logging';
-import { Counter, Gauge, Histogram, Timer } from './metrics';
-import { ResourceContext } from '../base/ResourceContext';
+import { DTrace } from './metrics.js';
+import { SmartLogMeta } from './logging.js';
+import { Counter, Gauge, Histogram, Timer } from './metrics.js';
+import { ResourceContext } from '../base/ResourceContext.js';
 
 /**
  * Observable context for unified observability across logging, metrics, and tracing.

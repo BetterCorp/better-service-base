@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { AnyValiDocument, BSBType, InferBSBType } from './schema-types';
+import { AnyValiDocument, BSBType, InferBSBType, bsbToJsonSchema } from './schema-types.js';
 
 /**
  * Schema definition for a returnable event with input/output validation.
@@ -510,7 +510,6 @@ export function exportEventSchemas(
       }
 
       // Convert BSBType input schema to JSON Schema
-      const { bsbToJsonSchema } = require('./schema-types');
       const inputSchema = bsbToJsonSchema(eventDef.input) as JSONSchemaType;
 
       // Convert output schema (if returnable)

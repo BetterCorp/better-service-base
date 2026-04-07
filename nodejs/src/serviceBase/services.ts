@@ -33,12 +33,12 @@ import {
   SmartFunctionCallSync, Tools,
   ResourceContextBuilder,
   PluginObservable,
-} from "../base";
-import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginDefinition, IPluginObservable, LoadedPlugin, Observable } from "../interfaces";
-import { SBConfig } from "./config";
-import { SBEvents } from "./events";
-import { SBObservable } from "./observable";
-import { SBPlugins } from "./plugins";
+} from "../base/index.js";
+import { createFakeDTrace, DEBUG_MODE, DTrace, IPluginDefinition, IPluginObservable, LoadedPlugin, Observable } from "../interfaces/index.js";
+import { SBConfig } from "./config.js";
+import { SBEvents } from "./events.js";
+import { SBObservable } from "./observable.js";
+import { SBPlugins } from "./plugins.js";
 
 /**
  * @hidden
@@ -389,10 +389,12 @@ export class SBServices {
     ) {
       this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
       const schema = newPlugin.data.serviceConfig.validationSchema as {
-        export: (mode?: 'portable' | 'extended') => { root: { kind: string } };
+        export?: (mode?: 'portable' | 'extended') => { root: { kind: string } };
         parse: (input: unknown) => unknown;
       };
-      const rootKind = schema.export('extended').root.kind;
+      const rootKind = typeof schema.export === "function"
+        ? schema.export("extended").root.kind
+        : undefined;
       pluginConfig =
         schema.parse(pluginConfig ?? (rootKind === 'object' ? {} : undefined)) as object | null;
     }

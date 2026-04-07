@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBError } from "../base";
-import { IPluginLogging } from "./logging";
+import { BSBError } from "../base/index.js";
+import { IPluginLogging } from "./logging.js";
 
 /**
  * @group Observable

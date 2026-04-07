@@ -25,9 +25,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBServiceClient } from "../..";
-import { Plugin } from ".";
-import { Observable } from "../../interfaces";
+import { BSBServiceClient } from "../../index.js";
+import { Plugin } from "./index.js";
+import { Observable } from "../../interfaces/index.js";
 
 export class testClient extends BSBServiceClient<Plugin> {
   public initBeforePlugins?: string[] | undefined;

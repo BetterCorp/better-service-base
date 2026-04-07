@@ -13,6 +13,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { getModuleDir, isMainModule, toImportUrl } from '../base/module-runtime.js';
 
 type PluginType = 'service' | 'observable' | 'events' | 'config' | 'unknown';
 
@@ -117,7 +118,7 @@ function readPackageVersion(projectRoot: string): string {
  * Main export function.
  */
 async function main() {
-  const projectRoot = path.resolve(__dirname, '..', '..');
+  const projectRoot = path.resolve(getModuleDir(import.meta.url), '..', '..');
   const libDir = path.join(projectRoot, 'lib');
   const schemasDir = path.join(libDir, 'schemas');
 
@@ -157,7 +158,7 @@ async function main() {
       const pluginId = path.basename(path.dirname(pluginPath));
 
       // Import the plugin module
-      const pluginModule = await import(pluginPath);
+      const pluginModule = await import(toImportUrl(pluginPath));
 
       // Look for Plugin export
       if (!pluginModule.Plugin) {
@@ -223,7 +224,7 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (isMainModule(import.meta.url)) {
   main().catch(error => {
     // eslint-disable-next-line no-console
     console.error('Fatal error during schema export:', error);

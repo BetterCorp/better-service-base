@@ -26,7 +26,7 @@
  */
 
 import { EventEmitter } from "node:events";
-import { BSBObservable, ObservableBackend, SmartFunctionCallAsync, BSBError } from "../base";
+import { BSBObservable, ObservableBackend, SmartFunctionCallAsync, BSBError } from "../base/index.js";
 import {
   DEBUG_MODE,
   FilterOnType,
@@ -34,11 +34,11 @@ import {
   ObservableEventTypes,
   ObservableFilter,
   LogMeta,
-} from "../interfaces";
-import { createFakeDTrace, DTrace } from "../interfaces/metrics";
-import { SBConfig } from "./config";
-import { SBPlugins } from "./plugins";
-import { Plugin as DefaultObservable } from "../plugins/observable-default/index";
+} from "../interfaces/index.js";
+import { createFakeDTrace, DTrace } from "../interfaces/metrics.js";
+import { SBConfig } from "./config.js";
+import { SBPlugins } from "./plugins.js";
+import { Plugin as DefaultObservable } from "../plugins/observable-default/index.js";
 
 /**
  * @hidden

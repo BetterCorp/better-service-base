@@ -29,7 +29,7 @@ import {
   ObservableConfig,
   EventsConfig,
   PluginDefinition as ServiceConfig,
-} from "../../index";
+} from "../../index.js";
 
 export interface DeploymentProfile {
   /**

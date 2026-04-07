@@ -29,14 +29,14 @@ import {
   BSBError,
   BSBService, MS_PER_NS, NS_PER_SEC,
   ObservableBackend, ResourceContextBuilder, PluginObservable,
-} from "../base";
-import { resolveBSBOptions, fromSimpleOptions, fromPreset } from "../base/factory";
-import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, LogMeta, PluginTypeDefinitionRef, BSBOptions, SimpleBSBOptions, BSBPreset, Observable } from "../interfaces";
-import { SBConfig } from "./config";
-import { SBEvents } from "./events";
-import { SBObservable } from "./observable";
-import { SBPlugins } from "./plugins";
-import { SBServices } from "./services";
+} from "../base/index.js";
+import { resolveBSBOptions, fromSimpleOptions, fromPreset } from "../base/factory.js";
+import { Counter, createFakeDTrace, DEBUG_MODE, DTrace, Gauge, LogMeta, PluginTypeDefinitionRef, BSBOptions, SimpleBSBOptions, BSBPreset, Observable } from "../interfaces/index.js";
+import { SBConfig } from "./config.js";
+import { SBEvents } from "./events.js";
+import { SBObservable } from "./observable.js";
+import { SBPlugins } from "./plugins.js";
+import { SBServices } from "./services.js";
 
 /**
  * @hidden
@@ -288,7 +288,7 @@ export class ServiceBase {
     this._startKeep(BOOT_STAT_KEYS.SELF);
 
     // Initialize subsystems with resolved dependencies
-    this.plugins = new resolvedOptions.plugins(this.cwd, this.mode === "development");
+    this.plugins = new resolvedOptions.plugins(this.cwd, resolvedOptions.runtimeMode);
     this.observable = new resolvedOptions.observable(this._appId, this.mode, this.cwd, this.plugins);
 
     // Initialize unified observable backend BEFORE config and events

@@ -19,10 +19,12 @@
  *   BSB_REGISTRY_TOKEN  - API token for authentication
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as https from 'https';
-import * as http from 'http';
+import { execSync } from "node:child_process";
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as https from 'node:https';
+import * as http from 'node:http';
+import { getModuleDir } from '../base/module-runtime.js';
 
 type ColorName = 'reset' | 'bright' | 'red' | 'green' | 'yellow' | 'blue' | 'cyan';
 
@@ -65,6 +67,7 @@ const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
 
 const COMMAND = process.argv[2];
 const ARGS = process.argv.slice(3);
+const MODULE_DIR = getModuleDir(import.meta.url);
 
 /**
  * Parse a plugin ID into org and name.
@@ -701,9 +704,8 @@ async function installPlugin(pluginId: string): Promise<void> {
     success(`Downloaded schema for ${display}`);
 
     // Generate virtual client by calling the generator
-    const generatorPath = path.join(__dirname, 'generate-client-types.js');
+    const generatorPath = path.join(MODULE_DIR, 'generate-client-types.js');
     if (fs.existsSync(generatorPath)) {
-      const { execSync } = require('child_process');
       try {
         execSync(`node "${generatorPath}"`, {
           cwd: process.cwd(),
@@ -718,7 +720,7 @@ async function installPlugin(pluginId: string): Promise<void> {
     log('');
     success(`Plugin ${display} @ ${plugin.version} installed`);
     log(`  Schema: ${schemaFile}`, 'reset');
-    log(`  Import: import ${pluginNameToClassName(name)} from './.bsb/clients/${name}'`, 'reset');
+    log(`  Import: import ${pluginNameToClassName(name)} from './.bsb/clients/${name}.js'`, 'reset');
   } catch (err: any) {
     error(`Failed to install plugin: ${err.message}`);
   }

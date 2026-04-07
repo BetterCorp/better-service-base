@@ -25,10 +25,10 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { DTrace, IPluginObservable } from '../interfaces';
-import { Observable } from '../interfaces/observable';
-import { PluginObservable } from '../base/PluginObservable';
-import { ResourceContext } from '../base/ResourceContext';
+import { DTrace, IPluginObservable } from '../interfaces/index.js';
+import { Observable } from '../interfaces/observable.js';
+import { PluginObservable } from '../base/PluginObservable.js';
+import { ResourceContext } from '../base/ResourceContext.js';
 
 /**
  * @hidden

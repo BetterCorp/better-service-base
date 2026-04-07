@@ -25,12 +25,14 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { DEBUG_MODE } from "./logging";
-import type { SBConfig } from "../serviceBase/config";
-import type { SBPlugins } from "../serviceBase/plugins";
-import type { SBObservable } from "../serviceBase/observable";
-import type { SBEvents } from "../serviceBase/events";
-import type { SBServices } from "../serviceBase/services";
+import type { DEBUG_MODE } from "./logging.js";
+import type { SBConfig } from "../serviceBase/config.js";
+import type { SBPlugins } from "../serviceBase/plugins.js";
+import type { SBObservable } from "../serviceBase/observable.js";
+import type { SBEvents } from "../serviceBase/events.js";
+import type { SBServices } from "../serviceBase/services.js";
+
+export type BSBRuntimeMode = "dev" | "prod";
 
 /**
  * Configuration options for ServiceBase constructor
@@ -69,6 +71,14 @@ export interface BSBOptions {
    * @default undefined (resolved from BSB_REGION env var)
    */
   region?: string;
+
+  /**
+   * Runtime mode controls how plugins are resolved.
+   * - `prod`: compiled JavaScript only
+   * - `dev`: prefer TypeScript, then fall back to JavaScript
+   * @default derived from `live`
+   */
+  runtimeMode?: BSBRuntimeMode;
 
   /**
    * Override default configuration handler
@@ -115,6 +125,7 @@ export interface ResolvedBSBOptions {
   appId: string;
   region?: string;
   mode: DEBUG_MODE;
+  runtimeMode: BSBRuntimeMode;
   config: typeof SBConfig;
   plugins: typeof SBPlugins;
   observable: typeof SBObservable;

@@ -25,8 +25,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { createFakeDTrace, DTrace, LogMeta, ParamsFromString } from "../interfaces";
-import { LogFormatter } from "./logFormatter";
+import { createFakeDTrace, DTrace, LogMeta, ParamsFromString } from "../interfaces/index.js";
+import { LogFormatter } from "./logFormatter.js";
 
 /**
  * @hidden

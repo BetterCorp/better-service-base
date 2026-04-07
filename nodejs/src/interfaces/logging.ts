@@ -25,9 +25,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { BSBError } from "../base";
-import { ParamsFromString } from "./tools";
-import { DTrace } from "./metrics";
+import { BSBError } from "../base/index.js";
+import { ParamsFromString } from "./tools.js";
+import { DTrace } from "./metrics.js";
 
 /**
  * The debug mode of the app

@@ -3,7 +3,8 @@
     "lib": [
       "ES2022"
     ],
-    "module": "CommonJS",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "target": "ES2022",
     "baseUrl": ".",
     "paths": {
@@ -23,7 +24,7 @@
     "declaration": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "esModuleInterop": false,
+    "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
@@ -35,7 +36,8 @@
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src",
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules/**",

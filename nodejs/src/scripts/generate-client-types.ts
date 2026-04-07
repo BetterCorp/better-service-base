@@ -6,7 +6,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { EventSchemaExport, EventExportDefinition } from '../interfaces/schema-events';
+import { EventSchemaExport, EventExportDefinition } from '../interfaces/schema-events.js';
+import { isMainModule } from '../base/module-runtime.js';
 
 function anyValiDocumentToCode(document: unknown): string {
   return `av.importSchema(${JSON.stringify(document)} as av.AnyValiDocument)`;
@@ -60,9 +61,9 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
     lines.push('import { ServiceClient, BSBService, createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "@bsb/base";');
     lines.push('import type { Observable, BSBServiceClientDefinition, EventInputType, EventOutputType } from "@bsb/base";');
   } else {
-    lines.push('import { ServiceClient, BSBService } from "../../index";');
-    lines.push('import { createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events";');
-    lines.push('import type { Observable, BSBServiceClientDefinition, EventInputType, EventOutputType } from "../../index";');
+    lines.push('import { ServiceClient, BSBService } from "../../index.js";');
+    lines.push('import { createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events.js";');
+    lines.push('import type { Observable, BSBServiceClientDefinition, EventInputType, EventOutputType } from "../../index.js";');
   }
   lines.push('');
 
@@ -382,7 +383,7 @@ async function main() {
   }
 }
 
-if (require.main === module) {
+if (isMainModule(import.meta.url)) {
   main().catch((error) => {
     // eslint-disable-next-line no-console
     console.error('Fatal error during client generation:', error);

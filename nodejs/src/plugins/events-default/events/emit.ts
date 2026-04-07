@@ -26,7 +26,7 @@
  */
 
 import { EventEmitter } from "node:events";
-import { Observable, IPluginLogging } from "../../../index";
+import { Observable, IPluginLogging } from "../../../index.js";
 import { randomUUID } from "node:crypto";
 
 export class emit

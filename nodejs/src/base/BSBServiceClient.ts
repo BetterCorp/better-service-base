@@ -31,11 +31,11 @@ import {
   BSBEventSchemas,
   Observable,
   ServiceClientEventSchemas,
-} from "../interfaces";
-import { BSBService, BSBServiceClientDefinition } from "./BSBService";
-import { BSBError } from "./errorMessages";
-import { PluginEvents } from "./PluginEvents";
-import { Tools } from "./tools";
+} from "../interfaces/index.js";
+import { BSBService, BSBServiceClientDefinition } from "./BSBService.js";
+import { BSBError } from "./errorMessages.js";
+import { PluginEvents } from "./PluginEvents.js";
+import { Tools } from "./tools.js";
 
 /**
  * @hidden
@@ -100,7 +100,7 @@ export abstract class BSBServiceClient<
  * ```typescript
  * // Example Service Plugin (just an example, not a real plugin):
  * 
- * import { Plugin as Service1 } from "./myplugin";
+ * import { Plugin as Service1 } from "./myplugin.js";
  * 
  * export class Plugin
  * extends BSBService<null, Events> {

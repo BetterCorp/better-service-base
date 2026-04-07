@@ -26,7 +26,7 @@
  */
 
 import { EventEmitter } from "node:events";
-import { BSBError, Observable, IPluginLogging } from "../../../index";
+import { BSBError, Observable, IPluginLogging } from "../../../index.js";
 
 export class emitAndReturn
   extends EventEmitter {

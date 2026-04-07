@@ -33,7 +33,7 @@ import {
   SmartFunctionCallAsync,
   SmartFunctionCallSync,
   Tools,
-} from "../base";
+} from "../base/index.js";
 import {
   createFakeDTrace,
   DEBUG_MODE, DTrace,
@@ -43,13 +43,13 @@ import {
   Gauge, IPluginDefinition,
   IPluginObservable, LoadedPlugin,
   Observable,
-} from "../interfaces";
-import { Plugin as DefaultEvents } from "../plugins/events-default/index";
-import { SBConfig } from "./config";
-import { SBObservable } from "./observable";
-import { SBPlugins } from "./plugins";
-import { Counter } from "../interfaces";
-import { MS_PER_NS, NS_PER_SEC } from "../base/base";
+} from "../interfaces/index.js";
+import { Plugin as DefaultEvents } from "../plugins/events-default/index.js";
+import { SBConfig } from "./config.js";
+import { SBObservable } from "./observable.js";
+import { SBPlugins } from "./plugins.js";
+import { Counter } from "../interfaces/index.js";
+import { MS_PER_NS, NS_PER_SEC } from "../base/base.js";
 
 /**
  * @hidden

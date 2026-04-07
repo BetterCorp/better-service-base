@@ -1,6 +1,7 @@
 {
   "name": "@bsb/base",
   "version": "9.1.0",
+  "type": "module",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
@@ -33,19 +34,19 @@
   },
   "scripts": {
     "generate-docs": "typedoc --json ./docs.json --tsconfig ./tsconfig-release.json  --cacheBust src/index.ts",
-    "dev": "ts-node src/dev.ts",
+    "dev": "node --import tsx src/dev.ts",
     "start": "node lib/cli.js",
-    "tsc": "echo 'cleaning...' && rm -rf ./lib && echo 'building...' && tsc && echo 'done'",
+    "tsc": "echo 'cleaning...' && rimraf ./lib && echo 'building...' && tsc && echo 'done'",
     "build": "rimraf ./lib && tsc && npm run testDev && npm run generate-docs && npm run export-schemas && npm run generate-plugin-json",
     "build-release": "rimraf ./lib && tsc --p ./tsconfig-release.json && npm run export-schemas && npm run generate-plugin-json",
-    "export-schemas": "node -r ts-node/register src/scripts/export-schemas.ts",
-    "generate-client-types": "node -r ts-node/register src/scripts/generate-client-types.ts",
-    "generate-plugin-json": "node -r ts-node/register src/scripts/generate-plugin-json.ts",
+    "export-schemas": "node --import tsx src/scripts/export-schemas.ts",
+    "generate-client-types": "node --import tsx src/scripts/generate-client-types.ts",
+    "generate-plugin-json": "node --import tsx src/scripts/generate-plugin-json.ts",
     "publish:client": "node lib/cli.js client publish",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
-    "test": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc --reporter json --reporter lcov mocha --reporter json --reporter-options output=junit.json",
-    "testDev": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc mocha",
-    "test:watch": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= mocha --watch --watch-files src"
+    "test": "cross-env NODE_OPTIONS= nyc --reporter json --reporter lcov node --import tsx ./node_modules/mocha/bin/mocha.js --reporter json --reporter-options output=junit.json",
+    "testDev": "cross-env NODE_OPTIONS= nyc node --import tsx ./node_modules/mocha/bin/mocha.js",
+    "test:watch": "node --import tsx ./node_modules/mocha/bin/mocha.js --watch --watch-files src"
   },
   "bin": {
     "bsb": "lib/cli.js",
@@ -60,6 +61,11 @@
     "LICENSE.commercial"
   ],
   "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./dev": "./lib/dev.js",
+    "./package.json": "./package.json"
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/assert": "^1.5.10",
@@ -80,6 +86,7 @@
     "rimraf": "^6.1.2",
     "ts-morph": "^27.0.2",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typedoc": "^0.28.16",
     "typescript": "^5.9.3"
   },
