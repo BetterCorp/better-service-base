@@ -314,6 +314,56 @@ function isLocalRelativeImport(source: string): boolean {
   return source.startsWith('./') || source.startsWith('../');
 }
 
+function toImportPath(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
+}
+
+function resolveLocalImportSource(baseDir: string, source: string): string {
+  if (!isLocalRelativeImport(source)) {
+    return source;
+  }
+
+  if (/\.(?:js|mjs|cjs)$/.test(source)) {
+    const resolvedFile = path.resolve(baseDir, source);
+    const extensionVariants = [
+      resolvedFile.replace(/\.(?:js|mjs|cjs)$/i, '.ts'),
+      resolvedFile.replace(/\.(?:js|mjs|cjs)$/i, '.tsx'),
+    ];
+    const sourceVariant = extensionVariants.find((candidate) => fs.existsSync(candidate));
+    if (sourceVariant) {
+      const relative = path.relative(baseDir, sourceVariant);
+      const normalized = toImportPath(relative);
+      return normalized.startsWith('.') ? normalized : `./${normalized}`;
+    }
+    return source;
+  }
+
+  if (/\.(?:ts|tsx|json|node)$/.test(source)) {
+    return source;
+  }
+
+  const resolvedBase = path.resolve(baseDir, source);
+  const candidates = [
+    `${resolvedBase}.ts`,
+    `${resolvedBase}.tsx`,
+    `${resolvedBase}.js`,
+    `${resolvedBase}.mjs`,
+    path.join(resolvedBase, 'index.ts'),
+    path.join(resolvedBase, 'index.tsx'),
+    path.join(resolvedBase, 'index.js'),
+    path.join(resolvedBase, 'index.mjs'),
+  ];
+
+  const matched = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!matched) {
+    return source;
+  }
+
+  const relative = path.relative(baseDir, matched);
+  const normalized = toImportPath(relative);
+  return normalized.startsWith('.') ? normalized : `./${normalized}`;
+}
+
 /**
  * Check if an import source is a BSB base import.
  */
@@ -337,7 +387,12 @@ function isSchemaModuleImport(source: string): boolean {
  * Extract schema-relevant source code from a plugin's index.ts.
  * Truncates at the class declaration and rewrites imports.
  */
-function extractSchemaSource(sourceContent: string, pluginDirName: string, projectType: 'self' | 'external'): string {
+function extractSchemaSource(
+  sourceContent: string,
+  pluginDirName: string,
+  projectType: 'self' | 'external',
+  sourceDir: string,
+): string {
   // Normalize multiline imports into single lines before processing
   const lines = normalizeMultilineImports(sourceContent.split('\n'));
 
@@ -356,7 +411,8 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   // Pass 2: filter local ./ imports by checking if their identifiers are used in the body
 
   const resolvedImports: string[] = [];
-  const pendingLocalImports: Array<{ line: string; identifiers: string[] }> = [];
+  const pendingLocalImports: Array<{ line: string; identifiers: string[]; source: string }> = [];
+  const pendingPackageImports: Array<{ line: string; identifiers: string[] }> = [];
   const bodyLines: string[] = [];
 
   for (const line of relevantLines) {
@@ -411,11 +467,14 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
           continue;
         }
         // Queue for usage check
-        pendingLocalImports.push({ line, identifiers: parsed.identifiers });
+        pendingLocalImports.push({ line, identifiers: parsed.identifiers, source: parsed.source });
         continue;
       }
 
-      // Drop everything else (node:*, other packages, etc.)
+      // Keep package imports only when their bindings are used by schema declarations.
+      if (parsed.identifiers.length > 0) {
+        pendingPackageImports.push({ line, identifiers: parsed.identifiers });
+      }
       continue;
     }
 
@@ -428,6 +487,21 @@ function extractSchemaSource(sourceContent: string, pluginDirName: string, proje
   for (const pending of pendingLocalImports) {
     const isUsed = pending.identifiers.some(id => {
       // Use word boundary check to avoid false positives
+      const regex = new RegExp(`\\b${id}\\b`);
+      return regex.test(bodyText);
+    });
+    if (isUsed) {
+      resolvedImports.push(
+        pending.line.replace(
+          pending.source,
+          resolveLocalImportSource(sourceDir, pending.source),
+        ),
+      );
+    }
+  }
+
+  for (const pending of pendingPackageImports) {
+    const isUsed = pending.identifiers.some(id => {
       const regex = new RegExp(`\\b${id}\\b`);
       return regex.test(bodyText);
     });
@@ -575,10 +649,9 @@ async function main() {
       const classBody = extractPluginClassBody(sourceContent);
       const capabilities = buildCapabilities(pluginType, classBody);
 
-      const tempSource = extractSchemaSource(sourceContent, plugin.dirName, projectType);
-
       // Place temp file in the plugin's directory so relative imports resolve
       const pluginDir = path.dirname(plugin.srcPath);
+      const tempSource = extractSchemaSource(sourceContent, plugin.dirName, projectType, pluginDir);
       const tempFile = path.join(pluginDir, `_bsb_extract_temp_.ts`);
       tempFiles.push(tempFile);
 

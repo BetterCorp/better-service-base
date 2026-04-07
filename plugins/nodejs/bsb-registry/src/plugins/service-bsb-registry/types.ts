@@ -1,4 +1,5 @@
-import { bsb, optional, nullable, InferBSBType } from '@bsb/base';
+import { bsb, optional, nullable } from '@bsb/base';
+import type { InferBSBType } from '@bsb/base';
 
 // ========================================
 // Registry Entry Schema (Main Data Model)

@@ -118,7 +118,7 @@ Tokens are stored in the file DB data directory (default `./.temp/data/tokens.js
 Generate a token:
 
 ```bash
-node -e "console.log('bsb_' + require('crypto').randomBytes(32).toString('hex'))"
+node --input-type=module -e "import { randomBytes } from 'node:crypto'; console.log('bsb_' + randomBytes(32).toString('hex'));"
 ```
 
 ## Documentation

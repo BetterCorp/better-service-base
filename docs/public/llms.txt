@@ -1,25 +1,28 @@
 BSB (Better-Service-Base) - LLM Index
 
-Use this index to keep context minimal. Each link is a focused guide.
+Purpose:
+Use this index to keep context minimal. Each link is a focused guide. Only load what you need.
 
-Node.js:
-- Bootstrap a new project:
+Bootstrap (start here for a new project):
+- Explains the minimal project skeleton, config files, and entry points so code you generate compiles and runs.
   https://bsbcode.dev/llms/nodejs-bootstrap.txt
-- Create a new plugin:
-  https://bsbcode.dev/llms/nodejs-plugin-new.txt
-- Service plugin guidance:
+
+Plugins (Node.js) - pick the type you are building:
+- Service plugin: a deployable service with lifecycle hooks, config, and plugin clients.
   https://bsbcode.dev/llms/nodejs-plugin-service.txt
-- Events plugin guidance:
+- Events plugin: implements the event bus (emit, returnable, streaming).
   https://bsbcode.dev/llms/nodejs-plugin-events.txt
-- Observable plugin guidance:
+- Observable plugin: implements tracing/metrics/logging output.
   https://bsbcode.dev/llms/nodejs-plugin-observable.txt
-- Config plugin guidance:
+- Config plugin: implements configuration providers (file, env, vault, etc).
   https://bsbcode.dev/llms/nodejs-plugin-config.txt
+- Plugin overview: shared structure and the common steps for any plugin type.
+  https://bsbcode.dev/llms/nodejs-plugin-new.txt
 
 Testing (Node.js):
-- Test runner and bsb-tests.json format:
+- Test runner usage and `bsb-tests.json` format for repo-defined test config.
   https://bsbcode.dev/llms/nodejs-tests.txt
 
 Registry:
-- Registry API LLM guide:
+- Registry API guide for discovering published plugins/packages.
   https://io.bsbcode.dev/llms.txt

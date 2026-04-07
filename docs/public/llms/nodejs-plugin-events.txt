@@ -2,6 +2,7 @@ Events Plugin Guidance (Node.js)
 
 Goal:
 - Create an events-* plugin that transports events between services.
+- Node.js plugins are ESM-only. Use `"type": "module"`, `NodeNext`, and `.js` specifiers for relative imports.
 
 Steps:
 1. Create plugin folder: src/plugins/events-<name>.
@@ -18,7 +19,7 @@ Steps:
      broadcast,
      emitAndReturn,
      emitStreamAndReceiveStream
-   } from "./events"; // your transport implementation
+   } from "./events.js"; // your transport implementation
 
    const Config = createConfigSchema(
      {

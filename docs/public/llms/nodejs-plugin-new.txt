@@ -2,6 +2,7 @@ Create A New Plugin
 
 Goal:
 - Add a new plugin in src/plugins/<plugin-name>.
+- Node.js plugins are ESM-only. Use `"type": "module"`, `NodeNext`, and `.js` specifiers for relative imports.
 
 Steps:
 1. Pick a prefix: events-, observable-, config-, or service-.

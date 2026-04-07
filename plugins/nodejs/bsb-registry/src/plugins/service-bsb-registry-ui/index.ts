@@ -9,8 +9,8 @@
 import { Observable, BSBService, BSBServiceConstructor, createConfigSchema } from '@bsb/base';
 import { createEventSchemas } from '@bsb/base';
 import * as av from '@anyvali/js';
-import { RegistryUIServer } from './http-server';
-import { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry';
+import { RegistryUIServer } from './http-server.js';
+import { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry.js';
 
 /**
  * Configuration for the Registry UI

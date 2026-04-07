@@ -16,7 +16,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Observable } from '@bsb/base';
-import type { RegistryDB } from './index';
+import type { RegistryDB } from './index.js';
 import type {
   RegistryEntry,
   ListQuery,
@@ -28,7 +28,7 @@ import type {
   ResourcePermission,
   User,
   AuthToken,
-} from '../types';
+} from '../types.js';
 
 export class FileDB implements RegistryDB {
   private readonly dataDir: string;

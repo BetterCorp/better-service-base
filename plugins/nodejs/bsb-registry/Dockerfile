@@ -25,7 +25,7 @@ RUN npm prune --omit=dev
 
 # Package output in BSB plugin-dir layout.
 RUN set -eux; \
-  VERSION="$(node -p "require('./package.json').version")"; \
+  VERSION="$(npm pkg get version | tr -d '\"')"; \
   MAJOR="$(echo "${VERSION}" | cut -d. -f1)"; \
   MINOR="$(echo "${VERSION}" | cut -d. -f2)"; \
   MICRO="$(echo "${VERSION}" | cut -d. -f3)"; \

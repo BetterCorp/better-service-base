@@ -17,8 +17,8 @@ import type {
   ResourcePermission,
   User,
   AuthToken,
-} from '../types';
-import { FileDB } from './file';
+} from '../types.js';
+import { FileDB } from './file.js';
 
 export interface RegistryDB {
   /** Initialize the database (create dirs, run migrations, etc.) */

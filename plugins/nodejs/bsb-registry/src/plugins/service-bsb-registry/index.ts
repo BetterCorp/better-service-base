@@ -9,9 +9,9 @@ import {
   bsb,
   optional,
 } from '@bsb/base';
-import { type RegistryDB, createStorage } from './db';
-import { AuthManager } from './auth';
-import * as Types from './types';
+import { type RegistryDB, createStorage } from './db/index.js';
+import { AuthManager } from './auth.js';
+import * as Types from './types.js';
 
 // ============================================================================
 // Configuration
@@ -555,7 +555,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       const countSpan = trace.startSpan('storage.getVersions');
       const versions = await this.storage.getVersions(trace, data.org, data.name);
       const versionCount = data.version
-        ? versions.filter(v => v.version === data.version).length
+        ? versions.filter((v: Types.VersionInfo) => v.version === data.version).length
         : versions.length;
       countSpan.end();
 

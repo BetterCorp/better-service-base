@@ -19,8 +19,8 @@ import handlebars from 'handlebars';
 import { marked } from 'marked';
 import * as av from '@anyvali/js';
 import { Observable } from '@bsb/base';
-import type { Plugin } from './index';
-import type { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry';
+import type { Plugin } from './index.js';
+import type { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry.js';
 
 type ValidationIssue = av.ValidationIssue;
 

@@ -376,12 +376,12 @@ export class Plugin extends BSBService&lt;null, typeof EventSchemas&gt; {
           <div class="step-number">4</div>
           <h3>Run your service</h3>
 
-          <pre><code class="language-bash"># Development mode (with hot reload)
-npx ts-node src/dev.ts
+          <pre><code class="language-bash"># Development mode (TypeScript plugins, hot reload)
+npm run dev
 
-# Or production mode
+# Or production mode (compiled JavaScript only)
 npm run build
-node lib/cli.js</code></pre>
+npm start</code></pre>
         </div>
 
         <h2>Understanding the Structure</h2>

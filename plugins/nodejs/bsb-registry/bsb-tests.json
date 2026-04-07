@@ -1,0 +1,24 @@
+{
+  "nodejs": [
+    {
+      "id": "service-bsb-registry",
+      "skip": true,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    },
+    {
+      "id": "service-bsb-registry-ui",
+      "skip": true,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    }
+  ]
+}

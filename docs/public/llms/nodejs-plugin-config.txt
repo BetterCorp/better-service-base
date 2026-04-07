@@ -2,6 +2,7 @@ Config Plugin Guidance (Node.js)
 
 Goal:
 - Create a config-* plugin that loads configuration (file/env/remote).
+- Node.js plugins are ESM-only. Use `"type": "module"`, `NodeNext`, and `.js` specifiers for relative imports.
 
 Steps:
 1. Create plugin folder: src/plugins/config-<name>.

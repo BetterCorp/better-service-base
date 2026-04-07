@@ -2,6 +2,7 @@ Observable Plugin Guidance (Node.js)
 
 Goal:
 - Create an observable-* plugin for logging/metrics/tracing backends.
+- Node.js plugins are ESM-only. Use `"type": "module"`, `NodeNext`, and `.js` specifiers for relative imports.
 
 Steps:
 1. Create plugin folder: src/plugins/observable-<name>.

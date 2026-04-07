@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'crypto';
 import { Observable } from '@bsb/base';
-import type { RegistryDB } from './db';
+import type { RegistryDB } from './db/index.js';
 import type {
   User,
   AuthToken,
@@ -8,7 +8,7 @@ import type {
   ResourcePermission,
   OrgMember,
   PackagePermission,
-} from './types';
+} from './types.js';
 
 export interface AuthConfig {
   requireAuth: boolean;
@@ -164,7 +164,7 @@ export class AuthManager {
     let effectivePermissions: UserPermission[];
     if (token.permissions && token.permissions.length > 0) {
       // Token has explicit scope -- intersect with current user permissions
-      effectivePermissions = token.permissions.filter(p => user.permissions.includes(p));
+      effectivePermissions = token.permissions.filter((p: UserPermission) => user.permissions.includes(p));
     } else {
       // Token inherits all user permissions
       effectivePermissions = [...user.permissions];

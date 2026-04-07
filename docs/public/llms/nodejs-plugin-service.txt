@@ -2,6 +2,7 @@ Create A New Service (Node.js)
 
 Goal:
 - Add a service plugin in src/plugins/service-<name>/.
+- Node.js plugins are ESM-only. Use `"type": "module"`, `NodeNext`, and `.js` specifiers for relative imports.
 
 Steps:
 1. Create plugin folder: src/plugins/service-<name>.
@@ -23,7 +24,7 @@ Steps:
     createBroadcastEvent
    } from "@bsb/base";
    import { z } from "zod";
-   //import { Example2PluginClient } from '../../.bsb/clients/service-bsb-registry'; // (bsb client install or npm run build generates these files)
+   //import { Example2PluginClient } from '../../.bsb/clients/service-bsb-registry.js'; // (bsb client install or npm run build generates these files)
 
    const Config = createConfigSchema(
      {
