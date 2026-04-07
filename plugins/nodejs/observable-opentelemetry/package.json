@@ -1,6 +1,7 @@
 {
   "name": "@bsb/observable-opentelemetry",
-  "version": "9.1.0",
+  "version": "9.1.1",
+  "type": "module",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
@@ -58,7 +59,7 @@
     "@types/node": "^25.0.0",
     "typescript": "^5.9.0",
     "mocha": "^11.0.0",
-    "@bsb/base": "file:../../../nodejs"
+    "@bsb/base": "^9.0.0"
   },
   "engines": {
     "node": ">=23.0.0",
