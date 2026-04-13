@@ -44,9 +44,9 @@
     "generate-plugin-json": "node --import tsx src/scripts/generate-plugin-json.ts",
     "publish:client": "node lib/cli.js client publish",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
-    "test": "cross-env NODE_OPTIONS= nyc --reporter json --reporter lcov node --import tsx ./node_modules/mocha/bin/mocha.js --reporter json --reporter-options output=junit.json",
-    "testDev": "cross-env NODE_OPTIONS= nyc node --import tsx ./node_modules/mocha/bin/mocha.js",
-    "test:watch": "node --import tsx ./node_modules/mocha/bin/mocha.js --watch --watch-files src"
+    "test": "cross-env NODE_OPTIONS= nyc --reporter json --reporter lcov node --import tsx ../node_modules/mocha/bin/mocha.js --reporter json --reporter-options output=junit.json",
+    "testDev": "cross-env NODE_OPTIONS= nyc node --import tsx ../node_modules/mocha/bin/mocha.js",
+    "test:watch": "node --import tsx ../node_modules/mocha/bin/mocha.js --watch --watch-files src"
   },
   "bin": {
     "bsb": "lib/cli.js",
