@@ -232,7 +232,7 @@ const PublishBodyObjectSchema = objectSchema({
     author: av.optional(AuthorSchema),
     license: av.optional(safeString(50)),
     homepage: av.optional(av.string().maxLength(500).format('url')),
-    repository: av.optional(av.string().maxLength(500).format('url')),
+    repository: av.optional(safeString(500)),
   }),
   eventSchema: EventSchemaExportObjectSchema,
   capabilities: av.optional(av.unknown()),
