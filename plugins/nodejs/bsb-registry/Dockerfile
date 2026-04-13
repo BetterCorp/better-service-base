@@ -10,7 +10,7 @@ FROM betterweb/node:24 AS builder
 WORKDIR /workspace/plugins/nodejs/bsb-registry
 
 COPY plugins/nodejs/bsb-registry/package.json ./package.json
-COPY plugins/nodejs/bsb-registry/package-lock.json ./package-lock.json
+COPY package-lock.json ./package-lock.json
 RUN npm ci --include=dev
 
 COPY plugins/nodejs/bsb-registry/src ./src
