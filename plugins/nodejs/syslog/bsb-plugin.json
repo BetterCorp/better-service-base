@@ -11,7 +11,9 @@
         "observable",
         "network"
       ],
-      "documentation": [],
+      "documentation": [
+        "./docs/syslog-client.md"
+      ],
       "pluginPath": "src/plugins/observable-syslog/",
       "image": "./assets/syslog-icon.png",
       "links": {
@@ -29,7 +31,9 @@
         "service",
         "events"
       ],
-      "documentation": [],
+      "documentation": [
+        "./docs/syslog-server.md"
+      ],
       "pluginPath": "src/plugins/service-syslog-server/",
       "image": "./assets/syslog-icon.png",
       "links": {

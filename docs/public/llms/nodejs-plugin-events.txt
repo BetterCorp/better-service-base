@@ -12,8 +12,8 @@ Steps:
    Example index.ts:
    ```ts
    import { BSBEvents, BSBEventsConstructor, createConfigSchema, Observable } from "@bsb/base";
+   import * as av from "@anyvali/js";
    import { Readable } from "node:stream";
-   import { z } from "zod";
    import {
      emit,
      broadcast,
@@ -28,7 +28,7 @@ Steps:
        tags: ["events", "example"],
        documentation: ["./docs/events-example.md"]
      },
-     z.object({}) // optional config schema
+     av.object({}, { unknownKeys: "strip" }) // optional config schema
    );
 
    export class Plugin extends BSBEvents<InstanceType<typeof Config>> {

@@ -75,7 +75,7 @@ function emptyStringToUndefined(value: unknown): unknown {
 }
 
 // ============================================================================
-// Zod Validation Schemas — all external input validated at the boundary
+// Validation Schemas - all external input validated at the boundary
 // ============================================================================
 
 // ---- Reusable field schemas ----
@@ -2051,8 +2051,8 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const userId = await this.authenticateRequest(request, reply, trace);
       if (!userId) return;
 
-      // eventSchema is already a validated object (Zod parsed it from the JSON body).
-      // configSchema is also already validated by Zod if present.
+      // eventSchema is already a validated object parsed from the JSON body.
+      // configSchema is also already validated if present.
 
       // Extract dependencies from eventSchema if not provided at top level
       const dependencies = body.dependencies ?? body.eventSchema.dependencies ?? [];
@@ -2131,4 +2131,5 @@ a.s:hover{background:#333;border-color:#FB8C00}
     this.app.close();
   }
 }
+
 

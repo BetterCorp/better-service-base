@@ -12,7 +12,7 @@ Steps:
    Example index.ts:
    ```ts
    import { BSBObservable, BSBObservableConstructor, createConfigSchema, BSBError } from "@bsb/base";
-   import { z } from "zod";
+   import * as av from "@anyvali/js";
 
    const Config = createConfigSchema(
      {
@@ -21,9 +21,9 @@ Steps:
        tags: ["observable", "example"],
        documentation: ["./docs/observable-example.md"]
      },
-     z.object({
-       level: z.string().default("info")
-     })
+     av.object({
+       level: av.optional(av.string()).default("info")
+     }, { unknownKeys: "strip" })
    );
 
    export class Plugin extends BSBObservable<InstanceType<typeof Config>> {

@@ -1,6 +1,6 @@
 # @bsb/base (Node.js Service Base)
 
-Better Service Base (BSB) is an event-driven microservices framework for Node.js and TypeScript with built-in Zod schema validation, type-safe events, and a pluggable architecture for config, observability (logging, metrics, tracing), and events. It is designed for production-ready, secure-by-default backends with validated APIs and a type-safe event bus.
+Better Service Base (BSB) is an event-driven microservices framework for Node.js and TypeScript with AnyVali-based config validation, BSB type-safe event schemas, and a pluggable architecture for config, observability (logging, metrics, tracing), and events. It is designed for production-ready, secure-by-default backends with validated APIs and a type-safe event bus.
 
 **Version 9.0** introduces breaking changes with improved type safety, cross-language support, and automated code generation. See the Plugin Development Guide for v9 patterns:
 `https://github.com/BetterCorp/better-service-base/blob/master/nodejs/PLUGIN_DEVELOPMENT.md`

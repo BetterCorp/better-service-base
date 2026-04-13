@@ -50,7 +50,7 @@
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
-    "@bsb/base": "^9.0.0"
+    "@bsb/base": "^9.1.5"
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/demo-todo-app"
 }

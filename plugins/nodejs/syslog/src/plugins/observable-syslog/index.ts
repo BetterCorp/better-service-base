@@ -66,6 +66,7 @@ export const Config = createConfigSchema(
     version: '9.0.0',
     image: './assets/syslog-icon.png',
     tags: ['syslog', 'logging', 'observable', 'network'],
+    documentation: ['./docs/syslog-client.md'],
   },
   SyslogClientConfigSchema
 );

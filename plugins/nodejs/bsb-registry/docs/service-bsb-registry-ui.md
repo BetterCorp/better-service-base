@@ -138,7 +138,7 @@ Badge fallback order:
 ## How It Works
 
 1. Browser requests a page (e.g. `GET /plugins/myorg/my-plugin`)
-2. UI server validates route params with Zod
+2. UI server validates route params with AnyVali
 3. UI server emits a BSB event (e.g. `registry.plugin.get`) via the generated `BsbRegistryClient`
 4. Core plugin processes the event and returns data
 5. UI server renders a Handlebars template with the data (or returns JSON if `Accept: application/json`)
@@ -153,7 +153,7 @@ This architecture means the UI has zero direct database access. Swapping `events
 ```
 src/plugins/service-bsb-registry-ui/
   index.ts              Plugin entry point (config, lifecycle)
-  http-server.ts        Fastify server, routes, Zod validation, rendering
+  http-server.ts        Fastify server, routes, AnyVali validation, rendering
   templates/
     layouts/
       main.hbs          Base HTML layout

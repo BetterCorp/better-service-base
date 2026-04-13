@@ -12,7 +12,7 @@ Steps:
    Example index.ts:
    ```ts
    import { BSBConfig, BSBConfigConstructor, createConfigSchema, Observable, PluginTypes, BSBError } from "@bsb/base";
-   import { z } from "zod";
+   import * as av from "@anyvali/js";
    import { parse } from "yaml";
    import * as fs from "node:fs";
    import * as path from "node:path";
@@ -24,10 +24,10 @@ Steps:
        tags: ["config", "example"],
        documentation: ["./docs/config-example.md"]
      },
-     z.object({
-       BSB_PROFILE: z.string().optional().default("default"),
-       BSB_CONFIG_FILE: z.string().optional().default("./sec-config.yaml")
-     })
+     av.object({
+       BSB_PROFILE: av.optional(av.string()).default("default"),
+       BSB_CONFIG_FILE: av.optional(av.string()).default("./sec-config.yaml")
+     }, { unknownKeys: "strip" })
    );
 
    export class Plugin extends BSBConfig<InstanceType<typeof Config>> {

@@ -4,7 +4,7 @@ A comprehensive demonstration application showcasing Best Service Base (BSB) bes
 
 ## Features
 
-- **Event-Driven Architecture**: Schema-first events with Zod validation
+- **Event-Driven Architecture**: Schema-first events with BSB type definitions
 - **File-Based Storage**: Persistent JSON storage following BSB patterns
 - **HTTP Server**: Simple REST API with CORS support
 - **Web Interface**: Responsive single-page application
@@ -15,11 +15,11 @@ A comprehensive demonstration application showcasing Best Service Base (BSB) bes
 
 ### BSB Patterns Demonstrated
 
-1. **Schema-First Events**: All events defined with Zod schemas, automatic validation
+1. **Schema-First Events**: All events defined with BSB type schemas and exported contracts
 2. **Client Pattern**: Storage client created in constructor
 3. **Resource Lifecycle**: Proper init/run/dispose with cleanup
 4. **Observable Integration**: Logging, metrics, and tracing throughout
-5. **Configuration**: Zod schema with sensible defaults
+5. **Configuration**: AnyVali schema with sensible defaults
 6. **File Storage**: Following observable-logging-file pattern
 7. **Event Types**: Fire-and-forget, returnable, and broadcast events
 8. **Metrics**: Counters and histograms for monitoring
@@ -255,7 +255,7 @@ npm run clean
 
 ### 1. Schema-First Design
 
-All events are defined with Zod schemas, providing:
+All events are defined with BSB type schemas, providing:
 - Automatic validation
 - Type safety
 - Self-documenting API

@@ -63,6 +63,7 @@ export const Config = createConfigSchema(
     version: '9.0.0',
     image: './assets/syslog-icon.png',
     tags: ['syslog', 'server', 'service', 'events'],
+    documentation: ['./docs/syslog-server.md'],
   },
   SyslogServerConfigSchema
 );

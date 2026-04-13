@@ -23,7 +23,7 @@ Steps:
     createReturnableEvent,
     createBroadcastEvent
    } from "@bsb/base";
-   import { z } from "zod";
+   import * as av from "@anyvali/js";
    //import { Example2PluginClient } from '../../.bsb/clients/service-bsb-registry.js'; // (bsb client install or npm run build generates these files)
 
    const Config = createConfigSchema(
@@ -35,10 +35,10 @@ Steps:
        // First file is shown first, additional files use the first H1 tag as the title in a tabbed list.
        // image: "./assets/service-example.png" (only if you include the file)
      },
-     z.object({
+     av.object({
         // Define the config schema here.
         // When adding definitions here, also add them to the sec-config.yaml for your project during dev.
-     })
+     }, { unknownKeys: "strip" })
    );
 
    const EventSchemas = createEventSchemas({

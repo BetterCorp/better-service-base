@@ -16,7 +16,7 @@ The Demo Todo App is designed as a reference implementation for BSB developers, 
 
 ### Key Features
 
-✅ **Schema-First Events** - All events defined with Zod, automatic validation
+✅ **Schema-First Events** - All events defined with BSB types and exported contracts
 ✅ **File-Based Storage** - Persistent JSON storage following BSB patterns
 ✅ **HTTP REST API** - Simple server with proper routing and CORS
 ✅ **Web Interface** - Responsive single-page application
@@ -28,11 +28,11 @@ The Demo Todo App is designed as a reference implementation for BSB developers, 
 
 This demo showcases **10 critical BSB patterns**:
 
-1. **Schema-First Events**: Zod validation for all event inputs/outputs
+1. **Schema-First Events**: BSB type schemas for all event inputs/outputs
 2. **Client Pattern**: Storage client created in constructor
 3. **Resource Lifecycle**: Proper init/run/dispose with cleanup
 4. **Observable Integration**: Logging, metrics, tracing throughout
-5. **Configuration**: Zod schema with sensible defaults
+5. **Configuration**: AnyVali schema with sensible defaults
 6. **File Storage**: Following observable-logging-file pattern
 7. **Event Types**: Fire-and-forget, returnable, and broadcast events
 8. **Metrics**: Counters and histograms for monitoring
@@ -429,7 +429,7 @@ onBroadcast('todo.stats', async (stats, obs) => {
    ↓
 4. emitEventAndReturn('todo.create', { title, description })
    ↓
-5. Event handler validates input (Zod)
+5. Event handler validates input against the event schema
    ↓
 6. Storage.create() adds to map, marks dirty
    ↓
@@ -512,7 +512,7 @@ async init(obs: Observable): Promise<void> {
 
 ```typescript
 this.onReturnableEvent('todo.create', async (data, obs) => {
-  // Input is automatically validated by Zod schema
+  // Input is automatically validated by the event schema
   obs.log.info(`Creating todo: ${data.title}`);
 
   // Perform operation
@@ -521,7 +521,7 @@ this.onReturnableEvent('todo.create', async (data, obs) => {
   // Emit notification event
   await this.emitEvent('todo.created', obs, todo);
 
-  // Return is automatically validated by Zod schema
+  // Return is automatically validated by the event schema
   return todo;
 });
 ```
@@ -664,7 +664,7 @@ services:
 ### For Experienced Developers
 
 Use this as a reference for:
-- Schema-first API design with Zod
+- Schema-first API design with BSB types and AnyVali config
 - Event-driven architecture patterns
 - Observable integration strategies
 - File-based persistence patterns

@@ -488,54 +488,26 @@ export class Plugin extends BSBService<null, typeof EventSchemas> {
                     <h3>Create Plugin Config (Optional)</h3>
                     <p>Define configuration schema and metadata for your plugin:</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/config.ts (Optional)">
-<pre><code class="language-ts">import { BSBPluginConfig, z } from '@bsb/base';
+<pre><code class="language-ts">import * as av from '@anyvali/js';
+import { createConfigSchema } from '@bsb/base';
 
-// Define your config schema using Zod
-const MyConfigSchema = z.object({
-  maxUsers: z.number().default(1000),
-  features: z.object({
-    notifications: z.boolean().default(true),
-    analytics: z.boolean().default(false)
-  }),
-  apiKeys: z.object({
-    external: z.string().optional()
-  }).optional()
-});
-
-export class Config extends BSBPluginConfig&lt;typeof MyConfigSchema&gt; {
-  public validationSchema = MyConfigSchema;
-
-  // Optional: Config migration for version upgrades
-  public async migrate(
-    versionFrom: string | null,
-    versionTo: string,
-    existingConfig?: z.infer&lt;typeof MyConfigSchema&gt;
-  ) {
-    // First-time setup
-    if (versionFrom === null) {
-      return {
-        maxUsers: 1000,
-        features: {
-          notifications: true,
-          analytics: false
-        }
-      };
-    }
-    
-    // Handle version migrations
-    if (versionFrom === '1.0.0' && versionTo === '1.1.0') {
-      return {
-        ...existingConfig,
-        features: {
-          ...existingConfig?.features,
-          analytics: false // New feature added in 1.1.0
-        }
-      };
-    }
-
-    return existingConfig || {};
-  }
-}
+const Config = createConfigSchema(
+  {
+    name: 'service-my-api',
+    description: 'My API plugin',
+    tags: ['api', 'service']
+  },
+  av.object({
+    maxUsers: av.optional(av.int32()).default(1000),
+    features: av.object({
+      notifications: av.optional(av.bool()).default(true),
+      analytics: av.optional(av.bool()).default(false)
+    }, { unknownKeys: 'strip' }),
+    apiKeys: av.optional(av.object({
+      external: av.optional(av.string())
+    }, { unknownKeys: 'strip' }))
+  }, { unknownKeys: 'strip' })
+);
 </code></pre></div>
                 </li>
                 
@@ -625,66 +597,58 @@ await this.events.onBroadcast('system.maintenance', obs, async (childObs, data) 
         
         <div class="section">
             <h2>🔒 Event Validation & Performance</h2>
-            <p>BSB supports optional Zod-based validation for enhanced runtime type safety:</p>
+            <p>BSB uses BSB types for event contracts and AnyVali for plugin config validation:</p>
             
             <div class="info-box">
                 <h4>⚖️ Performance Considerations</h4>
                 <ul>
-                    <li><strong>Validation overhead:</strong> ~1-5ms per event (depends on schema complexity)</li>
-                    <li><strong>Production toggle:</strong> Set <code>BSB_VALIDATE_EVENTS=false</code> to disable validation</li>
-                    <li><strong>Selective validation:</strong> Validate only critical events for optimal performance</li>
-                    <li><strong>Performance monitoring:</strong> Automatic logging of slow validations</li>
+                    <li><strong>Event schemas:</strong> Use BSB types for portable contracts and cross-language client generation</li>
+                    <li><strong>Config schemas:</strong> Use AnyVali for plugin configuration defaults and validation</li>
+                    <li><strong>Performance:</strong> Keep schemas focused and payloads bounded for predictable runtime cost</li>
+                    <li><strong>Portability:</strong> Exported schemas are consumed by registry tooling and generated clients</li>
                 </ul>
             </div>
-            
-            <div class="code-block" data-title="Environment Variables for Validation"><pre><code class="language-bash"># Enable/disable validation globally
-BSB_VALIDATE_EVENTS=true
 
-# Performance tuning
-BSB_VALIDATION_PERFORMANCE_THRESHOLD=10  # Log validations slower than 10ms
-BSB_VALIDATION_STRICT=true               # Throw errors (false = log warnings)
-</code></pre></div>
-            
-            <div class="code-block" data-title="Advanced Validation Example"><pre><code class="language-ts">// Complex validation schemas with nested objects and arrays
-export const AdvancedEventSchemas = {
+            <div class="code-block" data-title="Advanced Event Schema Example"><pre><code class="language-ts">// Complex event schemas with nested objects and arrays
+export const AdvancedEventSchemas = createEventSchemas({
   onEvents: {
     'order.process': createFireAndForgetEvent(
-      z.object({
-        id: z.string().uuid(),
-        items: z.array(z.object({
-          productId: z.string().uuid(),
-          quantity: z.number().positive(),
-          price: z.number().positive()
-        })).min(1),
-        customer: z.object({
-          id: z.string().uuid(),
-          email: z.string().email(),
-          tier: z.enum(['basic', 'premium'])
-        }),
-        metadata: z.record(z.unknown()).optional()
-      }),
+      bsb.object({
+        id: bsb.uuid(),
+        items: bsb.array(bsb.object({
+          productId: bsb.uuid(),
+          quantity: bsb.int32({ min: 1 }),
+          price: bsb.number({ min: 0 })
+        }, 'Order item'), { min: 1 }),
+        customer: bsb.object({
+          id: bsb.uuid(),
+          email: bsb.string(),
+          tier: bsb.enum(['basic', 'premium'])
+        }, 'Customer'),
+        metadata: optional(bsb.record(bsb.unknown()))
+      }, 'Order payload'),
       'Process customer order with complex validation'
     )
   },
   
   emitReturnableEvents: {
     'payment.process': createReturnableEvent(
-      z.object({
-        orderId: z.string().uuid(),
-        amount: z.number().positive(),
-        currency: z.string().length(3),
-        paymentMethod: z.enum(['card', 'bank', 'crypto'])
-      }),
-      z.object({
-        transactionId: z.string(),
-        status: z.enum(['success', 'failed', 'pending']),
-        fees: z.number().min(0),
-        processedAt: z.string().datetime()
-      }),
+      bsb.object({
+        orderId: bsb.uuid(),
+        amount: bsb.number({ min: 0 }),
+        currency: bsb.string({ min: 3, max: 3 }),
+        paymentMethod: bsb.enum(['card', 'bank', 'crypto'])
+      }, 'Payment request'),
+      bsb.object({
+        transactionId: bsb.string(),
+        status: bsb.enum(['success', 'failed', 'pending']),
+        fees: bsb.number({ min: 0 }),
+        processedAt: bsb.datetime()
+      }, 'Payment result'),
       'Process payment with detailed response'
     )
   }
-} as const;
+});
 
 // Use in your plugin class
 export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas> {

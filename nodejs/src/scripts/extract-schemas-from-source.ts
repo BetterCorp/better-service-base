@@ -420,7 +420,7 @@ function extractSchemaSource(
 
     // Skip require() calls for non-schema modules
     if (/\brequire\s*\(/.test(trimmed)) {
-      if (/schema|zod/.test(trimmed)) {
+      if (/schema/.test(trimmed)) {
         bodyLines.push(line);
       }
       continue;
@@ -435,12 +435,6 @@ function extractSchemaSource(
 
       // Type-only imports: drop them (not needed for runtime extraction)
       if (parsed.isTypeOnly) {
-        continue;
-      }
-
-      // Keep zod imports as-is
-      if (parsed.source === 'zod') {
-        resolvedImports.push(line);
         continue;
       }
 
@@ -538,15 +532,15 @@ function extractSchemaSource(
   outputLines.push('  ? exportEventSchemas(_pluginName, _pluginVersion, _EventSchemas as any)');
   outputLines.push('  : { pluginName: _pluginName, version: _pluginVersion, events: {} };');
   outputLines.push('');
-  outputLines.push('// Extract config schema as JSON Schema if Config has a Zod validationSchema');
+  outputLines.push('// Extract config schema if Config exposes an AnyVali validation schema');
   outputLines.push('try {');
   outputLines.push('  if (_Config) {');
   outputLines.push('    const _configInstance = new (_Config as any)("", "", "", "");');
   outputLines.push('    if (_configInstance.validationSchema && typeof _configInstance.validationSchema === "object") {');
-  outputLines.push('      const _zod = await import("zod").catch(() => null);');
-  outputLines.push('      const _toJSONSchema = _zod?.toJSONSchema || (_zod?.z && _zod.z.toJSONSchema);');
-  outputLines.push('      if (typeof _toJSONSchema === "function") {');
-  outputLines.push('        (_schemaResult as any).configSchema = _toJSONSchema(_configInstance.validationSchema);');
+  outputLines.push('      const _schema = _configInstance.validationSchema;');
+  outputLines.push('      const _exportSchema = _schema?.export;');
+  outputLines.push('      if (typeof _exportSchema === "function") {');
+  outputLines.push('        (_schemaResult as any).configSchema = _exportSchema.call(_schema, "extended");');
   outputLines.push('      }');
   outputLines.push('    }');
   outputLines.push('  }');

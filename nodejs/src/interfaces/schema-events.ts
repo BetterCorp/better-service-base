@@ -30,7 +30,7 @@ import { AnyValiDocument, BSBType, InferBSBType, bsbToJsonSchema } from './schem
 /**
  * Schema definition for a returnable event with input/output validation.
  * Type-branded to ensure returnable events are only used in appropriate categories.
- * Uses BSBType for cross-language support instead of Zod schemas.
+ * Uses BSBType for cross-language support and generated client contracts.
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
  */
 export interface ReturnableEventSchema {
@@ -49,7 +49,7 @@ export interface ReturnableEventSchema {
 /**
  * Schema definition for fire-and-forget events.
  * Type-branded to ensure fire-and-forget events are only used in appropriate categories.
- * Uses BSBType for cross-language support instead of Zod schemas.
+ * Uses BSBType for cross-language support and generated client contracts.
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
  */
 export interface FireAndForgetEventSchema {
@@ -65,7 +65,7 @@ export interface FireAndForgetEventSchema {
  * Schema definition for broadcast events.
  * Type-branded to ensure broadcast events are only used in appropriate categories.
  * Broadcast events are like fire-and-forget but delivered to ALL listeners.
- * Uses BSBType for cross-language support instead of Zod schemas.
+ * Uses BSBType for cross-language support and generated client contracts.
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html#module-interfaces_schema_events | API: interfaces/schema-events}
  */
 export interface BroadcastEventSchema {
@@ -444,7 +444,7 @@ export interface EventSchemaExport {
   events: Record<string, EventExportDefinition>;
   /** Auto-detected plugin dependencies (from .bsb/clients/ imports) */
   dependencies?: Array<{ id: string; version: string }>;
-  /** Config schema as JSON Schema (from Zod validation schema) */
+  /** Config schema exported from the plugin validation schema */
   configSchema?: Record<string, any>;
 }
 

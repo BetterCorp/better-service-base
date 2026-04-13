@@ -38,7 +38,7 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@bsb/base": "^9.0.0"
+    "@bsb/base": "^9.1.5"
   },
   "dependencies": {
     "@anyvali/js": "^0.2.0",
@@ -48,7 +48,7 @@
     "@types/node": "^25.0.0",
     "typescript": "^5.9.0",
     "mocha": "^11.0.0",
-    "@bsb/base": "^9.0.0"
+    "@bsb/base": "^9.1.5"
   },
   "engines": {
     "node": ">=23.0.0",

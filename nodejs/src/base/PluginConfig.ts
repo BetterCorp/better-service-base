@@ -28,10 +28,10 @@
 import type { BaseSchema, Infer } from '@anyvali/js';
 
 /**
- * The definition of the config with zod validation
+ * The definition of the config with AnyVali validation
  * @example
- * const configDefinition = z.object({
- *  a: z.string(),
+ * const configDefinition = av.object({
+ *  a: av.string(),
  * });
  */
 export type BSBPluginConfigType = BaseSchema<any, any> | undefined;
@@ -44,7 +44,7 @@ export type BSBPluginConfigClass<TSchema extends BSBPluginConfigType = BSBPlugin
 /**
  * Config migration handler, allows for config migrations when the plugin version changes or a new plugin setup is done
  * @example simple version change and basic setup
- * const configMigration = async (versionFrom: string | null, versionTo: string, existingConfig?: z.infer<BSBConfigDefinition>) => {
+ * const configMigration = async (versionFrom: string | null, versionTo: string, existingConfig?: Infer<BSBConfigDefinition>) => {
  * if (versionFrom === null) {
  *  return {
  *   a: "a",
@@ -54,7 +54,7 @@ export type BSBPluginConfigClass<TSchema extends BSBPluginConfigType = BSBPlugin
  *  a: "b",
  * };
  * @example basic setup and no version change handling
- * const configMigration = async (versionFrom: string | null, versionTo: string, existingConfig?: z.infer<BSBConfigDefinition>) => {
+ * const configMigration = async (versionFrom: string | null, versionTo: string, existingConfig?: Infer<BSBConfigDefinition>) => {
  * if (versionFrom === null || existingConfig === undefined) {
  *  return {
  *   a: "a",
@@ -136,8 +136,8 @@ export type BSBReferencePluginConfigDefinition<
 /**
  * Base class for plugin configuration.
  *
- * Define your Zod validation schema in {@link validationSchema}. Prefer
- * versioned schemas using Zod unions and transforms to normalize old
+ * Define your AnyVali validation schema in {@link validationSchema}. Prefer
+ * versioned schemas that normalize old
  * configs into the latest shape at parse time.
  *
  * Optionally provide {@link metadata} for enhanced plugin discoverability.
@@ -189,16 +189,16 @@ export class BSBPluginConfigRef
  * - Provide plugin discovery and marketplace information
  *
  * @param metadata - Plugin metadata (name, description, version, dependencies, etc.)
- * @param schema - Zod validation schema for the plugin configuration
+ * @param schema - AnyVali validation schema for the plugin configuration
  * @returns A Config class that extends BSBPluginConfig with metadata
  *
  * @example
  * ```typescript
  * // v9 pattern:
- * const TodoConfigSchema = z.object({
- *   database: z.object({
- *     host: z.string().default('localhost'),
- *     port: z.number().default(5432),
+ * const TodoConfigSchema = av.object({
+ *   database: av.object({
+ *     host: av.optional(av.string()).default('localhost'),
+ *     port: av.optional(av.int32()).default(5432),
  *   }),
  * });
  *

@@ -302,9 +302,8 @@ npx tsc --init</code></pre>
           <pre><code class="language-bash">mkdir -p src/plugins/service-hello</code></pre>
 
           <span class="file-path">src/plugins/service-hello/index.ts</span>
-          <pre><code class="language-typescript">import { BSBService, BSBServiceConstructor } from "@bsb/base";
-import { z } from "zod";
-import { createReturnableEvent, createFireAndForgetEvent } from "@bsb/base";
+          <pre><code class="language-typescript">import { BSBService, BSBServiceConstructor, bsb } from "@bsb/base";
+import { createReturnableEvent } from "@bsb/base";
 
 // Define your event schemas
 export const EventSchemas = {
@@ -313,13 +312,13 @@ export const EventSchemas = {
   emitReturnableEvents: {},
   onReturnableEvents: {
     'hello.greet': createReturnableEvent(
-      z.object({
-        name: z.string()
-      }),
-      z.object({
-        message: z.string(),
-        timestamp: z.string()
-      }),
+      bsb.object({
+        name: bsb.string()
+      }, 'Greeting input'),
+      bsb.object({
+        message: bsb.string(),
+        timestamp: bsb.datetime()
+      }, 'Greeting response'),
       'Greet a user by name'
     )
   },
@@ -454,21 +453,24 @@ await this.events.onBroadcast("cache.invalidate", trace, async (t, input) =&gt; 
 
         <h2>Adding Configuration</h2>
 
-        <p>To add configuration to your plugin, create a Config class:</p>
+        <p>To add configuration to your plugin, create a config schema with AnyVali:</p>
 
-        <pre><code class="language-typescript">import { BSBPluginConfig } from "@bsb/base";
-import { z } from "zod";
+        <pre><code class="language-typescript">import * as av from "@anyvali/js";
+import { createConfigSchema } from "@bsb/base";
 
-const configSchema = z.object({
-  greeting: z.string().default("Hello"),
-  maxNameLength: z.number().default(100)
-});
+const Config = createConfigSchema(
+  {
+    name: "service-hello",
+    description: "Hello service",
+    tags: ["hello", "example"]
+  },
+  av.object({
+    greeting: av.optional(av.string()).default("Hello"),
+    maxNameLength: av.optional(av.int32()).default(100)
+  }, { unknownKeys: "strip" })
+);
 
-export class Config extends BSBPluginConfig&lt;typeof configSchema&gt; {
-  validationSchema = configSchema;
-}
-
-export class Plugin extends BSBService&lt;Config, typeof EventSchemas&gt; {
+export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typeof EventSchemas&gt; {
   // Now this.config is typed with your schema
   async init() {
     const greeting = this.config.greeting; // "Hello"
