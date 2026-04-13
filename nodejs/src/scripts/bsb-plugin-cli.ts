@@ -16,6 +16,7 @@
 import { execSync, execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createRequire } from 'node:module';
 import { getModuleDir, toImportUrl } from '../base/module-runtime.js';
 
 interface PluginInfo {
@@ -58,6 +59,18 @@ function info(message: string): void {
 const CWD = process.cwd();
 const COMMAND = process.argv[2];
 const MODULE_DIR = getModuleDir(import.meta.url);
+
+// Resolve @bsb/base package root using Node module resolution.
+// Handles npm workspaces (hoisted node_modules), symlinks, and pnpm.
+function resolveBsbBasePath(): string | null {
+  try {
+    const require = createRequire(path.join(CWD, 'package.json'));
+    const pkgJsonPath = require.resolve('@bsb/base/package.json');
+    return path.dirname(pkgJsonPath);
+  } catch {
+    return null;
+  }
+}
 
 // Detect plugin structure
 function detectPluginStructure(): PluginInfo[] {
@@ -179,9 +192,10 @@ async function extractSchemasFromSource(): Promise<void> {
     };
 
     // Use the extraction script
-    const extractorPath = path.join(CWD, 'node_modules', '@bsb', 'base', 'lib', 'scripts', 'extract-schemas-from-source.js');
+    const bsbBase = resolveBsbBasePath();
+    const extractorPath = bsbBase ? path.join(bsbBase, 'lib', 'scripts', 'extract-schemas-from-source.js') : '';
 
-    if (fs.existsSync(extractorPath)) {
+    if (extractorPath && fs.existsSync(extractorPath)) {
       info('Extracting schemas from TypeScript source');
       await runExtractorModule(extractorPath);
       success('Extracted schemas from TypeScript source');
@@ -330,9 +344,10 @@ function generateVirtualClients(): void {
     info('Generating virtual client types');
 
     // Use the core generator from @bsb/base
-    const generatorPath = path.join(CWD, 'node_modules', '@bsb', 'base', 'lib', 'scripts', 'generate-client-types.js');
+    const bsbBase = resolveBsbBasePath();
+    const generatorPath = bsbBase ? path.join(bsbBase, 'lib', 'scripts', 'generate-client-types.js') : '';
 
-    if (fs.existsSync(generatorPath)) {
+    if (generatorPath && fs.existsSync(generatorPath)) {
       execSync(`node "${generatorPath}"`, { cwd: CWD, stdio: 'pipe' });
       success('Generated virtual client types');
     } else {
@@ -357,8 +372,8 @@ function generateVirtualClients(): void {
 function syncParentSchemas(): void {
   try {
     // Check if @bsb/base is installed (indicates this is a plugin project)
-    const bsbBasePath = path.join(CWD, 'node_modules', '@bsb', 'base');
-    if (!fs.existsSync(bsbBasePath)) {
+    const bsbBasePath = resolveBsbBasePath();
+    if (!bsbBasePath) {
       return; // Not a plugin project, skip
     }
 
@@ -550,11 +565,15 @@ async function build(): Promise<void> {
 function start(): void {
   log('\n=== Starting BSB Service ===\n', 'bright');
 
-  // Find the BSB CLI
-  const bsbCliPath = path.join(CWD, 'node_modules', '@bsb', 'base', 'lib', 'cli.js');
+  // Find the BSB CLI (uses Node module resolution to handle workspace hoisting)
+  const bsbBase = resolveBsbBasePath();
+  if (!bsbBase) {
+    error('BSB CLI not found. Make sure @bsb/base is installed.');
+  }
+  const bsbCliPath = path.join(bsbBase!, 'lib', 'cli.js');
 
   if (!fs.existsSync(bsbCliPath)) {
-    error('BSB CLI not found. Make sure @bsb/base is installed.');
+    error(`BSB CLI entry not found at ${bsbCliPath}. @bsb/base may need rebuilding.`);
   }
 
   info('Starting service');
