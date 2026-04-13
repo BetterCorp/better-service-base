@@ -30,4 +30,4 @@ export {
   type WinstonConfig,
   Config,
   Plugin,
-} from "./plugins/observable-winston";
+} from "./plugins/observable-winston/index.js";

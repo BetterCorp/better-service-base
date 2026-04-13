@@ -28,6 +28,7 @@
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import * as av from "@anyvali/js";
+import { hostname } from "node:os";
 // @ts-ignore - no types available
 import * as SyslogClient from "syslog-client";
 
@@ -104,7 +105,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
   public async init(): Promise<void> {
     const options: any = {
-      syslogHostname: this.config.hostname || require("os").hostname(),
+      syslogHostname: this.config.hostname || hostname(),
       appName: this.config.appName,
       facility: this.config.facility,
       rfc: this.config.rfc === "3164" ? SyslogClient.RFC3164 : SyslogClient.RFC5424,

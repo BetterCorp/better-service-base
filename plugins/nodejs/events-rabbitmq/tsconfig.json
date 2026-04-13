@@ -4,7 +4,7 @@
     "paths": {
       "*": ["types/*"]
     },
-    "module": "commonjs",
+    "module": "NodeNext",
     "noImplicitAny": true,
     "removeComments": true,
     "preserveConstEnums": true,
@@ -22,7 +22,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node"
+    "moduleResolution": "NodeNext"
   },
   "linterOptions": {
     "exclude": [

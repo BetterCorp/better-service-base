@@ -1,6 +1,6 @@
 {
   "name": "@bsb/demo-todo-app",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "BSB Demo Todo Application - Comprehensive example showcasing BSB best practices",
   "type": "module",
   "main": "lib/index.js",

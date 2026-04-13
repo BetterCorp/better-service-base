@@ -1,0 +1,14 @@
+{
+  "nodejs": [
+    {
+      "id": "service-demo-todo",
+      "skip": true,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    }
+  ]
+}

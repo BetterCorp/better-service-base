@@ -25,4 +25,4 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-export * from "./plugins/observable-opentelemetry";
+export * from "./plugins/observable-opentelemetry/index.js";

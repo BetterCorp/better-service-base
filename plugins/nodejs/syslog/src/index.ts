@@ -35,7 +35,7 @@ export {
   EventSchemas as SyslogServerEventSchemas,
   Plugin as SyslogServerPlugin,
   Client as SyslogServerClient,
-} from "./plugins/service-syslog-server";
+} from "./plugins/service-syslog-server/index.js";
 
 // Syslog client observable exports (sends logs to syslog)
 export {
@@ -43,4 +43,4 @@ export {
   type SyslogClientConfig,
   Config as SyslogClientConfigClass,
   Plugin as SyslogClientPlugin,
-} from "./plugins/observable-syslog";
+} from "./plugins/observable-syslog/index.js";

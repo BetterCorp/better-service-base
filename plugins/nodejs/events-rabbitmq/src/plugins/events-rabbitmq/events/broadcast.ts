@@ -1,16 +1,15 @@
-import {Plugin} from "../index";
+import {Plugin} from "../index.js";
 import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
-import {LIB, SetupChannel} from "./lib";
+import {LIB, SetupChannel} from "./lib.js";
 import {randomUUID} from "crypto";
 import {
-  IPluginLogger,
   SmartFunctionCallAsync,
+  Observable,
 } from "@bsb/base";
 
 export class broadcast {
   private plugin: Plugin;
-  private log: IPluginLogger;
   private publishQueuesSetup: Array<string> = [];
   private publishChannel!: SetupChannel<string>;
   private receiveChannel!: SetupChannel<string>;
@@ -31,18 +30,17 @@ export class broadcast {
     expires: 60 * 60 * 1000, // 60 min
   };
 
-  constructor(plugin: Plugin, log: IPluginLogger) {
+  constructor(plugin: Plugin) {
     this.plugin = plugin;
-    this.log = log;
   }
 
-  async init() {
-    this.log.debug(`Open broadcast channel ({exchangeName})`, {
+  async init(obs: Observable) {
+    obs.log.debug("Open broadcast channel ({exchangeName})", {
       exchangeName: this.exchange.name,
     });
     this.publishChannel = await LIB.setupChannel(
         this.plugin,
-        this.log,
+        obs,
         this.plugin.publishConnection,
         this.channelKey,
         this.exchange.name,
@@ -51,7 +49,7 @@ export class broadcast {
     );
     this.receiveChannel = await LIB.setupChannel(
         this.plugin,
-        this.log,
+        obs,
         this.plugin.receiveConnection,
         this.channelKey,
         this.exchange.name,
@@ -67,9 +65,10 @@ export class broadcast {
   }
 
   async onBroadcast(
+      obs: Observable,
       pluginName: string,
       event: string,
-      listener: { (traceId: string | undefined, args: Array<any>): Promise<void> },
+      listener: { (obs: Observable, args: Array<any>): Promise<void> },
   ): Promise<void> {
     const thisUUID = randomUUID();
     const rawQueueKey = LIB.getQueueKey(
@@ -85,7 +84,7 @@ export class broadcast {
         event,
         thisUUID,
     );
-    this.log.debug(`LISTEN: [{thisQueueKey}]`, {
+    obs.log.debug("LISTEN: [{thisQueueKey}]", {
       thisQueueKey: rawQueueKey,
     });
 
@@ -95,26 +94,32 @@ export class broadcast {
           await this.receiveChannel.channel.consume(
               thisQueueKey,
               async (msg: amqplibCore.ConsumeMessage) => {
-                //const start = Date.now();
                 const body = msg.content.toString();
-                const bodyObj = JSON.parse(body) as Array<any>;
+                const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
+                let listenerObs: Observable | null = null;
                 try {
-                  await SmartFunctionCallAsync(this.plugin, listener, bodyObj.splice(0,1)[0], bodyObj);
+                  const rootObs = this.plugin.createObservableFromTrace(bodyObj.trace, {
+                    pluginName,
+                    event,
+                  });
+                  listenerObs = rootObs.startSpan("broadcast.listener", {
+                    pluginName,
+                    event,
+                  });
+                  await SmartFunctionCallAsync(this.plugin, listener, listenerObs, bodyObj.args ?? []);
                   this.receiveChannel.channel.ack(msg);
-                  //const time = Date.now() - start;
-                  // this.log.reportStat(
-                  //     `eventsrec-${this.channelKey}-${pluginName}-${event}-ok`,
-                  //     time,
-                  // );
                 }
                 catch (err: any) {
+                  const errorObj = err instanceof Error ? err : new Error(err?.message || String(err));
+                  if (listenerObs) {
+                    listenerObs.error(errorObj);
+                  }
                   this.receiveChannel.channel.nack(msg, true);
-                  //const time = Date.now() - start;
-                  // this.log.reportStat(
-                  //     `eventsrec-${this.channelKey}-${pluginName}-${event}-error`,
-                  //     time,
-                  // );
-                  this.log.error(err.toString(), {});
+                  obs.log.error("broadcast listener error: {err}", { err: errorObj.message });
+                } finally {
+                  if (listenerObs) {
+                    listenerObs.end();
+                  }
                 }
               },
               {noAck: false},
@@ -124,7 +129,7 @@ export class broadcast {
               this.receiveChannel.exchangeName,
               rawQueueKey,
           );
-          this.log.debug(`listen rabbit: [{thisQueueKey}]`, {
+          obs.log.debug("listen rabbit: [{thisQueueKey}]", {
             thisQueueKey: rawQueueKey,
           });
         },
@@ -132,9 +137,9 @@ export class broadcast {
   }
 
   async emitBroadcast(
+      obs: Observable,
       pluginName: string,
       event: string,
-      traceId: string | undefined,
       args: Array<any>,
   ): Promise<void> {
     const thisQueueKey = LIB.getQueueKey(
@@ -143,7 +148,7 @@ export class broadcast {
         pluginName,
         event,
     );
-    this.log.debug(`Emit: [{thisQueueKey}]`, {
+    obs.log.debug("Emit: [{thisQueueKey}]", {
       thisQueueKey,
     });
 
@@ -152,16 +157,19 @@ export class broadcast {
       await this.publishChannel.channel.addSetup(
           async (iChannel: amqplibCore.ConfirmChannel) => {
             await iChannel.assertQueue(thisQueueKey, this.queueOpts);
-            this.log.debug(`emit rabbit: [{thisQueueKey}]`, {thisQueueKey});
+            obs.log.debug("emit rabbit: [{thisQueueKey}]", {thisQueueKey});
           },
       );
     }
 
     if (
         !await this.publishChannel.channel.publish(
-            this.exchange.name,
+            this.publishChannel.exchangeName,
             thisQueueKey,
-            [traceId, ...args],
+            {
+              trace: obs.trace,
+              args,
+            },
             {
               expiration: this.queueOpts.messageTtl,
               contentType: "string",
@@ -172,6 +180,6 @@ export class broadcast {
     ) {
       throw `Cannot send msg to queue [${thisQueueKey}]`;
     }
-    this.log.debug(` - EMIT: [${thisQueueKey}] - EMITTED`);
+    obs.log.debug(" - EMIT: [{thisQueueKey}] - EMITTED", { thisQueueKey });
   }
 }

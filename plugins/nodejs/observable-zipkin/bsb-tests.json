@@ -1,0 +1,14 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-zipkin",
+      "skip": true,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    }
+  ]
+}

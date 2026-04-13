@@ -1,5 +1,6 @@
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { writeFileSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { Observable } from '@bsb/base';
 
 export interface TodoItem {
@@ -239,7 +240,7 @@ export class TodoStorage {
         const json = this.config.prettyPrint
           ? JSON.stringify(items, null, 2)
           : JSON.stringify(items);
-        require('fs').writeFileSync(this.filePath, json, 'utf-8');
+        writeFileSync(this.filePath, json, 'utf-8');
       } catch {
         // Silently fail - no obs available for logging during disposal
       }

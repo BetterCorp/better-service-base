@@ -1,17 +1,16 @@
 import {EventEmitter, Readable} from "stream";
 import {randomUUID} from "crypto";
-import {Plugin} from "../index";
+import {Plugin} from "../index.js";
 import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
-import {LIB, SetupChannel} from "./lib";
-import {BSBError, IPluginLogger} from "@bsb/base";
+import {LIB, SetupChannel} from "./lib.js";
+import {BSBError, Observable} from "@bsb/base";
 
 export class emitStreamAndReceiveStream
     extends EventEmitter {
   // If we try receive or send a stream and the other party is not ready for some reason, we will automatically timeout in 5s.
   private readonly staticCommsTimeout = 30000; //1000;
   private plugin: Plugin;
-  private log: IPluginLogger;
   private eventsChannel!: SetupChannel;
   private streamChannel!: SetupChannel;
   private readonly eventsChannelKey = "91se";
@@ -44,10 +43,9 @@ export class emitStreamAndReceiveStream
     this.removeAllListeners(this.streamChannelKey + key + streamId);
   }
 
-  constructor(plugin: Plugin, log: IPluginLogger) {
+  constructor(plugin: Plugin) {
     super();
     this.plugin = plugin;
-    this.log = log;
   }
 
   public dispose() {
@@ -61,6 +59,7 @@ export class emitStreamAndReceiveStream
   }
 
   async setupChannel(
+      obs: Observable,
       channel: any,
       channelKey: string,
       queueKeyMethod: Function,
@@ -70,7 +69,7 @@ export class emitStreamAndReceiveStream
       const queueKey = queueKeyMethod();
       channel = await LIB.setupChannel(
           this.plugin,
-          this.log,
+          obs,
           this.plugin.receiveConnection,
           channelKey,
           null,
@@ -78,24 +77,25 @@ export class emitStreamAndReceiveStream
           undefined,
           2,
       );
-      this.log.debug(`Ready ${logMessage}: {queueKey}`, {queueKey});
+      obs.log.debug("Ready {logMessage}: {queueKey}", { logMessage, queueKey });
 
       await channel.channel.addSetup(
           async (iChannel: amqplibCore.ConfirmChannel) => {
             await iChannel.assertQueue(queueKey, this.queueOpts);
-            this.log.debug(`LISTEN: [{queueKey}]`, {queueKey});
+            obs.log.debug("LISTEN: [{queueKey}]", { queueKey });
 
             await iChannel.consume(
                 queueKey,
                 async (msg: amqplibCore.ConsumeMessage | null): Promise<any> => {
                   if (msg === null) {
-                    return this.log.warn(`[RECEIVED {queueKey}]... as null`, {
+                    return obs.log.warn("[RECEIVED {queueKey}]... as null", {
                       queueKey,
                     });
                   }
                   try {
                     const body = JSON.parse(msg.content.toString());
-                    this.log.debug(`[RECEIVED ${logMessage} {queueKey}]`, {
+                    obs.log.debug("[RECEIVED {logMessage} {queueKey}]", {
+                      logMessage,
                       queueKey,
                     });
 
@@ -110,7 +110,7 @@ export class emitStreamAndReceiveStream
                         () => iChannel.nack(msg),
                     );
                   } catch (exc: any) {
-                    this.log.error("AMPQ Consumed exception: {eMsg}", {
+                    obs.log.error("AMPQ Consumed exception: {eMsg}", {
                       eMsg: exc.message || exc.toString(),
                     });
                     process.exit(7);
@@ -119,8 +119,9 @@ export class emitStreamAndReceiveStream
                 {noAck: false},
             );
 
-            this.log.debug(`LISTEN: [{queueKey}]`, {queueKey});
-            this.log.debug(`Ready ${logMessage} name: {queueKey} OKAY`, {
+            obs.log.debug("LISTEN: [{queueKey}]", { queueKey });
+            obs.log.debug("Ready {logMessage} name: {queueKey} OKAY", {
+              logMessage,
               queueKey,
             });
           },
@@ -128,14 +129,16 @@ export class emitStreamAndReceiveStream
     }
   }
 
-  async setupChannelsIfNotSetup() {
+  async setupChannelsIfNotSetup(obs: Observable) {
     await this.setupChannel(
+        obs,
         this.eventsChannel,
         this.eventsChannelKey,
         this.myEventsQueueKey,
         "events",
     );
     await this.setupChannel(
+        obs,
         this.streamChannel,
         this.streamChannelKey,
         this.myStreamQueueKey,
@@ -144,34 +147,38 @@ export class emitStreamAndReceiveStream
   }
 
   async receiveStream(
-      listener: { (error: Error | null, stream: Readable): Promise<void> },
+      obs: Observable,
+      pluginName: string,
+      event: string,
+      listener: { (obs: Observable, error: Error | null, stream: Readable): Promise<void> },
       timeoutSeconds = 5,
   ): Promise<string> {
     //const start = new Date().getTime();
     const streamId = `${randomUUID()}-${new Date().getTime()}`;
     let thisTimeoutMS = this.staticCommsTimeout;
-    this.log.debug(`SR: listening to {streamId}`, {
+    obs.log.debug("SR: listening to {streamId}", {
       streamId,
     });
     const self = this;
     let dstEventsQueueKey: string;
+    let streamObs: Observable | null = null;
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
-      await self.setupChannelsIfNotSetup();
+      await self.setupChannelsIfNotSetup(obs);
       let stream: Readable | null = null;
       let lastResponseTimeoutHandler: NodeJS.Timeout | null = null;
       let lastResponseTimeoutCount: number = 1;
       let receiptTimeoutHandler: NodeJS.Timeout | null;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       let createTimeout = async (e: string): Promise<void> => {
-        throw new BSBError("not setup yet : createTimeout");
+        throw new BSBError(obs.trace, "not setup yet : createTimeout");
       };
       const cleanup = () => {
         self.cleanupSelf(streamId, "r-");
         createTimeout = async (e) => {
-          self.log.debug("voided timeout creator: {e}", {e});
+          obs.log.debug("voided timeout creator: {e}", {e});
         };
-        self.log.debug("Cleanup stuffR");
+        obs.log.debug("Cleanup stuffR");
         if (receiptTimeoutHandler !== null) {
           clearTimeout(receiptTimeoutHandler);
         }
@@ -184,9 +191,12 @@ export class emitStreamAndReceiveStream
         if (stream !== null && !stream.destroyed) {
           stream.destroy();
         }
+        if (streamObs) {
+          streamObs.end();
+        }
       };
       receiptTimeoutHandler = setTimeout(async () => {
-        self.log.debug("Receive Receipt Timeout");
+        obs.log.debug("Receive Receipt Timeout");
         const err = new Error("Receive Receipt Timeout");
         cleanup();
         if (
@@ -196,6 +206,7 @@ export class emitStreamAndReceiveStream
                     {
                       type: "timeout",
                       data: err,
+                      trace: streamObs?.trace ?? obs.trace,
                     },
                     {
                       expiration: self.queueOpts.messageTtl,
@@ -208,7 +219,7 @@ export class emitStreamAndReceiveStream
         ) {
           throw `Cannot send msg to queue [${dstEventsQueueKey}]`;
         }
-        await listener(err, null!);
+        await listener(streamObs ?? obs, err, null!);
       }, thisTimeoutMS);
       const timeoutFunc = async () => {
         if (lastResponseTimeoutHandler === null) {
@@ -223,7 +234,7 @@ export class emitStreamAndReceiveStream
           return;
         }
         const err = new Error("Receive Active Timeout");
-        self.log.error("Receive Active Timeout");
+        obs.log.error("Receive Active Timeout");
         cleanup();
         if (
             !(
@@ -232,6 +243,7 @@ export class emitStreamAndReceiveStream
                     {
                       type: "timeout",
                       data: err,
+                      trace: streamObs?.trace ?? obs.trace,
                     },
                     {
                       expiration: self.queueOpts.messageTtl,
@@ -244,7 +256,7 @@ export class emitStreamAndReceiveStream
         ) {
           throw `Cannot send msg to queue [${dstEventsQueueKey}]`;
         }
-        await listener(err, null!);
+        await listener(streamObs ?? obs, err, null!);
       };
       createTimeout = async () => {
         if (lastResponseTimeoutCount === -2) {
@@ -262,13 +274,13 @@ export class emitStreamAndReceiveStream
         createTimeout("updateLastResponseTimer");
       };
       const startStream = async () => {
-        self.log.debug("START STREAM RECEIVER");
+        obs.log.debug("START STREAM RECEIVER");
         thisTimeoutMS = timeoutSeconds * 1000;
         if (
             !(
                 await self.eventsChannel.channel.sendToQueue(
                     dstEventsQueueKey,
-                    {type: "receipt", timeout: thisTimeoutMS},
+                    {type: "receipt", timeout: thisTimeoutMS, trace: streamObs?.trace ?? obs.trace},
                     {
                       expiration: self.queueOpts.messageTtl,
                       correlationId: "s-" + streamId,
@@ -288,7 +300,7 @@ export class emitStreamAndReceiveStream
                   !(
                       await self.eventsChannel.channel.sendToQueue(
                           dstEventsQueueKey,
-                          {type: "read"},
+                          {type: "read", trace: streamObs?.trace ?? obs.trace},
                           {
                             expiration: self.queueOpts.messageTtl,
                             correlationId: "s-" + streamId,
@@ -302,7 +314,7 @@ export class emitStreamAndReceiveStream
               }
             },
           });
-          self.log.debug(`[R RECEVIED {streamRefId}] {streamId}`, {
+          obs.log.debug("[R RECEVIED {streamRefId}] {streamId}", {
             streamRefId: dstEventsQueueKey,
             streamId,
           });
@@ -320,6 +332,7 @@ export class emitStreamAndReceiveStream
                             type: "event",
                             event: evnt,
                             data: e || null,
+                            trace: streamObs?.trace ?? obs.trace,
                           },
                           {
                             expiration: self.queueOpts.messageTtl,
@@ -342,7 +355,7 @@ export class emitStreamAndReceiveStream
               async (data: any, ack: { (): void }, nack: { (): void }) => {
                 if (data === null) {
                   nack();
-                  return self.log.debug(`[R RECEVIED {streamId}]... as null`, {
+                  return obs.log.debug("[R RECEVIED {streamId}]... as null", {
                     streamId,
                   });
                 }
@@ -353,6 +366,7 @@ export class emitStreamAndReceiveStream
                             {
                               type: "receipt",
                               timeout: thisTimeoutMS,
+                              trace: streamObs?.trace ?? obs.trace,
                             },
                             {
                               expiration: self.queueOpts.messageTtl,
@@ -381,20 +395,20 @@ export class emitStreamAndReceiveStream
                 nack();
               },
           );
-          listener(null, stream)
+          listener(streamObs ?? obs, null, stream)
               .then(async () => {
-                self.log.info("stream OK");
+                obs.log.info("stream OK");
               })
               .catch(async (x: Error) => {
                 cleanup();
-                self.log.error("Stream NOT OK: {e}", {
+                obs.log.error("Stream NOT OK: {e}", {
                   e: x.message,
                 });
                 process.exit(7);
               });
         } catch (exc: any) {
           cleanup();
-          self.log.error("Stream NOT OK: {e}", {
+          obs.log.error("Stream NOT OK: {e}", {
             e: exc.message || exc,
           });
           process.exit(7);
@@ -409,19 +423,25 @@ export class emitStreamAndReceiveStream
             }
             updateLastResponseTimer();
             if (data === null) {
-              return self.log.debug(
+              return obs.log.debug(
                   `[R RECEVIED {streamEventsRefId}]... as null`,
                   {streamEventsRefId: dstEventsQueueKey},
               );
             }
             if (data.type === "timeout") {
               cleanup();
-              listener(data.data, null!);
+              listener(streamObs ?? obs, data.data, null!);
               ack();
               return;
             }
             if (data.type === "start") {
-              self.log.debug("Readying to stream from: {fromId}", {
+              const trace = data.trace ?? obs.trace;
+              streamObs = this.plugin.createObservableFromTrace(trace, {
+                pluginName,
+                event,
+                streamId,
+              }).startSpan("stream.receive", { pluginName, event, streamId });
+              obs.log.debug("Readying to stream from: {fromId}", {
                 fromId: data.myId,
               });
               dstEventsQueueKey = LIB.getMyQueueKey(
@@ -430,7 +450,7 @@ export class emitStreamAndReceiveStream
                   data.myId,
               );
               await startStream();
-              self.log.debug("Starting to stream");
+              obs.log.debug("Starting to stream");
               ack();
               return;
             }
@@ -447,10 +467,16 @@ export class emitStreamAndReceiveStream
     });
   }
 
-  async sendStream(streamIdf: string, stream: Readable): Promise<void> {
+  async sendStream(
+      obs: Observable,
+      pluginName: string,
+      event: string,
+      streamIdf: string,
+      stream: Readable
+  ): Promise<void> {
     //const start = new Date().getTime();
     if (streamIdf.split("||").length !== 3) {
-      throw new BSBError("invalid stream ID [{id}]", {id: streamIdf});
+      throw new BSBError(obs.trace, "invalid stream ID [{id}]", {id: streamIdf});
     }
     const streamReceiverId = streamIdf.split("||")[0];
     const streamId = streamIdf.split("||")[1];
@@ -467,20 +493,21 @@ export class emitStreamAndReceiveStream
         streamReceiverId,
     );
     const self = this;
-    this.log.info(`SS: emitting to {dstEventsQueueKey}/{dstStreamQueueKey}`, {
+    const sendObs = obs.startSpan("stream.send", { pluginName, event, streamId });
+    sendObs.log.info("SS: emitting to {dstEventsQueueKey}/{dstStreamQueueKey}", {
       dstEventsQueueKey,
       dstStreamQueueKey,
     });
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolveI, rejectI) => {
-      await self.setupChannelsIfNotSetup();
+      await self.setupChannelsIfNotSetup(sendObs);
       let lastResponseTimeoutHandler: NodeJS.Timeout | null = null;
       let lastResponseTimeoutCount: number = 1;
       let receiptTimeoutHandler: NodeJS.Timeout | null = setTimeout(() => {
         reject(new Error("Send Receipt Timeout"));
       }, thisTimeoutMS);
       const cleanup = async (eType: string, e?: Error) => {
-        self.log.debug("cleanup: {eType}", {eType});
+        sendObs.log.debug("cleanup: {eType}", {eType});
         self.cleanupSelf(streamId, "s-");
         stream.destroy(e);
 
@@ -492,9 +519,11 @@ export class emitStreamAndReceiveStream
         }
         receiptTimeoutHandler = null;
         lastResponseTimeoutHandler = null;
+        sendObs.end();
       };
       const reject = async (e: Error) => {
         await cleanup("reject-" + e.message, e);
+        sendObs.error(e);
         // const end = new Date().getTime();
         // const time = end - start;
         // self.log.reportStat(
@@ -517,7 +546,7 @@ export class emitStreamAndReceiveStream
         lastResponseTimeoutCount = 1;
         if (lastResponseTimeoutHandler === null) {
           let createTimeout = (): void => {
-            throw new BSBError("not setup yet : createTimeout");
+            throw new BSBError(sendObs.trace, "not setup yet : createTimeout");
           };
           const timeoutFunc = async () => {
             if (lastResponseTimeoutCount > 0) {
@@ -525,7 +554,7 @@ export class emitStreamAndReceiveStream
               createTimeout();
               return;
             }
-            self.log.debug("Receive Receipt Timeout");
+            sendObs.log.debug("Receive Receipt Timeout");
             const err = new Error("Receive Active Timeout");
             await cleanup("active-timeout");
             if (
@@ -535,6 +564,7 @@ export class emitStreamAndReceiveStream
                         {
                           type: "timeout",
                           data: err,
+                          trace: sendObs.trace,
                         },
                         {
                           expiration: self.queueOpts.messageTtl,
@@ -567,7 +597,7 @@ export class emitStreamAndReceiveStream
                   !(
                       await self.streamChannel.channel.sendToQueue(
                           dstStreamQueueKey,
-                          {type: "event", event: evnt, data: e || null},
+                          {type: "event", event: evnt, data: e || null, trace: sendObs.trace},
                           {
                             expiration: self.queueOpts.messageTtl,
                             correlationId: /*"r-" + */ streamId,
@@ -591,19 +621,19 @@ export class emitStreamAndReceiveStream
       let streamStarted = false;
       const pushData = async () => {
         if (pushingData) {
-          self.log.warn(
+          sendObs.log.warn(
               "Stream tried pushing data, but not ready to push data!",
           );
           return;
         }
         pushingData = true;
-        self.log.warn("Switching to push data model.");
+        sendObs.log.warn("Switching to push data model.");
         stream.on("data", async (data: any) => {
           if (
               !(
                   await self.streamChannel.channel.sendToQueue(
                       dstStreamQueueKey,
-                      {type: "data", data},
+                      {type: "data", data, trace: sendObs.trace},
                       {
                         expiration: self.queueOpts.messageTtl,
                         correlationId: streamId,
@@ -614,7 +644,7 @@ export class emitStreamAndReceiveStream
               )
           ) {
             pushingData = false;
-            self.log.error(
+            sendObs.log.error(
                 `Cannot push msg to queue [{dstStreamQueueKey}] {streamId} / switch back to poll model.`,
                 {dstStreamQueueKey, streamId},
             );
@@ -631,7 +661,7 @@ export class emitStreamAndReceiveStream
             updateLastResponseTimer();
             if (data === null) {
               nack();
-              return self.log.debug(
+              return sendObs.log.debug(
                   `[S RECEVIED {dstEventsQueueKey}]... as null`,
                   {dstEventsQueueKey},
               );
@@ -658,7 +688,7 @@ export class emitStreamAndReceiveStream
               }
               const readData = stream.read();
               if (!stream.readable || readData === null) {
-                self.log.info("Stream no longer readable.");
+                sendObs.log.info("Stream no longer readable.");
                 if (!streamStarted) {
                   await pushData();
                 }
@@ -669,7 +699,7 @@ export class emitStreamAndReceiveStream
                   !(
                       await self.streamChannel.channel.sendToQueue(
                           dstStreamQueueKey,
-                          {type: "data", data: readData},
+                          {type: "data", data: readData, trace: sendObs.trace},
                           {
                             expiration: self.queueOpts.messageTtl,
                             correlationId: streamId,
@@ -688,14 +718,14 @@ export class emitStreamAndReceiveStream
             ack();
           },
       );
-      self.log.info(`SS: setup, ready {streamEventsRefId}`, {
+      sendObs.log.info("SS: setup, ready {streamEventsRefId}", {
         streamEventsRefId: dstEventsQueueKey,
       });
       if (
           !(
               await self.eventsChannel.channel.sendToQueue(
                   dstEventsQueueKey,
-                  {type: "start", myId: self.plugin.myId},
+                  {type: "start", myId: self.plugin.myId, trace: sendObs.trace},
                   {
                     expiration: self.queueOpts.messageTtl,
                     correlationId: "r-" + streamId,
@@ -708,8 +738,8 @@ export class emitStreamAndReceiveStream
         throw `Cannot send msg to queue [${dstEventsQueueKey}]`;
       }
       thisTimeoutMS = streamTimeoutS * 1000;
-      self.log.info(
-          `SS: emitted {dstEventsQueueKey} with timeout of {thisTimeoutMS}`,
+      sendObs.log.info(
+          "SS: emitted {dstEventsQueueKey} with timeout of {thisTimeoutMS}",
           {dstEventsQueueKey, thisTimeoutMS},
       );
     });

@@ -30,4 +30,4 @@ export {
   type GraylogConfig,
   Config,
   Plugin,
-} from "./plugins/observable-graylog";
+} from "./plugins/observable-graylog/index.js";

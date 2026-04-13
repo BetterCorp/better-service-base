@@ -33,7 +33,7 @@ RabbitMQ is a robust, open-source message broker that implements the Advanced Me
 # Installation
 
 ```bash
-npm install @bettercorp/service-base-plugin-events-rabbitmq
+npm install @bsb/events-rabbitmq
 ```
 
 # Configuration
@@ -43,7 +43,7 @@ Add the plugin to your BSB configuration file:
 ```yaml
 plugins:
   events:
-    plugin: "@bettercorp/service-base-plugin-events-rabbitmq"
+    plugin: "@bsb/events-rabbitmq"
     enabled: true
     config:
       endpoints:
@@ -130,9 +130,9 @@ export class OrderService extends BSBService {
     super(context);
   }
 
-  async init(): Promise<void> {
+  async init(obs: Observable): Promise<void> {
     // Emit event - any listener will handle it
-    await this.events.emitEvent("order.created", {
+    await this.events.emitEvent("order.created", obs, {
       orderId: "12345",
       items: [{ sku: "ABC", qty: 2 }]
     });
@@ -141,11 +141,12 @@ export class OrderService extends BSBService {
 
 // In another service (or another container)
 export class FulfillmentService extends BSBService {
-  async init(): Promise<void> {
+  async init(obs: Observable): Promise<void> {
     // Listen for events - RabbitMQ ensures only one instance handles it
     await this.events.onEvent(
       "order.created",
-      async (data) => {
+      obs,
+      async (handlerObs, data) => {
         await this.processOrder(data.orderId, data.items);
       }
     );
@@ -159,10 +160,11 @@ Send an event and wait for a response from a handler:
 
 ```typescript
 export class UserService extends BSBService {
-  async validateUser(email: string): Promise<boolean> {
+  async validateUser(obs: Observable, email: string): Promise<boolean> {
     // Emit and wait for response (with timeout)
     const result = await this.events.emitEventAndReturn(
       "user.validate",
+      obs,
       { email },
       5000  // 5 second timeout
     );
@@ -172,10 +174,11 @@ export class UserService extends BSBService {
 
 // Validation service (can be in different container)
 export class ValidationService extends BSBService {
-  async init(): Promise<void> {
+  async init(obs: Observable): Promise<void> {
     await this.events.onReturnableEvent(
       "user.validate",
-      async (data) => {
+      obs,
+      async (handlerObs, data) => {
         const isValid = await this.checkEmail(data.email);
         return { valid: isValid };
       }
@@ -190,18 +193,19 @@ Send an event to ALL registered listeners across all instances:
 
 ```typescript
 export class CacheService extends BSBService {
-  async invalidateCache(keys: string[]): Promise<void> {
+  async invalidateCache(obs: Observable, keys: string[]): Promise<void> {
     // Broadcast to ALL cache instances
-    await this.events.emitBroadcast("cache.invalidate", { keys });
+    await this.events.emitBroadcast("cache.invalidate", obs, { keys });
   }
 }
 
 // Each cache instance receives the broadcast
 export class LocalCacheService extends BSBService {
-  async init(): Promise<void> {
+  async init(obs: Observable): Promise<void> {
     await this.events.onBroadcast(
       "cache.invalidate",
-      async (data) => {
+      obs,
+      async (handlerObs, data) => {
         for (const key of data.keys) {
           await this.localCache.delete(key);
         }
@@ -217,11 +221,12 @@ Stream data between services (bidirectional):
 
 ```typescript
 export class FileService extends BSBService {
-  async uploadFile(file: Readable): Promise<void> {
+  async uploadFile(obs: Observable, file: Readable): Promise<void> {
     // Request a stream handler
     const streamId = await this.events.receiveStream(
       "file.upload",
-      async (error, stream) => {
+      obs,
+      async (handlerObs, error, stream) => {
         if (error) {
           this.log.error("Stream error", error);
           return;
@@ -232,7 +237,7 @@ export class FileService extends BSBService {
     );
 
     // Send file stream
-    await this.events.sendStream("file.upload", streamId, file);
+    await this.events.sendStream("file.upload", obs, streamId, file);
   }
 }
 ```

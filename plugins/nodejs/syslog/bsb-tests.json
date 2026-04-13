@@ -1,0 +1,24 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-syslog",
+      "skip": true,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    },
+    {
+      "id": "service-syslog-server",
+      "skip": true,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    }
+  ]
+}

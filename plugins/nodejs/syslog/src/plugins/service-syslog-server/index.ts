@@ -25,11 +25,12 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-const SyslogServer = require("syslog-server");
 import { BSBService, BSBServiceConstructor, BSBServiceClient, createConfigSchema, bsb } from "@bsb/base";
 import { Observable } from "@bsb/base";
 import * as av from "@anyvali/js";
 import { createFireAndForgetEvent } from "@bsb/base";
+// @ts-ignore - no types available
+import SyslogServer from "syslog-server";
 
 /**
  * Syslog message structure

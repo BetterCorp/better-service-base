@@ -1,0 +1,14 @@
+{
+  "nodejs": [
+    {
+      "id": "observable-graylog",
+      "skip": true,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    }
+  ]
+}

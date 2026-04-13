@@ -1,9 +1,9 @@
 import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
-import {broadcast} from "./events/broadcast";
-import {emit} from "./events/emit";
-import {emitAndReturn} from "./events/emitAndReturn";
-import {emitStreamAndReceiveStream} from "./events/emitStreamAndReceiveStream";
+import {broadcast} from "./events/broadcast.js";
+import {emit} from "./events/emit.js";
+import {emitAndReturn} from "./events/emitAndReturn.js";
+import {emitStreamAndReceiveStream} from "./events/emitStreamAndReceiveStream.js";
 import {randomUUID} from "crypto";
 import {hostname} from "os";
 import {Readable} from "stream";

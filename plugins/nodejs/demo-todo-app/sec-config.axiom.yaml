@@ -1,0 +1,209 @@
+# BSB Demo Todo App - Axiom.co Configuration
+#
+# This configuration demonstrates using Axiom.co for full observability:
+# - Logs exported to Axiom dataset
+# - Metrics as structured events in Axiom
+# - Traces via OTLP to Axiom
+#
+# Setup:
+# 1. Create account at https://axiom.co
+# 2. Create dataset: axiom dataset create bsb-demo
+# 3. Create API token: axiom token create bsb-demo --scopes ingest
+# 4. Set environment variables:
+#    export AXIOM_TOKEN="xaat-your-token-here"
+#    export AXIOM_DATASET="bsb-demo"
+# 5. Run: BSB_ENV=axiom bsb start
+
+axiom:
+  observable:
+    observable-axiom:
+      plugin: observable-axiom
+      package: "@bsb/observable-axiom"
+      enabled: true
+      config:
+        serviceName: demo-todo-app
+        serviceVersion: "1.0.0"
+
+        axiom:
+          # Required: Your Axiom API token
+          # Store in environment variable for security
+          token: ${AXIOM_TOKEN}
+
+          # Dataset name for logs, metrics, and traces
+          dataset: ${AXIOM_DATASET:-bsb-demo}
+
+          # Optional: Organization ID (for Axiom Cloud)
+          # orgId: ${AXIOM_ORG_ID}
+
+          # Optional: Custom URL (for self-hosted Axiom)
+          # url: https://axiom.mycompany.com
+
+        # Enable all observability signals
+        enabled:
+          logs: true
+          metrics: true
+          traces: true
+
+        # Batch export configuration
+        export:
+          flushIntervalMs: 5000      # Flush every 5 seconds
+          maxBatchSize: 1000         # Max events per batch
+
+        # Resource attributes (added to all telemetry)
+        resourceAttributes:
+          environment: demo
+          application: todo-app
+          deployment: local
+
+  events:
+    events-default:
+      package: "@bsb/base"
+      plugin: events-default
+      enabled: true
+
+  services:
+    service-demo-todo:
+      plugin: service-demo-todo
+      enabled: true
+      config:
+        storage:
+          path: "./.temp/demo-todos.json"
+          autoSaveInterval: 5000
+          prettyPrint: true
+        http:
+          port: 3000
+          host: "0.0.0.0"
+          cors: true
+        features:
+          statsInterval: 30
+          maxTodos: 1000
+
+# ==========================================================================
+# Production Axiom Configuration
+# ==========================================================================
+
+axiom-production:
+  observable:
+    observable-axiom:
+      plugin: observable-axiom
+      package: "@bsb/observable-axiom"
+      enabled: true
+      config:
+        serviceName: demo-todo-app
+        serviceVersion: ${APP_VERSION:-1.0.0}
+
+        axiom:
+          token: ${AXIOM_TOKEN}
+          dataset: ${AXIOM_DATASET:-bsb-prod}
+          orgId: ${AXIOM_ORG_ID}
+
+        enabled:
+          logs: true
+          metrics: true
+          traces: true
+
+        export:
+          flushIntervalMs: 10000     # Less frequent in production
+          maxBatchSize: 5000         # Larger batches
+
+        resourceAttributes:
+          environment: ${ENVIRONMENT:-production}
+          region: ${AWS_REGION:-us-east-1}
+          datacenter: ${DATACENTER:-default}
+          hostname: ${HOSTNAME}
+          deployment: ${DEPLOYMENT_ID}
+
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
+
+  services:
+    service-demo-todo:
+      plugin: service-demo-todo
+      enabled: true
+      config:
+        storage:
+          path: "/var/lib/bsb/todos.json"
+          autoSaveInterval: 10000
+          prettyPrint: false
+        http:
+          port: 8080
+          host: "0.0.0.0"
+          cors: false
+        features:
+          statsInterval: 300
+          maxTodos: 10000
+
+# ==========================================================================
+# Axiom Query Examples (APL - Axiom Processing Language)
+# ==========================================================================
+#
+# View all logs from demo-todo-app:
+# ---
+# ['bsb-demo']
+# | where service == "demo-todo-app"
+# | order by _time desc
+# | limit 100
+#
+# Find errors:
+# ---
+# ['bsb-demo']
+# | where service == "demo-todo-app"
+# | where level == "error"
+# | order by _time desc
+#
+# Track todo creation rate:
+# ---
+# ['bsb-demo']
+# | where service == "demo-todo-app"
+# | where message contains "Todo created"
+# | summarize count() by bin(_time, 1m)
+# | render timechart
+#
+# Monitor HTTP request duration:
+# ---
+# ['bsb-demo']
+# | where metric_type == "histogram"
+# | where metric_name == "http_request_duration"
+# | summarize avg(value), p95=percentile(value, 95) by bin(_time, 1m)
+# | render timechart
+#
+# Trace analysis:
+# ---
+# Use Axiom's Trace view to explore distributed traces
+# Filter by service: demo-todo-app
+# View service map to see request flows
+# Analyze performance bottlenecks
+#
+# Alert on high error rate:
+# ---
+# ['bsb-demo']
+# | where service == "demo-todo-app"
+# | where level == "error"
+# | summarize error_count=count() by bin(_time, 5m)
+# | where error_count > 10
+#
+# ==========================================================================
+# Environment Variables Reference
+# ==========================================================================
+#
+# Required:
+#   AXIOM_TOKEN        - Your Axiom API token (from axiom.co)
+#   AXIOM_DATASET      - Dataset name (e.g., "bsb-demo")
+#
+# Optional:
+#   AXIOM_ORG_ID       - Organization ID (for Axiom Cloud)
+#   APP_VERSION        - Application version tag
+#   ENVIRONMENT        - Environment name (dev, staging, prod)
+#   AWS_REGION         - Cloud region
+#   DATACENTER         - Datacenter identifier
+#   HOSTNAME           - Host machine name
+#   DEPLOYMENT_ID      - Unique deployment identifier
+#
+# Example:
+#   export AXIOM_TOKEN="xaat-abc123..."
+#   export AXIOM_DATASET="bsb-demo"
+#   export ENVIRONMENT="development"
+#   BSB_ENV=axiom bsb start
+#

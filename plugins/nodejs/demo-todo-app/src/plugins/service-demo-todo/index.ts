@@ -15,8 +15,8 @@ import {
   bsb,
   optional,
 } from '@bsb/base';
-import { TodoStorage } from './storage';
-import { TodoHttpServer } from './http-server';
+import { TodoStorage } from './storage.js';
+import { TodoHttpServer } from './http-server.js';
 
 // ============================================================================
 // Schemas - Using BSB Types for Cross-Language Support

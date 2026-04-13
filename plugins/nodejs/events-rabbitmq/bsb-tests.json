@@ -1,0 +1,25 @@
+{
+  "nodejs": [
+    {
+      "id": "events-rabbitmq",
+      "skip": false,
+      "default": {
+        "config": {
+          "platformKey": null,
+          "fatalOnDisconnect": false,
+          "prefetch": 10,
+          "endpoints": [
+            "amqp://127.0.0.1:5670"
+          ],
+          "credentials": {
+            "username": "guest",
+            "password": "guest"
+          }
+        },
+        "setup": null,
+        "dispose": null
+      },
+      "tests": []
+    }
+  ]
+}

@@ -1,13 +1,14 @@
-import { Tools } from "@bettercorp/tools/lib/Tools";
 import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
-import { Plugin } from "../index";
-import { IPluginLogger } from "@bsb/base";
+import { Plugin } from "../index.js";
+import { Observable } from "@bsb/base";
 
 export interface SetupChannel<T extends string | null = string | null> {
   exchangeName: T;
   channel: amqplib.ChannelWrapper;
 }
+
+const isNil = (value: unknown) => value === null || value === undefined;
 export class LIB {
   public static getQueueKey(
     plugin: Plugin,
@@ -17,7 +18,7 @@ export class LIB {
     addKey?: string
   ) {
     return `${plugin.getPlatformName(channelKey)}-${pluginName}-${event}${
-      Tools.isNullOrUndefined(addKey) ? "" : `-${addKey}`
+      isNil(addKey) ? "" : `-${addKey}`
     }`;
   }
   public static getMyQueueKey(
@@ -27,12 +28,12 @@ export class LIB {
     addKey?: string
   ) {
     return `${plugin.getPlatformName(channelKey)}-${id}${
-      Tools.isNullOrUndefined(addKey) ? "" : `-${addKey}`
+      isNil(addKey) ? "" : `-${addKey}`
     }`;
   }
   public static async setupChannel<T extends string | null>(
     plugin: Plugin,
-    log: IPluginLogger,
+    obs: Observable | null,
     connection: amqplib.AmqpConnectionManager,
     queueKey: string,
     exchangeName: T,
@@ -44,24 +45,24 @@ export class LIB {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
       const exName =
-        Tools.isNullOrUndefined(exchangeName) || Tools.isNullOrUndefined(exType)
+        isNil(exchangeName) || isNil(exType)
           ? null
           : plugin.getPlatformName(exchangeName);
       let returned = false;
-      log.debug(`Create channel ({queueKey})`, { queueKey });
+      obs?.log.debug("Create channel ({queueKey})", { queueKey });
       const channel = await connection.createChannel({
         json,
         setup: async (ichannel: amqplibCore.ConfirmChannel) => {
           if (exName !== null)
             await ichannel.assertExchange(exName, exType!, exOpts);
-          if (!Tools.isNullOrUndefined(prefetch)) {
-            log.debug(`prefetch ({queueKey}) {prefetch}`, {
+          if (!isNil(prefetch)) {
+            obs?.log.debug("prefetch ({queueKey}) {prefetch}", {
               queueKey,
               prefetch: prefetch!,
             });
             await ichannel.prefetch(prefetch!);
           }
-          log.debug(`setup exchange ({queueKey}) OK`, {
+          obs?.log.debug("setup exchange ({queueKey}) OK", {
             queueKey,
           });
           if (!returned) {
@@ -74,22 +75,30 @@ export class LIB {
         },
       });
       channel.on("close", () => {
-        log.warn(`AMQP channel ({queueKey}) close`, { queueKey });
+        if (obs) {
+          obs.log.warn("AMQP channel ({queueKey}) close", { queueKey });
+        } else {
+          console.warn(`[events-rabbitmq] AMQP channel (${queueKey}) close`);
+        }
       });
       channel.on("error", (err: any) => {
-        log.error(`AMQP channel ({queueKey}) error: {err}`, {
-          queueKey,
-          err: err.message || err,
-        });
+        if (obs) {
+          obs.log.error("AMQP channel ({queueKey}) error: {err}", {
+            queueKey,
+            err: err.message || err,
+          });
+        } else {
+          console.error(`[events-rabbitmq] AMQP channel (${queueKey}) error: ${err.message || err}`);
+        }
         process.exit(6);
       });
       if (exName !== null)
-        log.debug(`Assert exchange ({queueKey}) {exName} {exType}`, {
+        obs?.log.debug("Assert exchange ({queueKey}) {exName} {exType}", {
           queueKey,
           exName,
           exType: exType!,
         });
-      log.debug(`Ready ({queueKey})`, { queueKey });
+      obs?.log.debug("Ready ({queueKey})", { queueKey });
     });
   }
 }

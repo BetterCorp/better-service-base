@@ -1,6 +1,6 @@
 {
   "name": "@bsb/events-rabbitmq",
-  "version": "9.1.1",
+  "version": "9.1.2",
   "type": "module",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {

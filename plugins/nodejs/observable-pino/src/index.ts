@@ -30,4 +30,4 @@ export {
   type PinoConfig,
   Config,
   Plugin,
-} from "./plugins/observable-pino";
+} from "./plugins/observable-pino/index.js";

@@ -29,7 +29,7 @@ import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatt
 import { DTrace, LogMeta } from "@bsb/base";
 import * as av from "@anyvali/js";
 import * as winston from "winston";
-import "winston-daily-rotate-file";
+import DailyRotateFile from "winston-daily-rotate-file";
 
 /**
  * Configuration schema for Winston observable
@@ -145,7 +145,6 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
     // Daily rotate file transport
     if (this.config.transports.dailyRotate.enabled) {
-      const DailyRotateFile = require("winston-daily-rotate-file");
       transports.push(
         new DailyRotateFile({
           dirname: this.config.transports.dailyRotate.dirname,

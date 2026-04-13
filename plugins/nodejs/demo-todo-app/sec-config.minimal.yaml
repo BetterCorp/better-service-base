@@ -1,0 +1,34 @@
+# BSB Demo Todo App - Minimal Configuration
+#
+# This is a minimal configuration file to get the demo-todo-app running quickly.
+# For full configuration options, see sec-config.yaml
+
+default:
+  # Observable plugin - handles logging, metrics, and tracing
+  observable:
+    observable-default:
+      plugin: observable-default
+      enabled: true
+
+  # Events plugin - handles event-driven communication
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
+
+  # Demo Todo App - the main application
+  services:
+    service-demo-todo:
+      plugin: service-demo-todo
+      enabled: true
+      # All settings will use defaults:
+      # - Storage: ./.temp/demo-todos.json
+      # - HTTP Server: http://0.0.0.0:3000
+      # - Auto-save: every 5 seconds
+      # - Stats broadcast: every 30 seconds
+      # - Max todos: 1000
+
+# Quick Start:
+# 1. Copy this file to your BSB project root as "sec-config.yaml"
+# 2. Run: bsb start
+# 3. Open: http://localhost:3000

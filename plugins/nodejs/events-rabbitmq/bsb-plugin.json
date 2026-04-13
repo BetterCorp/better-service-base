@@ -2,15 +2,22 @@
   "nodejs": [
     {
       "id": "events-rabbitmq",
-      "name": "RabbitMQ",
+      "name": "events-rabbitmq",
       "basePath": "./",
-      "image": "./assets/events-rabbitmq.png",
-      "description": "Distributed event bus using RabbitMQ for multi-process and multi-container communication",
-      "tags": ["RabbitMQ", "Events", "Message Queue", "Distributed", "AMQP"],
-      "documentation": ["./docs/plugin.md"],
+      "description": "RabbitMQ events plugin for distributed event bus",
+      "tags": [
+        "rabbitmq",
+        "amqp",
+        "event-bus",
+        "distributed"
+      ],
+      "documentation": [
+        "./docs/plugin.md"
+      ],
       "pluginPath": "src/plugins/events-rabbitmq/",
+      "image": "./assets/events-rabbitmq.png",
       "links": {
-        "github": "https://github.com/BetterCorp/service-base-events-rabbitmq"
+        "github": "https://github.com/BetterCorp/better-service-base.git"
       }
     }
   ]
