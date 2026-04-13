@@ -9,8 +9,176 @@ import * as path from 'path';
 import { EventSchemaExport, EventExportDefinition } from '../interfaces/schema-events.js';
 import { isMainModule } from '../base/module-runtime.js';
 
+/**
+ * Convert an AnyVali schema node to BSBType builder code.
+ * Produces typed calls like `bsb.object({...})` instead of untyped `av.importSchema()`.
+ */
+function schemaNodeToCode(node: Record<string, any>): string {
+  const kind: string = node.kind;
+
+  switch (kind) {
+    case 'string': {
+      if (node.format === 'uuid') return 'bsb.uuid()';
+      if (node.format === 'date-time') return 'bsb.datetime()';
+      if (node.format === 'email') return 'bsb.email()';
+      if (node.format === 'url') return 'bsb.uri()';
+      const opts: string[] = [];
+      if (node.minLength !== undefined) opts.push(`min: ${node.minLength}`);
+      if (node.maxLength !== undefined) opts.push(`max: ${node.maxLength}`);
+      if (node.pattern !== undefined) opts.push(`pattern: ${JSON.stringify(node.pattern)}`);
+      return opts.length > 0 ? `bsb.string({ ${opts.join(', ')} })` : 'bsb.string()';
+    }
+
+    case 'int32': {
+      const opts: string[] = [];
+      if (node.min !== undefined) opts.push(`min: ${node.min}`);
+      if (node.max !== undefined) opts.push(`max: ${node.max}`);
+      return opts.length > 0 ? `bsb.int32({ ${opts.join(', ')} })` : 'bsb.int32()';
+    }
+
+    case 'int64': {
+      const opts: string[] = [];
+      if (node.min !== undefined) opts.push(`min: ${node.min}`);
+      if (node.max !== undefined) opts.push(`max: ${node.max}`);
+      return opts.length > 0 ? `bsb.int64({ ${opts.join(', ')} })` : 'bsb.int64()';
+    }
+
+    case 'float32': {
+      const opts: string[] = [];
+      if (node.min !== undefined) opts.push(`min: ${node.min}`);
+      if (node.max !== undefined) opts.push(`max: ${node.max}`);
+      return opts.length > 0 ? `bsb.float({ ${opts.join(', ')} })` : 'bsb.float()';
+    }
+
+    case 'float64': {
+      const opts: string[] = [];
+      if (node.min !== undefined) opts.push(`min: ${node.min}`);
+      if (node.max !== undefined) opts.push(`max: ${node.max}`);
+      return opts.length > 0 ? `bsb.double({ ${opts.join(', ')} })` : 'bsb.double()';
+    }
+
+    case 'number': {
+      const opts: string[] = [];
+      if (node.min !== undefined) opts.push(`min: ${node.min}`);
+      if (node.max !== undefined) opts.push(`max: ${node.max}`);
+      return opts.length > 0 ? `bsb.number({ ${opts.join(', ')} })` : 'bsb.number()';
+    }
+
+    case 'bool':
+      return 'bsb.boolean()';
+
+    case 'null':
+      return 'bsb.unknown()';
+
+    case 'unknown':
+      return 'bsb.unknown()';
+
+    case 'enum':
+      return `bsb.enum(${JSON.stringify(node.values)})`;
+
+    case 'array': {
+      const itemsCode = schemaNodeToCode(node.items);
+      const opts: string[] = [];
+      if (node.minItems !== undefined) opts.push(`min: ${node.minItems}`);
+      if (node.maxItems !== undefined) opts.push(`max: ${node.maxItems}`);
+      return opts.length > 0
+        ? `bsb.array(${itemsCode}, { ${opts.join(', ')} })`
+        : `bsb.array(${itemsCode})`;
+    }
+
+    case 'object': {
+      const props = node.properties as Record<string, any> | undefined;
+      if (!props || Object.keys(props).length === 0) {
+        return 'bsb.object({})';
+      }
+      const required = new Set<string>(node.required || []);
+      const entries = Object.entries(props).map(([key, value]) => {
+        const code = schemaNodeToCode(value as Record<string, any>);
+        // Non-required fields that aren't already optional get wrapped
+        if (!required.has(key) && (value as Record<string, any>).kind !== 'optional') {
+          return `${JSON.stringify(key)}: optional(${code})`;
+        }
+        return `${JSON.stringify(key)}: ${code}`;
+      });
+      return `bsb.object({\n    ${entries.join(',\n    ')}\n  })`;
+    }
+
+    case 'optional':
+      return `optional(${schemaNodeToCode(node.inner)})`;
+
+    case 'nullable':
+      return `nullable(${schemaNodeToCode(node.inner)})`;
+
+    case 'union': {
+      const variants = (node.variants as any[]).map((v: any) => schemaNodeToCode(v));
+      return `bsb.union([${variants.join(', ')}])`;
+    }
+
+    case 'record': {
+      const valueCode = schemaNodeToCode(node.values);
+      return `bsb.record(bsb.string(), ${valueCode})`;
+    }
+
+    default:
+      // Fallback for any unhandled kind
+      return 'bsb.unknown()';
+  }
+}
+
+function jsonSchemaNodeToCode(node: Record<string, any>): string {
+  const type = node.type;
+  switch (type) {
+    case 'string': {
+      if (node.format === 'uuid') return 'bsb.uuid()';
+      if (node.format === 'date-time') return 'bsb.datetime()';
+      if (node.format === 'email') return 'bsb.email()';
+      if (node.format === 'url' || node.format === 'uri') return 'bsb.uri()';
+      const opts: string[] = [];
+      if (node.minLength !== undefined) opts.push(`min: ${node.minLength}`);
+      if (node.maxLength !== undefined) opts.push(`max: ${node.maxLength}`);
+      if (node.pattern !== undefined) opts.push(`pattern: ${JSON.stringify(node.pattern)}`);
+      return opts.length > 0 ? `bsb.string({ ${opts.join(', ')} })` : 'bsb.string()';
+    }
+    case 'integer':
+    case 'number': {
+      const fn = type === 'integer' ? 'int32' : 'number';
+      const opts: string[] = [];
+      if (node.minimum !== undefined) opts.push(`min: ${node.minimum}`);
+      if (node.maximum !== undefined) opts.push(`max: ${node.maximum}`);
+      return opts.length > 0 ? `bsb.${fn}({ ${opts.join(', ')} })` : `bsb.${fn}()`;
+    }
+    case 'boolean':
+      return 'bsb.boolean()';
+    case 'array': {
+      const itemsCode = node.items ? jsonSchemaNodeToCode(node.items) : 'bsb.unknown()';
+      return `bsb.array(${itemsCode})`;
+    }
+    case 'object': {
+      const props = node.properties as Record<string, any> | undefined;
+      if (!props || Object.keys(props).length === 0) return 'bsb.object({})';
+      const required = new Set<string>(node.required || []);
+      const entries = Object.entries(props).map(([key, value]) => {
+        const code = jsonSchemaNodeToCode(value as Record<string, any>);
+        return required.has(key) ? `${JSON.stringify(key)}: ${code}` : `${JSON.stringify(key)}: optional(${code})`;
+      });
+      return `bsb.object({\n    ${entries.join(',\n    ')}\n  })`;
+    }
+    default:
+      return 'bsb.unknown()';
+  }
+}
+
 function anyValiDocumentToCode(document: unknown): string {
-  return `av.importSchema(${JSON.stringify(document)} as av.AnyValiDocument)`;
+  const doc = document as Record<string, any>;
+  // AnyVali format (has root.kind)
+  if (doc.root && doc.root.kind) {
+    return schemaNodeToCode(doc.root);
+  }
+  // Legacy JSON Schema format (has type)
+  if (doc.type) {
+    return jsonSchemaNodeToCode(doc);
+  }
+  return 'bsb.unknown()';
 }
 
 function eventNameToMethodName(eventName: string): string {
@@ -55,13 +223,11 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
   lines.push(' * DO NOT EDIT - Regenerated on every build');
   lines.push(` * @version ${schemaExport.version}`);
   lines.push(' */');
-  lines.push('import * as av from "@anyvali/js";');
-
   if (importBase === '@bsb/base') {
-    lines.push('import { ServiceClient, BSBService, createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "@bsb/base";');
+    lines.push('import { ServiceClient, BSBService, bsb, optional, nullable, createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "@bsb/base";');
     lines.push('import type { Observable, BSBServiceClientDefinition, EventInputType, EventOutputType } from "@bsb/base";');
   } else {
-    lines.push('import { ServiceClient, BSBService } from "../../index.js";');
+    lines.push('import { ServiceClient, BSBService, bsb, optional, nullable } from "../../index.js";');
     lines.push('import { createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events.js";');
     lines.push('import type { Observable, BSBServiceClientDefinition, EventInputType, EventOutputType } from "../../index.js";');
   }
@@ -136,7 +302,7 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
   lines.push('});');
   lines.push('');
 
-  lines.push('// These resolve to broad types because the source of truth is a portable AnyVali document.');
+  // --- Exported Types (inferred from BSBType schemas) ---
   const typesDone = new Set<string>();
   for (const events of Object.values(categorizedEvents)) {
     for (const { name, def } of events) {
