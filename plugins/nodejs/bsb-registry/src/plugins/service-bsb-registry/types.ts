@@ -173,7 +173,7 @@ export const RegistryEntrySchema = bsb.object({
   author: optional(Author),
   license: optional(bsb.string({ max: 50, description: 'License identifier' })),
   homepage: optional(bsb.uri('Documentation URL')),
-  repository: optional(bsb.uri('Source repository URL')),
+  repository: optional(bsb.string({ description: 'Source repository URL or identifier' })),
 
   // Access control
   visibility: bsb.enum(['public', 'private'], 'Visibility level'),
@@ -251,7 +251,7 @@ export const PublishRequestSchema = bsb.object({
     author: optional(Author),
     license: optional(bsb.string({ max: 50 })),
     homepage: optional(bsb.uri()),
-    repository: optional(bsb.uri()),
+    repository: optional(bsb.string({ description: 'Source repository URL or identifier' })),
   }, 'Plugin metadata'),
   eventSchema: bsb.unknown('EventSchemaExport object (parsed at HTTP boundary, transported as object)'),
   capabilities: optional(bsb.unknown('Plugin capabilities object (parsed at HTTP boundary, optional top-level override)')),
