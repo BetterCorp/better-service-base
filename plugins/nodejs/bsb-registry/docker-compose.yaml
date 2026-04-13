@@ -1,0 +1,55 @@
+# Docker Compose for BSB Registry
+# Run with: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # PostgreSQL database (optional - for production-like setup)
+  postgres:
+    image: postgres:16-alpine
+    container_name: bsb-registry-db
+    environment:
+      POSTGRES_DB: bsb_registry
+      POSTGRES_USER: registry
+      POSTGRES_PASSWORD: registry_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - registry-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # OpenTelemetry Collector (optional - for tracing)
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: bsb-registry-otel
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4318:4318"  # OTLP HTTP receiver
+      - "8888:8888"  # Prometheus metrics
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+
+  # Graylog (optional - for centralized logging)
+  # Uncomment if needed
+  # graylog:
+  #   image: graylog/graylog:5.2
+  #   container_name: bsb-registry-graylog
+  #   environment:
+  #     GRAYLOG_PASSWORD_SECRET: somepasswordpepper
+  #     GRAYLOG_ROOT_PASSWORD_SHA2: 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918  # "admin"
+  #     GRAYLOG_HTTP_EXTERNAL_URI: http://localhost:9000/
+  #   ports:
+  #     - "9000:9000"   # Graylog web interface
+  #     - "12201:12201" # GELF TCP
+  #     - "12201:12201/udp" # GELF UDP
+  #   depends_on:
+  #     - mongo
+  #     - elasticsearch
+
+volumes:
+  registry-db-data:
+    driver: local

@@ -1,0 +1,75 @@
+# BSB Registry - Production Configuration
+# Optimized for production deployment with PostgreSQL and enhanced monitoring
+
+# ============================================================================
+# Registry API Backend
+# ============================================================================
+service-bsb-registry:
+  database:
+    type: postgres                      # Production uses PostgreSQL
+    url: ${DATABASE_URL}                # Connection string from environment variable
+    # Example: postgresql://registry:password@db.example.com:5432/bsb_registry
+
+  http:
+    port: ${PORT:-3100}                 # Port from env or default 3100
+    host: 0.0.0.0
+    cors: true
+
+  auth:
+    requireAuth: true
+
+# ============================================================================
+# Registry Web UI
+# ============================================================================
+service-bsb-registry-ui:
+  port: ${UI_PORT:-3200}
+  host: 0.0.0.0
+  apiUrl: ${REGISTRY_API_URL:-http://localhost:3100}  # External API URL
+  cors: true
+
+# ============================================================================
+# Production Observability
+# ============================================================================
+
+# OpenTelemetry for distributed tracing
+observable-opentelemetry:
+  enabled: true
+  serviceName: bsb-registry
+  endpoint: ${OTEL_ENDPOINT:-http://localhost:4318/v1/traces}
+  attributes:
+    environment: production
+    version: ${APP_VERSION:-1.0.0}
+    region: ${AWS_REGION:-us-east-1}
+
+# Graylog for centralized logging
+observable-graylog:
+  enabled: true
+  host: ${GRAYLOG_HOST:-graylog.example.com}
+  port: ${GRAYLOG_PORT:-12201}
+  facility: bsb-registry
+  level: info
+
+# File-based logging (backup/audit logs)
+observable-logging-file:
+  enabled: true
+  directory: /var/log/bsb-registry
+  filename: registry-%DATE%.log
+  datePattern: YYYY-MM-DD
+  maxSize: 100m
+  maxFiles: 30d
+  level: info
+
+# ============================================================================
+# Core Plugins
+# ============================================================================
+config-default:
+  enabled: true
+
+events-default:
+  enabled: true
+
+observable-default:
+  enabled: true
+  level: warn                           # Only warnings and errors to console
+  colors: false                         # No colors in production logs
+  timestamps: true
