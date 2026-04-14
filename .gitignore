@@ -41,3 +41,9 @@ docs/src/plugins/
 plugins/nodejs/bsb-registry/.temp/
 plugins/nodejs/*/lib/
 .bsb/
+.claude/
+/nul
+/nodejs/nul
+/nodejs/package/
+/nodejs/*.tgz
+/nodejs/*output*.txt

@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@bsb/base": "^9.1.6",
-    "@types/node": "^22.0.0",
+    "@types/node": "^25.6.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.7.2"
   },
