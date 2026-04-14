@@ -32,11 +32,11 @@ RUN set -eux && mkdir /home/bsb && npm i -g typescript ts-node
 
 WORKDIR /home/bsb
 
-ADD package.json /home/bsb/package.json
-ADD tsconfig.json /home/bsb/tsconfig.json
-ADD tsconfig-release.json /home/bsb/tsconfig-release.json
+ADD nodejs/package.json /home/bsb/package.json
+ADD nodejs/tsconfig.json /home/bsb/tsconfig.json
+ADD nodejs/tsconfig-release.json /home/bsb/tsconfig-release.json
 ADD package-lock.json /home/bsb/package-lock.json
-ADD src/ /home/bsb/src/
+ADD nodejs/src/ /home/bsb/src/
 
 # Install all dependencies (including devDependencies)
 RUN npm install
@@ -69,9 +69,9 @@ ENV BSB_LIVE=true
 ENV BSB_CONTAINER=true
 ENV BSB_PLUGIN_DIR=/mnt/plugins
 
-COPY entrypoint.sh /home/bsb/entrypoint.sh
-COPY entrypoint.js /home/bsb/entrypoint.js
-COPY LICENSE /home/bsb/LICENSE
+COPY nodejs/entrypoint.sh /home/bsb/entrypoint.sh
+COPY nodejs/entrypoint.js /home/bsb/entrypoint.js
+COPY nodejs/LICENSE /home/bsb/LICENSE
 
 # Copy compiled TypeScript from builder
 COPY --from=builder /home/bsb/lib /home/bsb/lib
