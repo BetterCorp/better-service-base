@@ -21,9 +21,6 @@ COPY plugins/nodejs/bsb-registry ./
 RUN npm install --include=dev
 RUN npm run build
 
-# Keep runtime package lean for plugin loading in BSB container.
-RUN npm prune --omit=dev
-
 # Package output in BSB plugin-dir layout.
 RUN set -eux; \
   VERSION="$(node -p "require('./package.json').version")"; \
@@ -35,9 +32,30 @@ RUN set -eux; \
   mkdir -p "${VERSION_DIR}"; \
   cp -a package.json bsb-plugin.json lib node_modules "${VERSION_DIR}/";
 
+FROM betterweb/service-base:${BSB_IMAGE_TAG} AS builderModules
+
+WORKDIR /workspace
+ENV PATH="/home/bsb/lib/scripts:${PATH}"
+
+COPY plugins/nodejs/bsb-registry ./
+
+RUN npm install --omit=dev
+
+# Package output in BSB plugin-dir layout.
+RUN set -eux; \
+  VERSION="$(node -p "require('./package.json').version")"; \
+  MAJOR="$(echo "${VERSION}" | cut -d. -f1)"; \
+  MINOR="$(echo "${VERSION}" | cut -d. -f2)"; \
+  MICRO="$(echo "${VERSION}" | cut -d. -f3)"; \
+  PKG_ROOT="/out/@bsb/registry"; \
+  VERSION_DIR="${PKG_ROOT}/${MAJOR}/${MINOR}/${MICRO}"; \
+  mkdir -p "${VERSION_DIR}"; \
+  cp -a node_modules "${VERSION_DIR}/";
+
 FROM betterweb/service-base:${BSB_IMAGE_TAG}
 
 COPY --from=builder /out/ /mnt/plugins/
+COPY --from=builderModules /out/ /mnt/plugins/
 COPY plugins/nodejs/bsb-registry/BADGES.json /home/bsb/BADGES.json
 
 ENV BSB_PLUGIN_DIR=/mnt/plugins
