@@ -333,6 +333,7 @@ export class RegistryUIServer {
   private registryClient!: BsbRegistryClient;
   private createTrace!: Plugin['createTrace'];
   private pluginCwd!: string;
+  private appVersion = '';
 
   constructor(
     port: number,
@@ -441,6 +442,11 @@ export class RegistryUIServer {
       this.registryClient = plugin.registryClient;
       this.createTrace = plugin.createTrace.bind(plugin);
       this.pluginCwd = plugin.pluginCwd;
+      const packageJsonPath = path.join(plugin.packageCwd, 'package.json');
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(await fsp.readFile(packageJsonPath, 'utf-8')) as { version?: string };
+        this.appVersion = packageJson.version ?? '';
+      }
 
       // Register CORS
       const corsSpan = obs.startSpan('register.cors');
@@ -1242,6 +1248,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
         await reply.view('pages/home.hbs', {
           title: 'BSB Plugin Registry',
           activePage: 'home',
+          appVersion: this.appVersion,
           stats,
           plugins,
           pageSize: this.pageSize,
@@ -1391,6 +1398,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
         await reply.view('pages/plugins.hbs', {
           title: `Package: ${packageId}`,
           activePage: 'browse',
+          appVersion: this.appVersion,
           searchQuery: packageId,
           plugins: enrichedPlugins,
           pagination: {
@@ -1507,6 +1515,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
             ? `Plugins by ${orgFilter}`
             : 'Browse Plugins',
           activePage: 'browse',
+          appVersion: this.appVersion,
           searchQuery,
           plugins: enrichedPlugins,
           pagination: {
@@ -1640,6 +1649,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
         const renderSpan = trace.startSpan('handlebars.render');
         await reply.view('pages/plugin-detail.hbs', {
           title: `${plugin.displayName || plugin.name} - BSB Registry`,
+          appVersion: this.appVersion,
           plugin: pluginView,
           versions: versions.versions,
         });
