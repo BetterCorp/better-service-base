@@ -11,26 +11,36 @@ This directory contains the documentation website for Better Service Base (BSB).
 
 ## Quick Start (Docs Site)
 
-- Install dependencies:
+- From repo root, install dependencies:
   ```bash
-  cd docs
   npm install
   ```
-- Run locally (with HMR):
+- From repo root, run locally (with HMR):
   ```bash
-  npm run dev
+  npm run dev --workspace docs
   # open http://localhost:3000
   ```
-- Build static site:
+- From repo root, build static site:
   ```bash
-  npm run build
+  npm run build --workspace docs
   # or
   ./build.sh
   # Output: docs/dist/
   ```
 - Preview the build:
   ```bash
-  npm run preview
+  npm run preview --workspace docs
+  ```
+
+### Workspace Notes
+
+- `docs/` is part of root npm workspace.
+- Root `package-lock.json` is only lockfile for workspace packages.
+- Do not run `npm install` or `npm ci` inside `docs/`.
+- If `@bsb/base` version changes, sync workspace versions from repo root:
+  ```bash
+  npm run ws:sync-versions
+  npm install
   ```
 
 Note: The current distribution folder is `docs/dist/`. A future task is to move this to a root-level `docs-dist/` per the TODOs.

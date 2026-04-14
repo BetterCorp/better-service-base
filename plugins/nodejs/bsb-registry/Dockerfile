@@ -7,21 +7,22 @@
 
 FROM betterweb/node:24 AS builder
 
-WORKDIR /workspace/plugins/nodejs/bsb-registry
+WORKDIR /workspace
 
-COPY plugins/nodejs/bsb-registry/package.json ./package.json
+COPY package.json ./package.json
 COPY package-lock.json ./package-lock.json
+COPY docs ./docs
+COPY nodejs ./nodejs
+COPY plugins ./plugins
 RUN npm ci --include=dev
 
-COPY plugins/nodejs/bsb-registry/src ./src
-COPY plugins/nodejs/bsb-registry/docs ./docs
-COPY plugins/nodejs/bsb-registry/tsconfig.json ./tsconfig.json
-COPY plugins/nodejs/bsb-registry/bsb-plugin.json ./bsb-plugin.json
-COPY plugins/nodejs/bsb-registry/README.md ./README.md
-RUN npm run build
+RUN npm run tsc --workspace nodejs
+RUN npm run build --workspace plugins/nodejs/bsb-registry
 
 # Keep runtime package lean for plugin loading in BSB container.
-RUN npm prune --omit=dev
+RUN npm prune --omit=dev --workspace plugins/nodejs/bsb-registry
+
+WORKDIR /workspace/plugins/nodejs/bsb-registry
 
 # Package output in BSB plugin-dir layout.
 RUN set -eux; \
@@ -32,7 +33,7 @@ RUN set -eux; \
   PKG_ROOT="/out/@bsb/registry"; \
   VERSION_DIR="${PKG_ROOT}/${MAJOR}/${MINOR}/${MICRO}"; \
   mkdir -p "${VERSION_DIR}"; \
-  cp -a package.json package-lock.json bsb-plugin.json lib node_modules "${VERSION_DIR}/"; \
+  cp -a package.json bsb-plugin.json lib node_modules "${VERSION_DIR}/"; \
   mkdir -p "${VERSION_DIR}/node_modules/@bsb"; \
   rm -rf "${VERSION_DIR}/node_modules/@bsb/base"; \
   ln -s /home/bsb "${VERSION_DIR}/node_modules/@bsb/base"

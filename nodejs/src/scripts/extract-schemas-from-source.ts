@@ -19,6 +19,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { createRequire } from 'node:module';
 import { isMainModule, toImportUrl } from '../base/module-runtime.js';
 
 const CWD = process.cwd();
@@ -232,13 +233,46 @@ function parseImportLine(line: string): {
  * For self-build: rewrites to specific sub-modules (../../base/PluginConfig, ../../interfaces/schema-types).
  * For external: keeps @bsb/base but filters to only schema-relevant identifiers.
  */
-function rewriteBsbImport(identifiers: string[], projectType: 'self' | 'external'): string[] {
+function resolveBsbBaseEntryImport(projectRoot: string): string {
+  const require = createRequire(path.join(projectRoot, 'package.json'));
+  const pkgJsonPath = require.resolve('@bsb/base/package.json');
+  const packageRoot = path.dirname(pkgJsonPath);
+  const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as {
+    exports?: string | Record<string, unknown>;
+    main?: string;
+  };
+
+  let entry = 'lib/index.js';
+  if (pkg.exports && typeof pkg.exports === 'object') {
+    const exportRoot = (pkg.exports as Record<string, unknown>)['.'];
+    if (typeof exportRoot === 'string') {
+      entry = exportRoot;
+    } else if (exportRoot && typeof exportRoot === 'object') {
+      const maybeDefault = (exportRoot as Record<string, unknown>).default;
+      if (typeof maybeDefault === 'string') {
+        entry = maybeDefault;
+      }
+    }
+  } else if (typeof pkg.exports === 'string') {
+    entry = pkg.exports;
+  } else if (typeof pkg.main === 'string' && pkg.main.length > 0) {
+    entry = pkg.main;
+  }
+
+  return toImportUrl(path.join(packageRoot, entry));
+}
+
+function rewriteBsbImport(
+  identifiers: string[],
+  projectType: 'self' | 'external',
+  bsbBaseImportPath: string,
+): string[] {
   const schemaIds = identifiers.filter(id => SCHEMA_IDENTIFIERS.has(id));
   if (schemaIds.length === 0) return [];
 
   if (projectType === 'external') {
-    // External plugins: keep importing from @bsb/base, just filter identifiers
-    return [`import { ${schemaIds.join(', ')} } from '@bsb/base';`];
+    // External plugins: resolve @bsb/base once, then use stable file:// import for temp modules.
+    return [`import { ${schemaIds.join(', ')} } from '${bsbBaseImportPath}';`];
   }
 
   // Self-build: split into targeted sub-module imports
@@ -392,6 +426,7 @@ function extractSchemaSource(
   pluginDirName: string,
   projectType: 'self' | 'external',
   sourceDir: string,
+  bsbBaseImportPath: string,
 ): string {
   // Normalize multiline imports into single lines before processing
   const lines = normalizeMultilineImports(sourceContent.split('\n'));
@@ -446,7 +481,7 @@ function extractSchemaSource(
 
       // Rewrite BSB base imports (../../base or @bsb/base)
       if (isBsbBaseImport(parsed.source)) {
-        const rewritten = rewriteBsbImport(parsed.identifiers, projectType);
+        const rewritten = rewriteBsbImport(parsed.identifiers, projectType, bsbBaseImportPath);
         for (const l of rewritten) {
           resolvedImports.push(l);
         }
@@ -510,7 +545,7 @@ function extractSchemaSource(
   // Append the extraction footer
   const exportEventSchemasImport = projectType === 'self'
     ? `import { exportEventSchemas } from "../../interfaces/schema-events.js";`
-    : `import { exportEventSchemas } from '@bsb/base';`;
+    : `import { exportEventSchemas } from '${bsbBaseImportPath}';`;
 
   outputLines.push('');
   outputLines.push('// --- Schema extraction footer (auto-generated) ---');
@@ -616,6 +651,9 @@ function detectClientDependencies(sourceContent: string): Array<{ id: string; ve
 async function main() {
   const projectType = detectProjectType();
   const plugins = discoverPlugins();
+  const bsbBaseImportPath = projectType === 'external'
+    ? resolveBsbBaseEntryImport(CWD)
+    : '';
 
   if (plugins.length === 0) {
     // eslint-disable-next-line no-console
@@ -645,7 +683,13 @@ async function main() {
 
       // Place temp file in the plugin's directory so relative imports resolve
       const pluginDir = path.dirname(plugin.srcPath);
-      const tempSource = extractSchemaSource(sourceContent, plugin.dirName, projectType, pluginDir);
+      const tempSource = extractSchemaSource(
+        sourceContent,
+        plugin.dirName,
+        projectType,
+        pluginDir,
+        bsbBaseImportPath,
+      );
       const tempFile = path.join(pluginDir, `_bsb_extract_temp_.ts`);
       tempFiles.push(tempFile);
 

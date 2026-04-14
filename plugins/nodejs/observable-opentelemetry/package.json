@@ -39,7 +39,7 @@
     "publish:client": "bsb client publish"
   },
   "peerDependencies": {
-    "@bsb/base": "^9.1.5"
+    "@bsb/base": "^9.1.6"
   },
   "dependencies": {
     "@anyvali/js": "^0.2.0",
@@ -59,7 +59,7 @@
     "@types/node": "^25.0.0",
     "typescript": "^5.9.0",
     "mocha": "^11.0.0",
-    "@bsb/base": "^9.1.5"
+    "@bsb/base": "^9.1.6"
   },
   "engines": {
     "node": ">=23.0.0",

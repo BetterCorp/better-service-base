@@ -42,7 +42,7 @@
     "testDev": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= nyc mocha"
   },
   "peerDependencies": {
-    "@bsb/base": "^9.1.5"
+    "@bsb/base": "^9.1.6"
   },
   "dependencies": {
     "@anyvali/js": "^0.2.0",
@@ -50,7 +50,7 @@
     "amqplib": "^0.10.4"
   },
   "devDependencies": {
-    "@bsb/base": "^9.1.5",
+    "@bsb/base": "^9.1.6",
     "@types/amqplib": "^0.10.4",
     "@types/mocha": "^10.0.6",
     "@types/node": "^25.0.0",

@@ -1,7 +1,19 @@
 {
   "private": true,
   "workspaces": [
+    "docs",
     "nodejs",
     "plugins/nodejs/*"
-  ]
+  ],
+  "scripts": {
+    "ws:check-lockfiles": "node ./scripts/check-workspace-lockfiles.mjs",
+    "ws:sync-versions": "node ./scripts/workspace-version.mjs sync",
+    "ws:version": "node ./scripts/workspace-version.mjs set",
+    "ws:install": "npm install && npm run ws:check-lockfiles",
+    "ws:ci": "npm ci && npm run ws:check-lockfiles",
+    "ws:build:docs": "npm run build --workspace docs",
+    "ws:dev:docs": "npm run dev --workspace docs",
+    "ws:build:base": "npm run tsc --workspace nodejs",
+    "ws:build:registry": "npm run build --workspace plugins/nodejs/bsb-registry"
+  }
 }

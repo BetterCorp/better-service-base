@@ -53,6 +53,27 @@ Simplicity, flexibility, and expandability are core design goals.
 
 See [Getting Started](https://bsbcode.dev/GettingStarted/) for more details
 
+## Workspace Notes
+
+- Root `package-lock.json` is single source of truth for workspace installs.
+- Workspace packages must not keep their own `package-lock.json`.
+- Run installs from repo root only:
+  ```bash
+  npm install
+  npm run ws:check-lockfiles
+  ```
+- `docs/` is workspace package and follows `@bsb/base` version.
+- When bumping BSB version:
+  ```bash
+  npm run ws:version -- 9.1.6
+  npm install
+  ```
+- When only syncing docs version and plugin `@bsb/base` ranges to current base:
+  ```bash
+  npm run ws:sync-versions
+  npm install
+  ```
+
 ## License
 
 This program is free software: you can redistribute it and/or modify
