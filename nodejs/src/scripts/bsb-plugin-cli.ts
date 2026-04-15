@@ -1052,6 +1052,7 @@ function startServiceProcess(): ChildProcess {
       ...process.env,
       APP_DIR: CWD,
       BSB_DEV_EXTERNAL_WATCH: '1',
+      BSB_DEV_LOADER: 'tsx',
     },
   });
 }
@@ -1063,12 +1064,17 @@ async function stopServiceProcess(child: ChildProcess | null): Promise<void> {
 
   await new Promise<void>((resolve) => {
     child.once('exit', () => resolve());
-    child.kill('SIGTERM');
+    child.kill('SIGINT');
+    setTimeout(() => {
+      if (child.exitCode === null) {
+        child.kill('SIGTERM');
+      }
+    }, 2000);
     setTimeout(() => {
       if (child.exitCode === null) {
         child.kill('SIGKILL');
       }
-    }, 2000);
+    }, 4000);
   });
 }
 

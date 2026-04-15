@@ -53,6 +53,7 @@ let currentSB: ServiceBase | null = null;
 let restartTimeout: NodeJS.Timeout | null = null;
 let isRestarting = false;
 let watcher: FSWatcher | null = null;
+let isDisposing = false;
 
 interface WatchConfig {
   watch: string[];
@@ -163,6 +164,10 @@ const restartApp = async () => {
 };
 
 const dispose = async () => {
+  if (isDisposing) {
+    return;
+  }
+  isDisposing = true;
   if (watcher) {
     watcher.close();
   }
@@ -220,6 +225,7 @@ const runApp = async () => {
 
     if (process.env.BSB_DEV_EXTERNAL_WATCH === "1") {
       process.on('SIGINT', dispose);
+      process.on('SIGTERM', dispose);
       return;
     }
 
@@ -238,6 +244,7 @@ const runApp = async () => {
 
     // Handle process termination
     process.on('SIGINT', dispose);
+    process.on('SIGTERM', dispose);
 
   } catch (error) {
     console.error('Failed to start app:', error);
