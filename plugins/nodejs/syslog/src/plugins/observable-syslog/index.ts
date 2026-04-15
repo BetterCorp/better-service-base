@@ -63,7 +63,6 @@ export const Config = createConfigSchema(
   {
     name: 'observable-syslog',
     description: 'Syslog client observable plugin for forwarding logs to syslog servers',
-    version: '9.0.0',
     image: './assets/syslog-icon.png',
     tags: ['syslog', 'logging', 'observable', 'network'],
     documentation: ['./docs/syslog-client.md'],

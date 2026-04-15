@@ -22,8 +22,6 @@ type PluginMeta = {
   tags: string[];
   documentation: string[];
   image?: string;
-  author?: string;
-  license?: string;
   homepage?: string;
   repository?: string;
 };
@@ -178,7 +176,7 @@ async function main() {
       }
 
       // Read version from package.json if available
-      const version = packageJson.version || metadata.version || '1.0.0';
+      const version = packageJson.version || '1.0.0';
 
       // Create plugin metadata object - only include fields with actual values
       const pluginMetadata: Record<string, any> = {
@@ -193,8 +191,8 @@ async function main() {
       };
 
       // Only include optional fields if they have real values
-      if (metadata.author) pluginMetadata.author = metadata.author;
-      if (metadata.license) pluginMetadata.license = metadata.license;
+      if (packageJson.author) pluginMetadata.author = packageJson.author;
+      if (packageJson.license) pluginMetadata.license = packageJson.license;
       if (metadata.homepage) pluginMetadata.homepage = metadata.homepage;
       if (metadata.repository) pluginMetadata.repository = metadata.repository;
       if (metadata.image) pluginMetadata.image = metadata.image;

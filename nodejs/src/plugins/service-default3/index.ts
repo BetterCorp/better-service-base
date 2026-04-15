@@ -36,7 +36,6 @@ export const Config = createConfigSchema(
     description: 'Default service plugin 3 for testing',
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example', 'test'],
-    initAfterPlugins: ['service-default2'],
   },
   av.optional(av.object({}, { unknownKeys: "strip" })).default({})
 );

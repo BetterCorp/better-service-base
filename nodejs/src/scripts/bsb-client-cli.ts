@@ -126,11 +126,11 @@ function isPng(buffer: Buffer): boolean {
   return signature.every((byte, idx) => buffer[idx] === byte);
 }
 
-function resolveCategory(pluginMeta: { id: string; category?: string }): string {
-  const raw = (pluginMeta.category || pluginMeta.id.split('-')[0] || '').toLowerCase();
+function resolveCategory(pluginId: string): string {
+  const raw = (pluginId.split('-')[0] || '').toLowerCase();
   if (!VALID_CATEGORIES.has(raw)) {
     throw new Error(
-      `Invalid category "${raw}" for plugin "${pluginMeta.id}". Valid categories: service, observable, events, config.`
+      `Invalid category "${raw}" for plugin "${pluginId}". Valid categories: service, observable, events, config.`
     );
   }
   return raw;
@@ -502,7 +502,7 @@ async function publishPlugin(): Promise<void> {
       }
 
       try {
-        const category = resolveCategory({ id: pluginName, category: pluginMeta.category });
+        const category = resolveCategory(pluginName);
         const imagePath = resolveImagePath({ basePath: pluginMeta.basePath, image: pluginMeta.image });
 
         // Read event schema from lib/schemas/{pluginId}.json
@@ -570,8 +570,8 @@ async function publishPlugin(): Promise<void> {
             description: pluginMeta.description || pkg.description || '',
             category,
             tags: pluginMeta.tags || pkg.keywords || [],
-            author: pluginMeta.author || pkg.author,
-            license: pluginMeta.license || pkg.license,
+            author: pkg.author,
+            license: pkg.license,
             homepage: pluginMeta.homepage || pkg.homepage,
             repository: pluginMeta.repository || (typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url),
           },

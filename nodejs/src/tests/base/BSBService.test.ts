@@ -10,8 +10,6 @@ describe('BSBService', () => {
     {
       name: 'test-service',
       description: 'Test service',
-      version: '2.1.0',
-      initBeforePlugins: ['plugin-a'],
     },
     av.optional(av.object({}, { unknownKeys: 'strip' })).default({}),
   );
@@ -50,8 +48,7 @@ describe('BSBService', () => {
   }
 
   it('auto-generates PLUGIN_CLIENT from config metadata', () => {
-    assert.strictEqual(TestPlugin.PLUGIN_CLIENT.name, 'test-service');
-    assert.deepStrictEqual(TestPlugin.PLUGIN_CLIENT.initBeforePlugins, ['plugin-a']);
+    assert.deepStrictEqual(TestPlugin.PLUGIN_CLIENT, { name: 'test-service' });
   });
 
   it('exports event schemas using AnyVali documents', () => {
@@ -59,7 +56,7 @@ describe('BSBService', () => {
     const event = exported.events['test.event'];
 
     assert.strictEqual(exported.pluginName, 'test-service');
-    assert.strictEqual(exported.version, '2.1.0');
+    assert.strictEqual(exported.version, undefined);
     assert.strictEqual(event.type, 'fire-and-forget');
     assert.strictEqual(event.inputSchema.root.kind, 'object');
     assert.ok('id' in (event.inputSchema.root.kind === 'object' ? event.inputSchema.root.properties : {}));

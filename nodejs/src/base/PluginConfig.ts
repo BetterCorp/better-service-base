@@ -72,8 +72,8 @@ export type BSBConfigMigration<T extends BSBPluginConfigType> = (
  * Plugin metadata information for enhanced discoverability and documentation.
  * Used for auto-generating PLUGIN_CLIENT and bsb-plugin.json.
  *
- * v9: This metadata is now the single source of truth for plugin information,
- * used to auto-generate both PLUGIN_CLIENT (for ServiceClient) and bsb-plugin.json.
+ * Package-level fields such as version, author, and license are sourced from
+ * package.json during build and publish steps.
  */
 export interface BSBPluginMetadata {
     // Required fields
@@ -83,12 +83,6 @@ export interface BSBPluginMetadata {
     description: string;
 
     // Optional fields
-    /** Author name or organization */
-    author?: string;
-    /** Plugin version */
-    version?: string;
-    /** License type (e.g., "MIT", "AGPL-3.0") */
-    license?: string;
     /** Documentation URL */
     homepage?: string;
     /** Source repository URL */
@@ -101,18 +95,6 @@ export interface BSBPluginMetadata {
     documentation?: string[];
     /** Relative path to plugin image file (PNG recommended) */
     image?: string;
-    /** Logical plugin category */
-    category?: 'service' | 'observable' | 'events' | 'config' | 'other';
-
-    // Plugin dependencies - controls initialization and run order
-    /** This plugin must initialize before these plugins */
-    initBeforePlugins?: string[];
-    /** This plugin must initialize after these plugins */
-    initAfterPlugins?: string[];
-    /** This plugin must run before these plugins */
-    runBeforePlugins?: string[];
-    /** This plugin must run after these plugins */
-    runAfterPlugins?: string[];
 }
 
 export type BSBConfigDefintionReference<
@@ -188,7 +170,7 @@ export class BSBPluginConfigRef
  * - Auto-generate bsb-plugin.json during build
  * - Provide plugin discovery and marketplace information
  *
- * @param metadata - Plugin metadata (name, description, version, dependencies, etc.)
+ * @param metadata - Plugin metadata (name, description, documentation, tags, etc.)
  * @param schema - AnyVali validation schema for the plugin configuration
  * @returns A Config class that extends BSBPluginConfig with metadata
  *
@@ -206,12 +188,7 @@ export class BSBPluginConfigRef
  *   {
  *     name: 'service-demo-todo',
  *     description: 'Demo Todo Service',
- *     version: '1.0.0',
- *     author: 'BSB Team',
- *     license: 'MIT',
- *     category: 'service',
  *     tags: ['demo', 'todo', 'example'],
- *     initAfterPlugins: ['observable-default', 'events-default'],
  *   },
  *   TodoConfigSchema
  * );

@@ -59,7 +59,6 @@ export const Config = createConfigSchema(
   {
     name: 'observable-graylog',
     description: 'Graylog GELF observable plugin for centralized log ingestion',
-    version: '9.0.0',
     image: './observable-graylog.png',
     tags: ['graylog', 'gelf', 'observability', 'logging'],
     documentation: ['./docs/plugin.md'],

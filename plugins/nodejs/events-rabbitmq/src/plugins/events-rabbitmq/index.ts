@@ -35,10 +35,7 @@ export const Config = createConfigSchema(
   {
     name: 'events-rabbitmq',
     description: 'RabbitMQ events plugin for distributed event bus',
-    version: '9.0.0',
     image: './assets/events-rabbitmq.png',
-    author: 'BetterCorp (PTY) Ltd',
-    license: 'AGPL-3.0',
     tags: ['rabbitmq', 'amqp', 'event-bus', 'distributed'],
     documentation: ['./docs/plugin.md'],
   },

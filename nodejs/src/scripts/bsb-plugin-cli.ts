@@ -60,6 +60,11 @@ const CWD = process.cwd();
 const COMMAND = process.argv[2];
 const MODULE_DIR = getModuleDir(import.meta.url);
 
+function readPackageJson(): Record<string, any> {
+  const packageJsonPath = path.join(CWD, 'package.json');
+  return JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+}
+
 // Resolve @bsb/base package root using Node module resolution.
 // Handles npm workspaces (hoisted node_modules), symlinks, and pnpm.
 function resolveBsbBasePath(): string | null {
@@ -267,6 +272,7 @@ async function generatePluginJson(plugin: PluginInfo): Promise<void> {
     info(`Generating plugin metadata for ${plugin.name}`);
 
     const metadata = pluginModule.Config.metadata;
+    const packageJson = readPackageJson();
 
     // Auto-detect category from plugin directory name
     const category = plugin.name.startsWith('service-') ? 'service' :
@@ -278,7 +284,7 @@ async function generatePluginJson(plugin: PluginInfo): Promise<void> {
     const pluginMetadata: Record<string, any> = {
       id: plugin.name,
       name: metadata.name,
-      version: metadata.version || '1.0.0',
+      version: packageJson.version || '1.0.0',
       description: metadata.description || '',
       category,
       tags: metadata.tags || [],
@@ -287,8 +293,8 @@ async function generatePluginJson(plugin: PluginInfo): Promise<void> {
     };
 
     // Only include optional fields if they have real values
-    if (metadata.author) pluginMetadata.author = metadata.author;
-    if (metadata.license) pluginMetadata.license = metadata.license;
+    if (packageJson.author) pluginMetadata.author = packageJson.author;
+    if (packageJson.license) pluginMetadata.license = packageJson.license;
     if (metadata.homepage) pluginMetadata.homepage = metadata.homepage;
     if (metadata.repository) pluginMetadata.repository = metadata.repository;
     if (metadata.image) pluginMetadata.image = metadata.image;

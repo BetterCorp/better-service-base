@@ -146,10 +146,10 @@ describe('schema-events v9', () => {
         },
       });
 
-      const exported = exportEventSchemas('test-plugin', '1.0.0', schemas);
+      const exported = exportEventSchemas('test-plugin', schemas);
 
       assert.strictEqual(exported.pluginName, 'test-plugin');
-      assert.strictEqual(exported.version, '1.0.0');
+      assert.strictEqual(exported.version, undefined);
       assert.ok(exported.events['test.event']);
       assert.strictEqual(exported.events['test.event'].type, 'fire-and-forget');
       assert.strictEqual(exported.events['test.event'].category, 'emitEvents');
@@ -167,7 +167,7 @@ describe('schema-events v9', () => {
         },
       });
 
-      const exported = exportEventSchemas('test-plugin', '1.0.0', schemas);
+      const exported = exportEventSchemas('test-plugin', schemas);
 
       assert.ok(exported.events['test.returnable']);
       assert.strictEqual(exported.events['test.returnable'].type, 'returnable');
@@ -183,7 +183,7 @@ describe('schema-events v9', () => {
         },
       });
 
-      const exported = exportEventSchemas('test-plugin', '1.0.0', schemas);
+      const exported = exportEventSchemas('test-plugin', schemas);
 
       assert.ok(exported.events['test.broadcast']);
       assert.strictEqual(exported.events['test.broadcast'].type, 'broadcast');
@@ -204,7 +204,7 @@ describe('schema-events v9', () => {
         },
       });
 
-      const exported = exportEventSchemas('test-plugin', '1.0.0', schemas);
+      const exported = exportEventSchemas('test-plugin', schemas);
 
       assert.strictEqual(Object.keys(exported.events).length, 3);
       assert.ok(exported.events['event1']);
@@ -226,7 +226,7 @@ describe('schema-events v9', () => {
         },
       });
 
-      const exported = exportEventSchemas('test-plugin', '1.0.0', schemas);
+      const exported = exportEventSchemas('test-plugin', schemas);
       const inputSchema = exported.events['test.event'].inputSchema as any;
 
       assert.ok(inputSchema, 'Input schema should exist');

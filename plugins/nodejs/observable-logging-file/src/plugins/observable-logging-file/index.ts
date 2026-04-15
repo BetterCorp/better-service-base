@@ -64,7 +64,6 @@ export const Config = createConfigSchema(
   {
     name: 'observable-logging-file',
     description: 'File-based observable logging with rotation and retention controls',
-    version: '9.0.0',
     image: './observable-logging-file.png',
     tags: ['logging', 'file', 'rotation', 'observability'],
     documentation: ['./docs/plugin.md'],

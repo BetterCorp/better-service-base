@@ -438,8 +438,8 @@ export interface EventExportDefinition {
 export interface EventSchemaExport {
   /** Plugin identifier */
   pluginName: string;
-  /** Plugin version */
-  version: string;
+  /** Plugin version, stamped by build/export tooling */
+  version?: string;
   /** Map of event names to their definitions */
   events: Record<string, EventExportDefinition>;
   /** Auto-detected plugin dependencies (from .bsb/clients/ imports) */
@@ -465,7 +465,6 @@ export interface EventSchemaExport {
  * in their target language.
  *
  * @param pluginName - Plugin identifier (e.g., "service-demo-todo")
- * @param version - Plugin version (e.g., "1.0.0")
  * @param schemas - Event schemas created with createEventSchemas()
  * @returns JSON-serializable export object
  *
@@ -475,7 +474,6 @@ export interface EventSchemaExport {
  *   static exportSchemas(): EventSchemaExport {
  *     return exportEventSchemas(
  *       Config.metadata.name,
- *       '',
  *       EventSchemas
  *     );
  *   }
@@ -486,7 +484,6 @@ export interface EventSchemaExport {
  */
 export function exportEventSchemas(
   pluginName: string,
-  version: string,
   schemas: BSBEventSchemas
 ): EventSchemaExport {
   const events: Record<string, EventExportDefinition> = {};
@@ -541,7 +538,6 @@ export function exportEventSchemas(
 
   return {
     pluginName,
-    version,
     events,
   };
 }

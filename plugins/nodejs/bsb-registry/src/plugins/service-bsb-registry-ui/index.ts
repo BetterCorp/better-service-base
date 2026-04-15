@@ -32,7 +32,7 @@ export const Config = createConfigSchema(
     description: 'Web UI and REST API for browsing, searching, and publishing BSB plugins (content negotiation: HTML or JSON)',
     image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['registry', 'ui', 'api', 'web', 'rest', 'handlebars', 'server-side-rendering', 'content-negotiation', 'publishing'],
-    documentation: ['./docs/service-bsb-registry-ui.md'],
+    documentation: ['./docs/service-bsb-registry-ui.md']
   },
   UIConfigSchema
 );

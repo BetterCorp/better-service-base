@@ -67,7 +67,6 @@ export const Config = createConfigSchema(
   {
     name: 'observable-opentelemetry',
     description: 'OpenTelemetry integration for logs, metrics, and traces via OTLP',
-    version: '9.0.0',
     image: './observable-opentelemetry.png',
     tags: ['opentelemetry', 'otlp', 'observability', 'logs', 'metrics', 'traces'],
     documentation: ['./docs/plugin.md'],

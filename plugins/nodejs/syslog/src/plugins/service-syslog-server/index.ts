@@ -60,7 +60,6 @@ export const Config = createConfigSchema(
   {
     name: 'service-syslog-server',
     description: 'Syslog server service plugin that receives messages and emits events',
-    version: '9.0.0',
     image: './assets/syslog-icon.png',
     tags: ['syslog', 'server', 'service', 'events'],
     documentation: ['./docs/syslog-server.md'],

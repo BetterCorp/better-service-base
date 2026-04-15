@@ -26,7 +26,6 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
 import { DTrace, Trace, BSBEventSchemas, Observable, EventSchemaExport, exportEventSchemas, ServiceClientEventSchemas } from "../interfaces/index.js";
 import { SBEvents, SBObservable } from "../serviceBase/index.js";
 import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base.js";
@@ -107,7 +106,7 @@ export abstract class BSBService<
   > {
   /**
    * Static reference to the Config class created with createConfigSchema().
-   * Required for auto-generating PLUGIN_CLIENT from metadata.
+   * Required for auto-generating PLUGIN_CLIENT identity from metadata.
    *
    * v9: This must be set on your plugin class for PLUGIN_CLIENT auto-generation to work.
    */
@@ -166,13 +165,8 @@ export abstract class BSBService<
 
     const meta = ConfigClass.metadata;
 
-    // Return auto-generated PLUGIN_CLIENT from metadata
     return {
       name: meta.name,
-      initBeforePlugins: meta.initBeforePlugins,
-      initAfterPlugins: meta.initAfterPlugins,
-      runBeforePlugins: meta.runBeforePlugins,
-      runAfterPlugins: meta.runAfterPlugins,
     };
   }
 
@@ -230,7 +224,6 @@ export abstract class BSBService<
 
     return exportEventSchemas(
       meta.name,
-      meta.version ?? '1.0.0',
       eventSchemas
     );
   }

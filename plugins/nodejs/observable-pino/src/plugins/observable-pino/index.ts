@@ -59,7 +59,6 @@ export const Config = createConfigSchema(
   {
     name: 'observable-pino',
     description: 'Pino-based high-performance structured logging observable',
-    version: '9.0.0',
     image: './observable-pino.png',
     tags: ['pino', 'logging', 'observability', 'json'],
     documentation: ['./docs/plugin.md'],

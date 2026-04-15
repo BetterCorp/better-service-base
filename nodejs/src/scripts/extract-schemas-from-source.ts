@@ -262,6 +262,20 @@ function resolveBsbBaseEntryImport(projectRoot: string): string {
   return toImportUrl(path.join(packageRoot, entry));
 }
 
+function readProjectPackageVersion(projectRoot: string): string {
+  try {
+    const packageJsonPath = path.join(projectRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as { version?: string };
+    if (typeof packageJson.version === 'string' && packageJson.version.length > 0) {
+      return packageJson.version;
+    }
+  } catch {
+    // Fall back when running outside a normal package root.
+  }
+
+  return '1.0.0';
+}
+
 function rewriteBsbImport(
   identifiers: string[],
   projectType: 'self' | 'external',
@@ -427,6 +441,7 @@ function extractSchemaSource(
   projectType: 'self' | 'external',
   sourceDir: string,
   bsbBaseImportPath: string,
+  packageVersion: string,
 ): string {
   // Normalize multiline imports into single lines before processing
   const lines = normalizeMultilineImports(sourceContent.split('\n'));
@@ -559,13 +574,12 @@ function extractSchemaSource(
   outputLines.push(`const _pluginName = _Config && _Config.metadata`);
   outputLines.push(`  ? (_Config as any).metadata.name`);
   outputLines.push(`  : ${JSON.stringify(pluginDirName)};`);
-  outputLines.push(`const _pluginVersion = _Config && _Config.metadata && _Config.metadata.version`);
-  outputLines.push(`  ? (_Config as any).metadata.version`);
-  outputLines.push(`  : "1.0.0";`);
+  outputLines.push(`const _pluginVersion = ${JSON.stringify(packageVersion)};`);
   outputLines.push('');
   outputLines.push('const _schemaResult = (_EventSchemas)');
-  outputLines.push('  ? exportEventSchemas(_pluginName, _pluginVersion, _EventSchemas as any)');
-  outputLines.push('  : { pluginName: _pluginName, version: _pluginVersion, events: {} };');
+  outputLines.push('  ? exportEventSchemas(_pluginName, _EventSchemas as any)');
+  outputLines.push('  : { pluginName: _pluginName, events: {} };');
+  outputLines.push('(_schemaResult as any).version = _pluginVersion;');
   outputLines.push('');
   outputLines.push('// Extract config schema if Config exposes an AnyVali validation schema');
   outputLines.push('try {');
@@ -651,6 +665,7 @@ function detectClientDependencies(sourceContent: string): Array<{ id: string; ve
 async function main() {
   const projectType = detectProjectType();
   const plugins = discoverPlugins();
+  const packageVersion = readProjectPackageVersion(CWD);
   const bsbBaseImportPath = projectType === 'external'
     ? resolveBsbBaseEntryImport(CWD)
     : '';
@@ -689,6 +704,7 @@ async function main() {
         projectType,
         pluginDir,
         bsbBaseImportPath,
+        packageVersion,
       );
       const tempFile = path.join(pluginDir, `_bsb_extract_temp_.ts`);
       tempFiles.push(tempFile);
