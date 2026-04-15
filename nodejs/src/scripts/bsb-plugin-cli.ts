@@ -14,15 +14,31 @@
  */
 
 import { execSync, execFileSync, spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createRequire } from 'node:module';
+import chokidar, { FSWatcher } from 'chokidar';
 import { getModuleDir, toImportUrl } from '../base/module-runtime.js';
 
 interface PluginInfo {
   name: string;
   srcDir: string;
   destDir: string;
+}
+
+interface BuildCacheState {
+  version: 1;
+  coreSchemasHash?: string;
+  schemaInputsHash?: string;
+  clientInputsHash?: string;
+}
+
+interface BuildOptions {
+  clean?: boolean;
+  incremental?: boolean;
+  changedPaths?: string[];
 }
 
 type ColorName = 'reset' | 'bright' | 'red' | 'green' | 'yellow' | 'blue' | 'cyan';
@@ -59,10 +75,213 @@ function info(message: string): void {
 const CWD = process.cwd();
 const COMMAND = process.argv[2];
 const MODULE_DIR = getModuleDir(import.meta.url);
+const BSB_DIR = path.join(CWD, 'src', '.bsb');
+const CACHE_DIR = path.join(BSB_DIR, 'cache');
+const BUILD_CACHE_PATH = path.join(CACHE_DIR, 'build-state.json');
+const TSC_BUILD_INFO_PATH = path.join(CACHE_DIR, 'tsc.tsbuildinfo');
+const DEV_WATCH_PATTERNS = ['package.json', 'sec-config.yaml', 'src/**/*'];
+const DEV_IGNORE_PATTERNS = ['.git/**', 'lib/**', 'node_modules/**', 'src/.bsb/**'];
+const SCHEMA_FILE_BASENAMES = new Set([
+  'index.ts',
+  'index.tsx',
+  'config.ts',
+  'config.tsx',
+  'events.ts',
+  'events.tsx',
+  'schema.ts',
+  'schema.tsx',
+  'schemas.ts',
+  'schemas.tsx',
+  'types.ts',
+  'types.tsx',
+]);
 
 function readPackageJson(): Record<string, any> {
   const packageJsonPath = path.join(CWD, 'package.json');
   return JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+}
+
+function ensureDir(dirPath: string): void {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+function normalizePath(inputPath: string): string {
+  return inputPath.replace(/\\/g, '/');
+}
+
+function hashStrings(values: string[]): string {
+  const hash = createHash('sha256');
+  for (const value of values.sort()) {
+    hash.update(value);
+    hash.update('\n');
+  }
+  return hash.digest('hex');
+}
+
+function hashFile(filePath: string): string {
+  const hash = createHash('sha256');
+  hash.update(fs.readFileSync(filePath));
+  return hash.digest('hex');
+}
+
+function collectFilesRecursive(
+  dirPath: string,
+  predicate: (filePath: string) => boolean,
+): string[] {
+  if (!fs.existsSync(dirPath)) {
+    return [];
+  }
+
+  const files: string[] = [];
+  const stack = [dirPath];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else if (entry.isFile() && predicate(fullPath)) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  return files;
+}
+
+function readBuildCache(): BuildCacheState {
+  try {
+    if (!fs.existsSync(BUILD_CACHE_PATH)) {
+      return { version: 1 };
+    }
+    const parsed = JSON.parse(fs.readFileSync(BUILD_CACHE_PATH, 'utf-8')) as BuildCacheState;
+    if (parsed.version === 1) {
+      return parsed;
+    }
+  } catch {
+    // Ignore malformed cache files.
+  }
+  return { version: 1 };
+}
+
+function writeBuildCache(cache: BuildCacheState): void {
+  ensureDir(CACHE_DIR);
+  fs.writeFileSync(BUILD_CACHE_PATH, JSON.stringify(cache, null, 2), 'utf-8');
+}
+
+function getCoreSchemasHash(): string {
+  const bsbBasePath = resolveBsbBasePath();
+  if (!bsbBasePath) {
+    return '';
+  }
+
+  const schemaDir = path.join(bsbBasePath, 'lib', 'schemas');
+  const packageJsonPath = path.join(bsbBasePath, 'package.json');
+  const inputs = [
+    fs.existsSync(packageJsonPath) ? `pkg:${hashFile(packageJsonPath)}` : 'pkg:missing',
+    ...collectFilesRecursive(schemaDir, (filePath) => filePath.endsWith('.json'))
+      .map((filePath) => `${normalizePath(path.relative(bsbBasePath, filePath))}:${hashFile(filePath)}`),
+  ];
+
+  return hashStrings(inputs);
+}
+
+function getSchemaInputsHash(plugins: PluginInfo[], coreSchemasHash: string): string {
+  const inputs = [`core:${coreSchemasHash}`];
+  const packageJsonPath = path.join(CWD, 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    inputs.push(`pkg:${hashFile(packageJsonPath)}`);
+  }
+
+  for (const plugin of plugins) {
+    const pluginFiles = collectFilesRecursive(plugin.srcDir, (filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext !== '.ts' && ext !== '.tsx') {
+        return false;
+      }
+      return SCHEMA_FILE_BASENAMES.has(path.basename(filePath));
+    });
+    for (const filePath of pluginFiles) {
+      inputs.push(`${normalizePath(path.relative(CWD, filePath))}:${hashFile(filePath)}`);
+    }
+  }
+
+  return hashStrings(inputs);
+}
+
+function getGeneratedSchemasHash(): string {
+  const schemaDir = path.join(CWD, 'src', '.bsb', 'schemas');
+  const schemaFiles = collectFilesRecursive(schemaDir, (filePath) => filePath.endsWith('.json'));
+  if (schemaFiles.length === 0) {
+    return '';
+  }
+
+  return hashStrings(
+    schemaFiles.map((filePath) => `${normalizePath(path.relative(CWD, filePath))}:${hashFile(filePath)}`),
+  );
+}
+
+function hasGeneratedSchemas(): boolean {
+  const schemaDir = path.join(CWD, 'src', '.bsb', 'schemas');
+  return fs.existsSync(schemaDir) && fs.readdirSync(schemaDir).some((file) => file.endsWith('.json'));
+}
+
+function hasGeneratedClients(): boolean {
+  const clientsDir = path.join(CWD, 'src', '.bsb', 'clients');
+  return fs.existsSync(clientsDir) && fs.readdirSync(clientsDir).some((file) => file.endsWith('.ts'));
+}
+
+function isTsSourcePath(filePath: string): boolean {
+  const normalized = normalizePath(filePath);
+  return normalized.startsWith('src/') && (normalized.endsWith('.ts') || normalized.endsWith('.tsx'));
+}
+
+function isSchemaRelevantPath(filePath: string): boolean {
+  const normalized = normalizePath(filePath);
+  if (normalized === 'package.json') {
+    return true;
+  }
+  if (!isTsSourcePath(normalized)) {
+    return false;
+  }
+  return SCHEMA_FILE_BASENAMES.has(path.basename(normalized));
+}
+
+function isAssetPath(filePath: string): boolean {
+  const normalized = normalizePath(filePath);
+  if (!normalized.startsWith('src/plugins/')) {
+    return false;
+  }
+  const ext = path.extname(normalized).toLowerCase();
+  return ext !== '.ts' && ext !== '.tsx';
+}
+
+function isConfigPath(filePath: string): boolean {
+  const normalized = normalizePath(filePath);
+  return normalized === 'sec-config.yaml' || normalized === 'package.json';
+}
+
+function copySingleAssetFile(changedPath: string): boolean {
+  const normalized = normalizePath(changedPath);
+  if (!isAssetPath(normalized)) {
+    return false;
+  }
+
+  const absoluteSource = path.join(CWD, changedPath);
+  const relativeToSrc = path.relative(path.join(CWD, 'src'), absoluteSource);
+  const destination = path.join(CWD, 'lib', relativeToSrc);
+
+  if (fs.existsSync(absoluteSource)) {
+    ensureDir(path.dirname(destination));
+    fs.copyFileSync(absoluteSource, destination);
+  } else if (fs.existsSync(destination)) {
+    fs.rmSync(destination, { force: true });
+  }
+
+  return true;
 }
 
 // Resolve @bsb/base package root using Node module resolution.
@@ -522,30 +741,93 @@ function generateRootTestsJson(plugins: Record<string, any>[]): void {
   success(`Generated bsb-tests.json with ${plugins.length} plugin(s)`);
 }
 
+function shouldRunSchemaPipeline(changedPaths: string[] | undefined): boolean {
+  if (!changedPaths || changedPaths.length === 0) {
+    return true;
+  }
+  return changedPaths.some(isSchemaRelevantPath);
+}
+
+function getBsbCliPath(): string {
+  const bsbBase = resolveBsbBasePath();
+  if (!bsbBase) {
+    error('BSB CLI not found. Make sure @bsb/base is installed.');
+  }
+
+  const bsbCliPath = path.join(bsbBase!, 'lib', 'cli.js');
+  if (!fs.existsSync(bsbCliPath)) {
+    error(`BSB CLI entry not found at ${bsbCliPath}. @bsb/base may need rebuilding.`);
+  }
+
+  return bsbCliPath;
+}
+
 // Build the plugin
-async function build(): Promise<void> {
+async function build(options: BuildOptions = {}): Promise<void> {
   log('\n=== Building BSB Plugin ===\n', 'bright');
+  ensureDir(CACHE_DIR);
+  const plugins = detectPluginStructure();
+  const cache = readBuildCache();
+  const coreSchemasHash = getCoreSchemasHash();
+  const schemaInputsHash = getSchemaInputsHash(plugins, coreSchemasHash);
+  const runSchemaPipeline = shouldRunSchemaPipeline(options.changedPaths);
+  const coreSchemasChanged = cache.coreSchemasHash !== coreSchemasHash;
+  const shouldSyncCoreSchemas = coreSchemasChanged || !hasGeneratedClients() || !hasGeneratedSchemas();
+  const shouldExtractSchemas = runSchemaPipeline && (
+    shouldSyncCoreSchemas ||
+    cache.schemaInputsHash !== schemaInputsHash ||
+    !hasGeneratedSchemas()
+  );
 
   // Step 1: Sync schemas with parent @bsb/base core plugins FIRST
   // This ensures latest types are available during compilation
-  syncParentSchemas();
+  if (shouldSyncCoreSchemas) {
+    syncParentSchemas();
+  } else {
+    info('Skipping core schema sync (unchanged)');
+  }
 
   // Step 2: Extract schemas from TypeScript source (pre-compilation)
   // This reads TS files directly, no compiled JS needed — breaks circular dependency
-  await extractSchemasFromSource();
+  if (shouldExtractSchemas) {
+    await extractSchemasFromSource();
+  } else {
+    info('Skipping schema extraction (unchanged)');
+  }
+
+  const generatedSchemasHash = getGeneratedSchemasHash();
+  const shouldGenerateClients = runSchemaPipeline && (
+    shouldExtractSchemas ||
+    cache.clientInputsHash !== generatedSchemasHash ||
+    !hasGeneratedClients()
+  );
 
   // Step 3: Generate virtual clients from extracted schemas
   // These will be compiled alongside the project in step 5
-  generateVirtualClients();
+  if (shouldGenerateClients) {
+    generateVirtualClients();
+  } else {
+    info('Skipping virtual client generation (unchanged)');
+  }
 
   // Step 4: Clean
-  clean();
+  if (options.clean !== false) {
+    clean();
+  } else {
+    info('Skipping clean for incremental rebuild');
+  }
 
   // Step 5: Compile TypeScript (virtual clients in src/.bsb/clients/ compile with the project)
-  exec('npx tsc', 'Compiling TypeScript');
+  if (options.incremental) {
+    exec(
+      `npx tsc --incremental --tsBuildInfoFile "${normalizePath(TSC_BUILD_INFO_PATH)}"`,
+      'Compiling TypeScript incrementally',
+    );
+  } else {
+    exec('npx tsc', 'Compiling TypeScript');
+  }
 
   // Step 6: Copy non-TypeScript assets for each plugin
-  const plugins = detectPluginStructure();
   for (const plugin of plugins) {
     copyPluginAssets(plugin);
   }
@@ -564,6 +846,13 @@ async function build(): Promise<void> {
   // Step 10: Generate root bsb-tests.json (default ignore entries)
   generateRootTestsJson(plugins.map(p => ({ id: p.name })));
 
+  writeBuildCache({
+    version: 1,
+    coreSchemasHash,
+    schemaInputsHash,
+    clientInputsHash: getGeneratedSchemasHash(),
+  });
+
   log('\n' + colors.green + colors.bright + '[BUILD COMPLETE]' + colors.reset + '\n');
 }
 
@@ -571,16 +860,7 @@ async function build(): Promise<void> {
 function start(): void {
   log('\n=== Starting BSB Service ===\n', 'bright');
 
-  // Find the BSB CLI (uses Node module resolution to handle workspace hoisting)
-  const bsbBase = resolveBsbBasePath();
-  if (!bsbBase) {
-    error('BSB CLI not found. Make sure @bsb/base is installed.');
-  }
-  const bsbCliPath = path.join(bsbBase!, 'lib', 'cli.js');
-
-  if (!fs.existsSync(bsbCliPath)) {
-    error(`BSB CLI entry not found at ${bsbCliPath}. @bsb/base may need rebuilding.`);
-  }
+  const bsbCliPath = getBsbCliPath();
 
   info('Starting service');
 
@@ -605,15 +885,135 @@ function start(): void {
   });
 }
 
-// Development mode (build + start)
+function startServiceProcess(): ChildProcess {
+  const bsbCliPath = getBsbCliPath();
+  info('Starting service');
+  return spawn('node', [bsbCliPath], {
+    cwd: CWD,
+    stdio: 'inherit',
+  });
+}
+
+async function stopServiceProcess(child: ChildProcess | null): Promise<void> {
+  if (!child || child.killed || child.exitCode !== null) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    child.once('exit', () => resolve());
+    child.kill('SIGTERM');
+    setTimeout(() => {
+      if (child.exitCode === null) {
+        child.kill('SIGKILL');
+      }
+    }, 2000);
+  });
+}
+
+// Development mode with incremental rebuilds and restarts
 async function dev(): Promise<void> {
   log('\n=== Development Mode ===\n', 'bright');
 
-  // Build first
-  await build();
+  let child: ChildProcess | null = null;
+  let watcher: FSWatcher | null = null;
+  let isRebuilding = false;
+  let restartPending = false;
+  const pendingChanges = new Set<string>();
+  let debounceTimer: NodeJS.Timeout | null = null;
 
-  // Then start
-  start();
+  const rebuildAndRestart = async () => {
+    if (isRebuilding) {
+      restartPending = true;
+      return;
+    }
+
+    isRebuilding = true;
+    const changedPaths = Array.from(pendingChanges);
+    pendingChanges.clear();
+
+    try {
+      const configOnly = changedPaths.length > 0 &&
+        changedPaths.every((filePath) => isConfigPath(filePath));
+      const assetOnly = changedPaths.length > 0 &&
+        changedPaths.every((filePath) => isAssetPath(filePath) || isConfigPath(filePath));
+      const copiedAnyAsset = assetOnly
+        ? changedPaths.map(copySingleAssetFile).some(Boolean)
+        : false;
+
+      if (configOnly) {
+        info('Skipping rebuild (config-only change)');
+      } else if (!assetOnly || !copiedAnyAsset) {
+        await build({
+          clean: false,
+          incremental: true,
+          changedPaths,
+        });
+      } else {
+        info('Skipping TypeScript rebuild (asset/config-only change)');
+      }
+
+      await stopServiceProcess(child);
+      child = startServiceProcess();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log(`Dev rebuild failed: ${message}`, 'red');
+    } finally {
+      isRebuilding = false;
+      if (restartPending) {
+        restartPending = false;
+        void rebuildAndRestart();
+      }
+    }
+  };
+
+  const queueChange = (filePath: string) => {
+    pendingChanges.add(normalizePath(filePath));
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(() => {
+      void rebuildAndRestart();
+    }, 200);
+  };
+
+  try {
+    await build({
+      clean: false,
+      incremental: true,
+    });
+    child = startServiceProcess();
+
+    watcher = chokidar.watch(DEV_WATCH_PATTERNS, {
+      ignored: DEV_IGNORE_PATTERNS,
+      ignoreInitial: true,
+      persistent: true,
+    });
+
+    watcher.on('add', queueChange);
+    watcher.on('change', queueChange);
+    watcher.on('unlink', queueChange);
+
+    process.on('SIGINT', async () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      if (watcher) {
+        await watcher.close();
+      }
+      await stopServiceProcess(child);
+      process.exit(0);
+    });
+
+    await new Promise<void>(() => {});
+  } finally {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    if (watcher) {
+      await watcher.close();
+    }
+    await stopServiceProcess(child);
+  }
 }
 
 // Run tests
