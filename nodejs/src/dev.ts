@@ -217,6 +217,12 @@ const runApp = async () => {
     const config = readWatchConfig(path.join(CWD, '.bsbdevwatch'));
     
     currentSB = await startApp();
+
+    if (process.env.BSB_DEV_EXTERNAL_WATCH === "1") {
+      process.on('SIGINT', dispose);
+      return;
+    }
+
     setupStdinWatcher();
 
     // Watch for file changes

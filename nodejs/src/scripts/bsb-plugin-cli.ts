@@ -33,12 +33,20 @@ interface BuildCacheState {
   coreSchemasHash?: string;
   schemaInputsHash?: string;
   clientInputsHash?: string;
+  metadataInputsHash?: string;
 }
 
 interface BuildOptions {
   clean?: boolean;
   incremental?: boolean;
   changedPaths?: string[];
+}
+
+interface SchemaPreparationState {
+  plugins: PluginInfo[];
+  coreSchemasHash: string;
+  schemaInputsHash: string;
+  generatedSchemasHash: string;
 }
 
 type ColorName = 'reset' | 'bright' | 'red' | 'green' | 'yellow' | 'blue' | 'cyan';
@@ -79,8 +87,17 @@ const BSB_DIR = path.join(CWD, 'src', '.bsb');
 const CACHE_DIR = path.join(BSB_DIR, 'cache');
 const BUILD_CACHE_PATH = path.join(CACHE_DIR, 'build-state.json');
 const TSC_BUILD_INFO_PATH = path.join(CACHE_DIR, 'tsc.tsbuildinfo');
-const DEV_WATCH_PATTERNS = ['package.json', 'sec-config.yaml', 'src/**/*'];
-const DEV_IGNORE_PATTERNS = ['.git/**', 'lib/**', 'node_modules/**', 'src/.bsb/**'];
+const DEV_WATCH_PATHS = [
+  path.join(CWD, 'package.json'),
+  path.join(CWD, 'sec-config.yaml'),
+  path.join(CWD, 'src'),
+];
+const DEV_IGNORE_PATHS = [
+  path.join(CWD, '.git'),
+  path.join(CWD, 'lib'),
+  path.join(CWD, 'node_modules'),
+  path.join(CWD, 'src', '.bsb'),
+];
 const SCHEMA_FILE_BASENAMES = new Set([
   'index.ts',
   'index.tsx',
@@ -109,6 +126,11 @@ function ensureDir(dirPath: string): void {
 
 function normalizePath(inputPath: string): string {
   return inputPath.replace(/\\/g, '/');
+}
+
+function normalizeChangedPath(filePath: string): string {
+  const resolvedPath = path.isAbsolute(filePath) ? path.relative(CWD, filePath) : filePath;
+  return normalizePath(resolvedPath);
 }
 
 function hashStrings(values: string[]): string {
@@ -178,13 +200,27 @@ function getCoreSchemasHash(): string {
     return '';
   }
 
-  const schemaDir = path.join(bsbBasePath, 'lib', 'schemas');
   const packageJsonPath = path.join(bsbBasePath, 'package.json');
-  const inputs = [
-    fs.existsSync(packageJsonPath) ? `pkg:${hashFile(packageJsonPath)}` : 'pkg:missing',
-    ...collectFilesRecursive(schemaDir, (filePath) => filePath.endsWith('.json'))
-      .map((filePath) => `${normalizePath(path.relative(bsbBasePath, filePath))}:${hashFile(filePath)}`),
-  ];
+  const inputs = [fs.existsSync(packageJsonPath) ? `pkg:${hashFile(packageJsonPath)}` : 'pkg:missing'];
+  const sourcePluginsDir = path.join(bsbBasePath, 'src', 'plugins');
+
+  if (fs.existsSync(sourcePluginsDir)) {
+    inputs.push(
+      ...collectFilesRecursive(sourcePluginsDir, (filePath) => {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext !== '.ts' && ext !== '.tsx') {
+          return false;
+        }
+        return SCHEMA_FILE_BASENAMES.has(path.basename(filePath));
+      }).map((filePath) => `${normalizePath(path.relative(bsbBasePath, filePath))}:${hashFile(filePath)}`),
+    );
+  } else {
+    const schemaDir = path.join(bsbBasePath, 'lib', 'schemas');
+    inputs.push(
+      ...collectFilesRecursive(schemaDir, (filePath) => filePath.endsWith('.json'))
+        .map((filePath) => `${normalizePath(path.relative(bsbBasePath, filePath))}:${hashFile(filePath)}`),
+    );
+  }
 
   return hashStrings(inputs);
 }
@@ -235,12 +271,12 @@ function hasGeneratedClients(): boolean {
 }
 
 function isTsSourcePath(filePath: string): boolean {
-  const normalized = normalizePath(filePath);
+  const normalized = normalizeChangedPath(filePath);
   return normalized.startsWith('src/') && (normalized.endsWith('.ts') || normalized.endsWith('.tsx'));
 }
 
 function isSchemaRelevantPath(filePath: string): boolean {
-  const normalized = normalizePath(filePath);
+  const normalized = normalizeChangedPath(filePath);
   if (normalized === 'package.json') {
     return true;
   }
@@ -251,7 +287,7 @@ function isSchemaRelevantPath(filePath: string): boolean {
 }
 
 function isAssetPath(filePath: string): boolean {
-  const normalized = normalizePath(filePath);
+  const normalized = normalizeChangedPath(filePath);
   if (!normalized.startsWith('src/plugins/')) {
     return false;
   }
@@ -259,18 +295,22 @@ function isAssetPath(filePath: string): boolean {
   return ext !== '.ts' && ext !== '.tsx';
 }
 
+function isStaticAssetPath(filePath: string): boolean {
+  return normalizeChangedPath(filePath).includes('/static/');
+}
+
 function isConfigPath(filePath: string): boolean {
-  const normalized = normalizePath(filePath);
+  const normalized = normalizeChangedPath(filePath);
   return normalized === 'sec-config.yaml' || normalized === 'package.json';
 }
 
 function copySingleAssetFile(changedPath: string): boolean {
-  const normalized = normalizePath(changedPath);
+  const normalized = normalizeChangedPath(changedPath);
   if (!isAssetPath(normalized)) {
     return false;
   }
 
-  const absoluteSource = path.join(CWD, changedPath);
+  const absoluteSource = path.join(CWD, normalized);
   const relativeToSrc = path.relative(path.join(CWD, 'src'), absoluteSource);
   const destination = path.join(CWD, 'lib', relativeToSrc);
 
@@ -282,6 +322,39 @@ function copySingleAssetFile(changedPath: string): boolean {
   }
 
   return true;
+}
+
+function hasLibSchemas(): boolean {
+  const libSchemas = path.join(CWD, 'lib', 'schemas');
+  return fs.existsSync(libSchemas) && fs.readdirSync(libSchemas).some((file) => file.endsWith('.json'));
+}
+
+function hasPluginMetadataOutputs(plugins: PluginInfo[]): boolean {
+  const schemasDir = path.join(CWD, 'lib', 'schemas');
+  return plugins.every((plugin) => fs.existsSync(path.join(schemasDir, `${plugin.name}.plugin.json`)));
+}
+
+function getMetadataInputsHash(plugins: PluginInfo[]): string {
+  const packageJsonPath = path.join(CWD, 'package.json');
+  const inputs: string[] = [];
+
+  if (fs.existsSync(packageJsonPath)) {
+    inputs.push(`pkg:${hashFile(packageJsonPath)}`);
+  }
+
+  for (const plugin of plugins) {
+    const indexPath = path.join(plugin.srcDir, 'index.ts');
+    if (fs.existsSync(indexPath)) {
+      inputs.push(`${normalizePath(path.relative(CWD, indexPath))}:${hashFile(indexPath)}`);
+    }
+
+    const schemaPath = path.join(CWD, 'src', '.bsb', 'schemas', `${plugin.name}.json`);
+    if (fs.existsSync(schemaPath)) {
+      inputs.push(`${normalizePath(path.relative(CWD, schemaPath))}:${hashFile(schemaPath)}`);
+    }
+  }
+
+  return hashStrings(inputs);
 }
 
 // Resolve @bsb/base package root using Node module resolution.
@@ -762,33 +835,65 @@ function getBsbCliPath(): string {
   return bsbCliPath;
 }
 
-// Build the plugin
-async function build(options: BuildOptions = {}): Promise<void> {
-  log('\n=== Building BSB Plugin ===\n', 'bright');
+function getBsbDevPath(): string {
+  const bsbBase = resolveBsbBasePath();
+  if (!bsbBase) {
+    error('BSB dev entry not found. Make sure @bsb/base is installed.');
+  }
+
+  const sourceDevPath = path.join(bsbBase!, 'src', 'dev.ts');
+  if (fs.existsSync(sourceDevPath)) {
+    return sourceDevPath;
+  }
+
+  const compiledDevPath = path.join(bsbBase!, 'lib', 'dev.js');
+  if (fs.existsSync(compiledDevPath)) {
+    return compiledDevPath;
+  }
+
+  error(`BSB dev entry not found in ${bsbBase}`);
+}
+
+function typecheckDev(): boolean {
+  try {
+    info('Type checking TypeScript');
+    execSync(
+      `npx tsc --noEmit --incremental --tsBuildInfoFile "${normalizePath(TSC_BUILD_INFO_PATH)}"`,
+      { cwd: CWD, stdio: 'inherit' },
+    );
+    success('Type checking TypeScript');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function prepareGeneratedArtifacts(options: BuildOptions = {}): Promise<SchemaPreparationState> {
   ensureDir(CACHE_DIR);
   const plugins = detectPluginStructure();
   const cache = readBuildCache();
-  const coreSchemasHash = getCoreSchemasHash();
-  const schemaInputsHash = getSchemaInputsHash(plugins, coreSchemasHash);
+  const changedPaths = options.changedPaths ?? [];
+  let coreSchemasHash = getCoreSchemasHash();
+  let schemaInputsHash = getSchemaInputsHash(plugins, coreSchemasHash);
   const runSchemaPipeline = shouldRunSchemaPipeline(options.changedPaths);
+  const metadataInputsHash = getMetadataInputsHash(plugins);
   const coreSchemasChanged = cache.coreSchemasHash !== coreSchemasHash;
   const shouldSyncCoreSchemas = coreSchemasChanged || !hasGeneratedClients() || !hasGeneratedSchemas();
+
+  if (shouldSyncCoreSchemas) {
+    syncParentSchemas();
+    coreSchemasHash = getCoreSchemasHash();
+    schemaInputsHash = getSchemaInputsHash(plugins, coreSchemasHash);
+  } else {
+    info('Skipping core schema sync (unchanged)');
+  }
+
   const shouldExtractSchemas = runSchemaPipeline && (
     shouldSyncCoreSchemas ||
     cache.schemaInputsHash !== schemaInputsHash ||
     !hasGeneratedSchemas()
   );
 
-  // Step 1: Sync schemas with parent @bsb/base core plugins FIRST
-  // This ensures latest types are available during compilation
-  if (shouldSyncCoreSchemas) {
-    syncParentSchemas();
-  } else {
-    info('Skipping core schema sync (unchanged)');
-  }
-
-  // Step 2: Extract schemas from TypeScript source (pre-compilation)
-  // This reads TS files directly, no compiled JS needed — breaks circular dependency
   if (shouldExtractSchemas) {
     await extractSchemasFromSource();
   } else {
@@ -802,13 +907,38 @@ async function build(options: BuildOptions = {}): Promise<void> {
     !hasGeneratedClients()
   );
 
-  // Step 3: Generate virtual clients from extracted schemas
-  // These will be compiled alongside the project in step 5
   if (shouldGenerateClients) {
     generateVirtualClients();
   } else {
     info('Skipping virtual client generation (unchanged)');
   }
+
+  writeBuildCache({
+    version: 1,
+    coreSchemasHash,
+    schemaInputsHash,
+    clientInputsHash: getGeneratedSchemasHash(),
+    metadataInputsHash: changedPaths.length > 0 ? cache.metadataInputsHash : metadataInputsHash,
+  });
+
+  return {
+    plugins,
+    coreSchemasHash,
+    schemaInputsHash,
+    generatedSchemasHash: getGeneratedSchemasHash(),
+  };
+}
+
+// Build the plugin
+async function build(options: BuildOptions = {}): Promise<void> {
+  log('\n=== Building BSB Plugin ===\n', 'bright');
+  const cache = readBuildCache();
+  const changedPaths = options.changedPaths ?? [];
+  const { plugins, coreSchemasHash, schemaInputsHash } = await prepareGeneratedArtifacts(options);
+  const runSchemaPipeline = shouldRunSchemaPipeline(options.changedPaths);
+  const metadataInputsHash = getMetadataInputsHash(plugins);
+  const packageChanged = changedPaths.some((filePath) => normalizeChangedPath(filePath) === 'package.json');
+  const assetChanged = changedPaths.some(isAssetPath);
 
   // Step 4: Clean
   if (options.clean !== false) {
@@ -828,29 +958,56 @@ async function build(options: BuildOptions = {}): Promise<void> {
   }
 
   // Step 6: Copy non-TypeScript assets for each plugin
-  for (const plugin of plugins) {
-    copyPluginAssets(plugin);
+  const shouldCopyAllAssets = !options.changedPaths || changedPaths.length === 0 || assetChanged || !fs.existsSync(path.join(CWD, 'lib'));
+  if (shouldCopyAllAssets) {
+    for (const plugin of plugins) {
+      copyPluginAssets(plugin);
+    }
+  } else {
+    info('Skipping asset copy (unchanged)');
   }
 
   // Step 7: Copy extracted schemas to lib/schemas/
-  copySchemasToLib();
+  const shouldCopySchemas = runSchemaPipeline || !hasLibSchemas();
+  if (shouldCopySchemas) {
+    copySchemasToLib();
+  } else {
+    info('Skipping schema copy (unchanged)');
+  }
 
   // Step 8: Generate per-plugin metadata JSON (needs compiled JS for Config.metadata)
-  for (const plugin of plugins) {
-    await generatePluginJson(plugin);
+  const shouldGenerateMetadata = runSchemaPipeline ||
+    packageChanged ||
+    cache.metadataInputsHash !== metadataInputsHash ||
+    !hasPluginMetadataOutputs(plugins);
+  if (shouldGenerateMetadata) {
+    for (const plugin of plugins) {
+      await generatePluginJson(plugin);
+    }
+  } else {
+    info('Skipping plugin metadata generation (unchanged)');
   }
 
   // Step 9: Generate root bsb-plugin.json (aggregates all per-plugin metadata)
-  generateRootPluginJson();
+  if (shouldGenerateMetadata || !fs.existsSync(path.join(CWD, 'bsb-plugin.json'))) {
+    generateRootPluginJson();
+  } else {
+    info('Skipping bsb-plugin.json generation (unchanged)');
+  }
 
   // Step 10: Generate root bsb-tests.json (default ignore entries)
-  generateRootTestsJson(plugins.map(p => ({ id: p.name })));
+  if (shouldGenerateMetadata || !fs.existsSync(path.join(CWD, 'bsb-tests.json'))) {
+    generateRootTestsJson(plugins.map(p => ({ id: p.name })));
+  } else {
+    info('Skipping bsb-tests.json generation (unchanged)');
+  }
 
   writeBuildCache({
     version: 1,
     coreSchemasHash,
     schemaInputsHash,
     clientInputsHash: getGeneratedSchemasHash(),
+    metadataInputsHash: getMetadataInputsHash(plugins),
   });
 
   log('\n' + colors.green + colors.bright + '[BUILD COMPLETE]' + colors.reset + '\n');
@@ -886,11 +1043,16 @@ function start(): void {
 }
 
 function startServiceProcess(): ChildProcess {
-  const bsbCliPath = getBsbCliPath();
+  const bsbDevPath = getBsbDevPath();
   info('Starting service');
-  return spawn('node', [bsbCliPath], {
+  return spawn('node', ['--import', 'tsx', bsbDevPath], {
     cwd: CWD,
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      APP_DIR: CWD,
+      BSB_DEV_EXTERNAL_WATCH: '1',
+    },
   });
 }
 
@@ -924,6 +1086,7 @@ async function dev(): Promise<void> {
   const rebuildAndRestart = async () => {
     if (isRebuilding) {
       restartPending = true;
+      info('Rebuild already in progress, queueing another pass');
       return;
     }
 
@@ -932,10 +1095,17 @@ async function dev(): Promise<void> {
     pendingChanges.clear();
 
     try {
+      if (changedPaths.length > 0) {
+        info(`Detected changes: ${changedPaths.join(', ')}`);
+      }
+
       const configOnly = changedPaths.length > 0 &&
         changedPaths.every((filePath) => isConfigPath(filePath));
       const assetOnly = changedPaths.length > 0 &&
         changedPaths.every((filePath) => isAssetPath(filePath) || isConfigPath(filePath));
+      const staticAssetOnly = changedPaths.length > 0 &&
+        changedPaths.every((filePath) => isStaticAssetPath(filePath) || isConfigPath(filePath));
+      const sourceCodeChanged = changedPaths.some(isTsSourcePath);
       const copiedAnyAsset = assetOnly
         ? changedPaths.map(copySingleAssetFile).some(Boolean)
         : false;
@@ -943,15 +1113,25 @@ async function dev(): Promise<void> {
       if (configOnly) {
         info('Skipping rebuild (config-only change)');
       } else if (!assetOnly || !copiedAnyAsset) {
-        await build({
-          clean: false,
-          incremental: true,
-          changedPaths,
-        });
+        info('Preparing generated artifacts for dev');
+        await prepareGeneratedArtifacts({ changedPaths });
+        if (sourceCodeChanged) {
+          const typecheckOk = typecheckDev();
+          if (!typecheckOk) {
+            info('Type check failed, keeping current service instance');
+            return;
+          }
+        }
       } else {
         info('Skipping TypeScript rebuild (asset/config-only change)');
       }
 
+      if (staticAssetOnly && copiedAnyAsset && !configOnly) {
+        info('Skipping restart (static asset-only change)');
+        return;
+      }
+
+      info('Restarting service');
       await stopServiceProcess(child);
       child = startServiceProcess();
     } catch (err) {
@@ -967,7 +1147,9 @@ async function dev(): Promise<void> {
   };
 
   const queueChange = (filePath: string) => {
-    pendingChanges.add(normalizePath(filePath));
+    const normalizedPath = normalizeChangedPath(filePath);
+    info(`Change detected: ${normalizedPath}`);
+    pendingChanges.add(normalizedPath);
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
@@ -977,14 +1159,15 @@ async function dev(): Promise<void> {
   };
 
   try {
-    await build({
-      clean: false,
-      incremental: true,
-    });
-    child = startServiceProcess();
-
-    watcher = chokidar.watch(DEV_WATCH_PATTERNS, {
-      ignored: DEV_IGNORE_PATTERNS,
+    info(`Watching paths: ${DEV_WATCH_PATHS.map(normalizePath).join(', ')}`);
+    watcher = chokidar.watch(DEV_WATCH_PATHS, {
+      ignored: (watchPath) => {
+        const normalized = normalizeChangedPath(String(watchPath));
+        return DEV_IGNORE_PATHS.some((ignorePath) => {
+          const normalizedIgnorePath = normalizeChangedPath(ignorePath);
+          return normalized === normalizedIgnorePath || normalized.startsWith(`${normalizedIgnorePath}/`);
+        });
+      },
       ignoreInitial: true,
       persistent: true,
     });
@@ -992,6 +1175,21 @@ async function dev(): Promise<void> {
     watcher.on('add', queueChange);
     watcher.on('change', queueChange);
     watcher.on('unlink', queueChange);
+
+    await new Promise<void>((resolve) => {
+      watcher!.once('ready', () => {
+        info('Watching for changes');
+        resolve();
+      });
+    });
+
+    info('Preparing generated artifacts for dev');
+    await prepareGeneratedArtifacts();
+    if (typecheckDev()) {
+      child = startServiceProcess();
+    } else {
+      info('Initial type check failed, waiting for changes');
+    }
 
     process.on('SIGINT', async () => {
       if (debounceTimer) {
