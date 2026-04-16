@@ -857,7 +857,7 @@ function getBsbDevPath(): string {
 function getTsxImportSpecifier(): string {
   try {
     const projectRequire = createRequire(path.join(CWD, 'package.json'));
-    return projectRequire.resolve('tsx');
+    return toImportUrl(projectRequire.resolve('tsx'));
   } catch {
     error(
       [
