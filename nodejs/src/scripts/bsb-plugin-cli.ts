@@ -854,6 +854,23 @@ function getBsbDevPath(): string {
   error(`BSB dev entry not found in ${bsbBase}`);
 }
 
+function getTsxImportSpecifier(): string {
+  try {
+    const projectRequire = createRequire(path.join(CWD, 'package.json'));
+    return projectRequire.resolve('tsx');
+  } catch {
+    error(
+      [
+        'BSB dev mode requires the "tsx" package in the current project or workspace.',
+        'Install it as a devDependency and try again.',
+        'Examples:',
+        '  npm install -D tsx',
+        '  npm install -D tsx --workspace <workspace-name>',
+      ].join('\n'),
+    );
+  }
+}
+
 function typecheckDev(): boolean {
   try {
     info('Type checking TypeScript');
@@ -1044,8 +1061,9 @@ function start(): void {
 
 function startServiceProcess(): ChildProcess {
   const bsbDevPath = getBsbDevPath();
+  const tsxImportSpecifier = getTsxImportSpecifier();
   info('Starting service');
-  return spawn('node', ['--import', 'tsx', bsbDevPath], {
+  return spawn('node', ['--import', tsxImportSpecifier, bsbDevPath], {
     cwd: CWD,
     stdio: 'inherit',
     env: {
