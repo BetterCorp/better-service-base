@@ -30,6 +30,7 @@ function createNavbar(activePage = '') {
             </button>
             <div class="dropdown-content">
               <a href="/guides/nodejs/" class="${activePage === 'guides-nodejs' ? 'active' : ''}">Node.js</a>
+              <a href="/guides/nodejs/build-hooks/" class="nav-sub-link ${activePage === 'guides-nodejs' ? '' : ''}">Build Hooks</a>
               <span class="coming-soon">Go</span>
               <span class="coming-soon">Python</span>
               <span class="coming-soon">Rust</span>
@@ -162,7 +163,22 @@ function initFooter() {
 
 // Auto-initialize when this script loads
 (function() {
-  // Just initialize event handlers - HTML is already in the page
+  // Detect active page from script tag: <script ... data-page="guides-nodejs">
+  const navScript = document.querySelector('script[src*="navbar.js"][data-page]');
+  const activePage = navScript ? navScript.getAttribute('data-page') || '' : '';
+
+  // Replace inline header with generated navbar (single source of truth)
+  const existingHeader = document.querySelector('header.top-nav');
+  if (existingHeader) {
+    const temp = document.createElement('div');
+    temp.innerHTML = createNavbar(activePage);
+    const newHeader = temp.firstElementChild;
+    if (newHeader) {
+      existingHeader.replaceWith(newHeader);
+    }
+  }
+
+  // Initialize event handlers on the (now current) nav
   initNavbar();
   initFooter();
 

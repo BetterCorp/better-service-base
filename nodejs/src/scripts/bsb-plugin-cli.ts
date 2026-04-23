@@ -21,6 +21,12 @@ import * as path from 'node:path';
 import { createRequire } from 'node:module';
 import chokidar, { FSWatcher } from 'chokidar';
 import { getModuleDir, toImportUrl } from '../base/module-runtime.js';
+import {
+  runHook as runHookImpl,
+  runHookDev as runHookDevImpl,
+  type HookName,
+  type HookLogger,
+} from './build-hooks.js';
 
 interface PluginInfo {
   name: string;
@@ -408,6 +414,20 @@ function exec(command: string, description: string): void {
   } catch (err) {
     error(`Failed to ${description.toLowerCase()}`);
   }
+}
+
+// Build hook logger adapters
+const buildHookLogger: HookLogger = { info, success, error, warn: (msg: string) => log(msg, 'yellow') };
+const devHookLogger = { info, success, warn: (msg: string) => log(msg, 'red') };
+
+// Run build hooks (fatal on failure -- build aborts)
+function runHook(hookName: HookName): void {
+  runHookImpl(hookName, CWD, buildHookLogger);
+}
+
+// Run build hooks in dev mode (non-fatal -- keeps service running on failure)
+function runHookDev(hookName: HookName): boolean {
+  return runHookDevImpl(hookName, CWD, devHookLogger);
 }
 
 // Clean build artifacts
@@ -951,7 +971,15 @@ async function build(options: BuildOptions = {}): Promise<void> {
   log('\n=== Building BSB Plugin ===\n', 'bright');
   const cache = readBuildCache();
   const changedPaths = options.changedPaths ?? [];
+
+  // Hook: beforeSchemas
+  runHook('beforeSchemas');
+
   const { plugins, coreSchemasHash, schemaInputsHash } = await prepareGeneratedArtifacts(options);
+
+  // Hook: afterSchemas
+  runHook('afterSchemas');
+
   const runSchemaPipeline = shouldRunSchemaPipeline(options.changedPaths);
   const metadataInputsHash = getMetadataInputsHash(plugins);
   const packageChanged = changedPaths.some((filePath) => normalizeChangedPath(filePath) === 'package.json');
@@ -964,6 +992,9 @@ async function build(options: BuildOptions = {}): Promise<void> {
     info('Skipping clean for incremental rebuild');
   }
 
+  // Hook: beforeCompile
+  runHook('beforeCompile');
+
   // Step 5: Compile TypeScript (virtual clients in src/.bsb/clients/ compile with the project)
   if (options.incremental) {
     exec(
@@ -973,6 +1004,9 @@ async function build(options: BuildOptions = {}): Promise<void> {
   } else {
     exec('npx tsc', 'Compiling TypeScript');
   }
+
+  // Hook: afterCompile
+  runHook('afterCompile');
 
   // Step 6: Copy non-TypeScript assets for each plugin
   const shouldCopyAllAssets = !options.changedPaths || changedPaths.length === 0 || assetChanged || !fs.existsSync(path.join(CWD, 'lib'));
@@ -1026,6 +1060,9 @@ async function build(options: BuildOptions = {}): Promise<void> {
     clientInputsHash: getGeneratedSchemasHash(),
     metadataInputsHash: getMetadataInputsHash(plugins),
   });
+
+  // Hook: afterBuild
+  runHook('afterBuild');
 
   log('\n' + colors.green + colors.bright + '[BUILD COMPLETE]' + colors.reset + '\n');
 }
@@ -1137,14 +1174,18 @@ async function dev(): Promise<void> {
       if (configOnly) {
         info('Skipping rebuild (config-only change)');
       } else if (!assetOnly || !copiedAnyAsset) {
+        runHookDev('beforeSchemas');
         info('Preparing generated artifacts for dev');
         await prepareGeneratedArtifacts({ changedPaths });
+        runHookDev('afterSchemas');
         if (sourceCodeChanged) {
+          runHookDev('beforeCompile');
           const typecheckOk = typecheckDev();
           if (!typecheckOk) {
             info('Type check failed, keeping current service instance');
             return;
           }
+          runHookDev('afterCompile');
         }
       } else {
         info('Skipping TypeScript rebuild (asset/config-only change)');
@@ -1207,9 +1248,14 @@ async function dev(): Promise<void> {
       });
     });
 
+    runHookDev('beforeSchemas');
     info('Preparing generated artifacts for dev');
     await prepareGeneratedArtifacts();
+    runHookDev('afterSchemas');
+    runHookDev('beforeCompile');
     if (typecheckDev()) {
+      runHookDev('afterCompile');
+      runHookDev('beforeDev');
       child = startServiceProcess();
     } else {
       info('Initial type check failed, waiting for changes');
@@ -1279,6 +1325,27 @@ ${colors.cyan}Package.json Integration:${colors.reset}
       "clean": "bsb-plugin-cli clean"
     }
   }
+
+${colors.cyan}Build Hooks:${colors.reset}
+  Configure in package.json under "bsb.hooks" to run npm scripts
+  at specific points in the build/dev pipeline.
+
+  ${colors.green}beforeSchemas${colors.reset}  - Before schema extraction (build + dev)
+  ${colors.green}afterSchemas${colors.reset}   - After schema generation, before tsc (build + dev)
+  ${colors.green}beforeCompile${colors.reset}  - Before TypeScript compilation (build + dev)
+  ${colors.green}afterCompile${colors.reset}   - After TypeScript compilation succeeds (build + dev)
+  ${colors.green}afterBuild${colors.reset}     - After full build completes (build only)
+  ${colors.green}beforeDev${colors.reset}      - Once before first dev server start (dev only)
+
+  Values are npm script names (string or string[]).
+
+  Example:
+    "bsb": {
+      "hooks": {
+        "afterSchemas": "generate-api-types",
+        "afterCompile": ["post-bundle", "lint-output"]
+      }
+    }
 `);
 }
 

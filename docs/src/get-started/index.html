@@ -324,30 +324,19 @@
     
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
-    <script type="module">
-        import { createNavbar } from '/assets/js/navbar.js';
-        
-        fetch('/version.txt', { cache: 'no-store' })
-          .then(res => res.ok ? res.text() : '')
-          .then(txt => { window.__BSB_VERSION__ = (txt || '').trim(); })
-          .catch(() => {})
-          .finally(() => {
-            document.getElementById('navbar-container').innerHTML = createNavbar('get-started');
-          });
-        
+    <script type="module" src="/assets/js/navbar.js" data-page="get-started"></script>
+    <script>
         function toggleMobileMenu() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('mobile-open');
         }
-        
-        // Make toggleMobileMenu globally available
+
         window.toggleMobileMenu = toggleMobileMenu;
-        
-        // Close mobile menu when clicking outside
+
         document.addEventListener('click', function(event) {
             const sidebar = document.getElementById('sidebar');
             const toggle = document.querySelector('.mobile-menu-toggle');
-            
+
             if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
                 sidebar.classList.remove('mobile-open');
             }

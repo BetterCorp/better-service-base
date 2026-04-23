@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Build Hooks - BSB Documentation</title>
+  <meta name="description" content="Run custom scripts at specific points in the BSB build and dev pipelines. Configure hooks via package.json to integrate codegen, transforms, and tooling.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+  <style>
+    .page-header {
+      background: linear-gradient(135deg, var(--bg-secondary), var(--bg-color));
+      padding: 3rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .page-header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .page-header p {
+      color: var(--text-secondary);
+      font-size: 1.125rem;
+      max-width: 700px;
+    }
+
+    .content-section {
+      padding: 2rem;
+      max-width: 900px;
+    }
+
+    .content-section h2 {
+      font-size: 1.75rem;
+      color: var(--primary-color);
+      margin: 2.5rem 0 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .content-section h2:first-child {
+      margin-top: 0;
+    }
+
+    .content-section h3 {
+      font-size: 1.25rem;
+      margin: 1.5rem 0 1rem;
+    }
+
+    .content-section p {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 1rem;
+    }
+
+    .content-section ul, .content-section ol {
+      color: var(--text-secondary);
+      padding-left: 1.5rem;
+      margin-bottom: 1rem;
+      line-height: 1.8;
+    }
+
+    .content-section li {
+      margin-bottom: 0.5rem;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    code {
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.875rem;
+    }
+
+    .hook-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+    }
+
+    .hook-table th, .hook-table td {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .hook-table th {
+      color: var(--primary-color);
+      font-weight: 600;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .hook-table td {
+      color: var(--text-secondary);
+    }
+
+    .hook-table code {
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .mode-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .mode-both {
+      background: rgba(251, 140, 0, 0.15);
+      color: var(--primary-color);
+    }
+
+    .mode-build {
+      background: rgba(67, 160, 71, 0.15);
+      color: var(--logging-color);
+    }
+
+    .mode-dev {
+      background: rgba(3, 169, 244, 0.15);
+      color: var(--config-color);
+    }
+
+    .info-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-left: 4px solid var(--primary-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .info-box h4 {
+      color: var(--primary-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .info-box p {
+      margin-bottom: 0.5rem;
+    }
+
+    .info-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    .pipeline-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      margin: 0.75rem 0;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+    }
+
+    .pipeline-step.hook {
+      background: rgba(251, 140, 0, 0.08);
+      border: 1px solid rgba(251, 140, 0, 0.2);
+    }
+
+    .pipeline-step.internal {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+    }
+
+    .step-number {
+      min-width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .pipeline-step.hook .step-number {
+      background: var(--primary-color);
+      color: var(--bg-color);
+    }
+
+    .pipeline-step.internal .step-number {
+      background: var(--border-color);
+      color: var(--text-color);
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-content strong {
+      color: var(--text-color);
+    }
+
+    .step-content p {
+      margin: 0.25rem 0 0;
+      font-size: 0.875rem;
+    }
+
+    .next-steps {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-top: 3rem;
+    }
+
+    .next-steps h3 {
+      margin-top: 0;
+    }
+
+    .next-link {
+      display: inline-block;
+      padding: 0.5rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 500;
+      margin-right: 1rem;
+      margin-top: 0.5rem;
+      background: var(--primary-color);
+      color: var(--bg-color);
+    }
+
+    .next-link.secondary {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+    }
+  </style>
+</head>
+<body>
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      <nav class="nav-menu" id="nav-menu">
+        <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
+        <div class="nav-dropdown"><button class="nav-link active">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
+        <a href="/core-plugins/" class="nav-link">Core Plugins</a>
+        <a href="/registry/" class="nav-link">Plugins</a>
+        <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <header class="page-header">
+      <h1>Build Hooks</h1>
+      <p>Run custom npm scripts at specific points in the BSB build and dev pipelines. Integrate code generation, transforms, and external tooling into your build process.</p>
+    </header>
+
+    <main>
+      <div class="content-section">
+        <h2>Overview</h2>
+
+        <p>Build hooks let you inject your own scripts into the BSB build pipeline. They run at well-defined points between BSB's internal steps, so you can generate code from schemas, run transforms before compilation, or set up your dev environment.</p>
+
+        <p>Hooks are configured in <code>package.json</code> under the <code>bsb.hooks</code> key. Values reference npm script names from your <code>scripts</code> section -- no raw shell commands.</p>
+
+        <h2>Configuration</h2>
+
+        <p>Add a <code>hooks</code> object to your <code>bsb</code> config in <code>package.json</code>. Each hook accepts either a single script name (string) or an array of script names that run sequentially.</p>
+
+        <pre><code class="language-json">{
+  "name": "@myorg/my-plugin",
+  "scripts": {
+    "generate-api-types": "node scripts/gen-api.mjs",
+    "post-bundle": "node scripts/bundle-worker.mjs",
+    "lint-output": "node scripts/lint-output.mjs",
+    "seed-db": "node scripts/seed-dev-db.mjs"
+  },
+  "bsb": {
+    "hooks": {
+      "afterSchemas": "generate-api-types",
+      "afterCompile": ["post-bundle", "lint-output"],
+      "beforeDev": "seed-db"
+    }
+  }
+}</code></pre>
+
+        <div class="info-box">
+          <h4>Safety by design</h4>
+          <p>Hook values must be npm script names, not arbitrary commands. This keeps hooks auditable -- everything runs through your declared scripts section.</p>
+          <p>If a hook references a script name that does not exist in <code>scripts</code>, the build fails with a clear error message.</p>
+        </div>
+
+        <h2>Available Hooks</h2>
+
+        <table class="hook-table">
+          <thead>
+            <tr>
+              <th>Hook</th>
+              <th>When</th>
+              <th>Modes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>beforeSchemas</code></td>
+              <td>Before schema extraction and virtual client generation</td>
+              <td><span class="mode-badge mode-both">build + dev</span></td>
+            </tr>
+            <tr>
+              <td><code>afterSchemas</code></td>
+              <td>After schema generation, before TypeScript compilation</td>
+              <td><span class="mode-badge mode-both">build + dev</span></td>
+            </tr>
+            <tr>
+              <td><code>beforeCompile</code></td>
+              <td>Before TypeScript compilation starts</td>
+              <td><span class="mode-badge mode-both">build + dev</span></td>
+            </tr>
+            <tr>
+              <td><code>afterCompile</code></td>
+              <td>After TypeScript compilation succeeds</td>
+              <td><span class="mode-badge mode-both">build + dev</span></td>
+            </tr>
+            <tr>
+              <td><code>afterBuild</code></td>
+              <td>After full build completes (metadata, manifests, cache)</td>
+              <td><span class="mode-badge mode-build">build only</span></td>
+            </tr>
+            <tr>
+              <td><code>beforeDev</code></td>
+              <td>Once before the dev server starts for the first time</td>
+              <td><span class="mode-badge mode-dev">dev only</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Build Pipeline Order</h2>
+
+        <p>During <code>bsb-plugin-cli build</code>, hooks run at these points:</p>
+
+        <div class="pipeline-step hook">
+          <div class="step-number">1</div>
+          <div class="step-content"><strong>beforeSchemas</strong><p>Your hook runs here</p></div>
+        </div>
+        <div class="pipeline-step internal">
+          <div class="step-number">2</div>
+          <div class="step-content"><strong>Schema extraction &amp; virtual client generation</strong><p>BSB extracts event schemas from source and generates typed clients</p></div>
+        </div>
+        <div class="pipeline-step hook">
+          <div class="step-number">3</div>
+          <div class="step-content"><strong>afterSchemas</strong><p>Your hook runs here -- schemas are available in <code>src/.bsb/schemas/</code></p></div>
+        </div>
+        <div class="pipeline-step internal">
+          <div class="step-number">4</div>
+          <div class="step-content"><strong>Clean</strong><p>Removes previous <code>lib/</code> output</p></div>
+        </div>
+        <div class="pipeline-step hook">
+          <div class="step-number">5</div>
+          <div class="step-content"><strong>beforeCompile</strong><p>Your hook runs here</p></div>
+        </div>
+        <div class="pipeline-step internal">
+          <div class="step-number">6</div>
+          <div class="step-content"><strong>TypeScript compilation</strong><p>Compiles <code>src/</code> to <code>lib/</code>, including generated virtual clients</p></div>
+        </div>
+        <div class="pipeline-step hook">
+          <div class="step-number">7</div>
+          <div class="step-content"><strong>afterCompile</strong><p>Your hook runs here -- compiled JS is available in <code>lib/</code></p></div>
+        </div>
+        <div class="pipeline-step internal">
+          <div class="step-number">8</div>
+          <div class="step-content"><strong>Post-compile steps</strong><p>Copy assets, schemas to lib, generate plugin metadata and manifests</p></div>
+        </div>
+        <div class="pipeline-step hook">
+          <div class="step-number">9</div>
+          <div class="step-content"><strong>afterBuild</strong><p>Your hook runs here -- build is fully complete</p></div>
+        </div>
+
+        <h2>Dev Mode Behavior</h2>
+
+        <p>During <code>bsb-plugin-cli dev</code>, hooks behave slightly differently:</p>
+
+        <ul>
+          <li><code>beforeSchemas</code>, <code>afterSchemas</code>, <code>beforeCompile</code>, and <code>afterCompile</code> run on both initial startup and file-change rebuilds</li>
+          <li><code>beforeDev</code> runs only once, before the first service start -- not on rebuilds</li>
+          <li><code>afterBuild</code> does not run in dev mode</li>
+          <li>Schema hooks are skipped for config-only or asset-only changes</li>
+          <li>Compile hooks are skipped when only non-TypeScript files change</li>
+        </ul>
+
+        <h3>Error handling</h3>
+
+        <p>Hook failure behavior differs between build and dev modes:</p>
+
+        <ul>
+          <li><strong>Build mode:</strong> Hook failure aborts the build immediately. A failing codegen step should not produce a broken build.</li>
+          <li><strong>Dev mode:</strong> Hook failure is non-fatal. The current service instance keeps running, and the error is logged. This matches how typecheck failures work in dev -- you fix the issue, save, and the next rebuild retries.</li>
+        </ul>
+
+        <h2>Common Use Cases</h2>
+
+        <h3>Custom code generation from schemas</h3>
+
+        <p>The most common use case: generate types, API clients, or documentation from BSB's extracted schemas before TypeScript compilation.</p>
+
+        <pre><code class="language-json">{
+  "scripts": {
+    "generate-api-client": "node scripts/gen-client-from-schemas.mjs"
+  },
+  "bsb": {
+    "hooks": {
+      "afterSchemas": "generate-api-client"
+    }
+  }
+}</code></pre>
+
+        <p>Your script can read the generated schemas from <code>src/.bsb/schemas/*.json</code> and output TypeScript files that will be compiled in the next step.</p>
+
+        <h3>Pre-compilation transforms</h3>
+
+        <pre><code class="language-json">{
+  "scripts": {
+    "process-templates": "node scripts/compile-templates.mjs"
+  },
+  "bsb": {
+    "hooks": {
+      "beforeCompile": "process-templates"
+    }
+  }
+}</code></pre>
+
+        <h3>Post-build packaging</h3>
+
+        <pre><code class="language-json">{
+  "scripts": {
+    "bundle-worker": "esbuild lib/worker.js --bundle --outfile=dist/worker.js",
+    "generate-checksums": "node scripts/checksums.mjs"
+  },
+  "bsb": {
+    "hooks": {
+      "afterBuild": ["bundle-worker", "generate-checksums"]
+    }
+  }
+}</code></pre>
+
+        <h3>Dev environment setup</h3>
+
+        <pre><code class="language-json">{
+  "scripts": {
+    "seed-db": "node scripts/seed-dev-data.mjs",
+    "start-deps": "docker compose up -d redis postgres"
+  },
+  "bsb": {
+    "hooks": {
+      "beforeDev": ["start-deps", "seed-db"]
+    }
+  }
+}</code></pre>
+
+        <h2>Why not npm lifecycle hooks?</h2>
+
+        <p>npm supports <code>prebuild</code> and <code>postbuild</code> scripts, but these only fire when you run <code>npm run build</code>. In dev mode, BSB calls its build pipeline functions directly -- npm lifecycle hooks never fire. BSB build hooks work consistently in both build and dev modes.</p>
+
+        <p>BSB hooks also give you finer-grained control. npm only has "before build" and "after build". BSB hooks let you target specific points like "after schema generation but before TypeScript compilation" -- which is exactly where custom codegen needs to run.</p>
+
+        <div class="next-steps">
+          <h3>Next Steps</h3>
+          <p>Learn more about building and extending BSB plugins.</p>
+          <a href="/guides/nodejs/" class="next-link">Node.js Guide</a>
+          <a href="/extending/nodejs/" class="next-link secondary">Extend BSB</a>
+          <a href="/core-plugins/" class="next-link secondary">Core Plugins</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+
+  <script type="module" src="/assets/js/navbar.js" data-page="guides-nodejs"></script>
+</body>
+</html>

@@ -186,6 +186,12 @@ body {
     background: rgba(251, 140, 0, 0.1);
 }
 
+.dropdown-content a.nav-sub-link {
+    padding-left: 1.75rem;
+    font-size: 0.8125rem;
+    opacity: 0.85;
+}
+
 .dropdown-content .coming-soon {
     color: var(--text-secondary);
     opacity: 0.5;

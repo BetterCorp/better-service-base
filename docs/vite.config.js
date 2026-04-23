@@ -48,6 +48,7 @@ export default defineConfig({
 
         // Guides - Building Services
         'guides-nodejs': 'src/guides/nodejs/index.html',
+        'guides-nodejs-build-hooks': 'src/guides/nodejs/build-hooks/index.html',
 
         // Extending BSB
         'extending-nodejs': 'src/extending/nodejs/index.html',
