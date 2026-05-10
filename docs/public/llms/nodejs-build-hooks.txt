@@ -1,0 +1,83 @@
+Build Hooks (BSB Node.js)
+
+Goal:
+- Run custom npm scripts at specific points in the BSB build/dev pipeline.
+- Use cases: codegen from generated schemas, pre-compile transforms, post-build packaging, dev environment setup.
+
+Configuration:
+- Add `bsb.hooks` to package.json. Values are npm script names (string or string[]), not raw commands.
+- Script names must exist in `scripts` section of the same package.json.
+- Missing/empty hooks are no-ops.
+
+Hook points (6 total):
+- beforeSchemas - Before schema extraction. Modes: build + dev.
+- afterSchemas - After schema generation, before TypeScript compilation. Modes: build + dev.
+- beforeCompile - Before TypeScript compilation. Modes: build + dev.
+- afterCompile - After TypeScript compilation succeeds. Modes: build + dev.
+- afterBuild - After full build completes. Modes: build only.
+- beforeDev - Once before first dev server start (not on rebuilds). Modes: dev only.
+
+Why both `before*` and npm `prebuild`:
+- npm `prebuild`/`postbuild` only fire via `npm run build`. Dev mode bypasses npm. BSB hooks fire in both modes.
+
+Pipeline order (build):
+1. beforeSchemas
+2. Schema extraction + virtual client generation (BSB)
+3. afterSchemas
+4. clean
+5. beforeCompile
+6. tsc
+7. afterCompile
+8. Copy assets, copy schemas to lib, generate plugin metadata + manifests (BSB)
+9. afterBuild
+
+Pipeline order (dev initial start):
+1. beforeSchemas
+2. Schema extraction (BSB)
+3. afterSchemas
+4. beforeCompile
+5. typecheck
+6. afterCompile (only if typecheck passed)
+7. beforeDev (one-time)
+8. start service
+
+Pipeline order (dev rebuild):
+- beforeSchemas/afterSchemas skipped for config-only or asset-only changes.
+- beforeCompile/afterCompile only run when source code changed.
+- beforeDev does NOT re-run on rebuilds.
+
+Error handling:
+- Build mode: hook failure aborts build (process.exit(1)).
+- Dev mode: hook failure is non-fatal, current service keeps running, error logged.
+- Undefined script reference: build fails with clear error, dev logs warning and skips.
+
+Example package.json:
+```json
+{
+  "scripts": {
+    "build": "bsb-plugin-cli build",
+    "dev": "bsb-plugin-cli dev",
+    "generate-api-types": "node scripts/gen-api.mjs",
+    "post-bundle": "node scripts/bundle-worker.mjs",
+    "seed-db": "node scripts/seed-dev-db.mjs"
+  },
+  "bsb": {
+    "hooks": {
+      "afterSchemas": "generate-api-types",
+      "afterCompile": ["post-bundle"],
+      "beforeDev": "seed-db"
+    }
+  }
+}
+```
+
+Common use cases:
+- Codegen from generated schemas: read `src/.bsb/schemas/*.json` in `afterSchemas`, output .ts files compiled in next step.
+- Pre-compile transforms: process templates or assets in `beforeCompile`.
+- Post-build packaging: bundle/checksum/sign in `afterBuild`.
+- Dev environment: docker compose up + seed in `beforeDev`.
+
+Notes:
+- Hooks run via `npm run <script>` for cross-platform safety and correct PATH.
+- Sequential execution within a single hook (string[]) — first failure stops remaining.
+- Multiple hooks (e.g. afterSchemas + afterCompile) run in pipeline order, not parallel.

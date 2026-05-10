@@ -302,60 +302,70 @@ npx tsc --init</code></pre>
           <pre><code class="language-bash">mkdir -p src/plugins/service-hello</code></pre>
 
           <span class="file-path">src/plugins/service-hello/index.ts</span>
-          <pre><code class="language-typescript">import { BSBService, BSBServiceConstructor, bsb } from "@bsb/base";
-import { createReturnableEvent } from "@bsb/base";
+          <pre><code class="language-typescript">import {
+  BSBService,
+  BSBServiceConstructor,
+  Observable,
+  bsb,
+  createConfigSchema,
+  createEventSchemas,
+  createReturnableEvent,
+} from "@bsb/base";
+import * as av from "@anyvali/js";
 
-// Define your event schemas
-export const EventSchemas = {
+const Config = createConfigSchema(
+  {
+    name: "service-hello",
+    description: "Hello service plugin",
+    tags: ["service", "example"],
+    documentation: ["./docs/service-hello.md"],
+  },
+  av.object({}, { unknownKeys: "strip" }),
+);
+
+const EventSchemas = createEventSchemas({
   emitEvents: {},
   onEvents: {},
   emitReturnableEvents: {},
   onReturnableEvents: {
-    'hello.greet': createReturnableEvent(
-      bsb.object({
-        name: bsb.string()
-      }, 'Greeting input'),
+    "hello.greet": createReturnableEvent(
+      bsb.object({ name: bsb.string() }, "Greeting input"),
       bsb.object({
         message: bsb.string(),
-        timestamp: bsb.datetime()
-      }, 'Greeting response'),
-      'Greet a user by name'
-    )
+        timestamp: bsb.datetime(),
+      }, "Greeting response"),
+      "Greet a user by name",
+    ),
   },
   emitBroadcast: {},
-  onBroadcast: {}
-} as const;
+  onBroadcast: {},
+});
 
-export class Plugin extends BSBService&lt;null, typeof EventSchemas&gt; {
-  public initBeforePlugins?: string[];
-  public initAfterPlugins?: string[];
-  public runBeforePlugins?: string[];
-  public runAfterPlugins?: string[];
+export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typeof EventSchemas&gt; {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
 
-  constructor(config: BSBServiceConstructor&lt;null, typeof EventSchemas&gt;) {
-    super({
-      ...config,
-      eventSchemas: EventSchemas
-    });
+  constructor(cfg: BSBServiceConstructor&lt;InstanceType&lt;typeof Config&gt;&gt;) {
+    super(cfg);
   }
 
-  public async init() {
-    // Register event handlers
-    await this.events.onReturnableEvent("hello.greet", async (trace, input) =&gt; {
-      this.log.info(trace, "Greeting {name}", { name: input.name });
+  async init(obs: Observable) {
+    obs.log.info("Initializing {plugin}", { plugin: this.pluginName });
 
+    await this.events.onReturnableEvent("hello.greet", obs, async (handlerObs, input) =&gt; {
+      handlerObs.log.info("Greeting {name}", { name: input.name });
       return {
         message: `Hello, ${input.name}!`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
     });
   }
 
-  public async run() {
-    this.log.info(this.metrics.createTrace("run").trace, "Hello service is running");
+  async run(obs: Observable) {
+    obs.log.info("Hello service is running");
   }
 
-  public dispose() {
+  async dispose() {
     // Cleanup if needed
   }
 }</code></pre>
@@ -366,9 +376,21 @@ export class Plugin extends BSBService&lt;null, typeof EventSchemas&gt; {
           <h3>Create the configuration</h3>
 
           <span class="file-path">sec-config.yaml</span>
-          <pre><code class="language-yaml">plugins:
-  service-hello:
-    enabled: true</code></pre>
+          <pre><code class="language-yaml">default: # deployment profile
+  observable:
+    observable-default:
+      plugin: observable-default
+      enabled: true
+      config: {}
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
+  services:
+    service-hello:
+      plugin: service-hello
+      enabled: true
+      config: {}</code></pre>
         </div>
 
         <div class="step">
@@ -390,7 +412,7 @@ npm start</code></pre>
         <p>BSB discovers plugins by scanning the <code>src/plugins/</code> directory. Each plugin must:</p>
 
         <ul>
-          <li>Be in a folder named <code>service-*</code>, <code>events-*</code>, <code>logging-*</code>, <code>config-*</code>, or <code>metrics-*</code></li>
+          <li>Be in a folder named <code>service-*</code>, <code>events-*</code>, <code>observable-*</code>, or <code>config-*</code></li>
           <li>Export a <code>Plugin</code> class that extends the appropriate base class</li>
           <li>Optionally export a <code>Config</code> class for plugin configuration</li>
         </ul>
@@ -413,39 +435,39 @@ npm start</code></pre>
         <h3>Emitting Events</h3>
 
         <pre><code class="language-typescript">// Fire-and-forget (first listener receives)
-await this.events.emitEvent("user.created", trace, {
+await this.events.emitEvent("user.created", obs, {
   userId: "123",
   email: "user@example.com"
 });
 
-// Request-response (wait for result)
+// Request-response (wait for result, optional timeout in seconds, default 5)
 const result = await this.events.emitEventAndReturn(
   "user.validate",
-  trace,
+  obs,
   { email: "user@example.com" },
-  5 // timeout in seconds
+  5
 );
 
 // Broadcast (all listeners receive)
-await this.events.emitBroadcast("cache.invalidate", trace, {
+await this.events.emitBroadcast("cache.invalidate", obs, {
   keys: ["user:123"]
 });</code></pre>
 
         <h3>Handling Events</h3>
 
         <pre><code class="language-typescript">// Handle fire-and-forget
-await this.events.onEvent("user.created", trace, async (t, input) =&gt; {
-  this.log.info(t, "User created: {userId}", { userId: input.userId });
+await this.events.onEvent("user.created", obs, async (handlerObs, input) =&gt; {
+  handlerObs.log.info("User created: {userId}", { userId: input.userId });
 });
 
 // Handle request-response
-await this.events.onReturnableEvent("user.validate", trace, async (t, input) =&gt; {
+await this.events.onReturnableEvent("user.validate", obs, async (handlerObs, input) =&gt; {
   const isValid = await validateEmail(input.email);
   return { valid: isValid };
 });
 
 // Handle broadcast
-await this.events.onBroadcast("cache.invalidate", trace, async (t, input) =&gt; {
+await this.events.onBroadcast("cache.invalidate", obs, async (handlerObs, input) =&gt; {
   for (const key of input.keys) {
     await cache.delete(key);
   }
@@ -471,8 +493,11 @@ const Config = createConfigSchema(
 );
 
 export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typeof EventSchemas&gt; {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
+
   // Now this.config is typed with your schema
-  async init() {
+  async init(obs: Observable) {
     const greeting = this.config.greeting; // "Hello"
     const max = this.config.maxNameLength; // 100
   }
@@ -480,11 +505,14 @@ export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typ
 
         <p>Then in your <code>sec-config.yaml</code>:</p>
 
-        <pre><code class="language-yaml">plugins:
-  service-hello:
-    enabled: true
-    greeting: "Welcome"
-    maxNameLength: 50</code></pre>
+        <pre><code class="language-yaml">default:
+  services:
+    service-hello:
+      plugin: service-hello
+      enabled: true
+      config:
+        greeting: "Welcome"
+        maxNameLength: 50</code></pre>
 
         <div class="next-steps">
           <h3>Next Steps</h3>

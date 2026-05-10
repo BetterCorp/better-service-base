@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Extending BSB with Node.js - BSB Documentation</title>
-  <meta name="description" content="Build custom events, logging, config, and metrics plugins for BSB. Extend the framework with your own implementations.">
+  <meta name="description" content="Build custom events, observable, and config plugins for BSB. Extend the framework with your own implementations.">
   <link rel="stylesheet" href="/assets/css/main.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
   <style>
@@ -112,13 +112,13 @@
     <main class="main-content">
       <header class="page-header">
         <h1>Extending BSB</h1>
-        <p>Build custom plugins to extend BSB's capabilities. Create your own events, logging, configuration, and metrics implementations.</p>
+        <p>Build custom plugins to extend BSB's capabilities. Create your own events transport, observability backends, and configuration providers.</p>
       </header>
 
       <div class="content-section">
         <h2>Plugin Types</h2>
 
-        <p>BSB can be extended with four types of infrastructure plugins. Each plugin type has a specific base class and interface to implement.</p>
+        <p>BSB can be extended with three types of infrastructure plugins. Each plugin type has a specific base class and interface to implement.</p>
 
         <div class="plugin-grid">
           <div class="plugin-card events">
@@ -128,21 +128,15 @@
           </div>
 
           <div class="plugin-card logging">
-            <h3>Logging Plugin</h3>
-            <p>Send logs to external systems. Implement Graylog, Elasticsearch, Datadog, or custom log aggregators.</p>
-            <span class="cta">Extends BSBLogging</span>
+            <h3>Observable Plugin</h3>
+            <p>Unified logging, metrics, and tracing. Implement Graylog, OpenTelemetry, Pino, Winston, or custom backends.</p>
+            <span class="cta">Extends BSBObservable</span>
           </div>
 
           <div class="plugin-card config">
             <h3>Config Plugin</h3>
             <p>Load configuration from external sources. Implement Consul, etcd, Vault, or custom config providers.</p>
             <span class="cta">Extends BSBConfig</span>
-          </div>
-
-          <div class="plugin-card metrics">
-            <h3>Metrics Plugin</h3>
-            <p>Export metrics to monitoring systems. Implement Prometheus, OpenTelemetry, StatsD, or custom collectors.</p>
-            <span class="cta">Extends BSBMetrics</span>
           </div>
         </div>
 
@@ -231,56 +225,51 @@ export class Plugin extends BSBEvents&lt;null&gt; {
   }
 }</code></pre>
 
-        <h2>Creating a Logging Plugin</h2>
+        <h2>Creating an Observable Plugin</h2>
 
-        <p>A logging plugin receives log messages and sends them to an external system:</p>
+        <p>An observable plugin unifies logging, metrics, and tracing into a single backend. Implement the methods you support — all are optional, so you can build a logging-only plugin, a metrics-only plugin, or a full backend like OpenTelemetry:</p>
 
-        <pre><code class="language-typescript">import { BSBLogging, BSBLoggingConstructor } from "@bsb/base";
+        <pre><code class="language-typescript">import { BSBObservable, BSBObservableConstructor, createConfigSchema, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
+import * as av from "@anyvali/js";
 
-export class Plugin extends BSBLogging&lt;null&gt; {
-  constructor(config: BSBLoggingConstructor&lt;null&gt;) {
-    super(config);
+const Config = createConfigSchema(
+  {
+    name: "observable-graylog",
+    description: "Graylog observable plugin",
+    tags: ["observable", "logging"]
+  },
+  av.object({
+    host: av.optional(av.string()).default("localhost"),
+    port: av.optional(av.number()).default(12201)
+  }, { unknownKeys: "strip" })
+);
+
+export class Plugin extends BSBObservable&lt;InstanceType&lt;typeof Config&gt;&gt; {
+  static Config = Config;
+
+  constructor(cfg: BSBObservableConstructor&lt;InstanceType&lt;typeof Config&gt;&gt;) {
+    super(cfg);
   }
 
-  public async debug&lt;T extends string&gt;(
-    plugin: string,
-    trace: DTrace,
-    message: T,
-    meta?: LogMeta&lt;T&gt;
-  ): Promise&lt;void&gt; {
-    await this.sendToGraylog("debug", plugin, trace, message, meta);
+  // Logging methods (all optional — implement what you need)
+  debug(trace: DTrace, pluginName: string, message: string, meta: LogMeta&lt;any&gt;): void {
+    this.sendToGraylog("debug", trace, pluginName, message, meta);
+  }
+  info(trace: DTrace, pluginName: string, message: string, meta: LogMeta&lt;any&gt;): void {
+    this.sendToGraylog("info", trace, pluginName, message, meta);
+  }
+  warn(trace: DTrace, pluginName: string, message: string, meta: LogMeta&lt;any&gt;): void {
+    this.sendToGraylog("warn", trace, pluginName, message, meta);
+  }
+  error(trace: DTrace, pluginName: string, message: string | BSBError&lt;any&gt;, meta?: LogMeta&lt;any&gt;): void {
+    this.sendToGraylog("error", trace, pluginName, message, meta);
   }
 
-  public async info&lt;T extends string&gt;(
-    plugin: string,
-    trace: DTrace,
-    message: T,
-    meta?: LogMeta&lt;T&gt;
-  ): Promise&lt;void&gt; {
-    await this.sendToGraylog("info", plugin, trace, message, meta);
-  }
+  // Metrics methods (optional): createCounter, createGauge, createHistogram, etc.
+  // Tracing methods (optional): startSpan, endSpan, etc.
 
-  public async warn&lt;T extends string&gt;(
-    plugin: string,
-    trace: DTrace,
-    message: T,
-    meta?: LogMeta&lt;T&gt;
-  ): Promise&lt;void&gt; {
-    await this.sendToGraylog("warn", plugin, trace, message, meta);
-  }
-
-  public async error&lt;T extends string&gt;(
-    plugin: string,
-    trace: DTrace,
-    message: T,
-    errorOrMeta?: Error | LogMeta&lt;T&gt;,
-    meta?: LogMeta&lt;T&gt;
-  ): Promise&lt;void&gt; {
-    await this.sendToGraylog("error", plugin, trace, message, meta);
-  }
-
-  private async sendToGraylog(level: string, ...args: any[]) {
+  private sendToGraylog(level: string, trace: DTrace, plugin: string, message: any, meta: any): void {
     // Send to Graylog GELF endpoint
   }
 }</code></pre>
@@ -296,7 +285,7 @@ export class Plugin extends BSBLogging&lt;null&gt; {
           <li><code>node_modules/</code> - npm-installed plugins</li>
         </ol>
 
-        <p>Name your plugin folder with the appropriate prefix: <code>events-*</code>, <code>logging-*</code>, <code>config-*</code>, or <code>metrics-*</code>.</p>
+        <p>Name your plugin folder with the appropriate prefix: <code>events-*</code>, <code>observable-*</code>, or <code>config-*</code>.</p>
       </div>
     </main>
   </div>

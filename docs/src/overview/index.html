@@ -362,14 +362,13 @@
 
         <h3>Plugin Types</h3>
 
-        <p>BSB has five types of plugins. <strong>Service plugins</strong> are where you write your business logic. The other four are core infrastructure plugins that power the framework:</p>
+        <p>BSB has four types of plugins. <strong>Service plugins</strong> are where you write your business logic. The other three are core infrastructure plugins that power the framework:</p>
 
         <ul>
           <li><strong>service-*</strong> - <em>Your code goes here.</em> Business logic, API handlers, workers - this is what you build.</li>
           <li><strong>config-*</strong> - Loads configuration (YAML, Consul, etcd, etc.)</li>
           <li><strong>events-*</strong> - Routes events between services (in-memory, RabbitMQ, Kafka, etc.)</li>
-          <li><strong>logging-*</strong> - Handles log output (console, Graylog, Datadog, etc.)</li>
-          <li><strong>metrics-*</strong> - Collects metrics (Prometheus, OpenTelemetry, etc.)</li>
+          <li><strong>observable-*</strong> - Unified logging, metrics, and tracing (console, Graylog, OpenTelemetry, Pino, etc.)</li>
         </ul>
 
         <h2>Event Communication</h2>

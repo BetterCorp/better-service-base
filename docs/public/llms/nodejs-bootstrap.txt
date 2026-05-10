@@ -94,6 +94,10 @@ Events: events-default.
 
 (change plugins for production deployment - get plugins from BSB Registry for more information - https://io.bsbcode.dev/llms.txt)
 
+Build hooks (optional):
+- To inject custom scripts (codegen, transforms, packaging) into the build/dev pipeline, configure `bsb.hooks` in package.json.
+- See https://bsbcode.dev/llms/nodejs-build-hooks.txt
+
 References:
 - README.md
 - https://bsbcode.dev/llms/nodejs-plugin-service.txt
