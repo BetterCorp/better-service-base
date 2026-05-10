@@ -497,44 +497,37 @@ function copyPluginAssets(plugin: PluginInfo): void {
 }
 
 // Extract schemas directly from TypeScript source (pre-compilation)
+// Spawns with --import tsx so transitive .js→.ts imports resolve correctly
+// in multi-file plugins (e.g. index.ts → repository.ts → mappers.js).
 async function extractSchemasFromSource(): Promise<void> {
   try {
-    const runExtractorModule = async (scriptPath: string): Promise<void> => {
-      const mod = await import(`${toImportUrl(scriptPath)}?t=${Date.now()}`);
-      const run = mod.extractSchemasFromSource || mod.main || mod.default;
-      if (typeof run !== 'function') {
-        throw new Error(`Extractor entry function not found: ${scriptPath}`);
-      }
-      await run();
-    };
-
-    // Use the extraction script
     const bsbBase = resolveBsbBasePath();
     const extractorPath = bsbBase ? path.join(bsbBase, 'lib', 'scripts', 'extract-schemas-from-source.js') : '';
 
+    let scriptPath = '';
     if (extractorPath && fs.existsSync(extractorPath)) {
-      info('Extracting schemas from TypeScript source');
-      await runExtractorModule(extractorPath);
-      success('Extracted schemas from TypeScript source');
+      scriptPath = extractorPath;
     } else {
-      // Fallback: use local compiled version or ts-node
       const localCompiledPath = path.join(MODULE_DIR, 'extract-schemas-from-source.js');
       const localTsPath = path.join(MODULE_DIR, 'extract-schemas-from-source.ts');
-
       if (fs.existsSync(localCompiledPath)) {
-        info('Extracting schemas from TypeScript source');
-        await runExtractorModule(localCompiledPath);
-        success('Extracted schemas from TypeScript source');
+        scriptPath = localCompiledPath;
       } else if (fs.existsSync(localTsPath)) {
-        info('Extracting schemas from TypeScript source');
-        execFileSync(
-          process.execPath,
-          ['--import', 'tsx', localTsPath],
-          { cwd: CWD, stdio: ['pipe', 'pipe', 'inherit'] }
-        );
-        success('Extracted schemas from TypeScript source');
+        scriptPath = localTsPath;
       }
     }
+
+    if (!scriptPath) {
+      throw new Error('Schema extractor script not found');
+    }
+
+    info('Extracting schemas from TypeScript source');
+    execFileSync(
+      process.execPath,
+      ['--import', 'tsx', scriptPath],
+      { cwd: CWD, stdio: 'inherit' },
+    );
+    success('Extracted schemas from TypeScript source');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log(`  Schema extraction failed: ${message}`, 'yellow');
