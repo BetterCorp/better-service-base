@@ -277,7 +277,18 @@ async function listInstalledPlugins(pluginDir) {
 }
 
 async function main() {
-  const pluginDir = process.env.BSB_PLUGINS_DIR || process.env.BSB_PLUGIN_DIR;
+  const rawDirs = process.env.BSB_PLUGIN_DIRS
+    || process.env.BSB_PLUGINS_DIR
+    || process.env.BSB_PLUGIN_DIR
+    || "";
+  const pluginDirs = rawDirs.split(",").map((d) => d.trim()).filter(Boolean);
+
+  if (pluginDirs.length === 0) {
+    console.log("[BSB] No plugin directories set. Skipping plugin bootstrap.");
+    return;
+  }
+
+  const pluginDir = pluginDirs[0];
   const tempRoot = process.env.BSB_PLUGIN_TEMP_DIR || "/mnt/temp/bsb-plugin-installer";
   const forceUpdate = isTruthy(process.env.BSB_PLUGIN_UPDATE);
   const rawPlugins = String(process.env.BSB_PLUGINS || "")
@@ -285,12 +296,19 @@ async function main() {
     .map((x) => x.trim())
     .filter(Boolean);
 
-  if (!pluginDir || pluginDir.trim().length === 0) {
-    console.log("[BSB] No BSB_PLUGINS_DIR/BSB_PLUGIN_DIR set. Skipping plugin bootstrap.");
-    return;
+  for (const dir of pluginDirs) {
+    await ensureDir(dir);
+    const pkgJsonPath = path.join(dir, "package.json");
+    if (!(await fileExists(pkgJsonPath))) {
+      console.log(`[BSB] Initializing ${ dir } with package.json`);
+      await fs.writeFile(
+        pkgJsonPath,
+        JSON.stringify({ name: "bsb-plugins", version: "1.0.0", private: true }, null, 2),
+        "utf-8",
+      );
+    }
   }
 
-  await ensureDir(pluginDir);
   await ensureDir(tempRoot);
 
   let parsedPlugins = rawPlugins

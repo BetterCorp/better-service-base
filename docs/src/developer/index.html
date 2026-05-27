@@ -116,7 +116,9 @@
             <thead><tr><th>Key</th><th>Description</th><th>Default</th></tr></thead>
             <tbody>
               <tr><td><code>BSB_PROFILE</code></td><td>Selects configuration profile</td><td><code>default</code></td></tr>
-              <tr><td><code>BSB_PLUGIN_DIR</code></td><td>Mounted plugin repository path</td><td>None</td></tr>
+              <tr><td><code>BSB_DEBUG</code></td><td>Enable debug logging in production (<code>true|1|yes|y</code>)</td><td><code>false</code></td></tr>
+              <tr><td><code>BSB_PLUGIN_DIRS</code></td><td>Comma-separated plugin directory paths (searched in order; first is install target)</td><td>None</td></tr>
+              <tr><td><code>BSB_PLUGIN_DIR</code></td><td>Single plugin directory (legacy, still supported; accepts comma-separated)</td><td>None</td></tr>
               <tr><td><code>BSB_PLUGINS</code></td><td>Explicit plugin list with versions</td><td>Optional</td></tr>
             </tbody>
           </table>

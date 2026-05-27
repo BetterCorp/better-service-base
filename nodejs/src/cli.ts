@@ -41,10 +41,15 @@ const MODULE_DIR = getModuleDir(import.meta.url);
 /**
  * Run the BSB service (default behavior).
  */
+const TRUTHY_VALUES = new Set(["true", "1", "yes", "y"]);
+
 const runApp = async () => {
   const CWD = process.env.APP_DIR || process.cwd();
+  const debugEnabled = TRUTHY_VALUES.has(
+    String(process.env.BSB_DEBUG || "").trim().toLowerCase()
+  );
   const SB = new ServiceBase({
-    debug: false,
+    debug: debugEnabled,
     live: true,
     cwd: CWD,
     runtimeMode: "prod",
@@ -120,6 +125,8 @@ Examples:
   bsb client publish            # Publish current plugin to registry
 
 Environment Variables:
+  BSB_DEBUG                     Enable debug logging in production (true|1|yes|y)
+  BSB_PLUGIN_DIRS               Comma-separated external plugin directories
   BSB_REGISTRY_URL              Registry URL (default: http://localhost:3100)
   BSB_REGISTRY_TOKEN            API token for authentication
 

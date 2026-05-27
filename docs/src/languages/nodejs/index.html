@@ -222,7 +222,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
 
         <div class="info-box">
             <h4>🎯 How BSB Works</h4>
-            <p><strong>BSB is designed to run as a standalone Docker container</strong> that loads and runs <em>plugins</em> (published separately). In production you deploy the container and provide plugins via <code>BSB_PLUGIN_DIR</code> or <code>BSB_PLUGINS</code>. Installing BSB as a dependency is only for contributors and local plugin development.</p>
+            <p><strong>BSB is designed to run as a standalone Docker container</strong> that loads and runs <em>plugins</em> (published separately). In production you deploy the container and provide plugins via <code>BSB_PLUGIN_DIRS</code> (comma-separated) or <code>BSB_PLUGINS</code>. Installing BSB as a dependency is only for contributors and local plugin development.</p>
         </div>
 
         <div class="info-box">
@@ -238,7 +238,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
         <div class="info-box">
             <h4>🔎 Discovery & Runtime</h4>
             <ul>
-                <li>Production: run the BSB container and provide plugins via <code>BSB_PLUGIN_DIR</code></li>
+                <li>Production: run the BSB container and provide plugins via <code>BSB_PLUGIN_DIRS</code></li>
                 <li>Optional: specify explicit versions with <code>BSB_PLUGINS</code> (e.g. <code>service-my-api@1.2.3;observable-default@latest</code>)</li>
                 <li>Development: install BSB in your plugin project for types and run locally if needed</li>
             </ul>
@@ -281,9 +281,9 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
             <p>Run the official BSB container and mount your plugin repository:</p>
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v $(pwd)/plugins:/mnt/plugins:ro \
-  -e BSB_PLUGIN_DIR=/mnt/plugins \
+  -e BSB_PLUGIN_DIRS=/mnt/plugins \
   betterweb/service-base:node</code></pre></div>
-            <div class="warning"><strong>Note:</strong> This is the supported production deployment.</div>
+            <div class="warning"><strong>Note:</strong> This is the supported production deployment. Use comma-separated paths for multiple plugin directories.</div>
         </div>
 
         <div class="section">
@@ -331,132 +331,108 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
                     <h3>Create Your First Service Plugin</h3>
                     <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor → init → run → dispose</code>):</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
-<pre><code class="language-ts">import { BSBService, BSBServiceConstructor, BSBServiceClientDefinition, Observable, z } from '@bsb/base';
-import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from '@bsb/base';
+<pre><code class="language-ts">import {
+  BSBService,
+  BSBServiceConstructor,
+  Observable,
+  bsb,
+  createConfigSchema,
+  createEventSchemas,
+  createFireAndForgetEvent,
+  createReturnableEvent,
+  createBroadcastEvent,
+} from '@bsb/base';
+import * as av from '@anyvali/js';
 
-// Schema-first event definitions with automatic validation
-export const EventSchemas = {
-  // Events this service emits (fire-and-forget)
+// Plugin metadata + config schema (auto-generates bsb-plugin.json)
+const Config = createConfigSchema(
+  {
+    name: 'service-my-api',
+    description: 'My API service plugin',
+    tags: ['service', 'api'],
+  },
+  av.object({}, { unknownKeys: 'strip' }),
+);
+
+// Cross-language event schemas (BSB types, NOT Zod)
+const EventSchemas = createEventSchemas({
   emitEvents: {
     'notification.send': createFireAndForgetEvent(
-      z.object({
-        type: z.enum(['welcome', 'alert']),
-        userId: z.string().uuid(),
-        message: z.string().optional()
-      }),
-      'Send notification to user'
-    )
+      bsb.object({
+        type: bsb.string(), // could be a literal/enum if needed
+        userId: bsb.uuid(),
+        message: bsb.string({ optional: true }),
+      }, 'Send notification to user'),
+      'Send notification to user',
+    ),
   },
-
-  // Events this service listens to (fire-and-forget)
   onEvents: {
     'user.created': createFireAndForgetEvent(
-      z.object({
-        userId: z.string().uuid(),
-        email: z.string().email()
-      }),
-      'Handle user creation event'
-    )
+      bsb.object({
+        userId: bsb.uuid(),
+        email: bsb.string(),
+      }, 'User created event'),
+      'Handle user creation event',
+    ),
   },
-
-  // Returnable events this service emits (RPC-like requests from this service)
-  emitReturnableEvents: {
-    'data.fetch': createReturnableEvent(
-      z.object({
-        userId: z.string().uuid()
-      }),
-      z.object({
-        userData: z.record(z.unknown())
-      }),
-      'Fetch user data from external service'
-    )
-  },
-
-  // Returnable events this service listens to (RPC-like requests to this service)
+  emitReturnableEvents: {},
   onReturnableEvents: {
     'api.getUser': createReturnableEvent(
-      z.object({
-        userId: z.string().uuid()
-      }),
-      z.object({
-        userId: z.string().uuid(),
-        status: z.string()
-      }),
-      'Get user status information'
-    )
+      bsb.object({ userId: bsb.uuid() }, 'Get user input'),
+      bsb.object({
+        userId: bsb.uuid(),
+        status: bsb.string(),
+      }, 'Get user output'),
+      'Get user status information',
+    ),
   },
-
-  // Broadcast events this service emits (all listeners receive)
   emitBroadcast: {
     'system.alert': createBroadcastEvent(
-      z.object({
-        level: z.enum(['info', 'warning', 'error']),
-        message: z.string(),
-        timestamp: z.string().datetime()
-      }),
-      'System-wide alert broadcast'
-    )
+      bsb.object({
+        level: bsb.string(),
+        message: bsb.string(),
+        timestamp: bsb.datetime(),
+      }, 'System alert'),
+      'System-wide alert broadcast',
+    ),
   },
-
-  // Broadcast events this service listens to
-  onBroadcast: {
-    'system.maintenance': createBroadcastEvent(
-      z.object({
-        startTime: z.string().datetime(),
-        duration: z.number().min(0)
-      }),
-      'Listen for maintenance mode broadcasts'
-    )
-  }
-} as const; // 🔑 Critical for type safety!
-
-// Learn more about the Observable pattern:
-// - Migration Guide: /languages/nodejs/migration-v9.html
-// - Observable Guide: /languages/nodejs/observable-guide.html
+  onBroadcast: {},
+});
 
 // IMPORTANT: Export class name MUST be `Plugin`
-export class Plugin extends BSBService<null, typeof EventSchemas> {
-  public static PLUGIN_CLIENT: BSBServiceClientDefinition = {
-    name: "service-my-api",
-  }
-  public initBeforePlugins?: string[] | undefined;
-  public initAfterPlugins?: string[] | undefined;
-  public runBeforePlugins?: string[] | undefined;
-  public runAfterPlugins?: string[] | undefined;
+export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
+  static Config = Config;
+  static EventSchemas = EventSchemas;
 
-  constructor(config: BSBServiceConstructor<null, typeof EventSchemas>) {
-    super({
-      ...config,
-      eventSchemas: EventSchemas
-    });
+  constructor(cfg: BSBServiceConstructor<InstanceType<typeof Config>>) {
+    super(cfg);
   }
 
-  public async init(obs: Observable): Promise<void> {
+  async init(obs: Observable): Promise<void> {
     // Listen for user.created events (with automatic validation)
     await this.events.onEvent('user.created', obs, async (childObs, data) => {
-      // Emit a notification when a user is created (with automatic validation)
       await this.events.emitEvent('notification.send', childObs, {
         type: 'welcome',
         userId: data.userId,
-        message: `Welcome ${data.email}!`
+        message: `Welcome ${data.email}!`,
       });
     });
 
     // Expose a returnable (RPC-like) handler (with automatic validation)
     await this.events.onReturnableEvent('api.getUser', obs, async (childObs, data) => {
-      // Typically fetch from a DB; returning inline for example
-      return { userId: data.userId, status: 'active' }; // Return data is validated automatically
+      return { userId: data.userId, status: 'active' };
     });
   }
 
-  public async run(obs: Observable): Promise<void> {
-    // Service is ready - emit a system alert as an example
+  async run(obs: Observable): Promise<void> {
     await this.events.emitBroadcast('system.alert', obs, {
       level: 'info',
       message: 'My API service is now running',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
+
+  async dispose() {}
 }
 </code></pre>
 </div>
@@ -468,16 +444,20 @@ export class Plugin extends BSBService<null, typeof EventSchemas> {
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "outDir": "./lib",
     "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "strict": true,
+    "noImplicitAny": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "lib"]
@@ -652,11 +632,10 @@ export const AdvancedEventSchemas = createEventSchemas({
 
 // Use in your plugin class
 export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas> {
-  constructor(config: BSBServiceConstructor<null, typeof AdvancedEventSchemas>) {
-    super({
-      ...config,
-      eventSchemas: AdvancedEventSchemas
-    });
+  static EventSchemas = AdvancedEventSchemas;
+
+  constructor(cfg: BSBServiceConstructor<null>) {
+    super(cfg);
   }
 }
 </code></pre></div>
@@ -667,13 +646,13 @@ export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas
             <p>Deploy the BSB container and mount your prebuilt plugins:</p>
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v /path/to/plugins:/mnt/plugins:ro \
-  -e BSB_PLUGIN_DIR=/mnt/plugins \
+  -e BSB_PLUGIN_DIRS=/mnt/plugins \
   betterweb/service-base:node</code></pre></div>
             <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
   bsb:
     image: betterweb/service-base:node
     environment:
-      - BSB_PLUGIN_DIR=/mnt/plugins
+      - BSB_PLUGIN_DIRS=/mnt/plugins
       - BSB_PROFILE=default
     volumes:
       - ./plugins:/mnt/plugins:ro

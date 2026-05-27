@@ -67,7 +67,7 @@ WORKDIR /home/bsb
 ENV NODE_ENV=production
 ENV BSB_LIVE=true
 ENV BSB_CONTAINER=true
-ENV BSB_PLUGIN_DIR=/mnt/plugins
+ENV BSB_PLUGIN_DIRS=/mnt/plugins
 
 COPY nodejs/entrypoint.sh /home/bsb/entrypoint.sh
 COPY nodejs/entrypoint.js /home/bsb/entrypoint.js

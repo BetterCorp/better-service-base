@@ -144,9 +144,8 @@
 
         <p>An events plugin routes messages between services. Here's a skeleton for a RabbitMQ implementation:</p>
 
-        <pre><code class="language-typescript">import { BSBEvents, BSBEventsConstructor } from "@bsb/base";
+        <pre><code class="language-typescript">import { BSBEvents, BSBEventsConstructor, Observable } from "@bsb/base";
 import { Readable } from "node:stream";
-import { DTrace } from "@bsb/base";
 
 export class Plugin extends BSBEvents&lt;null&gt; {
   private connection: any; // Your RabbitMQ connection
@@ -155,23 +154,23 @@ export class Plugin extends BSBEvents&lt;null&gt; {
     super(config);
   }
 
-  public async init(trace: DTrace) {
+  public async init(obs: Observable) {
     // Connect to RabbitMQ
     this.connection = await connect(process.env.RABBITMQ_URL);
-    this.log.info(trace, "Connected to RabbitMQ");
+    obs.log.info("Connected to RabbitMQ");
   }
 
   public async onBroadcast(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: (trace: DTrace, args: any[]) =&gt; Promise&lt;void&gt;
+    listener: (obs: Observable, args: any[]) =&gt; Promise&lt;void&gt;
   ): Promise&lt;void&gt; {
     // Subscribe to a fanout exchange
   }
 
   public async emitBroadcast(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     args: any[]
@@ -180,16 +179,16 @@ export class Plugin extends BSBEvents&lt;null&gt; {
   }
 
   public async onEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: (trace: DTrace, args: any[]) =&gt; Promise&lt;void&gt;
+    listener: (obs: Observable, args: any[]) =&gt; Promise&lt;void&gt;
   ): Promise&lt;void&gt; {
     // Subscribe to a queue
   }
 
   public async emitEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     args: any[]
@@ -198,16 +197,16 @@ export class Plugin extends BSBEvents&lt;null&gt; {
   }
 
   public async onReturnableEvent(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
-    listener: (trace: DTrace, args: any[]) =&gt; Promise&lt;any&gt;
+    listener: (obs: Observable, args: any[]) =&gt; Promise&lt;any&gt;
   ): Promise&lt;void&gt; {
     // Subscribe to RPC queue
   }
 
   public async emitEventAndReturn(
-    trace: DTrace,
+    obs: Observable,
     pluginName: string,
     event: string,
     timeoutSeconds: number,
@@ -281,7 +280,7 @@ export class Plugin extends BSBObservable&lt;InstanceType&lt;typeof Config&gt;&g
         <ol>
           <li><code>./src/plugins/</code> - Local development plugins</li>
           <li><code>./lib/plugins/</code> - Compiled plugins</li>
-          <li><code>$BSB_PLUGIN_DIR/</code> - External plugin directory (for Docker)</li>
+          <li><code>$BSB_PLUGIN_DIRS/</code> - External plugin directories, comma-separated (for Docker)</li>
           <li><code>node_modules/</code> - npm-installed plugins</li>
         </ol>
 

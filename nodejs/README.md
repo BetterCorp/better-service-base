@@ -13,7 +13,7 @@ Better Service Base (BSB) is an event-driven microservices framework for Node.js
 ### Intended Usage (Container-first)
 - This project is designed to run standalone inside a Docker container and execute plugins authored and published separately.
 - It is not intended to be embedded or imported as a library into another application package.
-- Deploy the container and supply plugins via `BSB_PLUGIN_DIR` (recommended) or `BSB_PLUGINS` installation at container startup.
+- Deploy the container and supply plugins via `BSB_PLUGIN_DIRS` (recommended, comma-separated) or `BSB_PLUGINS` installation at container startup.
 
 #### Requirements
 - Node.js >= 23.0.0, npm >= 11.0.0
@@ -107,7 +107,7 @@ Timekeeping metrics are recorded for each step and logged as timers. A heartbeat
 `SBPlugins` looks for plugins in the following order (container usage prefers the first external option):
 - Local project (dev): `src/plugins/<type>-<name>/index.ts`
 - Local build: `lib/plugins/<type>-<name>/index.js`
-- External plugin directory (`BSB_PLUGIN_DIR`) [preferred in container]: `<dir>/<npmPackage>/<major>/<minor>/<micro>/lib/plugins/<type>-<name>/index.js`
+- External plugin directories (`BSB_PLUGIN_DIRS`, comma-separated) [preferred in container]: `<dir>/<npmPackage>/<major>/<minor>/<micro>/lib/plugins/<type>-<name>/index.js`
 - Node modules: `node_modules/<npmPackage>/lib/plugins/<type>-<name>/index.js`
 
 Each plugin folder must export at least a `Plugin` class. Optionally export a `Config` class that extends `BSBPluginConfig` to provide validation and structured config.
@@ -140,7 +140,7 @@ Built-in plugin types include: `config-*`, `observable-*`, `events-*`, `service-
 
 ### Docker
 Multi-stage build produces a minimal runtime image:
-- `ENV BSB_LIVE=true`, `ENV BSB_CONTAINER=true`, `ENV BSB_PLUGIN_DIR=/mnt/plugins`
+- `ENV BSB_LIVE=true`, `ENV BSB_CONTAINER=true`, `ENV BSB_PLUGIN_DIRS=/mnt/plugins`
 - Volumes: `/mnt/plugins` (external plugins), `/mnt/temp`
 - Entrypoint runs `node lib/cli.js` as an unprivileged `node` user
 - Optional plugin install/update at startup:
@@ -155,7 +155,7 @@ docker run --rm \
   betterweb/service-base:9
 ```
 
-Recommended plugin directory layout (when using `BSB_PLUGIN_DIR`):
+Recommended plugin directory layout (when using `BSB_PLUGIN_DIRS`):
 ```
 /mnt/plugins/
   @org/plugin-a/
@@ -170,12 +170,14 @@ Recommended plugin directory layout (when using `BSB_PLUGIN_DIR`):
 ```
 
 Notes
-- In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIR` as above. This avoids network installs on boot and ensures deterministic versions via immutable versioned folders.
-- `BSB_PLUGINS` is available for dynamic `npm install` at startup, but mounting a curated plugin repository via `BSB_PLUGIN_DIR` is recommended for production.
+- In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIRS` as above. This avoids network installs on boot and ensures deterministic versions via immutable versioned folders.
+- `BSB_PLUGINS` is available for dynamic `npm install` at startup, but mounting a curated plugin repository via `BSB_PLUGIN_DIRS` is recommended for production.
 
 ### Environment Variables
 - `APP_DIR`: Override working directory (mainly used in local development/testing)
-- `BSB_PLUGIN_DIR`: External plugin repository root (e.g., container volume `/mnt/plugins`)
+- `BSB_DEBUG`: Enable debug logging in production mode (`true|1|yes|y`). Produces `production-debug` mode.
+- `BSB_PLUGIN_DIRS`: Comma-separated list of external plugin directories (searched in order; first is install target)
+- `BSB_PLUGIN_DIR`: Single external plugin directory (legacy, still supported). Accepts comma-separated paths.
 - `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js)
 - `BSB_PLUGIN_UPDATE`: `yes|y|true` to run `npm update` at container start
 - Config plugin override (advanced):
@@ -208,7 +210,7 @@ Quick reference:
 - Use cross-language type helpers (`uuid`, `int32`, `datetime`, etc.) for better code generation
 - Plugin metadata auto-generates `PLUGIN_CLIENT` and schema files during build
 
-At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or `src/plugins/.../index.ts` in dev). For configurable plugins, export a `Config` created with `createConfigSchema()`. Publish your plugin as an npm package or ship its prebuilt folder structure under `BSB_PLUGIN_DIR`.
+At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or `src/plugins/.../index.ts` in dev). For configurable plugins, export a `Config` created with `createConfigSchema()`. Publish your plugin as an npm package or ship its prebuilt folder structure under `BSB_PLUGIN_DIRS`.
 
 ### Quick Start (Container)
 ```bash

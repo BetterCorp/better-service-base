@@ -35,7 +35,7 @@ This project includes `Dockerfile` to build and package the registry as a BSB pl
   - `/mnt/plugins/@bsb/registry/<version>/`
   - `/mnt/plugins/@bsb/registry/latest/`
 
-Use this output with BSB runtime images (`betterweb/service-base:9.0.0` or `betterweb/service-base:9`) by mounting/copying into `BSB_PLUGIN_DIR` (default `/mnt/plugins`).
+Use this output with BSB runtime images (`betterweb/service-base:9.0.0` or `betterweb/service-base:9`) by mounting/copying into `BSB_PLUGIN_DIRS` (default `/mnt/plugins`). Supports comma-separated paths for multiple plugin directories.
 
 ## Configuration
 

@@ -58,4 +58,4 @@ COPY --from=builder /out/ /mnt/plugins/
 COPY --from=builderModules /out/ /mnt/plugins/
 COPY plugins/nodejs/bsb-registry/BADGES.json /home/bsb/BADGES.json
 
-ENV BSB_PLUGIN_DIR=/mnt/plugins
+ENV BSB_PLUGIN_DIRS=/mnt/plugins

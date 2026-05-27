@@ -94,6 +94,16 @@ Events: events-default.
 
 (change plugins for production deployment - get plugins from BSB Registry for more information - https://io.bsbcode.dev/llms.txt)
 
+Container deployment:
+- BSB is designed to run as `betterweb/service-base:node` Docker image.
+- Provide plugins via `BSB_PLUGIN_DIRS` env var (comma-separated paths). First dir is used as install target.
+- `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR` are legacy aliases (still work, accept comma-separated).
+- `BSB_PLUGINS` env var: comma-separated npm packages installed at container start (e.g. `@scope/plugin@1.2.3`).
+- `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
+- `BSB_DEBUG=true`: enable debug logging in production mode (mode becomes `production-debug`).
+- `BSB_LIVE=true` and `NODE_ENV=production` are set by the base image for production mode.
+- Plugin dirs without a package.json get one auto-created at startup.
+
 Build hooks (optional):
 - To inject custom scripts (codegen, transforms, packaging) into the build/dev pipeline, configure `bsb.hooks` in package.json.
 - See https://bsbcode.dev/llms/nodejs-build-hooks.txt

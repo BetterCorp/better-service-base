@@ -161,7 +161,7 @@
                     <h2>Lifecycle: Boot to Ready</h2>
                     <ol class="list">
                         <li class="flow-step"><strong>Bootstrap</strong>: Load configuration profile (<span class="kbd">BSB_PROFILE</span>) and core adapters (events/logging/metrics/config).</li>
-                        <li class="flow-step"><strong>Discover</strong>: Scan <span class="kbd">BSB_PLUGIN_DIR</span> for organizations and versions; resolve desired plugin set.</li>
+                        <li class="flow-step"><strong>Discover</strong>: Scan <span class="kbd">BSB_PLUGIN_DIRS</span> (comma-separated) for organizations and versions; resolve desired plugin set.</li>
                         <li class="flow-step"><strong>Validate</strong>: Check compatibility, config schemas, and dependencies; order plugins.</li>
                         <li class="flow-step"><strong>Initialize</strong>: Instantiate plugins; provide context: logging, metrics, config, and event handles.</li>
                         <li class="flow-step"><strong>Register Events</strong>: Each plugin registers listeners and returnable handlers.</li>
@@ -252,7 +252,7 @@
                             <ol class="list">
                                 <li>Build container image</li>
                                 <li>Publish plugins to repository</li>
-                                <li>Configure <span class="kbd">BSB_PLUGIN_DIR</span> and profile</li>
+                                <li>Configure <span class="kbd">BSB_PLUGIN_DIRS</span> and profile</li>
                                 <li>Roll out</li>
                             </ol>
                         </div>

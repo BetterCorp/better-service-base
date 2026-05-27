@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { BSBPluginConfig, BSBPluginConfigRef } from "../base/index.js";
 import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef, Result, Ok, Err, fromPromise, BSBRuntimeMode } from "../interfaces/index.js";
@@ -59,7 +59,7 @@ export class SBPlugins {
    */
   protected cwd: string;
   protected nodeModulesPluginDir: string;
-  protected referencedPluginDir: string | null = null;
+  protected referencedPluginDirs: string[] = [];
   protected runtimeMode: BSBRuntimeMode;
 
   private static readonly MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
@@ -70,15 +70,27 @@ export class SBPlugins {
     this.cwd = cwd;
     this.runtimeMode = runtimeMode;
     this.nodeModulesPluginDir = join(this.cwd, "./node_modules/");
-    const pluginDirEnv = process.env.BSB_PLUGINS_DIR ?? process.env.BSB_PLUGIN_DIR;
-    if (
-      typeof pluginDirEnv == "string" &&
-      pluginDirEnv.length > 3
-    ) {
-      if (!existsSync(pluginDirEnv)) {
-        throw new Error(`Plugin directory ${ pluginDirEnv } does not exist`);
+    const pluginDirEnv = process.env.BSB_PLUGIN_DIRS
+      ?? process.env.BSB_PLUGINS_DIR
+      ?? process.env.BSB_PLUGIN_DIR;
+    if (typeof pluginDirEnv === "string" && pluginDirEnv.length > 0) {
+      const dirs = pluginDirEnv.split(",").map(d => d.trim()).filter(d => d.length > 0);
+      for (const dir of dirs) {
+        if (!existsSync(dir)) {
+          throw new Error(`Plugin directory ${ dir } does not exist`);
+        }
+        const pkgJsonPath = join(dir, "package.json");
+        if (!existsSync(pkgJsonPath)) {
+          // eslint-disable-next-line no-console
+          console.log(`[BSB] Created package.json in ${ dir }`);
+          writeFileSync(
+            pkgJsonPath,
+            JSON.stringify({ name: "bsb-plugins", version: "1.0.0", private: true }, null, 2),
+            "utf-8"
+          );
+        }
+        this.referencedPluginDirs.push(dir);
       }
-      this.referencedPluginDir = pluginDirEnv;
     }
   }
 
@@ -98,50 +110,43 @@ export class SBPlugins {
   }
 
   private listVersionsFromReferencedDir(npmPackage: string): ResolvedPackageVersion[] {
-    if (!this.referencedPluginDir) return [];
-    const packageRoot = join(this.referencedPluginDir, npmPackage);
-    if (!existsSync(packageRoot)) return [];
+    if (this.referencedPluginDirs.length === 0) return [];
 
-    const out: ResolvedPackageVersion[] = [];
+    const dedup = new Map<string, ResolvedPackageVersion>();
 
-    // New hierarchical layout: /pkg/<major>/<minor>/<micro>/
-    for (const majorEntry of readdirSync(packageRoot, { withFileTypes: true })) {
-      if (!majorEntry.isDirectory() || !/^\d+$/.test(majorEntry.name)) continue;
-      const majorPath = join(packageRoot, majorEntry.name);
-      for (const minorEntry of readdirSync(majorPath, { withFileTypes: true })) {
-        if (!minorEntry.isDirectory() || !/^\d+$/.test(minorEntry.name)) continue;
-        const minorPath = join(majorPath, minorEntry.name);
-        for (const microEntry of readdirSync(minorPath, { withFileTypes: true })) {
-          if (!microEntry.isDirectory() || !/^\d+$/.test(microEntry.name)) continue;
-          const pluginRoot = join(minorPath, microEntry.name);
-          out.push({
-            version: `${ majorEntry.name }.${ minorEntry.name }.${ microEntry.name }`,
-            packageCwd: pluginRoot,
-            pluginRoot,
-          });
+    for (const pluginDir of this.referencedPluginDirs) {
+      const packageRoot = join(pluginDir, npmPackage);
+      if (!existsSync(packageRoot)) continue;
+
+      // Hierarchical layout: /pkg/<major>/<minor>/<micro>/
+      for (const majorEntry of readdirSync(packageRoot, { withFileTypes: true })) {
+        if (!majorEntry.isDirectory() || !/^\d+$/.test(majorEntry.name)) continue;
+        const majorPath = join(packageRoot, majorEntry.name);
+        for (const minorEntry of readdirSync(majorPath, { withFileTypes: true })) {
+          if (!minorEntry.isDirectory() || !/^\d+$/.test(minorEntry.name)) continue;
+          const minorPath = join(majorPath, minorEntry.name);
+          for (const microEntry of readdirSync(minorPath, { withFileTypes: true })) {
+            if (!microEntry.isDirectory() || !/^\d+$/.test(microEntry.name)) continue;
+            const pluginRoot = join(minorPath, microEntry.name);
+            const version = `${ majorEntry.name }.${ minorEntry.name }.${ microEntry.name }`;
+            if (!dedup.has(version)) {
+              dedup.set(version, { version, packageCwd: pluginRoot, pluginRoot });
+            }
+          }
+        }
+      }
+
+      // Legacy layout: /pkg/<major.minor.micro>/
+      for (const versionEntry of readdirSync(packageRoot, { withFileTypes: true })) {
+        if (!versionEntry.isDirectory()) continue;
+        if (!SBPlugins.EXACT_VERSION_REGEX.test(versionEntry.name)) continue;
+        const pluginRoot = join(packageRoot, versionEntry.name);
+        if (!dedup.has(versionEntry.name)) {
+          dedup.set(versionEntry.name, { version: versionEntry.name, packageCwd: pluginRoot, pluginRoot });
         }
       }
     }
 
-    // Legacy layout: /pkg/<major.minor.micro>/
-    for (const versionEntry of readdirSync(packageRoot, { withFileTypes: true })) {
-      if (!versionEntry.isDirectory()) continue;
-      if (!SBPlugins.EXACT_VERSION_REGEX.test(versionEntry.name)) continue;
-      const pluginRoot = join(packageRoot, versionEntry.name);
-      out.push({
-        version: versionEntry.name,
-        packageCwd: pluginRoot,
-        pluginRoot,
-      });
-    }
-
-    const dedup = new Map<string, ResolvedPackageVersion>();
-    for (const item of out) {
-      // Prefer first-seen entries (hierarchical layout is collected first).
-      if (!dedup.has(item.version)) {
-        dedup.set(item.version, item);
-      }
-    }
     return Array.from(dedup.values());
   }
 
@@ -219,8 +224,8 @@ export class SBPlugins {
         version = packageJSON.version??'0.0.0';
       }
     } else {
-      // If a package is defined in the config, we will look for the plugin in the BSB_PLUGIN_DIR env, followed by the node_modules directory. Local plugins are not used.
-      if (this.referencedPluginDir) {
+      // If a package is defined in the config, we will look for the plugin in BSB_PLUGIN_DIRS, followed by node_modules. Local plugins are not used.
+      if (this.referencedPluginDirs.length > 0) {
         const availableVersions = this.listVersionsFromReferencedDir(npmPackage);
         const resolved = this.resolveVersionFromSelector(
           availableVersions,
