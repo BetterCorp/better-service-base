@@ -57,8 +57,7 @@
     "lib/**/*",
     "bsb-plugin.json",
     "README.md",
-    "LICENSE",
-    "LICENSE.commercial"
+    "LICENSE"
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
