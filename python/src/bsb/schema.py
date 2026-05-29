@@ -5,7 +5,7 @@ from typing import Any
 import anyvali as av
 
 
-Schema = av.BaseSchema[Any]
+Schema = av.BaseSchema
 AnyValiDocument = av.AnyValiDocument
 
 
