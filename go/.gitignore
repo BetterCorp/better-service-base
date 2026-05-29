@@ -1,3 +1,4 @@
 /bsb
+!/bsb/
 *.exe
 .cache/
