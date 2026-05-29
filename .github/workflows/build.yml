@@ -39,9 +39,17 @@ jobs:
       - name: Build Node.js core
         run: npm run build --workspace docs --workspace nodejs
 
-      - name: Build plugin workspaces
+      - name: Link workspace bins
         run: |
           chmod +x nodejs/lib/cli.js nodejs/lib/scripts/bsb-plugin-cli.js nodejs/lib/scripts/bsb-client-cli.js
+          for bin in bsb:lib/cli.js bsb-plugin-cli:lib/scripts/bsb-plugin-cli.js bsb-client-cli:lib/scripts/bsb-client-cli.js; do
+            name="${bin%%:*}"
+            target="../../nodejs/${bin#*:}"
+            ln -sf "$target" "node_modules/.bin/$name"
+          done
+
+      - name: Build plugin workspaces
+        run: |
           for pkg in plugins/nodejs/*/package.json; do
             dir=$(dirname "$pkg")
             npm run build --workspace "$dir" --if-present
