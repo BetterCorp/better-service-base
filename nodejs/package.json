@@ -83,7 +83,7 @@
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "benchmarkify": "^4.0.0",
-    "chai": "^4.3.10",
+    "chai": "^6.2.2",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
     "mocha": "^11.7.5",
