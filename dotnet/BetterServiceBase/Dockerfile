@@ -14,7 +14,7 @@ RUN dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
-RUN useradd --no-create-home --uid 1000 bsb
+RUN useradd --no-create-home --uid 1654 bsb
 COPY --from=build /app/publish .
 USER bsb
 
