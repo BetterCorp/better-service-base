@@ -36,7 +36,19 @@ jobs:
       - name: Check workspace lockfiles
         run: npm run ws:check-lockfiles
 
-      - name: Build workspaces
+      - name: Build Node.js core
+        run: npm run build --workspace docs --workspace nodejs
+
+      - name: Link workspace bins
+        run: |
+          chmod +x nodejs/lib/cli.js nodejs/lib/scripts/bsb-plugin-cli.js nodejs/lib/scripts/bsb-client-cli.js
+          for bin in bsb:lib/cli.js bsb-plugin-cli:lib/scripts/bsb-plugin-cli.js bsb-client-cli:lib/scripts/bsb-client-cli.js; do
+            name="${bin%%:*}"
+            target="../../nodejs/${bin#*:}"
+            [ -L "node_modules/.bin/$name" ] || ln -s "$target" "node_modules/.bin/$name"
+          done
+
+      - name: Build plugin workspaces
         run: npm run build --workspaces --if-present
 
       - name: Test Node.js core
