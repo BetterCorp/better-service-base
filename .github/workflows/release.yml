@@ -38,6 +38,9 @@ jobs:
     name: Node.js
     needs: [prepare]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,8 +49,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
+          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci
@@ -64,11 +66,7 @@ jobs:
 
       - name: Publish to npm
         working-directory: nodejs
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM2_TOKEN_PUB }}
+        run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
 
   python:
     name: Python
