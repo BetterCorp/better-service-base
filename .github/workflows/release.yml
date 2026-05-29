@@ -72,6 +72,7 @@ jobs:
 
   python:
     name: Python
+    needs: [prepare]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -99,6 +100,7 @@ jobs:
 
   go:
     name: Go
+    needs: [prepare]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -121,6 +123,7 @@ jobs:
 
   dotnet:
     name: .NET
+    needs: [prepare]
     runs-on: ubuntu-latest
     defaults:
       run:
