@@ -19,7 +19,7 @@
     "glob": "^11.0.0",
     "markdown-it": "^14.1.0",
     "markdown-it-anchor": "^9.0.0",
-    "markdown-it-attrs": "^4.2.0",
+    "markdown-it-attrs": "^5.0.0",
     "markdown-it-prism": "^2.3.0",
     "polka": "^0.5.2",
     "rimraf": "^6.0.1",
