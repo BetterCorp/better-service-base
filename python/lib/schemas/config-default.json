@@ -1,0 +1,24 @@
+{
+  "pluginName": "config-default",
+  "version": "0.1.0",
+  "events": {},
+  "capabilities": {
+    "configApi": {
+      "get_observable_plugins": true,
+      "get_events_plugins": true,
+      "get_service_plugins": true,
+      "get_service_plugin_definition": true,
+      "get_plugin_config": true
+    }
+  },
+  "configSchema": {
+    "anyvaliVersion": "1.0",
+    "schemaVersion": "1",
+    "root": {
+      "kind": "object",
+      "properties": {},
+      "required": [],
+      "unknownKeys": "strip"
+    }
+  }
+}

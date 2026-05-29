@@ -1,0 +1,16 @@
+{
+  "default": {
+    "observable": {},
+    "events": {},
+    "services": {
+      "service-default0": {
+        "plugin": "service-default0",
+        "enabled": true,
+        "config": {
+          "testa": 4,
+          "testb": 6
+        }
+      }
+    }
+  }
+}

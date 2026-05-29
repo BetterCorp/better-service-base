@@ -1,0 +1,19 @@
+{
+  "observable": {
+    "observable-default": {
+      "plugin": "observable-default",
+      "enabled": true,
+      "config": {
+        "ShowDebug": true,
+        "ShowTraceId": true
+      }
+    }
+  },
+  "events": {
+    "events-default": {
+      "plugin": "events-default",
+      "enabled": true
+    }
+  },
+  "services": {}
+}

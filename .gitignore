@@ -39,6 +39,7 @@ docs.json
 docs/src/assets/images/plugins/
 docs/src/plugins/
 plugins/nodejs/bsb-registry/.temp/
+.bsbdevwatch
 plugins/nodejs/*/lib/
 .bsb/
 .claude/

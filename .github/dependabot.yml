@@ -1,14 +1,64 @@
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
     schedule:
-      interval: "weekly"
+      interval: weekly
       time: "04:00"
+
   - package-ecosystem: npm
-    directory: "/nodejs"
-    target-branch: "develop"
+    directory: /
+    target-branch: develop
     schedule:
       interval: weekly
       time: "03:00"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: pip
+    directory: /python
+    target-branch: develop
+    schedule:
+      interval: weekly
+      time: "03:15"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: gomod
+    directory: /go
+    target-branch: develop
+    schedule:
+      interval: weekly
+      time: "03:30"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: nuget
+    directory: /dotnet
+    target-branch: develop
+    schedule:
+      interval: weekly
+      time: "03:45"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /nodejs
+    target-branch: develop
+    schedule:
+      interval: weekly
+      time: "04:15"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /go
+    target-branch: develop
+    schedule:
+      interval: weekly
+      time: "04:30"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /dotnet/BetterServiceBase
+    target-branch: develop
+    schedule:
+      interval: weekly
+      time: "04:45"
     open-pull-requests-limit: 3

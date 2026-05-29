@@ -1,0 +1,25 @@
+{
+  "pluginName": "events-default",
+  "version": "0.1.0",
+  "events": {},
+  "capabilities": {
+    "eventsApi": {
+      "on_broadcast": true,
+      "emit_broadcast": true,
+      "on_event": true,
+      "emit_event": true,
+      "on_returnable_event": true,
+      "emit_event_and_return": true
+    }
+  },
+  "configSchema": {
+    "anyvaliVersion": "1.0",
+    "schemaVersion": "1",
+    "root": {
+      "kind": "object",
+      "properties": {},
+      "required": [],
+      "unknownKeys": "strip"
+    }
+  }
+}

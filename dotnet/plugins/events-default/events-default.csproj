@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyName>events-default</AssemblyName>
+        <OutputPath>..\..\BetterServiceBase\bin\$(Configuration)\net10.0\plugins\events-default\</OutputPath>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\..\BSB\BSB.csproj" Private="false" ExcludeAssets="runtime" />
+    </ItemGroup>
+</Project>

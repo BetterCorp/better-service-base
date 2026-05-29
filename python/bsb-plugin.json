@@ -1,0 +1,65 @@
+{
+  "python": [
+    {
+      "id": "config-default",
+      "name": "config-default",
+      "description": "Default file-backed configuration provider.",
+      "category": "config",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1",
+        "root": {
+          "kind": "object",
+          "properties": {},
+          "required": [],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "events-default",
+      "name": "events-default",
+      "description": "Default in-memory events transport.",
+      "category": "events",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1",
+        "root": {
+          "kind": "object",
+          "properties": {},
+          "required": [],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "service-default0",
+      "name": "service-default0",
+      "description": "Default Python service example plugin.",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "testa": {
+              "kind": "int32"
+            },
+            "testb": {
+              "kind": "int32"
+            }
+          },
+          "required": [
+            "testa",
+            "testb"
+          ],
+          "unknownKeys": "strip"
+        }
+      }
+    }
+  ]
+}

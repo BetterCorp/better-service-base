@@ -1,0 +1,48 @@
+{
+  "name": "@bsb/tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared test suites for BSB Node.js core and plugins",
+  "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "ninja@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BetterCorp/better-service-base.git",
+    "directory": "tests/nodejs"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*"
+  ],
+  "scripts": {
+    "clean": "rimraf lib",
+    "build": "tsc -p tsconfig.json",
+    "test": "mocha --config .mocharc.cjs",
+    "coverage": "nyc npm test",
+    "cli": "node ./bin/bsb-tests.cjs"
+  },
+  "dependencies": {
+    "@bsb/base": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^25.0.0",
+    "mocha": "^11.0.0",
+    "nyc": "^15.1.0",
+    "rimraf": "^6.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=23.0.0",
+    "npm": ">=11.0.0"
+  },
+  "bin": {
+    "bsb-tests": "bin/bsb-tests.cjs"
+  }
+}

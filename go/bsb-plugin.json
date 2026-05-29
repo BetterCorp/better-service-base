@@ -1,0 +1,22 @@
+{
+  "go": [
+    {
+      "id": "config-default",
+      "name": "Default Config",
+      "description": "File-based configuration provider (JSON)",
+      "tags": ["config", "json"]
+    },
+    {
+      "id": "events-default",
+      "name": "Default Events",
+      "description": "In-memory event bus with broadcast, fire-and-forget, returnable, and stream patterns",
+      "tags": ["events", "in-memory"]
+    },
+    {
+      "id": "observable-default",
+      "name": "Default Observable",
+      "description": "Console-based logging with ANSI colors",
+      "tags": ["observable", "logging", "console"]
+    }
+  ]
+}

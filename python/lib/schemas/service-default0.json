@@ -1,0 +1,85 @@
+{
+  "pluginName": "service-default0",
+  "version": "0.1.0",
+  "events": {
+    "test": {
+      "type": "fire-and-forget",
+      "category": "emitEvents",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "a": {
+              "kind": "string"
+            },
+            "b": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "unknownKeys": "strip"
+        }
+      },
+      "outputSchema": null,
+      "description": "Emit a simple test event."
+    },
+    "calculate": {
+      "type": "returnable",
+      "category": "onReturnableEvents",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "a": {
+              "kind": "int32"
+            },
+            "b": {
+              "kind": "int32"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "unknownKeys": "strip"
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1",
+        "root": {
+          "kind": "int32"
+        }
+      },
+      "description": "Add two integers together.",
+      "defaultTimeout": 2.0
+    }
+  },
+  "configSchema": {
+    "anyvaliVersion": "1.0",
+    "schemaVersion": "1",
+    "root": {
+      "kind": "object",
+      "properties": {
+        "testa": {
+          "kind": "int32"
+        },
+        "testb": {
+          "kind": "int32"
+        }
+      },
+      "required": [
+        "testa",
+        "testb"
+      ],
+      "unknownKeys": "strip"
+    }
+  }
+}

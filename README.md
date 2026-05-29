@@ -1,6 +1,6 @@
 # About
 
-BSB (Better-Service-Base) is an event-driven microservices framework for Node.js and TypeScript with built-in Zod schema validation, type-safe events, and a pluggable architecture for config, logging, metrics, and events.  
+BSB (Better-Service-Base) is an event-driven microservices framework for Node.js and TypeScript with built-in cross-language schema validation (AnyVali / BSBType), type-safe events, and a pluggable architecture for config, logging, metrics, and events.  
 It is production-ready and secure-by-default for validated APIs and distributed services, and can run as a single node or a geo-scaled cluster.  
 Simplicity, flexibility, and expandability are core design goals.  
 *(Currently only Node.js is implemented, but the system is designed for multiple languages.)*  

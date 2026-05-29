@@ -1,0 +1,13 @@
+src/.bsb/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+*.egg
+.coverage
+htmlcov/
+.venv/
+venv/

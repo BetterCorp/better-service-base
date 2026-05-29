@@ -1,54 +1,167 @@
-name: Build Plugin
+name: Build
 
 on:
   pull_request:
-  workflow_dispatch:    
+  push:
+    branches:
+      - develop
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build_nodejs_plugin:
-    uses: BetterCorp/service-base-build-workflows/.github/workflows/node.yml@master
-    with:
-      WORKING_DIR: ./nodejs
-      PUBLISH: false
-
-  docker_nodejs_plugin:
-    needs: [build_nodejs_plugin]
+  nodejs:
+    name: Node.js workspaces
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - run: ./ci-build-dist
-        working-directory: ./nodejs
-
-      - name: Download artifact
-        uses: actions/download-artifact@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          name: node-${{ needs.build_nodejs_plugin.outputs.tag }}-${{ needs.build_nodejs_plugin.outputs.version }}
-          path: ./nodejs/ci-build-dist/
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
 
-      - name: Extract artifact
-        working-directory: ./nodejs
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check workspace lockfiles
+        run: npm run ws:check-lockfiles
+
+      - name: Build workspaces
+        run: npm run build --workspaces --if-present
+
+      - name: Test Node.js core
+        run: npm run test --workspace nodejs
+
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
         run: |
-          tar -xzf ./ci-build-dist/as-built.tar.gz -C ./
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
 
-      - run: rm -rfv ./ci-build-dist
-        working-directory: ./nodejs
+      - name: Run tests
+        run: pytest
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@master
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          platforms: all
+          go-version: "1.26.1"
+          cache-dependency-path: go/go.sum
 
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build CLI
+        run: go build -o /tmp/bsb ./cmd/bsb
+
+  dotnet:
+    name: .NET
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dotnet
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore BSB.sln
 
       - name: Build
-        uses: docker/build-push-action@v2
+        run: dotnet build BSB.sln --configuration Release --no-restore
+
+  docker-nodejs:
+    name: Node.js Docker image
+    needs: [nodejs]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
         with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./nodejs/
+          context: .
           file: ./nodejs/Dockerfile
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+          platforms: linux/amd64
+          push: false
+
+  docker-go:
+    name: Go Docker image
+    needs: [go]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./go
+          file: ./go/Dockerfile
+          platforms: linux/amd64
+          push: false
+
+  docker-dotnet:
+    name: .NET Docker image
+    needs: [dotnet]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dotnet
+          file: ./dotnet/BetterServiceBase/Dockerfile
+          platforms: linux/amd64
           push: false

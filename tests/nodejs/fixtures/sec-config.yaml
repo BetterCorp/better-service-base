@@ -1,0 +1,49 @@
+default:
+  observable:
+    obs-enabled:
+      enabled: true
+      version: "1.0.0"
+      plugin: "observable-default"
+      package: "@bsb/base"
+      filter: null
+      config:
+        level: "info"
+    obs-disabled:
+      enabled: false
+      version: "1.0.0"
+      plugin: "observable-default"
+      package: "@bsb/base"
+      filter: null
+  events:
+    ev-enabled:
+      enabled: true
+      version: "1.0.0"
+      plugin: "events-default"
+      package: "@bsb/base"
+      filter: null
+      config:
+        foo: "bar"
+    ev-disabled:
+      enabled: false
+      version: "1.0.0"
+      plugin: "events-default"
+      package: "@bsb/base"
+      filter: null
+  services:
+    svc-enabled:
+      enabled: true
+      version: "1.0.0"
+      plugin: "service-default0"
+      package: "@bsb/base"
+      config:
+        hello: "world"
+    svc-disabled:
+      enabled: false
+      version: "1.0.0"
+      plugin: "service-default0"
+      package: "@bsb/base"
+    svc-only-disabled:
+      enabled: false
+      version: "1.0.0"
+      plugin: "service-only-disabled"
+      package: "@bsb/base"

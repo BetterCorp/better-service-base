@@ -1,18 +1,24 @@
-﻿FROM mcr.microsoft.com/dotnet/runtime:6.0 AS base
-WORKDIR /app
-
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["BetterServiceBase/BetterServiceBase.csproj", "BetterServiceBase/"]
-RUN dotnet restore "BetterServiceBase/BetterServiceBase.csproj"
+
+COPY BSB.sln .
+COPY BSB/BSB.csproj BSB/
+COPY BetterServiceBase/BetterServiceBase.csproj BetterServiceBase/
+COPY plugins/config-default/config-default.csproj plugins/config-default/
+COPY plugins/observable-default/observable-default.csproj plugins/observable-default/
+COPY plugins/events-default/events-default.csproj plugins/events-default/
+RUN dotnet restore BSB.sln
+
 COPY . .
-WORKDIR "/src/BetterServiceBase"
-RUN dotnet build "BetterServiceBase.csproj" -c Release -o /app/build
+RUN dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM build AS publish
-RUN dotnet publish "BetterServiceBase.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
-COPY --from=publish /app/publish .
+RUN adduser --disabled-password --gecos "" --uid 1000 bsb
+COPY --from=build /app/publish .
+USER bsb
+
+ENV BSB_MODE=production
+ENV BSB_CONTAINER=true
+
 ENTRYPOINT ["dotnet", "BetterServiceBase.dll"]

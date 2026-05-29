@@ -1,0 +1,4 @@
+github.com/BetterCorp/AnyVali/sdk/go v0.0.0-20260331005011-6e0fa78e6df5 h1:4YvN6MUx06TvJ832zt/XTxQ3lhrLLMvs/FvKG33Tz9A=
+github.com/BetterCorp/AnyVali/sdk/go v0.0.0-20260331005011-6e0fa78e6df5/go.mod h1:FKPvw8jPT10EEdA9+Q4iBNF6CzF5lpZ0YcyTnCAjzzI=
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
