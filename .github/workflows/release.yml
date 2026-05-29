@@ -182,6 +182,6 @@ jobs:
             BSB_VERSION=${{ needs.prepare.outputs.version }}
           context: .
           file: ./nodejs/Dockerfile
-          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.tags }}
