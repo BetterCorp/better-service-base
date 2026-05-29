@@ -14,7 +14,7 @@ RUN dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /app
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
-RUN adduser --disabled-password --gecos "" --uid 1000 bsb
+RUN useradd --no-create-home --uid 1000 bsb
 COPY --from=build /app/publish .
 USER bsb
 
