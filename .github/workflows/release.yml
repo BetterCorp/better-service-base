@@ -149,6 +149,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Resolve upstream platforms
+        id: upstream
+        run: |
+          MANIFEST=$(curl -fsSL https://github.com/BetterCorp/docker-node/releases/latest/download/manifest.json)
+          PLATFORMS=$(echo "$MANIFEST" | jq -r '(.builds[] | select(.major == 24) | .variants.base.platforms | join(",")) // empty')
+          if [ -z "$PLATFORMS" ]; then
+            PLATFORMS="linux/amd64,linux/arm64"
+          fi
+          echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
@@ -182,6 +192,6 @@ jobs:
             BSB_VERSION=${{ needs.prepare.outputs.version }}
           context: .
           file: ./nodejs/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ steps.upstream.outputs.platforms }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
