@@ -30,7 +30,7 @@ import { ServiceClient, createConfigSchema, bsb, optional } from "../../base/ind
 import { Observable } from "../../interfaces/observable.js";
 import { createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events.js";
 import { Plugin as Service0, EventSchemas as Service0EventSchemas } from "../service-default0/index.js";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 
 // v9: Config with metadata (no configuration options for this service)
 export const Config = createConfigSchema(

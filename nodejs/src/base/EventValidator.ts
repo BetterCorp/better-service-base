@@ -21,7 +21,7 @@
  */
 
 import { IPluginLogging, DTrace, BSBType } from "../interfaces/index.js";
-import type { ParseResult } from '@anyvali/js';
+import type { ParseResult } from 'anyvali';
 
 export interface ValidationResult<T = any> {
   success: boolean;

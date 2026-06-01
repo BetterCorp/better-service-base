@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BaseSchema, Infer } from '@anyvali/js';
+import type { BaseSchema, Infer } from 'anyvali';
 
 /**
  * The definition of the config with AnyVali validation

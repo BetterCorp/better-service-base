@@ -28,7 +28,7 @@
 import { Observable } from "../../index.js";
 import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base/index.js";
 import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events.js";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 
 export const Config = createConfigSchema(
   {

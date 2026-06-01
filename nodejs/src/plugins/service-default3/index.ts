@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base/index.js";
 import { Observable } from "../../interfaces/index.js";
 import { createEventSchemas, createReturnableEvent } from "../../interfaces/schema-events.js";

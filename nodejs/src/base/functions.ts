@@ -27,7 +27,7 @@
 
 import { createFakeDTrace, DTrace } from '../interfaces/metrics.js';
 import { BSBError } from "./errorMessages.js";
-import * as av from '@anyvali/js';
+import * as av from 'anyvali';
 
 /**
  * @hidden

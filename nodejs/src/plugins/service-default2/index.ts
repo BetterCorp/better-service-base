@@ -30,7 +30,7 @@ import { BSBService, BSBServiceConstructor, createConfigSchema, bsb, optional } 
 import { Plugin as Service1, EventSchemas as Service1EventSchemas } from "../service-default1/index.js";
 import { Plugin as Service3, EventSchemas as Service3EventSchemas } from "../service-default3/index.js";
 import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events.js";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 
 export const Config = createConfigSchema(
   {

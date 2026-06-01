@@ -28,7 +28,7 @@
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import { createStream, RotatingFileStream } from "rotating-file-stream";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import * as fs from "fs";
 import * as path from "path";
 

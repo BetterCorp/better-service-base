@@ -26,7 +26,7 @@
  */
 
 import { BSBService, BSBServiceConstructor, createConfigSchema, bsb } from "../../base/index.js";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, createBroadcastEvent } from "../../interfaces/schema-events.js";
 import { Observable } from "../../interfaces/observable.js";
 

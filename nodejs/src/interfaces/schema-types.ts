@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import * as av from '@anyvali/js';
+import * as av from 'anyvali';
 
 export type BSBType = av.BaseSchema<any, any>;
 export type InferBSBType<T extends BSBType> = av.Infer<T>;

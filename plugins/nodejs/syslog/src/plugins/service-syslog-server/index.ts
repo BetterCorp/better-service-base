@@ -27,7 +27,7 @@
 
 import { BSBService, BSBServiceConstructor, BSBServiceClient, createConfigSchema, bsb } from "@bsb/base";
 import { Observable } from "@bsb/base";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import { createFireAndForgetEvent } from "@bsb/base";
 // @ts-ignore - no types available
 import SyslogServer from "syslog-server";

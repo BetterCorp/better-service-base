@@ -33,7 +33,7 @@ import {
   BSBError
 } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import { Axiom } from "@axiomhq/js";
 import * as api from "@opentelemetry/api";
 import { defaultResource, resourceFromAttributes } from "@opentelemetry/resources";

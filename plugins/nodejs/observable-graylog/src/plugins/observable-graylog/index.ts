@@ -27,7 +27,7 @@
 
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import * as gelfPro from "gelf-pro";
 
 /**

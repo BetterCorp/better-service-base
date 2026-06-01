@@ -39,7 +39,7 @@ import {
 } from "../../index.js";
 import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig.js";
 import { createConfigSchema } from "../../base/PluginConfig.js";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import { ConfigDefinition, ConfigProfile } from "./interfaces.js";
 
 const ConfigSchema = av.object({

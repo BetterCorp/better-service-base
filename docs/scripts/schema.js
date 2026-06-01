@@ -1,4 +1,4 @@
-import * as av from '@anyvali/js'
+import * as av from 'anyvali'
 
 const validCategories = ['observable', 'service', 'events', 'config']
 const pluginIdPattern = `^(${validCategories.join('|')})-`

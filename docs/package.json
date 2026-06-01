@@ -14,7 +14,7 @@
     "preview": "node preview-server.js"
   },
   "devDependencies": {
-    "@anyvali/js": "^0.2.0",
+    "anyvali": "^0.3.1",
     "@resvg/resvg-js": "^2.6.2",
     "glob": "^11.0.0",
     "markdown-it": "^14.1.0",

@@ -27,7 +27,7 @@
 
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 import { hostname } from "node:os";
 // @ts-ignore - no types available
 import * as SyslogClient from "syslog-client";

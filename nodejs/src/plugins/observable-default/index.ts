@@ -27,7 +27,7 @@
 
 import { BSBObservable, BSBObservableConstructor, LogFormatter, BSBError, createConfigSchema } from "../../base/index.js";
 import { DTrace, LogMeta } from "../../interfaces/index.js";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 
 // Console colours for log output
 const CONSOLE_COLOURS = {

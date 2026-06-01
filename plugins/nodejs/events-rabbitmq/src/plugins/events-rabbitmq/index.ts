@@ -17,7 +17,7 @@ import {
   ResourceContextBuilder,
   createFakeDTrace,
 } from "@bsb/base";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 
 const ConfigSchema = av.object({
   platformKey: av.nullable(av.string()).default(null),

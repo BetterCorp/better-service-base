@@ -48,7 +48,7 @@ import {
 import { Config as DefaultConfigDefinition, Plugin as DefaultConfig } from "../plugins/config-default/index.js";
 import { SBObservable } from "./observable.js";
 import { SBPlugins } from "./plugins.js";
-import type { BaseSchema, Infer, SchemaNode } from '@anyvali/js';
+import type { BaseSchema, Infer, SchemaNode } from 'anyvali';
 
 type AnySchema = BaseSchema<any, any>;
 

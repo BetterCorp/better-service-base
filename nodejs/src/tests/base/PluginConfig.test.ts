@@ -1,6 +1,6 @@
 import { describe, it } from 'mocha';
 import * as assert from 'assert';
-import * as av from '@anyvali/js';
+import * as av from 'anyvali';
 import { createConfigSchema, BSBPluginConfig } from '../../base/PluginConfig.js';
 
 describe('PluginConfig', () => {
