@@ -115,46 +115,41 @@ export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
         endpoints,
         socketOptions
     );
-    // Connection event handlers (no obs available, using console at module level)
     this.publishConnection.on("connect", async (data: any) => {
-      console.log(`[events-rabbitmq] AMQP CONNECTED: ${data.url}`);
+      obs.log.info("AMQP CONNECTED: {url}", { url: data.url });
     });
     this.publishConnection.on(
         "connectFailed",
         async (data: any): Promise<any> => {
-          if (
-              fatalOnDisconnect ||
-              endpoints.length === 1
-          ) {
-            console.error(`[events-rabbitmq] AMQP CONNECT FAIL: ${data.url} (${data.err.toString()})`);
-            process.exit(5);
+          const errMsg = data.err?.toString() ?? "unknown";
+          if (fatalOnDisconnect || endpoints.length === 1) {
+            obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: data.url, err: errMsg });
+            throw new Error(`AMQP connection failed: ${data.url} (${errMsg})`);
           }
-          console.error(`[events-rabbitmq] AMQP CONNECT FAIL: ${data.url} (${data.err.toString()})`);
+          obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: data.url, err: errMsg });
         }
     );
     this.publishConnection.on("error", async (err: any) => {
       if (err.message !== "Connection closing") {
-        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
+        obs.log.error("AMQP publish error: {err}", { err: err.message });
       }
       if (fatalOnDisconnect) {
-        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
-        process.exit(5);
+        throw new Error(`AMQP publish error (fatal): ${err.message}`);
       }
     });
     this.receiveConnection.on("error", async (err: any) => {
       if (err.message !== "Connection closing") {
-        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
+        obs.log.error("AMQP receive error: {err}", { err: err.message });
       }
       if (fatalOnDisconnect) {
-        console.error(`[events-rabbitmq] AMQP ERROR: ${err.message}`);
-        process.exit(5);
+        throw new Error(`AMQP receive error (fatal): ${err.message}`);
       }
     });
     this.publishConnection.on("close", async (): Promise<any> => {
-      console.warn("[events-rabbitmq] AMQP CONNECTION CLOSED");
+      obs.log.warn("AMQP publish connection closed");
     });
     this.receiveConnection.on("close", async (): Promise<any> => {
-      console.warn("[events-rabbitmq] AMQP CONNECTION CLOSED");
+      obs.log.warn("AMQP receive connection closed");
     });
 
     obs.log.info('Connected to {endpoints}x2? (s:{sendS}/p:{pubS})', {

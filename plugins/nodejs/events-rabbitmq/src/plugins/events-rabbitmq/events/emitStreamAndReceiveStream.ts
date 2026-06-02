@@ -110,10 +110,10 @@ export class emitStreamAndReceiveStream
                         () => iChannel.nack(msg),
                     );
                   } catch (exc: any) {
-                    obs.log.error("AMPQ Consumed exception: {eMsg}", {
+                    obs.log.error("AMQP Consumed exception: {eMsg}", {
                       eMsg: exc.message || exc.toString(),
                     });
-                    process.exit(7);
+                    throw new Error(`AMQP consume exception: ${exc.message || exc}`);
                   }
                 },
                 {noAck: false},
@@ -404,14 +404,14 @@ export class emitStreamAndReceiveStream
                 obs.log.error("Stream NOT OK: {e}", {
                   e: x.message,
                 });
-                process.exit(7);
+                throw new Error(`Stream processing failed: ${x.message}`);
               });
         } catch (exc: any) {
           cleanup();
           obs.log.error("Stream NOT OK: {e}", {
             e: exc.message || exc,
           });
-          process.exit(7);
+          throw new Error(`Stream setup failed: ${exc.message || exc}`);
         }
       };
       self.on(

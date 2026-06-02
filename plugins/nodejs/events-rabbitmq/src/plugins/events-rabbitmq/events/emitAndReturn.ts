@@ -88,7 +88,7 @@ export class emitAndReturn
                   obs.log.error("AMQP Consumed exception: {eMsg}", {
                     eMsg: exc.message || exc.toString(),
                   });
-                  process.exit(7);
+                  throw new Error(`AMQP consume exception: ${exc.message || exc}`);
                 }
               },
               {noAck: false},

@@ -75,22 +75,14 @@ export class LIB {
         },
       });
       channel.on("close", () => {
-        if (obs) {
-          obs.log.warn("AMQP channel ({queueKey}) close", { queueKey });
-        } else {
-          console.warn(`[events-rabbitmq] AMQP channel (${queueKey}) close`);
-        }
+        obs?.log.warn("AMQP channel ({queueKey}) close", { queueKey });
       });
       channel.on("error", (err: any) => {
-        if (obs) {
-          obs.log.error("AMQP channel ({queueKey}) error: {err}", {
-            queueKey,
-            err: err.message || err,
-          });
-        } else {
-          console.error(`[events-rabbitmq] AMQP channel (${queueKey}) error: ${err.message || err}`);
-        }
-        process.exit(6);
+        obs?.log.error("AMQP channel ({queueKey}) error: {err}", {
+          queueKey,
+          err: err.message || err,
+        });
+        throw new Error(`AMQP channel (${queueKey}) error: ${err.message || err}`);
       });
       if (exName !== null)
         obs?.log.debug("Assert exchange ({queueKey}) {exName} {exType}", {
