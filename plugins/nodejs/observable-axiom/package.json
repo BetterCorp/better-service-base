@@ -50,5 +50,10 @@
     "rimraf": "^6.1.2",
     "typescript": "^5.9.3"
   },
-  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-axiom"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-axiom",
+  "bsb": {
+    "allow": [
+      "console"
+    ]
+  }
 }

@@ -381,8 +381,8 @@ interface RestrictedPattern {
   pattern: RegExp;
   name: string;
   message: string;
-  /** Only 'require' | 'worker_threads' can be overridden via bsb.allow in package.json. Not recommended. */
-  allowKey?: 'require' | 'worker_threads';
+  /** Override via bsb.allow in package.json. Not recommended except for infrastructure plugins. */
+  allowKey?: 'require' | 'worker_threads' | 'console' | 'process.env';
 }
 
 interface SourceViolation {
@@ -393,13 +393,13 @@ interface SourceViolation {
 }
 
 const RESTRICTED_PATTERNS: RestrictedPattern[] = [
-  { pattern: /\bprocess\.env\b/, name: 'process.env', message: 'Use BSB config system instead' },
+  { pattern: /\bprocess\.env\b/, name: 'process.env', message: 'Use BSB config system instead', allowKey: 'process.env' },
   { pattern: /\bprocess\.exit\b/, name: 'process.exit', message: 'Throw an error instead — BSB manages the process lifecycle' },
   { pattern: /\bprocess\.cwd\b/, name: 'process.cwd', message: 'Use the cwd provided by BSB constructor args' },
   { pattern: /\bprocess\.argv\b/, name: 'process.argv', message: 'CLI arguments are managed by BSB' },
   { pattern: /\b__dirname\b/, name: '__dirname', message: 'Use BSB-provided paths from constructor args' },
   { pattern: /\b__filename\b/, name: '__filename', message: 'Use BSB-provided paths from constructor args' },
-  { pattern: /\bconsole\.\w+/, name: 'console', message: 'Use this.log (BSB observable) instead' },
+  { pattern: /\bconsole\.\w+/, name: 'console', message: 'Use this.log (BSB observable) instead', allowKey: 'console' },
   { pattern: /['"](?:node:)?child_process['"]/, name: 'child_process', message: 'Spawning child processes is not allowed in BSB plugins' },
   { pattern: /['"](?:node:)?cluster['"]/, name: 'cluster', message: 'Cluster management is handled by BSB' },
   { pattern: /\beval\s*\(/, name: 'eval()', message: 'eval() is not allowed in BSB plugins' },
@@ -413,7 +413,8 @@ const RESTRICTED_PATTERNS: RestrictedPattern[] = [
 function validateRestrictedAPIs(plugins: PluginInfo[]): void {
   const packageJson = readPackageJson();
   const allowList: string[] = Array.isArray(packageJson.bsb?.allow) ? packageJson.bsb.allow : [];
-  const allowedKeys = new Set(allowList.filter((k: string) => k === 'require' || k === 'worker_threads'));
+  const VALID_ALLOW_KEYS = new Set(['require', 'worker_threads', 'console', 'process.env']);
+  const allowedKeys = new Set(allowList.filter((k: string) => VALID_ALLOW_KEYS.has(k)));
 
   const activePatterns = RESTRICTED_PATTERNS.filter(
     (p) => !p.allowKey || !allowedKeys.has(p.allowKey),
