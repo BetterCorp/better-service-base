@@ -375,6 +375,118 @@ function resolveBsbBasePath(): string | null {
   }
 }
 
+interface RestrictedPattern {
+  pattern: RegExp;
+  name: string;
+  message: string;
+  /** Only 'require' | 'worker_threads' can be overridden via bsb.allow in package.json. Not recommended. */
+  allowKey?: 'require' | 'worker_threads';
+}
+
+interface SourceViolation {
+  file: string;
+  line: number;
+  name: string;
+  message: string;
+}
+
+const RESTRICTED_PATTERNS: RestrictedPattern[] = [
+  { pattern: /\bprocess\.env\b/, name: 'process.env', message: 'Use BSB config system instead' },
+  { pattern: /\bprocess\.exit\b/, name: 'process.exit', message: 'Throw an error instead — BSB manages the process lifecycle' },
+  { pattern: /\bprocess\.cwd\b/, name: 'process.cwd', message: 'Use the cwd provided by BSB constructor args' },
+  { pattern: /\bprocess\.argv\b/, name: 'process.argv', message: 'CLI arguments are managed by BSB' },
+  { pattern: /\b__dirname\b/, name: '__dirname', message: 'Use BSB-provided paths from constructor args' },
+  { pattern: /\b__filename\b/, name: '__filename', message: 'Use BSB-provided paths from constructor args' },
+  { pattern: /\bconsole\.\w+/, name: 'console', message: 'Use this.log (BSB observable) instead' },
+  { pattern: /['"](?:node:)?child_process['"]/, name: 'child_process', message: 'Spawning child processes is not allowed in BSB plugins' },
+  { pattern: /['"](?:node:)?cluster['"]/, name: 'cluster', message: 'Cluster management is handled by BSB' },
+  { pattern: /\beval\s*\(/, name: 'eval()', message: 'eval() is not allowed in BSB plugins' },
+  { pattern: /\bnew\s+Function\s*\(/, name: 'new Function()', message: 'Dynamic function construction is not allowed in BSB plugins' },
+  { pattern: /\bglobal\.\w/, name: 'global', message: 'Global state mutation is not allowed in BSB plugins' },
+  { pattern: /\bglobalThis\.\w/, name: 'globalThis', message: 'Global state mutation is not allowed in BSB plugins' },
+  { pattern: /\brequire\s*\(/, name: 'require()', message: 'Use ESM imports instead', allowKey: 'require' },
+  { pattern: /['"](?:node:)?worker_threads['"]/, name: 'worker_threads', message: 'Worker threads are managed by BSB', allowKey: 'worker_threads' },
+];
+
+function validateRestrictedAPIs(plugins: PluginInfo[]): void {
+  const packageJson = readPackageJson();
+  const allowList: string[] = Array.isArray(packageJson.bsb?.allow) ? packageJson.bsb.allow : [];
+  const allowedKeys = new Set(allowList.filter((k: string) => k === 'require' || k === 'worker_threads'));
+
+  const activePatterns = RESTRICTED_PATTERNS.filter(
+    (p) => !p.allowKey || !allowedKeys.has(p.allowKey),
+  );
+
+  if (activePatterns.length === 0) {
+    return;
+  }
+
+  const violations: SourceViolation[] = [];
+
+  for (const plugin of plugins) {
+    const tsFiles = collectFilesRecursive(plugin.srcDir, (filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      return ext === '.ts' || ext === '.tsx';
+    });
+
+    for (const filePath of tsFiles) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.split('\n');
+      let inBlockComment = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+
+        if (inBlockComment) {
+          const endIdx = line.indexOf('*/');
+          if (endIdx === -1) continue;
+          line = line.slice(endIdx + 2);
+          inBlockComment = false;
+        }
+
+        const blockStart = line.indexOf('/*');
+        if (blockStart !== -1) {
+          const blockEnd = line.indexOf('*/', blockStart + 2);
+          if (blockEnd !== -1) {
+            line = line.slice(0, blockStart) + line.slice(blockEnd + 2);
+          } else {
+            line = line.slice(0, blockStart);
+            inBlockComment = true;
+          }
+        }
+
+        const trimmed = line.trim();
+        if (trimmed.startsWith('//')) continue;
+        if (trimmed.startsWith('import type ')) continue;
+
+        const relPath = normalizePath(path.relative(CWD, filePath));
+        for (const restricted of activePatterns) {
+          if (restricted.pattern.test(line)) {
+            violations.push({
+              file: relPath,
+              line: i + 1,
+              name: restricted.name,
+              message: restricted.message,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  if (violations.length > 0) {
+    log('\n=== Restricted API Usage Detected ===\n', 'red');
+    for (const v of violations) {
+      log(`  ${v.file}:${v.line} — ${v.name}`, 'red');
+      log(`    ${v.message}`, 'yellow');
+    }
+    log(`\n${violations.length} violation(s) found. BSB plugins cannot use these APIs.\n`, 'red');
+    process.exit(1);
+  }
+
+  success('Source validation passed (no restricted API usage)');
+}
+
 // Detect plugin structure
 function detectPluginStructure(): PluginInfo[] {
   const srcDir = path.join(CWD, 'src');
@@ -985,10 +1097,13 @@ async function build(options: BuildOptions = {}): Promise<void> {
     info('Skipping clean for incremental rebuild');
   }
 
+  // Step 5: Validate restricted API usage in plugin source
+  validateRestrictedAPIs(plugins);
+
   // Hook: beforeCompile
   runHook('beforeCompile');
 
-  // Step 5: Compile TypeScript (virtual clients in src/.bsb/clients/ compile with the project)
+  // Step 6: Compile TypeScript (virtual clients in src/.bsb/clients/ compile with the project)
   if (options.incremental) {
     exec(
       `npx tsc --incremental --tsBuildInfoFile "${normalizePath(TSC_BUILD_INFO_PATH)}"`,
@@ -1001,7 +1116,7 @@ async function build(options: BuildOptions = {}): Promise<void> {
   // Hook: afterCompile
   runHook('afterCompile');
 
-  // Step 6: Copy non-TypeScript assets for each plugin
+  // Step 7: Copy non-TypeScript assets for each plugin
   const shouldCopyAllAssets = !options.changedPaths || changedPaths.length === 0 || assetChanged || !fs.existsSync(path.join(CWD, 'lib'));
   if (shouldCopyAllAssets) {
     for (const plugin of plugins) {
@@ -1011,7 +1126,7 @@ async function build(options: BuildOptions = {}): Promise<void> {
     info('Skipping asset copy (unchanged)');
   }
 
-  // Step 7: Copy extracted schemas to lib/schemas/
+  // Step 8: Copy extracted schemas to lib/schemas/
   const shouldCopySchemas = runSchemaPipeline || !hasLibSchemas();
   if (shouldCopySchemas) {
     copySchemasToLib();
@@ -1019,7 +1134,7 @@ async function build(options: BuildOptions = {}): Promise<void> {
     info('Skipping schema copy (unchanged)');
   }
 
-  // Step 8: Generate per-plugin metadata JSON (needs compiled JS for Config.metadata)
+  // Step 9: Generate per-plugin metadata JSON (needs compiled JS for Config.metadata)
   const shouldGenerateMetadata = runSchemaPipeline ||
     packageChanged ||
     cache.metadataInputsHash !== metadataInputsHash ||
@@ -1032,14 +1147,14 @@ async function build(options: BuildOptions = {}): Promise<void> {
     info('Skipping plugin metadata generation (unchanged)');
   }
 
-  // Step 9: Generate root bsb-plugin.json (aggregates all per-plugin metadata)
+  // Step 10: Generate root bsb-plugin.json (aggregates all per-plugin metadata)
   if (shouldGenerateMetadata || !fs.existsSync(path.join(CWD, 'bsb-plugin.json'))) {
     generateRootPluginJson();
   } else {
     info('Skipping bsb-plugin.json generation (unchanged)');
   }
 
-  // Step 10: Generate root bsb-tests.json (default ignore entries)
+  // Step 11: Generate root bsb-tests.json (default ignore entries)
   if (shouldGenerateMetadata || !fs.existsSync(path.join(CWD, 'bsb-tests.json'))) {
     generateRootTestsJson(plugins.map(p => ({ id: p.name })));
   } else {
