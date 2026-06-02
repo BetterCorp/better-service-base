@@ -381,8 +381,10 @@ interface RestrictedPattern {
   pattern: RegExp;
   name: string;
   message: string;
-  /** Override via bsb.allow in package.json. Not recommended except for infrastructure plugins. */
-  allowKey?: 'require' | 'worker_threads' | 'console' | 'process.env';
+  /** Only 'require' | 'worker_threads' can be overridden via bsb.allow in package.json. Not recommended. */
+  allowKey?: 'require' | 'worker_threads';
+  /** Auto-skipped for specific plugin types based on directory name prefix. */
+  skipForPluginType?: 'observable' | 'config';
 }
 
 interface SourceViolation {
@@ -393,13 +395,13 @@ interface SourceViolation {
 }
 
 const RESTRICTED_PATTERNS: RestrictedPattern[] = [
-  { pattern: /\bprocess\.env\b/, name: 'process.env', message: 'Use BSB config system instead', allowKey: 'process.env' },
+  { pattern: /\bprocess\.env\b/, name: 'process.env', message: 'Use BSB config system instead', skipForPluginType: 'config' },
   { pattern: /\bprocess\.exit\b/, name: 'process.exit', message: 'Throw an error instead — BSB manages the process lifecycle' },
   { pattern: /\bprocess\.cwd\b/, name: 'process.cwd', message: 'Use the cwd provided by BSB constructor args' },
   { pattern: /\bprocess\.argv\b/, name: 'process.argv', message: 'CLI arguments are managed by BSB' },
   { pattern: /\b__dirname\b/, name: '__dirname', message: 'Use BSB-provided paths from constructor args' },
   { pattern: /\b__filename\b/, name: '__filename', message: 'Use BSB-provided paths from constructor args' },
-  { pattern: /\bconsole\.\w+/, name: 'console', message: 'Use this.log (BSB observable) instead', allowKey: 'console' },
+  { pattern: /\bconsole\.\w+/, name: 'console', message: 'Use this.log (BSB observable) instead', skipForPluginType: 'observable' },
   { pattern: /['"](?:node:)?child_process['"]/, name: 'child_process', message: 'Spawning child processes is not allowed in BSB plugins' },
   { pattern: /['"](?:node:)?cluster['"]/, name: 'cluster', message: 'Cluster management is handled by BSB' },
   { pattern: /\beval\s*\(/, name: 'eval()', message: 'eval() is not allowed in BSB plugins' },
@@ -413,8 +415,7 @@ const RESTRICTED_PATTERNS: RestrictedPattern[] = [
 function validateRestrictedAPIs(plugins: PluginInfo[]): void {
   const packageJson = readPackageJson();
   const allowList: string[] = Array.isArray(packageJson.bsb?.allow) ? packageJson.bsb.allow : [];
-  const VALID_ALLOW_KEYS = new Set(['require', 'worker_threads', 'console', 'process.env']);
-  const allowedKeys = new Set(allowList.filter((k: string) => VALID_ALLOW_KEYS.has(k)));
+  const allowedKeys = new Set(allowList.filter((k: string) => k === 'require' || k === 'worker_threads'));
 
   const activePatterns = RESTRICTED_PATTERNS.filter(
     (p) => !p.allowKey || !allowedKeys.has(p.allowKey),
@@ -427,6 +428,14 @@ function validateRestrictedAPIs(plugins: PluginInfo[]): void {
   const violations: SourceViolation[] = [];
 
   for (const plugin of plugins) {
+    const pluginType: 'observable' | 'config' | 'other' =
+      plugin.name.startsWith('observable-') ? 'observable' :
+      plugin.name.startsWith('config-') ? 'config' : 'other';
+
+    const pluginPatterns = activePatterns.filter(
+      (p) => !p.skipForPluginType || p.skipForPluginType !== pluginType,
+    );
+
     const tsFiles = collectFilesRecursive(plugin.srcDir, (filePath) => {
       const ext = path.extname(filePath).toLowerCase();
       return ext === '.ts' || ext === '.tsx';
@@ -463,7 +472,7 @@ function validateRestrictedAPIs(plugins: PluginInfo[]): void {
         if (trimmed.startsWith('import type ')) continue;
 
         const relPath = normalizePath(path.relative(CWD, filePath));
-        for (const restricted of activePatterns) {
+        for (const restricted of pluginPatterns) {
           if (restricted.pattern.test(line)) {
             violations.push({
               file: relPath,

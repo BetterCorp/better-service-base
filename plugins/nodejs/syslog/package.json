@@ -56,10 +56,5 @@
     "node": ">=23.0.0",
     "npm": ">=11.0.0"
   },
-  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/syslog",
-  "bsb": {
-    "allow": [
-      "console"
-    ]
-  }
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/syslog"
 }
