@@ -170,7 +170,9 @@ function collectFilesRecursive(
     for (const entry of entries) {
       const fullPath = path.join(current, entry.name);
       if (entry.isDirectory()) {
-        stack.push(fullPath);
+        if (!entry.name.startsWith('.')) {
+          stack.push(fullPath);
+        }
       } else if (entry.isFile() && predicate(fullPath)) {
         files.push(fullPath);
       }
