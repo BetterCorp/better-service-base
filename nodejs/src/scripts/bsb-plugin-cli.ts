@@ -27,6 +27,7 @@ import {
   type HookName,
   type HookLogger,
 } from './build-hooks.js';
+import { isDevIgnoredPath, resolveDevIgnorePatterns } from './dev-config.js';
 
 interface PluginInfo {
   name: string;
@@ -98,12 +99,7 @@ const DEV_WATCH_PATHS = [
   path.join(CWD, 'sec-config.yaml'),
   path.join(CWD, 'src'),
 ];
-const DEV_IGNORE_PATHS = [
-  path.join(CWD, '.git'),
-  path.join(CWD, 'lib'),
-  path.join(CWD, 'node_modules'),
-  path.join(CWD, 'src', '.bsb'),
-];
+const DEV_IGNORE_PATTERNS = resolveDevIgnorePatterns(CWD);
 const SCHEMA_FILE_BASENAMES = new Set([
   'index.ts',
   'index.tsx',
@@ -1345,14 +1341,9 @@ async function dev(): Promise<void> {
 
   try {
     info(`Watching paths: ${DEV_WATCH_PATHS.map(normalizePath).join(', ')}`);
+    info(`Ignoring paths: ${DEV_IGNORE_PATTERNS.map(normalizePath).join(', ')}`);
     watcher = chokidar.watch(DEV_WATCH_PATHS, {
-      ignored: (watchPath) => {
-        const normalized = normalizeChangedPath(String(watchPath));
-        return DEV_IGNORE_PATHS.some((ignorePath) => {
-          const normalizedIgnorePath = normalizeChangedPath(ignorePath);
-          return normalized === normalizedIgnorePath || normalized.startsWith(`${normalizedIgnorePath}/`);
-        });
-      },
+      ignored: (watchPath) => isDevIgnoredPath(CWD, String(watchPath), DEV_IGNORE_PATTERNS),
       ignoreInitial: true,
       persistent: true,
     });
@@ -1464,6 +1455,9 @@ ${colors.cyan}Build Hooks:${colors.reset}
       "hooks": {
         "afterSchemas": "generate-api-types",
         "afterCompile": ["post-bundle", "lint-output"]
+      },
+      "dev": {
+        "ignore": ["src/plugins/**/.bp-generated/**"]
       }
     }
 `);

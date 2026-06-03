@@ -121,4 +121,59 @@ describe("SBServices", () => {
     assert.strictEqual(activeServices.length, 1);
     assert.deepStrictEqual(activeServices[0].receivedConfig, { enabled: false });
   });
+
+  it("should apply AnyVali defaults for missing service config", async () => {
+    const schema = av.object({
+      enabled: av.optional(av.bool()).default(true),
+      port: av.optional(av.int32().min(1).max(65535)).default(3210),
+      labels: av.optional(av.array(av.string())).default(["default"]),
+    }, { unknownKeys: "strip" });
+    const sbPlugins = {
+      loadPlugin: async () => ({
+        success: true,
+        data: {
+          name: "demo-service",
+          ref: "demo-service",
+          version: "1.0.0",
+          serviceConfig: {
+            validationSchema: schema,
+          },
+          plugin: TestServicePlugin,
+          packageCwd: process.cwd(),
+          pluginCwd: process.cwd(),
+          pluginPath: process.cwd(),
+        },
+      }),
+    } as any;
+    const services = new SBServices(
+      "test-app",
+      "development",
+      process.cwd(),
+      sbPlugins,
+      MockSBObservable(),
+    );
+    const sbConfig = {
+      getPluginConfig: async () => null,
+    } as any;
+
+    await (services as any).addService(
+      sbConfig,
+      MockSBObservable(),
+      MockSBEvents(),
+      {
+        name: "demo-service",
+        package: null,
+        plugin: "service-demo",
+        version: "1.0.0",
+      },
+    );
+
+    const activeServices = (services as any)._activeServices;
+    assert.strictEqual(activeServices.length, 1);
+    assert.deepStrictEqual(activeServices[0].receivedConfig, {
+      enabled: true,
+      port: 3210,
+      labels: ["default"],
+    });
+  });
 });

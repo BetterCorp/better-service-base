@@ -66,10 +66,17 @@ Example package.json:
       "afterSchemas": "generate-api-types",
       "afterCompile": ["post-bundle"],
       "beforeDev": "seed-db"
+    },
+    "dev": {
+      "ignore": ["src/plugins/**/.bp-generated/**"]
     }
   }
 }
 ```
+
+Dev watcher config:
+- Add `bsb.dev.ignore` to package.json to append ignored paths/globs in dev mode.
+- Defaults still ignore `.git`, `lib`, `node_modules`, `src/.bsb`, and `**/.bp-generated/**`.
 
 Common use cases:
 - Codegen from generated schemas: read `src/.bsb/schemas/*.json` in `afterSchemas`, output .ts files compiled in next step.
