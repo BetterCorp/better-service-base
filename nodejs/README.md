@@ -123,6 +123,10 @@ Built-in plugin types include: `config-*`, `observable-*`, `events-*`, `service-
   - Interactive controls:
     - `Ctrl+R` or typing `rs` to restart
     - `Ctrl+C`/`Ctrl+D` to dispose and exit
+- Plugin CLI dev runner: `bsb-plugin-cli dev`
+  - Watches `package.json`, `sec-config.yaml`, and `src`
+  - Ignores dot-directories, `.git`, `lib`, `node_modules`, and `src/.bsb`
+  - Add `bsb.dev.ignore` in `package.json` to append project-specific ignored paths/globs
 
 ### NPM Scripts
 - `npm run dev`: Start development runner with hot-reload

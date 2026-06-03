@@ -23,6 +23,10 @@ Build Hooks (Node.js):
 - Run custom npm scripts at specific points in the build/dev pipeline (codegen, transforms, packaging).
   https://bsbcode.dev/llms/nodejs-build-hooks.txt
 
+Dev Mode (Node.js):
+- Dev watcher paths, default dot-directory ignores, generated output ignores, and `bsb.dev.ignore`.
+  https://bsbcode.dev/llms/nodejs-dev.txt
+
 Testing (Node.js):
 - Test runner usage and `bsb-tests.json` format for repo-defined test config.
   https://bsbcode.dev/llms/nodejs-tests.txt

@@ -1,0 +1,39 @@
+Node.js Dev Mode (BSB)
+
+Goal:
+- Run plugin projects locally with `bsb-plugin-cli dev`.
+- Understand dev watcher paths and ignore configuration.
+
+Dev watcher:
+- Watches `package.json`, `sec-config.yaml`, and `src`.
+- Default ignores:
+  - dot-directories at project root: `.*/**`
+  - nested dot-directories: `**/.*/**`
+  - `.git`
+  - `lib`
+  - `node_modules`
+  - `src/.bsb`
+
+Custom ignores:
+- Add `bsb.dev.ignore` to package.json to append project-specific ignored paths/globs.
+- Patterns are rooted at the package directory unless absolute.
+
+Example package.json:
+```json
+{
+  "scripts": {
+    "dev": "bsb-plugin-cli dev"
+  },
+  "bsb": {
+    "dev": {
+      "ignore": [
+        "src/generated/**"
+      ]
+    }
+  }
+}
+```
+
+Notes:
+- `bsb.dev.ignore` is dev-runner configuration, not build hook configuration.
+- Use it when a generator writes files under watched paths and those writes should not restart dev mode.

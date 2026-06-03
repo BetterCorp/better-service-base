@@ -50,7 +50,7 @@ describe('dev config', () => {
     writePackageJson(dir, {
       bsb: {
         dev: {
-          ignore: ['src/plugins/**/.bp-generated/**'],
+          ignore: ['src/generated/**'],
         },
       },
     });
@@ -58,17 +58,26 @@ describe('dev config', () => {
     const patterns = resolveDevIgnorePatterns(dir);
 
     assert.ok(patterns.includes(path.join(dir, 'src', '.bsb').replace(/\\/g, '/')));
-    assert.ok(patterns.includes(path.join(dir, '**', '.bp-generated', '**').replace(/\\/g, '/')));
-    assert.ok(patterns.includes(path.join(dir, 'src', 'plugins', '**', '.bp-generated', '**').replace(/\\/g, '/')));
+    assert.ok(patterns.includes(path.join(dir, '.*', '**').replace(/\\/g, '/')));
+    assert.ok(patterns.includes(path.join(dir, '**', '.*', '**').replace(/\\/g, '/')));
+    assert.ok(patterns.includes(path.join(dir, 'src', 'generated', '**').replace(/\\/g, '/')));
   });
 
-  it('matches default directories and generated BP output', () => {
+  it('matches default directories', () => {
     const dir = makeTempDir();
     writePackageJson(dir, {});
 
     assert.strictEqual(isDevIgnoredPath(dir, path.join(dir, 'node_modules', 'pkg', 'index.js')), true);
-    assert.strictEqual(isDevIgnoredPath(dir, path.join(dir, 'src', 'plugins', 'service-x', '.bp-generated', 'registry.ts')), true);
     assert.strictEqual(isDevIgnoredPath(dir, path.join(dir, 'src', 'plugins', 'service-x', 'index.ts')), false);
+  });
+
+  it('matches root and nested dot-directories by default', () => {
+    const dir = makeTempDir();
+    writePackageJson(dir, {});
+
+    assert.strictEqual(isDevIgnoredPath(dir, path.join(dir, '.cache', 'state.json')), true);
+    assert.strictEqual(isDevIgnoredPath(dir, path.join(dir, 'src', 'plugins', 'service-x', '.cache', 'state.json')), true);
+    assert.strictEqual(isDevIgnoredPath(dir, path.join(dir, 'src', 'plugins', 'service-x', '.generated', 'registry.ts')), true);
   });
 
   it('matches configured dev ignore globs', () => {

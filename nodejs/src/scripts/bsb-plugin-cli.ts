@@ -1457,7 +1457,7 @@ ${colors.cyan}Build Hooks:${colors.reset}
         "afterCompile": ["post-bundle", "lint-output"]
       },
       "dev": {
-        "ignore": ["src/plugins/**/.bp-generated/**"]
+        "ignore": ["src/generated/**"]
       }
     }
 `);

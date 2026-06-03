@@ -6,11 +6,12 @@ export interface BsbDevConfig {
 }
 
 const DEFAULT_DEV_IGNORE_PATTERNS = [
+  '.*/**',
+  '**/.*/**',
   '.git',
   'lib',
   'node_modules',
   'src/.bsb',
-  '**/.bp-generated/**',
 ];
 
 /**
