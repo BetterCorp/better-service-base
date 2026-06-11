@@ -44,22 +44,22 @@ import type { Logger } from "@opentelemetry/api-logs";
  * Configuration schema for OpenTelemetry plugin
  */
 export const OpenTelemetryConfigSchema = av.object({
-  serviceName: av.optional(av.string()).default("bsb-service"),
-  serviceVersion: av.optional(av.string()),
-  endpoint: av.optional(av.string().format("url")).default("http://localhost:4318"),
+  serviceName: av.string().default("bsb-service").describe("Service name reported through OpenTelemetry resource attributes"),
+  serviceVersion: av.optional(av.string()).describe("Optional service version reported through OpenTelemetry resource attributes"),
+  endpoint: av.string().format("url").default("http://localhost:4318").describe("OTLP collector endpoint base URL"),
   export: av.object({
-    protocol: av.optional(av.enum_(["http", "grpc"])).default("http"),
-    interval: av.optional(av.int32().min(100)).default(5000),
-    maxBatchSize: av.optional(av.int32().min(1)).default(512),
-  }, { unknownKeys: "strip" }),
+    protocol: av.enum_(["http", "grpc"]).default("http").describe("OTLP transport protocol"),
+    interval: av.int32().min(100).default(5000).describe("Metric export interval in milliseconds"),
+    maxBatchSize: av.int32().min(1).default(512).describe("Maximum number of telemetry items sent in one export batch"),
+  }, { unknownKeys: "strip" }).describe("OpenTelemetry export settings"),
   enabled: av.object({
-    traces: av.optional(av.bool()).default(true),
-    metrics: av.optional(av.bool()).default(true),
-    logs: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
-  resourceAttributes: av.optional(av.record(av.string())).default({}),
-  samplingRate: av.optional(av.number().min(0).max(1)).default(1.0),
-}, { unknownKeys: "strip" });
+    traces: av.bool().default(true).describe("Whether trace export is enabled"),
+    metrics: av.bool().default(true).describe("Whether metric export is enabled"),
+    logs: av.bool().default(true).describe("Whether log export is enabled"),
+  }, { unknownKeys: "strip" }).describe("Telemetry signal enablement"),
+  resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to exported telemetry"),
+  samplingRate: av.number().min(0).max(1).default(1.0).describe("Trace sampling rate from 0.0 to 1.0"),
+}, { unknownKeys: "strip" }).describe("OpenTelemetry observable plugin configuration");
 
 export type OpenTelemetryConfig = av.Infer<typeof OpenTelemetryConfigSchema>;
 

@@ -25,8 +25,8 @@ Steps:
        documentation: ["./docs/config-example.md"]
      },
      av.object({
-       BSB_PROFILE: av.optional(av.string()).default("default"),
-       BSB_CONFIG_FILE: av.optional(av.string()).default("./sec-config.yaml")
+       BSB_PROFILE: av.string().default("default"),
+       BSB_CONFIG_FILE: av.string().default("./sec-config.yaml")
      }, { unknownKeys: "strip" })
    );
 

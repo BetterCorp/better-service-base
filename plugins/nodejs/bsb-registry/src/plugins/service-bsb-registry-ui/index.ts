@@ -16,13 +16,13 @@ import { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry.js';
  * Configuration for the Registry UI
  */
 const UIConfigSchema = av.object({
-  port: av.optional(av.int32().min(1).max(65535)).default(3200),
-  host: av.optional(av.string()).default('0.0.0.0'),
-  pageSize: av.optional(av.int32().min(1).max(100)).default(20),
-  uploadDir: av.optional(av.string()).default('./.temp/registry-images'),
-  badgesFile: av.optional(av.string()).default('./BADGES.json'),
-  maxImageUploadMb: av.optional(av.int32().min(1).max(20)).default(5),
-}, { unknownKeys: 'strip' });
+  port: av.int32().min(1).max(65535).default(3200).describe('HTTP port used by the registry UI and API server'),
+  host: av.string().default('0.0.0.0').describe('Network host address used by the registry UI and API server'),
+  pageSize: av.int32().min(1).max(100).default(20).describe('Default number of plugins shown per browse page'),
+  uploadDir: av.string().default('./.temp/registry-images').describe('Directory used to store uploaded registry images'),
+  badgesFile: av.string().default('./BADGES.json').describe('Path to the badge definition JSON file'),
+  maxImageUploadMb: av.int32().min(1).max(20).default(5).describe('Maximum uploaded image size in megabytes'),
+}, { unknownKeys: 'strip' }).describe('Registry UI and API plugin configuration');
 
 export type UIConfig = av.Infer<typeof UIConfigSchema>;
 

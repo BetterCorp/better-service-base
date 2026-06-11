@@ -46,7 +46,7 @@ export interface BSBServiceConstructor<
   extends BaseWithObservableAndConfigConfig<
     ReferencedConfig extends null
     ? null
-    : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
+    : BSBReferencePluginConfigDefinition<ReferencedConfig>
   > {
   sbEvents: SBEvents;
   sbObservable: SBObservable;
@@ -89,7 +89,7 @@ export interface BSBServiceClientDefinition {
   *   ConfigSchema
   * );
   *
-  * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+  * export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
   *   static Config = Config; // Required for auto-generation
   *   // PLUGIN_CLIENT is auto-generated from Config.metadata
   * }
@@ -102,7 +102,7 @@ export abstract class BSBService<
   extends BaseWithObservableAndConfig<
     ReferencedConfig extends null
     ? null
-    : BSBReferencePluginConfigDefinition<ReferencedConfig> & any
+    : BSBReferencePluginConfigDefinition<ReferencedConfig>
   > {
   /**
    * Static reference to the Config class created with createConfigSchema().
@@ -182,7 +182,7 @@ export abstract class BSBService<
    * @example
    * ```typescript
    * // In your plugin class:
-   * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+   * export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
    *   static Config = Config;
    *   static EventSchemas = EventSchemas;
    * }
@@ -367,10 +367,10 @@ export abstract class BSBService<
    *
    * @example
    * ```typescript
-   * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+   * export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
    *   private self;
    *
-   *   constructor(config: BSBServiceConstructor<typeof Config, typeof EventSchemas>) {
+   *   constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
    *     super({ ...config, eventSchemas: EventSchemas });
    *
    *     // Create self-client for HTTP handler to call own events

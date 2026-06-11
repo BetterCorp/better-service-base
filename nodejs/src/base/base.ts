@@ -27,7 +27,6 @@
 
 import { DEBUG_MODE, IPluginObservable, Observable } from "../interfaces/index.js";
 import { SBObservable } from "../serviceBase/index.js";
-import { BSBReferenceConfigType } from "./PluginConfig.js";
 import { ObservableBackend } from "./ObservableBackend.js";
 
 /**
@@ -200,7 +199,7 @@ export abstract class Base
  * @hidden
  */
 export type ConfigPropertyTypeSafe<
-  ReferencedConfig extends BSBReferenceConfigType
+  ReferencedConfig
 > = [ReferencedConfig] extends [never]
   ? never
   : ReferencedConfig extends undefined | null
@@ -211,7 +210,7 @@ export type ConfigPropertyTypeSafe<
  * @hidden
  */
 export type ConfigConstructorTypeSafe<
-  ReferencedConfig extends BSBReferenceConfigType
+  ReferencedConfig
 > = [ReferencedConfig] extends [never]
   ? undefined
   : ReferencedConfig extends undefined | null
@@ -222,7 +221,7 @@ export type ConfigConstructorTypeSafe<
  * @hidden
  */
 export interface BaseWithConfigConfig<
-  ReferencedConfig extends BSBReferenceConfigType
+  ReferencedConfig
 >
   extends MainBaseConfig {
   config: ConfigConstructorTypeSafe<ReferencedConfig>;
@@ -233,7 +232,7 @@ export interface BaseWithConfigConfig<
  * used by logging plugins (does not need events or logging since logging logs its own logs)
  */
 export abstract class BaseWithConfig<
-  ReferencedConfig extends BSBReferenceConfigType
+  ReferencedConfig
 >
   extends Base {
   /**
@@ -306,7 +305,7 @@ export abstract class BaseWithObservable
  * @hidden
  */
 export interface BaseWithObservableAndConfigConfig<
-  ReferencedConfig extends BSBReferenceConfigType
+  ReferencedConfig
 >
   extends BaseWithObservableConfig,
   BaseWithConfigConfig<ReferencedConfig> {
@@ -318,7 +317,7 @@ export interface BaseWithObservableAndConfigConfig<
  * Use Observable for all logging and metrics operations.
  */
 export abstract class BaseWithObservableAndConfig<
-  ReferencedConfig extends BSBReferenceConfigType
+  ReferencedConfig
 >
   extends BaseWithConfig<ReferencedConfig> {
   /**

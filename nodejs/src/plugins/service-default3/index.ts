@@ -37,7 +37,8 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example', 'test'],
   },
-  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
+  av.optional(av.object({}, { unknownKeys: "strip" }).describe("Default service 3 configuration")).default({})
+    .describe("Optional default service 3 configuration")
 );
 
 export const EventSchemas = createEventSchemas({

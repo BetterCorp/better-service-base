@@ -14,6 +14,18 @@ import {
 import { bsb } from '../../interfaces/schema-types.js';
 
 describe('schema-events v9', () => {
+  function createEventSchemasWithoutDevWarnings<const T extends Parameters<typeof createEventSchemas>[0]>(
+    schemas: T
+  ): T {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      return createEventSchemas(schemas);
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  }
+
   describe('createEventSchemas', () => {
     it('should create event schemas without requiring "as const"', () => {
       const schemas = createEventSchemas({
@@ -210,6 +222,157 @@ describe('schema-events v9', () => {
       assert.ok(exported.events['event1']);
       assert.ok(exported.events['event2']);
       assert.ok(exported.events['event3']);
+    });
+
+    it('should fail export when a plugin emits and listens to the same fire-and-forget event', () => {
+      const schemas = createEventSchemasWithoutDevWarnings({
+        emitEvents: {
+          'platform-config.changed': createFireAndForgetEvent(bsb.string(), 'Event emitted by this plugin'),
+        },
+        onEvents: {
+          'platform-config.changed': createFireAndForgetEvent(bsb.string(), 'Event handled by this plugin'),
+        },
+      });
+
+      assert.throws(
+        () => exportEventSchemas('service-config-manager', schemas),
+        (error: unknown) => {
+          const message = (error as Error).message;
+          assert.ok(message.includes('[BSB Build Error]'));
+          assert.ok(message.includes('"service-config-manager"'));
+          assert.ok(message.includes('"platform-config.changed"'));
+          assert.ok(message.includes('emitEvents'));
+          assert.ok(message.includes('onEvents'));
+          assert.ok(message.includes('Each event name must be unique'));
+          assert.ok(message.includes('ServiceClient'));
+          assert.ok(message.includes('client onEvent API'));
+          return true;
+        }
+      );
+    });
+
+    it('should fail export when a plugin emits and listens to the same returnable event', () => {
+      const schemas = createEventSchemasWithoutDevWarnings({
+        emitReturnableEvents: {
+          'platform-config.changed': createReturnableEvent(
+            bsb.string(),
+            bsb.boolean(),
+            'Returnable event emitted by this plugin'
+          ),
+        },
+        onReturnableEvents: {
+          'platform-config.changed': createReturnableEvent(
+            bsb.string(),
+            bsb.boolean(),
+            'Returnable event handled by this plugin'
+          ),
+        },
+      });
+
+      assert.throws(
+        () => exportEventSchemas('service-config-manager', schemas),
+        (error: unknown) => {
+          const message = (error as Error).message;
+          assert.ok(message.includes('"platform-config.changed"'));
+          assert.ok(message.includes('emitReturnableEvents'));
+          assert.ok(message.includes('onReturnableEvents'));
+          assert.ok(message.includes('client onReturnableEvent API'));
+          return true;
+        }
+      );
+    });
+
+    it('should fail export when a plugin emits and listens to the same broadcast event', () => {
+      const schemas = createEventSchemasWithoutDevWarnings({
+        emitBroadcast: {
+          'platform-config.changed': createBroadcastEvent(bsb.string(), 'Broadcast emitted by this plugin'),
+        },
+        onBroadcast: {
+          'platform-config.changed': createBroadcastEvent(bsb.string(), 'Broadcast handled by this plugin'),
+        },
+      });
+
+      assert.throws(
+        () => exportEventSchemas('service-config-manager', schemas),
+        (error: unknown) => {
+          const message = (error as Error).message;
+          assert.ok(message.includes('"platform-config.changed"'));
+          assert.ok(message.includes('emitBroadcast'));
+          assert.ok(message.includes('onBroadcast'));
+          assert.ok(message.includes('client onBroadcast API'));
+          return true;
+        }
+      );
+    });
+
+    it('should fail export when the same event name is used for different emitted event types', () => {
+      const schemas = createEventSchemasWithoutDevWarnings({
+        emitEvents: {
+          'platform-config.changed': createFireAndForgetEvent(bsb.string(), 'Fire-and-forget event'),
+        },
+        emitReturnableEvents: {
+          'platform-config.changed': createReturnableEvent(
+            bsb.string(),
+            bsb.boolean(),
+            'Returnable event'
+          ),
+        },
+      });
+
+      assert.throws(
+        () => exportEventSchemas('service-config-manager', schemas),
+        (error: unknown) => {
+          const message = (error as Error).message;
+          assert.ok(message.includes('"platform-config.changed"'));
+          assert.ok(message.includes('emitEvents'));
+          assert.ok(message.includes('emitReturnableEvents'));
+          assert.ok(message.includes('Use distinct event names for different event types and directions'));
+          return true;
+        }
+      );
+    });
+
+    it('should fail export when the same event name is used across unrelated emit and on categories', () => {
+      const schemas = createEventSchemasWithoutDevWarnings({
+        emitReturnableEvents: {
+          'platform-config.changed': createReturnableEvent(
+            bsb.string(),
+            bsb.boolean(),
+            'Returnable event'
+          ),
+        },
+        onEvents: {
+          'platform-config.changed': createFireAndForgetEvent(bsb.string(), 'Fire-and-forget handler'),
+        },
+      });
+
+      assert.throws(
+        () => exportEventSchemas('service-config-manager', schemas),
+        (error: unknown) => {
+          const message = (error as Error).message;
+          assert.ok(message.includes('"platform-config.changed"'));
+          assert.ok(message.includes('emitReturnableEvents'));
+          assert.ok(message.includes('onEvents'));
+          assert.ok(message.includes('one unambiguous contract entry per key'));
+          return true;
+        }
+      );
+    });
+
+    it('should export when emit and on categories use different event names', () => {
+      const schemas = createEventSchemas({
+        emitBroadcast: {
+          'platform-config.changed': createBroadcastEvent(bsb.string(), 'Broadcast emitted by this plugin'),
+        },
+        onBroadcast: {
+          'platform-config.reloaded': createBroadcastEvent(bsb.string(), 'Different broadcast handled by this plugin'),
+        },
+      });
+
+      const exported = exportEventSchemas('service-config-manager', schemas);
+
+      assert.ok(exported.events['platform-config.changed']);
+      assert.ok(exported.events['platform-config.reloaded']);
     });
 
     it('should produce valid AnyVali document format', () => {

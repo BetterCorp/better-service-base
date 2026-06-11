@@ -430,6 +430,8 @@ npm start</code></pre>
           <li><code>onBroadcast</code> - Broadcasts you listen to</li>
         </ul>
 
+        <p>Each event name must appear in only one <code>EventSchemas</code> category. Do not declare the same key in <code>emitEvents</code>, <code>onEvents</code>, <code>emitReturnableEvents</code>, <code>onReturnableEvents</code>, <code>emitBroadcast</code>, or <code>onBroadcast</code>. If a plugin emits an event and also needs to listen to that service contract, instantiate the generated service client and register the listener through the client <code>onX</code> API instead of adding a matching <code>on*</code> entry to the same plugin.</p>
+
         <h2>Working with Events</h2>
 
         <h3>Emitting Events</h3>
@@ -487,8 +489,8 @@ const Config = createConfigSchema(
     tags: ["hello", "example"]
   },
   av.object({
-    greeting: av.optional(av.string()).default("Hello"),
-    maxNameLength: av.optional(av.int32()).default(100)
+    greeting: av.string().default("Hello"),
+    maxNameLength: av.int32().default(100)
   }, { unknownKeys: "strip" })
 );
 

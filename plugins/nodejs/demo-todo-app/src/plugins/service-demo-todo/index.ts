@@ -139,20 +139,20 @@ export const EventSchemas = createEventSchemas({
  */
 export const TodoConfigSchema = av.object({
   storage: av.object({
-    path: av.optional(av.string()).default('./.temp/demo-todos.json'),
-    autoSaveInterval: av.optional(av.int32().min(1000)).default(5000),
-    prettyPrint: av.optional(av.bool()).default(true),
-  }, { unknownKeys: 'strip' }),
+    path: av.string().default('./.temp/demo-todos.json').describe('Path to the todo JSON storage file'),
+    autoSaveInterval: av.int32().min(1000).default(5000).describe('Auto-save interval in milliseconds'),
+    prettyPrint: av.bool().default(true).describe('Whether stored todo JSON is formatted for readability'),
+  }, { unknownKeys: 'strip' }).describe('Todo storage settings'),
   http: av.object({
-    port: av.optional(av.int32().min(1).max(65535)).default(3000),
-    host: av.optional(av.string()).default('0.0.0.0'),
-    cors: av.optional(av.bool()).default(true),
-  }, { unknownKeys: 'strip' }),
+    port: av.int32().min(1).max(65535).default(3000).describe('HTTP server port for the todo API'),
+    host: av.string().default('0.0.0.0').describe('HTTP server bind address for the todo API'),
+    cors: av.bool().default(true).describe('Whether CORS is enabled for the todo API'),
+  }, { unknownKeys: 'strip' }).describe('Todo HTTP API settings'),
   features: av.object({
-    statsInterval: av.optional(av.int32().min(0)).default(30),
-    maxTodos: av.optional(av.int32().min(1)).default(1000),
-  }, { unknownKeys: 'strip' }),
-}, { unknownKeys: 'strip' });
+    statsInterval: av.int32().min(0).default(30).describe('Interval in seconds between todo statistics broadcasts, or 0 to disable'),
+    maxTodos: av.int32().min(1).default(1000).describe('Maximum number of todos allowed in storage'),
+  }, { unknownKeys: 'strip' }).describe('Todo feature limits and intervals'),
+}, { unknownKeys: 'strip' }).describe('Demo todo service plugin configuration');
 
 export type TodoConfig = av.Infer<typeof TodoConfigSchema>;
 

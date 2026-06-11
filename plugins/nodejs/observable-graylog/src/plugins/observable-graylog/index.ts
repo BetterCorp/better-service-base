@@ -34,24 +34,24 @@ import * as gelfPro from "gelf-pro";
  * Configuration schema for Graylog observable
  */
 export const GraylogConfigSchema = av.object({
-  host: av.optional(av.string()).default("localhost"),
-  port: av.optional(av.int32().min(1).max(65535)).default(12201),
-  protocol: av.optional(av.enum_(["udp", "tcp", "http"])).default("udp"),
-  httpEndpoint: av.optional(av.string().format("url")),
-  facility: av.optional(av.string()).default("bsb"),
+  host: av.string().default("localhost").describe("Graylog server hostname"),
+  port: av.int32().min(1).max(65535).default(12201).describe("Graylog GELF server port"),
+  protocol: av.enum_(["udp", "tcp", "http"]).default("udp").describe("Transport protocol used to send GELF messages"),
+  httpEndpoint: av.optional(av.string().format("url")).describe("HTTP GELF endpoint used when protocol is http"),
+  facility: av.string().default("bsb").describe("GELF facility field value"),
   additionalFields: av.optional(av.record(av.union([
-    av.string(),
-    av.number(),
-    av.bool(),
-  ]))).default({}),
-  compress: av.optional(av.bool()).default(true),
+    av.string().describe("String additional field value"),
+    av.number().describe("Numeric additional field value"),
+    av.bool().describe("Boolean additional field value"),
+  ]))).default({}).describe("Additional static GELF fields added to every log message"),
+  compress: av.bool().default(true).describe("Whether GELF message compression is enabled"),
   levels: av.object({
-    debug: av.optional(av.bool()).default(true),
-    info: av.optional(av.bool()).default(true),
-    warn: av.optional(av.bool()).default(true),
-    error: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
-}, { unknownKeys: "strip" });
+    debug: av.bool().default(true).describe("Whether debug logs are sent to Graylog"),
+    info: av.bool().default(true).describe("Whether info logs are sent to Graylog"),
+    warn: av.bool().default(true).describe("Whether warning logs are sent to Graylog"),
+    error: av.bool().default(true).describe("Whether error logs are sent to Graylog"),
+  }, { unknownKeys: "strip" }).describe("Log level enablement"),
+}, { unknownKeys: "strip" }).describe("Graylog observable plugin configuration");
 
 export type GraylogConfig = av.Infer<typeof GraylogConfigSchema>;
 

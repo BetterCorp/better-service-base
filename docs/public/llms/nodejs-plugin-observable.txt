@@ -22,7 +22,7 @@ Steps:
        documentation: ["./docs/observable-example.md"]
      },
      av.object({
-       level: av.optional(av.string()).default("info")
+       level: av.string().default("info")
      }, { unknownKeys: "strip" })
    );
 

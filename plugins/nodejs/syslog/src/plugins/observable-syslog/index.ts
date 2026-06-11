@@ -36,26 +36,26 @@ import * as SyslogClient from "syslog-client";
  * Configuration schema for syslog client observable
  */
 export const SyslogClientConfigSchema = av.object({
-  host: av.optional(av.string()).default("localhost"),
-  port: av.optional(av.int32().min(1).max(65535)).default(514),
-  protocol: av.optional(av.enum_(["udp", "tcp", "tls"])).default("udp"),
+  host: av.string().default("localhost").describe("Syslog server hostname"),
+  port: av.int32().min(1).max(65535).default(514).describe("Syslog server port"),
+  protocol: av.enum_(["udp", "tcp", "tls"]).default("udp").describe("Transport protocol used to send syslog messages"),
   tls: av.optional(av.object({
-    rejectUnauthorized: av.optional(av.bool()).default(true),
-    ca: av.optional(av.string()),
-    cert: av.optional(av.string()),
-    key: av.optional(av.string()),
-  }, { unknownKeys: "strip" })),
-  facility: av.optional(av.int32().min(0).max(23)).default(16),
-  hostname: av.optional(av.string()),
-  appName: av.optional(av.string()).default("bsb-app"),
-  rfc: av.optional(av.enum_(["3164", "5424"])).default("5424"),
+    rejectUnauthorized: av.bool().default(true).describe("Whether TLS certificate validation rejects unauthorized certificates"),
+    ca: av.optional(av.string()).describe("Optional TLS certificate authority data"),
+    cert: av.optional(av.string()).describe("Optional TLS client certificate data"),
+    key: av.optional(av.string()).describe("Optional TLS client private key data"),
+  }, { unknownKeys: "strip" }).describe("TLS connection settings for syslog transport")),
+  facility: av.int32().min(0).max(23).default(16).describe("Syslog facility code"),
+  hostname: av.optional(av.string()).describe("Hostname reported in syslog messages, defaulting to the local hostname"),
+  appName: av.string().default("bsb-app").describe("Application name reported in syslog messages"),
+  rfc: av.enum_(["3164", "5424"]).default("5424").describe("Syslog message format RFC"),
   levels: av.object({
-    debug: av.optional(av.bool()).default(true),
-    info: av.optional(av.bool()).default(true),
-    warn: av.optional(av.bool()).default(true),
-    error: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
-}, { unknownKeys: "strip" });
+    debug: av.bool().default(true).describe("Whether debug logs are sent to syslog"),
+    info: av.bool().default(true).describe("Whether info logs are sent to syslog"),
+    warn: av.bool().default(true).describe("Whether warning logs are sent to syslog"),
+    error: av.bool().default(true).describe("Whether error logs are sent to syslog"),
+  }, { unknownKeys: "strip" }).describe("Log level enablement"),
+}, { unknownKeys: "strip" }).describe("Syslog client observable plugin configuration");
 
 export type SyslogClientConfig = av.Infer<typeof SyslogClientConfigSchema>;
 

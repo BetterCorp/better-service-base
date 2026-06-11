@@ -20,16 +20,16 @@ import {
 import * as av from "anyvali";
 
 const ConfigSchema = av.object({
-  platformKey: av.nullable(av.string()).default(null),
-  fatalOnDisconnect: av.optional(av.bool()).default(true),
-  prefetch: av.optional(av.int32()).default(10),
-  endpoints: av.optional(av.array(av.string())).default(["amqp://localhost"]),
+  platformKey: av.nullable(av.string()).default(null).describe("Optional platform key appended to RabbitMQ queue names"),
+  fatalOnDisconnect: av.bool().default(true).describe("Whether the process should fail when RabbitMQ disconnects"),
+  prefetch: av.int32().default(10).describe("RabbitMQ channel prefetch count"),
+  endpoints: av.array(av.string()).default(["amqp://localhost"]).describe("RabbitMQ connection endpoint URLs"),
   credentials: av.object({
-    username: av.optional(av.string()).default("guest"),
-    password: av.optional(av.string()).default("guest"),
-  }, { unknownKeys: "strip" }).default({ username: "guest", password: "guest" }),
-  uniqueId: av.nullable(av.string()).default(null),
-}, { unknownKeys: "strip" });
+    username: av.string().default("guest").describe("RabbitMQ username"),
+    password: av.string().default("guest").describe("RabbitMQ password"),
+  }, { unknownKeys: "strip" }).default({ username: "guest", password: "guest" }).describe("RabbitMQ authentication credentials"),
+  uniqueId: av.nullable(av.string()).default(null).describe("Optional stable instance ID used in event consumer identity"),
+}, { unknownKeys: "strip" }).describe("RabbitMQ events plugin configuration");
 
 export const Config = createConfigSchema(
   {

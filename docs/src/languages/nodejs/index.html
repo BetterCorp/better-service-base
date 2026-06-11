@@ -201,17 +201,17 @@
             
             <div class="content">
         <div class="requirements">
-            <h2>📋 Requirements</h2>
+            <h2>Requirements</h2>
             <ul>
-                <li>Node.js ≥ 23.0.0</li>
-                <li>npm ≥ 11.0.0</li>
+                <li>Node.js &gt;= 23.0.0</li>
+                <li>npm &gt;= 11.0.0</li>
                 <li>Docker (runtime - production)</li>
                 <li>TypeScript & Node.js (optional - for plugin development)</li>
             </ul>
         </div>
         
         <div class="info-box">
-            <h4>⚡ Quick Installation (Dev)</h4>
+            <h4>Quick Installation (Dev)</h4>
             <p>For local plugin development and type support:</p>
             <div class="code-block" data-title="bash"><pre><code class="language-bash">npm install @bsb/base
 
@@ -221,12 +221,12 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
         </div>
 
         <div class="info-box">
-            <h4>🎯 How BSB Works</h4>
+            <h4>How BSB Works</h4>
             <p><strong>BSB is designed to run as a standalone Docker container</strong> that loads and runs <em>plugins</em> (published separately). In production you deploy the container and provide plugins via <code>BSB_PLUGIN_DIRS</code> (comma-separated) or <code>BSB_PLUGINS</code>. Installing BSB as a dependency is only for contributors and local plugin development.</p>
         </div>
 
         <div class="info-box">
-            <h4>📖 BSB v9 Documentation</h4>
+            <h4>BSB v9 Documentation</h4>
             <p>BSB v9 introduces the <strong>Observable pattern</strong> for unified observability. Check out our comprehensive guides:</p>
             <ul>
                 <li><a href="/languages/nodejs/migration-v9.html">Migration Guide: v8 to v9</a> - Step-by-step migration from DTrace to Observable</li>
@@ -236,7 +236,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
         </div>
 
         <div class="info-box">
-            <h4>🔎 Discovery & Runtime</h4>
+            <h4>Discovery & Runtime</h4>
             <ul>
                 <li>Production: run the BSB container and provide plugins via <code>BSB_PLUGIN_DIRS</code></li>
                 <li>Optional: specify explicit versions with <code>BSB_PLUGINS</code> (e.g. <code>service-my-api@1.2.3;observable-default@latest</code>)</li>
@@ -245,7 +245,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
         </div>
         
         <div class="section">
-            <h2>🏗️ Project Structure</h2>
+            <h2>Project Structure</h2>
             <p>Container-first plugin repository layout (recommended for production):</p>
             
             <div class="file-structure">/mnt/plugins/
@@ -267,17 +267,17 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
 
             <p>Plugin development project structure (local dev):</p>
             <div class="file-structure">my-plugin/
-├── package.json
-├── src/
-│   └── plugins/
-│       └── service-my-api/
-│           └── index.ts
-└── lib/ (built)
-    └── plugins/service-my-api/index.js</div>
+|-- package.json
+|-- src/
+|   `-- plugins/
+|       `-- service-my-api/
+|           `-- index.ts
+`-- lib/ (built)
+    `-- plugins/service-my-api/index.js</div>
         </div>
         
         <div class="section">
-            <h2>🐳 Container Quick Start</h2>
+            <h2>Container Quick Start</h2>
             <p>Run the official BSB container and mount your plugin repository:</p>
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v $(pwd)/plugins:/mnt/plugins:ro \
@@ -287,7 +287,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
         </div>
 
         <div class="section">
-            <h2>🚀 Step-by-Step Setup</h2>
+            <h2>Step-by-Step Setup</h2>
             
             <ol class="step-list">
                 <li>
@@ -329,7 +329,7 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
                 
                 <li>
                     <h3>Create Your First Service Plugin</h3>
-                    <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor → init → run → dispose</code>):</p>
+                    <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor -&gt; init -&gt; run -&gt; dispose</code>):</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
 <pre><code class="language-ts">import {
   BSBService,
@@ -478,10 +478,10 @@ const Config = createConfigSchema(
     tags: ['api', 'service']
   },
   av.object({
-    maxUsers: av.optional(av.int32()).default(1000),
+    maxUsers: av.int32().default(1000),
     features: av.object({
-      notifications: av.optional(av.bool()).default(true),
-      analytics: av.optional(av.bool()).default(false)
+      notifications: av.bool().default(true),
+      analytics: av.bool().default(false)
     }, { unknownKeys: 'strip' }),
     apiKeys: av.optional(av.object({
       external: av.optional(av.string())
@@ -516,8 +516,8 @@ const Config = createConfigSchema(
                     
                     <div class="success">
                         <strong>Environment Variables:</strong><br>
-                        • <code>BSB_PROFILE</code> - Change deployment profile (default: "default")<br>
-                        • <code>BSB_CONFIG_FILE</code> - Override config file path (default: "./sec-config.yaml")
+                        &bull; <code>BSB_PROFILE</code> - Change deployment profile (default: "default")<br>
+                        &bull; <code>BSB_CONFIG_FILE</code> - Override config file path (default: "./sec-config.yaml")
                     </div>
                 </li>
                 
@@ -537,7 +537,7 @@ npm run dev</code></pre></div>
         </div>
         
         <div class="section">
-            <h2>🔄 Event Communication</h2>
+            <h2>Event Communication</h2>
             <p>BSB services communicate exclusively through typed events:</p>
             
             <div class="code-block" data-title="Event Types"><pre><code class="language-ts">// Fire-and-forget events (single object parameter)
@@ -573,14 +573,19 @@ await this.events.onReturnableEvent('api.getUser', obs, async (childObs, data) =
 await this.events.onBroadcast('system.maintenance', obs, async (childObs, data) => {
   console.log(`Maintenance starts at: ${data.startTime}`);
 });</code></pre></div>
+
+            <div class="info-box">
+                <h4>Event Name Uniqueness</h4>
+                <p>Each event name must appear in only one <code>EventSchemas</code> category. Do not reuse a key across <code>emitEvents</code>, <code>onEvents</code>, <code>emitReturnableEvents</code>, <code>onReturnableEvents</code>, <code>emitBroadcast</code>, or <code>onBroadcast</code>. If a plugin emits an event and also needs to listen to that service contract, instantiate the generated service client and register the listener through the client <code>onX</code> API instead of adding a matching <code>on*</code> entry to the same plugin.</p>
+            </div>
         </div>
         
         <div class="section">
-            <h2>🔒 Event Validation & Performance</h2>
+            <h2>Event Validation & Performance</h2>
             <p>BSB uses BSB types for event contracts and AnyVali for plugin config validation:</p>
             
             <div class="info-box">
-                <h4>⚖️ Performance Considerations</h4>
+                <h4>Performance Considerations</h4>
                 <ul>
                     <li><strong>Event schemas:</strong> Use BSB types for portable contracts and cross-language client generation</li>
                     <li><strong>Config schemas:</strong> Use AnyVali for plugin configuration defaults and validation</li>
@@ -642,7 +647,7 @@ export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas
         </div>
         
         <div class="section">
-            <h2>🐳 Container Deployment</h2>
+            <h2>Container Deployment</h2>
             <p>Deploy the BSB container and mount your prebuilt plugins:</p>
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v /path/to/plugins:/mnt/plugins:ro \

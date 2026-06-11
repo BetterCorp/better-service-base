@@ -36,27 +36,27 @@ import * as path from "path";
  * Configuration schema for file logging plugin
  */
 export const FileLoggingConfigSchema = av.object({
-  directory: av.optional(av.string()).default("./logs"),
-  filename: av.optional(av.string()).default("application-%DATE%.log"),
-  dateFormat: av.optional(av.string()).default("YYYY-MM-DD"),
+  directory: av.string().default("./logs").describe("Directory where log files are written"),
+  filename: av.string().default("application-%DATE%.log").describe("Log filename pattern, supporting the %DATE% token"),
+  dateFormat: av.string().default("YYYY-MM-DD").describe("Date format used when replacing the %DATE% filename token"),
   rotation: av.object({
-    maxSize: av.optional(av.string()).default("10M"),
-    maxFiles: av.optional(av.int32().min(0)).default(7),
-    interval: av.optional(av.enum_(["daily", "hourly", "none"])).default("daily"),
-    compress: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
+    maxSize: av.string().default("10M").describe("Maximum log file size before rotation"),
+    maxFiles: av.int32().min(0).default(7).describe("Maximum number of rotated files to retain, or 0 for no limit"),
+    interval: av.enum_(["daily", "hourly", "none"]).default("daily").describe("Time-based log rotation interval"),
+    compress: av.bool().default(true).describe("Whether rotated log files are compressed"),
+  }, { unknownKeys: "strip" }).describe("File rotation and retention settings"),
   levels: av.object({
-    debug: av.optional(av.bool()).default(true),
-    info: av.optional(av.bool()).default(true),
-    warn: av.optional(av.bool()).default(true),
-    error: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
+    debug: av.bool().default(true).describe("Whether debug logs are written to file"),
+    info: av.bool().default(true).describe("Whether info logs are written to file"),
+    warn: av.bool().default(true).describe("Whether warning logs are written to file"),
+    error: av.bool().default(true).describe("Whether error logs are written to file"),
+  }, { unknownKeys: "strip" }).describe("Log level enablement"),
   format: av.object({
-    timestamp: av.optional(av.bool()).default(true),
-    traceInfo: av.optional(av.bool()).default(true),
-    prettyPrint: av.optional(av.bool()).default(false),
-  }, { unknownKeys: "strip" }),
-}, { unknownKeys: "strip" });
+    timestamp: av.bool().default(true).describe("Whether log entries include a timestamp"),
+    traceInfo: av.bool().default(true).describe("Whether log entries include trace and span identifiers"),
+    prettyPrint: av.bool().default(false).describe("Whether log entries are formatted for human-readable output"),
+  }, { unknownKeys: "strip" }).describe("Log entry formatting settings"),
+}, { unknownKeys: "strip" }).describe("File logging observable plugin configuration");
 
 export type FileLoggingConfig = av.Infer<typeof FileLoggingConfigSchema>;
 

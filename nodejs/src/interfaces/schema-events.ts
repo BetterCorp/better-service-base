@@ -245,7 +245,7 @@ export function createBroadcastEvent<TInput extends BSBType>(
  * - Compile-time validation that fire-and-forget events are in fire-and-forget categories
  * - Compile-time validation that returnable events are in returnable categories
  * - Compile-time validation that broadcast events are in broadcast categories
- * - Runtime duplicate name detection across categories (warns for developer clarity)
+ * - Runtime duplicate name detection across categories (warns before build validation fails)
  *
  * @param schemas - Event schema definitions with type validation
  * @returns Complete event schema with preserved literal types
@@ -272,8 +272,7 @@ export function createBroadcastEvent<TInput extends BSBType>(
 export function createEventSchemas<const T extends BSBEventSchemas>(
   schemas: T
 ): T {
-  // Runtime duplicate name detection for developer clarity
-  // Note: Duplicate names across categories are not technically invalid, but can be confusing
+  // Runtime duplicate name detection for developer clarity before build validation fails.
   if (process.env.NODE_ENV !== 'production') {
     const allNames = new Set<string>();
     const duplicates: string[] = [];
@@ -307,8 +306,8 @@ export function createEventSchemas<const T extends BSBEventSchemas>(
       // eslint-disable-next-line no-console
       console.warn(
         `[BSB Warning] Duplicate event names detected: ${uniqueDuplicates.join(', ')}\n` +
-        `While not technically invalid, duplicate names across categories can confuse developers.\n` +
-        `Consider using unique names for better clarity.`
+        `Build schema export requires event names to be unique across all EventSchemas categories.\n` +
+        `Use distinct names for each event contract entry.`
       );
     }
   }
@@ -406,6 +405,125 @@ export type EventCategory =
   | 'emitBroadcast'
   | 'onBroadcast';
 
+const EVENT_DIRECTION_CONFLICTS = [
+  {
+    emitCategory: 'emitEvents',
+    onCategory: 'onEvents',
+    eventType: 'fire-and-forget',
+    onMethod: 'onEvent',
+  },
+  {
+    emitCategory: 'emitReturnableEvents',
+    onCategory: 'onReturnableEvents',
+    eventType: 'returnable',
+    onMethod: 'onReturnableEvent',
+  },
+  {
+    emitCategory: 'emitBroadcast',
+    onCategory: 'onBroadcast',
+    eventType: 'broadcast',
+    onMethod: 'onBroadcast',
+  },
+] as const satisfies ReadonlyArray<{
+  emitCategory: EventCategory;
+  onCategory: EventCategory;
+  eventType: string;
+  onMethod: string;
+}>;
+
+const EVENT_CATEGORIES = [
+  'emitEvents',
+  'onEvents',
+  'emitReturnableEvents',
+  'onReturnableEvents',
+  'emitBroadcast',
+  'onBroadcast',
+] as const satisfies ReadonlyArray<EventCategory>;
+
+interface EventNameConflict {
+  eventName: string;
+  categories: EventCategory[];
+  directionConflict?: {
+    emitCategory: EventCategory;
+    onCategory: EventCategory;
+    eventType: string;
+    onMethod: string;
+  };
+}
+
+function getDirectionConflict(categories: ReadonlyArray<EventCategory>): EventNameConflict['directionConflict'] {
+  for (const rule of EVENT_DIRECTION_CONFLICTS) {
+    if (categories.includes(rule.emitCategory) && categories.includes(rule.onCategory)) {
+      return {
+        emitCategory: rule.emitCategory,
+        onCategory: rule.onCategory,
+        eventType: rule.eventType,
+        onMethod: rule.onMethod,
+      };
+    }
+  }
+
+  return undefined;
+}
+
+function getEventNameConflicts(schemas: BSBEventSchemas): EventNameConflict[] {
+  const eventCategories = new Map<string, EventCategory[]>();
+
+  for (const category of EVENT_CATEGORIES) {
+    const categorySchemas = schemas[category];
+    if (!categorySchemas) continue;
+
+    for (const eventName of Object.keys(categorySchemas)) {
+      const categories = eventCategories.get(eventName) ?? [];
+      categories.push(category);
+      eventCategories.set(eventName, categories);
+    }
+  }
+
+  return Array.from(eventCategories.entries())
+    .filter(([, categories]) => categories.length > 1)
+    .map(([eventName, categories]) => ({
+      eventName,
+      categories,
+      directionConflict: getDirectionConflict(categories),
+    }));
+}
+
+/**
+ * Validate that each plugin event name is declared once.
+ *
+ * A plugin EventSchemas contract describes that plugin's public bus surface. To consume events
+ * from another service, instantiate that service's generated client and subscribe through it.
+ */
+export function validateEventSchemaNames(pluginName: string, schemas: BSBEventSchemas): void {
+  const conflicts = getEventNameConflicts(schemas);
+  if (conflicts.length === 0) return;
+
+  const conflictLines = conflicts.map(
+    (conflict) =>
+      `- "${conflict.eventName}" is declared in: ${conflict.categories.join(', ')}.`
+  );
+  const directionAdviceLines = conflicts
+    .filter((conflict) => conflict.directionConflict !== undefined)
+    .map((conflict) => {
+      const directionConflict = conflict.directionConflict!;
+      return (
+        `  For "${conflict.eventName}", remove it from ${directionConflict.onCategory}; ` +
+        `if this plugin needs to listen to that emitted ${directionConflict.eventType} event, ` +
+        `instantiate the generated ServiceClient for the emitting plugin and register the listener with the client ${directionConflict.onMethod} API.`
+      );
+    });
+
+  throw new Error(
+    `[BSB Build Error] Invalid EventSchemas for plugin "${pluginName}".\n` +
+      `Each event name must be unique across emitEvents, onEvents, emitReturnableEvents, onReturnableEvents, emitBroadcast, and onBroadcast.\n` +
+      `${conflictLines.join('\n')}\n` +
+      `Use distinct event names for different event types and directions so generated clients have one unambiguous contract entry per key.\n` +
+      `EventSchemas describe this plugin's own public bus contract. A self-declared onX entry is not how a plugin subscribes to its own emitted contract.` +
+      (directionAdviceLines.length > 0 ? `\n${directionAdviceLines.join('\n')}` : '')
+  );
+}
+
 /**
  * JSON Schema type definition for cross-language code generation.
  * Uses standard JSON Schema format with BSB-specific extensions.
@@ -470,7 +588,7 @@ export interface EventSchemaExport {
  *
  * @example
  * ```typescript
- * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+ * export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
  *   static exportSchemas(): EventSchemaExport {
  *     return exportEventSchemas(
  *       Config.metadata.name,
@@ -486,6 +604,8 @@ export function exportEventSchemas(
   pluginName: string,
   schemas: BSBEventSchemas
 ): EventSchemaExport {
+  validateEventSchemaNames(pluginName, schemas);
+
   const events: Record<string, EventExportDefinition> = {};
 
   // Helper to process a category of events

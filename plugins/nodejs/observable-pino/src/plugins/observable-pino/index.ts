@@ -34,24 +34,24 @@ import pino from "pino";
  * Configuration schema for Pino observable
  */
 export const PinoConfigSchema = av.object({
-  level: av.optional(av.enum_(["fatal", "error", "warn", "info", "debug", "trace"])).default("info"),
+  level: av.enum_(["fatal", "error", "warn", "info", "debug", "trace"]).default("info").describe("Minimum Pino log level"),
   prettyPrint: av.object({
-    enabled: av.optional(av.bool()).default(false),
-    colorize: av.optional(av.bool()).default(true),
-    translateTime: av.optional(av.string()).default("SYS:standard"),
-    ignore: av.optional(av.string()).default("pid,hostname"),
-  }, { unknownKeys: "strip" }),
+    enabled: av.bool().default(false).describe("Whether Pino pretty printing is enabled"),
+    colorize: av.bool().default(true).describe("Whether pretty-printed logs use terminal colors"),
+    translateTime: av.string().default("SYS:standard").describe("Pino pretty time translation setting"),
+    ignore: av.string().default("pid,hostname").describe("Comma-separated Pino fields omitted from pretty output"),
+  }, { unknownKeys: "strip" }).describe("Pino pretty-print settings"),
   transport: av.object({
-    enabled: av.optional(av.bool()).default(false),
-    target: av.optional(av.string()),
-    options: av.optional(av.record(av.unknown())),
-  }, { unknownKeys: "strip" }),
+    enabled: av.bool().default(false).describe("Whether a Pino transport is enabled"),
+    target: av.optional(av.string()).describe("Pino transport target module"),
+    options: av.optional(av.record(av.unknown())).describe("Options passed to the configured Pino transport"),
+  }, { unknownKeys: "strip" }).describe("Pino transport settings"),
   serializers: av.object({
-    error: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
-  base: av.optional(av.record(av.unknown())),
-  redact: av.optional(av.array(av.string())).default([]),
-}, { unknownKeys: "strip" });
+    error: av.bool().default(true).describe("Whether Error objects use Pino's standard error serializer"),
+  }, { unknownKeys: "strip" }).describe("Pino serializer settings"),
+  base: av.optional(av.record(av.unknown())).describe("Base fields added to every Pino log entry"),
+  redact: av.array(av.string()).default([]).describe("Pino redaction paths for sensitive fields"),
+}, { unknownKeys: "strip" }).describe("Pino observable plugin configuration");
 
 export type PinoConfig = av.Infer<typeof PinoConfigSchema>;
 
