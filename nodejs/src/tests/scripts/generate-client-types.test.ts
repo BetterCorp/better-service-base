@@ -2,7 +2,6 @@
  * Tests for generated BSB virtual clients.
  */
 
-import { describe, it } from 'mocha';
 import * as assert from 'assert';
 import {
   createBroadcastEvent,

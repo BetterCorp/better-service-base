@@ -2,7 +2,6 @@
  * Tests for schema-events.ts - v9 features
  */
 
-import { describe, it } from 'mocha';
 import * as assert from 'assert';
 import {
   createEventSchemas,
