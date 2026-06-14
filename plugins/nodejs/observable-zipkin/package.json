@@ -43,7 +43,7 @@
     "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
     "rimraf": "^6.0.1",
-    "typescript": "^5.7.3"
+    "typescript": "^6.0.3"
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-zipkin"
 }
