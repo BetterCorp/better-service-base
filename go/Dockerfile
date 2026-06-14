@@ -7,7 +7,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /bsb ./cmd/bsb
 
 # Stage 2: Runtime
-FROM alpine:3.21
+FROM alpine:3.24
 RUN adduser -D -u 1000 bsb
 WORKDIR /home/bsb
 COPY --from=builder /bsb /usr/local/bin/bsb
