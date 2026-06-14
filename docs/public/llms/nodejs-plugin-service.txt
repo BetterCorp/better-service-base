@@ -28,7 +28,7 @@ Steps:
     createReturnableEvent,
     createBroadcastEvent
    } from "@bsb/base";
-   import * as av from "@anyvali/js";
+   import * as av from "anyvali";
    //import { Example2PluginClient } from '../../.bsb/clients/service-bsb-registry.js'; // (bsb client install or npm run build generates these files)
 
    const Config = createConfigSchema(

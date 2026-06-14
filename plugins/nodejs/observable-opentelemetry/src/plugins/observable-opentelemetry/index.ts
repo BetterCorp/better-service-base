@@ -29,7 +29,7 @@ import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatt
 import { DTrace, LogMeta } from "@bsb/base";
 import * as av from "anyvali";
 import * as api from "@opentelemetry/api";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
@@ -48,7 +48,7 @@ export const OpenTelemetryConfigSchema = av.object({
   serviceVersion: av.optional(av.string()).describe("Optional service version reported through OpenTelemetry resource attributes"),
   endpoint: av.string().format("url").default("http://localhost:4318").describe("OTLP collector endpoint base URL"),
   export: av.object({
-    protocol: av.enum_(["http", "grpc"]).default("http").describe("OTLP transport protocol"),
+    protocol: av.enum_(["http", "grpc"]).default("http").describe("OTLP transport protocol setting; current exporter implementation uses HTTP"),
     interval: av.int32().min(100).default(5000).describe("Metric export interval in milliseconds"),
     maxBatchSize: av.int32().min(1).default(512).describe("Maximum number of telemetry items sent in one export batch"),
   }, { unknownKeys: "strip" }).describe("OpenTelemetry export settings"),
@@ -141,7 +141,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
   public async init(): Promise<void> {
     // Create resource with service information
-    const resource = new Resource({
+    const resource = resourceFromAttributes({
       [ATTR_SERVICE_NAME]: this.config.serviceName,
       ...(this.config.serviceVersion && { [ATTR_SERVICE_VERSION]: this.config.serviceVersion }),
       ...this.config.resourceAttributes,
@@ -175,20 +175,24 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
     // Setup metrics separately
     if (this.config.enabled.metrics) {
-      const meterProvider = new MeterProvider({ resource });
-      meterProvider.addMetricReader(
-        new PeriodicExportingMetricReader({
-          exporter: metricExporter,
-          exportIntervalMillis: this.config.export.interval,
-        })
-      );
+      const meterProvider = new MeterProvider({
+        resource,
+        readers: [
+          new PeriodicExportingMetricReader({
+            exporter: metricExporter,
+            exportIntervalMillis: this.config.export.interval,
+          }),
+        ],
+      });
       this.meter = meterProvider.getMeter(this.config.serviceName, this.config.serviceVersion);
     }
 
     // Setup logs separately
     if (this.config.enabled.logs) {
-      this.loggerProvider = new LoggerProvider({ resource });
-      this.loggerProvider.addLogRecordProcessor(new BatchLogRecordProcessor(logExporter));
+      this.loggerProvider = new LoggerProvider({
+        resource,
+        processors: [new BatchLogRecordProcessor(logExporter)],
+      });
       this.logger = this.loggerProvider.getLogger(this.config.serviceName, this.config.serviceVersion);
     }
   }

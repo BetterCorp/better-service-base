@@ -311,7 +311,7 @@ npx tsc --init</code></pre>
   createEventSchemas,
   createReturnableEvent,
 } from "@bsb/base";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 
 const Config = createConfigSchema(
   {
@@ -479,7 +479,7 @@ await this.events.onBroadcast("cache.invalidate", obs, async (handlerObs, input)
 
         <p>To add configuration to your plugin, create a config schema with AnyVali:</p>
 
-        <pre><code class="language-typescript">import * as av from "@anyvali/js";
+        <pre><code class="language-typescript">import * as av from "anyvali";
 import { createConfigSchema } from "@bsb/base";
 
 const Config = createConfigSchema(

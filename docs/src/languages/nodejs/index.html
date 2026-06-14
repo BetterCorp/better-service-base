@@ -311,7 +311,7 @@ npm install -D typescript @types/node</code></pre></div>
     "dev": "tsc && node lib/index.js"
   },
   "dependencies": {
-    "@bsb/base": "^9.5.8"
+    "@bsb/base": "^9.1.11"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
@@ -342,7 +342,7 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
   createReturnableEvent,
   createBroadcastEvent,
 } from '@bsb/base';
-import * as av from '@anyvali/js';
+import * as av from 'anyvali';
 
 // Plugin metadata + config schema (auto-generates bsb-plugin.json)
 const Config = createConfigSchema(
@@ -354,7 +354,7 @@ const Config = createConfigSchema(
   av.object({}, { unknownKeys: 'strip' }),
 );
 
-// Cross-language event schemas (BSB types, NOT Zod)
+// Cross-language event schemas with BSB types
 const EventSchemas = createEventSchemas({
   emitEvents: {
     'notification.send': createFireAndForgetEvent(
@@ -468,7 +468,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
                     <h3>Create Plugin Config (Optional)</h3>
                     <p>Define configuration schema and metadata for your plugin:</p>
                     <div class="code-block" data-title="src/plugins/service-my-api/config.ts (Optional)">
-<pre><code class="language-ts">import * as av from '@anyvali/js';
+<pre><code class="language-ts">import * as av from 'anyvali';
 import { createConfigSchema } from '@bsb/base';
 
 const Config = createConfigSchema(

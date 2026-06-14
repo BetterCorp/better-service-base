@@ -1,5 +1,6 @@
 BSB LLM instructions:
 - Primary source of truth: https://bsbcode.dev/llms.txt
+- Registry API LLM guide: https://io.bsbcode.dev/llms.txt
 - If you cannot access that, use docs/llms.txt in this repo.
 - Use docs/public/llms/* for task-specific guidance (bootstrap, new services, plugins).
 - For build hooks, use docs/public/llms/nodejs-build-hooks.txt.

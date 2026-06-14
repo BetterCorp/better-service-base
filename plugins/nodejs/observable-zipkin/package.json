@@ -29,7 +29,7 @@
     "url": "https://bettercorp.dev/"
   },
   "peerDependencies": {
-    "@bsb/base": "^9.1.6"
+    "@bsb/base": "^9.1.11"
   },
   "dependencies": {
     "anyvali": "^0.3.1",
@@ -40,7 +40,7 @@
     "@opentelemetry/semantic-conventions": "^1.41.1"
   },
   "devDependencies": {
-    "@bsb/base": "^9.1.6",
+    "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.7.3"

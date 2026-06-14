@@ -31,21 +31,21 @@
     "url": "https://bettercorp.dev/"
   },
   "peerDependencies": {
-    "@bsb/base": "^9.1.6"
+    "@bsb/base": "^9.1.11"
   },
   "dependencies": {
-    "anyvali": "^0.3.1",
     "@axiomhq/js": "^1.4.0",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
-    "@opentelemetry/resources": "^2.5.0",
-    "@opentelemetry/sdk-node": "^0.211.0",
-    "@opentelemetry/sdk-trace-base": "^2.5.0",
-    "@opentelemetry/sdk-trace-node": "^2.5.0",
-    "@opentelemetry/semantic-conventions": "^1.41.1"
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/resources": "^2.8.0",
+    "@opentelemetry/sdk-node": "^0.219.0",
+    "@opentelemetry/sdk-trace-base": "^2.8.0",
+    "@opentelemetry/sdk-trace-node": "^2.8.0",
+    "@opentelemetry/semantic-conventions": "^1.41.1",
+    "anyvali": "^0.3.1"
   },
   "devDependencies": {
-    "@bsb/base": "^9.1.6",
+    "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
     "rimraf": "^6.1.2",
     "typescript": "^5.9.3"
