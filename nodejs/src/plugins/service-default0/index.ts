@@ -31,8 +31,8 @@ import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent, cr
 import { Observable } from "../../interfaces/observable.js";
 
 const secSchema = av.object({
-  testa: av.number().describe("First numeric test configuration value"),
-  testb: av.number().describe("Second numeric test configuration value"),
+  testa: av.number().default(0).describe("First numeric test configuration value"),
+  testb: av.number().default(0).describe("Second numeric test configuration value"),
 }, { unknownKeys: "strip" }).describe("Default service 0 test configuration");
 
 export const Config = createConfigSchema(

@@ -48,7 +48,7 @@ export const OpenTelemetryConfigSchema = av.object({
   serviceVersion: av.optional(av.string()).describe("Optional service version reported through OpenTelemetry resource attributes"),
   endpoint: av.string().format("url").default("http://localhost:4318").describe("OTLP collector endpoint base URL"),
   export: av.object({
-    protocol: av.enum_(["http", "grpc"]).default("http").describe("OTLP transport protocol setting; current exporter implementation uses HTTP"),
+    protocol: av.enum_(["http"]).default("http").describe("OTLP HTTP transport protocol setting"),
     interval: av.int32().min(100).default(5000).describe("Metric export interval in milliseconds"),
     maxBatchSize: av.int32().min(1).default(512).describe("Maximum number of telemetry items sent in one export batch"),
   }, { unknownKeys: "strip" }).describe("OpenTelemetry export settings"),
