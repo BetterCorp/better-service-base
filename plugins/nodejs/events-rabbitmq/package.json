@@ -47,7 +47,7 @@
   "dependencies": {
     "amqp-connection-manager": "^4.1.14",
     "amqplib": "^0.10.4",
-    "anyvali": "^0.3.1"
+    "anyvali": "^0.3.4"
   },
   "devDependencies": {
     "@bsb/base": "^9.1.11",

@@ -7,7 +7,7 @@ name = "service-base"
 version = "0.1.0"
 description = "Python port of Better Service Base runtime"
 requires-python = ">=3.11"
-dependencies = ["anyvali>=0.0.5", "PyYAML>=6.0.0"]
+dependencies = ["anyvali>=0.2.4", "PyYAML>=6.0.0"]
 
 [project.scripts]
 bsb = "bsb.cli:main"

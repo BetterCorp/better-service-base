@@ -32,12 +32,12 @@
     "@bsb/base": "^9.1.11"
   },
   "dependencies": {
-    "anyvali": "^0.3.1",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-zipkin": "^1.28.0",
     "@opentelemetry/resources": "^1.28.0",
     "@opentelemetry/sdk-trace-base": "^1.28.0",
-    "@opentelemetry/semantic-conventions": "^1.41.1"
+    "@opentelemetry/semantic-conventions": "^1.41.1",
+    "anyvali": "^0.3.4"
   },
   "devDependencies": {
     "@bsb/base": "^9.1.11",
