@@ -48,7 +48,7 @@
     "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
     "rimraf": "^6.1.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-axiom"
 }
