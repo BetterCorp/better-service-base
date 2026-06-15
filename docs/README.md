@@ -53,7 +53,7 @@ Plugin marketplace content is no longer built inside `docs/`.
 
 - `/registry/` is a redirect page to the external registry UI.
 - Set `BSB_DOCS_REGISTRY_URL` to control the redirect target.
-- Default target is `http://localhost:3200/plugins`.
+- Default target is `https://io.bsbcode.dev/plugins`.
 
 ---
 
@@ -72,17 +72,20 @@ The docs site does not build or bundle TypeDoc output anymore.
 
 ```
 docs/
-├─ build.sh                 # Convenience build script (wraps Vite + types)
+├─ build.sh                 # Convenience build script
 ├─ dist/                    # Build output (static site)
 ├─ node_modules/
 ├─ package.json             # Vite multi-page config via scripts
 ├─ src/                     # Source for the docs site
 │  ├─ assets/               # Shared CSS/JS assets
+│  ├─ core-plugins/         # Core plugin overview
+│  ├─ extending/            # Extension guides
 │  ├─ get-started/          # Getting started page
+│  ├─ guides/               # Task-oriented guides
 │  ├─ index.html            # Landing page
 │  ├─ languages/            # Language sections (e.g. Node.js)
-│  └─ plugins/              # Plugin system overview
-├─ TODO.md                  # Open tasks and design notes
+│  ├─ overview/             # Framework overview
+│  └─ registry/             # External registry redirect
 └─ vite.config.js           # Vite multi-page build configuration
 ```
 

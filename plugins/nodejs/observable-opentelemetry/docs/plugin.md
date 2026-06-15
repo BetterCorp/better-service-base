@@ -5,7 +5,7 @@ OpenTelemetry observable plugin for BSB with full OTLP (OpenTelemetry Protocol) 
 ## Key Features
 
 - Full OpenTelemetry integration for traces, metrics, and logs
-- OTLP export over HTTP and gRPC protocols
+- OTLP export over HTTP
 - Customizable resource attributes for service metadata
 - Configurable sampling to control trace collection rates
 - Efficient batch processing for data export
@@ -65,7 +65,7 @@ plugins:
 | `serviceName` | Name of your service | - |
 | `serviceVersion` | Version of your service | - |
 | `endpoint` | OTLP collector endpoint URL | `http://localhost:4318` |
-| `export.protocol` | Export protocol: "http" or "grpc" | `http` |
+| `export.protocol` | Export protocol setting; current exporter implementation uses "http" | `http` |
 | `export.interval` | Export interval in milliseconds | `5000` |
 | `export.maxBatchSize` | Maximum batch size for exports | `512` |
 | `enabled` | Toggle traces, metrics, and logs individually | All enabled |

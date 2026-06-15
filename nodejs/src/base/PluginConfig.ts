@@ -179,8 +179,11 @@ export class BSBPluginConfigRef
  * // v9 pattern:
  * const TodoConfigSchema = av.object({
  *   database: av.object({
- *     host: av.optional(av.string()).default('localhost'),
- *     port: av.optional(av.int32()).default(5432),
+ *     // .default() makes the key optional in config files while keeping the
+ *     // inferred type non-optional. Only wrap in av.optional() when there is
+ *     // no default and the field may genuinely be absent.
+ *     host: av.string().default('localhost'),
+ *     port: av.int32().default(5432),
  *   }),
  * });
  *
@@ -194,7 +197,7 @@ export class BSBPluginConfigRef
  * );
  *
  * // Usage in plugin:
- * export class Plugin extends BSBService<typeof Config, typeof EventSchemas> {
+ * export class Plugin extends BSBService<InstanceType<typeof Config>, typeof EventSchemas> {
  *   static Config = Config; // Required for auto-generation
  * }
  * ```

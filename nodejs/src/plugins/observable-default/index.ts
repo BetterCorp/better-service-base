@@ -78,7 +78,8 @@ export const Config = createConfigSchema(
       "./docs/core-plugins/observable-default-production.md",
     ],
   },
-  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
+  av.optional(av.object({}, { unknownKeys: "strip" }).describe("Default observable plugin configuration")).default({})
+    .describe("Optional default observable plugin configuration")
 );
 
 export class Plugin extends BSBObservable<InstanceType<typeof Config>> {

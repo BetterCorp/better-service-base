@@ -157,7 +157,7 @@ if (filtered.length === 0) {
 }
 
 const repoRoot = cwd;
-const mochaBin = require.resolve("mocha/bin/_mocha");
+const mochaBin = require.resolve("mocha/bin/mocha.mjs");
 const nycBin = require.resolve("nyc/bin/nyc.js");
 const tsNodeRegister = require.resolve("ts-node/register");
 const setupHook = path.join(__dirname, "..", "src", "runner", "setup.ts");

@@ -36,12 +36,12 @@ import SyslogServer from "syslog-server";
  * Syslog message structure
  */
 export const SyslogMessageSchema = av.object({
-  gatewayTime: av.number(),
-  date: av.number(),
-  host: av.string(),
-  protocol: av.string(),
-  message: av.string(),
-}, { unknownKeys: "strip" });
+  gatewayTime: av.number().describe("Timestamp when the syslog gateway received the message"),
+  date: av.number().describe("Timestamp parsed from the syslog message"),
+  host: av.string().describe("Host reported by the syslog sender"),
+  protocol: av.string().describe("Protocol used to receive the syslog message"),
+  message: av.string().describe("Raw syslog message body"),
+}, { unknownKeys: "strip" }).describe("Syslog message event payload");
 
 export type SyslogMessage = av.Infer<typeof SyslogMessageSchema>;
 
@@ -49,10 +49,10 @@ export type SyslogMessage = av.Infer<typeof SyslogMessageSchema>;
  * Configuration schema for syslog server
  */
 export const SyslogServerConfigSchema = av.object({
-  port: av.optional(av.int32().min(1).max(65535)).default(514),
-  address: av.optional(av.string()).default("0.0.0.0"),
-  exclusive: av.optional(av.bool()).default(false),
-}, { unknownKeys: "strip" });
+  port: av.int32().min(1).max(65535).default(514).describe("UDP port the syslog server listens on"),
+  address: av.string().default("0.0.0.0").describe("Network address the syslog server binds to"),
+  exclusive: av.bool().default(false).describe("Whether the server requests exclusive address binding"),
+}, { unknownKeys: "strip" }).describe("Syslog server plugin configuration");
 
 export type SyslogServerConfig = av.Infer<typeof SyslogServerConfigSchema>;
 

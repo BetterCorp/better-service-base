@@ -7,7 +7,7 @@
 #
 # By default this builds against the published latest BSB runtime image.
 # Override for pinned builds:
-#   docker build -f plugins/nodejs/bsb-registry/Dockerfile --build-arg BSB_IMAGE_TAG=9.1.6 .
+#   docker build -f plugins/nodejs/bsb-registry/Dockerfile --build-arg BSB_IMAGE_TAG=9.1.11 .
 
 ARG BSB_IMAGE_TAG=latest
 

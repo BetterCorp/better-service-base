@@ -1,10 +1,7 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "*": ["types/*"]
-    },
     "module": "NodeNext",
+    "types": ["node"],
     "noImplicitAny": true,
     "removeComments": true,
     "preserveConstEnums": true,

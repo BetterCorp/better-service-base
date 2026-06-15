@@ -43,9 +43,9 @@ import * as av from "anyvali";
 import { ConfigDefinition, ConfigProfile } from "./interfaces.js";
 
 const ConfigSchema = av.object({
-  BSB_PROFILE: av.optional(av.string()).default("default"),
-  BSB_CONFIG_FILE: av.optional(av.string()).default("./sec-config.yaml"),
-}, { unknownKeys: "strip" });
+  BSB_PROFILE: av.string().default("default").describe("Active configuration profile name"),
+  BSB_CONFIG_FILE: av.string().default("./sec-config.yaml").describe("Path to the root BSB configuration file"),
+}, { unknownKeys: "strip" }).describe("Default configuration plugin settings");
 
 export const Config = createConfigSchema(
   {

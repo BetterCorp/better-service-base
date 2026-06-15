@@ -6,12 +6,9 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2022",
-    "baseUrl": ".",
-    "paths": {
-      "*": [
-        "types/*"
-      ]
-    },
+    "types": [
+      "node"
+    ],
     "noImplicitAny": true,
     "removeComments": false,
     "preserveConstEnums": true,

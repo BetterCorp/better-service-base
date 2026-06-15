@@ -340,6 +340,19 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
   lines.push('  constructor(context: BSBService) {');
   lines.push('    super(_PluginRef, context);');
   lines.push('  }');
+  lines.push('');
+  lines.push('  private _requireClientEvents(methodName: string, eventName: string) {');
+  lines.push('    const events = this.events as any;');
+  lines.push('    if (!events || typeof events[methodName] !== "function") {');
+  lines.push(
+    `      throw new Error(\`[BSB Client Error] ${className} cannot use "\${eventName}" via \${methodName} because this generated client has no events facade yet. ` +
+    `Generated service clients are wired by BSB during service setup. Create generated clients in your service constructor with the running BSBService context so BSB can register them before init/run. ` +
+    `If this client was created inside init/onRegistered/run and used immediately, move construction to the constructor. ` +
+    `If you are trying to listen to an event this same plugin emits, do not instantiate its generated client as a self-listener; listen through the generated client for the emitting service, or use this.createSelf() only for explicit self-invocation of own handlers.\`);`
+  );
+  lines.push('    }');
+  lines.push('    return events;');
+  lines.push('  }');
 
   for (const [category, events] of Object.entries(categorizedEvents)) {
     const clientCategory = FLIP_MAP[category];
@@ -355,7 +368,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
       if (clientCategory === 'emitEvents') {
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${methodName}(obs: Observable, input: ${inputTypeName}): Promise<void> {`);
-        lines.push(`    await this.events.emitEvent("${name}", obs, input);`);
+        lines.push(`    const events = this._requireClientEvents("emitEvent", "${name}");`);
+        lines.push(`    await events.emitEvent("${name}", obs, input);`);
         lines.push('  }');
         continue;
       }
@@ -365,7 +379,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const timeout = def.defaultTimeout ?? 5;
         lines.push(`  /** ${description} (default timeout: ${timeout}s) */`);
         lines.push(`  async ${methodName}(obs: Observable, input: ${inputTypeName}, timeout: number = ${timeout}): Promise<${outputTypeName}> {`);
-        lines.push(`    return this.events.emitEventAndReturn("${name}", obs, input, timeout);`);
+        lines.push(`    const events = this._requireClientEvents("emitEventAndReturn", "${name}");`);
+        lines.push(`    return events.emitEventAndReturn("${name}", obs, input, timeout);`);
         lines.push('  }');
         continue;
       }
@@ -374,7 +389,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const emitMethodName = `emit${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${emitMethodName}(obs: Observable, input: ${inputTypeName}): Promise<void> {`);
-        lines.push(`    await this.events.emitBroadcast("${name}", obs, input);`);
+        lines.push(`    const events = this._requireClientEvents("emitBroadcast", "${name}");`);
+        lines.push(`    await events.emitBroadcast("${name}", obs, input);`);
         lines.push('  }');
         continue;
       }
@@ -383,7 +399,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const onMethodName = `on${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${onMethodName}(obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<void>): Promise<void> {`);
-        lines.push(`    await this.events.onEvent("${name}", obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onEvent", "${name}");`);
+        lines.push(`    await events.onEvent("${name}", obs, handler);`);
         lines.push('  }');
         continue;
       }
@@ -393,7 +410,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const onMethodName = `on${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${onMethodName}(obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<${outputTypeName}>): Promise<void> {`);
-        lines.push(`    await this.events.onReturnableEvent("${name}", obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onReturnableEvent", "${name}");`);
+        lines.push(`    await events.onReturnableEvent("${name}", obs, handler);`);
         lines.push('  }');
         continue;
       }
@@ -402,7 +420,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const onMethodName = `on${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${onMethodName}(obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<void>): Promise<void> {`);
-        lines.push(`    await this.events.onBroadcast("${name}", obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onBroadcast", "${name}");`);
+        lines.push(`    await events.onBroadcast("${name}", obs, handler);`);
         lines.push('  }');
       }
     }
@@ -557,4 +576,4 @@ if (isMainModule(import.meta.url)) {
   });
 }
 
-export { main as generateClientTypes };
+export { main as generateClientTypes, generateVirtualClient };

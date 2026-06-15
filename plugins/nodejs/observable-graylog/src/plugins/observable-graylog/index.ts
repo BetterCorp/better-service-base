@@ -28,30 +28,35 @@
 import { BSBObservable, BSBObservableConstructor, createConfigSchema, LogFormatter, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import * as av from "anyvali";
-import * as gelfPro from "gelf-pro";
+import dgram from "node:dgram";
+import net from "node:net";
+import http from "node:http";
+import https from "node:https";
+import os from "node:os";
+import { gzipSync } from "node:zlib";
 
 /**
  * Configuration schema for Graylog observable
  */
 export const GraylogConfigSchema = av.object({
-  host: av.optional(av.string()).default("localhost"),
-  port: av.optional(av.int32().min(1).max(65535)).default(12201),
-  protocol: av.optional(av.enum_(["udp", "tcp", "http"])).default("udp"),
-  httpEndpoint: av.optional(av.string().format("url")),
-  facility: av.optional(av.string()).default("bsb"),
+  host: av.string().default("localhost").describe("Graylog server hostname"),
+  port: av.int32().min(1).max(65535).default(12201).describe("Graylog GELF server port"),
+  protocol: av.enum_(["udp", "tcp", "http"]).default("udp").describe("Transport protocol used to send GELF messages"),
+  httpEndpoint: av.optional(av.string().format("url")).describe("HTTP GELF endpoint used when protocol is http"),
+  facility: av.string().default("bsb").describe("GELF facility field value"),
   additionalFields: av.optional(av.record(av.union([
-    av.string(),
-    av.number(),
-    av.bool(),
-  ]))).default({}),
-  compress: av.optional(av.bool()).default(true),
+    av.string().describe("String additional field value"),
+    av.number().describe("Numeric additional field value"),
+    av.bool().describe("Boolean additional field value"),
+  ]))).default({}).describe("Additional static GELF fields added to every log message"),
+  compress: av.bool().default(true).describe("Whether UDP GELF message compression is enabled"),
   levels: av.object({
-    debug: av.optional(av.bool()).default(true),
-    info: av.optional(av.bool()).default(true),
-    warn: av.optional(av.bool()).default(true),
-    error: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
-}, { unknownKeys: "strip" });
+    debug: av.bool().default(true).describe("Whether debug logs are sent to Graylog"),
+    info: av.bool().default(true).describe("Whether info logs are sent to Graylog"),
+    warn: av.bool().default(true).describe("Whether warning logs are sent to Graylog"),
+    error: av.bool().default(true).describe("Whether error logs are sent to Graylog"),
+  }, { unknownKeys: "strip" }).describe("Log level enablement"),
+}, { unknownKeys: "strip" }).describe("Graylog observable plugin configuration");
 
 export type GraylogConfig = av.Infer<typeof GraylogConfigSchema>;
 
@@ -93,32 +98,17 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   static Config = Config;
   private logFormatter = new LogFormatter();
   private isDisposed = false;
+  private defaultFields: Record<string, string | number | boolean> = {};
 
   constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
   }
 
   public async init(): Promise<void> {
-    // Configure gelf-pro adapter
-    const adapterName = this.config.protocol === "tcp" ? "tcp" : "udp";
-
-    const adapterOptions: any = {
-      host: this.config.host,
-      port: this.config.port,
-    };
-
-    // Set default fields including facility
-    const fields: any = {
+    this.defaultFields = {
       facility: this.config.facility,
       ...this.config.additionalFields,
     };
-
-    // Initialize gelf-pro
-    gelfPro.setConfig({
-      adapterName,
-      adapterOptions,
-      fields,
-    });
   }
 
   public async run(): Promise<void> {
@@ -162,15 +152,81 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
         }
       }
 
-      // Send to Graylog using the message method
-      gelfPro.message(formattedMessage, gelfLevel, extraFields, (err?: Error) => {
-        if (err) {
-          console.error(`[observable-graylog] Failed to send log: ${err.message}`);
-        }
-      });
+      this.sendGelfMessage(formattedMessage, gelfLevel, extraFields);
     } catch (err) {
       console.error(`[observable-graylog] Send error: ${(err as Error).message}`);
     }
+  }
+
+  private sendGelfMessage(
+    shortMessage: string,
+    level: number,
+    extraFields: Record<string, string | number | boolean>
+  ): void {
+    const payload = JSON.stringify({
+      version: "1.1",
+      host: os.hostname(),
+      short_message: shortMessage,
+      timestamp: Date.now() / 1000,
+      level,
+      ...this.defaultFields,
+      ...extraFields,
+    });
+
+    if (this.config.protocol === "http") {
+      this.sendHttp(payload);
+      return;
+    }
+
+    if (this.config.protocol === "tcp") {
+      this.sendTcp(payload);
+      return;
+    }
+
+    this.sendUdp(payload);
+  }
+
+  private sendUdp(payload: string): void {
+    const socket = dgram.createSocket("udp4");
+    const message = this.config.compress ? gzipSync(Buffer.from(payload)) : Buffer.from(payload);
+    socket.send(message, this.config.port, this.config.host, (err) => {
+      socket.close();
+      if (err) {
+        console.error(`[observable-graylog] Failed to send UDP log: ${err.message}`);
+      }
+    });
+  }
+
+  private sendTcp(payload: string): void {
+    const socket = net.createConnection({ host: this.config.host, port: this.config.port }, () => {
+      socket.end(`${payload}\0`);
+    });
+    socket.on("error", (err) => {
+      console.error(`[observable-graylog] Failed to send TCP log: ${err.message}`);
+    });
+  }
+
+  private sendHttp(payload: string): void {
+    const endpoint = new URL(this.config.httpEndpoint ?? `http://${this.config.host}:${this.config.port}/gelf`);
+    const body = Buffer.from(payload);
+    const client = endpoint.protocol === "https:" ? https : http;
+    const req = client.request(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": body.byteLength,
+        },
+      },
+      (res) => {
+        res.resume();
+      }
+    );
+    req.on("error", (err) => {
+      console.error(`[observable-graylog] Failed to send HTTP log: ${err.message}`);
+    });
+    req.end(body);
   }
 
   // Logging methods
@@ -213,6 +269,5 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
   public dispose(): void {
     this.isDisposed = true;
-    // gelf-pro doesn't require explicit cleanup
   }
 }

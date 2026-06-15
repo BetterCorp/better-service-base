@@ -7,7 +7,7 @@ Graylog (GELF) observable plugin for BSB that sends logs to Graylog servers usin
 - GELF 1.1 protocol with full specification support
 - Multiple transports: UDP, TCP, and HTTP
 - Custom fields with automatic trace and span integration
-- Optional gzip compression for reduced bandwidth
+- Optional gzip compression for reduced UDP bandwidth
 - Level filtering to control which logs are sent
 
 ## When to Use
@@ -66,7 +66,7 @@ plugins:
 | `httpEndpoint` | HTTP endpoint URL (for HTTP protocol) | - |
 | `facility` | Facility name for log categorization | `bsb` |
 | `additionalFields` | Custom fields included in all messages | `{}` |
-| `compress` | Enable gzip compression | `true` |
+| `compress` | Enable gzip compression for UDP transport | `true` |
 | `levels` | Log level filtering | All enabled |
 
 # Usage

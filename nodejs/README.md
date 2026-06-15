@@ -56,7 +56,7 @@ v9 introduces breaking changes focused on type safety, developer experience, and
 **Type Safety Improvements:**
 - `createEventSchemas()` - No more `as const` required, automatic type inference
 - Type branding - Compile-time validation that event types match categories
-- Duplicate name detection - Warns about confusing duplicate event names
+- Duplicate name validation - Builds fail when an EventSchemas key is reused across categories
 
 **Simplified Configuration:**
 - `createConfigSchema()` - Single function replaces class pattern
@@ -210,6 +210,7 @@ Notes
 
 Quick reference:
 - Use `createEventSchemas()` to define typed events with compile-time validation
+- Keep each EventSchemas key unique across emit/on and event type categories
 - Use `createConfigSchema()` to define plugin configuration with metadata
 - Use cross-language type helpers (`uuid`, `int32`, `datetime`, etc.) for better code generation
 - Plugin metadata auto-generates `PLUGIN_CLIENT` and schema files during build

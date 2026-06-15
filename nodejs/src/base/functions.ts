@@ -152,16 +152,16 @@ export function SmartFunctionCallSync<T extends SmartFunctionCallFunc>(
  */
 export const ENV_PROPS = av.object({
   /** Active configuration profile (e.g. "default", "prod") */
-  BSB_PROFILE: av.optional(av.string()).default("default"),
+  BSB_PROFILE: av.optional(av.string()).default("default").describe('Active configuration profile name'),
   /** Path to the root config file when not using plugin-based sources */
-  BSB_CONFIG_FILE: av.optional(av.string()).default("config.yaml"),
+  BSB_CONFIG_FILE: av.optional(av.string()).default("config.yaml").describe('Path to the root config file when not using plugin-based sources'),
   /** Application working directory */
-  APP_DIR: av.optional(av.string()).default(process.cwd()),
+  APP_DIR: av.optional(av.string()).default(process.cwd()).describe('Application working directory'),
   /** Logger plugin name to load */
-  BSB_LOGGER_PLUGIN: av.optional(av.string()).default("config-default"),
+  BSB_LOGGER_PLUGIN: av.optional(av.string()).default("config-default").describe('Logger plugin name to load'),
   /** Logger plugin package (if different from name) */
-  BSB_LOGGER_PLUGIN_PACKAGE: av.optional(av.string()).default("config-default"),
-}, { unknownKeys: 'strip' });
+  BSB_LOGGER_PLUGIN_PACKAGE: av.optional(av.string()).default("config-default").describe('Logger plugin package when different from the plugin name'),
+}, { unknownKeys: 'strip' }).describe('Validated BSB runtime environment properties');
 
 /**
  * Parse and validate the current environment against {@link ENV_PROPS}.

@@ -36,7 +36,7 @@
 //   DEBUG_MODE,
 //   SBLogging, MainBaseConfig, BaseWithConfigConfig,
 // } from "../../index.js";
-// import {z} from "zod";
+// import * as av from "anyvali";
 // import {expect} from "chai";
 //
 // class MainBaseRef
@@ -46,8 +46,8 @@
 //   }
 // }
 //
-// const zodtype = z.object({
-//   testProp: z.string(),
+// const configSchema = av.object({
+//   testProp: av.string(),
 // });
 //
 // describe("Base Classes", async () => {
@@ -136,7 +136,7 @@
 //
 //   describe("BaseWithConfig", () => {
 //     class TestBaseWithConfig
-//         extends BaseWithConfig<typeof zodtype> {
+//         extends BaseWithConfig<typeof configSchema> {
 //       dispose() {
 //       }
 //
@@ -148,7 +148,7 @@
 //     }
 //
 //     it("should initialize with correct properties including config", () => {
-//       const config: BaseWithConfigConfig<typeof zodtype> = {...defaultConfig, config: zodtype};
+//       const config: BaseWithConfigConfig<typeof configSchema> = {...defaultConfig, config: configSchema};
 //       const baseWithConfig = new TestBaseWithConfig(config);
 //       expect(baseWithConfig["config"])
 //           .to
@@ -194,7 +194,7 @@
 //     });
 //
 //     class TestBaseWithLoggingAndConfig
-//         extends BaseWithLoggingAndConfig<typeof zodtype> {
+//         extends BaseWithLoggingAndConfig<typeof configSchema> {
 //       dispose() {
 //       }
 //
@@ -209,7 +209,7 @@
 //       const config = {
 //         ...defaultConfig,
 //         sbLogging: sbLoggingStub,
-//         config: zodtype,
+//         config: configSchema,
 //       };
 //       const baseWithLoggingAndConfig = new TestBaseWithLoggingAndConfig(config);
 //       expect(baseWithLoggingAndConfig["log"])
@@ -226,7 +226,7 @@
 //       const config = {
 //         ...defaultConfig,
 //         sbLogging: sbLoggingStub,
-//         config: zodtype,
+//         config: configSchema,
 //       };
 //       const baseWithLoggingAndConfig = new TestBaseWithLoggingAndConfig(config);
 //       const newLogger = baseWithLoggingAndConfig["createNewLogger"]("sub-plugin");

@@ -35,35 +35,35 @@ import DailyRotateFile from "winston-daily-rotate-file";
  * Configuration schema for Winston observable
  */
 export const WinstonConfigSchema = av.object({
-  level: av.optional(av.enum_(["error", "warn", "info", "debug"])).default("info"),
+  level: av.enum_(["error", "warn", "info", "debug"]).default("info").describe("Minimum Winston log level"),
   transports: av.object({
     console: av.object({
-      enabled: av.optional(av.bool()).default(true),
-      colorize: av.optional(av.bool()).default(true),
-    }, { unknownKeys: "strip" }),
+      enabled: av.bool().default(true).describe("Whether console logging is enabled"),
+      colorize: av.bool().default(true).describe("Whether console logs use terminal colors"),
+    }, { unknownKeys: "strip" }).describe("Winston console transport settings"),
     file: av.object({
-      enabled: av.optional(av.bool()).default(false),
-      filename: av.optional(av.string()).default("./logs/application.log"),
-      maxsize: av.optional(av.int32()).default(10485760),
-      maxFiles: av.optional(av.int32()).default(5),
-      tailable: av.optional(av.bool()).default(true),
-    }, { unknownKeys: "strip" }),
+      enabled: av.bool().default(false).describe("Whether fixed file logging is enabled"),
+      filename: av.string().default("./logs/application.log").describe("File path for fixed file logging"),
+      maxsize: av.int32().default(10485760).describe("Maximum file size in bytes before rotation"),
+      maxFiles: av.int32().default(5).describe("Maximum number of rotated fixed log files to retain"),
+      tailable: av.bool().default(true).describe("Whether fixed file rotation uses tailable filenames"),
+    }, { unknownKeys: "strip" }).describe("Winston fixed file transport settings"),
     dailyRotate: av.object({
-      enabled: av.optional(av.bool()).default(false),
-      dirname: av.optional(av.string()).default("./logs"),
-      filename: av.optional(av.string()).default("application-%DATE%.log"),
-      datePattern: av.optional(av.string()).default("YYYY-MM-DD"),
-      maxSize: av.optional(av.string()).default("20m"),
-      maxFiles: av.optional(av.string()).default("14d"),
-      zippedArchive: av.optional(av.bool()).default(true),
-    }, { unknownKeys: "strip" }),
-  }, { unknownKeys: "strip" }),
+      enabled: av.bool().default(false).describe("Whether daily rotating file logging is enabled"),
+      dirname: av.string().default("./logs").describe("Directory where rotating log files are written"),
+      filename: av.string().default("application-%DATE%.log").describe("Rotating log filename pattern"),
+      datePattern: av.string().default("YYYY-MM-DD").describe("Date pattern used by the rotating file transport"),
+      maxSize: av.string().default("20m").describe("Maximum rotating log file size"),
+      maxFiles: av.string().default("14d").describe("Rotating log retention window or file count"),
+      zippedArchive: av.bool().default(true).describe("Whether rotated log files are compressed"),
+    }, { unknownKeys: "strip" }).describe("Winston daily rotating file transport settings"),
+  }, { unknownKeys: "strip" }).describe("Winston transport settings"),
   format: av.object({
-    timestamp: av.optional(av.bool()).default(true),
-    json: av.optional(av.bool()).default(true),
-    prettyPrint: av.optional(av.bool()).default(false),
-  }, { unknownKeys: "strip" }),
-}, { unknownKeys: "strip" });
+    timestamp: av.bool().default(true).describe("Whether log entries include timestamps"),
+    json: av.bool().default(true).describe("Whether logs are emitted as JSON"),
+    prettyPrint: av.bool().default(false).describe("Whether logs use human-readable formatting"),
+  }, { unknownKeys: "strip" }).describe("Winston log format settings"),
+}, { unknownKeys: "strip" }).describe("Winston observable plugin configuration");
 
 export type WinstonConfig = av.Infer<typeof WinstonConfigSchema>;
 

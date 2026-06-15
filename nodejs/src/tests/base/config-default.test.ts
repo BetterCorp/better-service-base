@@ -1,4 +1,3 @@
-import { afterEach, describe, it } from "mocha";
 import * as assert from "assert";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

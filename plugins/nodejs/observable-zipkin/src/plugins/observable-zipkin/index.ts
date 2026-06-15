@@ -41,26 +41,26 @@ import { BasicTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trac
 import { ZipkinExporter } from "@opentelemetry/exporter-zipkin";
 
 const ConfigSchema = av.object({
-    serviceName: av.optional(av.string()).default("bsb-service"),
-    serviceVersion: av.optional(av.string()),
+    serviceName: av.string().default("bsb-service").describe("Service name reported to Zipkin"),
+    serviceVersion: av.optional(av.string()).describe("Optional service version reported with traces"),
     zipkin: av.object({
-      url: av.optional(av.string().format("url")).default("http://localhost:9411/api/v2/spans"),
-      headers: av.optional(av.record(av.string())),
-      statusCodeTagName: av.optional(av.string()).default("http.status_code"),
-      statusDescriptionTagName: av.optional(av.string()).default("http.status_text"),
-    }, { unknownKeys: "strip" }),
+      url: av.string().format("url").default("http://localhost:9411/api/v2/spans").describe("Zipkin span ingest endpoint"),
+      headers: av.optional(av.record(av.string())).describe("Optional HTTP headers sent to Zipkin"),
+      statusCodeTagName: av.string().default("http.status_code").describe("Span tag name used for status codes"),
+      statusDescriptionTagName: av.string().default("http.status_text").describe("Span tag name used for status descriptions"),
+    }, { unknownKeys: "strip" }).describe("Zipkin exporter settings"),
     export: av.object({
-      maxBatchSize: av.optional(av.int32().min(1)).default(100),
-      maxQueueSize: av.optional(av.int32().min(1)).default(2048),
-      scheduledDelayMillis: av.optional(av.int32().min(100)).default(5000),
-    }, { unknownKeys: "strip" }),
-    resourceAttributes: av.optional(av.record(av.string())).default({}),
-    samplingRate: av.optional(av.number().min(0).max(1)).default(1.0),
+      maxBatchSize: av.int32().min(1).default(100).describe("Maximum number of spans exported in one batch"),
+      maxQueueSize: av.int32().min(1).default(2048).describe("Maximum queued spans before export backpressure applies"),
+      scheduledDelayMillis: av.int32().min(100).default(5000).describe("Delay in milliseconds between scheduled span exports"),
+    }, { unknownKeys: "strip" }).describe("Zipkin span export batching settings"),
+    resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to traces"),
+    samplingRate: av.number().min(0).max(1).default(1.0).describe("Trace sampling rate from 0.0 to 1.0"),
     console: av.object({
-      enabled: av.optional(av.bool()).default(true),
-      logLevel: av.optional(av.enum_(['debug', 'info', 'warn', 'error'])).default('info'),
-    }, { unknownKeys: "strip" }),
-  }, { unknownKeys: "strip" });
+      enabled: av.bool().default(true).describe("Whether console logging is enabled for the plugin"),
+      logLevel: av.enum_(['debug', 'info', 'warn', 'error']).default('info').describe("Minimum console log level"),
+    }, { unknownKeys: "strip" }).describe("Console logging settings"),
+  }, { unknownKeys: "strip" }).describe("Zipkin observable plugin configuration");
 
 export const Config = createConfigSchema(
   {

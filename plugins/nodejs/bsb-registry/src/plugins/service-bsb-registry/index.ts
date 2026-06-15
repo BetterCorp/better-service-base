@@ -22,13 +22,13 @@ import * as Types from './types.js';
  */
 export const RegistryConfigSchema = av.object({
   database: av.object({
-    type: av.optional(av.enum_(['file', 'postgres'])).default('file'),
-    path: av.optional(av.string()).default('./.temp/data'),
-  }, { unknownKeys: 'strip' }),
+    type: av.enum_(['file', 'postgres'] as const).default('file').describe('Storage backend used by the registry database'),
+    path: av.string().default('./.temp/data').describe('Filesystem path used by the file storage backend'),
+  }, { unknownKeys: 'strip' }).describe('Registry database configuration'),
   auth: av.object({
-    requireAuth: av.optional(av.bool()).default(true),
-  }, { unknownKeys: 'strip' }),
-}, { unknownKeys: 'strip' });
+    requireAuth: av.bool().default(true).describe('Whether write operations require API token authentication'),
+  }, { unknownKeys: 'strip' }).describe('Registry authentication configuration'),
+}, { unknownKeys: 'strip' }).describe('Configuration schema for BSB Registry core');
 
 export type RegistryConfig = av.Infer<typeof RegistryConfigSchema>;
 

@@ -91,44 +91,52 @@ const majorMinorPattern = /^\d{1,5}\.\d{1,5}$/;
 // Package name: npm-style scoped or unscoped
 const packageNamePattern = /^(@[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9._-]+$/;
 
-const slugField = av.string().minLength(1).maxLength(100).pattern(slugPattern.source);
-const semverField = av.string().minLength(5).maxLength(50).pattern(semverPattern.source);
-const languageEnum = av.enum_(['nodejs', 'csharp', 'go', 'java', 'python'] as const);
-const categoryEnum = av.enum_(['service', 'observable', 'events', 'config'] as const);
-const visibilityEnum = av.enum_(['public', 'private'] as const);
-const safeString = (max: number) => av.string().maxLength(max).pattern(safeAscii.source);
-const safeStringRequired = (min: number, max: number) => av.string().minLength(min).maxLength(max).pattern(safeAscii.source);
+const slugField = () => av.string().minLength(1).maxLength(100).pattern(slugPattern.source)
+  .describe('Slug containing letters, numbers, dash, underscore, dot, at-sign, or slash');
+const semverField = () => av.string().minLength(5).maxLength(50).pattern(semverPattern.source)
+  .describe('Strict semantic version in major.minor.patch format with optional prerelease');
+const languageEnum = () => av.enum_(['nodejs', 'csharp', 'go', 'java', 'python'] as const)
+  .describe('Plugin implementation language');
+const categoryEnum = () => av.enum_(['service', 'observable', 'events', 'config'] as const)
+  .describe('Plugin category');
+const visibilityEnum = () => av.enum_(['public', 'private'] as const)
+  .describe('Plugin visibility level');
+const safeString = (max: number) => av.string().maxLength(max).pattern(safeAscii.source)
+  .describe('Printable ASCII string with no control characters');
+const safeStringRequired = (min: number, max: number) => av.string().minLength(min).maxLength(max).pattern(safeAscii.source)
+  .describe('Required printable ASCII string with no control characters');
 
 // ---- Route param schemas ----
 
 const OrgParamsSchema = createValidator(objectSchema({
-  org: slugField,
-}));
+  org: slugField().describe('Organization or user namespace'),
+}).describe('Organization route parameters'));
 
 const PluginDetailParamsSchema = createValidator(objectSchema({
-  org: slugField,
-  name: slugField,
-}));
+  org: slugField().describe('Organization or user namespace'),
+  name: slugField().describe('Plugin name'),
+}).describe('Plugin detail route parameters'));
 
 const PluginVersionParamsSchema = createValidator(objectSchema({
-  org: slugField,
-  name: slugField,
-  version: semverField,
-}));
+  org: slugField().describe('Organization or user namespace'),
+  name: slugField().describe('Plugin name'),
+  version: semverField().describe('Plugin semantic version'),
+}).describe('Plugin version route parameters'));
 
 const PluginTypesParamsSchema = createValidator(objectSchema({
-  org: slugField,
-  name: slugField,
-  version: semverField,
-  language: languageEnum,
-}));
+  org: slugField().describe('Organization or user namespace'),
+  name: slugField().describe('Plugin name'),
+  version: semverField().describe('Plugin semantic version'),
+  language: languageEnum().describe('Type definition language'),
+}).describe('Plugin type definition route parameters'));
 
 const packageLookupIdPattern = /^[A-Za-z0-9@._\-/:]+$/;
 
 const PackageLookupParamsSchema = createValidator(objectSchema({
-  language: languageEnum,
-  '*': av.string().minLength(1).maxLength(300).pattern(packageLookupIdPattern.source),
-}), {
+  language: languageEnum().describe('Package language to resolve'),
+  '*': av.string().minLength(1).maxLength(300).pattern(packageLookupIdPattern.source)
+    .describe('Package lookup identifier, including scoped package names and encoded path segments'),
+}).describe('Package lookup route parameters'), {
   normalize: (input) => mapObjectInput(input, (value) => {
     const packageId = value['*'];
     if (typeof packageId !== 'string') {
@@ -151,13 +159,16 @@ const PackageLookupParamsSchema = createValidator(objectSchema({
 
 // ---- Query string schemas ----
 const BrowseQuerySchema = createValidator(objectSchema({
-  page: av.optional(av.int32().coerce({ from: 'string' }).min(1).max(10000)),
-  query: av.optional(safeString(200)),
-  category: av.optional(categoryEnum),
-  language: av.optional(languageEnum),
-  limit: av.optional(av.int32().coerce({ from: 'string' }).min(1).max(100)),
-  offset: av.optional(av.int32().coerce({ from: 'string' }).min(0).max(100000)),
-}), {
+  page: av.optional(av.int32().coerce({ from: 'string' }).min(1).max(10000))
+    .describe('One-based page number for browse results'),
+  query: av.optional(safeString(200)).describe('Search text used to filter browse results'),
+  category: av.optional(categoryEnum()).describe('Optional plugin category filter'),
+  language: av.optional(languageEnum()).describe('Optional plugin language filter'),
+  limit: av.optional(av.int32().coerce({ from: 'string' }).min(1).max(100))
+    .describe('Maximum number of results to return'),
+  offset: av.optional(av.int32().coerce({ from: 'string' }).min(0).max(100000))
+    .describe('Zero-based result offset for pagination'),
+}).describe('Plugin browse query parameters'), {
   normalize: (input) => mapObjectInput(input, (value) => ({
     ...value,
     query: emptyStringToUndefined(value.query),
@@ -167,103 +178,109 @@ const BrowseQuerySchema = createValidator(objectSchema({
 });
 
 const VersionsQuerySchema = createValidator(objectSchema({
-  majorMinor: av.optional(av.string().maxLength(11).pattern(majorMinorPattern.source)),
-}));
+  majorMinor: av.optional(av.string().maxLength(11).pattern(majorMinorPattern.source))
+    .describe('Optional major.minor version filter'),
+}).describe('Plugin versions query parameters'));
 
 const MatchQuerySchema = createValidator(objectSchema({
-  version: av.string().minLength(1).maxLength(20).pattern(safeAscii.source),
-}));
+  version: av.string().minLength(1).maxLength(20).pattern(safeAscii.source)
+    .describe('Version or version range to match'),
+}).describe('Plugin version match query parameters'));
 
 const DocsQuerySchema = createValidator(objectSchema({
-  index: av.optional(av.int32().coerce({ from: 'string' }).min(0).max(100)),
-}));
+  index: av.optional(av.int32().coerce({ from: 'string' }).min(0).max(100))
+    .describe('Zero-based documentation file index'),
+}).describe('Plugin documentation query parameters'));
 
 // ---- EventSchemaExport validation (parsed from the JSON string clients send) ----
 
-const AnyValiDocumentSchema = av.record(av.unknown());
+const anyValiDocumentSchema = () => av.record(av.unknown().describe('AnyVali document property value'))
+  .describe('AnyVali schema document');
 
 const EventExportEntrySchema = objectSchema({
-  type: av.enum_(['fire-and-forget', 'returnable', 'broadcast'] as const),
+  type: av.enum_(['fire-and-forget', 'returnable', 'broadcast'] as const)
+    .describe('Event delivery type'),
   category: av.enum_([
     'emitEvents', 'onEvents',
     'emitReturnableEvents', 'onReturnableEvents',
     'emitBroadcast', 'onBroadcast',
-  ] as const),
-  description: av.optional(av.string().maxLength(1000)),
-  defaultTimeout: av.optional(av.int32().min(0).max(300)),
-  inputSchema: AnyValiDocumentSchema,
-  outputSchema: av.nullable(AnyValiDocumentSchema),
-});
+  ] as const).describe('Event schema registry category'),
+  description: av.optional(av.string().maxLength(1000)).describe('Human-readable event description'),
+  defaultTimeout: av.optional(av.int32().min(0).max(300)).describe('Default returnable event timeout in seconds'),
+  inputSchema: anyValiDocumentSchema().describe('AnyVali document describing the event input payload'),
+  outputSchema: av.nullable(anyValiDocumentSchema()).describe('AnyVali document describing the event output payload, or null when there is no output'),
+}).describe('Exported plugin event definition');
 
 const EventSchemaExportObjectSchema = objectSchema({
-  pluginName: safeStringRequired(1, 200),
-  version: semverField,
-  events: av.record(EventExportEntrySchema).default({}),
-  capabilities: av.optional(av.unknown()),
+  pluginName: safeStringRequired(1, 200).describe('Plugin name that produced the exported event schema'),
+  version: semverField().describe('Plugin schema semantic version'),
+  events: av.record(EventExportEntrySchema).default({}).describe('Map of event names to exported event definitions'),
+  capabilities: av.optional(av.unknown()).describe('Optional plugin capability metadata'),
   dependencies: av.optional(av.array(objectSchema({
-    id: av.string().minLength(1).maxLength(200),
-    version: safeStringRequired(1, 50),
-  })).maxItems(100)),
-});
+    id: av.string().minLength(1).maxLength(200).describe('Dependency plugin ID'),
+    version: safeStringRequired(1, 50).describe('Dependency version constraint'),
+  }).describe('Generated client dependency')).maxItems(100)).describe('Plugins referenced by generated client imports'),
+}).describe('Exported plugin event schema object');
 
 type EventSchemaExportData = av.Infer<typeof EventSchemaExportObjectSchema>;
 
 // ---- Publish body schema ----
 
 const AuthorSchema = av.union([
-  safeString(200),
+  safeString(200).describe('Author name as a string'),
   objectSchema({
-    name: safeStringRequired(1, 200),
-    email: av.optional(av.string().maxLength(200).format('email')),
-    url: av.optional(av.string().maxLength(500).format('url')),
-  }),
-] as const);
+    name: safeStringRequired(1, 200).describe('Author display name'),
+    email: av.optional(av.string().maxLength(200).format('email')).describe('Author email address'),
+    url: av.optional(av.string().maxLength(500).format('url')).describe('Author homepage URL'),
+  }).describe('Author object'),
+] as const).describe('Author value, either a string or an object with name, email, and URL fields');
 
 const PublishBodyObjectSchema = objectSchema({
-  org: av.string().minLength(1).maxLength(100).pattern(slugPattern.source),
-  name: av.string().minLength(1).maxLength(100).pattern(packageNamePattern.source),
-  version: semverField,
-  language: languageEnum,
+  org: av.string().minLength(1).maxLength(100).pattern(slugPattern.source).describe('Organization or user namespace'),
+  name: av.string().minLength(1).maxLength(100).pattern(packageNamePattern.source).describe('Plugin package name'),
+  version: semverField().describe('Published plugin semantic version'),
+  language: languageEnum().describe('Published plugin implementation language'),
   metadata: objectSchema({
-    displayName: safeStringRequired(1, 200),
-    description: av.string().minLength(1).maxLength(1000),
-    category: categoryEnum,
-    tags: av.array(safeString(50)).maxItems(30),
-    author: av.optional(AuthorSchema),
-    license: av.optional(safeString(50)),
-    homepage: av.optional(av.string().maxLength(500).format('url')),
-    repository: av.optional(safeString(500)),
-  }),
-  eventSchema: EventSchemaExportObjectSchema,
-  capabilities: av.optional(av.unknown()),
-  configSchema: av.optional(AnyValiDocumentSchema),
+    displayName: safeStringRequired(1, 200).describe('Human-readable plugin name'),
+    description: av.string().minLength(1).maxLength(1000).describe('Short plugin description'),
+    category: categoryEnum().describe('Plugin category'),
+    tags: av.array(safeString(50)).maxItems(30).describe('Searchable plugin tags'),
+    author: av.optional(AuthorSchema).describe('Plugin author, accepting npm-style string or object formats'),
+    license: av.optional(safeString(50)).describe('License identifier'),
+    homepage: av.optional(av.string().maxLength(500).format('url')).describe('Plugin homepage or documentation URL'),
+    repository: av.optional(safeString(500)).describe('Source repository URL or identifier'),
+  }).describe('Plugin metadata supplied by the publisher'),
+  eventSchema: EventSchemaExportObjectSchema.describe('Exported event schema for the published plugin'),
+  capabilities: av.optional(av.unknown()).describe('Optional top-level plugin capability metadata'),
+  configSchema: av.optional(anyValiDocumentSchema()).describe('AnyVali document describing plugin configuration'),
   typeDefinitions: av.optional(objectSchema({
-    nodejs: av.optional(av.string().maxLength(5_000_000)),
-    csharp: av.optional(av.string().maxLength(5_000_000)),
-    go: av.optional(av.string().maxLength(5_000_000)),
-    java: av.optional(av.string().maxLength(5_000_000)),
-  })),
-  documentation: av.array(av.string().maxLength(1_000_000)).minItems(1).maxItems(20),
+    nodejs: av.optional(av.string().maxLength(5_000_000)).describe('TypeScript declaration output'),
+    csharp: av.optional(av.string().maxLength(5_000_000)).describe('C# type definition output'),
+    go: av.optional(av.string().maxLength(5_000_000)).describe('Go type definition output'),
+    java: av.optional(av.string().maxLength(5_000_000)).describe('Java type definition output'),
+  }).describe('Generated type definitions by language')).describe('Language-specific generated type definitions'),
+  documentation: av.array(av.string().maxLength(1_000_000)).minItems(1).maxItems(20)
+    .describe('Markdown documentation files published with the plugin'),
   dependencies: av.optional(av.array(objectSchema({
-    id: av.string().minLength(1).maxLength(200).pattern(slugPattern.source),
-    version: safeStringRequired(1, 50),
-  })).maxItems(100)),
+    id: av.string().minLength(1).maxLength(200).pattern(slugPattern.source).describe('Dependency plugin ID'),
+    version: safeStringRequired(1, 50).describe('Dependency version constraint'),
+  }).describe('Published plugin dependency')).maxItems(100)).describe('Plugins this plugin depends on'),
   package: av.optional(objectSchema({
-    nodejs: av.optional(safeString(200)),
-    csharp: av.optional(safeString(200)),
-    go: av.optional(safeString(200)),
-    java: av.optional(safeString(200)),
-    python: av.optional(safeString(200)),
-  })),
+    nodejs: av.optional(safeString(200)).describe('NPM package name'),
+    csharp: av.optional(safeString(200)).describe('NuGet package name'),
+    go: av.optional(safeString(200)).describe('Go module path'),
+    java: av.optional(safeString(200)).describe('Maven coordinates'),
+    python: av.optional(safeString(200)).describe('PyPI package name'),
+  }).describe('Package identifiers by language')).describe('Language-specific package identifiers'),
   runtime: av.optional(objectSchema({
-    nodejs: av.optional(safeString(50)),
-    dotnet: av.optional(safeString(50)),
-    go: av.optional(safeString(50)),
-    java: av.optional(safeString(50)),
-    python: av.optional(safeString(50)),
-  })),
-  visibility: av.optional(visibilityEnum),
-});
+    nodejs: av.optional(safeString(50)).describe('Node.js runtime requirement'),
+    dotnet: av.optional(safeString(50)).describe('.NET runtime requirement'),
+    go: av.optional(safeString(50)).describe('Go runtime requirement'),
+    java: av.optional(safeString(50)).describe('Java runtime requirement'),
+    python: av.optional(safeString(50)).describe('Python runtime requirement'),
+  }).describe('Runtime requirements by language')).describe('Runtime version requirements'),
+  visibility: av.optional(visibilityEnum()).describe('Optional plugin visibility override'),
+}).describe('Plugin publish request body');
 
 type PublishBodyData = av.Infer<typeof PublishBodyObjectSchema>;
 

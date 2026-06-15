@@ -44,25 +44,25 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import type { IdGenerator } from "@opentelemetry/sdk-trace-base";
 
 const ConfigSchema = av.object({
-  serviceName: av.optional(av.string()).default("bsb-service"),
-  serviceVersion: av.optional(av.string()),
+  serviceName: av.string().default("bsb-service").describe("Service name reported to Axiom and OpenTelemetry"),
+  serviceVersion: av.optional(av.string()).describe("Optional service version reported with telemetry"),
   axiom: av.object({
-    token: av.string(),
-    dataset: av.optional(av.string()).default("bsb-logs"),
-    orgId: av.optional(av.string()),
-    url: av.optional(av.string().format("url")),
-  }, { unknownKeys: "strip" }),
+    token: av.string().describe("Axiom API token used for ingesting telemetry"),
+    dataset: av.string().default("bsb-logs").describe("Axiom dataset used for logs and metrics"),
+    orgId: av.optional(av.string()).describe("Optional Axiom organization ID"),
+    url: av.optional(av.string().format("url")).describe("Optional custom Axiom API base URL"),
+  }, { unknownKeys: "strip" }).describe("Axiom connection settings"),
   enabled: av.object({
-    logs: av.optional(av.bool()).default(true),
-    metrics: av.optional(av.bool()).default(true),
-    traces: av.optional(av.bool()).default(true),
-  }, { unknownKeys: "strip" }),
+    logs: av.bool().default(true).describe("Whether log export to Axiom is enabled"),
+    metrics: av.bool().default(true).describe("Whether metric export to Axiom is enabled"),
+    traces: av.bool().default(true).describe("Whether trace export to Axiom is enabled"),
+  }, { unknownKeys: "strip" }).describe("Telemetry signal enablement"),
   export: av.object({
-    flushIntervalMs: av.optional(av.int32().min(100)).default(5000),
-    maxBatchSize: av.optional(av.int32().min(1)).default(1000),
-  }, { unknownKeys: "strip" }),
-  resourceAttributes: av.optional(av.record(av.string())).default({}),
-}, { unknownKeys: "strip" });
+    flushIntervalMs: av.int32().min(100).default(5000).describe("Interval in milliseconds between batched log flushes"),
+    maxBatchSize: av.int32().min(1).default(1000).describe("Maximum number of log entries sent in one batch"),
+  }, { unknownKeys: "strip" }).describe("Axiom export batching settings"),
+  resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to exported telemetry"),
+}, { unknownKeys: "strip" }).describe("Axiom observable plugin configuration");
 
 export const Config = createConfigSchema(
   {

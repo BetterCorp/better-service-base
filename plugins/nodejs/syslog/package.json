@@ -39,18 +39,18 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@bsb/base": "^9.1.6"
+    "@bsb/base": "^9.1.11"
   },
   "dependencies": {
-    "anyvali": "^0.3.1",
+    "anyvali": "^0.3.4",
     "syslog-client": "^1.1.1",
     "syslog-server": "^1.0.1"
   },
   "devDependencies": {
-    "@bsb/base": "^9.1.6",
+    "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
-    "mocha": "^11.0.0",
-    "typescript": "^5.9.0"
+    "mocha": "^12.0.0-beta-9.6",
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=23.0.0",

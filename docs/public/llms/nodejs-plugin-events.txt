@@ -12,7 +12,7 @@ Steps:
    Example index.ts:
    ```ts
    import { BSBEvents, BSBEventsConstructor, createConfigSchema, Observable } from "@bsb/base";
-   import * as av from "@anyvali/js";
+   import * as av from "anyvali";
    import { Readable } from "node:stream";
    import {
      emit,

@@ -226,11 +226,11 @@ export class Plugin extends BSBEvents&lt;null&gt; {
 
         <h2>Creating an Observable Plugin</h2>
 
-        <p>An observable plugin unifies logging, metrics, and tracing into a single backend. Implement the methods you support — all are optional, so you can build a logging-only plugin, a metrics-only plugin, or a full backend like OpenTelemetry:</p>
+        <p>An observable plugin unifies logging, metrics, and tracing into a single backend. Implement the methods you support &mdash; all are optional, so you can build a logging-only plugin, a metrics-only plugin, or a full backend like OpenTelemetry:</p>
 
         <pre><code class="language-typescript">import { BSBObservable, BSBObservableConstructor, createConfigSchema, BSBError } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
-import * as av from "@anyvali/js";
+import * as av from "anyvali";
 
 const Config = createConfigSchema(
   {
@@ -239,8 +239,8 @@ const Config = createConfigSchema(
     tags: ["observable", "logging"]
   },
   av.object({
-    host: av.optional(av.string()).default("localhost"),
-    port: av.optional(av.number()).default(12201)
+    host: av.string().default("localhost"),
+    port: av.number().default(12201)
   }, { unknownKeys: "strip" })
 );
 
@@ -251,7 +251,7 @@ export class Plugin extends BSBObservable&lt;InstanceType&lt;typeof Config&gt;&g
     super(cfg);
   }
 
-  // Logging methods (all optional — implement what you need)
+  // Logging methods (all optional - implement what you need)
   debug(trace: DTrace, pluginName: string, message: string, meta: LogMeta&lt;any&gt;): void {
     this.sendToGraylog("debug", trace, pluginName, message, meta);
   }

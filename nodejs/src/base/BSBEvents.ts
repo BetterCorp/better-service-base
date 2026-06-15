@@ -29,7 +29,7 @@
 import { Readable } from "node:stream";
 import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base.js";
 import { BSB_ERROR_METHOD_NOT_IMPLEMENTED } from "./errorMessages.js";
-import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType, BSBReferenceConfigType } from "./PluginConfig.js";
+import { BSBReferencePluginConfigDefinition, BSBReferencePluginConfigType } from "./PluginConfig.js";
 import { Observable } from '../interfaces/observable.js';
 
 export interface BSBEventsConstructor<
@@ -38,7 +38,7 @@ export interface BSBEventsConstructor<
     extends BaseWithObservableAndConfigConfig<
         ReferencedConfig extends null
         ? null
-        : BSBReferencePluginConfigDefinition<ReferencedConfig> & BSBReferenceConfigType
+        : BSBReferencePluginConfigDefinition<ReferencedConfig>
     > {
 }
 
@@ -53,7 +53,7 @@ export abstract class BSBEvents<
     extends BaseWithObservableAndConfig<
         ReferencedConfig extends null
         ? null
-        : BSBReferencePluginConfigDefinition<ReferencedConfig> & BSBReferenceConfigType
+        : BSBReferencePluginConfigDefinition<ReferencedConfig>
     > {
     constructor(config: BSBEventsConstructor<ReferencedConfig>) {
         super(config);

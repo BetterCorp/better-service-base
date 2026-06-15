@@ -14,7 +14,7 @@ plugins:
         
         # Export settings
         export:
-          # Protocol: "http" or "grpc"
+          # Protocol: "http"
           protocol: "http"
           
           # Export interval in milliseconds

@@ -38,7 +38,8 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['benchmark', 'performance', 'test'],
   },
-  av.optional(av.object({}, { unknownKeys: "strip" })).default({})
+  av.optional(av.object({}, { unknownKeys: "strip" }).describe("Benchmark service configuration")).default({})
+    .describe("Optional benchmark service configuration")
 );
 
 export const EventSchemas = createEventSchemas({
