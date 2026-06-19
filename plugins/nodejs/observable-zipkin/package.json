@@ -36,7 +36,7 @@
     "@opentelemetry/exporter-zipkin": "^1.28.0",
     "@opentelemetry/resources": "^1.28.0",
     "@opentelemetry/sdk-trace-base": "^1.28.0",
-    "@opentelemetry/semantic-conventions": "^1.41.1",
+    "@opentelemetry/semantic-conventions": "^1.28.0",
     "anyvali": "^0.3.4"
   },
   "devDependencies": {
