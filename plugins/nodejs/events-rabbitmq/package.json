@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "amqp-connection-manager": "^5.0.0",
-    "amqplib": "^0.10.4",
+    "amqplib": "^2.0.1",
     "anyvali": "^1.0.6"
   },
   "devDependencies": {
