@@ -1,0 +1,4 @@
+reviews:
+  tools:
+    opengrep:
+      enabled: true

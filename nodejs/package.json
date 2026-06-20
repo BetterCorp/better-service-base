@@ -44,8 +44,8 @@
     "generate-plugin-json": "node --import tsx src/scripts/generate-plugin-json.ts",
     "publish:client": "node lib/cli.js client publish",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
-    "test": "cross-env NODE_OPTIONS= c8 --reporter json --reporter lcov node --import tsx ../node_modules/mocha/bin/mocha.mjs --reporter json --reporter-options output=junit.json",
-    "testDev": "cross-env NODE_OPTIONS= c8 node --import tsx ../node_modules/mocha/bin/mocha.mjs",
+    "test": "cross-env NODE_OPTIONS= node --import tsx ../node_modules/mocha/bin/mocha.mjs --reporter json --reporter-options output=junit.json",
+    "testDev": "cross-env NODE_OPTIONS= node --import tsx ../node_modules/mocha/bin/mocha.mjs",
     "test:watch": "node --import tsx ../node_modules/mocha/bin/mocha.mjs --watch --watch-files src"
   },
   "bin": {
@@ -83,7 +83,6 @@
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "benchmarkify": "^4.0.0",
-    "c8": "^11.0.0",
     "chai": "^4.3.10",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
