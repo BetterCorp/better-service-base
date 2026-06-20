@@ -16,7 +16,7 @@
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
     "anyvali": "^1.0.6",
-    "glob": "^11.0.0",
+    "glob": "^13.0.6",
     "markdown-it": "^14.2.0",
     "markdown-it-anchor": "^9.0.0",
     "markdown-it-attrs": "^5.0.0",
