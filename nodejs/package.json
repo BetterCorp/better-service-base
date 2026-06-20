@@ -95,7 +95,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "anyvali": "^1.0.5",
+    "anyvali": "^1.0.6",
     "chokidar": "^5.0.0",
     "uuid": "^13.0.0",
     "yaml": "^2.8.2"
