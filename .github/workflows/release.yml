@@ -195,3 +195,132 @@ jobs:
           platforms: ${{ steps.upstream.outputs.platforms }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
+
+  docker-go:
+    name: Docker Go
+    needs: [go, prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          TAGS="betterweb/service-base:go-${VERSION}"
+          TAGS="${TAGS},betterweb/service-base:go-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            TAGS="${TAGS},betterweb/service-base:go"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./go
+          file: ./go/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+
+  docker-python:
+    name: Docker Python
+    needs: [python, prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          TAGS="betterweb/service-base:python-${VERSION}"
+          TAGS="${TAGS},betterweb/service-base:python-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            TAGS="${TAGS},betterweb/service-base:python"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./python
+          file: ./python/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+
+  docker-dotnet:
+    name: Docker .NET
+    needs: [dotnet, prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          TAGS="betterweb/service-base:dotnet-${VERSION}"
+          TAGS="${TAGS},betterweb/service-base:dotnet-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            TAGS="${TAGS},betterweb/service-base:dotnet"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dotnet
+          file: ./dotnet/BetterServiceBase/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
