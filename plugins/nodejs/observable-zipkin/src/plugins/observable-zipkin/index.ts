@@ -35,7 +35,7 @@ import {
 import { DTrace, LogMeta } from "@bsb/base";
 import * as av from "anyvali";
 import * as api from "@opentelemetry/api";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { BasicTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { ZipkinExporter } from "@opentelemetry/exporter-zipkin";
@@ -93,7 +93,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   }
 
   public async init(): Promise<void> {
-    const resource = new Resource({
+    const resource = resourceFromAttributes({
       [ATTR_SERVICE_NAME]: this.config.serviceName,
       ...(this.config.serviceVersion && { [ATTR_SERVICE_VERSION]: this.config.serviceVersion }),
       ...this.config.resourceAttributes,
@@ -108,17 +108,16 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
     this.tracerProvider = new BasicTracerProvider({
       resource,
+      spanProcessors: [
+        new BatchSpanProcessor(this.exporter, {
+          maxQueueSize: this.config.export.maxQueueSize,
+          maxExportBatchSize: this.config.export.maxBatchSize,
+          scheduledDelayMillis: this.config.export.scheduledDelayMillis,
+        }),
+      ],
     });
 
-    this.tracerProvider.addSpanProcessor(
-      new BatchSpanProcessor(this.exporter, {
-        maxQueueSize: this.config.export.maxQueueSize,
-        maxExportBatchSize: this.config.export.maxBatchSize,
-        scheduledDelayMillis: this.config.export.scheduledDelayMillis,
-      })
-    );
-
-    this.tracerProvider.register();
+    api.trace.setGlobalTracerProvider(this.tracerProvider);
 
     this.tracer = this.tracerProvider.getTracer(
       this.config.serviceName,

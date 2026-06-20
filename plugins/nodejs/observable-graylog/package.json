@@ -41,7 +41,7 @@
     "@bsb/base": "^9.1.11"
   },
   "dependencies": {
-    "anyvali": "^0.3.4"
+    "anyvali": "^1.0.5"
   },
   "devDependencies": {
     "@bsb/base": "^9.1.11",
