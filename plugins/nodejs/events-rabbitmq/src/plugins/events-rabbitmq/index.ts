@@ -27,9 +27,9 @@ const ConfigSchema = av.object({
   credentials: av.object({
     username: av.string().default("guest").describe("RabbitMQ username"),
     password: av.string().default("guest").describe("RabbitMQ password"),
-  }, { unknownKeys: "strip" }).default({ username: "guest", password: "guest" }).describe("RabbitMQ authentication credentials"),
+  }).default({ username: "guest", password: "guest" }).describe("RabbitMQ authentication credentials"),
   uniqueId: av.nullable(av.string()).default(null).describe("Optional stable instance ID used in event consumer identity"),
-}, { unknownKeys: "strip" }).describe("RabbitMQ events plugin configuration");
+}).describe("RabbitMQ events plugin configuration");
 
 export const Config = createConfigSchema(
   {

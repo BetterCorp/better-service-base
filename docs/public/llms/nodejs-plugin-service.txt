@@ -13,6 +13,7 @@ Steps:
    - Do not declare the same event in an emit* category and an on* category in the same plugin. If this plugin needs to listen to an event emitted by a service contract, instantiate that service's generated client and register the listener on the client onX API instead.
    - Plugin implements lifecycle: init(obs), run(obs), dispose().
    - this.config is fully typed from the config schema (via BSBService<InstanceType<typeof Config>, ...>). Never cast it.
+   - Do not pass `{ unknownKeys: "strip" }` to plugin config `av.object(...)`; BSB enforces `schema.parse(config, { unknownKeys: "strip" })` centrally at startup.
    - For config fields with defaults use av.string().default("x") (key optional in config file, type stays string).
      Only use av.optional(...) for fields with no default that may be absent (type becomes T | undefined).
    Example index.ts: (example events added for you)
@@ -43,7 +44,7 @@ Steps:
      av.object({
         // Define the config schema here.
         // When adding definitions here, also add them to the sec-config.yaml for your project during dev.
-     }, { unknownKeys: "strip" })
+     })
    );
 
    const EventSchemas = createEventSchemas({

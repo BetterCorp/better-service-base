@@ -51,15 +51,15 @@ export const OpenTelemetryConfigSchema = av.object({
     protocol: av.enum_(["http"]).default("http").describe("OTLP HTTP transport protocol setting"),
     interval: av.int32().min(100).default(5000).describe("Metric export interval in milliseconds"),
     maxBatchSize: av.int32().min(1).default(512).describe("Maximum number of telemetry items sent in one export batch"),
-  }, { unknownKeys: "strip" }).describe("OpenTelemetry export settings"),
+  }).describe("OpenTelemetry export settings"),
   enabled: av.object({
     traces: av.bool().default(true).describe("Whether trace export is enabled"),
     metrics: av.bool().default(true).describe("Whether metric export is enabled"),
     logs: av.bool().default(true).describe("Whether log export is enabled"),
-  }, { unknownKeys: "strip" }).describe("Telemetry signal enablement"),
+  }).describe("Telemetry signal enablement"),
   resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to exported telemetry"),
   samplingRate: av.number().min(0).max(1).default(1.0).describe("Trace sampling rate from 0.0 to 1.0"),
-}, { unknownKeys: "strip" }).describe("OpenTelemetry observable plugin configuration");
+}).describe("OpenTelemetry observable plugin configuration");
 
 export type OpenTelemetryConfig = av.Infer<typeof OpenTelemetryConfigSchema>;
 

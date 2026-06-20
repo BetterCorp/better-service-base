@@ -48,19 +48,19 @@ const ConfigSchema = av.object({
       headers: av.optional(av.record(av.string())).describe("Optional HTTP headers sent to Zipkin"),
       statusCodeTagName: av.string().default("http.status_code").describe("Span tag name used for status codes"),
       statusDescriptionTagName: av.string().default("http.status_text").describe("Span tag name used for status descriptions"),
-    }, { unknownKeys: "strip" }).describe("Zipkin exporter settings"),
+    }).describe("Zipkin exporter settings"),
     export: av.object({
       maxBatchSize: av.int32().min(1).default(100).describe("Maximum number of spans exported in one batch"),
       maxQueueSize: av.int32().min(1).default(2048).describe("Maximum queued spans before export backpressure applies"),
       scheduledDelayMillis: av.int32().min(100).default(5000).describe("Delay in milliseconds between scheduled span exports"),
-    }, { unknownKeys: "strip" }).describe("Zipkin span export batching settings"),
+    }).describe("Zipkin span export batching settings"),
     resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to traces"),
     samplingRate: av.number().min(0).max(1).default(1.0).describe("Trace sampling rate from 0.0 to 1.0"),
     console: av.object({
       enabled: av.bool().default(true).describe("Whether console logging is enabled for the plugin"),
       logLevel: av.enum_(['debug', 'info', 'warn', 'error']).default('info').describe("Minimum console log level"),
-    }, { unknownKeys: "strip" }).describe("Console logging settings"),
-  }, { unknownKeys: "strip" }).describe("Zipkin observable plugin configuration");
+    }).describe("Console logging settings"),
+  }).describe("Zipkin observable plugin configuration");
 
 export const Config = createConfigSchema(
   {

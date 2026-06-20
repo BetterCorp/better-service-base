@@ -51,18 +51,18 @@ const ConfigSchema = av.object({
     dataset: av.string().default("bsb-logs").describe("Axiom dataset used for logs and metrics"),
     orgId: av.optional(av.string()).describe("Optional Axiom organization ID"),
     url: av.optional(av.string().format("url")).describe("Optional custom Axiom API base URL"),
-  }, { unknownKeys: "strip" }).describe("Axiom connection settings"),
+  }).describe("Axiom connection settings"),
   enabled: av.object({
     logs: av.bool().default(true).describe("Whether log export to Axiom is enabled"),
     metrics: av.bool().default(true).describe("Whether metric export to Axiom is enabled"),
     traces: av.bool().default(true).describe("Whether trace export to Axiom is enabled"),
-  }, { unknownKeys: "strip" }).describe("Telemetry signal enablement"),
+  }).describe("Telemetry signal enablement"),
   export: av.object({
     flushIntervalMs: av.int32().min(100).default(5000).describe("Interval in milliseconds between batched log flushes"),
     maxBatchSize: av.int32().min(1).default(1000).describe("Maximum number of log entries sent in one batch"),
-  }, { unknownKeys: "strip" }).describe("Axiom export batching settings"),
+  }).describe("Axiom export batching settings"),
   resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to exported telemetry"),
-}, { unknownKeys: "strip" }).describe("Axiom observable plugin configuration");
+}).describe("Axiom observable plugin configuration");
 
 export const Config = createConfigSchema(
   {

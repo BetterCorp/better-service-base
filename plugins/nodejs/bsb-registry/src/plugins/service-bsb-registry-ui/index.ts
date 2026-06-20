@@ -22,7 +22,7 @@ const UIConfigSchema = av.object({
   uploadDir: av.string().default('./.temp/registry-images').describe('Directory used to store uploaded registry images'),
   badgesFile: av.string().default('./BADGES.json').describe('Path to the badge definition JSON file'),
   maxImageUploadMb: av.int32().min(1).max(20).default(5).describe('Maximum uploaded image size in megabytes'),
-}, { unknownKeys: 'strip' }).describe('Registry UI and API plugin configuration');
+}).describe('Registry UI and API plugin configuration');
 
 export type UIConfig = av.Infer<typeof UIConfigSchema>;
 

@@ -78,7 +78,7 @@ export const Config = createConfigSchema(
       "./docs/core-plugins/observable-default-production.md",
     ],
   },
-  av.optional(av.object({}, { unknownKeys: "strip" }).describe("Default observable plugin configuration")).default({})
+  av.optional(av.object({}).describe("Default observable plugin configuration")).default({})
     .describe("Optional default observable plugin configuration")
 );
 

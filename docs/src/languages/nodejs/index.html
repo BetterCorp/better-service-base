@@ -345,13 +345,14 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
 import * as av from 'anyvali';
 
 // Plugin metadata + config schema (auto-generates bsb-plugin.json)
+// BSB strips unknown config keys centrally during startup.
 const Config = createConfigSchema(
   {
     name: 'service-my-api',
     description: 'My API service plugin',
     tags: ['service', 'api'],
   },
-  av.object({}, { unknownKeys: 'strip' }),
+  av.object({}),
 );
 
 // Cross-language event schemas with BSB types
@@ -482,11 +483,11 @@ const Config = createConfigSchema(
     features: av.object({
       notifications: av.bool().default(true),
       analytics: av.bool().default(false)
-    }, { unknownKeys: 'strip' }),
+    }),
     apiKeys: av.optional(av.object({
       external: av.optional(av.string())
-    }, { unknownKeys: 'strip' }))
-  }, { unknownKeys: 'strip' })
+    }))
+  })
 );
 </code></pre></div>
                 </li>

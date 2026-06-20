@@ -320,7 +320,7 @@ const Config = createConfigSchema(
     tags: ["service", "example"],
     documentation: ["./docs/service-hello.md"],
   },
-  av.object({}, { unknownKeys: "strip" }),
+  av.object({}),
 );
 
 const EventSchemas = createEventSchemas({
@@ -477,7 +477,7 @@ await this.events.onBroadcast("cache.invalidate", obs, async (handlerObs, input)
 
         <h2>Adding Configuration</h2>
 
-        <p>To add configuration to your plugin, create a config schema with AnyVali:</p>
+        <p>To add configuration to your plugin, create a config schema with AnyVali. BSB strips unknown config keys centrally during startup, so plugin schemas do not need <code>{ unknownKeys: "strip" }</code>.</p>
 
         <pre><code class="language-typescript">import * as av from "anyvali";
 import { createConfigSchema } from "@bsb/base";
@@ -491,7 +491,7 @@ const Config = createConfigSchema(
   av.object({
     greeting: av.string().default("Hello"),
     maxNameLength: av.int32().default(100)
-  }, { unknownKeys: "strip" })
+  })
 );
 
 export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typeof EventSchemas&gt; {

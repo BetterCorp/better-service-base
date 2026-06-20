@@ -29,7 +29,7 @@ interface InputValidator<T> {
 }
 
 function objectSchema<T extends Record<string, av.BaseSchema<any, any>>>(shape: T) {
-  return av.object(shape, { unknownKeys: 'strip' });
+  return av.object(shape);
 }
 
 function createValidator<T>(

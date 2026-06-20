@@ -40,18 +40,18 @@ export const PinoConfigSchema = av.object({
     colorize: av.bool().default(true).describe("Whether pretty-printed logs use terminal colors"),
     translateTime: av.string().default("SYS:standard").describe("Pino pretty time translation setting"),
     ignore: av.string().default("pid,hostname").describe("Comma-separated Pino fields omitted from pretty output"),
-  }, { unknownKeys: "strip" }).describe("Pino pretty-print settings"),
+  }).describe("Pino pretty-print settings"),
   transport: av.object({
     enabled: av.bool().default(false).describe("Whether a Pino transport is enabled"),
     target: av.optional(av.string()).describe("Pino transport target module"),
     options: av.optional(av.record(av.unknown())).describe("Options passed to the configured Pino transport"),
-  }, { unknownKeys: "strip" }).describe("Pino transport settings"),
+  }).describe("Pino transport settings"),
   serializers: av.object({
     error: av.bool().default(true).describe("Whether Error objects use Pino's standard error serializer"),
-  }, { unknownKeys: "strip" }).describe("Pino serializer settings"),
+  }).describe("Pino serializer settings"),
   base: av.optional(av.record(av.unknown())).describe("Base fields added to every Pino log entry"),
   redact: av.array(av.string()).default([]).describe("Pino redaction paths for sensitive fields"),
-}, { unknownKeys: "strip" }).describe("Pino observable plugin configuration");
+}).describe("Pino observable plugin configuration");
 
 export type PinoConfig = av.Infer<typeof PinoConfigSchema>;
 
