@@ -241,7 +241,7 @@ const Config = createConfigSchema(
   av.object({
     host: av.string().default("localhost"),
     port: av.number().default(12201)
-  }, { unknownKeys: "strip" })
+  })
 );
 
 export class Plugin extends BSBObservable&lt;InstanceType&lt;typeof Config&gt;&gt; {

@@ -39,6 +39,7 @@ import { SBConfig } from "./config.js";
 import { SBEvents } from "./events.js";
 import { SBObservable } from "./observable.js";
 import { SBPlugins } from "./plugins.js";
+import { parsePluginConfig } from "./plugin-config.js";
 
 /**
  * @hidden
@@ -377,27 +378,12 @@ export class SBServices {
       name: plugin.name,
     });
 
-    let pluginConfig =
-      (
-        await sbConfig.getPluginConfig(tTrace, "service", plugin.name)
-      ) ?? null;
-
-    if (
-      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig) &&
-      Tools.isObject(newPlugin.data.serviceConfig) &&
-      !Tools.isNullOrUndefined(newPlugin.data.serviceConfig.validationSchema)
-    ) {
+    let pluginConfig: object | null | undefined = undefined;
+    const rawPluginConfig = await sbConfig.getPluginConfig(tTrace, "service", plugin.name);
+    if (!Tools.isNullOrUndefined(newPlugin.data.serviceConfig?.validationSchema)) {
       this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
-      const schema = newPlugin.data.serviceConfig.validationSchema as {
-        export?: (mode?: 'portable' | 'extended') => { root: { kind: string } };
-        parse: (input: unknown) => unknown;
-      };
-      const rootKind = typeof schema.export === "function"
-        ? schema.export("extended").root.kind
-        : undefined;
-      pluginConfig =
-        schema.parse(pluginConfig ?? (rootKind === 'object' ? {} : undefined)) as object | null;
     }
+    pluginConfig = parsePluginConfig(newPlugin.data.serviceConfig, rawPluginConfig);
 
     await this.addPlugin(
       sbConfig,

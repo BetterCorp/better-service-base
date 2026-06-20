@@ -40,7 +40,7 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example'],
   },
-  av.optional(av.object({}, { unknownKeys: "strip" }).describe("Default service 1 configuration")).default({})
+  av.optional(av.object({}).describe("Default service 1 configuration")).default({})
     .describe("Optional default service 1 configuration")
 );
 

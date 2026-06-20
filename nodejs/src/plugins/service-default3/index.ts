@@ -37,7 +37,7 @@ export const Config = createConfigSchema(
     image: '../docs/public/assets/images/bsb-logo.png',
     tags: ['default', 'example', 'test'],
   },
-  av.object({}, { unknownKeys: "strip" })
+  av.object({})
     .default({})
     .describe("Default service 3 configuration")
 );

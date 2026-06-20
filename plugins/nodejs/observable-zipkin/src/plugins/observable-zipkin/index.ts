@@ -35,7 +35,7 @@ import {
 import { DTrace, LogMeta } from "@bsb/base";
 import * as av from "anyvali";
 import * as api from "@opentelemetry/api";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 import { BasicTracerProvider, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { ZipkinExporter } from "@opentelemetry/exporter-zipkin";
@@ -48,19 +48,19 @@ const ConfigSchema = av.object({
       headers: av.optional(av.record(av.string())).describe("Optional HTTP headers sent to Zipkin"),
       statusCodeTagName: av.string().default("http.status_code").describe("Span tag name used for status codes"),
       statusDescriptionTagName: av.string().default("http.status_text").describe("Span tag name used for status descriptions"),
-    }, { unknownKeys: "strip" }).describe("Zipkin exporter settings"),
+    }).describe("Zipkin exporter settings"),
     export: av.object({
       maxBatchSize: av.int32().min(1).default(100).describe("Maximum number of spans exported in one batch"),
       maxQueueSize: av.int32().min(1).default(2048).describe("Maximum queued spans before export backpressure applies"),
       scheduledDelayMillis: av.int32().min(100).default(5000).describe("Delay in milliseconds between scheduled span exports"),
-    }, { unknownKeys: "strip" }).describe("Zipkin span export batching settings"),
+    }).describe("Zipkin span export batching settings"),
     resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to traces"),
     samplingRate: av.number().min(0).max(1).default(1.0).describe("Trace sampling rate from 0.0 to 1.0"),
     console: av.object({
       enabled: av.bool().default(true).describe("Whether console logging is enabled for the plugin"),
       logLevel: av.enum_(['debug', 'info', 'warn', 'error']).default('info').describe("Minimum console log level"),
-    }, { unknownKeys: "strip" }).describe("Console logging settings"),
-  }, { unknownKeys: "strip" }).describe("Zipkin observable plugin configuration");
+    }).describe("Console logging settings"),
+  }).describe("Zipkin observable plugin configuration");
 
 export const Config = createConfigSchema(
   {
@@ -93,7 +93,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   }
 
   public async init(): Promise<void> {
-    const resource = new Resource({
+    const resource = resourceFromAttributes({
       [ATTR_SERVICE_NAME]: this.config.serviceName,
       ...(this.config.serviceVersion && { [ATTR_SERVICE_VERSION]: this.config.serviceVersion }),
       ...this.config.resourceAttributes,
@@ -108,17 +108,16 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
     this.tracerProvider = new BasicTracerProvider({
       resource,
+      spanProcessors: [
+        new BatchSpanProcessor(this.exporter, {
+          maxQueueSize: this.config.export.maxQueueSize,
+          maxExportBatchSize: this.config.export.maxBatchSize,
+          scheduledDelayMillis: this.config.export.scheduledDelayMillis,
+        }),
+      ],
     });
 
-    this.tracerProvider.addSpanProcessor(
-      new BatchSpanProcessor(this.exporter, {
-        maxQueueSize: this.config.export.maxQueueSize,
-        maxExportBatchSize: this.config.export.maxBatchSize,
-        scheduledDelayMillis: this.config.export.scheduledDelayMillis,
-      })
-    );
-
-    this.tracerProvider.register();
+    api.trace.setGlobalTracerProvider(this.tracerProvider);
 
     this.tracer = this.tracerProvider.getTracer(
       this.config.serviceName,

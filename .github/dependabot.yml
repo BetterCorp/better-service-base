@@ -56,6 +56,14 @@ updates:
     open-pull-requests-limit: 3
 
   - package-ecosystem: docker
+    directory: /python
+    target-branch: develop
+    schedule:
+      interval: weekly
+      time: "04:40"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
     directory: /dotnet/BetterServiceBase
     target-branch: develop
     schedule:

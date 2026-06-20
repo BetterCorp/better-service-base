@@ -135,8 +135,8 @@ Built-in plugin types include: `config-*`, `observable-*`, `events-*`, `service-
 - `npm run build`: Clean -> tsc -> tests -> generate docs -> export schemas -> generate plugin metadata
 - `npm run build-release`: Compile using `tsconfig-release.json`
 - `npm run lint`: ESLint over `src/`
-- `npm test`: Mocha + NYC coverage in TS mode
-- `npm run testDev`: Run tests without coverage (faster for development)
+- `npm test`: Mocha in TS mode with JSON reporter output
+- `npm run testDev`: Run tests with the default Mocha reporter
 - `npm run generate-docs`: Generate TypeDoc JSON to `docs.json`
 - API Reference: Hosted at `https://types.bsbcode.dev/nodejs/`
 - `npm run export-schemas`: Export event schemas to `lib/schemas/{plugin-name}.json`
@@ -200,8 +200,8 @@ Notes
   - API docs are served at `https://types.bsbcode.dev/nodejs/`
 
 ### Testing
-- Tests: Mocha + ts-node with NYC coverage
-  - `npm test` -> CI-style JSON + lcov reports (`coverage/`)
+- Tests: Mocha + tsx
+  - `npm test` -> CI-style JSON output (`junit.json`)
   - `npm run testDev` -> dev-friendly TS execution
 
 ### Creating Plugins

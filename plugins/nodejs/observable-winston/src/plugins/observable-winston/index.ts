@@ -40,14 +40,14 @@ export const WinstonConfigSchema = av.object({
     console: av.object({
       enabled: av.bool().default(true).describe("Whether console logging is enabled"),
       colorize: av.bool().default(true).describe("Whether console logs use terminal colors"),
-    }, { unknownKeys: "strip" }).describe("Winston console transport settings"),
+    }).describe("Winston console transport settings"),
     file: av.object({
       enabled: av.bool().default(false).describe("Whether fixed file logging is enabled"),
       filename: av.string().default("./logs/application.log").describe("File path for fixed file logging"),
       maxsize: av.int32().default(10485760).describe("Maximum file size in bytes before rotation"),
       maxFiles: av.int32().default(5).describe("Maximum number of rotated fixed log files to retain"),
       tailable: av.bool().default(true).describe("Whether fixed file rotation uses tailable filenames"),
-    }, { unknownKeys: "strip" }).describe("Winston fixed file transport settings"),
+    }).describe("Winston fixed file transport settings"),
     dailyRotate: av.object({
       enabled: av.bool().default(false).describe("Whether daily rotating file logging is enabled"),
       dirname: av.string().default("./logs").describe("Directory where rotating log files are written"),
@@ -56,14 +56,14 @@ export const WinstonConfigSchema = av.object({
       maxSize: av.string().default("20m").describe("Maximum rotating log file size"),
       maxFiles: av.string().default("14d").describe("Rotating log retention window or file count"),
       zippedArchive: av.bool().default(true).describe("Whether rotated log files are compressed"),
-    }, { unknownKeys: "strip" }).describe("Winston daily rotating file transport settings"),
-  }, { unknownKeys: "strip" }).describe("Winston transport settings"),
+    }).describe("Winston daily rotating file transport settings"),
+  }).describe("Winston transport settings"),
   format: av.object({
     timestamp: av.bool().default(true).describe("Whether log entries include timestamps"),
     json: av.bool().default(true).describe("Whether logs are emitted as JSON"),
     prettyPrint: av.bool().default(false).describe("Whether logs use human-readable formatting"),
-  }, { unknownKeys: "strip" }).describe("Winston log format settings"),
-}, { unknownKeys: "strip" }).describe("Winston observable plugin configuration");
+  }).describe("Winston log format settings"),
+}).describe("Winston observable plugin configuration");
 
 export type WinstonConfig = av.Infer<typeof WinstonConfigSchema>;
 

@@ -33,11 +33,11 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-zipkin": "^1.28.0",
-    "@opentelemetry/resources": "^1.28.0",
-    "@opentelemetry/sdk-trace-base": "^1.28.0",
+    "@opentelemetry/exporter-zipkin": "^2.8.0",
+    "@opentelemetry/resources": "^2.8.0",
+    "@opentelemetry/sdk-trace-base": "^2.8.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
-    "anyvali": "^0.3.4"
+    "anyvali": "^1.0.6"
   },
   "devDependencies": {
     "@bsb/base": "^9.1.11",

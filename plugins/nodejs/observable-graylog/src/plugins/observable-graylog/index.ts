@@ -55,8 +55,8 @@ export const GraylogConfigSchema = av.object({
     info: av.bool().default(true).describe("Whether info logs are sent to Graylog"),
     warn: av.bool().default(true).describe("Whether warning logs are sent to Graylog"),
     error: av.bool().default(true).describe("Whether error logs are sent to Graylog"),
-  }, { unknownKeys: "strip" }).describe("Log level enablement"),
-}, { unknownKeys: "strip" }).describe("Graylog observable plugin configuration");
+  }).describe("Log level enablement"),
+}).describe("Graylog observable plugin configuration");
 
 export type GraylogConfig = av.Infer<typeof GraylogConfigSchema>;
 

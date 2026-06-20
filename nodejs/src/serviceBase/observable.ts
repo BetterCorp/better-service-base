@@ -26,7 +26,7 @@
  */
 
 import { EventEmitter } from "node:events";
-import { BSBObservable, ObservableBackend, SmartFunctionCallAsync, BSBError } from "../base/index.js";
+import { BSBObservable, ObservableBackend, SmartFunctionCallAsync, BSBError, Tools } from "../base/index.js";
 import {
   DEBUG_MODE,
   FilterOnType,
@@ -39,6 +39,7 @@ import { createFakeDTrace, DTrace } from "../interfaces/metrics.js";
 import { SBConfig } from "./config.js";
 import { SBPlugins } from "./plugins.js";
 import { Plugin as DefaultObservable } from "../plugins/observable-default/index.js";
+import { parsePluginConfig } from "./plugin-config.js";
 
 /**
  * @hidden
@@ -449,7 +450,12 @@ export class SBObservable {
           package: loadedPlugin.packageCwd,
         });
 
-        const config = await sbConfig.getPluginConfig(trace, "observable", pluginKey);
+        const rawConfig = await sbConfig.getPluginConfig(trace, "observable", pluginKey);
+
+        if (!Tools.isNullOrUndefined(loadedPlugin.serviceConfig?.validationSchema)) {
+          this.observableBackend.debug(trace, "Validate plugin config: {name}", { name: pluginKey });
+        }
+        const config = parsePluginConfig(loadedPlugin.serviceConfig, rawConfig);
 
         const observablePlugin = new loadedPlugin.plugin({
           appId: this.appId,

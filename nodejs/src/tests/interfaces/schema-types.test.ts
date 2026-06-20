@@ -74,6 +74,43 @@ describe('schema-types', () => {
     });
   });
 
+  it('applies direct, optional, and nested defaults for object properties', () => {
+    const schema = av.object({
+      host: av.string().minLength(1).default('0.0.0.0'),
+      port: av.int32().min(1).default(3200),
+      labels: av.array(av.string()).default(['default']),
+      optionalToken: av.optional(av.string()).default('token'),
+      nested: av.object({
+        mode: av.string().default('auto'),
+      }, { unknownKeys: 'strip' }).default({}),
+    }, { unknownKeys: 'strip' });
+
+    assert.deepStrictEqual(schema.parse({}), {
+      host: '0.0.0.0',
+      port: 3200,
+      labels: ['default'],
+      optionalToken: 'token',
+      nested: {
+        mode: 'auto',
+      },
+    });
+    assert.deepStrictEqual(schema.parse({
+      port: 3211,
+      nested: {
+        extra: true,
+      },
+      unknown: true,
+    }), {
+      host: '0.0.0.0',
+      port: 3211,
+      labels: ['default'],
+      optionalToken: 'token',
+      nested: {
+        mode: 'auto',
+      },
+    });
+  });
+
   it('applies defaults declared on optional wrapper schemas', () => {
     assert.strictEqual(av.optional(av.string()).default('fallback').parse(undefined), 'fallback');
     assert.strictEqual(av.optional(av.int32()).default(42).parse(undefined), 42);

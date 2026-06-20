@@ -44,7 +44,7 @@ export const SyslogClientConfigSchema = av.object({
     ca: av.optional(av.string()).describe("Optional TLS certificate authority data"),
     cert: av.optional(av.string()).describe("Optional TLS client certificate data"),
     key: av.optional(av.string()).describe("Optional TLS client private key data"),
-  }, { unknownKeys: "strip" }).describe("TLS connection settings for syslog transport")),
+  }).describe("TLS connection settings for syslog transport")),
   facility: av.int32().min(0).max(23).default(16).describe("Syslog facility code"),
   hostname: av.optional(av.string()).describe("Hostname reported in syslog messages, defaulting to the local hostname"),
   appName: av.string().default("bsb-app").describe("Application name reported in syslog messages"),
@@ -54,8 +54,8 @@ export const SyslogClientConfigSchema = av.object({
     info: av.bool().default(true).describe("Whether info logs are sent to syslog"),
     warn: av.bool().default(true).describe("Whether warning logs are sent to syslog"),
     error: av.bool().default(true).describe("Whether error logs are sent to syslog"),
-  }, { unknownKeys: "strip" }).describe("Log level enablement"),
-}, { unknownKeys: "strip" }).describe("Syslog client observable plugin configuration");
+  }).describe("Log level enablement"),
+}).describe("Syslog client observable plugin configuration");
 
 export type SyslogClientConfig = av.Infer<typeof SyslogClientConfigSchema>;
 

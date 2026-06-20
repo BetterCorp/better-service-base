@@ -142,17 +142,17 @@ export const TodoConfigSchema = av.object({
     path: av.string().default('./.temp/demo-todos.json').describe('Path to the todo JSON storage file'),
     autoSaveInterval: av.int32().min(1000).default(5000).describe('Auto-save interval in milliseconds'),
     prettyPrint: av.bool().default(true).describe('Whether stored todo JSON is formatted for readability'),
-  }, { unknownKeys: 'strip' }).describe('Todo storage settings'),
+  }).describe('Todo storage settings'),
   http: av.object({
     port: av.int32().min(1).max(65535).default(3000).describe('HTTP server port for the todo API'),
     host: av.string().default('0.0.0.0').describe('HTTP server bind address for the todo API'),
     cors: av.bool().default(true).describe('Whether CORS is enabled for the todo API'),
-  }, { unknownKeys: 'strip' }).describe('Todo HTTP API settings'),
+  }).describe('Todo HTTP API settings'),
   features: av.object({
     statsInterval: av.int32().min(0).default(30).describe('Interval in seconds between todo statistics broadcasts, or 0 to disable'),
     maxTodos: av.int32().min(1).default(1000).describe('Maximum number of todos allowed in storage'),
-  }, { unknownKeys: 'strip' }).describe('Todo feature limits and intervals'),
-}, { unknownKeys: 'strip' }).describe('Demo todo service plugin configuration');
+  }).describe('Todo feature limits and intervals'),
+}).describe('Demo todo service plugin configuration');
 
 export type TodoConfig = av.Infer<typeof TodoConfigSchema>;
 

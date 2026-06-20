@@ -42,7 +42,7 @@
     "@bsb/base": "^9.1.11"
   },
   "dependencies": {
-    "anyvali": "^0.3.4",
+    "anyvali": "^1.0.6",
     "syslog-client": "^1.1.1",
     "syslog-server": "^1.0.1"
   },

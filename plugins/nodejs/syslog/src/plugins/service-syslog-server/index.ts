@@ -41,7 +41,7 @@ export const SyslogMessageSchema = av.object({
   host: av.string().describe("Host reported by the syslog sender"),
   protocol: av.string().describe("Protocol used to receive the syslog message"),
   message: av.string().describe("Raw syslog message body"),
-}, { unknownKeys: "strip" }).describe("Syslog message event payload");
+}).describe("Syslog message event payload");
 
 export type SyslogMessage = av.Infer<typeof SyslogMessageSchema>;
 
@@ -52,7 +52,7 @@ export const SyslogServerConfigSchema = av.object({
   port: av.int32().min(1).max(65535).default(514).describe("UDP port the syslog server listens on"),
   address: av.string().default("0.0.0.0").describe("Network address the syslog server binds to"),
   exclusive: av.bool().default(false).describe("Whether the server requests exclusive address binding"),
-}, { unknownKeys: "strip" }).describe("Syslog server plugin configuration");
+}).describe("Syslog server plugin configuration");
 
 export type SyslogServerConfig = av.Infer<typeof SyslogServerConfigSchema>;
 

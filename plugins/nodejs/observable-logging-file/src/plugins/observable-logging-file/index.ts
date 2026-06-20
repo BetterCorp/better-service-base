@@ -44,19 +44,19 @@ export const FileLoggingConfigSchema = av.object({
     maxFiles: av.int32().min(0).default(7).describe("Maximum number of rotated files to retain, or 0 for no limit"),
     interval: av.enum_(["daily", "hourly", "none"]).default("daily").describe("Time-based log rotation interval"),
     compress: av.bool().default(true).describe("Whether rotated log files are compressed"),
-  }, { unknownKeys: "strip" }).describe("File rotation and retention settings"),
+  }).describe("File rotation and retention settings"),
   levels: av.object({
     debug: av.bool().default(true).describe("Whether debug logs are written to file"),
     info: av.bool().default(true).describe("Whether info logs are written to file"),
     warn: av.bool().default(true).describe("Whether warning logs are written to file"),
     error: av.bool().default(true).describe("Whether error logs are written to file"),
-  }, { unknownKeys: "strip" }).describe("Log level enablement"),
+  }).describe("Log level enablement"),
   format: av.object({
     timestamp: av.bool().default(true).describe("Whether log entries include a timestamp"),
     traceInfo: av.bool().default(true).describe("Whether log entries include trace and span identifiers"),
     prettyPrint: av.bool().default(false).describe("Whether log entries are formatted for human-readable output"),
-  }, { unknownKeys: "strip" }).describe("Log entry formatting settings"),
-}, { unknownKeys: "strip" }).describe("File logging observable plugin configuration");
+  }).describe("Log entry formatting settings"),
+}).describe("File logging observable plugin configuration");
 
 export type FileLoggingConfig = av.Infer<typeof FileLoggingConfigSchema>;
 
