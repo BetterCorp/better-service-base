@@ -111,10 +111,17 @@ Steps:
 5. Add bsb-tests.json entry when you need test config (optional, not user-facing).
 
 Service expectations:
-- constructor - sets up class properties and/or other BSB client plugins.
-- init(obs) - sets up resources and all onEvents.
-- run(obs) - starts the service (long-lived loop or server).
-- dispose() - cleans up.
+- constructor - create class fields, generated service clients, pure helpers, and cheap in-memory objects. Do not start servers, connect databases, open sockets, or register event handlers here.
+- init(obs) - connect/setup resources and register all event handlers. Other services are still initializing, so do not start accepting external traffic here.
+- run(obs) - start long-lived work after all services initialized: HTTP listeners, queue consumers, schedulers, and background loops. Do not create all dependencies here.
+- dispose() - close what init/run opened.
+
+Lifecycle placement examples:
+- Generated client: constructor (`this.registryClient = new BsbRegistryClient(this)`).
+- Event listener: init (`await this.events.onReturnableEvent(...)`).
+- Database/client connection: init, store on `this`, close in dispose.
+- Web server listen/queue consumer/scheduler start: run, close/stop in dispose.
+- Per-request trace/span/logging: inside the request/consumer callback, using `this.createTrace(...)`.
 
 Observability rules:
 - Use the provided `Observable` everywhere. Do not create a separate logger for web servers, queues, workers, or helpers.

@@ -29,6 +29,12 @@ Plugin types (Node.js):
 - observable-*: logging/metrics/tracing backends.
 - config-*: load configuration (e.g., file/env/remote vault). This plugin supplies config to the platform.
 
+Service lifecycle placement:
+- constructor: class fields, generated clients, pure helpers. No network/database/listeners.
+- init(obs): setup resources and register event handlers.
+- run(obs): start long-lived external work after init: HTTP server listen, queue consume, scheduler/background loop.
+- dispose(): close/stop what init/run opened.
+
 Links:
 - Node.js service guide: https://bsbcode.dev/llms/nodejs-plugin-service.txt
 - Node.js events guide: https://bsbcode.dev/llms/nodejs-plugin-events.txt

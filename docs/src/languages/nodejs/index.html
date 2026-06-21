@@ -337,6 +337,15 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
                 <li>
                     <h3>Create Your First Service Plugin</h3>
                     <p>Implement a basic service plugin with typed events and the correct lifecycle (<code>constructor -&gt; init -&gt; run -&gt; dispose</code>):</p>
+                    <div class="info-box">
+                        <h4>Lifecycle Responsibilities</h4>
+                        <ul>
+                            <li><strong>constructor</strong>: create class fields, generated service clients, pure helpers, and cheap in-memory objects. Do not start servers, open sockets, connect databases, or register event handlers here.</li>
+                            <li><strong>init(obs)</strong>: connect/setup resources and register all event handlers. Other services are still initializing, so do not start accepting external traffic here.</li>
+                            <li><strong>run(obs)</strong>: start long-lived work after all services have initialized, such as HTTP listeners, queue consumers, schedulers, and background loops.</li>
+                            <li><strong>dispose()</strong>: close what <code>init</code> or <code>run</code> opened.</li>
+                        </ul>
+                    </div>
                     <div class="code-block" data-title="src/plugins/service-my-api/index.ts">
 <pre><code class="language-ts">import {
   BSBService,

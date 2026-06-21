@@ -407,11 +407,13 @@
         <p>Every service plugin follows a predictable lifecycle:</p>
 
         <ol>
-          <li><strong>Constructor</strong> - Plugin is instantiated with configuration</li>
-          <li><strong>init()</strong> - Set up event listeners and dependencies</li>
-          <li><strong>run()</strong> - Start processing (called after all services init)</li>
-          <li><strong>dispose()</strong> - Clean up on shutdown</li>
+          <li><strong>Constructor</strong> - Create class fields, generated service clients, pure helpers, and cheap in-memory objects. Do not open connections, register listeners, or start servers here.</li>
+          <li><strong>init()</strong> - Set up resources and register event handlers. Use this for database clients, event listeners, and dependencies that need the BSB context.</li>
+          <li><strong>run()</strong> - Start long-lived processing after every service has initialized: HTTP listeners, queue consumers, schedulers, and background loops.</li>
+          <li><strong>dispose()</strong> - Close what <code>init()</code> or <code>run()</code> opened.</li>
         </ol>
+
+        <p>Do not put everything in <code>run()</code>. If a service needs a generated client, create it in the constructor. If it needs to register event handlers or connect resources, do that in <code>init()</code>. Keep <code>run()</code> for actually starting the service.</p>
 
         <p>Services can declare dependencies on other services using <code>initBeforePlugins</code>, <code>initAfterPlugins</code>, <code>runBeforePlugins</code>, and <code>runAfterPlugins</code>.</p>
 
