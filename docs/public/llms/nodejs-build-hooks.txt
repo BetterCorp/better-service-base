@@ -19,6 +19,8 @@ Hook points (6 total):
 
 Why both `before*` and npm `prebuild`:
 - npm `prebuild`/`postbuild` only fire via `npm run build`. Dev mode bypasses npm. BSB hooks fire in both modes.
+- Do not replace `bsb-plugin-cli build` with `tsc` or `tsc && node ...`. That bypasses schema extraction, virtual clients, hooks, copied assets/schemas, manifests, and the BSB lifecycle.
+- Codegen/setup belongs in BSB hooks, not ad-hoc direct runtime scripts.
 
 Pipeline order (build):
 1. beforeSchemas
@@ -57,9 +59,9 @@ Example package.json:
   "scripts": {
     "build": "bsb-plugin-cli build",
     "dev": "bsb-plugin-cli dev",
-    "generate-api-types": "node scripts/gen-api.mjs",
-    "post-bundle": "node scripts/bundle-worker.mjs",
-    "seed-db": "node scripts/seed-dev-db.mjs"
+    "generate-api-types": "openapi-typescript ./openapi.yaml -o src/plugins/service-api/generated/openapi.ts",
+    "post-bundle": "vite build --config worker.vite.config.ts",
+    "seed-db": "prisma db seed"
   },
   "bsb": {
     "hooks": {
@@ -79,5 +81,7 @@ Common use cases:
 
 Notes:
 - Hooks run via `npm run <script>` for cross-platform safety and correct PATH.
-- Sequential execution within a single hook (string[]) — first failure stops remaining.
+- Sequential execution within a single hook (string[]) - first failure stops remaining.
 - Multiple hooks (e.g. afterSchemas + afterCompile) run in pipeline order, not parallel.
+- Hook scripts may run tools/generators, but plugin runtime files should not be started directly with `node`, `tsx`, or `ts-node`; runtime starts through BSB.
+- Keep generated inputs/outputs that belong to a plugin inside that plugin project/folder. Shared side directories make plugins non-portable.

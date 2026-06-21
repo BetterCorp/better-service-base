@@ -273,10 +273,10 @@
         <pre><code class="language-json">{
   "name": "@myorg/my-plugin",
   "scripts": {
-    "generate-api-types": "node scripts/gen-api.mjs",
-    "post-bundle": "node scripts/bundle-worker.mjs",
-    "lint-output": "node scripts/lint-output.mjs",
-    "seed-db": "node scripts/seed-dev-db.mjs"
+    "generate-api-types": "openapi-typescript ./openapi.yaml -o src/plugins/service-api/generated/openapi.ts",
+    "post-bundle": "vite build --config worker.vite.config.ts",
+    "lint-output": "eslint lib",
+    "seed-db": "prisma db seed"
   },
   "bsb": {
     "hooks": {
@@ -340,6 +340,9 @@
         <h2>Build Pipeline Order</h2>
 
         <p>During <code>bsb-plugin-cli build</code>, hooks run at these points:</p>
+        <div class="warning">
+          <strong>Use the BSB build:</strong> Keep <code>npm run build</code> mapped to <code>bsb-plugin-cli build</code>. Do not replace it with <code>tsc</code>, <code>tsc &amp;&amp; node ...</code>, <code>tsx ...</code>, or <code>ts-node ...</code>. Direct execution bypasses schema extraction, virtual clients, hooks, copied assets/schemas, manifests, config, events, observability, and lifecycle setup.
+        </div>
 
         <div class="pipeline-step hook">
           <div class="step-number">1</div>
@@ -407,7 +410,7 @@
 
         <pre><code class="language-json">{
   "scripts": {
-    "generate-api-client": "node scripts/gen-client-from-schemas.mjs"
+    "generate-api-client": "openapi-typescript ./openapi.yaml -o src/plugins/service-api/generated/openapi.ts"
   },
   "bsb": {
     "hooks": {
@@ -422,7 +425,7 @@
 
         <pre><code class="language-json">{
   "scripts": {
-    "process-templates": "node scripts/compile-templates.mjs"
+    "process-templates": "vite build --config templates.vite.config.ts"
   },
   "bsb": {
     "hooks": {
@@ -436,7 +439,7 @@
         <pre><code class="language-json">{
   "scripts": {
     "bundle-worker": "esbuild lib/worker.js --bundle --outfile=dist/worker.js",
-    "generate-checksums": "node scripts/checksums.mjs"
+    "generate-checksums": "sha256sum dist/worker.js"
   },
   "bsb": {
     "hooks": {
@@ -449,7 +452,7 @@
 
         <pre><code class="language-json">{
   "scripts": {
-    "seed-db": "node scripts/seed-dev-data.mjs",
+    "seed-db": "prisma db seed",
     "start-deps": "docker compose up -d redis postgres"
   },
   "bsb": {

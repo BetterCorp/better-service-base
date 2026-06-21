@@ -115,7 +115,11 @@ function schemaNodeToCode(node: Record<string, any>): string {
     }
 
     case 'record': {
-      const valueCode = schemaNodeToCode(node.values);
+      const valueNode = node.valueSchema ?? node.values;
+      if (!valueNode) {
+        throw new Error('Record schema is missing valueSchema');
+      }
+      const valueCode = schemaNodeToCode(valueNode);
       return `bsb.record(bsb.string(), ${valueCode})`;
     }
 
@@ -439,12 +443,13 @@ function processSchemaDirectory(
   clientsDir: string,
   importBase: string,
   skipPlugins?: Set<string>,
-): { generated: number; errors: number } {
+): { generated: number; skipped: number; errors: number } {
   let generated = 0;
+  let skipped = 0;
   let errors = 0;
 
   if (!fs.existsSync(schemasDir)) {
-    return { generated, errors };
+    return { generated, skipped, errors };
   }
 
   const schemaFiles = fs.readdirSync(schemasDir)
@@ -454,12 +459,18 @@ function processSchemaDirectory(
     try {
       const pluginId = path.basename(schemaFile, '.json');
       if (skipPlugins?.has(pluginId)) {
+        skipped++;
+        // eslint-disable-next-line no-console
+        console.log(`  Skipped ${schemaFile}: plugin is excluded`);
         continue;
       }
 
       const schemaPath = path.join(schemasDir, schemaFile);
       const schemaExport: EventSchemaExport = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
       if (!schemaExport.events || Object.keys(schemaExport.events).length === 0) {
+        skipped++;
+        // eslint-disable-next-line no-console
+        console.log(`  Skipped ${schemaFile}: no events to generate a client for`);
         continue;
       }
 
@@ -475,7 +486,7 @@ function processSchemaDirectory(
     }
   }
 
-  return { generated, errors };
+  return { generated, skipped, errors };
 }
 
 function ensureGitignore(projectRoot: string): void {
@@ -541,25 +552,29 @@ async function main() {
   ensureGitignore(projectRoot);
 
   let totalGenerated = 0;
+  let totalSkipped = 0;
   let totalErrors = 0;
   const bsbSchemasDir = path.join(projectRoot, 'src', '.bsb', 'schemas');
 
   if (fs.existsSync(bsbSchemasDir)) {
     // eslint-disable-next-line no-console
     console.log('Processing schemas...');
-    const { generated, errors } = processSchemaDirectory(bsbSchemasDir, clientsDir, importBase);
+    const { generated, skipped, errors } = processSchemaDirectory(bsbSchemasDir, clientsDir, importBase);
     totalGenerated += generated;
+    totalSkipped += skipped;
     totalErrors += errors;
   }
 
   if (totalGenerated === 0 && totalErrors === 0) {
     // eslint-disable-next-line no-console
-    console.log('No schema files found to generate clients from.');
+    console.log(totalSkipped > 0
+      ? `No clients generated. Skipped ${totalSkipped} schema file(s).`
+      : 'No schema files found to generate clients from.');
     return;
   }
 
   // eslint-disable-next-line no-console
-  console.log(`\nClient generation complete: ${totalGenerated} generated, ${totalErrors} errors`);
+  console.log(`\nClient generation complete: ${totalGenerated} generated, ${totalSkipped} skipped, ${totalErrors} errors`);
   // eslint-disable-next-line no-console
   console.log(`Clients written to: ${clientsDir}`);
 

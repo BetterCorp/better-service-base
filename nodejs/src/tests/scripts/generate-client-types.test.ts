@@ -77,4 +77,24 @@ describe('generate-client-types', () => {
     assert.ok(code.includes('this._requireClientEvents("onBroadcast", "fixture.broadcast")'));
     assert.ok(code.includes('this._requireClientEvents("emitBroadcast", "fixture.listen")'));
   });
+
+  it('generates clients for record schemas exported with valueSchema', () => {
+    const schemaExport = exportEventSchemas(
+      'service-client-records',
+      createEventSchemas({
+        onReturnableEvents: {
+          'fixture.headers': createReturnableEvent(
+            bsb.object({ headers: bsb.record(bsb.string(), bsb.string()) }),
+            bsb.object({ headers: bsb.record(bsb.string(), bsb.string()) }),
+            'Record fixture'
+          ),
+        },
+      })
+    );
+
+    const code = generateVirtualClient(schemaExport, '@bsb/base', 'service-client-records');
+
+    assert.ok(code.includes('bsb.record(bsb.string(), bsb.string())'));
+    assert.ok(code.includes('this._requireClientEvents("emitEventAndReturn", "fixture.headers")'));
+  });
 });

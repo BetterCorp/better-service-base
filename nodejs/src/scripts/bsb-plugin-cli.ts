@@ -13,7 +13,7 @@
  *   bsb-plugin-cli clean   - Remove build artifacts
  */
 
-import { execSync, execFileSync, spawn } from 'node:child_process';
+import { execSync, execFileSync, spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
@@ -778,8 +778,21 @@ function generateVirtualClients(): void {
     const bsbBase = resolveBsbBasePath();
     const generatorPath = bsbBase ? path.join(bsbBase, 'lib', 'scripts', 'generate-client-types.js') : '';
 
+    const runGenerator = (args: string[]): void => {
+      const result = spawnSync(process.execPath, args, { cwd: CWD, encoding: 'utf-8' });
+      if (result.stdout.trim()) {
+        console.log(result.stdout.trim());
+      }
+      if (result.stderr.trim()) {
+        console.error(result.stderr.trim());
+      }
+      if (result.status !== 0) {
+        throw new Error(`client generator exited with code ${result.status}`);
+      }
+    };
+
     if (generatorPath && fs.existsSync(generatorPath)) {
-      execSync(`node "${generatorPath}"`, { cwd: CWD, stdio: 'pipe' });
+      runGenerator([generatorPath]);
       success('Generated virtual client types');
     } else {
       // Fallback: use local compiled version or ts-node
@@ -787,15 +800,21 @@ function generateVirtualClients(): void {
       const localTsPath = path.join(MODULE_DIR, 'generate-client-types.ts');
 
       if (fs.existsSync(localCompiledPath)) {
-        execSync(`node "${localCompiledPath}"`, { cwd: CWD, stdio: 'pipe' });
+        runGenerator([localCompiledPath]);
         success('Generated virtual client types');
       } else if (fs.existsSync(localTsPath)) {
-        execSync(`node --import tsx "${localTsPath}"`, { cwd: CWD, stdio: 'pipe' });
+        runGenerator(['--import', 'tsx', localTsPath]);
         success('Generated virtual client types');
+      } else {
+        log('  Skipped virtual client generation: generator script not found', 'yellow');
       }
     }
   } catch (err) {
-    // Silently skip if generation fails
+    const output = err && typeof err === 'object' && 'stdout' in err ? String((err as { stdout?: unknown }).stdout ?? '').trim() : '';
+    const stderr = err && typeof err === 'object' && 'stderr' in err ? String((err as { stderr?: unknown }).stderr ?? '').trim() : '';
+    if (output) console.log(output);
+    if (stderr) console.error(stderr);
+    log(`  Skipped virtual client generation: ${err instanceof Error ? err.message : String(err)}`, 'yellow');
   }
 }
 

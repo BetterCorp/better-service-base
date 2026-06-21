@@ -86,6 +86,9 @@ Notes:
 - bsb-tests.json is optional and used only for test config (not user-facing).
 - Author relative TypeScript imports with `.js` specifiers, for example `import { helper } from "./helper.js";`.
 - `npm run dev` is the development entrypoint and can load `.ts` plugins. `npm start` is the production entrypoint and loads compiled `.js` only.
+- `npm run build` must run `bsb-plugin-cli build`, not `tsc`. BSB build runs hooks, schema extraction, virtual client generation, TypeScript, asset/schema copying, and manifests.
+- Do not add scripts that run plugin files directly with `node`, `tsx`, or `ts-node`. Runtime code should enter through BSB (`bsb-plugin-cli dev`, `bsb-plugin-cli start`, tests, or hooks) so lifecycle, config, events, and observability are present.
+- Keep each plugin self-contained: place plugin schemas, assets, helpers, generated inputs, and local docs under the plugin project/folder. Reference them from elsewhere when needed; do not make plugins depend on shared side directories.
 
 Recommended defaults (for dev):
 Config: config-default.

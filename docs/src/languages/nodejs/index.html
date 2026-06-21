@@ -307,8 +307,11 @@ npm install -D typescript @types/node</code></pre></div>
   "version": "1.0.0",
   "main": "lib/index.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc && node lib/index.js"
+    "build": "bsb-plugin-cli build",
+    "clean": "bsb-plugin-cli clean",
+    "dev": "bsb-plugin-cli dev",
+    "start": "bsb-plugin-cli start",
+    "test": "bsb-plugin-cli test"
   },
   "dependencies": {
     "@bsb/base": "^9.1.11"
@@ -318,6 +321,9 @@ npm install -D typescript @types/node</code></pre></div>
     "@types/node": "^20.19.1"
   }
 }</code></pre></div>
+                    <div class="warning">
+                        <strong>Build through BSB:</strong> Do not replace <code>npm run build</code> with <code>tsc</code>, and do not run compiled files directly with <code>node lib/...</code> or <code>ts-node</code>. The plugin CLI runs schema extraction, virtual client generation, hooks, TypeScript compilation, asset/schema copying, manifests, and the BSB lifecycle.
+                    </div>
                 </li>
                 
                 <li>
@@ -325,6 +331,7 @@ npm install -D typescript @types/node</code></pre></div>
                     <p>Set up the plugin directory structure:</p>
                     <div class="code-block" data-title="bash"><pre><code class="language-bash"># Create plugin structure
 mkdir -p src/plugins/service-my-api</code></pre></div>
+                    <p>Keep each plugin self-contained. Put its schemas, assets, helpers, generated inputs, and local docs under its plugin project or plugin folder, then import/reference them from elsewhere when needed. Avoid shared side directories that another plugin must know about to build or run.</p>
                 </li>
                 
                 <li>
@@ -577,13 +584,70 @@ await this.events.onBroadcast('system.maintenance', obs, async (childObs, data) 
 
             <div class="info-box">
                 <h4>Event Name Uniqueness</h4>
-                <p>Each event name must appear in only one <code>EventSchemas</code> category. Do not reuse a key across <code>emitEvents</code>, <code>onEvents</code>, <code>emitReturnableEvents</code>, <code>onReturnableEvents</code>, <code>emitBroadcast</code>, or <code>onBroadcast</code>. If a plugin emits an event and also needs to listen to that service contract, instantiate the generated service client and register the listener through the client <code>onX</code> API instead of adding a matching <code>on*</code> entry to the same plugin.</p>
+                <p>Each event name belongs to one source service contract. Define the event on the plugin that owns/handles it, then consume that contract through the generated client from <code>src/.bsb/clients</code>. Do not copy the same event name into another plugin's <code>emit*</code> schema just because that plugin wants to call it.</p>
+                <p>Example: if <code>service-tunnel-client-api</code> exposes <code>proxy.request</code> in <code>onReturnableEvents</code>, <code>service-tunnel-web</code> should import the generated client and call it, not define its own <code>emitReturnableEvents.proxy.request</code>.</p>
+                <div class="code-block" data-title="src/plugins/service-tunnel-web/index.ts"><pre><code class="language-ts">import { TunnelClientApiClient } from "../../.bsb/clients/service-tunnel-client-api.js";
+
+export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typeof EventSchemas&gt; {
+  private readonly clientApi: TunnelClientApiClient;
+
+  constructor(cfg: BSBServiceConstructor&lt;InstanceType&lt;typeof Config&gt;&gt;) {
+    super(cfg);
+    this.clientApi = new TunnelClientApiClient(this);
+  }
+
+  async run(obs: Observable) {
+    const response = await this.clientApi.proxyRequest(obs, {
+      hostname: "example.com",
+      method: "GET",
+      path: "/",
+      headers: {},
+    });
+  }
+}</code></pre></div>
             </div>
         </div>
         
         <div class="section">
             <h2>Event Validation & Performance</h2>
             <p>BSB uses BSB types for event contracts and AnyVali for plugin config validation:</p>
+
+            <div class="info-box">
+                <h4>Observability First</h4>
+                <p>Use the provided <code>Observable</code> for traces, spans, metrics, and logs. Do not create a separate logger for web servers, workers, queues, or helper modules. BSB logs are structured: the message is the stable template, and dynamic values belong in the metadata object.</p>
+                <div class="code-block" data-title="web handler"><pre><code class="language-ts">async handleRequest(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const requestObs = this.createTrace("http.request", {
+    method: req.method,
+    path: url.pathname,
+  });
+
+  requestObs.log.info("HTTP request started {method} {path}", {
+    method: req.method,
+    path: url.pathname,
+  });
+
+  try {
+    const result = await this.clientApi.proxyRequest(requestObs, {
+      hostname: "example.com",
+      method: req.method,
+      path: url.pathname,
+      headers: {},
+    });
+
+    requestObs.log.info("HTTP request completed {status}", { status: result.status });
+    requestObs.end({ status: result.status });
+    return new Response(result.body, { status: result.status });
+  } catch (error) {
+    requestObs.log.error("HTTP request failed {error}", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    requestObs.end({ error: true });
+    throw error;
+  }
+}</code></pre></div>
+                <p>Incoming work such as HTTP requests, queue messages, and scheduled jobs should create a new trace with <code>this.createTrace(...)</code>. Nested local work should use child spans from the current observable. For BSB event calls, pass the current observable into the generated client or <code>this.events</code>; BSB already creates internal spans for event send/receive work, so do not double-span those calls.</p>
+            </div>
             
             <div class="info-box">
                 <h4>Performance Considerations</h4>
