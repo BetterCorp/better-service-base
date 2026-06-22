@@ -70,6 +70,39 @@ jobs:
         working-directory: nodejs
         run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
 
+  nodejs-tests:
+    name: Node.js Tests Package
+    needs: [nodejs, prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build --workspace tests/nodejs
+
+      - name: Set version
+        working-directory: tests/nodejs
+        run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
+
+      - name: Publish to npm
+        working-directory: tests/nodejs
+        run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
+
   python:
     name: Python
     needs: [prepare]

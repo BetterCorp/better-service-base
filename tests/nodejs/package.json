@@ -1,7 +1,6 @@
 {
   "name": "@bsb/tests",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.0.1",
   "description": "Shared test suites for BSB Node.js core and plugins",
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
@@ -11,13 +10,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/BetterCorp/better-service-base.git",
+    "url": "git+https://github.com/BetterCorp/better-service-base.git",
     "directory": "tests/nodejs"
   },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
-    "lib/**/*"
+    "bin/**/*",
+    "lib/**/*",
+    "README.md",
+    "docs/**/*"
   ],
   "scripts": {
     "clean": "rimraf lib",
@@ -42,5 +44,8 @@
   },
   "bin": {
     "bsb-tests": "bin/bsb-tests.cjs"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -39,7 +39,7 @@ jobs:
         run: npm run ws:check-lockfiles
 
       - name: Build Node.js core
-        run: npm run build --workspace docs --workspace nodejs
+        run: npm run build --workspace docs --workspace nodejs --workspace tests/nodejs
 
       - name: Link workspace bins
         run: |

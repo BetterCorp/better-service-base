@@ -70,7 +70,7 @@ export const RunObservablePluginTests = (
       }
       if (plugin.error) {
         plugin.error(trace, pluginName, "error message", {});
-        plugin.error(trace, pluginName, new BSBError(trace, "error message", {}));
+        plugin.error(trace, pluginName, new BSBError(trace, "error message"));
       }
     });
 
@@ -100,13 +100,13 @@ export const RunObservablePluginTests = (
     it("should support tracing methods if implemented", async () => {
       const plugin = new observablePlugin(config);
       if (plugin.spanStart) {
-        await plugin.spanStart(trace, pluginName, "span", null, { a: "b" });
+        await plugin.spanStart(Date.now(), trace, pluginName, "span", null, { a: "b" });
       }
       if (plugin.spanEnd) {
-        await plugin.spanEnd(trace, pluginName, { a: "b" });
+        await plugin.spanEnd(Date.now(), trace, pluginName, { a: "b" });
       }
       if (plugin.spanError) {
-        await plugin.spanError(trace, pluginName, new Error("fail"), { a: "b" });
+        await plugin.spanError(Date.now(), trace, pluginName, new Error("fail"), { a: "b" });
       }
     });
   });

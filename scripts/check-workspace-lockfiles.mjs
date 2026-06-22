@@ -8,6 +8,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const forbidden = [
   path.join(repoRoot, 'docs', 'package-lock.json'),
   path.join(repoRoot, 'nodejs', 'package-lock.json'),
+  path.join(repoRoot, 'tests', 'nodejs', 'package-lock.json'),
 ];
 
 const pluginsDir = path.join(repoRoot, 'plugins', 'nodejs');

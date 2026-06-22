@@ -126,7 +126,7 @@ describe("plugins/observable-default", () => {
 
   it("should log error with BSBError raw", async () => {
     const plugin = new Plugin(getObservableConstructorConfig());
-    const err = new BSBError(dummyTrace, "My Msg", {});
+    const err = new BSBError(dummyTrace, "My Msg");
     storeConsole("error", "[ERROR]");
     plugin.error(dummyTrace, "err-plugin", err, {});
     restoreConsole();
@@ -134,7 +134,7 @@ describe("plugins/observable-default", () => {
 
   it("should log error with BSBError without raw", async () => {
     const plugin = new Plugin(getObservableConstructorConfig());
-    const err = new BSBError(dummyTrace, "My Msg", {});
+    const err = new BSBError(dummyTrace, "My Msg");
     (err as any).raw = null;
     storeConsole("error", "[ERROR]");
     plugin.error(dummyTrace, "err-plugin", err, {});

@@ -96,7 +96,7 @@ describe("plugins/config-default", () => {
     const obsConfig = await plugin.getPluginConfig(obs, PluginTypes.observable, "obs-enabled");
     assert.deepEqual(obsConfig, { level: "info" });
 
-    const svcConfig = await plugin.getPluginConfig(obs, PluginTypes.services, "svc-enabled");
+    const svcConfig = await plugin.getPluginConfig(obs, PluginTypes.service, "svc-enabled");
     assert.deepEqual(svcConfig, { hello: "world" });
 
     const cfgConfig = await plugin.getPluginConfig(obs, PluginTypes.config, "config-default");
