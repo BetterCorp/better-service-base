@@ -60,8 +60,15 @@ const resolvePluginModule = (pluginRoot, pluginPath, useTs) => {
   return path.join(swapped, "index.js");
 };
 
+const hasBuiltPluginModule = (pluginRoot, pluginPath) => {
+  return fs.existsSync(resolvePluginModule(pluginRoot, pluginPath, false));
+};
+
 const resolveLocalBaseEntry = (repoRoot, useTs) => {
-  const baseRoot = path.join(repoRoot, "nodejs");
+  const nestedBaseRoot = path.join(repoRoot, "nodejs");
+  const baseRoot = fs.existsSync(path.join(nestedBaseRoot, "package.json"))
+    ? nestedBaseRoot
+    : repoRoot;
   const entryTs = path.join(baseRoot, "src", "index.ts");
   const entryJs = path.join(baseRoot, "lib", "index.js");
   if (useTs && fs.existsSync(entryTs)) return entryTs;
@@ -158,20 +165,19 @@ if (filtered.length === 0) {
 
 const repoRoot = cwd;
 const mochaBin = require.resolve("mocha/bin/mocha.mjs");
-const nycBin = require.resolve("nyc/bin/nyc.js");
-const tsNodeRegister = require.resolve("ts-node/register");
-const setupHook = path.join(__dirname, "..", "src", "runner", "setup.ts");
-const pluginEventsRunner = path.join(__dirname, "..", "src", "runner", "plugin-events.ts");
-const pluginObservableRunner = path.join(__dirname, "..", "src", "runner", "plugin-observable.ts");
-const pluginCustomRunner = path.join(__dirname, "..", "src", "runner", "plugin-custom.ts");
-const eventsDefaultSpec = path.join(__dirname, "..", "src", "plugins", "events-default", "index.ts");
-const loggingDefaultSpec = path.join(__dirname, "..", "src", "plugins", "logging-default", "index.ts");
-const configDefaultSpec = path.join(__dirname, "..", "src", "plugins", "config-default", "index.ts");
-const observableDefaultSpec = path.join(__dirname, "..", "src", "plugins", "observable-default", "index.ts");
+const setupHook = path.join(__dirname, "..", "lib", "runner", "setup.js");
+const pluginEventsRunner = path.join(__dirname, "..", "lib", "runner", "plugin-events.js");
+const pluginObservableRunner = path.join(__dirname, "..", "lib", "runner", "plugin-observable.js");
+const pluginCustomRunner = path.join(__dirname, "..", "lib", "runner", "plugin-custom.js");
+const eventsDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "events-default", "index.js");
+const loggingDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "logging-default", "index.js");
+const configDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "config-default", "index.js");
+const observableDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "observable-default", "index.js");
 
 const runMocha = (env, spec, useTs, coverage, coverageInclude) => {
   const mochaArgs = [];
   if (useTs) {
+    const tsNodeRegister = require.resolve("ts-node/register");
     mochaArgs.push("--require", tsNodeRegister);
   }
   mochaArgs.push("--require", setupHook, spec);
@@ -184,6 +190,7 @@ const runMocha = (env, spec, useTs, coverage, coverageInclude) => {
     return result.status || 0;
   }
 
+  const nycBin = require.resolve("nyc/bin/nyc.js");
   const nycArgs = [
     "--all",
     "--check-coverage",
@@ -226,7 +233,7 @@ for (const plugin of filtered) {
     continue;
   }
 
-  const useTs = forceTs || (!forceJs && fs.existsSync(path.join(plugin.pluginRoot, "src")));
+  const useTs = forceTs || (!forceJs && !hasBuiltPluginModule(plugin.pluginRoot, plugin.pluginPath) && fs.existsSync(path.join(plugin.pluginRoot, "src")));
   const pluginModule = resolvePluginModule(plugin.pluginRoot, plugin.pluginPath, useTs);
   if (!fs.existsSync(pluginModule)) {
     console.error("Plugin module not found:", pluginModule);
@@ -257,6 +264,7 @@ for (const plugin of filtered) {
     const ext = path.extname(resolved).toLowerCase();
     let result;
     if (ext === ".ts") {
+      const tsNodeRegister = require.resolve("ts-node/register");
       result = spawnSync(process.execPath, ["-r", tsNodeRegister, resolved], {
         stdio: "inherit",
         env: {
