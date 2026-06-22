@@ -106,7 +106,7 @@ Container deployment:
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_DEBUG=true`: enable debug logging in production mode (mode becomes `production-debug`).
 - `BSB_LIVE=true` and `NODE_ENV=production` are set by the base image for production mode.
-- Plugin dirs without a package.json get one auto-created at startup.
+- Plugin dirs are read/search roots. Do not require BSB to write `package.json` into them; versioned plugin package directories contain package metadata.
 - Full Docker guide: https://bsbcode.dev/llms/docker.txt
 
 Build hooks (optional):

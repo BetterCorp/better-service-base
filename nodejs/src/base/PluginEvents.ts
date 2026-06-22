@@ -220,6 +220,37 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         );
     }
 
+    public async onEventSpecific<
+        TEvents extends NonNullable<TEventSchemas['onEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        serverId: string,
+        obs: Observable,
+        listener: (handlerObs: Observable, input: EventInputType<TEvents[K]>) => Promise<void>
+    ): Promise<void> {
+        const trace = this.extractTrace(obs);
+        const wrappedListener = async (handlerTrace: DTrace, rawInput: any) => {
+            let validatedInput = rawInput;
+            const schema = this.eventSchemas.onEvents?.[eventName as string];
+            if (schema) {
+                const result = this.validator.validateInput(eventName as string, rawInput, schema.input, handlerTrace);
+                if (!result.success) throw result.error;
+                validatedInput = result.data as EventInputType<TEvents[K]>;
+            }
+            await listener(this.ensureObservable(handlerTrace), validatedInput);
+        };
+
+        return this.events.onEventSpecific(
+            trace,
+            serverId,
+            this.service,
+            this.cachedPluginName,
+            eventName as string,
+            wrappedListener
+        );
+    }
+
     /**
      * Emit fire-and-forget events to other plugins with full type safety.
      * @param eventName - Name of the event to emit (strongly typed)
@@ -250,6 +281,33 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
 
         return this.events.emitEvent(
             trace,
+            this.cachedPluginName,
+            eventName as string,
+            validatedInput
+        );
+    }
+
+    public async emitEventSpecific<
+        TEvents extends NonNullable<TEventSchemas['emitEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        serverId: string,
+        obs: Observable,
+        input: EventInputType<TEvents[K]>
+    ): Promise<void> {
+        const trace = this.extractTrace(obs);
+        let validatedInput = input;
+        const schema = this.eventSchemas.emitEvents?.[eventName as string];
+        if (schema) {
+            const result = this.validator.validateInput(eventName as string, input, schema.input, trace);
+            if (!result.success) throw result.error;
+            validatedInput = result.data as EventInputType<TEvents[K]>;
+        }
+
+        return this.events.emitEventSpecific(
+            trace,
+            serverId,
             this.cachedPluginName,
             eventName as string,
             validatedInput
@@ -314,6 +372,46 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
         );
     }
 
+    public async onReturnableEventSpecific<
+        TEvents extends NonNullable<TEventSchemas['onReturnableEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        serverId: string,
+        obs: Observable,
+        listener: (
+            handlerObs: Observable,
+            input: EventInputType<TEvents[K]>
+        ) => Promise<EventOutputType<TEvents[K]>>
+    ): Promise<void> {
+        const trace = this.extractTrace(obs);
+        const wrappedListener = async (handlerTrace: DTrace, rawInput: any) => {
+            let validatedInput = rawInput;
+            const schema = this.eventSchemas.onReturnableEvents?.[eventName as string];
+            if (schema) {
+                const inputResult = this.validator.validateInput(eventName as string, rawInput, schema.input, handlerTrace);
+                if (!inputResult.success) throw inputResult.error;
+                validatedInput = inputResult.data as EventInputType<TEvents[K]>;
+            }
+            const result = await listener(this.ensureObservable(handlerTrace), validatedInput);
+            if (schema) {
+                const outputResult = this.validator.validateOutput(eventName as string, result, schema.output, handlerTrace);
+                if (!outputResult.success) throw outputResult.error;
+                return outputResult.data as EventOutputType<TEvents[K]>;
+            }
+            return result;
+        };
+
+        return this.events.onReturnableEventSpecific(
+            trace,
+            serverId,
+            this.service,
+            this.cachedPluginName,
+            eventName as string,
+            wrappedListener
+        );
+    }
+
     /**
      * Emit returnable events and wait for response with full type safety.
      * @param eventName - Name of the event to emit (strongly typed)
@@ -361,6 +459,42 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
             return outputResult.data as EventOutputType<TEvents[K]>;
         }
 
+        return result;
+    }
+
+    public async emitEventAndReturnSpecific<
+        TEvents extends NonNullable<TEventSchemas['emitReturnableEvents']>,
+        K extends keyof TEvents
+    >(
+        eventName: K,
+        serverId: string,
+        obs: Observable,
+        input: EventInputType<TEvents[K]>,
+        timeoutSeconds: number = 5
+    ): Promise<EventOutputType<TEvents[K]>> {
+        const trace = this.extractTrace(obs);
+        let validatedInput = input;
+        const schema = this.eventSchemas.emitReturnableEvents?.[eventName as string];
+        if (schema) {
+            const inputResult = this.validator.validateInput(eventName as string, input, schema.input, trace);
+            if (!inputResult.success) throw inputResult.error;
+            validatedInput = inputResult.data as EventInputType<TEvents[K]>;
+        }
+
+        const result = await this.events.emitEventAndReturnSpecific(
+            trace,
+            serverId,
+            this.cachedPluginName,
+            eventName as string,
+            timeoutSeconds,
+            validatedInput
+        );
+
+        if (schema) {
+            const outputResult = this.validator.validateOutput(eventName as string, result, schema.output, trace);
+            if (!outputResult.success) throw outputResult.error;
+            return outputResult.data as EventOutputType<TEvents[K]>;
+        }
         return result;
     }
 

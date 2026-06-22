@@ -71,9 +71,13 @@ describe('generate-client-types', () => {
     const code = generateVirtualClient(schemaExport, '@bsb/base', 'service-client-fixture');
 
     assert.ok(code.includes('this._requireClientEvents("onEvent", "fixture.emitted")'));
+    assert.ok(code.includes('this._requireClientEvents("onEventSpecific", "fixture.emitted")'));
     assert.ok(code.includes('this._requireClientEvents("emitEvent", "fixture.handled")'));
+    assert.ok(code.includes('this._requireClientEvents("emitEventSpecific", "fixture.handled")'));
     assert.ok(code.includes('this._requireClientEvents("onReturnableEvent", "fixture.ask")'));
+    assert.ok(code.includes('this._requireClientEvents("onReturnableEventSpecific", "fixture.ask")'));
     assert.ok(code.includes('this._requireClientEvents("emitEventAndReturn", "fixture.answer")'));
+    assert.ok(code.includes('this._requireClientEvents("emitEventAndReturnSpecific", "fixture.answer")'));
     assert.ok(code.includes('this._requireClientEvents("onBroadcast", "fixture.broadcast")'));
     assert.ok(code.includes('this._requireClientEvents("emitBroadcast", "fixture.listen")'));
   });

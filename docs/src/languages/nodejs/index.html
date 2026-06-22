@@ -595,6 +595,7 @@ await this.events.onBroadcast('system.maintenance', obs, async (childObs, data) 
             <div class="info-box">
                 <h4>Event Name Uniqueness</h4>
                 <p>Each event name belongs to one source service contract. Define the event on the plugin that owns/handles it, then consume that contract through the generated client from <code>src/.bsb/clients</code>. Do not copy the same event name into another plugin's <code>emit*</code> schema just because that plugin wants to call it.</p>
+                <p>Generated clients are flipped from the source plugin schema. A source plugin's <code>onEvents</code> and <code>onReturnableEvents</code> become client emit methods. A source plugin's <code>emitEvents</code> and <code>emitReturnableEvents</code> become client listener methods. For server-targeted delivery, use the generated <code>*Specific(serverId, ...)</code> methods; they pass through to BSB's existing <code>serverId</code> event path.</p>
                 <p>Example: if <code>service-tunnel-client-api</code> exposes <code>proxy.request</code> in <code>onReturnableEvents</code>, <code>service-tunnel-web</code> should import the generated client and call it, not define its own <code>emitReturnableEvents.proxy.request</code>.</p>
                 <div class="code-block" data-title="src/plugins/service-tunnel-web/index.ts"><pre><code class="language-ts">import { TunnelClientApiClient } from "../../.bsb/clients/service-tunnel-client-api.js";
 
@@ -608,6 +609,13 @@ export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typ
 
   async run(obs: Observable) {
     const response = await this.clientApi.proxyRequest(obs, {
+      hostname: "example.com",
+      method: "GET",
+      path: "/",
+      headers: {},
+    });
+
+    const targeted = await this.clientApi.proxyRequestSpecific("server-01", obs, {
       hostname: "example.com",
       method: "GET",
       path: "/",

@@ -375,6 +375,12 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         lines.push(`    const events = this._requireClientEvents("emitEvent", "${name}");`);
         lines.push(`    await events.emitEvent("${name}", obs, input);`);
         lines.push('  }');
+        lines.push('');
+        lines.push(`  /** ${description} for a specific server */`);
+        lines.push(`  async ${methodName}Specific(serverId: string, obs: Observable, input: ${inputTypeName}): Promise<void> {`);
+        lines.push(`    const events = this._requireClientEvents("emitEventSpecific", "${name}");`);
+        lines.push(`    await events.emitEventSpecific("${name}", serverId, obs, input);`);
+        lines.push('  }');
         continue;
       }
 
@@ -386,15 +392,11 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         lines.push(`    const events = this._requireClientEvents("emitEventAndReturn", "${name}");`);
         lines.push(`    return events.emitEventAndReturn("${name}", obs, input, timeout);`);
         lines.push('  }');
-        continue;
-      }
-
-      if (clientCategory === 'emitBroadcast') {
-        const emitMethodName = `emit${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
-        lines.push(`  /** ${description} */`);
-        lines.push(`  async ${emitMethodName}(obs: Observable, input: ${inputTypeName}): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("emitBroadcast", "${name}");`);
-        lines.push(`    await events.emitBroadcast("${name}", obs, input);`);
+        lines.push('');
+        lines.push(`  /** ${description} for a specific server (default timeout: ${timeout}s) */`);
+        lines.push(`  async ${methodName}Specific(serverId: string, obs: Observable, input: ${inputTypeName}, timeout: number = ${timeout}): Promise<${outputTypeName}> {`);
+        lines.push(`    const events = this._requireClientEvents("emitEventAndReturnSpecific", "${name}");`);
+        lines.push(`    return events.emitEventAndReturnSpecific("${name}", serverId, obs, input, timeout);`);
         lines.push('  }');
         continue;
       }
@@ -406,6 +408,12 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         lines.push(`    const events = this._requireClientEvents("onEvent", "${name}");`);
         lines.push(`    await events.onEvent("${name}", obs, handler);`);
         lines.push('  }');
+        lines.push('');
+        lines.push(`  /** ${description} for a specific server */`);
+        lines.push(`  async ${onMethodName}Specific(serverId: string, obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<void>): Promise<void> {`);
+        lines.push(`    const events = this._requireClientEvents("onEventSpecific", "${name}");`);
+        lines.push(`    await events.onEventSpecific("${name}", serverId, obs, handler);`);
+        lines.push('  }');
         continue;
       }
 
@@ -416,6 +424,22 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         lines.push(`  async ${onMethodName}(obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<${outputTypeName}>): Promise<void> {`);
         lines.push(`    const events = this._requireClientEvents("onReturnableEvent", "${name}");`);
         lines.push(`    await events.onReturnableEvent("${name}", obs, handler);`);
+        lines.push('  }');
+        lines.push('');
+        lines.push(`  /** ${description} for a specific server */`);
+        lines.push(`  async ${onMethodName}Specific(serverId: string, obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<${outputTypeName}>): Promise<void> {`);
+        lines.push(`    const events = this._requireClientEvents("onReturnableEventSpecific", "${name}");`);
+        lines.push(`    await events.onReturnableEventSpecific("${name}", serverId, obs, handler);`);
+        lines.push('  }');
+        continue;
+      }
+
+      if (clientCategory === 'emitBroadcast') {
+        const emitMethodName = `emit${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
+        lines.push(`  /** ${description} */`);
+        lines.push(`  async ${emitMethodName}(obs: Observable, input: ${inputTypeName}): Promise<void> {`);
+        lines.push(`    const events = this._requireClientEvents("emitBroadcast", "${name}");`);
+        lines.push(`    await events.emitBroadcast("${name}", obs, input);`);
         lines.push('  }');
         continue;
       }

@@ -12,6 +12,8 @@ Steps:
    - Every EventSchemas key must be unique across emitEvents, onEvents, emitReturnableEvents, onReturnableEvents, emitBroadcast, and onBroadcast.
    - Event names belong to the plugin that owns/handles that service contract. Do not duplicate the same event name in another plugin's emit* schema just because that plugin wants to call it.
    - If this plugin needs to call/listen to another service contract, import that service's generated client from `../../.bsb/clients/<plugin-id>.js`, instantiate it in the constructor, then call the generated method.
+   - Generated/reference clients are flipped from the source plugin schema: source `onEvents`/`onReturnableEvents` become client emit methods; source `emitEvents`/`emitReturnableEvents` become client listener methods.
+   - For server-targeted delivery, use the generated `*Specific(serverId, ...)` method. It preserves the same typed input/output and passes `serverId` through to BSB's existing specific event path.
    - Example: if service-tunnel-client-api exposes `proxy.request` in onReturnableEvents, service-tunnel-web should use `new TunnelClientApiClient(this)` and `clientApi.proxyRequest(...)`, not define `emitReturnableEvents["proxy.request"]`.
    - Plugin implements lifecycle: init(obs), run(obs), dispose().
    - this.config is fully typed from the config schema (via BSBService<InstanceType<typeof Config>, ...>). Never cast it.

@@ -21,6 +21,8 @@ Build/runtime rules:
 Event contract rules:
 - An event name belongs to the plugin that owns/handles that contract.
 - Do not define the same event name in two plugins. If plugin B needs to call plugin A, plugin B imports plugin A's generated client from `../../.bsb/clients/<plugin-id>.js` and calls the generated method.
+- Generated/reference clients are flipped from the source plugin schema: source `onEvents`/`onReturnableEvents` become client emit methods; source `emitEvents`/`emitReturnableEvents` become client listener methods.
+- For server-targeted delivery, use generated `*Specific(serverId, ...)` client methods instead of raw event internals.
 - Example: service A has `onReturnableEvents["thing.get"]`; service B uses `new ServiceAClient(this).thingGet(...)`, not `emitReturnableEvents["thing.get"]`.
 
 Plugin types (Node.js):
