@@ -92,6 +92,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build base
+        run: npm run build-release --workspace nodejs
+
       - name: Build
         run: npm run build --workspace tests/nodejs
 
