@@ -1,4 +1,5 @@
-import {EventEmitter, Readable} from "stream";
+import {EventEmitter} from "events";
+import {Readable} from "stream";
 import {randomUUID} from "crypto";
 import {Plugin} from "../index.js";
 import * as amqplib from "amqp-connection-manager";

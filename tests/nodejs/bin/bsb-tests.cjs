@@ -47,6 +47,18 @@ const findFiles = (dir, filename, results = []) => {
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, "utf8"));
 
+const resolvePackageBin = (packageName, binName) => {
+  const packageJsonPath = require.resolve(`${packageName}/package.json`);
+  const packageJson = readJson(packageJsonPath);
+  const binPath = typeof packageJson.bin === "string"
+    ? packageJson.bin
+    : packageJson.bin?.[binName];
+  if (!binPath) {
+    throw new Error(`Package ${packageName} does not declare bin ${binName}`);
+  }
+  return path.resolve(path.dirname(packageJsonPath), binPath);
+};
+
 const resolvePluginModule = (pluginRoot, pluginPath, useTs) => {
   const base = path.resolve(pluginRoot, pluginPath || "");
   if (useTs) {
@@ -66,9 +78,16 @@ const hasBuiltPluginModule = (pluginRoot, pluginPath) => {
 
 const resolveLocalBaseEntry = (repoRoot, useTs) => {
   const nestedBaseRoot = path.join(repoRoot, "nodejs");
-  const baseRoot = fs.existsSync(path.join(nestedBaseRoot, "package.json"))
-    ? nestedBaseRoot
-    : repoRoot;
+  let baseRoot = null;
+  if (fs.existsSync(path.join(nestedBaseRoot, "package.json"))) {
+    baseRoot = nestedBaseRoot;
+  } else {
+    const packageJsonPath = path.join(repoRoot, "package.json");
+    if (fs.existsSync(packageJsonPath) && readJson(packageJsonPath).name === "@bsb/base") {
+      baseRoot = repoRoot;
+    }
+  }
+  if (!baseRoot) return null;
   const entryTs = path.join(baseRoot, "src", "index.ts");
   const entryJs = path.join(baseRoot, "lib", "index.js");
   if (useTs && fs.existsSync(entryTs)) return entryTs;
@@ -164,7 +183,7 @@ if (filtered.length === 0) {
 }
 
 const repoRoot = cwd;
-const mochaBin = require.resolve("mocha/bin/mocha.mjs");
+const mochaBin = resolvePackageBin("mocha", "mocha");
 const setupHook = path.join(__dirname, "..", "lib", "runner", "setup.js");
 const pluginEventsRunner = path.join(__dirname, "..", "lib", "runner", "plugin-events.js");
 const pluginObservableRunner = path.join(__dirname, "..", "lib", "runner", "plugin-observable.js");

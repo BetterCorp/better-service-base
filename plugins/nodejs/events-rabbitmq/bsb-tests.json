@@ -2,7 +2,7 @@
   "nodejs": [
     {
       "id": "events-rabbitmq",
-      "skip": false,
+      "skip": true,
       "default": {
         "config": {
           "platformKey": null,
