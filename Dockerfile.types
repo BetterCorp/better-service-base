@@ -2,7 +2,7 @@ FROM node:23-alpine AS build-nodejs
 WORKDIR /workspace/nodejs
 
 COPY nodejs/package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY nodejs/ ./
 RUN npx typedoc --out /workspace/types/nodejs --tsconfig ./tsconfig-release.json --cacheBust src/index.ts

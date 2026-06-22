@@ -5,11 +5,11 @@
 # Build from repo root:
 #   docker build -f plugins/nodejs/bsb-registry/Dockerfile -t betterweb/bsb-registry-plugin:1.0.1 .
 #
-# By default this builds against the published latest BSB runtime image.
+# By default this builds against the published latest Node.js BSB runtime image.
 # Override for pinned builds:
-#   docker build -f plugins/nodejs/bsb-registry/Dockerfile --build-arg BSB_IMAGE_TAG=9.1.11 .
+#   docker build -f plugins/nodejs/bsb-registry/Dockerfile --build-arg BSB_IMAGE_TAG=node-9.5.1 .
 
-ARG BSB_IMAGE_TAG=latest
+ARG BSB_IMAGE_TAG=node-latest
 
 FROM betterweb/service-base:${BSB_IMAGE_TAG} AS builder
 
@@ -32,7 +32,7 @@ RUN set -eux; \
   mkdir -p "${VERSION_DIR}"; \
   cp -a package.json bsb-plugin.json lib node_modules "${VERSION_DIR}/";
 
-FROM betterweb/service-base:${BSB_IMAGE_TAG} AS builderModules
+FROM betterweb/service-base:${BSB_IMAGE_TAG} AS buildermodules
 
 WORKDIR /workspace
 ENV PATH="/home/bsb/lib/scripts:${PATH}"
@@ -55,7 +55,7 @@ RUN set -eux; \
 FROM betterweb/service-base:${BSB_IMAGE_TAG}
 
 COPY --from=builder /out/ /mnt/plugins/
-COPY --from=builderModules /out/ /mnt/plugins/
+COPY --from=buildermodules /out/ /mnt/plugins/
 COPY plugins/nodejs/bsb-registry/BADGES.json /home/bsb/BADGES.json
 
 ENV BSB_PLUGIN_DIRS=/mnt/plugins
