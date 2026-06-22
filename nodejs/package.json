@@ -97,7 +97,7 @@
   "dependencies": {
     "anyvali": "^1.0.6",
     "chokidar": "^5.0.0",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.1",
     "yaml": "^2.8.2"
   },
   "homepage": "https://bsbcode.dev/"
