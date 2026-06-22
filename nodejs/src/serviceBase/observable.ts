@@ -235,11 +235,12 @@ export class SBObservable {
   }
 
   private setupSpanEvents() {
-    this.observableBus.on("spanStart", async (trace: DTrace, pluginName: string, spanName: string, parentSpanId: string | null, attributes?: Record<string, string | number | boolean>) => {
+    this.observableBus.on("spanStart", async (timestamp: number, trace: DTrace, pluginName: string, spanName: string, parentSpanId: string | null, attributes?: Record<string, string | number | boolean>) => {
       this.triggerSpanEvent("spanStart", async (plugin) => {
         await SmartFunctionCallAsync(
           plugin,
           plugin.spanStart?.bind(plugin),
+          timestamp,
           trace,
           pluginName,
           spanName,
@@ -249,11 +250,12 @@ export class SBObservable {
       });
     });
 
-    this.observableBus.on("spanEnd", async (trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => {
+    this.observableBus.on("spanEnd", async (timestamp: number, trace: DTrace, pluginName: string, attributes?: Record<string, string | number | boolean>) => {
       this.triggerSpanEvent("spanEnd", async (plugin) => {
         await SmartFunctionCallAsync(
           plugin,
           plugin.spanEnd?.bind(plugin),
+          timestamp,
           trace,
           pluginName,
           attributes
@@ -261,11 +263,12 @@ export class SBObservable {
       });
     });
 
-    this.observableBus.on("spanError", async (trace: DTrace, pluginName: string, error: Error, attributes?: Record<string, string | number | boolean>) => {
+    this.observableBus.on("spanError", async (timestamp: number, trace: DTrace, pluginName: string, error: Error, attributes?: Record<string, string | number | boolean>) => {
       this.triggerSpanEvent("spanError", async (plugin) => {
         await SmartFunctionCallAsync(
           plugin,
           plugin.spanError?.bind(plugin),
+          timestamp,
           trace,
           pluginName,
           error,
@@ -711,7 +714,7 @@ export class SBObservable {
    * @param attributes - Optional span attributes
    */
   public startSpan(timestamp: number, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) {
-    this.observableBus.emit("spanStart", { t: traceId, s: spanId }, pluginName, name, parentSpanId, attributes);
+    this.observableBus.emit("spanStart", timestamp, { t: traceId, s: spanId }, pluginName, name, parentSpanId, attributes);
   }
 
   /**
@@ -724,7 +727,7 @@ export class SBObservable {
    * @param attributes - Optional final attributes
    */
   public endSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, attributes?: Record<string, string | number | boolean>) {
-    this.observableBus.emit("spanEnd", { t: traceId, s: spanId }, pluginName, attributes);
+    this.observableBus.emit("spanEnd", timestamp, { t: traceId, s: spanId }, pluginName, attributes);
   }
 
   /**
@@ -738,6 +741,6 @@ export class SBObservable {
    * @param attributes - Optional error attributes
    */
   public errorSpan(timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, error: Error, attributes?: Record<string, string | number | boolean>) {
-    this.observableBus.emit("spanError", { t: traceId, s: spanId }, pluginName, error, attributes);
+    this.observableBus.emit("spanError", timestamp, { t: traceId, s: spanId }, pluginName, error, attributes);
   }
 }

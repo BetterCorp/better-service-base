@@ -200,6 +200,7 @@ export abstract class BSBObservable<
 
   /**
    * Tracing: Span start
+   * @param timestamp - Span start timestamp
    * @param trace - Span trace (contains trace ID and new span ID)
    * @param pluginName - Name of the plugin creating the span
    * @param spanName - Name of the span
@@ -207,6 +208,7 @@ export abstract class BSBObservable<
    * @param attributes - Span attributes
    */
   spanStart?(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     spanName: string,
@@ -216,11 +218,13 @@ export abstract class BSBObservable<
 
   /**
    * Tracing: Span end
+   * @param timestamp - Span end timestamp
    * @param trace - Span trace
    * @param pluginName - Name of the plugin ending the span
    * @param attributes - Final attributes
    */
   spanEnd?(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     attributes?: Record<string, string | number | boolean>
@@ -228,12 +232,14 @@ export abstract class BSBObservable<
 
   /**
    * Tracing: Span error
+   * @param timestamp - Span error timestamp
    * @param trace - Span trace
    * @param pluginName - Name of the plugin recording the error
    * @param error - Error object
    * @param attributes - Error attributes
    */
   spanError?(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     error: Error,
@@ -332,6 +338,7 @@ export class BSBObservableRef extends BSBObservable {
   }
 
   spanStart(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     spanName: string,
@@ -342,6 +349,7 @@ export class BSBObservableRef extends BSBObservable {
   }
 
   spanEnd(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     attributes?: Record<string, string | number | boolean>
@@ -350,6 +358,7 @@ export class BSBObservableRef extends BSBObservable {
   }
 
   spanError(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     error: Error,

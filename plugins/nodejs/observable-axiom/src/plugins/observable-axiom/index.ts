@@ -441,6 +441,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
   // Tracing methods - uses OpenTelemetry OTLP export to Axiom
   public spanStart(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     spanName: string,
@@ -472,6 +473,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     const span = this.tracer.startSpan(
       spanName,
       {
+        startTime: timestamp,
         attributes: attributes,
       },
       parentContext
@@ -485,6 +487,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   }
 
   public spanEnd(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     attributes?: Record<string, string | number | boolean>
@@ -504,12 +507,13 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       if (attributes) {
         span.setAttributes(attributes);
       }
-      span.end();
+      span.end(timestamp);
       this.spans.delete(spanKey);
     }
   }
 
   public spanError(
+    timestamp: number,
     trace: DTrace,
     pluginName: string,
     error: Error,
@@ -527,7 +531,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     const spanKey = `${trace.t}:${trace.s}`;
     const span = this.spans.get(spanKey);
     if (span) {
-      span.recordException(error);
+      span.recordException(error, timestamp);
       span.setStatus({ code: api.SpanStatusCode.ERROR, message: error.message });
       if (attributes) {
         span.setAttributes(attributes);

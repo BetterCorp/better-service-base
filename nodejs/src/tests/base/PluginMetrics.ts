@@ -168,15 +168,52 @@ describe("ObservableBackend", () => {
       const name = "test_trace";
       const attributes = { attr1: "value1" };
 
-      mockObservable.observableBus.once("spanStart", (trace: DTrace, emittedPlugin: string, emittedName: string, emittedAttrs: any) => {
+      mockObservable.observableBus.once("spanStart", (timestamp: number, trace: DTrace, emittedPlugin: string, emittedName: string, parentSpanId: string | null, emittedAttrs: any) => {
+        expect(timestamp).to.be.a("number");
         expect(emittedPlugin).to.equal(pluginName);
         expect(trace.t).to.be.a("string");
         expect(emittedName).to.equal(name);
+        expect(parentSpanId).to.equal(null);
         expect(emittedAttrs).to.deep.equal(attributes);
         done();
       });
 
       observableBackend.createTrace(name, attributes);
+    });
+
+    it("should emit timestamps for span end and error events", (done) => {
+      const trace = observableBackend.createTrace("timed_trace");
+      const error = new Error("boom");
+      let seenEnd = false;
+      let seenError = false;
+
+      const finish = () => {
+        if (seenEnd && seenError) done();
+      };
+
+      mockObservable.observableBus.once("spanEnd", (timestamp: number, emittedTrace: DTrace, emittedPlugin: string, emittedAttrs: any) => {
+        expect(timestamp).to.be.a("number");
+        expect(emittedTrace.t).to.equal(trace.trace.t);
+        expect(emittedTrace.s).to.equal(trace.trace.s);
+        expect(emittedPlugin).to.equal(pluginName);
+        expect(emittedAttrs).to.deep.equal({ status: "ok" });
+        seenEnd = true;
+        finish();
+      });
+
+      mockObservable.observableBus.once("spanError", (timestamp: number, emittedTrace: DTrace, emittedPlugin: string, emittedError: Error, emittedAttrs: any) => {
+        expect(timestamp).to.be.a("number");
+        expect(emittedTrace.t).to.equal(trace.trace.t);
+        expect(emittedTrace.s).to.equal(trace.trace.s);
+        expect(emittedPlugin).to.equal(pluginName);
+        expect(emittedError).to.equal(error);
+        expect(emittedAttrs).to.deep.equal({ status: "failed" });
+        seenError = true;
+        finish();
+      });
+
+      trace.end({ status: "ok" });
+      trace.error(error, { status: "failed" });
     });
   });
 
@@ -186,11 +223,13 @@ describe("ObservableBackend", () => {
       const name = "test_span";
       const attributes = { attr1: "value1" };
 
-      mockObservable.observableBus.once("spanStart", (emittedTrace: DTrace, emittedPlugin: string, emittedName: string, emittedAttrs: any) => {
+      mockObservable.observableBus.once("spanStart", (timestamp: number, emittedTrace: DTrace, emittedPlugin: string, emittedName: string, parentSpanId: string | null, emittedAttrs: any) => {
+        expect(timestamp).to.be.a("number");
         expect(emittedPlugin).to.equal(pluginName);
         expect(emittedTrace.t).to.equal(trace.t);
         expect(emittedTrace.s).to.be.a("string");
         expect(emittedName).to.equal(name);
+        expect(parentSpanId).to.equal(trace.s);
         expect(emittedAttrs).to.deep.equal(attributes);
         done();
       });

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docker - BSB Documentation</title>
+  <meta name="description" content="Run BSB with Docker using the supported service-base image tags and plugin loading environment variables.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+</head>
+<body>
+  <div class="doc-layout">
+    <header class="top-nav">
+      <div class="nav-container">
+        <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      </div>
+    </header>
+
+    <main>
+      <header class="page-header">
+        <h1>Docker</h1>
+        <p>Run the BSB container and provide plugins at startup. BSB is container-first in production; plugin projects are built separately and mounted or installed into the container.</p>
+      </header>
+
+      <div class="content-section">
+        <h2>Image Tags</h2>
+        <p>Use the runtime-prefixed tags. For Node.js production deployments, use:</p>
+
+        <div class="code-block" data-title="supported tags"><pre><code class="language-text">betterweb/service-base:node
+betterweb/service-base:node-latest
+betterweb/service-base:node-9.5.1</code></pre></div>
+
+        <div class="warning">
+          <strong>Do not use tags like <code>9-node</code>.</strong> BSB tags are runtime-first: <code>node</code>, <code>node-latest</code>, or <code>node-&lt;version&gt;</code>. The same pattern applies to other runtimes, such as <code>go</code>, <code>python</code>, and <code>dotnet</code>.
+        </div>
+
+        <h2>Run With Mounted Plugins</h2>
+        <p>Mount prebuilt plugin packages and point BSB at the plugin directory. The first path in <code>BSB_PLUGIN_DIRS</code> is also used as the install target when <code>BSB_PLUGINS</code> is set.</p>
+
+        <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
+  -v "$(pwd)/plugins:/mnt/plugins:ro" \
+  -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
+  -e BSB_PLUGIN_DIRS=/mnt/plugins \
+  -e BSB_CONFIG_FILE=/app/sec-config.yaml \
+  betterweb/service-base:node</code></pre></div>
+
+        <h2>Install Plugins On Startup</h2>
+        <p>Use <code>BSB_PLUGINS</code> when the container should install published plugin packages before starting.</p>
+
+        <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
+  -v bsb-plugins:/mnt/plugins \
+  -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
+  -e BSB_PLUGIN_DIRS=/mnt/plugins \
+  -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@latest' \
+  -e BSB_CONFIG_FILE=/app/sec-config.yaml \
+  betterweb/service-base:node-latest</code></pre></div>
+
+        <h2>Compose</h2>
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: betterweb/service-base:node
+    environment:
+      BSB_PLUGIN_DIRS: /mnt/plugins
+      BSB_CONFIG_FILE: /app/sec-config.yaml
+    volumes:
+      - ./plugins:/mnt/plugins:ro
+      - ./sec-config.yaml:/app/sec-config.yaml:ro</code></pre></div>
+
+        <h2>Environment Variables</h2>
+        <ul>
+          <li><code>BSB_PLUGIN_DIRS</code>: comma-separated plugin directories. Prefer this over legacy aliases.</li>
+          <li><code>BSB_PLUGINS</code>: comma-separated npm packages to install at container start.</li>
+          <li><code>BSB_PLUGIN_UPDATE=true</code>: refresh already-installed plugins on startup.</li>
+          <li><code>BSB_CONFIG_FILE</code>: config file path inside the container.</li>
+          <li><code>BSB_PROFILE</code>: config profile to load, defaulting to <code>default</code>.</li>
+          <li><code>BSB_DEBUG=true</code>: enable production debug logging.</li>
+        </ul>
+
+        <div class="info-box">
+          <h4>Build Plugins Separately</h4>
+          <p>Plugin projects should build with <code>bsb-plugin-cli build</code> before deployment. The container loads built plugin packages; it should not compile application plugin source at startup.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script type="module" src="/assets/js/navbar.js" data-page="guides-docker"></script>
+</body>
+</html>

@@ -29,6 +29,7 @@ function createNavbar(activePage = '') {
               Build Services <span class="dropdown-arrow">&#9662;</span>
             </button>
             <div class="dropdown-content">
+              <a href="/guides/docker/" class="${activePage === 'guides-docker' ? 'active' : ''}">Docker</a>
               <a href="/guides/nodejs/" class="${activePage === 'guides-nodejs' ? 'active' : ''}">Node.js</a>
               <a href="/guides/nodejs/build-hooks/" class="nav-sub-link ${activePage === 'guides-nodejs' ? '' : ''}">Build Hooks</a>
               <span class="coming-soon">Go</span>

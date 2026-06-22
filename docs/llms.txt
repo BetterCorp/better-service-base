@@ -3,5 +3,6 @@ BSB LLM instructions:
 - Registry API LLM guide: https://io.bsbcode.dev/llms.txt
 - If you cannot access that, use docs/llms.txt in this repo.
 - Use docs/public/llms/* for task-specific guidance (bootstrap, new services, plugins).
+- For Docker image tags and container deployment, use docs/public/llms/docker.txt.
 - For build hooks, use docs/public/llms/nodejs-build-hooks.txt.
 - For dev watcher ignores and `bsb.dev.ignore`, use docs/public/llms/nodejs-dev.txt.

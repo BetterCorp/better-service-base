@@ -284,6 +284,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
   betterweb/service-base:node</code></pre></div>
             <div class="warning"><strong>Note:</strong> This is the supported production deployment. Use comma-separated paths for multiple plugin directories.</div>
+            <p>See the <a href="/guides/docker/">Docker guide</a> for supported image tags and container environment variables. Use <code>betterweb/service-base:node</code> or <code>betterweb/service-base:node-latest</code>; do not use version-first tags like <code>9-node</code>.</p>
         </div>
 
         <div class="section">
@@ -655,7 +656,7 @@ export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typ
     throw error;
   }
 }</code></pre></div>
-                <p>Incoming work such as HTTP requests, queue messages, and scheduled jobs should create a new trace with <code>this.createTrace(...)</code>. Nested local work should use child spans from the current observable. For BSB event calls, pass the current observable into the generated client or <code>this.events</code>; BSB already creates internal spans for event send/receive work, so do not double-span those calls.</p>
+                <p>Incoming work such as HTTP requests, queue messages, and scheduled jobs should create a new trace with <code>this.createTrace(...)</code>. Nested local work should use child spans from the current observable. Span start/end/error events include timestamps, so observable plugins can calculate duration without each service adding <code>performance.now()</code> bookkeeping. For BSB event calls, pass the current observable into the generated client or <code>this.events</code>; BSB already creates internal spans for event send/receive work, so do not double-span those calls.</p>
             </div>
             
             <div class="info-box">
@@ -738,6 +739,7 @@ export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas
     ports:
       - "8080:8080"  # if your service exposes HTTP
 </code></pre></div>
+            <p>For tag details, startup plugin installation, and config variables, see the <a href="/guides/docker/">Docker guide</a>.</p>
         </div>
         
         <div class="warning">

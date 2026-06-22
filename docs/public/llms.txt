@@ -7,6 +7,10 @@ Bootstrap (start here for a new project):
 - Explains the minimal project skeleton, config files, and entry points so code you generate compiles and runs.
   https://bsbcode.dev/llms/nodejs-bootstrap.txt
 
+Docker:
+- Official image tags, plugin mounting/installing, and container environment variables.
+  https://bsbcode.dev/llms/docker.txt
+
 Plugins (Node.js) - pick the type you are building:
 - Service plugin: a deployable service with lifecycle hooks, config, and plugin clients.
   https://bsbcode.dev/llms/nodejs-plugin-service.txt

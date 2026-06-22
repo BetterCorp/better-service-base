@@ -47,6 +47,7 @@ export default defineConfig({
         '404': 'src/404.html',
 
         // Guides - Building Services
+        'guides-docker': 'src/guides/docker/index.html',
         'guides-nodejs': 'src/guides/nodejs/index.html',
         'guides-nodejs-build-hooks': 'src/guides/nodejs/build-hooks/index.html',
 

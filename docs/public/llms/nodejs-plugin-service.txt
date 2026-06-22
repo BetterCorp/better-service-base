@@ -129,6 +129,7 @@ Observability rules:
 - Nested work should create child spans from the current observable: `const dbObs = requestObs.startSpan("db.query", { table: "users" })`.
 - Pass the current/child observable into downstream generated client calls, DB helpers, queues, and nested work.
 - Do not manually wrap BSB event calls in extra spans. BSB already creates internal spans around event send/receive work; just pass the current observable into generated clients or `this.events`.
+- Do not add manual `performance.now()` timing for work already covered by spans. Span start/end/error events include timestamps, so observable plugins can calculate duration centrally.
 - Logs must use structured metadata: `obs.log.info("HTTP request completed {status}", { status })`. Do not interpolate dynamic values into plain strings and do not log without metadata when data matters.
 - On errors, log structured error data and end the span with error metadata before rethrowing or returning the error response.
 

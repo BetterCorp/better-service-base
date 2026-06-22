@@ -76,13 +76,13 @@ export const MockSBObservable = (): SBObservable => {
 
     // Span methods - emit to bus
     startSpan: (timestamp: number, appId: string, pluginName: string, traceId: string, parentSpanId: string | null, spanId: string, name: string, attributes?: Record<string, string | number | boolean>) => {
-      observableBus.emit('spanStart', { t: traceId, s: spanId }, pluginName, name, attributes);
+      observableBus.emit('spanStart', timestamp, { t: traceId, s: spanId }, pluginName, name, parentSpanId, attributes);
     },
     endSpan: (timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, attributes?: Record<string, string | number | boolean>) => {
-      observableBus.emit('spanEnd', { t: traceId, s: spanId }, pluginName, attributes);
+      observableBus.emit('spanEnd', timestamp, { t: traceId, s: spanId }, pluginName, attributes);
     },
     errorSpan: (timestamp: number, appId: string, pluginName: string, traceId: string, spanId: string, error: Error, attributes?: Record<string, string | number | boolean>) => {
-      observableBus.emit('spanError', { t: traceId, s: spanId }, pluginName, error, attributes);
+      observableBus.emit('spanError', timestamp, { t: traceId, s: spanId }, pluginName, error, attributes);
     },
 
     // Lifecycle methods
