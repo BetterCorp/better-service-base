@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BSBPluginConfig, BSBPluginConfigRef } from "../base/index.js";
 import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef, Result, Ok, Err, fromPromise, BSBRuntimeMode } from "../interfaces/index.js";
@@ -78,16 +78,6 @@ export class SBPlugins {
       for (const dir of dirs) {
         if (!existsSync(dir)) {
           throw new Error(`Plugin directory ${ dir } does not exist`);
-        }
-        const pkgJsonPath = join(dir, "package.json");
-        if (!existsSync(pkgJsonPath)) {
-          // eslint-disable-next-line no-console
-          console.log(`[BSB] Created package.json in ${ dir }`);
-          writeFileSync(
-            pkgJsonPath,
-            JSON.stringify({ name: "bsb-plugins", version: "1.0.0", private: true }, null, 2),
-            "utf-8"
-          );
         }
         this.referencedPluginDirs.push(dir);
       }
