@@ -12,6 +12,8 @@ WORKDIR /usr/share/nginx/html
 
 COPY docker/nginx.types.conf /etc/nginx/conf.d/default.conf
 COPY --from=build-nodejs /workspace/types ./
+COPY docker/healthcheck-nginx.sh /usr/local/bin/healthcheck
+RUN chmod +x /usr/local/bin/healthcheck
 
 RUN printf '%s\n' \
   '<!doctype html>' \

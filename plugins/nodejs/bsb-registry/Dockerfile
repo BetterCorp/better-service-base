@@ -57,5 +57,6 @@ FROM betterweb/service-base:${BSB_IMAGE_TAG}
 COPY --from=builder /out/ /mnt/plugins/
 COPY --from=buildermodules /out/ /mnt/plugins/
 COPY plugins/nodejs/bsb-registry/BADGES.json /home/bsb/BADGES.json
+COPY plugins/nodejs/bsb-registry/healthcheck.cjs /home/bsb/healthcheck.cjs
 
 ENV BSB_PLUGIN_DIRS=/mnt/plugins

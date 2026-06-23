@@ -131,6 +131,7 @@ const PluginTypesParamsSchema = createValidator(objectSchema({
 }).describe('Plugin type definition route parameters'));
 
 const packageLookupIdPattern = /^[A-Za-z0-9@._\-/:]+$/;
+const staticLookupPattern = /(^|\/)(README|LICENSE|CHANGELOG|CONTRIBUTING)(\..*)?$|[.](md|json|txt|ya?ml|xml|html?|css|js|map|ico|png|jpe?g|svg|webp|gif)$/i;
 
 const PackageLookupParamsSchema = createValidator(objectSchema({
   language: languageEnum().describe('Package language to resolve'),
@@ -1352,6 +1353,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
     if (!params) return;
 
     const packageId = params['*'];
+    if (staticLookupPattern.test(packageId)) {
+      reply.code(404).send({ error: 'Not Found' });
+      return;
+    }
 
     const trace = this.createTrace('ui.package.lookup', {
       url: request.url,
@@ -1561,6 +1566,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
   private async handlePluginDetail(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const params = this.validateInput(PluginDetailParamsSchema, request.params, reply);
     if (!params) return;
+    if (staticLookupPattern.test(`${params.org}/${params.name}`)) {
+      reply.code(404).send({ error: 'Not Found' });
+      return;
+    }
 
     const trace = this.createTrace('ui.plugin.detail', {
       url: request.url,
