@@ -821,8 +821,17 @@ export class RegistryUIServer {
   }
 
   private resolveBadgesFile(pluginCwd: string, packageCwd: string): string | undefined {
+    const defaultCandidates = [
+      path.resolve(pluginCwd, 'BADGES.json'),
+      path.resolve(packageCwd, 'BADGES.json'),
+      path.resolve('BADGES.json'),
+    ];
+
     if (this.badgesFileInput && path.isAbsolute(this.badgesFileInput)) {
-      return this.badgesFileInput;
+      return [
+        this.badgesFileInput,
+        ...defaultCandidates,
+      ].find((candidate) => fs.existsSync(candidate));
     }
 
     const filename = this.badgesFileInput ?? 'BADGES.json';
@@ -830,6 +839,7 @@ export class RegistryUIServer {
       path.resolve(pluginCwd, filename),
       path.resolve(packageCwd, filename),
       path.resolve(filename),
+      ...defaultCandidates,
     ];
 
     return candidates.find((candidate) => fs.existsSync(candidate));
