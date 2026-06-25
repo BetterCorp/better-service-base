@@ -137,6 +137,22 @@ jobs:
           BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
         run: npm run publish:client
 
+      - name: Publish workspace plugins to BSB registry
+        env:
+          BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          for pkg in plugins/nodejs/*; do
+            if [ ! -f "$pkg/package.json" ]; then
+              continue
+            fi
+            echo "Publishing registry metadata for $pkg @ $RELEASE_VERSION"
+            npm version "$RELEASE_VERSION" --workspace "$pkg" --allow-same-version --no-git-tag-version
+            npm run build --workspace "$pkg"
+            npm run publish:client --workspace "$pkg"
+          done
+
   python:
     name: Python
     needs: [prepare]
