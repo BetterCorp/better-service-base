@@ -20,7 +20,7 @@ const UIConfigSchema = av.object({
   host: av.string().default('0.0.0.0').describe('Network host address used by the registry UI and API server'),
   pageSize: av.int32().min(1).max(100).default(20).describe('Default number of plugins shown per browse page'),
   uploadDir: av.string().default('./.temp/registry-images').describe('Directory used to store uploaded registry images'),
-  badgesFile: av.string().default('./BADGES.json').describe('Path to the badge definition JSON file'),
+  badgesFile: av.optional(av.string().minLength(1)).describe('Optional path to the badge definition JSON file'),
   maxImageUploadMb: av.int32().min(1).max(20).default(5).describe('Maximum uploaded image size in megabytes'),
 }).describe('Registry UI and API plugin configuration');
 

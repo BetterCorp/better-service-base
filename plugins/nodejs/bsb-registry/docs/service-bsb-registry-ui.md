@@ -12,7 +12,7 @@ service-bsb-registry-ui:
   host: 0.0.0.0
   pageSize: 20                   # plugins per page in browse view
   uploadDir: ./.temp/registry-images
-  badgesFile: ./BADGES.json
+  # badgesFile is optional; defaults to BADGES.json in the built UI plugin dir
   maxImageUploadMb: 5
 ```
 
@@ -22,7 +22,7 @@ service-bsb-registry-ui:
 | `host` | string | `0.0.0.0` | Bind address |
 | `pageSize` | number | `20` | Plugins per page |
 | `uploadDir` | string | `./.temp/registry-images` | Directory to store plugin images |
-| `badgesFile` | string | `./BADGES.json` | Badge map file keyed by `org/name` |
+| `badgesFile` | string | auto-discover | Optional badge map file keyed by `org/name` |
 | `maxImageUploadMb` | number | `5` | Max image upload size in MB |
 
 ## Content Negotiation
@@ -121,7 +121,7 @@ See [service-bsb-registry.md](service-bsb-registry.md) for the full publish requ
 
 ## Plugin Badges
 
-Create a `BADGES.json` file to force specific badges:
+Create a `BADGES.json` file to force specific badges. If `badgesFile` is omitted, the UI looks for `BADGES.json` in the built plugin directory, then the package root, then the app cwd.
 
 ```json
 {
@@ -154,6 +154,7 @@ This architecture means the UI has zero direct database access. Swapping `events
 src/plugins/service-bsb-registry-ui/
   index.ts              Plugin entry point (config, lifecycle)
   http-server.ts        Fastify server, routes, AnyVali validation, rendering
+  BADGES.json           Default badge map copied into lib on build
   templates/
     layouts/
       main.hbs          Base HTML layout

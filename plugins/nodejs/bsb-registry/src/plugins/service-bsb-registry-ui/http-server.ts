@@ -343,7 +343,8 @@ export class RegistryUIServer {
   public readonly host: string;
   private readonly pageSize: number;
   private readonly uploadDir: string;
-  private readonly badgesFile: string;
+  private readonly badgesFileInput: string | undefined;
+  private badgesFile: string | undefined;
   private readonly maxImageUploadBytes: number;
   private readonly imageIndexPath: string;
   private imageIndex: Record<string, string> = {};
@@ -358,14 +359,14 @@ export class RegistryUIServer {
     host: string,
     pageSize: number,
     uploadDir: string,
-    badgesFile: string,
+    badgesFile: string | undefined,
     maxImageUploadMb: number
   ) {
     this.port = port;
     this.host = host;
     this.pageSize = pageSize;
     this.uploadDir = path.resolve(uploadDir);
-    this.badgesFile = path.resolve(badgesFile);
+    this.badgesFileInput = badgesFile;
     this.maxImageUploadBytes = maxImageUploadMb * 1024 * 1024;
     this.imageIndexPath = path.join(this.uploadDir, 'images.json');
 
@@ -460,6 +461,7 @@ export class RegistryUIServer {
       this.registryClient = plugin.registryClient;
       this.createTrace = plugin.createTrace.bind(plugin);
       this.pluginCwd = plugin.pluginCwd;
+      this.badgesFile = this.resolveBadgesFile(plugin.pluginCwd, plugin.packageCwd);
       const packageJsonPath = path.join(plugin.packageCwd, 'package.json');
       if (fs.existsSync(packageJsonPath)) {
         const packageJson = JSON.parse(await fsp.readFile(packageJsonPath, 'utf-8')) as { version?: string };
@@ -797,16 +799,40 @@ export class RegistryUIServer {
   }
 
   private async loadBadgeMap(obs: Observable): Promise<void> {
+    if (!this.badgesFile) {
+      this.badgeMap = {};
+      obs.log.debug('No badge map file found');
+      return;
+    }
     try {
       const raw = await fsp.readFile(this.badgesFile, 'utf-8');
       const parsed = JSON.parse(raw);
       this.badgeMap = parsed && typeof parsed === 'object'
         ? parsed as Record<string, string | string[]>
         : {};
-    } catch {
+    } catch (error) {
       this.badgeMap = {};
+      obs.log.warn('Badge map not loaded from {path}: {error}', {
+        path: this.badgesFile,
+        error: (error as Error).message,
+      });
     }
     obs.log.debug('Loaded badge map with {count} entries', { count: Object.keys(this.badgeMap).length });
+  }
+
+  private resolveBadgesFile(pluginCwd: string, packageCwd: string): string | undefined {
+    if (this.badgesFileInput && path.isAbsolute(this.badgesFileInput)) {
+      return this.badgesFileInput;
+    }
+
+    const filename = this.badgesFileInput ?? 'BADGES.json';
+    const candidates = [
+      path.resolve(pluginCwd, filename),
+      path.resolve(packageCwd, filename),
+      path.resolve(filename),
+    ];
+
+    return candidates.find((candidate) => fs.existsSync(candidate));
   }
 
   private resolvePluginImageUrl(pluginId: string): string | null {

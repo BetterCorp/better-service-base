@@ -54,7 +54,7 @@ service-bsb-registry-ui:
   host: 0.0.0.0
   pageSize: 20                   # plugins per page
   uploadDir: ./.temp/registry-images
-  badgesFile: ./BADGES.json
+  # badgesFile is optional; defaults to BADGES.json in the built UI plugin dir
   maxImageUploadMb: 5
 ```
 
