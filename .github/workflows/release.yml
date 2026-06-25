@@ -106,6 +106,37 @@ jobs:
         working-directory: tests/nodejs
         run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
 
+  registry-plugins:
+    name: Publish BSB Registry Plugins
+    needs: [nodejs, prepare]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build base
+        run: npm run build-release --workspace nodejs
+
+      - name: Set version
+        working-directory: nodejs
+        run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
+
+      - name: Publish core plugins to BSB registry
+        working-directory: nodejs
+        env:
+          BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
+        run: npm run publish:client
+
   python:
     name: Python
     needs: [prepare]
