@@ -49,6 +49,7 @@ Environment:
 - `BSB_PLUGINS`: comma-separated npm packages installed at container start.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_CONFIG_FILE`: config file path inside the container.
+- `BSB_CONFIG_PLUGIN=config-env` and `BSB_CONFIG_JSON=...`: use these instead of `BSB_CONFIG_FILE` when the full runtime config is supplied by environment.
 - `BSB_PROFILE`: config profile to load, default `default`.
 - `BSB_DEBUG=true`: enable production debug logging.
 

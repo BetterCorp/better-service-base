@@ -33,6 +33,12 @@ const CORE_PLUGIN_OVERRIDES: Record<string, PluginMeta> = {
     tags: ['core', 'config', 'default'],
     documentation: ['./docs/core-plugins/config-default.md'],
   },
+  'config-env': {
+    name: 'config-env',
+    description: 'Environment JSON configuration plugin for BSB profile and plugin resolution.',
+    tags: ['core', 'config', 'env'],
+    documentation: ['./docs/core-plugins/config-env.md'],
+  },
   'events-default': {
     name: 'events-default',
     description: 'In-process events plugin with emit, returnable, and broadcast support.',

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Core Plugins - BSB Documentation</title>
-  <meta name="description" content="BSB's built-in core plugins: config-default, events-default, and observable-default.">
+  <meta name="description" content="BSB's built-in core plugins: config-default, config-env, events-default, and observable-default.">
   <link rel="stylesheet" href="/assets/css/main.css">
   <style>
     .page-header {
@@ -106,6 +106,18 @@
             <span class="cta">View Documentation</span>
           </a>
 
+          <a href="https://io.bsbcode.dev/plugins/_/config-env" class="plugin-card config">
+            <h3>config-env</h3>
+            <p>Environment JSON configuration for container deployments without a config file mount.</p>
+            <ul class="features">
+              <li>Loads from BSB_CONFIG_JSON</li>
+              <li>Profile selection with BSB_PROFILE</li>
+              <li>Same shape as sec-config.yaml</li>
+              <li>Plugin-specific config sections</li>
+            </ul>
+            <span class="cta">View Documentation</span>
+          </a>
+
           <a href="https://io.bsbcode.dev/plugins/_/events-default" class="plugin-card events">
             <h3>events-default</h3>
             <p>In-memory event bus for single-process deployments and development.</p>
@@ -136,7 +148,8 @@
         <p>The default plugins are designed for development and simple single-container deployments. You should replace them when:</p>
 
         <ul>
-          <li><strong>config-default</strong> - Replace when you need dynamic configuration or secrets management. Use config-consul, config-etcd, or config-vault.</li>
+          <li><strong>config-default</strong> - Use for file-based YAML configuration.</li>
+          <li><strong>config-env</strong> - Use when the full runtime config should come from environment instead of a mounted file.</li>
           <li><strong>events-default</strong> - Replace when you need multiple containers/processes to communicate. Use events-rabbitmq, events-kafka, or events-redis.</li>
           <li><strong>observable-default</strong> - Replace when you need production-grade observability. Use observable-pino, observable-winston, observable-opentelemetry, or observable-graylog for centralized logging and monitoring.</li>
         </ul>

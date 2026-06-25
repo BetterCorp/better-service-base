@@ -21,6 +21,25 @@
       }
     },
     {
+      "id": "config-env",
+      "name": "config-env",
+      "basePath": "./",
+      "description": "Environment JSON configuration plugin for BSB profile and plugin resolution",
+      "tags": [
+        "core",
+        "config",
+        "env"
+      ],
+      "documentation": [
+        "./docs/core-plugins/config-env.md"
+      ],
+      "pluginPath": "src/plugins/config-env/",
+      "image": "../docs/public/assets/images/bsb-logo.png",
+      "links": {
+        "github": "git+https://github.com/BetterCorp/better-service-base.git"
+      }
+    },
+    {
       "id": "events-default",
       "name": "events-default",
       "basePath": "./",
