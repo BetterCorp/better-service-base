@@ -38,9 +38,11 @@ services:
     environment:
       BSB_PLUGIN_DIRS: /mnt/plugins
       BSB_CONFIG_FILE: /app/sec-config.yaml
+      BSB_WRITABLE_PATHS: /data
     volumes:
       - ./plugins:/mnt/plugins:ro
       - ./sec-config.yaml:/app/sec-config.yaml:ro
+      - bsb-data:/data
 ```
 
 Environment:
@@ -48,6 +50,7 @@ Environment:
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR`: legacy aliases; still work and accept comma-separated values.
 - `BSB_PLUGINS`: comma-separated npm packages installed at container start.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
+- `BSB_WRITABLE_PATHS`: comma-separated files/directories that the Node entrypoint creates if needed and makes writable for runtime state, for example `/data`.
 - `BSB_CONFIG_FILE`: config file path inside the container.
 - `BSB_CONFIG_PLUGIN=config-env` and `BSB_CONFIG_JSON=...`: use these instead of `BSB_CONFIG_FILE` when the full runtime config is supplied by environment.
 - `BSB_PROFILE`: config profile to load, default `default`.

@@ -26,6 +26,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 RAW_PLUGIN_DIRS="${BSB_PLUGIN_DIRS:-${BSB_PLUGINS_DIR:-${BSB_PLUGIN_DIR:-}}}"
+RAW_WRITABLE_PATHS="${BSB_WRITABLE_PATHS:-}"
 
 mkdir -p /mnt/.temp /mnt/temp
 
@@ -60,6 +61,17 @@ if [ -n "$RAW_PLUGIN_DIRS" ]; then
   done
   IFS="$OLDIFS"
 fi
+if [ -n "$RAW_WRITABLE_PATHS" ]; then
+  OLDIFS="$IFS"
+  IFS=","
+  for DIR in $RAW_WRITABLE_PATHS; do
+    DIR=$(echo "$DIR" | xargs)
+    [ -z "$DIR" ] && continue
+    mkdir -p "$DIR" || true
+    chown -R node:node "$DIR" || true
+  done
+  IFS="$OLDIFS"
+fi
 chown -R node:node /mnt/.temp /mnt/temp || true
 
 find /home/bsb -type d -exec chmod 550 {} \; 2>/dev/null || true
@@ -73,6 +85,17 @@ find /mnt/.temp -type d -exec chmod 770 {} \; 2>/dev/null || true
 find /mnt/.temp -type f -exec chmod 660 {} \; 2>/dev/null || true
 find /mnt/temp -type d -exec chmod 770 {} \; 2>/dev/null || true
 find /mnt/temp -type f -exec chmod 660 {} \; 2>/dev/null || true
+if [ -n "$RAW_WRITABLE_PATHS" ]; then
+  OLDIFS="$IFS"
+  IFS=","
+  for DIR in $RAW_WRITABLE_PATHS; do
+    DIR=$(echo "$DIR" | xargs)
+    [ -z "$DIR" ] && continue
+    find "$DIR" -type d -exec chmod 770 {} \; 2>/dev/null || true
+    find "$DIR" -type f -exec chmod 660 {} \; 2>/dev/null || true
+  done
+  IFS="$OLDIFS"
+fi
 
 if [ -n "$RAW_PLUGIN_DIRS" ]; then
   OLDIFS="$IFS"

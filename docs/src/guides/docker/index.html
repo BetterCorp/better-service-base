@@ -62,15 +62,18 @@ betterweb/service-base:node-9.5.1</code></pre></div>
     environment:
       BSB_PLUGIN_DIRS: /mnt/plugins
       BSB_CONFIG_FILE: /app/sec-config.yaml
+      BSB_WRITABLE_PATHS: /data
     volumes:
       - ./plugins:/mnt/plugins:ro
-      - ./sec-config.yaml:/app/sec-config.yaml:ro</code></pre></div>
+      - ./sec-config.yaml:/app/sec-config.yaml:ro
+      - bsb-data:/data</code></pre></div>
 
         <h2>Environment Variables</h2>
         <ul>
           <li><code>BSB_PLUGIN_DIRS</code>: comma-separated plugin directories. Prefer this over legacy aliases.</li>
           <li><code>BSB_PLUGINS</code>: comma-separated npm packages to install at container start.</li>
           <li><code>BSB_PLUGIN_UPDATE=true</code>: refresh already-installed plugins on startup.</li>
+          <li><code>BSB_WRITABLE_PATHS</code>: comma-separated files or directories that the entrypoint should create if needed, chown to the Node user, and chmod as writable. Use this for runtime state such as <code>/data</code>.</li>
           <li><code>BSB_CONFIG_FILE</code>: config file path inside the container.</li>
           <li><code>BSB_PROFILE</code>: config profile to load, defaulting to <code>default</code>.</li>
           <li><code>BSB_DEBUG=true</code>: enable production debug logging.</li>
