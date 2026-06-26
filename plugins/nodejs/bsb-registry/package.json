@@ -42,7 +42,7 @@
     "anyvali": "^1.0.6",
     "fastify": "^5.2.0",
     "handlebars": "^4.7.8",
-    "marked": "^17.0.2",
+    "marked": "^18.0.5",
     "sql.js": "^1.12.0"
   },
   "devDependencies": {
