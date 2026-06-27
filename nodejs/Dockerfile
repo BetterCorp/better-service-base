@@ -48,6 +48,8 @@ RUN rm -rf /home/bsb/lib/plugins/service-*
 # Stage 2: Install production dependencies
 FROM betterweb/node:26 AS dependencies
 
+ARG BSB_BUNDLED_PLUGINS=
+
 WORKDIR /home/bsb
 
 COPY --from=builder /home/bsb/package.json /home/bsb/package.json
@@ -55,7 +57,7 @@ COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
 
 # Install only production dependencies
 RUN npm install --production
-RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then npm install --omit=dev $BSB_BUNDLED_PLUGINS; fi
+RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then echo "Installing bundled BSB plugins: $BSB_BUNDLED_PLUGINS"; npm install --omit=dev $BSB_BUNDLED_PLUGINS; fi
 
 # Stage 3: Final image
 FROM betterweb/node:26
