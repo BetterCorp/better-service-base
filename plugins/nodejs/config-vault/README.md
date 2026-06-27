@@ -47,3 +47,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
 Keep the value stable. If the key changes, Vault cannot decrypt configs already stored in Postgres.
+
+## First Admin Setup
+
+On first startup, Vault logs a one-time setup code. Open `/setup`, enter the code, create the admin user, and confirm the password. Vault generates the TOTP enrollment secret and authenticator URI after the user is created.
+
+Passkeys are not part of first setup until a real browser passkey registration flow is available.

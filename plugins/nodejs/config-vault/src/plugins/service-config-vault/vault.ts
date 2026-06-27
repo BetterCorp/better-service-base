@@ -1,10 +1,11 @@
 import type { Observable } from '@bsb/base';
-import { decryptJson, encryptJson, hashSecret, newId, newToken, createTotpSecret, verifySecret, verifyTotp } from './crypto.js';
+import { decryptJson, encryptJson, hashSecret, newId, newToken, createTotpSecret, createTotpUri, verifySecret, verifyTotp } from './crypto.js';
 import { JsonPasskeyVerifier, type PasskeyVerifier } from './passkeys.js';
 import { VaultStore } from './store.js';
 import type {
   ApplicationRecord,
   FirstAdminInput,
+  FirstAdminResult,
   GroupRecord,
   PluginCatalogRecord,
   ProfileRecord,
@@ -37,7 +38,7 @@ export class VaultService {
     return (await this.store.countAdmins()) === 0;
   }
 
-  async createFirstAdmin(input: FirstAdminInput): Promise<void> {
+  async createFirstAdmin(input: FirstAdminInput): Promise<FirstAdminResult> {
     if (!(await this.setupRequired())) {
       throw new Error('Admin already exists');
     }
@@ -47,12 +48,12 @@ export class VaultService {
     if (input.password.length < 12) {
       throw new Error('Password must be at least 12 characters');
     }
+    if (input.password !== input.passwordConfirm) {
+      throw new Error('Passwords do not match');
+    }
 
     const now = new Date().toISOString();
     const totpSecret = createTotpSecret();
-    if (!verifyTotp(totpSecret, input.totpCode) && input.totpCode !== '000000') {
-      throw new Error('Invalid TOTP code for initial setup');
-    }
 
     const userId = newId();
     await this.store.createUser({
@@ -60,24 +61,17 @@ export class VaultService {
       email: input.email,
       passwordHash: await hashSecret(input.password),
       totpSecret,
-      passkeyRequired: true,
+      passkeyRequired: false,
       createdAt: now,
       updatedAt: now,
     });
 
-    if (input.passkeyCredential) {
-      const publicKey = await this.passkeys.verifyRegistration(input.passkeyCredential);
-      await this.store.createPasskey({
-        id: newId(),
-        userId,
-        credentialId: String(input.passkeyCredential.id),
-        publicKey,
-        signCount: 0,
-        createdAt: now,
-      });
-    }
-
     await this.audit('setup', 'admin.created', userId, { email: input.email });
+    return {
+      email: input.email,
+      totpSecret,
+      totpUri: createTotpUri(totpSecret, input.email),
+    };
   }
 
   async login(email: string, password: string, totpCode: string, passkeyCredential?: Record<string, unknown>): Promise<{ sessionId: string; csrfToken: string }> {

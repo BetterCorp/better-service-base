@@ -67,7 +67,7 @@ export function decryptJson<T>(payload: EncryptedPayload, key: Buffer): T {
 }
 
 export function createTotpSecret(): string {
-  return randomBytes(20).toString('base64url');
+  return toBase32(randomBytes(20));
 }
 
 export function verifyTotp(secret: string, code: string, now = Date.now()): boolean {
@@ -78,7 +78,7 @@ export function verifyTotp(secret: string, code: string, now = Date.now()): bool
 }
 
 export function generateTotp(secret: string, step = Math.floor(Date.now() / 30000)): string {
-  const key = Buffer.from(secret, 'base64url');
+  const key = decodeTotpSecret(secret);
   const counter = Buffer.alloc(8);
   counter.writeBigInt64BE(BigInt(step));
   const hmac = createHmac('sha1', key).update(counter).digest();
@@ -88,4 +88,50 @@ export function generateTotp(secret: string, step = Math.floor(Date.now() / 3000
     | ((hmac[offset + 2] & 0xff) << 8)
     | (hmac[offset + 3] & 0xff);
   return String(value % 1_000_000).padStart(6, '0');
+}
+
+export function createTotpUri(secret: string, account: string, issuer = 'BSB Vault'): string {
+  const label = `${issuer}:${account}`;
+  return `otpauth://totp/${encodeURIComponent(label)}?secret=${encodeURIComponent(secret)}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+}
+
+function decodeTotpSecret(secret: string): Buffer {
+  const cleaned = secret.replace(/\s+/g, '').replace(/=+$/g, '').toUpperCase();
+  if (/^[A-Z2-7]+$/.test(cleaned)) return fromBase32(cleaned);
+  return Buffer.from(secret, 'base64url');
+}
+
+function toBase32(buffer: Buffer): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = 0;
+  let value = 0;
+  let output = '';
+  for (const byte of buffer) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      output += alphabet[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) output += alphabet[(value << (5 - bits)) & 31];
+  return output;
+}
+
+function fromBase32(secret: string): Buffer {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = 0;
+  let value = 0;
+  const bytes: number[] = [];
+  for (const char of secret) {
+    const index = alphabet.indexOf(char);
+    if (index < 0) throw new Error('Invalid TOTP secret');
+    value = (value << 5) | index;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 255);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
 }

@@ -136,7 +136,11 @@ export interface FirstAdminInput {
   setupCode: string;
   email: string;
   password: string;
-  totpCode: string;
-  passkeyName?: string;
-  passkeyCredential?: Record<string, unknown>;
+  passwordConfirm: string;
+}
+
+export interface FirstAdminResult {
+  email: string;
+  totpSecret: string;
+  totpUri: string;
 }

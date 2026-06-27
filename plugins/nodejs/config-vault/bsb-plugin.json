@@ -15,7 +15,10 @@
         "./docs/config-vault.md"
       ],
       "pluginPath": "src/plugins/config-vault/",
-      "image": "../../../docs/public/assets/images/bsb-logo.png"
+      "image": "../../../docs/public/assets/images/bsb-logo.png",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base.git"
+      }
     },
     {
       "id": "service-config-vault",
@@ -34,7 +37,10 @@
         "./docs/service-config-vault.md"
       ],
       "pluginPath": "src/plugins/service-config-vault/",
-      "image": "../../../docs/public/assets/images/bsb-logo.png"
+      "image": "../../../docs/public/assets/images/bsb-logo.png",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base.git"
+      }
     }
   ]
 }

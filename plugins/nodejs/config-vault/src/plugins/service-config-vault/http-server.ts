@@ -50,14 +50,13 @@ export class VaultHttpServer {
     app.use('/setup', defineEventHandler(async (event) => {
       if (getMethod(event) === 'GET') return this.page('Vault Setup', setupForm());
       const body = await readBody<Record<string, unknown>>(event);
-      await this.options.vault.createFirstAdmin({
+      const result = await this.options.vault.createFirstAdmin({
         setupCode: String(body.setupCode ?? ''),
         email: String(body.email ?? ''),
         password: String(body.password ?? ''),
-        totpCode: String(body.totpCode ?? ''),
-        passkeyCredential: parseJsonObject(body.passkeyCredential),
+        passwordConfirm: String(body.passwordConfirm ?? ''),
       });
-      return sendRedirect(event, '/login');
+      return this.page('Vault Setup Complete', setupComplete(result.email, result.totpSecret, result.totpUri));
     }));
 
     app.use('/login', defineEventHandler(async (event) => {
@@ -67,7 +66,6 @@ export class VaultHttpServer {
         String(body.email ?? ''),
         String(body.password ?? ''),
         String(body.totpCode ?? ''),
-        parseJsonObject(body.passkeyCredential),
       );
       setCookie(event, 'vault_session', session.sessionId, {
         httpOnly: true,
@@ -228,15 +226,26 @@ function html(title: string, body: string): string {
 
 function setupForm(): string {
   return `<section><h1>First Admin Setup</h1>
-    <p class="muted">Enter the one-time setup code printed in the service logs. Initial TOTP accepts <code>000000</code>; replace it after setup.</p>
+    <p class="muted">Enter the one-time setup code printed in the service logs. Vault will generate TOTP enrollment details after the admin user is created.</p>
     <form method="post">
       <input name="setupCode" placeholder="Setup code" required>
       <input name="email" type="email" placeholder="Admin email" required>
       <input name="password" type="password" placeholder="Password, 12+ chars" required>
-      <input name="totpCode" placeholder="TOTP code" required>
-      <textarea name="passkeyCredential" placeholder='Optional passkey JSON, e.g. {"id":"admin-device-1"}'></textarea>
+      <input name="passwordConfirm" type="password" placeholder="Confirm password" required>
       <button>Create Admin</button>
     </form>
+  </section>`;
+}
+
+function setupComplete(email: string, totpSecret: string, totpUri: string): string {
+  return `<section><h1>Admin Created</h1>
+    <p>Add this TOTP secret to your authenticator app before logging in as <strong>${escapeHtml(email)}</strong>.</p>
+    <p><strong>TOTP secret:</strong></p>
+    <p><code>${escapeHtml(totpSecret)}</code></p>
+    <p><strong>Authenticator URI:</strong></p>
+    <p><code>${escapeHtml(totpUri)}</code></p>
+    <p class="muted">Passkeys are not enrolled during first setup. Use the passkey enrollment flow when it is available.</p>
+    <p><a href="/login">Continue to login</a></p>
   </section>`;
 }
 
@@ -246,7 +255,6 @@ function loginForm(): string {
       <input name="email" type="email" placeholder="Email" required>
       <input name="password" type="password" placeholder="Password" required>
       <input name="totpCode" placeholder="TOTP code" required>
-      <textarea name="passkeyCredential" placeholder='Passkey JSON, e.g. {"id":"admin-device-1"}'></textarea>
       <button>Login</button>
     </form>
   </section>`;

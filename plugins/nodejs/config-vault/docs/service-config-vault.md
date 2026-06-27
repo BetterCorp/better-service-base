@@ -14,7 +14,9 @@ Vault is self-contained:
 
 On first startup, if no admin exists, Vault logs a one-time setup code.
 
-Open `/setup`, enter the code, and create the admin user. The initial setup accepts `000000` as the bootstrap TOTP code so the admin can be created before a permanent TOTP secret is configured.
+Open `/setup`, enter the code, create the admin user, and confirm the password. Vault then generates the TOTP enrollment secret and authenticator URI for that user. Add it to an authenticator app before logging in.
+
+Passkeys are not configured by pasting JSON into setup. They must use a normal browser passkey registration/authentication flow.
 
 ## Admin Model
 
