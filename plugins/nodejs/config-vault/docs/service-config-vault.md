@@ -8,7 +8,7 @@ Vault is self-contained:
 - h3 serves the admin UI and JSON API.
 - Config payloads are encrypted before storage.
 - Passwords and API secrets are hashed.
-- Runtime API keys are bound to application, service group, deployment profile, optional container name, and `config-vault`.
+- Container API keys are created from a deployment profile and bound server-side to application, deployment, deployment profile, optional container name, and `config-vault`.
 
 ## First Setup
 
@@ -26,9 +26,7 @@ Vault uses a structured admin UI:
 
 - **Overview**: inventory counts and recent runtime keys.
 - **Applications**: create, edit, delete, and list applications.
-- **Deployments**: create, edit, delete, and list service groups and deployment profiles.
-- **Configs**: save draft config JSON and publish active profile versions.
-- **Runtime Keys**: create container-bound key/secret pairs and view existing keys.
+- **Deployments**: create deployments, open profiles, edit profile config, publish drafts, and create or rotate container keys.
 - **Plugins**: create private/manual plugin catalog entries and attach schemas.
 - **Profile**: account information and passkey accounts.
 
@@ -39,16 +37,28 @@ Passkey management belongs under **Profile**. First-login enrollment still uses 
 Vault uses this model:
 
 - **Application**: product/system, for example `BetterPortal`.
-- **Service Group**: logical runtime group, for example `api`, `web`, or `worker`.
+- **Deployment**: logical runtime group, for example `api`, `web`, or `worker`. A new deployment automatically gets a `default` profile.
 - **Deployment Profile**: BSB profile, defaulting to `default`.
 - **Config Draft**: editable runtime config.
 - **Config Version**: immutable published snapshot.
 - **Active Version**: published version assigned to the profile.
-- **Runtime API Key**: key id + secret bound to one runtime target.
+- **Container API Key**: key id + secret created from one deployment profile. The secret is shown only on creation or rotation.
+
+Profile config is edited as the body of that profile:
+
+```json
+{
+  "observable": {},
+  "events": {},
+  "services": {}
+}
+```
+
+Vault wraps it internally under the deployment profile name before publishing, for example `{ "default": { ... } }`. Containers do not choose a profile; the key already binds them to exactly one profile.
 
 Containers are not locked to versions. On restart, `config-vault` pulls the active published version for its key's profile.
 
-Deleting an application deletes its service groups and related deployment data. Deleting a service group deletes its deployment profiles and related deployment data. Deleting a deployment profile deletes its config drafts, versions, and runtime keys.
+Deleting an application deletes its deployments and related deployment data. Deleting a deployment deletes its deployment profiles and related deployment data. Deleting a deployment profile deletes its config drafts, versions, and container keys.
 
 ## Plugin Catalog
 
@@ -90,4 +100,5 @@ service-config-vault:
     production: true
     databaseUrl: postgres://vault:secret@postgres:5432/vault
     masterKey: BASE64_32_BYTE_KEY
+    registryUrl: https://io.bsbcode.dev
 ```

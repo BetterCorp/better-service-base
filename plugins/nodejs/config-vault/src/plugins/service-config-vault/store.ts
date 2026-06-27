@@ -209,6 +209,11 @@ export class VaultStore {
     return result.rows.map((row) => mapApplication(row as DbRow));
   }
 
+  async getApplication(id: string): Promise<ApplicationRecord | null> {
+    const result = await this.pool.query('select * from vault_applications where id = $1', [id]);
+    return result.rows[0] ? mapApplication(result.rows[0] as DbRow) : null;
+  }
+
   async createGroup(record: GroupRecord): Promise<void> {
     await this.pool.query(
       'insert into vault_groups (id, application_id, name, created_at) values ($1, $2, $3, $4)',
@@ -232,6 +237,11 @@ export class VaultStore {
   async listAllGroups(): Promise<GroupRecord[]> {
     const result = await this.pool.query('select * from vault_groups order by name');
     return result.rows.map((row) => mapGroup(row as DbRow));
+  }
+
+  async getGroup(id: string): Promise<GroupRecord | null> {
+    const result = await this.pool.query('select * from vault_groups where id = $1', [id]);
+    return result.rows[0] ? mapGroup(result.rows[0] as DbRow) : null;
   }
 
   async createProfile(record: ProfileRecord): Promise<void> {
@@ -401,6 +411,31 @@ export class VaultStore {
     if (!row) return null;
     return {
       key: mapRuntimeKey(row),
+      application: mapApplication(row.application as DbRow),
+      group: mapGroup(row.service_group as DbRow),
+      profile: mapProfile(row.profile as DbRow),
+    };
+  }
+
+  async resolveProfileBinding(profileId: string): Promise<{
+    application: ApplicationRecord;
+    group: GroupRecord;
+    profile: ProfileRecord;
+  } | null> {
+    const result = await this.pool.query(
+      `select
+         row_to_json(a.*) as application,
+         row_to_json(g.*) as service_group,
+         row_to_json(p.*) as profile
+       from vault_profiles p
+       join vault_groups g on g.id = p.group_id
+       join vault_applications a on a.id = g.application_id
+       where p.id = $1`,
+      [profileId],
+    );
+    const row = result.rows[0] as DbRow | undefined;
+    if (!row) return null;
+    return {
       application: mapApplication(row.application as DbRow),
       group: mapGroup(row.service_group as DbRow),
       profile: mapProfile(row.profile as DbRow),

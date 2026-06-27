@@ -16,12 +16,13 @@ import {
 } from 'h3';
 import type { Observable } from '@bsb/base';
 import type { VaultService } from './vault.js';
-import type { VaultRuntimeConfig } from './types.js';
+import type { RuntimeConfigDefinition } from './types.js';
 
 export interface VaultHttpOptions {
   host: string;
   port: number;
   publicUrl: string;
+  registryUrl: string;
   production: boolean;
   obs: Observable;
   vault: VaultService;
@@ -170,7 +171,7 @@ export class VaultHttpServer {
     app.use('/api/groups', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      return this.options.vault.createGroup(user.userId, String(body.applicationId ?? ''), String(body.name ?? ''));
+      return this.options.vault.createDeployment(user.userId, String(body.applicationId ?? ''), String(body.name ?? ''));
     }));
 
     app.use('/api/profiles/update', defineEventHandler(async (event) => {
@@ -193,6 +194,22 @@ export class VaultHttpServer {
       return this.options.vault.createProfile(user.userId, String(body.groupId ?? ''), String(body.name ?? 'default'));
     }));
 
+    app.use('/api/plugins/import', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.createPlugin(user.userId, {
+        org: String(body.org ?? '_'),
+        name: String(body.name ?? ''),
+        pluginId: String(body.pluginId ?? body.name ?? ''),
+        packageName: body.packageName === undefined || body.packageName === '' ? null : String(body.packageName),
+        version: String(body.version ?? '0.0.0'),
+        kind: parseKind(body.kind),
+        source: 'registry',
+        configSchema: parseJsonObject(body.configSchema) ?? null,
+        eventSchema: parseJsonObject(body.eventSchema) ?? null,
+      });
+    }));
+
     app.use('/api/plugins', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -212,9 +229,9 @@ export class VaultHttpServer {
     app.use('/api/drafts', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      const config = parseJsonObject(body.config) as VaultRuntimeConfig | undefined;
+      const config = parseJsonObject(body.config) as RuntimeConfigDefinition | undefined;
       if (!config) throw new Error('Config must be a JSON object');
-      await this.options.vault.saveDraft(user.userId, String(body.profileId ?? ''), config);
+      await this.options.vault.saveProfileDraft(user.userId, String(body.profileId ?? ''), config);
       return { success: true };
     }));
 
@@ -224,16 +241,22 @@ export class VaultHttpServer {
       return this.options.vault.publishDraft(user.userId, String(body.profileId ?? ''));
     }));
 
+    app.use('/api/runtime-keys/rotate', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.rotateProfileRuntimeKey(user.userId, {
+        keyId: String(body.keyId ?? ''),
+        name: stringOrUndefined(body.name),
+      });
+    }));
+
     app.use('/api/runtime-keys', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      return this.options.vault.createRuntimeKey(user.userId, {
+      return this.options.vault.createProfileRuntimeKey(user.userId, {
         name: String(body.name ?? ''),
-        applicationId: String(body.applicationId ?? ''),
-        groupId: String(body.groupId ?? ''),
         profileId: String(body.profileId ?? ''),
         containerName: body.containerName === undefined ? null : String(body.containerName),
-        configPluginId: String(body.configPluginId ?? 'config-vault'),
       });
     }));
 
@@ -249,23 +272,55 @@ export class VaultHttpServer {
       return this.page('Deployments', deploymentsPage(dashboard), 'deployments');
     }));
 
+    app.use('/deployment', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      const query = getQuery(event);
+      const profileId = String(query.profileId ?? '');
+      if (!profileId) return sendRedirect(event, '/deployments');
+      const profile = await this.options.vault.deploymentProfile(profileId);
+      return this.page(
+        'Deployment',
+        deploymentDetailPage(profile, {
+          publicUrl: this.options.publicUrl,
+          keyId: String(query.keyId ?? ''),
+          secret: String(query.secret ?? ''),
+        }),
+        'deployments',
+      );
+    }));
+
     app.use('/configs', defineEventHandler(async (event) => {
       await this.requireUser(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page('Configs', configsPage(dashboard), 'configs');
+      const firstProfile = dashboard.profiles[0];
+      return firstProfile ? sendRedirect(event, `/deployment?profileId=${encodeURIComponent(firstProfile.id)}`) : sendRedirect(event, '/deployments');
     }));
 
     app.use('/runtime-keys', defineEventHandler(async (event) => {
       await this.requireUser(event);
       const query = getQuery(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page('Runtime Keys', runtimeKeysPage(dashboard, String(query.secret ?? '')), 'runtime-keys');
+      const firstProfile = dashboard.profiles[0];
+      if (!String(query.secret ?? '') && firstProfile) {
+        return sendRedirect(event, `/deployment?profileId=${encodeURIComponent(firstProfile.id)}`);
+      }
+      return this.page(
+        'Container Key',
+        runtimeKeysPage(dashboard, {
+          publicUrl: this.options.publicUrl,
+          keyId: String(query.keyId ?? ''),
+          secret: String(query.secret ?? ''),
+        }),
+        'runtime-keys',
+      );
     }));
 
     app.use('/plugins', defineEventHandler(async (event) => {
       await this.requireUser(event);
+      const query = getQuery(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page('Plugins', pluginsPage(dashboard), 'plugins');
+      const registry = await registrySearch(this.options.registryUrl, String(query.query ?? ''));
+      return this.page('Plugins', pluginsPage(dashboard, registry, String(query.query ?? '')), 'plugins');
     }));
 
     app.use('/profile', defineEventHandler(async (event) => {
@@ -331,9 +386,20 @@ export class VaultHttpServer {
   }
 }
 
-type NavItem = 'overview' | 'applications' | 'deployments' | 'configs' | 'runtime-keys' | 'plugins' | 'profile';
+type NavItem = 'overview' | 'applications' | 'deployments' | 'runtime-keys' | 'plugins' | 'profile';
 type DashboardData = Awaited<ReturnType<VaultService['dashboard']>>;
 type UserProfileData = Awaited<ReturnType<VaultService['userProfile']>>;
+type DeploymentProfileData = Awaited<ReturnType<VaultService['deploymentProfile']>>;
+type RegistryCandidate = {
+  org: string;
+  name: string;
+  pluginId: string;
+  packageName: string | null;
+  version: string;
+  kind: 'service' | 'events' | 'observable' | 'config';
+  configSchema: Record<string, unknown> | null;
+  eventSchema: Record<string, unknown> | null;
+};
 
 function html(title: string, body: string, active: NavItem, authenticated: boolean): string {
   return `<!doctype html>
@@ -365,6 +431,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
     .metric{font-size:28px;font-weight:750}.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 18px}
     .inline-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.inline-form label{min-width:190px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}.tabs a{padding:8px 10px;border:1px solid var(--line);border-radius:6px;text-decoration:none;color:#344054;background:#fff;font-weight:650}.tabs a.active{background:#eaf1ff;color:#155eef;border-color:#b8cdfd}
     .muted{color:var(--muted)}.danger{color:var(--danger)}.ok{color:var(--ok)}
     .auth{max-width:480px;margin:32px auto}.stack{display:flex;flex-direction:column;gap:12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .status{margin-top:12px;color:var(--muted);font-size:14px}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
@@ -383,8 +450,6 @@ function nav(active: NavItem): string {
     ['overview', 'Overview', '/'],
     ['applications', 'Applications', '/applications'],
     ['deployments', 'Deployments', '/deployments'],
-    ['configs', 'Configs', '/configs'],
-    ['runtime-keys', 'Runtime Keys', '/runtime-keys'],
     ['plugins', 'Plugins', '/plugins'],
     ['profile', 'Profile', '/profile'],
   ];
@@ -516,11 +581,11 @@ function overviewPage(data: DashboardData): string {
   return `<div class="page-head"><div><h1>Overview</h1><p class="muted">Current Vault inventory and deployment configuration status.</p></div></div>
   <div class="grid">
     ${metric('Applications', data.applications.length)}
-    ${metric('Service Groups', data.groups.length)}
+    ${metric('Deployments', data.groups.length)}
     ${metric('Deployment Profiles', data.profiles.length)}
-    ${metric('Runtime Keys', data.runtimeKeys.length)}
+    ${metric('Container Keys', data.runtimeKeys.length)}
   </div>
-  <section><h2>Recent Runtime Keys</h2>${runtimeKeyTable(data.runtimeKeys.slice(0, 8), data)}</section>`;
+  <section><h2>Recent Container Keys</h2>${runtimeKeyTable(data.runtimeKeys.slice(0, 8), data)}</section>`;
 }
 
 function applicationsPage(data: DashboardData): string {
@@ -539,69 +604,79 @@ function applicationsPage(data: DashboardData): string {
 }
 
 function deploymentsPage(data: DashboardData): string {
-  return `<div class="page-head"><div><h1>Deployments</h1><p class="muted">Model service groups and deployment profiles for containers.</p></div></div>
-  <div class="grid">
-    <section><h2>Create Service Group</h2>
+  return `<div class="page-head"><div><h1>Deployments</h1><p class="muted">A deployment represents the container group that will receive one selected profile.</p></div></div>
+  <section><h2>Create Deployment</h2>
       <form data-api="/api/groups" data-redirect="/deployments">
         ${select('applicationId', 'Application', data.applications.map((x) => [x.id, x.name]))}
-        ${input('name', 'Group Name', true)}
-        <button>Create Group</button><p class="status"></p>
+        ${input('name', 'Deployment Name', true)}
+        <button>Create Deployment</button><p class="status"></p>
       </form>
     </section>
-    <section><h2>Create Deployment Profile</h2>
-      <form data-api="/api/profiles" data-redirect="/deployments">
-        ${select('groupId', 'Service Group', data.groups.map((x) => [x.id, groupLabel(x, data)]))}
-        ${input('name', 'Profile Name', true, 'default')}
+  <section><h2>Deployments</h2>${groupsTable(data)}</section>
+  <section><h2>Profiles</h2>${profilesTable(data)}</section>
+  ${formScript()}`;
+}
+
+function runtimeKeysPage(
+  data: DashboardData,
+  credential: { publicUrl: string; keyId: string; secret: string },
+): string {
+  return `<div class="page-head"><div><h1>Container Key</h1><p class="muted">Use these env vars in the target BSB container.</p></div></div>
+  ${credential.secret ? runtimeEnvBlock(credential) : ''}
+  <section><h2>Container Keys</h2>${runtimeKeyTable(data.runtimeKeys, data)}</section>`;
+}
+
+function deploymentDetailPage(
+  data: DeploymentProfileData,
+  credential: { publicUrl: string; keyId: string; secret: string },
+): string {
+  const draft: RuntimeConfigDefinition = data.draft ?? { observable: {}, events: {}, services: {} };
+  const redirect = `/deployment?profileId=${encodeURIComponent(data.profile.id)}`;
+  return `<div class="page-head"><div><h1>${escapeHtml(data.group.name)}</h1><p class="muted">${escapeHtml(data.application.name)} / ${escapeHtml(data.profile.name)}</p></div><a class="button secondary" href="/deployments">Back</a></div>
+  <div class="tabs">${data.profiles.map((profile) => `<a class="${profile.id === data.profile.id ? 'active' : ''}" href="/deployment?profileId=${encodeURIComponent(profile.id)}">${escapeHtml(profile.name)}</a>`).join('')}</div>
+  ${credential.secret ? runtimeEnvBlock(credential) : ''}
+  <div class="grid">
+    <section><h2>Create Profile</h2>
+      <form data-api="/api/profiles" data-redirect="${escapeHtml(redirect)}">
+        <input type="hidden" name="groupId" value="${escapeHtml(data.group.id)}">
+        ${input('name', 'Profile Name', true)}
         <button>Create Profile</button><p class="status"></p>
       </form>
     </section>
+    <section><h2>Container Key</h2>
+      <form data-api="/api/runtime-keys" data-secret-redirect="${escapeHtml(redirect)}">
+        <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+        ${input('name', 'Key Name', true, `${data.group.name}-${data.profile.name}`)}
+        ${input('containerName', 'Container Name')}
+        <button>Create Key</button><p class="status"></p>
+      </form>
+    </section>
   </div>
-  <section><h2>Service Groups</h2>${groupsTable(data)}</section>
-  <section><h2>Deployment Profiles</h2>${profilesTable(data)}</section>
-  ${formScript()}`;
-}
-
-function configsPage(data: DashboardData): string {
-  return `<div class="page-head"><div><h1>Configs</h1><p class="muted">Save draft runtime config for a deployment profile, then publish it when ready.</p></div></div>
-  <section><h2>Edit Draft</h2>
-    <form data-api="/api/drafts" data-redirect="/configs">
-      ${select('profileId', 'Deployment Profile', data.profiles.map((x) => [x.id, profileLabel(x, data)]))}
-      <label>Config JSON</label><textarea name="config" required placeholder='{"default":{"observable":{},"events":{},"services":{}}}'></textarea>
+  <section><h2>Profile Config</h2>
+    <form data-api="/api/drafts" data-redirect="${escapeHtml(redirect)}">
+      <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+      <label>Config JSON</label><textarea name="config" required>${escapeHtml(JSON.stringify(draft, null, 2))}</textarea>
       <button>Save Draft</button><p class="status"></p>
     </form>
-  </section>
-  <section><h2>Publish Draft</h2>
-    <form data-api="/api/publish" data-redirect="/configs">
-      ${select('profileId', 'Deployment Profile', data.profiles.map((x) => [x.id, profileLabel(x, data)]))}
-      <button>Publish Active Version</button><p class="status"></p>
+    <form data-api="/api/publish" data-redirect="${escapeHtml(redirect)}">
+      <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+      <button class="secondary">Publish Draft</button><p class="status"></p>
     </form>
   </section>
+  <section><h2>Container Keys</h2>${profileRuntimeKeyTable(data.runtimeKeys, data)}</section>
   ${formScript()}`;
 }
 
-function runtimeKeysPage(data: DashboardData, secret: string): string {
-  return `<div class="page-head"><div><h1>Runtime Keys</h1><p class="muted">Bind a container credential to one application, service group, deployment profile, and config plugin.</p></div></div>
-  ${secret ? `<section><h2>Runtime Secret</h2><p class="muted">Shown once. Store it in the container environment now.</p><p class="code"><code>${escapeHtml(secret)}</code></p></section>` : ''}
-  <section><h2>Create Runtime Key</h2>
-    <form data-api="/api/runtime-keys" data-secret-redirect="/runtime-keys">
-      <div class="form-grid">
-        ${input('name', 'Name', true)}
-        ${select('applicationId', 'Application', data.applications.map((x) => [x.id, x.name]))}
-        ${select('groupId', 'Service Group', data.groups.map((x) => [x.id, groupLabel(x, data)]))}
-        ${select('profileId', 'Deployment Profile', data.profiles.map((x) => [x.id, profileLabel(x, data)]))}
-        ${input('containerName', 'Container Name')}
-        ${input('configPluginId', 'Config Plugin', true, 'config-vault')}
-      </div>
-      <button>Create Runtime Key</button><p class="status"></p>
+function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: string): string {
+  return `<div class="page-head"><div><h1>Plugin Catalog</h1><p class="muted">Import registry plugins for config authoring, or create private plugin entries manually.</p></div></div>
+  <section><h2>Registry Search</h2>
+    <form method="get" action="/plugins" class="inline-form">
+      ${input('query', 'Search', false, query)}
+      <button>Search Registry</button>
     </form>
+    ${registry.length === 0 ? '<p class="muted">No registry results loaded.</p>' : registryTable(registry)}
   </section>
-  <section><h2>Runtime Keys</h2>${runtimeKeyTable(data.runtimeKeys, data)}</section>
-  ${formScript()}`;
-}
-
-function pluginsPage(data: DashboardData): string {
-  return `<div class="page-head"><div><h1>Plugin Catalog</h1><p class="muted">Register public, private, or uploaded plugin schemas for config authoring.</p></div></div>
-  <section><h2>Create Plugin</h2>
+  <section><h2>Private Plugin</h2>
     <form data-api="/api/plugins" data-redirect="/plugins">
       <div class="form-grid">
         ${input('org', 'Org', true, '_')}
@@ -618,6 +693,28 @@ function pluginsPage(data: DashboardData): string {
   </section>
   <section><h2>Catalog</h2>${table(data.plugins.map((x) => [x.pluginId, x.version, x.kind, x.source, x.packageName ?? '']))}</section>
   ${formScript()}`;
+}
+
+function registryTable(items: RegistryCandidate[]): string {
+  return `<table>${items.map((item) => `<tr>
+    <td>${escapeHtml(item.pluginId)}</td>
+    <td>${escapeHtml(item.version)}</td>
+    <td>${escapeHtml(item.kind)}</td>
+    <td>${escapeHtml(item.packageName ?? '')}</td>
+    <td>
+      <form data-api="/api/plugins/import" data-redirect="/plugins">
+        <input type="hidden" name="org" value="${escapeHtml(item.org)}">
+        <input type="hidden" name="name" value="${escapeHtml(item.name)}">
+        <input type="hidden" name="pluginId" value="${escapeHtml(item.pluginId)}">
+        <input type="hidden" name="packageName" value="${escapeHtml(item.packageName ?? '')}">
+        <input type="hidden" name="version" value="${escapeHtml(item.version)}">
+        <input type="hidden" name="kind" value="${escapeHtml(item.kind)}">
+        <input type="hidden" name="configSchema" value="${escapeHtml(JSON.stringify(item.configSchema ?? {}))}">
+        <input type="hidden" name="eventSchema" value="${escapeHtml(JSON.stringify(item.eventSchema ?? {}))}">
+        <button class="secondary">Import</button><p class="status"></p>
+      </form>
+    </td>
+  </tr>`).join('')}</table>`;
 }
 
 function profilePage(data: UserProfileData): string {
@@ -638,11 +735,15 @@ function applicationsTable(data: DashboardData): string {
       ${input('description', 'Description', false, app.description ?? '')}
       <button>Save</button><p class="status"></p>
     </form>
-  </td><td class="actions">${deleteForm('/api/applications/delete', app.id, '/applications', 'Delete application and related groups, profiles, configs, and keys?')}</td></tr>`).join('')}</table>`;
+  </td><td class="actions">
+    <a class="button secondary" href="/deployments">Deployments</a>
+    ${deleteForm('/api/applications/delete', app.id, '/applications', 'Delete application and related deployments, profiles, configs, and keys?')}
+  </td></tr>`).join('')}</table>`;
 }
 
 function groupsTable(data: DashboardData): string {
   if (data.groups.length === 0) return '<p class="muted">None</p>';
+  const defaultProfileFor = (groupId: string) => data.profiles.find((profile) => profile.groupId === groupId && profile.name === 'default') ?? data.profiles.find((profile) => profile.groupId === groupId);
   return `<table>${data.groups.map((group) => `<tr><td>
     <form data-api="/api/groups/update" data-redirect="/deployments" class="inline-form">
       <input type="hidden" name="id" value="${escapeHtml(group.id)}">
@@ -650,7 +751,10 @@ function groupsTable(data: DashboardData): string {
       ${input('name', 'Name', true, group.name)}
       <button>Save</button><p class="status"></p>
     </form>
-  </td><td class="actions">${deleteForm('/api/groups/delete', group.id, '/deployments', 'Delete group and related profiles, configs, and keys?')}</td></tr>`).join('')}</table>`;
+  </td><td class="actions">
+    ${defaultProfileFor(group.id) ? `<a class="button secondary" href="/deployment?profileId=${encodeURIComponent(defaultProfileFor(group.id)!.id)}">Open</a>` : ''}
+    ${deleteForm('/api/groups/delete', group.id, '/deployments', 'Delete deployment and related profiles, configs, and keys?')}
+  </td></tr>`).join('')}</table>`;
 }
 
 function profilesTable(data: DashboardData): string {
@@ -658,12 +762,15 @@ function profilesTable(data: DashboardData): string {
   return `<table>${data.profiles.map((profile) => `<tr><td>
     <form data-api="/api/profiles/update" data-redirect="/deployments" class="inline-form">
       <input type="hidden" name="id" value="${escapeHtml(profile.id)}">
-      ${select('groupId', 'Service Group', selectedOptions(data.groups.map((x) => [x.id, groupLabel(x, data)]), profile.groupId))}
+      ${select('groupId', 'Deployment', selectedOptions(data.groups.map((x) => [x.id, groupLabel(x, data)]), profile.groupId))}
       ${input('name', 'Name', true, profile.name)}
       <span class="muted">${profile.activeVersionId ? 'published' : 'no published config'}</span>
       <button>Save</button><p class="status"></p>
     </form>
-  </td><td class="actions">${deleteForm('/api/profiles/delete', profile.id, '/deployments', 'Delete deployment profile and related configs and keys?')}</td></tr>`).join('')}</table>`;
+  </td><td class="actions">
+    <a class="button secondary" href="/deployment?profileId=${encodeURIComponent(profile.id)}">Open</a>
+    ${deleteForm('/api/profiles/delete', profile.id, '/deployments', 'Delete deployment profile and related configs and keys?')}
+  </td></tr>`).join('')}</table>`;
 }
 
 function deleteForm(action: string, id: string, redirect: string, confirm: string): string {
@@ -716,6 +823,32 @@ function runtimeKeyTable(keys: DashboardData['runtimeKeys'], data: DashboardData
   ]));
 }
 
+function profileRuntimeKeyTable(keys: DeploymentProfileData['runtimeKeys'], data: DeploymentProfileData): string {
+  if (keys.length === 0) return '<p class="muted">No container keys created for this profile.</p>';
+  return `<table>${keys.map((key) => `<tr>
+    <td>${escapeHtml(key.name)}</td>
+    <td>${escapeHtml(key.id)}</td>
+    <td>${escapeHtml(data.profile.name)}</td>
+    <td>${escapeHtml(key.containerName ?? '')}</td>
+    <td>${escapeHtml(key.revokedAt ?? 'active')}</td>
+    <td>${key.revokedAt ? '' : `<form data-api="/api/runtime-keys/rotate" data-secret-redirect="/deployment?profileId=${escapeHtml(data.profile.id)}"><input type="hidden" name="keyId" value="${escapeHtml(key.id)}"><button class="secondary">Rotate</button><p class="status"></p></form>`}</td>
+  </tr>`).join('')}</table>`;
+}
+
+function runtimeEnvBlock(credential: { publicUrl: string; keyId: string; secret: string }): string {
+  const env = [
+    'BSB_CONFIG_PLUGIN=config-vault',
+    'BSB_CONFIG_PLUGIN_PACKAGE=@bsb/config-vault',
+    `vaultUrl=${credential.publicUrl}`,
+    `apiKeyId=${credential.keyId}`,
+    `apiSecret=${credential.secret}`,
+  ].join('\n');
+  return `<section><h2>Container Environment</h2>
+    <p class="muted">Shown once. Add these env vars to the BSB container that should load this deployment profile.</p>
+    <pre class="code"><code>${escapeHtml(env)}</code></pre>
+  </section>`;
+}
+
 function shortId(value: string): string {
   return value.length > 18 ? `${value.slice(0, 10)}...${value.slice(-6)}` : value;
 }
@@ -743,7 +876,10 @@ function formScript(): string {
         const result = await res.json();
         if (!res.ok) throw new Error(result.message || 'Save failed');
         if (form.dataset.secretRedirect && result.secret) {
-          location.href = form.dataset.secretRedirect + '?secret=' + encodeURIComponent(result.secret);
+          const joiner = form.dataset.secretRedirect.includes('?') ? '&' : '?';
+          location.href = form.dataset.secretRedirect
+            + joiner + 'keyId=' + encodeURIComponent(result.keyId || result.id || '')
+            + '&secret=' + encodeURIComponent(result.secret);
           return;
         }
         location.href = form.dataset.redirect || location.pathname;
@@ -812,29 +948,60 @@ function webauthnClientScript(): string {
   `;
 }
 
-function apiForm(action: string, fields: string[], textarea?: string): string {
-  return `<form data-api="${action}" onsubmit="return submitJson(this)">
-    ${fields.map((field) => `<input name="${field}" placeholder="${field}" ${field === 'configPluginId' ? 'value="config-vault"' : ''}>`).join('')}
-    ${textarea ? `<textarea name="${textarea}" placeholder="${textarea} JSON"></textarea>` : ''}
-    <button>Submit</button>
-  </form>
-  <script>
-  async function submitJson(form){
-    const data={}; for(const item of new FormData(form).entries()){data[item[0]]=item[1]}
-    const csrf=document.cookie.split('; ').find(x=>x.startsWith('vault_csrf='))?.split('=')[1]||'';
-    const res=await fetch(form.dataset.api,{method:'POST',headers:{'content-type':'application/json','x-csrf-token':csrf},body:JSON.stringify(data)});
-    alert(JSON.stringify(await res.json(),null,2)); location.reload(); return false;
-  }
-  </script>`;
-}
-
-function pluginForm(): string {
-  return apiForm('/api/plugins', ['org', 'name', 'pluginId', 'packageName', 'version', 'kind', 'source'], 'configSchema');
-}
-
 function table(rows: string[][]): string {
   if (rows.length === 0) return '<p class="muted">None</p>';
   return `<table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</table>`;
+}
+
+async function registrySearch(registryUrl: string, query: string): Promise<RegistryCandidate[]> {
+  const url = new URL('/plugins', registryUrl);
+  url.searchParams.set('language', 'nodejs');
+  url.searchParams.set('limit', '20');
+  if (query.trim()) url.searchParams.set('query', query.trim());
+  try {
+    const response = await fetch(url, { headers: { accept: 'application/json' } });
+    if (!response.ok) return [];
+    const parsed = await response.json() as { plugins?: unknown[] };
+    return (Array.isArray(parsed.plugins) ? parsed.plugins : [])
+      .map(normalizeRegistryCandidate)
+      .filter((item): item is RegistryCandidate => item !== null);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeRegistryCandidate(input: unknown): RegistryCandidate | null {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  const org = stringField(value.org) ?? orgFromPackage(value.packageName ?? value.package) ?? '_';
+  const name = stringField(value.name) ?? stringField(value.pluginId) ?? stringField(value.id);
+  if (!name) return null;
+  const packageName = stringField(value.packageName) ?? stringField(value.package) ?? null;
+  const pluginId = stringField(value.pluginId) ?? stringField(value.id) ?? name;
+  return {
+    org,
+    name,
+    pluginId,
+    packageName,
+    version: stringField(value.version) ?? '0.0.0',
+    kind: parseKind(value.kind ?? value.category ?? value.type),
+    configSchema: objectField(value.configSchema) ?? objectField(value.schema) ?? objectField(value.validationSchema) ?? null,
+    eventSchema: objectField(value.eventSchema) ?? objectField(value.events) ?? null,
+  };
+}
+
+function stringField(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function objectField(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function orgFromPackage(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.startsWith('@')) return undefined;
+  const [org] = value.split('/');
+  return org || undefined;
 }
 
 function parseJsonObject(value: unknown): Record<string, unknown> | undefined {

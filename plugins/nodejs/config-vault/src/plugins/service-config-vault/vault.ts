@@ -19,6 +19,7 @@ import type {
   ProfileRecord,
   ResolvedRuntimeConfig,
   RuntimeKeyRecord,
+  RuntimeConfigDefinition,
   VaultRuntimeConfig,
 } from './types.js';
 
@@ -265,6 +266,13 @@ export class VaultService {
     return record;
   }
 
+  async createDeployment(userId: string, applicationId: string, name: string): Promise<{ group: GroupRecord; profile: ProfileRecord }> {
+    const group = await this.createGroup(userId, applicationId, name);
+    const profile = await this.createProfile(userId, group.id, 'default');
+    await this.audit(userId, 'deployment.create', group.id, { applicationId, name, defaultProfileId: profile.id });
+    return { group, profile };
+  }
+
   async updateGroup(userId: string, id: string, applicationId: string, name: string): Promise<void> {
     await this.store.updateGroup(id, applicationId, name);
     await this.audit(userId, 'group.update', id, { applicationId, name });
@@ -320,6 +328,21 @@ export class VaultService {
     await this.audit(userId, 'config.draft.save', profileId, {});
   }
 
+  async saveProfileDraft(userId: string, profileId: string, config: RuntimeConfigDefinition): Promise<void> {
+    const binding = await this.store.resolveProfileBinding(profileId);
+    if (!binding) throw new Error('Deployment profile not found');
+    await this.saveDraft(userId, profileId, { [binding.profile.name]: config });
+  }
+
+  async getProfileDraft(profileId: string): Promise<RuntimeConfigDefinition | null> {
+    const binding = await this.store.resolveProfileBinding(profileId);
+    if (!binding) throw new Error('Deployment profile not found');
+    const draft = await this.store.getDraft(profileId);
+    if (!draft) return null;
+    const config = decryptJson<VaultRuntimeConfig>(draft, this.masterKey);
+    return config[binding.profile.name] ?? null;
+  }
+
   async publishDraft(userId: string, profileId: string): Promise<{ versionId: string; version: number }> {
     const draft = await this.store.getDraft(profileId);
     if (!draft) throw new Error('No draft found for profile');
@@ -360,6 +383,38 @@ export class VaultService {
     });
     await this.audit(userId, 'runtime-key.create', keyId, { profileId: input.profileId, containerName: input.containerName });
     return { keyId, secret };
+  }
+
+  async createProfileRuntimeKey(
+    userId: string,
+    input: { profileId: string; name: string; containerName?: string | null },
+  ): Promise<{ keyId: string; secret: string }> {
+    const binding = await this.store.resolveProfileBinding(input.profileId);
+    if (!binding) throw new Error('Deployment profile not found');
+    return this.createRuntimeKey(userId, {
+      name: input.name,
+      applicationId: binding.application.id,
+      groupId: binding.group.id,
+      profileId: binding.profile.id,
+      containerName: input.containerName ?? null,
+      configPluginId: 'config-vault',
+    });
+  }
+
+  async rotateProfileRuntimeKey(
+    userId: string,
+    input: { keyId: string; name?: string },
+  ): Promise<{ keyId: string; secret: string }> {
+    const existing = await this.store.getRuntimeKey(input.keyId);
+    if (!existing) throw new Error('Runtime key not found');
+    await this.store.revokeRuntimeKey(existing.id);
+    const created = await this.createProfileRuntimeKey(userId, {
+      profileId: existing.profileId,
+      name: input.name || existing.name,
+      containerName: existing.containerName,
+    });
+    await this.audit(userId, 'runtime-key.rotate', existing.id, { replacementKeyId: created.keyId });
+    return created;
   }
 
   async resolveRuntimeConfig(keyId: string, secret: string, obs?: Observable): Promise<ResolvedRuntimeConfig> {
@@ -417,6 +472,26 @@ export class VaultService {
       profiles: await this.store.listAllProfiles(),
       plugins: await this.store.listPlugins(),
       runtimeKeys: await this.store.listRuntimeKeys(),
+    };
+  }
+
+  async deploymentProfile(profileId: string): Promise<{
+    application: ApplicationRecord;
+    group: GroupRecord;
+    profile: ProfileRecord;
+    profiles: ProfileRecord[];
+    draft: RuntimeConfigDefinition | null;
+    runtimeKeys: RuntimeKeyRecord[];
+  }> {
+    const binding = await this.store.resolveProfileBinding(profileId);
+    if (!binding) throw new Error('Deployment profile not found');
+    return {
+      application: binding.application,
+      group: binding.group,
+      profile: binding.profile,
+      profiles: await this.store.listProfiles(binding.group.id),
+      draft: await this.getProfileDraft(profileId),
+      runtimeKeys: await this.store.listRuntimeKeys(profileId),
     };
   }
 

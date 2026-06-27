@@ -41,6 +41,7 @@ docs/src/plugins/
 plugins/nodejs/bsb-registry/.temp/
 .bsbdevwatch
 plugins/nodejs/*/lib/
+tests/nodejs/lib/
 .bsb/
 .claude/
 /nul

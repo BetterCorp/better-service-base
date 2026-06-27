@@ -51,7 +51,7 @@
     "typescript": "^6.0.3"
   },
   "engines": {
-    "node": ">=23.0.0",
+    "node": ">=24.0.0",
     "npm": ">=11.0.0"
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-logging-file"

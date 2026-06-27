@@ -11,15 +11,14 @@ Runtime containers do not choose applications, groups, profiles, or versions. Th
 
 ## Runtime
 
-```yaml
-config-vault:
-  plugin: config-vault
-  package: "@bsb/config-vault"
-  enabled: true
-  config:
-    vaultUrl: https://vault.example.com
-    apiKeyId: vk_xxx
-    apiSecret: vs_xxx
+Runtime containers activate Vault as the BSB config plugin with env vars:
+
+```bash
+BSB_CONFIG_PLUGIN=config-vault
+BSB_CONFIG_PLUGIN_PACKAGE=@bsb/config-vault
+vaultUrl=https://vault.example.com
+apiKeyId=vk_xxx
+apiSecret=vs_xxx
 ```
 
 When a container restarts, it pulls the active published version for the API key's bound deployment profile.
@@ -38,6 +37,7 @@ service-config-vault:
     production: true
     databaseUrl: postgres://vault:secret@postgres:5432/vault
     masterKey: BASE64_32_BYTE_KEY
+    registryUrl: https://io.bsbcode.dev
 ```
 
 `masterKey` must be a base64 encoded 32-byte key. Generate one with:
@@ -58,4 +58,16 @@ After enrollment, every admin login requires password, TOTP, and a browser passk
 
 ## Admin UI
 
-Vault has separate pages for Overview, Applications, Deployments, Configs, Runtime Keys, Plugins, and Profile. Passkey accounts are managed from Profile; first-login passkey enrollment is only separate because it happens before an authenticated session exists.
+Vault has pages for Overview, Applications, Deployments, Plugins, and Profile. Deployment profiles own config drafts, publishing, and container key create/rotate flows.
+
+When editing a profile config, enter only the profile body:
+
+```json
+{
+  "observable": {},
+  "events": {},
+  "services": {}
+}
+```
+
+Vault wraps that body under the profile name internally. Container keys are generated from the deployment profile page and the UI shows the BSB container env vars once on creation or rotation.

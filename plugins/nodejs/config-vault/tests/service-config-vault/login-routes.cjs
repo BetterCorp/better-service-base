@@ -45,11 +45,40 @@ module.exports = async ({ pluginRoot }) => {
       async deleteGroup(userId, id) {
         calls.push(['deleteGroup', userId, id]);
       },
+      async createDeployment(userId, applicationId, name) {
+        calls.push(['createDeployment', userId, applicationId, name]);
+        return {
+          group: { id: 'group-2', applicationId, name },
+          profile: { id: 'profile-2', groupId: 'group-2', name: 'default' },
+        };
+      },
       async updateProfile(userId, id, groupId, name) {
         calls.push(['updateProfile', userId, id, groupId, name]);
       },
       async deleteProfile(userId, id) {
         calls.push(['deleteProfile', userId, id]);
+      },
+      async deploymentProfile(profileId) {
+        assert.equal(profileId, 'profile-1');
+        return {
+          application: { id: 'app-1', name: 'App', description: 'Main app' },
+          group: { id: 'group-1', applicationId: 'app-1', name: 'api' },
+          profile: { id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null },
+          profiles: [{ id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null }],
+          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true } } },
+          runtimeKeys: [{ id: 'vk_old', name: 'api-default', profileId: 'profile-1', groupId: 'group-1', applicationId: 'app-1', containerName: null, revokedAt: null }],
+        };
+      },
+      async saveProfileDraft(userId, profileId, config) {
+        calls.push(['saveProfileDraft', userId, profileId, config]);
+      },
+      async createProfileRuntimeKey(userId, input) {
+        calls.push(['createProfileRuntimeKey', userId, input.profileId, input.name, input.containerName]);
+        return { keyId: 'vk_new', secret: 'vs_new' };
+      },
+      async rotateProfileRuntimeKey(userId, input) {
+        calls.push(['rotateProfileRuntimeKey', userId, input.keyId]);
+        return { keyId: 'vk_rotated', secret: 'vs_rotated' };
       },
       async userProfile() {
         return {
@@ -102,7 +131,34 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(deploymentsHtml, /\/api\/groups\/delete/);
     assert.match(deploymentsHtml, /\/api\/profiles\/update/);
     assert.match(deploymentsHtml, /\/api\/profiles\/delete/);
+    assert.doesNotMatch(deploymentsHtml, /Create Service Group/);
+    assert.match(deploymentsHtml, /Create Deployment/);
 
+    const deployment = await fetch(`http://127.0.0.1:${port}/deployment?profileId=profile-1`, {
+      headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
+    });
+    const deploymentHtml = await deployment.text();
+    assert.equal(deployment.status, 200);
+    assert.match(deploymentHtml, /Profile Config/);
+    assert.match(deploymentHtml, /&quot;services&quot;/);
+    assert.doesNotMatch(deploymentHtml, /\{"default":/);
+    assert.match(deploymentHtml, /\/api\/runtime-keys\/rotate/);
+
+    const runtimeKeys = await fetch(`http://127.0.0.1:${port}/runtime-keys?keyId=vk_test&secret=vs_test`, {
+      headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
+    });
+    const runtimeKeysHtml = await runtimeKeys.text();
+    assert.equal(runtimeKeys.status, 200);
+    assert.match(runtimeKeysHtml, /BSB_CONFIG_PLUGIN=config-vault/);
+    assert.match(runtimeKeysHtml, /BSB_CONFIG_PLUGIN_PACKAGE=@bsb\/config-vault/);
+    assert.match(runtimeKeysHtml, /vaultUrl=http:\/\/127\.0\.0\.1:/);
+    assert.match(runtimeKeysHtml, /apiKeyId=vk_test/);
+    assert.match(runtimeKeysHtml, /apiSecret=vs_test/);
+
+    await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
+    await postJson(port, '/api/drafts', { profileId: 'profile-1', config: { services: { api: { plugin: 'service-api', enabled: true } } } });
+    await postJson(port, '/api/runtime-keys', { profileId: 'profile-1', name: 'api-default', containerName: 'api-1' });
+    await postJson(port, '/api/runtime-keys/rotate', { keyId: 'vk_old' });
     await postJson(port, '/api/applications/update', { id: 'app-1', name: 'App 2', description: 'Updated' });
     await postJson(port, '/api/applications/delete', { id: 'app-1' });
     await postJson(port, '/api/groups/update', { id: 'group-1', applicationId: 'app-1', name: 'worker' });
@@ -110,6 +166,10 @@ module.exports = async ({ pluginRoot }) => {
     await postJson(port, '/api/profiles/update', { id: 'profile-1', groupId: 'group-1', name: 'prod' });
     await postJson(port, '/api/profiles/delete', { id: 'profile-1' });
     assert.deepEqual(calls, [
+      ['createDeployment', 'user-1', 'app-1', 'worker'],
+      ['saveProfileDraft', 'user-1', 'profile-1', { services: { api: { plugin: 'service-api', enabled: true } } }],
+      ['createProfileRuntimeKey', 'user-1', 'profile-1', 'api-default', 'api-1'],
+      ['rotateProfileRuntimeKey', 'user-1', 'vk_old'],
       ['updateApplication', 'user-1', 'app-1', 'App 2', 'Updated'],
       ['deleteApplication', 'user-1', 'app-1'],
       ['updateGroup', 'user-1', 'group-1', 'app-1', 'worker'],

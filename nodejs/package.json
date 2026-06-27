@@ -30,7 +30,7 @@
   },
   "engines": {
     "npm": ">=11.0.0",
-    "node": ">=23.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "generate-docs": "typedoc --json ./docs.json --tsconfig ./tsconfig-release.json  --cacheBust src/index.ts",

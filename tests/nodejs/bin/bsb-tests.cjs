@@ -95,6 +95,14 @@ const resolveLocalBaseEntry = (repoRoot, useTs) => {
   return fs.existsSync(entryTs) ? entryTs : entryJs;
 };
 
+const resolveInternalModule = (libRelativePath) => {
+  const jsPath = path.join(__dirname, "..", "lib", ...libRelativePath);
+  if (fs.existsSync(jsPath)) return jsPath;
+  const tsRelativePath = [...libRelativePath];
+  tsRelativePath[tsRelativePath.length - 1] = tsRelativePath[tsRelativePath.length - 1].replace(/\.js$/, ".ts");
+  return path.join(__dirname, "..", "src", ...tsRelativePath);
+};
+
 const loadTestsManifest = (manifestDir) => {
   const configPath = path.join(manifestDir, "bsb-tests.json");
   if (!fs.existsSync(configPath)) return null;
@@ -184,18 +192,19 @@ if (filtered.length === 0) {
 
 const repoRoot = cwd;
 const mochaBin = resolvePackageBin("mocha", "mocha");
-const setupHook = path.join(__dirname, "..", "lib", "runner", "setup.js");
-const pluginEventsRunner = path.join(__dirname, "..", "lib", "runner", "plugin-events.js");
-const pluginObservableRunner = path.join(__dirname, "..", "lib", "runner", "plugin-observable.js");
-const pluginCustomRunner = path.join(__dirname, "..", "lib", "runner", "plugin-custom.js");
-const eventsDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "events-default", "index.js");
-const loggingDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "logging-default", "index.js");
-const configDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "config-default", "index.js");
-const observableDefaultSpec = path.join(__dirname, "..", "lib", "plugins", "observable-default", "index.js");
+const setupHook = resolveInternalModule(["runner", "setup.js"]);
+const pluginEventsRunner = resolveInternalModule(["runner", "plugin-events.js"]);
+const pluginObservableRunner = resolveInternalModule(["runner", "plugin-observable.js"]);
+const pluginCustomRunner = resolveInternalModule(["runner", "plugin-custom.js"]);
+const eventsDefaultSpec = resolveInternalModule(["plugins", "events-default", "index.js"]);
+const loggingDefaultSpec = resolveInternalModule(["plugins", "logging-default", "index.js"]);
+const configDefaultSpec = resolveInternalModule(["plugins", "config-default", "index.js"]);
+const observableDefaultSpec = resolveInternalModule(["plugins", "observable-default", "index.js"]);
 
 const runMocha = (env, spec, useTs, coverage, coverageInclude) => {
   const mochaArgs = [];
-  if (useTs) {
+  const usesTsRunner = setupHook.endsWith(".ts") || spec.endsWith(".ts");
+  if (useTs || usesTsRunner) {
     const tsNodeRegister = require.resolve("ts-node/register");
     mochaArgs.push("--require", tsNodeRegister);
   }
