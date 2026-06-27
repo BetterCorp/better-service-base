@@ -243,6 +243,16 @@ export class VaultService {
     return record;
   }
 
+  async updateApplication(userId: string, id: string, name: string, description?: string): Promise<void> {
+    await this.store.updateApplication(id, name, description ?? null);
+    await this.audit(userId, 'application.update', id, { name });
+  }
+
+  async deleteApplication(userId: string, id: string): Promise<void> {
+    await this.store.deleteApplication(id);
+    await this.audit(userId, 'application.delete', id, {});
+  }
+
   async createGroup(userId: string, applicationId: string, name: string): Promise<GroupRecord> {
     const record: GroupRecord = {
       id: newId(),
@@ -253,6 +263,16 @@ export class VaultService {
     await this.store.createGroup(record);
     await this.audit(userId, 'group.create', record.id, { applicationId, name });
     return record;
+  }
+
+  async updateGroup(userId: string, id: string, applicationId: string, name: string): Promise<void> {
+    await this.store.updateGroup(id, applicationId, name);
+    await this.audit(userId, 'group.update', id, { applicationId, name });
+  }
+
+  async deleteGroup(userId: string, id: string): Promise<void> {
+    await this.store.deleteGroup(id);
+    await this.audit(userId, 'group.delete', id, {});
   }
 
   async createProfile(userId: string, groupId: string, name: string): Promise<ProfileRecord> {
@@ -266,6 +286,16 @@ export class VaultService {
     await this.store.createProfile(record);
     await this.audit(userId, 'profile.create', record.id, { groupId, name });
     return record;
+  }
+
+  async updateProfile(userId: string, id: string, groupId: string, name: string): Promise<void> {
+    await this.store.updateProfile(id, groupId, name);
+    await this.audit(userId, 'profile.update', id, { groupId, name });
+  }
+
+  async deleteProfile(userId: string, id: string): Promise<void> {
+    await this.store.deleteProfile(id);
+    await this.audit(userId, 'profile.delete', id, {});
   }
 
   async createPlugin(userId: string, input: Omit<PluginCatalogRecord, 'id' | 'createdAt'>): Promise<PluginCatalogRecord> {

@@ -128,16 +128,63 @@ export class VaultHttpServer {
       return sendRedirect(event, '/login');
     }));
 
+    app.use('/api/applications/update', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.updateApplication(
+        user.userId,
+        String(body.id ?? ''),
+        String(body.name ?? ''),
+        stringOrUndefined(body.description),
+      );
+      return { success: true };
+    }));
+
+    app.use('/api/applications/delete', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.deleteApplication(user.userId, String(body.id ?? ''));
+      return { success: true };
+    }));
+
     app.use('/api/applications', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       return this.options.vault.createApplication(user.userId, String(body.name ?? ''), stringOrUndefined(body.description));
     }));
 
+    app.use('/api/groups/update', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.updateGroup(user.userId, String(body.id ?? ''), String(body.applicationId ?? ''), String(body.name ?? ''));
+      return { success: true };
+    }));
+
+    app.use('/api/groups/delete', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.deleteGroup(user.userId, String(body.id ?? ''));
+      return { success: true };
+    }));
+
     app.use('/api/groups', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       return this.options.vault.createGroup(user.userId, String(body.applicationId ?? ''), String(body.name ?? ''));
+    }));
+
+    app.use('/api/profiles/update', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.updateProfile(user.userId, String(body.id ?? ''), String(body.groupId ?? ''), String(body.name ?? ''));
+      return { success: true };
+    }));
+
+    app.use('/api/profiles/delete', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.deleteProfile(user.userId, String(body.id ?? ''));
+      return { success: true };
     }));
 
     app.use('/api/profiles', defineEventHandler(async (event) => {
@@ -487,7 +534,7 @@ function applicationsPage(data: DashboardData): string {
       <button>Create Application</button><p class="status"></p>
     </form>
   </section>
-  <section><h2>Applications</h2>${table(data.applications.map((x) => [x.name, x.description ?? '', x.id]))}</section>
+  <section><h2>Applications</h2>${applicationsTable(data)}</section>
   ${formScript()}`;
 }
 
@@ -509,8 +556,8 @@ function deploymentsPage(data: DashboardData): string {
       </form>
     </section>
   </div>
-  <section><h2>Service Groups</h2>${table(data.groups.map((x) => [groupLabel(x, data), x.id]))}</section>
-  <section><h2>Deployment Profiles</h2>${table(data.profiles.map((x) => [profileLabel(x, data), x.activeVersionId ? 'published' : 'no published config', x.id]))}</section>
+  <section><h2>Service Groups</h2>${groupsTable(data)}</section>
+  <section><h2>Deployment Profiles</h2>${profilesTable(data)}</section>
   ${formScript()}`;
 }
 
@@ -582,6 +629,50 @@ function profilePage(data: UserProfileData): string {
   </section>`;
 }
 
+function applicationsTable(data: DashboardData): string {
+  if (data.applications.length === 0) return '<p class="muted">None</p>';
+  return `<table>${data.applications.map((app) => `<tr><td>
+    <form data-api="/api/applications/update" data-redirect="/applications" class="inline-form">
+      <input type="hidden" name="id" value="${escapeHtml(app.id)}">
+      ${input('name', 'Name', true, app.name)}
+      ${input('description', 'Description', false, app.description ?? '')}
+      <button>Save</button><p class="status"></p>
+    </form>
+  </td><td class="actions">${deleteForm('/api/applications/delete', app.id, '/applications', 'Delete application and related groups, profiles, configs, and keys?')}</td></tr>`).join('')}</table>`;
+}
+
+function groupsTable(data: DashboardData): string {
+  if (data.groups.length === 0) return '<p class="muted">None</p>';
+  return `<table>${data.groups.map((group) => `<tr><td>
+    <form data-api="/api/groups/update" data-redirect="/deployments" class="inline-form">
+      <input type="hidden" name="id" value="${escapeHtml(group.id)}">
+      ${select('applicationId', 'Application', selectedOptions(data.applications.map((x) => [x.id, x.name]), group.applicationId))}
+      ${input('name', 'Name', true, group.name)}
+      <button>Save</button><p class="status"></p>
+    </form>
+  </td><td class="actions">${deleteForm('/api/groups/delete', group.id, '/deployments', 'Delete group and related profiles, configs, and keys?')}</td></tr>`).join('')}</table>`;
+}
+
+function profilesTable(data: DashboardData): string {
+  if (data.profiles.length === 0) return '<p class="muted">None</p>';
+  return `<table>${data.profiles.map((profile) => `<tr><td>
+    <form data-api="/api/profiles/update" data-redirect="/deployments" class="inline-form">
+      <input type="hidden" name="id" value="${escapeHtml(profile.id)}">
+      ${select('groupId', 'Service Group', selectedOptions(data.groups.map((x) => [x.id, groupLabel(x, data)]), profile.groupId))}
+      ${input('name', 'Name', true, profile.name)}
+      <span class="muted">${profile.activeVersionId ? 'published' : 'no published config'}</span>
+      <button>Save</button><p class="status"></p>
+    </form>
+  </td><td class="actions">${deleteForm('/api/profiles/delete', profile.id, '/deployments', 'Delete deployment profile and related configs and keys?')}</td></tr>`).join('')}</table>`;
+}
+
+function deleteForm(action: string, id: string, redirect: string, confirm: string): string {
+  return `<form data-api="${escapeHtml(action)}" data-redirect="${escapeHtml(redirect)}" data-confirm="${escapeHtml(confirm)}">
+    <input type="hidden" name="id" value="${escapeHtml(id)}">
+    <button class="secondary" type="submit">Delete</button><p class="status"></p>
+  </form>`;
+}
+
 function metric(label: string, value: number): string {
   return `<section><p class="muted">${escapeHtml(label)}</p><div class="metric">${value}</div></section>`;
 }
@@ -593,8 +684,16 @@ function input(name: string, label: string, required = false, value = ''): strin
 function select(name: string, label: string, options: Array<[string, string]>): string {
   const body = options.length === 0
     ? '<option value="">Create the required parent record first</option>'
-    : options.map(([value, optionLabel]) => `<option value="${escapeHtml(value)}">${escapeHtml(optionLabel)}</option>`).join('');
+    : options.map(([value, optionLabel]) => {
+      const selected = optionLabel.endsWith('\u0000selected');
+      const labelText = selected ? optionLabel.slice(0, -9) : optionLabel;
+      return `<option value="${escapeHtml(value)}" ${selected ? 'selected' : ''}>${escapeHtml(labelText)}</option>`;
+    }).join('');
   return `<label>${escapeHtml(label)}<select name="${escapeHtml(name)}" ${options.length === 0 ? 'disabled' : 'required'}>${body}</select></label>`;
+}
+
+function selectedOptions(options: Array<[string, string]>, selectedValue: string): Array<[string, string]> {
+  return options.map(([value, label]) => [value, value === selectedValue ? `${label}\u0000selected` : label]);
 }
 
 function groupLabel(group: { id: string; applicationId: string; name: string }, data: DashboardData): string {
@@ -626,6 +725,7 @@ function formScript(): string {
   document.querySelectorAll('form[data-api]').forEach((form) => {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (form.dataset.confirm && !confirm(form.dataset.confirm)) return;
       const status = form.querySelector('.status');
       if (status) { status.textContent = 'Saving...'; status.className = 'status'; }
       try {

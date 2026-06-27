@@ -25,8 +25,8 @@ Normal admin login requires all three factors: password, TOTP, and passkey. Brow
 Vault uses a structured admin UI:
 
 - **Overview**: inventory counts and recent runtime keys.
-- **Applications**: create and list applications.
-- **Deployments**: create service groups and deployment profiles.
+- **Applications**: create, edit, delete, and list applications.
+- **Deployments**: create, edit, delete, and list service groups and deployment profiles.
 - **Configs**: save draft config JSON and publish active profile versions.
 - **Runtime Keys**: create container-bound key/secret pairs and view existing keys.
 - **Plugins**: create private/manual plugin catalog entries and attach schemas.
@@ -47,6 +47,8 @@ Vault uses this model:
 - **Runtime API Key**: key id + secret bound to one runtime target.
 
 Containers are not locked to versions. On restart, `config-vault` pulls the active published version for its key's profile.
+
+Deleting an application deletes its service groups and related deployment data. Deleting a service group deletes its deployment profiles and related deployment data. Deleting a deployment profile deletes its config drafts, versions, and runtime keys.
 
 ## Plugin Catalog
 

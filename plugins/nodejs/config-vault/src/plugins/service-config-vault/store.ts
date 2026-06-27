@@ -196,6 +196,14 @@ export class VaultStore {
     );
   }
 
+  async updateApplication(id: string, name: string, description: string | null): Promise<void> {
+    await this.pool.query('update vault_applications set name = $1, description = $2 where id = $3', [name, description, id]);
+  }
+
+  async deleteApplication(id: string): Promise<void> {
+    await this.pool.query('delete from vault_applications where id = $1', [id]);
+  }
+
   async listApplications(): Promise<ApplicationRecord[]> {
     const result = await this.pool.query('select * from vault_applications order by name');
     return result.rows.map((row) => mapApplication(row as DbRow));
@@ -206,6 +214,14 @@ export class VaultStore {
       'insert into vault_groups (id, application_id, name, created_at) values ($1, $2, $3, $4)',
       [record.id, record.applicationId, record.name, record.createdAt],
     );
+  }
+
+  async updateGroup(id: string, applicationId: string, name: string): Promise<void> {
+    await this.pool.query('update vault_groups set application_id = $1, name = $2 where id = $3', [applicationId, name, id]);
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    await this.pool.query('delete from vault_groups where id = $1', [id]);
   }
 
   async listGroups(applicationId: string): Promise<GroupRecord[]> {
@@ -223,6 +239,14 @@ export class VaultStore {
       'insert into vault_profiles (id, group_id, name, active_version_id, created_at) values ($1, $2, $3, $4, $5)',
       [record.id, record.groupId, record.name, record.activeVersionId, record.createdAt],
     );
+  }
+
+  async updateProfile(id: string, groupId: string, name: string): Promise<void> {
+    await this.pool.query('update vault_profiles set group_id = $1, name = $2 where id = $3', [groupId, name, id]);
+  }
+
+  async deleteProfile(id: string): Promise<void> {
+    await this.pool.query('delete from vault_profiles where id = $1', [id]);
   }
 
   async getProfile(id: string): Promise<ProfileRecord | null> {
