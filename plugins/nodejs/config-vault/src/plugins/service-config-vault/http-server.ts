@@ -59,11 +59,6 @@ export class VaultHttpServer {
       return this.page('Vault Setup Complete', setupComplete(result.email, result.totpSecret, result.totpUri));
     }));
 
-    app.use('/login', defineEventHandler(async (event) => {
-      if (getMethod(event) === 'GET') return this.page('Vault Login', loginForm());
-      return sendRedirect(event, '/login');
-    }));
-
     app.use('/login/start', defineEventHandler(async (event) => {
       const body = await readBody<Record<string, unknown>>(event);
       const result = await this.options.vault.login(
@@ -93,6 +88,11 @@ export class VaultHttpServer {
       const session = await this.options.vault.finishLogin(String(body.challengeId ?? ''), credential);
       setLoginCookies(event, session.sessionId, session.csrfToken, this.options.production);
       return { status: 'success', redirect: '/' };
+    }));
+
+    app.use('/login', defineEventHandler(async (event) => {
+      if (getMethod(event) === 'GET') return this.page('Vault Login', loginForm());
+      return sendRedirect(event, '/login');
     }));
 
     app.use('/passkeys/setup', defineEventHandler(async (event) => {
