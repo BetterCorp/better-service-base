@@ -48,7 +48,7 @@ export class VaultHttpServer {
     }));
 
     app.use('/setup', defineEventHandler(async (event) => {
-      if (getMethod(event) === 'GET') return this.page('Vault Setup', setupForm());
+      if (getMethod(event) === 'GET') return this.page('Vault Setup', setupForm(), 'overview', false);
       const body = await readBody<Record<string, unknown>>(event);
       const result = await this.options.vault.createFirstAdmin({
         setupCode: String(body.setupCode ?? ''),
@@ -56,7 +56,7 @@ export class VaultHttpServer {
         password: String(body.password ?? ''),
         passwordConfirm: String(body.passwordConfirm ?? ''),
       });
-      return this.page('Vault Setup Complete', setupComplete(result.email, result.totpSecret, result.totpUri));
+      return this.page('Vault Setup Complete', setupComplete(result.email, result.totpSecret, result.totpUri), 'overview', false);
     }));
 
     app.use('/login/start', defineEventHandler(async (event) => {
@@ -91,14 +91,14 @@ export class VaultHttpServer {
     }));
 
     app.use('/login', defineEventHandler(async (event) => {
-      if (getMethod(event) === 'GET') return this.page('Vault Login', loginForm());
+      if (getMethod(event) === 'GET') return this.page('Vault Login', loginForm(), 'overview', false);
       return sendRedirect(event, '/login');
     }));
 
     app.use('/passkeys/setup', defineEventHandler(async (event) => {
       if (getMethod(event) !== 'GET') return sendRedirect(event, '/passkeys/setup');
-      await this.passkeySetupUser(event);
-      return this.page('Set Up Passkey', passkeySetupPage());
+      const user = await this.passkeySetupUser(event);
+      return this.page('Set Up Passkey', passkeySetupPage(), 'profile', !user.setupToken);
     }));
 
     app.use('/api/passkeys/register/options', defineEventHandler(async (event) => {
@@ -190,14 +190,50 @@ export class VaultHttpServer {
       });
     }));
 
+    app.use('/applications', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      const dashboard = await this.options.vault.dashboard();
+      return this.page('Applications', applicationsPage(dashboard), 'applications');
+    }));
+
+    app.use('/deployments', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      const dashboard = await this.options.vault.dashboard();
+      return this.page('Deployments', deploymentsPage(dashboard), 'deployments');
+    }));
+
+    app.use('/configs', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      const dashboard = await this.options.vault.dashboard();
+      return this.page('Configs', configsPage(dashboard), 'configs');
+    }));
+
+    app.use('/runtime-keys', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      const query = getQuery(event);
+      const dashboard = await this.options.vault.dashboard();
+      return this.page('Runtime Keys', runtimeKeysPage(dashboard, String(query.secret ?? '')), 'runtime-keys');
+    }));
+
+    app.use('/plugins', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      const dashboard = await this.options.vault.dashboard();
+      return this.page('Plugins', pluginsPage(dashboard), 'plugins');
+    }));
+
+    app.use('/profile', defineEventHandler(async (event) => {
+      const session = await this.requireUser(event);
+      const profile = await this.options.vault.userProfile(session.userId);
+      return this.page('Profile', profilePage(profile), 'profile');
+    }));
+
     app.use('/', defineEventHandler(async (event) => {
       if (await this.options.vault.setupRequired()) return sendRedirect(event, '/setup');
       const session = getCookie(event, 'vault_session');
       if (!session) return sendRedirect(event, '/login');
       await this.options.vault.requireSession(session);
-      const query = getQuery(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page('Vault', dashboardPage(dashboard, String(query.secret ?? '')));
+      return this.page('Vault', overviewPage(dashboard), 'overview');
     }));
 
     app.use(defineEventHandler((event) => {
@@ -243,12 +279,16 @@ export class VaultHttpServer {
     return { userId: session.userId };
   }
 
-  private page(title: string, body: string): string {
-    return html(title, body);
+  private page(title: string, body: string, active: NavItem = 'overview', authenticated = true): string {
+    return html(title, body, active, authenticated);
   }
 }
 
-function html(title: string, body: string): string {
+type NavItem = 'overview' | 'applications' | 'deployments' | 'configs' | 'runtime-keys' | 'plugins' | 'profile';
+type DashboardData = Awaited<ReturnType<VaultService['dashboard']>>;
+type UserProfileData = Awaited<ReturnType<VaultService['userProfile']>>;
+
+function html(title: string, body: string, active: NavItem, authenticated: boolean): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -256,12 +296,16 @@ function html(title: string, body: string): string {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtml(title)}</title>
   <style>
-    :root{--bg:#f5f7fb;--panel:#fff;--text:#15181c;--muted:#637083;--line:#d9dee8;--primary:#155eef;--danger:#b42318;--ok:#067647}
+    :root{--bg:#f5f7fb;--panel:#fff;--text:#15181c;--muted:#637083;--line:#d9dee8;--primary:#155eef;--danger:#b42318;--ok:#067647;--sidebar:#101828}
     *{box-sizing:border-box}
     body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:var(--bg);color:var(--text)}
-    header{background:#101828;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1d2939}
+    header{background:var(--sidebar);color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1d2939}
     header a{color:#d0d5dd;text-decoration:none}
-    main{max-width:1180px;margin:0 auto;padding:24px}
+    .shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 54px)}
+    nav{background:#fff;border-right:1px solid var(--line);padding:14px}
+    nav a{display:block;color:#344054;text-decoration:none;padding:9px 10px;border-radius:6px;margin:2px 0;font-weight:600;font-size:14px}
+    nav a.active{background:#eaf1ff;color:#155eef}
+    main{max-width:1180px;width:100%;padding:24px}
     section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;margin:0 0 16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
     h1,h2,h3{margin:0 0 12px} h1{font-size:26px} h2{font-size:18px} h3{font-size:15px;color:#344054}
     label{display:block;font-size:13px;font-weight:650;color:#344054;margin:12px 0 6px}
@@ -271,16 +315,33 @@ function html(title: string, body: string): string {
     button.secondary,.button.secondary{background:#fff;color:#344054;border:1px solid var(--line)}
     table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid #e3e6eb;text-align:left;padding:8px;vertical-align:top}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+    .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+    .metric{font-size:28px;font-weight:750}.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 18px}
+    .inline-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.inline-form label{min-width:190px}
     .muted{color:var(--muted)}.danger{color:var(--danger)}.ok{color:var(--ok)}
     .auth{max-width:480px;margin:32px auto}.stack{display:flex;flex-direction:column;gap:12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .status{margin-top:12px;color:var(--muted);font-size:14px}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
+    @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
 </head>
 <body>
-  <header><strong>Vault</strong><a href="/logout" style="color:#fff">Logout</a></header>
-  <main>${body}</main>
+  <header><strong>Vault</strong>${authenticated ? '<a href="/logout" style="color:#fff">Logout</a>' : ''}</header>
+  ${authenticated ? `<div class="shell">${nav(active)}<main>${body}</main></div>` : `<main>${body}</main>`}
 </body>
 </html>`;
+}
+
+function nav(active: NavItem): string {
+  const items: Array<[NavItem, string, string]> = [
+    ['overview', 'Overview', '/'],
+    ['applications', 'Applications', '/applications'],
+    ['deployments', 'Deployments', '/deployments'],
+    ['configs', 'Configs', '/configs'],
+    ['runtime-keys', 'Runtime Keys', '/runtime-keys'],
+    ['plugins', 'Plugins', '/plugins'],
+    ['profile', 'Profile', '/profile'],
+  ];
+  return `<nav>${items.map(([id, label, href]) => `<a class="${id === active ? 'active' : ''}" href="${href}">${label}</a>`).join('')}</nav>`;
 }
 
 function setLoginCookies(event: Parameters<typeof setCookie>[0], sessionId: string, csrfToken: string, production: boolean): void {
@@ -404,22 +465,197 @@ function passkeySetupPage(): string {
   </script>`;
 }
 
-function dashboardPage(data: Awaited<ReturnType<VaultService['dashboard']>>, secret: string): string {
-  return `<div class="grid">
-    <section><h2>Applications</h2>${table(data.applications.map((x) => [x.name, x.description ?? '', x.id]))}
-      <h3>Create Application</h3>${apiForm('/api/applications', ['name', 'description'])}</section>
-    <section><h2>Plugin Catalog</h2>${table(data.plugins.map((x) => [x.pluginId, x.version, x.kind, x.source]))}
-      <h3>Create/Upload Plugin</h3>${pluginForm()}</section>
+function overviewPage(data: DashboardData): string {
+  return `<div class="page-head"><div><h1>Overview</h1><p class="muted">Current Vault inventory and deployment configuration status.</p></div></div>
+  <div class="grid">
+    ${metric('Applications', data.applications.length)}
+    ${metric('Service Groups', data.groups.length)}
+    ${metric('Deployment Profiles', data.profiles.length)}
+    ${metric('Runtime Keys', data.runtimeKeys.length)}
   </div>
-  <section><h2>Profiles and Runtime</h2>
-    <p class="muted">Use the JSON API to create groups/profiles, save drafts, publish, and create runtime keys. CSRF token is available in the <code>vault_csrf</code> cookie.</p>
-    ${secret ? `<p><strong>Runtime secret, shown once:</strong> <code>${escapeHtml(secret)}</code></p>` : ''}
-    <h3>Runtime Keys</h3>${table(data.runtimeKeys.map((x) => [x.name, x.id, x.profileId, x.containerName ?? '', x.revokedAt ?? 'active']))}
+  <section><h2>Recent Runtime Keys</h2>${runtimeKeyTable(data.runtimeKeys.slice(0, 8), data)}</section>`;
+}
+
+function applicationsPage(data: DashboardData): string {
+  return `<div class="page-head"><div><h1>Applications</h1><p class="muted">Create product or system boundaries for deployment profiles.</p></div></div>
+  <section><h2>Create Application</h2>
+    <form data-api="/api/applications" data-redirect="/applications">
+      <div class="form-grid">
+        ${input('name', 'Name', true)}
+        ${input('description', 'Description')}
+      </div>
+      <button>Create Application</button><p class="status"></p>
+    </form>
   </section>
-  <section><h2>Draft Config JSON</h2>${apiForm('/api/drafts', ['profileId'], 'config')}</section>
-  <section><h2>Publish Draft</h2>${apiForm('/api/publish', ['profileId'])}</section>
-  <section><h2>Create Runtime Key</h2>${apiForm('/api/runtime-keys', ['name', 'applicationId', 'groupId', 'profileId', 'containerName', 'configPluginId'])}</section>
-  <section><h2>Security</h2><p class="muted">Register another passkey for this admin account.</p><a class="button secondary" href="/passkeys/setup">Add Passkey</a></section>`;
+  <section><h2>Applications</h2>${table(data.applications.map((x) => [x.name, x.description ?? '', x.id]))}</section>
+  ${formScript()}`;
+}
+
+function deploymentsPage(data: DashboardData): string {
+  return `<div class="page-head"><div><h1>Deployments</h1><p class="muted">Model service groups and deployment profiles for containers.</p></div></div>
+  <div class="grid">
+    <section><h2>Create Service Group</h2>
+      <form data-api="/api/groups" data-redirect="/deployments">
+        ${select('applicationId', 'Application', data.applications.map((x) => [x.id, x.name]))}
+        ${input('name', 'Group Name', true)}
+        <button>Create Group</button><p class="status"></p>
+      </form>
+    </section>
+    <section><h2>Create Deployment Profile</h2>
+      <form data-api="/api/profiles" data-redirect="/deployments">
+        ${select('groupId', 'Service Group', data.groups.map((x) => [x.id, groupLabel(x, data)]))}
+        ${input('name', 'Profile Name', true, 'default')}
+        <button>Create Profile</button><p class="status"></p>
+      </form>
+    </section>
+  </div>
+  <section><h2>Service Groups</h2>${table(data.groups.map((x) => [groupLabel(x, data), x.id]))}</section>
+  <section><h2>Deployment Profiles</h2>${table(data.profiles.map((x) => [profileLabel(x, data), x.activeVersionId ? 'published' : 'no published config', x.id]))}</section>
+  ${formScript()}`;
+}
+
+function configsPage(data: DashboardData): string {
+  return `<div class="page-head"><div><h1>Configs</h1><p class="muted">Save draft runtime config for a deployment profile, then publish it when ready.</p></div></div>
+  <section><h2>Edit Draft</h2>
+    <form data-api="/api/drafts" data-redirect="/configs">
+      ${select('profileId', 'Deployment Profile', data.profiles.map((x) => [x.id, profileLabel(x, data)]))}
+      <label>Config JSON</label><textarea name="config" required placeholder='{"default":{"observable":{},"events":{},"services":{}}}'></textarea>
+      <button>Save Draft</button><p class="status"></p>
+    </form>
+  </section>
+  <section><h2>Publish Draft</h2>
+    <form data-api="/api/publish" data-redirect="/configs">
+      ${select('profileId', 'Deployment Profile', data.profiles.map((x) => [x.id, profileLabel(x, data)]))}
+      <button>Publish Active Version</button><p class="status"></p>
+    </form>
+  </section>
+  ${formScript()}`;
+}
+
+function runtimeKeysPage(data: DashboardData, secret: string): string {
+  return `<div class="page-head"><div><h1>Runtime Keys</h1><p class="muted">Bind a container credential to one application, service group, deployment profile, and config plugin.</p></div></div>
+  ${secret ? `<section><h2>Runtime Secret</h2><p class="muted">Shown once. Store it in the container environment now.</p><p class="code"><code>${escapeHtml(secret)}</code></p></section>` : ''}
+  <section><h2>Create Runtime Key</h2>
+    <form data-api="/api/runtime-keys" data-secret-redirect="/runtime-keys">
+      <div class="form-grid">
+        ${input('name', 'Name', true)}
+        ${select('applicationId', 'Application', data.applications.map((x) => [x.id, x.name]))}
+        ${select('groupId', 'Service Group', data.groups.map((x) => [x.id, groupLabel(x, data)]))}
+        ${select('profileId', 'Deployment Profile', data.profiles.map((x) => [x.id, profileLabel(x, data)]))}
+        ${input('containerName', 'Container Name')}
+        ${input('configPluginId', 'Config Plugin', true, 'config-vault')}
+      </div>
+      <button>Create Runtime Key</button><p class="status"></p>
+    </form>
+  </section>
+  <section><h2>Runtime Keys</h2>${runtimeKeyTable(data.runtimeKeys, data)}</section>
+  ${formScript()}`;
+}
+
+function pluginsPage(data: DashboardData): string {
+  return `<div class="page-head"><div><h1>Plugin Catalog</h1><p class="muted">Register public, private, or uploaded plugin schemas for config authoring.</p></div></div>
+  <section><h2>Create Plugin</h2>
+    <form data-api="/api/plugins" data-redirect="/plugins">
+      <div class="form-grid">
+        ${input('org', 'Org', true, '_')}
+        ${input('name', 'Name', true)}
+        ${input('pluginId', 'Plugin ID', true)}
+        ${input('packageName', 'Package')}
+        ${input('version', 'Version', true, '0.0.0')}
+        ${select('kind', 'Kind', [['service', 'service'], ['events', 'events'], ['observable', 'observable'], ['config', 'config']])}
+        ${select('source', 'Source', [['manual', 'manual'], ['registry', 'registry'], ['upload', 'upload']])}
+      </div>
+      <label>Config Schema JSON</label><textarea name="configSchema" placeholder='{"type":"object"}'></textarea>
+      <button>Create Plugin</button><p class="status"></p>
+    </form>
+  </section>
+  <section><h2>Catalog</h2>${table(data.plugins.map((x) => [x.pluginId, x.version, x.kind, x.source, x.packageName ?? '']))}</section>
+  ${formScript()}`;
+}
+
+function profilePage(data: UserProfileData): string {
+  return `<div class="page-head"><div><h1>Profile</h1><p class="muted">Account security and admin authentication settings.</p></div></div>
+  <section><h2>Account</h2>${table([[data.user.email, data.user.createdAt]])}</section>
+  <section><h2>Passkey Accounts</h2>
+    ${data.passkeys.length === 0 ? '<p class="muted">No passkeys registered.</p>' : table(data.passkeys.map((x) => [shortId(x.credentialId), x.createdAt]))}
+    <p><a class="button" href="/passkeys/setup">Add Passkey</a></p>
+  </section>`;
+}
+
+function metric(label: string, value: number): string {
+  return `<section><p class="muted">${escapeHtml(label)}</p><div class="metric">${value}</div></section>`;
+}
+
+function input(name: string, label: string, required = false, value = ''): string {
+  return `<label>${escapeHtml(label)}<input name="${escapeHtml(name)}" value="${escapeHtml(value)}" ${required ? 'required' : ''}></label>`;
+}
+
+function select(name: string, label: string, options: Array<[string, string]>): string {
+  const body = options.length === 0
+    ? '<option value="">Create the required parent record first</option>'
+    : options.map(([value, optionLabel]) => `<option value="${escapeHtml(value)}">${escapeHtml(optionLabel)}</option>`).join('');
+  return `<label>${escapeHtml(label)}<select name="${escapeHtml(name)}" ${options.length === 0 ? 'disabled' : 'required'}>${body}</select></label>`;
+}
+
+function groupLabel(group: { id: string; applicationId: string; name: string }, data: DashboardData): string {
+  const app = data.applications.find((candidate) => candidate.id === group.applicationId);
+  return `${app?.name ?? 'Unknown'} / ${group.name}`;
+}
+
+function profileLabel(profile: { id: string; groupId: string; name: string }, data: DashboardData): string {
+  const group = data.groups.find((candidate) => candidate.id === profile.groupId);
+  return `${group ? groupLabel(group, data) : 'Unknown'} / ${profile.name}`;
+}
+
+function runtimeKeyTable(keys: DashboardData['runtimeKeys'], data: DashboardData): string {
+  return table(keys.map((key) => [
+    key.name,
+    key.id,
+    profileLabel({ id: key.profileId, groupId: key.groupId, name: data.profiles.find((profile) => profile.id === key.profileId)?.name ?? key.profileId }, data),
+    key.containerName ?? '',
+    key.revokedAt ?? 'active',
+  ]));
+}
+
+function shortId(value: string): string {
+  return value.length > 18 ? `${value.slice(0, 10)}...${value.slice(-6)}` : value;
+}
+
+function formScript(): string {
+  return `<script>
+  document.querySelectorAll('form[data-api]').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const status = form.querySelector('.status');
+      if (status) { status.textContent = 'Saving...'; status.className = 'status'; }
+      try {
+        const data = {};
+        for (const [key, value] of new FormData(form).entries()) {
+          if (typeof value !== 'string' || value.trim() === '') continue;
+          data[key] = value;
+        }
+        const csrf = document.cookie.split('; ').find((x) => x.startsWith('vault_csrf='))?.split('=')[1] || '';
+        const res = await fetch(form.dataset.api, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+          body: JSON.stringify(data),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message || 'Save failed');
+        if (form.dataset.secretRedirect && result.secret) {
+          location.href = form.dataset.secretRedirect + '?secret=' + encodeURIComponent(result.secret);
+          return;
+        }
+        location.href = form.dataset.redirect || location.pathname;
+      } catch (error) {
+        if (status) {
+          status.textContent = error instanceof Error ? error.message : 'Save failed';
+          status.className = 'status danger';
+        }
+      }
+    });
+  });
+  </script>`;
 }
 
 function webauthnClientScript(): string {

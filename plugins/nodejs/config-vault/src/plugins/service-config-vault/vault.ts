@@ -375,14 +375,31 @@ export class VaultService {
   async dashboard(): Promise<{
     setupRequired: boolean;
     applications: ApplicationRecord[];
+    groups: GroupRecord[];
+    profiles: ProfileRecord[];
     plugins: PluginCatalogRecord[];
     runtimeKeys: RuntimeKeyRecord[];
   }> {
     return {
       setupRequired: await this.setupRequired(),
       applications: await this.store.listApplications(),
+      groups: await this.store.listAllGroups(),
+      profiles: await this.store.listAllProfiles(),
       plugins: await this.store.listPlugins(),
       runtimeKeys: await this.store.listRuntimeKeys(),
+    };
+  }
+
+  async userProfile(userId: string): Promise<{ user: { id: string; email: string; createdAt: string }; passkeys: PasskeyRecord[] }> {
+    const user = await this.store.getUser(userId);
+    if (!user) throw new Error('User not found');
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        createdAt: user.createdAt,
+      },
+      passkeys: await this.store.listPasskeys(user.id),
     };
   }
 

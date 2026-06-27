@@ -213,6 +213,11 @@ export class VaultStore {
     return result.rows.map((row) => mapGroup(row as DbRow));
   }
 
+  async listAllGroups(): Promise<GroupRecord[]> {
+    const result = await this.pool.query('select * from vault_groups order by name');
+    return result.rows.map((row) => mapGroup(row as DbRow));
+  }
+
   async createProfile(record: ProfileRecord): Promise<void> {
     await this.pool.query(
       'insert into vault_profiles (id, group_id, name, active_version_id, created_at) values ($1, $2, $3, $4, $5)',
@@ -227,6 +232,11 @@ export class VaultStore {
 
   async listProfiles(groupId: string): Promise<ProfileRecord[]> {
     const result = await this.pool.query('select * from vault_profiles where group_id = $1 order by name', [groupId]);
+    return result.rows.map((row) => mapProfile(row as DbRow));
+  }
+
+  async listAllProfiles(): Promise<ProfileRecord[]> {
+    const result = await this.pool.query('select * from vault_profiles order by name');
     return result.rows.map((row) => mapProfile(row as DbRow));
   }
 

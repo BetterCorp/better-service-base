@@ -55,3 +55,7 @@ On first startup, Vault logs a one-time setup code. Open `/setup`, enter the cod
 On the first login, Vault verifies password and TOTP, then checks whether the admin has a registered passkey. If no passkey exists, Vault sends the admin through browser passkey enrollment and then forces a fresh login.
 
 After enrollment, every admin login requires password, TOTP, and a browser passkey assertion. Passkeys require HTTPS in browsers unless you are using localhost for local development, and `publicUrl` must match the external URL used to open Vault.
+
+## Admin UI
+
+Vault has separate pages for Overview, Applications, Deployments, Configs, Runtime Keys, Plugins, and Profile. Passkey accounts are managed from Profile; first-login passkey enrollment is only separate because it happens before an authenticated session exists.
