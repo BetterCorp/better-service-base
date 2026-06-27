@@ -15,9 +15,9 @@
  *   - @scope/name@latest     (use no selector instead)
  */
 
-const fs = require("node:fs/promises");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import fs from "node:fs/promises";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const TRUTHY = new Set(["1", "true", "yes", "y"]);
 const MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
