@@ -694,13 +694,15 @@ function deploymentDetailPage(
 }
 
 function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: string): string {
+  const visiblePlugins = data.plugins.filter((plugin) => plugin.kind !== 'config');
+  const visibleRegistry = registry.filter((plugin) => plugin.kind !== 'config');
   return `<div class="page-head"><div><h1>Plugin Catalog</h1><p class="muted">Import registry plugins for config authoring, or create private plugin entries manually.</p></div></div>
   <section><h2>Registry Search</h2>
     <form method="get" action="/plugins" class="inline-form">
       ${input('query', 'Search', false, query)}
       <button>Search Registry</button>
     </form>
-    ${registry.length === 0 ? '<p class="muted">No registry results loaded.</p>' : registryTable(registry)}
+    ${visibleRegistry.length === 0 ? '<p class="muted">No configurable registry results loaded.</p>' : registryTable(visibleRegistry)}
   </section>
   <section><h2>Private Plugin</h2>
     <form data-api="/api/plugins" data-redirect="/plugins">
@@ -710,20 +712,19 @@ function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: 
         ${input('pluginId', 'Plugin ID', true)}
         ${input('packageName', 'Package')}
         ${input('version', 'Version', true, '0.0.0')}
-        ${select('kind', 'Kind', [['service', 'service'], ['events', 'events'], ['observable', 'observable'], ['config', 'config']])}
-        ${select('source', 'Source', [['manual', 'manual'], ['registry', 'registry'], ['upload', 'upload']])}
+        ${select('kind', 'Kind', [['service', 'service'], ['events', 'events'], ['observable', 'observable']])}
       </div>
       <label>Config Schema JSON</label><textarea name="configSchema" placeholder='{"type":"object"}'></textarea>
       <button>Create Plugin</button><p class="status"></p>
     </form>
   </section>
-  <section><h2>Catalog</h2>${table(data.plugins.map((x) => [x.pluginId, x.version, x.kind, x.source, x.packageName ?? '']))}</section>
+  <section><h2>Catalog</h2>${table(visiblePlugins.map((x) => [pluginDisplayName(x), x.version, x.kind, x.source, x.packageName ?? '']))}</section>
   ${formScript()}`;
 }
 
 function registryTable(items: RegistryCandidate[]): string {
   return `<table>${items.map((item) => `<tr>
-    <td>${escapeHtml(item.pluginId)}</td>
+    <td>${escapeHtml(pluginDisplayName(item))}</td>
     <td>${escapeHtml(item.version)}</td>
     <td>${escapeHtml(item.kind)}</td>
     <td>${escapeHtml(item.packageName ?? '')}</td>
@@ -869,10 +870,11 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
       <input type="hidden" name="plugin">
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
+      <input type="hidden" name="section">
       <input type="hidden" name="config">
       <div class="form-grid">
-        ${select('section', 'Type', [['services', 'Service'], ['events', 'Events'], ['observable', 'Observable']])}
-        <label>Plugin<select name="catalogId" data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(plugin.pluginId)} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Plugin<select name="catalogId" data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
       </div>
@@ -932,6 +934,18 @@ function findCatalogPlugin(
     (version ? plugin.version === version : true) &&
     (packageName ? plugin.packageName === packageName : true)
   ) ?? data.plugins.find((plugin) => plugin.pluginId === pluginId);
+}
+
+function pluginDisplayName(plugin: { org?: string; pluginId: string; name?: string }): string {
+  if (!plugin.org || plugin.org === '_') return plugin.pluginId;
+  return plugin.pluginId.startsWith(`${plugin.org}/`) ? plugin.pluginId : `${plugin.org}/${plugin.pluginId}`;
+}
+
+function pluginKindLabel(kind: string): string {
+  if (kind === 'service') return 'Service';
+  if (kind === 'events') return 'Events';
+  if (kind === 'observable') return 'Observable';
+  return kind;
 }
 
 function renderSchemaFields(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>): string {
@@ -1101,6 +1115,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       packageName: plugin.packageName ?? '',
       version: plugin.version,
       kind: plugin.kind,
+      kindLabel: pluginKindLabel(plugin.kind),
       schema: plugin.configSchema ?? null,
     };
     return acc;
@@ -1237,6 +1252,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       form.elements.packageName.value = item.packageName || '';
       form.elements.version.value = item.version || '';
       if (form.elements.section && item.kind) form.elements.section.value = item.kind === 'service' ? 'services' : item.kind;
+      if (form.elements.typeDisplay && item.kindLabel) form.elements.typeDisplay.value = item.kindLabel;
       if (form.elements.name && !form.elements.name.value) form.elements.name.value = item.plugin || '';
       const root = schemaRoot(item.schema);
       const fields = form.querySelector('[data-config-fields]');

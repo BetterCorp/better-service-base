@@ -106,13 +106,55 @@ jobs:
         working-directory: tests/nodejs
         run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
 
-  nodejs-vault-plugin:
-    name: Node.js Vault Plugin
-    needs: [nodejs, prepare]
+  nodejs-plugin-list:
+    name: Node.js Plugin List
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plugins.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Find public plugin packages
+        id: plugins
+        run: |
+          node <<'NODE' > /tmp/nodejs-plugin-matrix.json
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = path.join(process.cwd(), 'plugins', 'nodejs');
+          const include = fs.readdirSync(root, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => {
+              const dir = path.join('plugins', 'nodejs', entry.name);
+              const packagePath = path.join(process.cwd(), dir, 'package.json');
+              if (!fs.existsSync(packagePath)) return null;
+              const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+              if (pkg.private === true) return null;
+              return { workspace: dir, name: pkg.name };
+            })
+            .filter(Boolean);
+          console.log(JSON.stringify({ include }));
+          NODE
+          {
+            echo 'matrix<<EOF'
+            cat /tmp/nodejs-plugin-matrix.json
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+  nodejs-plugins:
+    name: Node.js Plugin ${{ matrix.name }}
+    needs: [nodejs, nodejs-plugin-list, prepare]
+    if: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix).include[0] != null }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -128,8 +170,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set package version
-        run: npm version ${{ needs.prepare.outputs.version }} --workspace plugins/nodejs/config-vault --allow-same-version --no-git-tag-version
+      - name: Sync workspace versions
+        run: npm run ws:version -- ${{ needs.prepare.outputs.version }}
 
       - name: Build base CLI
         run: npm run build-release --workspace nodejs
@@ -143,16 +185,23 @@ jobs:
             ln -sf "$target" "node_modules/.bin/$name"
           done
 
-      - name: Build
-        run: npm run build --workspace plugins/nodejs/config-vault
+      - name: Set plugin version
+        run: npm version ${{ needs.prepare.outputs.version }} --workspace "${{ matrix.workspace }}" --allow-same-version --no-git-tag-version
 
-      - name: Publish to npm
-        working-directory: plugins/nodejs/config-vault
-        run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
+      - name: Build plugin
+        run: npm run build --workspace "${{ matrix.workspace }}"
 
-  registry-plugins:
-    name: Publish BSB Registry Plugins
-    needs: [nodejs, nodejs-vault-plugin, prepare]
+      - name: Publish plugin to npm
+        run: npm publish --workspace "${{ matrix.workspace }}" --tag "${{ needs.prepare.outputs.npm-tag }}" --access public --provenance
+
+      - name: Publish plugin to BSB registry
+        env:
+          BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
+        run: npm run publish:client --workspace "${{ matrix.workspace }}"
+
+  registry-core-plugins:
+    name: Publish Core BSB Registry Plugins
+    needs: [nodejs, prepare]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -168,6 +217,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync workspace versions
+        run: npm run ws:version -- ${{ needs.prepare.outputs.version }}
+
       - name: Build base
         run: npm run build-release --workspace nodejs
 
@@ -180,22 +232,6 @@ jobs:
         env:
           BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
         run: npm run publish:client
-
-      - name: Publish workspace plugins to BSB registry
-        env:
-          BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
-          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          set -euo pipefail
-          for pkg in plugins/nodejs/*; do
-            if [ ! -f "$pkg/package.json" ]; then
-              continue
-            fi
-            echo "Publishing registry metadata for $pkg @ $RELEASE_VERSION"
-            npm version "$RELEASE_VERSION" --workspace "$pkg" --allow-same-version --no-git-tag-version
-            npm run build --workspace "$pkg"
-            npm run publish:client --workspace "$pkg"
-          done
 
   python:
     name: Python
@@ -278,7 +314,7 @@ jobs:
 
   docker-nodejs:
     name: Docker Node.js
-    needs: [nodejs, nodejs-vault-plugin, prepare]
+    needs: [nodejs, nodejs-plugins, prepare]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

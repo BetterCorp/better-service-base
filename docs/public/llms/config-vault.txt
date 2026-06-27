@@ -13,6 +13,8 @@
 - In the UI, call service groups "deployments". Creating a deployment must also create a `default` deployment profile.
 - Deployment profiles own config editing, publish, and container key create/rotate flows. Do not make standalone Configs or Runtime Keys pages the primary workflow.
 - Profile config is stored as the profile body `{ "observable": {}, "events": {}, "services": {} }`, but the normal UI must not ask admins to hand-author it. Use plugin catalog entries and generated config schemas to add/remove plugins, toggle enabled, and edit schema-derived fields.
+- Config plugins are not selectable profile config entries. Hide them from profile add-plugin/catalog authoring UI. The selected plugin determines service/events/observable type; do not expose type as a user-editable choice.
+- Root-org plugins use org `_` internally only. Do not render user-facing labels as `_/plugin-name`; show `plugin-name`.
 - Profile config saves must be schema-validated on the server. Apply defaults, safely coerce primitive form values, strip unknown object keys, and reject invalid values before encrypting drafts.
 - Vault wraps the profile body internally under the profile name such as `{ "default": { ... } }`.
 - Container keys are generated from the selected deployment profile. The container must not select or send a deployment profile.

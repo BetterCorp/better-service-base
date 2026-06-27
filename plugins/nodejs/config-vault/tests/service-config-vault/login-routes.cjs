@@ -11,6 +11,7 @@ module.exports = async ({ pluginRoot }) => {
     host: '127.0.0.1',
     port,
     publicUrl: `http://127.0.0.1:${port}`,
+    registryUrl: 'http://127.0.0.1:1',
     production: false,
     obs: { log: { info() {}, debug() {}, warn() {}, error() {} } },
     vault: {
@@ -29,7 +30,25 @@ module.exports = async ({ pluginRoot }) => {
           applications: [{ id: 'app-1', name: 'App', description: 'Main app' }],
           groups: [{ id: 'group-1', applicationId: 'app-1', name: 'api' }],
           profiles: [{ id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null }],
-          plugins: [],
+          plugins: [{
+            id: 'root-plugin',
+            org: '_',
+            name: 'syslog-client',
+            pluginId: 'syslog-client',
+            packageName: '@bsb/syslog-client',
+            version: '1.0.0',
+            kind: 'service',
+            source: 'manual',
+          }, {
+            id: 'config-plugin',
+            org: '@bsb',
+            name: 'config-vault',
+            pluginId: 'config-vault',
+            packageName: '@bsb/config-vault',
+            version: '1.0.0',
+            kind: 'config',
+            source: 'manual',
+          }],
           runtimeKeys: [],
         };
       },
@@ -87,6 +106,28 @@ module.exports = async ({ pluginRoot }) => {
                 },
               },
             },
+            eventSchema: null,
+          }, {
+            id: 'plugin-root',
+            org: '_',
+            name: 'syslog-client',
+            pluginId: 'syslog-client',
+            packageName: '@bsb/syslog-client',
+            version: '1.0.0',
+            kind: 'service',
+            source: 'manual',
+            configSchema: null,
+            eventSchema: null,
+          }, {
+            id: 'plugin-config',
+            org: '@bsb',
+            name: 'config-vault',
+            pluginId: 'config-vault',
+            packageName: '@bsb/config-vault',
+            version: '1.0.0',
+            kind: 'config',
+            source: 'manual',
+            configSchema: null,
             eventSchema: null,
           }],
           draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true } } },
@@ -173,6 +214,12 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(deploymentHtml, /Config JSON/);
     assert.doesNotMatch(deploymentHtml, /\{"default":/);
     assert.match(deploymentHtml, /Add Plugin/);
+    assert.doesNotMatch(deploymentHtml, /<select name="section"/);
+    assert.match(deploymentHtml, /<input type="hidden" name="section"/);
+    assert.match(deploymentHtml, /name="typeDisplay" disabled/);
+    assert.match(deploymentHtml, />syslog-client 1\.0\.0</);
+    assert.doesNotMatch(deploymentHtml, /_\/syslog-client/);
+    assert.doesNotMatch(deploymentHtml, />config-vault 1\.0\.0</);
     assert.match(deploymentHtml, /data-config-path="host"/);
     assert.match(deploymentHtml, /HTTP port/);
     assert.match(deploymentHtml, /data-array-path="tags"/);
@@ -190,6 +237,17 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(runtimeKeysHtml, /vaultUrl=http:\/\/127\.0\.0\.1:/);
     assert.match(runtimeKeysHtml, /apiKeyId=vk_test/);
     assert.match(runtimeKeysHtml, /apiSecret=vs_test/);
+
+    const pluginsPage = await fetch(`http://127.0.0.1:${port}/plugins`, {
+      headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
+    });
+    const pluginsHtml = await pluginsPage.text();
+    assert.equal(pluginsPage.status, 200);
+    assert.match(pluginsHtml, /syslog-client/);
+    assert.doesNotMatch(pluginsHtml, /_\/syslog-client/);
+    assert.doesNotMatch(pluginsHtml, /config-vault/);
+    assert.doesNotMatch(pluginsHtml, /<option value="config">config<\/option>/);
+    assert.doesNotMatch(pluginsHtml, /name="source"/);
 
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
     await postJson(port, '/api/drafts', { profileId: 'profile-1', config: { services: { api: { plugin: 'service-api', enabled: true } } } });
