@@ -160,6 +160,14 @@ export class VaultStore {
     );
   }
 
+  async updatePasskeyCounter(id: string, signCount: number): Promise<void> {
+    await this.pool.query('update vault_passkeys set sign_count = $1 where id = $2', [signCount, id]);
+  }
+
+  async setUserPasskeyRequired(userId: string, required: boolean): Promise<void> {
+    await this.pool.query('update vault_users set passkey_required = $1, updated_at = now() where id = $2', [required, userId]);
+  }
+
   async listPasskeys(userId: string): Promise<PasskeyRecord[]> {
     const result = await this.pool.query('select * from vault_passkeys where user_id = $1 order by created_at', [userId]);
     return result.rows.map((row) => mapPasskey(row as DbRow));

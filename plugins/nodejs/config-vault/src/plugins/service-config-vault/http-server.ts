@@ -61,24 +61,62 @@ export class VaultHttpServer {
 
     app.use('/login', defineEventHandler(async (event) => {
       if (getMethod(event) === 'GET') return this.page('Vault Login', loginForm());
+      return sendRedirect(event, '/login');
+    }));
+
+    app.use('/login/start', defineEventHandler(async (event) => {
       const body = await readBody<Record<string, unknown>>(event);
-      const session = await this.options.vault.login(
+      const result = await this.options.vault.login(
         String(body.email ?? ''),
         String(body.password ?? ''),
         String(body.totpCode ?? ''),
       );
-      setCookie(event, 'vault_session', session.sessionId, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: this.options.production,
-        path: '/',
-      });
-      setCookie(event, 'vault_csrf', session.csrfToken, {
-        sameSite: 'lax',
-        secure: this.options.production,
-        path: '/',
-      });
-      return sendRedirect(event, '/');
+      if (result.status === 'passkey_setup_required') {
+        setCookie(event, 'vault_passkey_setup', result.setupToken, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: this.options.production,
+          path: '/',
+          maxAge: 10 * 60,
+        });
+        return { status: result.status, redirect: '/passkeys/setup' };
+      }
+      if (result.status === 'passkey_required') {
+        return result;
+      }
+    }));
+
+    app.use('/login/finish', defineEventHandler(async (event) => {
+      const body = await readBody<Record<string, unknown>>(event);
+      const credential = parseJsonObject(body.credential);
+      if (!credential) throw new Error('Passkey credential is required');
+      const session = await this.options.vault.finishLogin(String(body.challengeId ?? ''), credential);
+      setLoginCookies(event, session.sessionId, session.csrfToken, this.options.production);
+      return { status: 'success', redirect: '/' };
+    }));
+
+    app.use('/passkeys/setup', defineEventHandler(async (event) => {
+      if (getMethod(event) !== 'GET') return sendRedirect(event, '/passkeys/setup');
+      await this.passkeySetupUser(event);
+      return this.page('Set Up Passkey', passkeySetupPage());
+    }));
+
+    app.use('/api/passkeys/register/options', defineEventHandler(async (event) => {
+      const user = await this.passkeySetupUser(event);
+      return this.options.vault.startPasskeyRegistration(user.userId);
+    }));
+
+    app.use('/api/passkeys/register/verify', defineEventHandler(async (event) => {
+      const user = await this.passkeySetupUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      const credential = parseJsonObject(body.credential);
+      if (!credential) throw new Error('Passkey credential is required');
+      await this.options.vault.finishPasskeyRegistration(user.userId, credential);
+      if (user.setupToken) {
+        this.options.vault.clearPasskeySetupToken(user.setupToken);
+        deleteCookie(event, 'vault_passkey_setup', { path: '/' });
+      }
+      return { success: true, relogin: Boolean(user.setupToken), redirect: user.setupToken ? '/login' : '/' };
     }));
 
     app.use('/logout', defineEventHandler(async (event) => {
@@ -86,6 +124,7 @@ export class VaultHttpServer {
       if (sessionId) await this.options.vault.logout(sessionId);
       deleteCookie(event, 'vault_session', { path: '/' });
       deleteCookie(event, 'vault_csrf', { path: '/' });
+      deleteCookie(event, 'vault_passkey_setup', { path: '/' });
       return sendRedirect(event, '/login');
     }));
 
@@ -192,6 +231,18 @@ export class VaultHttpServer {
     return session;
   }
 
+  private async passkeySetupUser(event: Parameters<typeof getCookie>[0]): Promise<{ userId: string; setupToken?: string }> {
+    const setupToken = getCookie(event, 'vault_passkey_setup');
+    if (setupToken) {
+      return {
+        userId: this.options.vault.consumePasskeySetupToken(setupToken),
+        setupToken,
+      };
+    }
+    const session = await this.requireUser(event);
+    return { userId: session.userId };
+  }
+
   private page(title: string, body: string): string {
     return html(title, body);
   }
@@ -205,16 +256,24 @@ function html(title: string, body: string): string {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtml(title)}</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:#f7f8fa;color:#15181c}
-    header{background:#15181c;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+    :root{--bg:#f5f7fb;--panel:#fff;--text:#15181c;--muted:#637083;--line:#d9dee8;--primary:#155eef;--danger:#b42318;--ok:#067647}
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:var(--bg);color:var(--text)}
+    header{background:#101828;color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1d2939}
+    header a{color:#d0d5dd;text-decoration:none}
     main{max-width:1180px;margin:0 auto;padding:24px}
-    section{background:#fff;border:1px solid #d9dde3;border-radius:8px;padding:16px;margin:0 0 16px}
-    input,textarea,select{display:block;width:100%;box-sizing:border-box;margin:6px 0 12px;padding:9px;border:1px solid #b9c0ca;border-radius:6px;font:inherit}
+    section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;margin:0 0 16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+    h1,h2,h3{margin:0 0 12px} h1{font-size:26px} h2{font-size:18px} h3{font-size:15px;color:#344054}
+    label{display:block;font-size:13px;font-weight:650;color:#344054;margin:12px 0 6px}
+    input,textarea,select{display:block;width:100%;margin:0 0 12px;padding:10px 11px;border:1px solid #b9c0ca;border-radius:6px;font:inherit;background:#fff}
     textarea{min-height:140px;font-family:ui-monospace,Consolas,monospace}
-    button{background:#1267d8;color:#fff;border:0;border-radius:6px;padding:9px 12px;font:inherit;cursor:pointer}
-    table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e3e6eb;text-align:left;padding:8px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
-    .muted{color:#5b6470}.danger{color:#a40000}
+    button,.button{display:inline-flex;align-items:center;gap:8px;background:var(--primary);color:#fff;border:0;border-radius:6px;padding:10px 13px;font:inherit;font-weight:650;cursor:pointer;text-decoration:none}
+    button.secondary,.button.secondary{background:#fff;color:#344054;border:1px solid var(--line)}
+    table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid #e3e6eb;text-align:left;padding:8px;vertical-align:top}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+    .muted{color:var(--muted)}.danger{color:var(--danger)}.ok{color:var(--ok)}
+    .auth{max-width:480px;margin:32px auto}.stack{display:flex;flex-direction:column;gap:12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .status{margin-top:12px;color:var(--muted);font-size:14px}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
   </style>
 </head>
 <body>
@@ -224,40 +283,125 @@ function html(title: string, body: string): string {
 </html>`;
 }
 
+function setLoginCookies(event: Parameters<typeof setCookie>[0], sessionId: string, csrfToken: string, production: boolean): void {
+  setCookie(event, 'vault_session', sessionId, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: production,
+    path: '/',
+  });
+  setCookie(event, 'vault_csrf', csrfToken, {
+    sameSite: 'lax',
+    secure: production,
+    path: '/',
+  });
+}
+
 function setupForm(): string {
-  return `<section><h1>First Admin Setup</h1>
+  return `<section class="auth"><h1>First Admin Setup</h1>
     <p class="muted">Enter the one-time setup code printed in the service logs. Vault will generate TOTP enrollment details after the admin user is created.</p>
     <form method="post">
-      <input name="setupCode" placeholder="Setup code" required>
-      <input name="email" type="email" placeholder="Admin email" required>
-      <input name="password" type="password" placeholder="Password, 12+ chars" required>
-      <input name="passwordConfirm" type="password" placeholder="Confirm password" required>
+      <label>Setup Code</label><input name="setupCode" autocomplete="one-time-code" required>
+      <label>Admin Email</label><input name="email" type="email" autocomplete="username" required>
+      <label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required>
+      <label>Confirm Password</label><input name="passwordConfirm" type="password" autocomplete="new-password" minlength="12" required>
       <button>Create Admin</button>
     </form>
   </section>`;
 }
 
 function setupComplete(email: string, totpSecret: string, totpUri: string): string {
-  return `<section><h1>Admin Created</h1>
+  return `<section class="auth"><h1>Admin Created</h1>
     <p>Add this TOTP secret to your authenticator app before logging in as <strong>${escapeHtml(email)}</strong>.</p>
     <p><strong>TOTP secret:</strong></p>
-    <p><code>${escapeHtml(totpSecret)}</code></p>
+    <p class="code"><code>${escapeHtml(totpSecret)}</code></p>
     <p><strong>Authenticator URI:</strong></p>
-    <p><code>${escapeHtml(totpUri)}</code></p>
-    <p class="muted">Passkeys are not enrolled during first setup. Use the passkey enrollment flow when it is available.</p>
-    <p><a href="/login">Continue to login</a></p>
+    <p class="code"><code>${escapeHtml(totpUri)}</code></p>
+    <p class="muted">On first login, Vault will require passkey enrollment before dashboard access.</p>
+    <p><a class="button" href="/login">Continue to login</a></p>
   </section>`;
 }
 
 function loginForm(): string {
-  return `<section><h1>Login</h1>
-    <form method="post">
-      <input name="email" type="email" placeholder="Email" required>
-      <input name="password" type="password" placeholder="Password" required>
-      <input name="totpCode" placeholder="TOTP code" required>
-      <button>Login</button>
+  return `<section class="auth"><h1>Login</h1>
+    <p class="muted">Vault requires password, TOTP, and passkey. If no passkey is enrolled yet, you will be sent to passkey setup and then asked to log in again.</p>
+    <form id="login-form">
+      <label>Email</label><input name="email" type="email" autocomplete="username" required>
+      <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
+      <label>TOTP Code</label><input name="totpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,}" required>
+      <div class="actions"><button>Continue</button></div>
+      <p id="login-status" class="status"></p>
     </form>
-  </section>`;
+  </section>
+  <script>${webauthnClientScript()}
+  const loginFormEl = document.getElementById('login-form');
+  const loginStatus = document.getElementById('login-status');
+  loginFormEl.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      loginStatus.textContent = 'Checking credentials...';
+      const data = Object.fromEntries(new FormData(loginFormEl).entries());
+      const started = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
+      const result = await started.json();
+      if (!started.ok) throw new Error(result.message || 'Login failed');
+      if (result.status === 'passkey_setup_required') {
+        location.href = result.redirect;
+        return;
+      }
+      if (result.status === 'passkey_required') {
+        loginStatus.textContent = 'Use your passkey to finish login...';
+        const credential = await navigator.credentials.get({ publicKey: publicKeyRequestToBrowser(result.options) });
+        const finished = await fetch('/login/finish', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ challengeId: result.challengeId, credential: credentialToJSON(credential) }),
+        });
+        const done = await finished.json();
+        if (!finished.ok) throw new Error(done.message || 'Passkey login failed');
+        location.href = done.redirect || '/';
+        return;
+      }
+    } catch (error) {
+      loginStatus.textContent = error instanceof Error ? error.message : 'Login failed';
+      loginStatus.className = 'status danger';
+      return;
+    }
+  });
+  </script>`;
+}
+
+function passkeySetupPage(): string {
+  return `<section class="auth"><h1>Set Up Passkey</h1>
+    <p class="muted">Register a device passkey. After this succeeds, Vault will force a fresh login with password, TOTP, and passkey.</p>
+    <div class="actions"><button id="register-passkey">Register Passkey</button></div>
+    <p id="passkey-status" class="status"></p>
+  </section>
+  <script>${webauthnClientScript()}
+  const statusEl = document.getElementById('passkey-status');
+  document.getElementById('register-passkey').addEventListener('click', async () => {
+    try {
+      statusEl.textContent = 'Preparing passkey registration...';
+      const optionsRes = await fetch('/api/passkeys/register/options', { method: 'POST' });
+      const options = await optionsRes.json();
+      if (!optionsRes.ok) throw new Error(options.message || 'Could not start passkey registration');
+      statusEl.textContent = 'Use your device passkey prompt...';
+      const credential = await navigator.credentials.create({ publicKey: publicKeyCreationToBrowser(options) });
+      const verifyRes = await fetch('/api/passkeys/register/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ credential: credentialToJSON(credential) }),
+      });
+      const verified = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(verified.message || 'Passkey registration failed');
+      statusEl.textContent = verified.relogin ? 'Passkey registered. Redirecting to login...' : 'Passkey registered.';
+      statusEl.className = 'status ok';
+      location.href = verified.redirect || '/login';
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : 'Passkey registration failed';
+      statusEl.className = 'status danger';
+    }
+  });
+  </script>`;
 }
 
 function dashboardPage(data: Awaited<ReturnType<VaultService['dashboard']>>, secret: string): string {
@@ -274,7 +418,62 @@ function dashboardPage(data: Awaited<ReturnType<VaultService['dashboard']>>, sec
   </section>
   <section><h2>Draft Config JSON</h2>${apiForm('/api/drafts', ['profileId'], 'config')}</section>
   <section><h2>Publish Draft</h2>${apiForm('/api/publish', ['profileId'])}</section>
-  <section><h2>Create Runtime Key</h2>${apiForm('/api/runtime-keys', ['name', 'applicationId', 'groupId', 'profileId', 'containerName', 'configPluginId'])}</section>`;
+  <section><h2>Create Runtime Key</h2>${apiForm('/api/runtime-keys', ['name', 'applicationId', 'groupId', 'profileId', 'containerName', 'configPluginId'])}</section>
+  <section><h2>Security</h2><p class="muted">Register another passkey for this admin account.</p><a class="button secondary" href="/passkeys/setup">Add Passkey</a></section>`;
+}
+
+function webauthnClientScript(): string {
+  return `
+  function base64UrlToBuffer(value) {
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+    const binary = atob(base64);
+    const buffer = new ArrayBuffer(binary.length);
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return buffer;
+  }
+  function bufferToBase64Url(value) {
+    const bytes = new Uint8Array(value);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+  }
+  function publicKeyCreationToBrowser(options) {
+    return {
+      ...options,
+      challenge: base64UrlToBuffer(options.challenge),
+      user: { ...options.user, id: base64UrlToBuffer(options.user.id) },
+      excludeCredentials: (options.excludeCredentials || []).map((credential) => ({ ...credential, id: base64UrlToBuffer(credential.id) })),
+    };
+  }
+  function publicKeyRequestToBrowser(options) {
+    return {
+      ...options,
+      challenge: base64UrlToBuffer(options.challenge),
+      allowCredentials: (options.allowCredentials || []).map((credential) => ({ ...credential, id: base64UrlToBuffer(credential.id) })),
+    };
+  }
+  function credentialToJSON(credential) {
+    if (!credential) throw new Error('Passkey prompt was cancelled');
+    const response = credential.response;
+    const json = { id: credential.id, rawId: bufferToBase64Url(credential.rawId), type: credential.type, clientExtensionResults: credential.getClientExtensionResults() };
+    if (response.attestationObject) {
+      json.response = {
+        clientDataJSON: bufferToBase64Url(response.clientDataJSON),
+        attestationObject: bufferToBase64Url(response.attestationObject),
+        transports: response.getTransports ? response.getTransports() : [],
+      };
+    } else {
+      json.response = {
+        clientDataJSON: bufferToBase64Url(response.clientDataJSON),
+        authenticatorData: bufferToBase64Url(response.authenticatorData),
+        signature: bufferToBase64Url(response.signature),
+        userHandle: response.userHandle ? bufferToBase64Url(response.userHandle) : null,
+      };
+    }
+    return json;
+  }
+  `;
 }
 
 function apiForm(action: string, fields: string[], textarea?: string): string {

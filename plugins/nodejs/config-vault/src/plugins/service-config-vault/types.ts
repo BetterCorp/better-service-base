@@ -144,3 +144,7 @@ export interface FirstAdminResult {
   totpSecret: string;
   totpUri: string;
 }
+
+export type LoginStartResult =
+  | { status: 'passkey_setup_required'; setupToken: string }
+  | { status: 'passkey_required'; challengeId: string; options: Record<string, unknown> };

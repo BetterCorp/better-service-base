@@ -14,3 +14,6 @@
 - Use HTTPS for runtime fetches. `allowInsecureHttp` is local-dev only.
 - Config payloads are encrypted before Postgres storage. Passwords and API secrets are hashed.
 - First setup creates the admin with setup code + password confirmation, then generates TOTP enrollment details. Do not ask for a TOTP code or pasted passkey JSON during initial setup.
+- On first login, Vault verifies password + TOTP, checks for passkeys, and forces browser passkey enrollment if none exist.
+- After first passkey enrollment, Vault forces re-login. Normal login requires password + TOTP + passkey before a session is created.
+- Passkeys require normal browser WebAuthn flows. Do not invent JSON passkey setup forms. `publicUrl` must match the browser origin used to open Vault.

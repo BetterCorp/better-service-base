@@ -82,6 +82,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       store: this.store,
       masterKey: loadMasterKey(this.config.masterKey),
       setupCode: this.setupCode,
+      publicUrl: this.config.publicUrl,
     });
   }
 

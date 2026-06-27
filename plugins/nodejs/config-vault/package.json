@@ -38,6 +38,7 @@
     "url": "https://bettercorp.dev/"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^13.3.2",
     "anyvali": "^1.0.6",
     "h3": "^1.15.4",
     "pg": "^8.16.3"

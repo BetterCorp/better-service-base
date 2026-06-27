@@ -52,4 +52,6 @@ Keep the value stable. If the key changes, Vault cannot decrypt configs already 
 
 On first startup, Vault logs a one-time setup code. Open `/setup`, enter the code, create the admin user, and confirm the password. Vault generates the TOTP enrollment secret and authenticator URI after the user is created.
 
-Passkeys are not part of first setup until a real browser passkey registration flow is available.
+On the first login, Vault verifies password and TOTP, then checks whether the admin has a registered passkey. If no passkey exists, Vault sends the admin through browser passkey enrollment and then forces a fresh login.
+
+After enrollment, every admin login requires password, TOTP, and a browser passkey assertion. Passkeys require HTTPS in browsers unless you are using localhost for local development, and `publicUrl` must match the external URL used to open Vault.

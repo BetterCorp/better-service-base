@@ -47,6 +47,7 @@ module.exports = async ({ pluginRoot }) => {
     store,
     masterKey: key,
     setupCode: 'setup',
+    publicUrl: 'http://localhost:8080',
   });
   const resolved = await vault.resolveRuntimeConfig('vk_test', secret);
 
