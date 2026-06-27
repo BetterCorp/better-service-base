@@ -42,7 +42,7 @@ betterweb/service-base:node-9.5.1</code></pre></div>
   package: "@bsb/config-vault"
   enabled: true</code></pre></div>
 
-        <p>Do not also add <code>@bsb/config-vault</code> to <code>BSB_PLUGINS</code> when using the official Node image. Use <code>BSB_PLUGINS</code> for additional published plugins that are not bundled.</p>
+        <p>Do not also add <code>@bsb/config-vault</code> to <code>BSB_PLUGINS</code> when using the official Node image. It is already installed with the image, like the base package. Use <code>BSB_PLUGINS</code> only for additional published plugins that are not bundled, and pin those versions.</p>
 
         <h2>Run With Mounted Plugins</h2>
         <p>Mount prebuilt plugin packages and point BSB at the plugin directory. The first path in <code>BSB_PLUGIN_DIRS</code> is also used as the install target when <code>BSB_PLUGINS</code> is set.</p>
@@ -55,13 +55,13 @@ betterweb/service-base:node-9.5.1</code></pre></div>
   betterweb/service-base:node</code></pre></div>
 
         <h2>Install Plugins On Startup</h2>
-        <p>Use <code>BSB_PLUGINS</code> when the container should install published plugin packages before starting.</p>
+        <p>Use <code>BSB_PLUGINS</code> when the container should install published plugin packages before starting. Pin exact versions; avoid unversioned packages and <code>@latest</code> in production because they can cross breaking releases and add network install time to boot.</p>
 
         <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v bsb-plugins:/mnt/plugins \
   -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
-  -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@latest' \
+  -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@2.4.1' \
   -e BSB_CONFIG_FILE=/app/sec-config.yaml \
   betterweb/service-base:node-latest</code></pre></div>
 
@@ -81,7 +81,7 @@ betterweb/service-base:node-9.5.1</code></pre></div>
         <h2>Environment Variables</h2>
         <ul>
           <li><code>BSB_PLUGIN_DIRS</code>: comma-separated plugin directories. Prefer this over legacy aliases.</li>
-          <li><code>BSB_PLUGINS</code>: comma-separated npm packages to install at container start.</li>
+          <li><code>BSB_PLUGINS</code>: comma-separated npm packages to install at container start. Prefer exact versions.</li>
           <li><code>BSB_PLUGIN_UPDATE=true</code>: refresh already-installed plugins on startup.</li>
           <li><code>BSB_WRITABLE_PATHS</code>: comma-separated files or directories that the entrypoint should create if needed, chown to the Node user, and chmod as writable. Use this for runtime state such as <code>/data</code>.</li>
           <li><code>BSB_CONFIG_FILE</code>: config file path inside the container.</li>

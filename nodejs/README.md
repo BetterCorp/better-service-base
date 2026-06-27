@@ -148,15 +148,15 @@ Multi-stage build produces a minimal runtime image:
 - Volumes: `/mnt/plugins` (external plugins), `/mnt/temp`
 - Entrypoint runs `node lib/cli.js` as an unprivileged `node` user
 - Optional plugin install/update at startup:
-  - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b"` -> installs/updates listed packages
-  - `BSB_PLUGIN_UPDATE=yes` -> runs `npm update`
+  - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b@2.4.1"` -> installs listed packages
+  - `BSB_PLUGIN_UPDATE=yes` -> refreshes installed plugins through the startup installer
 
 Example run (with mounted plugins directory):
 ```bash
 docker run --rm \
-  -e BSB_PLUGINS="@bettercorp/your-plugin" \
+  -e BSB_PLUGINS="@bettercorp/your-plugin@1.2.3" \
   -v $(pwd)/plugins:/mnt/plugins \
-  betterweb/service-base:9
+  betterweb/service-base:node
 ```
 
 Recommended plugin directory layout (when using `BSB_PLUGIN_DIRS`):
@@ -176,13 +176,14 @@ Recommended plugin directory layout (when using `BSB_PLUGIN_DIRS`):
 Notes
 - In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIRS` as above. This avoids network installs on boot and ensures deterministic versions via immutable versioned folders.
 - `BSB_PLUGINS` is available for dynamic `npm install` at startup, but mounting a curated plugin repository via `BSB_PLUGIN_DIRS` is recommended for production.
+- Avoid unversioned `BSB_PLUGINS` entries and `@latest`; they can cross breaking releases and add network install time to every boot that runs the installer.
 
 ### Environment Variables
 - `APP_DIR`: Override working directory (mainly used in local development/testing)
 - `BSB_DEBUG`: Enable debug logging in production mode (`true|1|yes|y`). Produces `production-debug` mode.
 - `BSB_PLUGIN_DIRS`: Comma-separated list of external plugin directories (searched in order; first is install target)
 - `BSB_PLUGIN_DIR`: Single external plugin directory (legacy, still supported). Accepts comma-separated paths.
-- `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js)
+- `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Prefer exact versions.
 - `BSB_PLUGIN_UPDATE`: `yes|y|true` to run `npm update` at container start
 - Config plugin override (advanced):
   - `BSB_CONFIG_PLUGIN`: Name of config plugin (must start with `config-`)
@@ -223,7 +224,7 @@ At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or 
 docker run --rm \
   -v $(pwd)/plugins:/mnt/plugins:ro \
   -e BSB_PLUGIN_DIR=/mnt/plugins \
-  betterweb/service-base:9
+  betterweb/service-base:node
 ```
 
 Local development (for contributors only):

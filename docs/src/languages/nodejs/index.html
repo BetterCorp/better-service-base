@@ -239,7 +239,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
             <h4>Discovery & Runtime</h4>
             <ul>
                 <li>Production: run the BSB container and provide plugins via <code>BSB_PLUGIN_DIRS</code></li>
-                <li>Optional: specify explicit versions with <code>BSB_PLUGINS</code> (e.g. <code>service-my-api@1.2.3;observable-default@latest</code>)</li>
+                <li>Optional: specify explicit versions with <code>BSB_PLUGINS</code> (e.g. <code>service-my-api@1.2.3;observable-default@2.4.1</code>). Avoid <code>@latest</code> in production.</li>
                 <li>Development: install BSB in your plugin project for types and run locally if needed</li>
             </ul>
         </div>

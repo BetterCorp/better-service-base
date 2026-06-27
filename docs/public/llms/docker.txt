@@ -12,7 +12,8 @@ Image tags:
 Bundled Node.js plugins:
 - The Node.js runtime image includes `@bsb/config-vault` in `/home/bsb/node_modules` when built by the official release workflow.
 - Reference bundled Vault plugins by package name in config: `package: "@bsb/config-vault"`.
-- Other plugins should still be mounted with `BSB_PLUGIN_DIRS` or installed at startup with `BSB_PLUGINS`.
+- Do not set `BSB_PLUGINS` for bundled plugins such as `@bsb/config-vault`; that forces the startup installer and can slow or break boot.
+- Other plugins should still be mounted with `BSB_PLUGIN_DIRS` or, when needed, installed at startup with pinned `BSB_PLUGINS` versions.
 
 Mounted plugin deployment:
 ```bash
@@ -30,7 +31,7 @@ docker run --rm \
   -v bsb-plugins:/mnt/plugins \
   -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
-  -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@latest' \
+  -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@2.4.1' \
   -e BSB_CONFIG_FILE=/app/sec-config.yaml \
   betterweb/service-base:node-latest
 ```
@@ -53,7 +54,7 @@ services:
 Environment:
 - `BSB_PLUGIN_DIRS`: comma-separated plugin directories. Prefer this over legacy aliases.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR`: legacy aliases; still work and accept comma-separated values.
-- `BSB_PLUGINS`: comma-separated npm packages installed at container start.
+- `BSB_PLUGINS`: comma-separated npm packages installed at container start. Prefer exact versions; avoid unversioned packages and `@latest`.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_WRITABLE_PATHS`: comma-separated files/directories that the Node entrypoint creates if needed and makes writable for runtime state, for example `/data`.
 - `BSB_CONFIG_FILE`: config file path inside the container.
