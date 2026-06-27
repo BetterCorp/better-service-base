@@ -106,6 +106,38 @@ jobs:
         working-directory: tests/nodejs
         run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
 
+  nodejs-vault-plugin:
+    name: Node.js Vault Plugin
+    needs: [nodejs, prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set package version
+        run: npm version ${{ needs.prepare.outputs.version }} --workspace plugins/nodejs/config-vault --allow-same-version --no-git-tag-version
+
+      - name: Build
+        run: npm run build --workspace plugins/nodejs/config-vault
+
+      - name: Publish to npm
+        working-directory: plugins/nodejs/config-vault
+        run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
+
   registry-plugins:
     name: Publish BSB Registry Plugins
     needs: [nodejs, prepare]
@@ -234,7 +266,7 @@ jobs:
 
   docker-nodejs:
     name: Docker Node.js
-    needs: [nodejs, prepare]
+    needs: [nodejs, nodejs-vault-plugin, prepare]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -283,6 +315,7 @@ jobs:
         with:
           build-args: |
             BSB_VERSION=${{ needs.prepare.outputs.version }}
+            BSB_BUNDLED_PLUGINS=@bsb/config-vault@${{ needs.prepare.outputs.version }}
           context: .
           file: ./nodejs/Dockerfile
           platforms: ${{ steps.upstream.outputs.platforms }}

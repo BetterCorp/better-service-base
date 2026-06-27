@@ -1,0 +1,36 @@
+{
+  "nodejs": [
+    {
+      "id": "config-vault",
+      "skip": false,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": [
+        {
+          "name": "custom",
+          "skip": false,
+          "config": {}
+        }
+      ]
+    },
+    {
+      "id": "service-config-vault",
+      "skip": false,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": [
+        {
+          "name": "custom",
+          "skip": false,
+          "config": {}
+        }
+      ]
+    }
+  ]
+}

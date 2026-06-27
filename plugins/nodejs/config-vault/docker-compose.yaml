@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bsb_vault}
+      POSTGRES_USER: ${POSTGRES_USER:-vault}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - vault-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  vault:
+    image: betterweb/service-base:node-latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${VAULT_PORT:-8080}:8080"
+    environment:
+      BSB_CONFIG_PLUGIN: config-env
+      BSB_PROFILE: default
+      BSB_PLUGIN_DIRS: /mnt/plugins
+      BSB_WRITABLE_PATHS: /mnt/plugins
+      BSB_CONFIG_JSON: >
+        {"default":{"observable":{},"events":{},"services":{"service-config-vault":{"plugin":"service-config-vault","package":"@bsb/config-vault","enabled":true,"config":{"host":"0.0.0.0","port":8080,"publicUrl":"${CONFIG_VAULT_PUBLIC_URL:-http://localhost:8080}","production":${CONFIG_VAULT_PRODUCTION:-false},"databaseUrl":"postgres://${POSTGRES_USER:-vault}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-bsb_vault}","masterKey":"${CONFIG_VAULT_MASTER_KEY:?Set CONFIG_VAULT_MASTER_KEY to a base64 encoded 32-byte key}"}}}}}
+    volumes:
+      - vault-plugins:/mnt/plugins
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  vault-postgres-data:
+  vault-plugins:

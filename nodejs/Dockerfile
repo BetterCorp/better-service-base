@@ -27,6 +27,7 @@
 FROM betterweb/node:26 AS builder
 
 ARG BSB_VERSION=0.0.0
+ARG BSB_BUNDLED_PLUGINS=
 
 RUN set -eux && mkdir /home/bsb && npm i -g typescript ts-node
 
@@ -54,6 +55,7 @@ COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
 
 # Install only production dependencies
 RUN npm install --production
+RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then npm install --omit=dev $BSB_BUNDLED_PLUGINS; fi
 
 # Stage 3: Final image
 FROM betterweb/node:26

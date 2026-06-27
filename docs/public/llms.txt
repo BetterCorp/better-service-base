@@ -20,6 +20,8 @@ Plugins (Node.js) - pick the type you are building:
   https://bsbcode.dev/llms/nodejs-plugin-observable.txt
 - Config plugin: implements configuration providers (file, env, vault, etc).
   https://bsbcode.dev/llms/nodejs-plugin-config.txt
+- Vault managed config: secure config service, runtime API key binding, plugin catalog, and latest-active profile config.
+  https://bsbcode.dev/llms/config-vault.txt
 - Plugin overview: shared structure and the common steps for any plugin type.
   https://bsbcode.dev/llms/nodejs-plugin-new.txt
 

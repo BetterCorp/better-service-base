@@ -1,0 +1,4 @@
+src/.bsb/
+lib/
+coverage/
+.nyc_output/

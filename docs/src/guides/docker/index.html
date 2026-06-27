@@ -34,6 +34,16 @@ betterweb/service-base:node-9.5.1</code></pre></div>
           <strong>Do not use tags like <code>9-node</code>.</strong> BSB tags are runtime-first: <code>node</code>, <code>node-latest</code>, or <code>node-&lt;version&gt;</code>. The same pattern applies to other runtimes, such as <code>go</code>, <code>python</code>, and <code>dotnet</code>.
         </div>
 
+        <h2>Bundled Node.js Plugins</h2>
+        <p>The official Node.js runtime image includes <code>@bsb/config-vault</code> in <code>/home/bsb/node_modules</code>. Reference Vault plugins directly by package name in your config:</p>
+
+        <div class="code-block" data-title="sec-config.yaml"><pre><code class="language-yaml">service-config-vault:
+  plugin: service-config-vault
+  package: "@bsb/config-vault"
+  enabled: true</code></pre></div>
+
+        <p>Do not also add <code>@bsb/config-vault</code> to <code>BSB_PLUGINS</code> when using the official Node image. Use <code>BSB_PLUGINS</code> for additional published plugins that are not bundled.</p>
+
         <h2>Run With Mounted Plugins</h2>
         <p>Mount prebuilt plugin packages and point BSB at the plugin directory. The first path in <code>BSB_PLUGIN_DIRS</code> is also used as the install target when <code>BSB_PLUGINS</code> is set.</p>
 

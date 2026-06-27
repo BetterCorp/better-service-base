@@ -1,0 +1,20 @@
+default:
+  config:
+    config-default:
+      plugin: config-default
+      package: "@bsb/base"
+      enabled: true
+      config:
+        BSB_CONFIG_FILE: ./sec-config.yaml
+  services:
+    service-config-vault:
+      plugin: service-config-vault
+      package: "@bsb/config-vault"
+      enabled: true
+      config:
+        host: 0.0.0.0
+        port: 8080
+        publicUrl: http://localhost:8080
+        production: false
+        databaseUrl: postgres://vault:vault@localhost:5432/vault
+        masterKey: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=

@@ -1,0 +1,40 @@
+{
+  "nodejs": [
+    {
+      "id": "config-vault",
+      "name": "config-vault",
+      "basePath": "./",
+      "description": "Managed BSB config plugin that loads latest active config from Vault",
+      "tags": [
+        "vault",
+        "config",
+        "managed",
+        "runtime"
+      ],
+      "documentation": [
+        "./docs/config-vault.md"
+      ],
+      "pluginPath": "src/plugins/config-vault/",
+      "image": "../../../docs/public/assets/images/bsb-logo.png"
+    },
+    {
+      "id": "service-config-vault",
+      "name": "Vault",
+      "basePath": "./",
+      "description": "Secure BSB managed configuration service with Postgres, admin UI, plugin catalog, and runtime API keys",
+      "tags": [
+        "vault",
+        "config",
+        "security",
+        "postgres",
+        "h3",
+        "admin-ui"
+      ],
+      "documentation": [
+        "./docs/service-config-vault.md"
+      ],
+      "pluginPath": "src/plugins/service-config-vault/",
+      "image": "../../../docs/public/assets/images/bsb-logo.png"
+    }
+  ]
+}

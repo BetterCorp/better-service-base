@@ -1,0 +1,15 @@
+# BSB Vault
+
+- Package: `@bsb/config-vault`.
+- UI/display name: `Vault`.
+- Plugins:
+  - `service-config-vault`: h3 + Postgres admin UI/API.
+  - `config-vault`: BSB config plugin that loads runtime config from Vault.
+- BSB can have multiple config plugins installed, but exactly one is active at runtime through `BSB_CONFIG_PLUGIN`.
+- `config-vault` is not a fallback. If it cannot load valid config, startup must fail.
+- Runtime containers do not request app/group/profile/version. The Vault API key is bound server-side to application, service group, deployment profile, optional container identity, and config plugin id.
+- Containers restart to pull the latest active published config for their API key's deployment profile.
+- Vault has a plugin catalog. Catalog records can come from registry import, manual/private creation, or uploaded generated schema metadata.
+- Published config versions are immutable. Deployment profile active version is moved when config is published/rolled.
+- Use HTTPS for runtime fetches. `allowInsecureHttp` is local-dev only.
+- Config payloads are encrypted before Postgres storage. Passwords and API secrets are hashed.

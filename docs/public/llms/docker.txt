@@ -9,6 +9,11 @@ Image tags:
 - Do NOT use tags like `9-node`; BSB tags are runtime-first, not version-first.
 - Other runtime tags follow the same pattern: `go`, `go-latest`, `go-<version>`, `python`, `python-latest`, `dotnet`, etc.
 
+Bundled Node.js plugins:
+- The Node.js runtime image includes `@bsb/config-vault` in `/home/bsb/node_modules` when built by the official release workflow.
+- Reference bundled Vault plugins by package name in config: `package: "@bsb/config-vault"`.
+- Other plugins should still be mounted with `BSB_PLUGIN_DIRS` or installed at startup with `BSB_PLUGINS`.
+
 Mounted plugin deployment:
 ```bash
 docker run --rm \
@@ -57,6 +62,7 @@ Environment:
 - `BSB_DEBUG=true`: enable production debug logging.
 
 Rules:
+- Do not add `@bsb/config-vault` to `BSB_PLUGINS` when using an official Node image that already bundles it.
 - Build plugin packages before deployment with `bsb-plugin-cli build`.
 - Do not compile plugin source in the production container.
 - Do not invent Docker tags; use the runtime-prefixed tags above.

@@ -3,7 +3,8 @@ Config Plugin Guidance (Node.js)
 Goal:
 - Create a config-* plugin that loads configuration (file/env/remote).
 - Node.js plugins are ESM-only. Use `"type": "module"`, `NodeNext`, and `.js` specifiers for relative imports.
-- BSB includes `config-default` for YAML files and `config-env` for a full JSON config in `BSB_CONFIG_JSON`.
+- BSB includes `config-default` for YAML files, `config-env` for a full JSON config in `BSB_CONFIG_JSON`, and can use external config plugins such as `config-vault`.
+- Multiple config plugins can be installed, but exactly one is active at runtime through `BSB_CONFIG_PLUGIN`. There is no runtime fallback chain between config plugins.
 
 Steps:
 1. Create plugin folder: src/plugins/config-<name>.
@@ -64,6 +65,11 @@ Built-in env config:
 - Use `BSB_CONFIG_PLUGIN=config-env` plus `BSB_CONFIG_JSON='{"default":{"observable":{},"events":{},"services":{...}}}'`.
 - `BSB_CONFIG_JSON` is the full config object, not flat env path parsing.
 - Do not add ad-hoc `process.env.X` reads inside service plugins for normal plugin config; let BSB pass config through the schema parser.
+
+Vault config:
+- Use `config-vault` when runtime config should come from Vault.
+- The container should only receive Vault URL plus runtime API key id/secret; app/group/profile are bound to the key in Vault.
+- If Vault cannot return valid config, startup fails. Do not silently fall back to file/env config.
 
 Testing:
 - Config plugins are validated via @bsb/tests (config-default suite) and custom tests.

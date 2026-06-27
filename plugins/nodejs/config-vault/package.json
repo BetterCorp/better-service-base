@@ -1,0 +1,52 @@
+{
+  "name": "@bsb/config-vault",
+  "version": "0.0.1",
+  "description": "BSB Vault - secure managed configuration service and config loader",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*",
+    "README.md",
+    "bsb-plugin.json"
+  ],
+  "scripts": {
+    "build": "bsb-plugin-cli build",
+    "clean": "bsb-plugin-cli clean",
+    "start": "bsb-plugin-cli start",
+    "dev": "bsb-plugin-cli dev",
+    "test": "bsb-plugin-cli test",
+    "publish:client": "bsb client publish"
+  },
+  "keywords": [
+    "bsb",
+    "vault",
+    "config",
+    "postgres",
+    "h3",
+    "secrets"
+  ],
+  "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "ninja@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
+  "dependencies": {
+    "anyvali": "^1.0.6",
+    "h3": "^1.15.4",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.6.0",
+    "@types/pg": "^8.15.6",
+    "rimraf": "^6.0.1",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "@bsb/base": "^9.1.11"
+  },
+  "bsb": {},
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/config-vault"
+}
