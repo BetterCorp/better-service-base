@@ -152,7 +152,7 @@ jobs:
 
   registry-plugins:
     name: Publish BSB Registry Plugins
-    needs: [nodejs, prepare]
+    needs: [nodejs, nodejs-vault-plugin, prepare]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

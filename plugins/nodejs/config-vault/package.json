@@ -26,6 +26,11 @@
     "h3",
     "secrets"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BetterCorp/better-service-base.git",
+    "directory": "plugins/nodejs/config-vault"
+  },
   "license": "(AGPL-3.0-only OR Commercial)",
   "author": {
     "name": "BetterCorp (PTY) Ltd",
