@@ -20,6 +20,7 @@ import type {
   ResolvedRuntimeConfig,
   RuntimeKeyRecord,
   RuntimeConfigDefinition,
+  RuntimePluginDefinition,
   VaultRuntimeConfig,
 } from './types.js';
 
@@ -334,6 +335,51 @@ export class VaultService {
     await this.saveDraft(userId, profileId, { [binding.profile.name]: config });
   }
 
+  async upsertProfilePlugin(
+    userId: string,
+    input: {
+      profileId: string;
+      section: 'services' | 'events' | 'observable';
+      name: string;
+      plugin: string;
+      packageName?: string | null;
+      version?: string | null;
+      enabled: boolean;
+      config?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    const draft = await this.getProfileDraft(input.profileId) ?? { observable: {}, events: {}, services: {} };
+    const section = draft[input.section] ?? {};
+    const config = await this.validatePluginConfig(input);
+    section[input.name] = {
+      plugin: input.plugin,
+      package: input.packageName ?? undefined,
+      version: input.version ?? undefined,
+      enabled: input.enabled,
+      config,
+    };
+    draft[input.section] = section;
+    await this.saveProfileDraft(userId, input.profileId, draft);
+    await this.audit(userId, 'config.plugin.upsert', input.profileId, {
+      section: input.section,
+      name: input.name,
+      plugin: input.plugin,
+    });
+  }
+
+  async removeProfilePlugin(
+    userId: string,
+    input: { profileId: string; section: 'services' | 'events' | 'observable'; name: string },
+  ): Promise<void> {
+    const draft = await this.getProfileDraft(input.profileId) ?? { observable: {}, events: {}, services: {} };
+    delete draft[input.section]?.[input.name];
+    await this.saveProfileDraft(userId, input.profileId, draft);
+    await this.audit(userId, 'config.plugin.remove', input.profileId, {
+      section: input.section,
+      name: input.name,
+    });
+  }
+
   async getProfileDraft(profileId: string): Promise<RuntimeConfigDefinition | null> {
     const binding = await this.store.resolveProfileBinding(profileId);
     if (!binding) throw new Error('Deployment profile not found');
@@ -480,6 +526,7 @@ export class VaultService {
     group: GroupRecord;
     profile: ProfileRecord;
     profiles: ProfileRecord[];
+    plugins: PluginCatalogRecord[];
     draft: RuntimeConfigDefinition | null;
     runtimeKeys: RuntimeKeyRecord[];
   }> {
@@ -490,6 +537,7 @@ export class VaultService {
       group: binding.group,
       profile: binding.profile,
       profiles: await this.store.listProfiles(binding.group.id),
+      plugins: await this.store.listPlugins(),
       draft: await this.getProfileDraft(profileId),
       runtimeKeys: await this.store.listRuntimeKeys(profileId),
     };
@@ -526,6 +574,30 @@ export class VaultService {
       createdAt: new Date().toISOString(),
     });
   }
+
+  private async validatePluginConfig(input: {
+    section: 'services' | 'events' | 'observable';
+    plugin: string;
+    packageName?: string | null;
+    version?: string | null;
+    config?: Record<string, unknown>;
+  }): Promise<RuntimePluginDefinition['config']> {
+    const plugins = await this.store.listPlugins();
+    const catalog = plugins.find((plugin) =>
+      plugin.pluginId === input.plugin &&
+      plugin.kind === (input.section === 'services' ? 'service' : input.section) &&
+      (input.version ? plugin.version === input.version : true) &&
+      (input.packageName ? plugin.packageName === input.packageName : true)
+    ) ?? plugins.find((plugin) => plugin.pluginId === input.plugin);
+    if (!catalog?.configSchema) return input.config ?? {};
+    const root = objectField(objectField(catalog.configSchema.root) ?? catalog.configSchema);
+    if (!root) return input.config ?? {};
+    const value = validateSchemaNode(root, input.config ?? {}, 'config', true);
+    if (!isPlainObject(value)) {
+      throw new Error(`Invalid config for ${input.plugin}: config must be an object`);
+    }
+    return value;
+  }
 }
 
 function toWebAuthnCredential(passkey: PasskeyRecord) {
@@ -537,4 +609,177 @@ function toWebAuthnCredential(passkey: PasskeyRecord) {
     counter: passkey.signCount,
     transports: stored.transports as never,
   };
+}
+
+const omitted = Symbol('omitted');
+
+type ValidationValue = unknown | typeof omitted;
+
+function validateSchemaNode(node: Record<string, unknown>, value: unknown, path: string, required: boolean): ValidationValue {
+  if (value === undefined || value === '') {
+    if ('default' in node) return cloneDefault(node.default);
+    if (!required || node.kind === 'optional') return omitted;
+  }
+
+  if (node.kind === 'optional') {
+    if (value === undefined || value === '') return omitted;
+    return validateSchemaNode(requireObject(node.inner, path), value, path, false);
+  }
+  if (node.kind === 'nullable') {
+    if (value === null || value === '') return null;
+    return validateSchemaNode(requireObject(node.inner, path), value, path, required);
+  }
+
+  switch (String(node.kind)) {
+    case 'object':
+      return validateObjectNode(node, value, path);
+    case 'string':
+      return validateStringNode(node, value, path);
+    case 'int':
+    case 'int32':
+    case 'int64':
+      return validateNumberNode(node, value, path, true);
+    case 'number':
+    case 'float':
+    case 'float32':
+    case 'float64':
+      return validateNumberNode(node, value, path, false);
+    case 'bool':
+    case 'boolean':
+      return validateBoolNode(value, path);
+    case 'enum':
+      return validateEnumNode(node, value, path);
+    case 'array':
+      return validateArrayNode(node, value, path);
+    case 'record':
+      return validateRecordNode(node, value, path);
+    case 'tuple':
+      return validateTupleNode(node, value, path);
+    case 'union':
+      return validateUnionNode(node, value, path);
+    case 'unknown':
+    case 'any':
+      return value;
+    default:
+      return value;
+  }
+}
+
+function validateObjectNode(node: Record<string, unknown>, value: unknown, path: string): Record<string, unknown> {
+  if (!isPlainObject(value)) throw new Error(`${path} must be an object`);
+  const properties = objectField(node.properties) ?? {};
+  const required = new Set(Array.isArray(node.required) ? node.required.map(String) : Object.keys(properties).filter((key) => !isOptional(properties[key])));
+  const output: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(properties)) {
+    const childNode = requireObject(child, `${path}.${key}`);
+    const childValue = validateSchemaNode(childNode, value[key], `${path}.${key}`, required.has(key));
+    if (childValue !== omitted) output[key] = childValue;
+  }
+  return output;
+}
+
+function validateStringNode(node: Record<string, unknown>, value: unknown, path: string): string {
+  if (typeof value !== 'string') throw new Error(`${path} must be a string`);
+  if (typeof node.minLength === 'number' && value.length < node.minLength) throw new Error(`${path} is too short`);
+  if (typeof node.maxLength === 'number' && value.length > node.maxLength) throw new Error(`${path} is too long`);
+  if (typeof node.pattern === 'string' && !(new RegExp(node.pattern).test(value))) throw new Error(`${path} is invalid`);
+  return value;
+}
+
+function validateNumberNode(node: Record<string, unknown>, value: unknown, path: string, integer: boolean): number {
+  const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(number)) throw new Error(`${path} must be a number`);
+  if (integer && !Number.isInteger(number)) throw new Error(`${path} must be an integer`);
+  if (typeof node.min === 'number' && number < node.min) throw new Error(`${path} must be at least ${node.min}`);
+  if (typeof node.max === 'number' && number > node.max) throw new Error(`${path} must be at most ${node.max}`);
+  return number;
+}
+
+function validateBoolNode(value: unknown, path: string): boolean {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`${path} must be true or false`);
+}
+
+function validateEnumNode(node: Record<string, unknown>, value: unknown, path: string): unknown {
+  const values = Array.isArray(node.values) ? node.values : [];
+  if (!values.some((item) => item === value || String(item) === String(value))) {
+    throw new Error(`${path} must be one of ${values.map(String).join(', ')}`);
+  }
+  return values.find((item) => item === value || String(item) === String(value)) ?? value;
+}
+
+function validateArrayNode(node: Record<string, unknown>, value: unknown, path: string): unknown[] {
+  const array = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',').map((item) => item.trim()).filter(Boolean) : null;
+  if (!array) throw new Error(`${path} must be an array`);
+  if (typeof node.minItems === 'number' && array.length < node.minItems) throw new Error(`${path} has too few items`);
+  if (typeof node.maxItems === 'number' && array.length > node.maxItems) throw new Error(`${path} has too many items`);
+  const itemNode = objectField(node.items) ?? objectField(node.item);
+  if (!itemNode) return array;
+  return array.map((item, index) => {
+    const validated = validateSchemaNode(itemNode, item, `${path}[${index}]`, true);
+    if (validated === omitted) throw new Error(`${path}[${index}] is required`);
+    return validated;
+  });
+}
+
+function validateRecordNode(node: Record<string, unknown>, value: unknown, path: string): Record<string, unknown> {
+  if (!isPlainObject(value)) throw new Error(`${path} must be an object`);
+  const valueNode = objectField(node.valueSchema) ?? objectField(node.values) ?? objectField(node.value);
+  if (!valueNode) return value;
+  const output: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    const validated = validateSchemaNode(valueNode, item, `${path}.${key}`, true);
+    if (validated !== omitted) output[key] = validated;
+  }
+  return output;
+}
+
+function validateTupleNode(node: Record<string, unknown>, value: unknown, path: string): unknown[] {
+  if (!Array.isArray(value)) throw new Error(`${path} must be an array`);
+  const items = (Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : []).map((item, index) => requireObject(item, `${path}[${index}]`));
+  if (items.length > 0 && value.length !== items.length) throw new Error(`${path} must have ${items.length} items`);
+  return items.length === 0 ? value : items.map((item, index) => {
+    const validated = validateSchemaNode(item, value[index], `${path}[${index}]`, true);
+    if (validated === omitted) throw new Error(`${path}[${index}] is required`);
+    return validated;
+  });
+}
+
+function validateUnionNode(node: Record<string, unknown>, value: unknown, path: string): unknown {
+  const variants = (Array.isArray(node.variants) ? node.variants : Array.isArray(node.anyOf) ? node.anyOf : Array.isArray(node.oneOf) ? node.oneOf : [])
+    .map((item, index) => requireObject(item, `${path}<${index}>`));
+  const errors: string[] = [];
+  for (const variant of variants) {
+    try {
+      const validated = validateSchemaNode(variant, value, path, true);
+      if (validated !== omitted) return validated;
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  throw new Error(errors[0] ?? `${path} does not match any allowed shape`);
+}
+
+function isOptional(value: unknown): boolean {
+  return isPlainObject(value) && (value.kind === 'optional' || ('default' in value));
+}
+
+function requireObject(value: unknown, path: string): Record<string, unknown> {
+  const object = objectField(value);
+  if (!object) throw new Error(`${path} schema is invalid`);
+  return object;
+}
+
+function objectField(value: unknown): Record<string, unknown> | null {
+  return isPlainObject(value) ? value : null;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function cloneDefault(value: unknown): unknown {
+  return isPlainObject(value) || Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : value;
 }

@@ -48,6 +48,13 @@ module.exports = async ({ pluginRoot }) => {
   assert.match(result.totpUri, /^otpauth:\/\/totp\//);
   assert.equal(crypto.verifyTotp(result.totpSecret, crypto.generateTotp(result.totpSecret)), true);
 
+  await assert.rejects(() => vault.createFirstAdmin({
+    setupCode: 'setup-code',
+    email: 'second@example.com',
+    password: 'correct horse battery staple',
+    passwordConfirm: 'correct horse battery staple',
+  }), /admin already exists/i);
+
   const login = await vault.login('admin@example.com', 'correct horse battery staple', crypto.generateTotp(result.totpSecret));
   assert.equal(login.status, 'passkey_setup_required');
   assert.equal(typeof login.setupToken, 'string');

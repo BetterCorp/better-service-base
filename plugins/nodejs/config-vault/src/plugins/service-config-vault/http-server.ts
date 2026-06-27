@@ -241,6 +241,33 @@ export class VaultHttpServer {
       return this.options.vault.publishDraft(user.userId, String(body.profileId ?? ''));
     }));
 
+    app.use('/api/profile-plugins/delete', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.removeProfilePlugin(user.userId, {
+        profileId: String(body.profileId ?? ''),
+        section: parseConfigSection(body.section),
+        name: String(body.name ?? ''),
+      });
+      return { success: true };
+    }));
+
+    app.use('/api/profile-plugins', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.upsertProfilePlugin(user.userId, {
+        profileId: String(body.profileId ?? ''),
+        section: parseConfigSection(body.section),
+        name: String(body.name ?? ''),
+        plugin: String(body.plugin ?? ''),
+        packageName: stringOrUndefined(body.packageName) ?? null,
+        version: stringOrUndefined(body.version) ?? null,
+        enabled: body.enabled === true || body.enabled === 'true' || body.enabled === 'on',
+        config: parseJsonObject(body.config) ?? {},
+      });
+      return { success: true };
+    }));
+
     app.use('/api/runtime-keys/rotate', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -435,6 +462,8 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .muted{color:var(--muted)}.danger{color:var(--danger)}.ok{color:var(--ok)}
     .auth{max-width:480px;margin:32px auto}.stack{display:flex;flex-direction:column;gap:12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .status{margin-top:12px;color:var(--muted);font-size:14px}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
+    .schema-box{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px}.schema-box legend{font-weight:750;color:#344054}
+    .schema-repeat{border:1px solid #edf0f5;border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.repeat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:start}.schema-repeat[data-array-path] .repeat-row{grid-template-columns:minmax(0,1fr) auto}
     @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
 </head>
@@ -653,17 +682,14 @@ function deploymentDetailPage(
     </section>
   </div>
   <section><h2>Profile Config</h2>
-    <form data-api="/api/drafts" data-redirect="${escapeHtml(redirect)}">
-      <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
-      <label>Config JSON</label><textarea name="config" required>${escapeHtml(JSON.stringify(draft, null, 2))}</textarea>
-      <button>Save Draft</button><p class="status"></p>
-    </form>
+    ${profileConfigEditor(data, draft, redirect)}
     <form data-api="/api/publish" data-redirect="${escapeHtml(redirect)}">
       <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
       <button class="secondary">Publish Draft</button><p class="status"></p>
     </form>
   </section>
   <section><h2>Container Keys</h2>${profileRuntimeKeyTable(data.runtimeKeys, data)}</section>
+  ${pluginEditorScript(data.plugins)}
   ${formScript()}`;
 }
 
@@ -823,6 +849,180 @@ function runtimeKeyTable(keys: DashboardData['runtimeKeys'], data: DashboardData
   ]));
 }
 
+function profileConfigEditor(data: DeploymentProfileData, draft: RuntimeConfigDefinition, redirect: string): string {
+  return `
+    ${addPluginForm(data, redirect)}
+    ${configSectionEditor(data, draft, 'services', 'Services', redirect)}
+    ${configSectionEditor(data, draft, 'events', 'Events', redirect)}
+    ${configSectionEditor(data, draft, 'observable', 'Observable', redirect)}
+  `;
+}
+
+function addPluginForm(data: DeploymentProfileData, redirect: string): string {
+  const configurablePlugins = data.plugins.filter((plugin) => plugin.kind !== 'config');
+  if (configurablePlugins.length === 0) {
+    return '<p class="muted">Import or create plugins in the Plugin Catalog before adding profile config.</p>';
+  }
+  return `<section><h3>Add Plugin</h3>
+    <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
+      <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+      <input type="hidden" name="plugin">
+      <input type="hidden" name="packageName">
+      <input type="hidden" name="version">
+      <input type="hidden" name="config">
+      <div class="form-grid">
+        ${select('section', 'Type', [['services', 'Service'], ['events', 'Events'], ['observable', 'Observable']])}
+        <label>Plugin<select name="catalogId" data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(plugin.pluginId)} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        ${input('name', 'Config Name', true)}
+        <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
+      </div>
+      <div data-config-fields></div>
+      <button>Add Plugin</button><p class="status"></p>
+    </form>
+  </section>`;
+}
+
+function configSectionEditor(
+  data: DeploymentProfileData,
+  draft: RuntimeConfigDefinition,
+  section: 'services' | 'events' | 'observable',
+  title: string,
+  redirect: string,
+): string {
+  const entries = Object.entries(draft[section] ?? {});
+  return `<section><h3>${escapeHtml(title)}</h3>
+    ${entries.length === 0 ? '<p class="muted">No plugins configured.</p>' : entries.map(([name, entry]) => {
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+      return `<div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
+          <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+          <input type="hidden" name="section" value="${escapeHtml(section)}">
+          <input type="hidden" name="name" value="${escapeHtml(name)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
+          <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
+          <input type="hidden" name="config">
+          <div class="form-grid">
+            ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
+            ${input('pluginDisplay', 'Plugin', false, entry.plugin).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
+            <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
+          </div>
+          <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
+          <button>Save</button><p class="status"></p>
+        </form>
+        <form data-api="/api/profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove this plugin from the profile?">
+          <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+          <input type="hidden" name="section" value="${escapeHtml(section)}">
+          <input type="hidden" name="name" value="${escapeHtml(name)}">
+          <button class="secondary">Remove</button><p class="status"></p>
+        </form>
+      </div>`;
+    }).join('')}
+  </section>`;
+}
+
+function findCatalogPlugin(
+  data: DeploymentProfileData,
+  pluginId: string,
+  version?: string,
+  packageName?: string,
+): DeploymentProfileData['plugins'][number] | undefined {
+  return data.plugins.find((plugin) =>
+    plugin.pluginId === pluginId &&
+    (version ? plugin.version === version : true) &&
+    (packageName ? plugin.packageName === packageName : true)
+  ) ?? data.plugins.find((plugin) => plugin.pluginId === pluginId);
+}
+
+function renderSchemaFields(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>): string {
+  const root = objectField(objectField(schema)?.root);
+  if (!root || root.kind !== 'object' || !objectField(root.properties)) {
+    return '<p class="muted">No config schema available for this plugin.</p>';
+  }
+  return renderProperties(root.properties as Record<string, unknown>, config, '');
+}
+
+function renderProperties(properties: Record<string, unknown>, config: Record<string, unknown>, prefix: string): string {
+  return Object.entries(properties).map(([key, schema]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const value = prefix ? objectField(config)?.[key] : valueAtPath(config, path);
+    return renderSchemaControl(key, objectField(schema), path, value);
+  }).join('');
+}
+
+function renderSchemaControl(key: string, rawNode: Record<string, unknown> | null, path: string, rawValue: unknown): string {
+  const node = unwrapSchema(rawNode);
+  if (!node) return '';
+  const value = rawValue ?? node.default ?? '';
+  const label = schemaLabel(key, node);
+  if (node.kind === 'object' && objectField(node.properties)) {
+    return `<fieldset class="schema-box"><legend>${escapeHtml(key)}</legend>${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path)}</fieldset>`;
+  }
+  if (node.kind === 'bool' || node.kind === 'boolean') {
+    return `<label>${escapeHtml(label)}<select data-config-path="${escapeHtml(path)}" data-kind="bool"><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select></label>`;
+  }
+  if (node.kind === 'enum' && Array.isArray(node.values)) {
+    return `<label>${escapeHtml(label)}<select data-config-path="${escapeHtml(path)}" data-kind="string">${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select></label>`;
+  }
+  if (node.kind === 'array') {
+    const itemNode = unwrapSchema(objectField(node.items) ?? objectField(node.item));
+    const kind = inputKind(itemNode);
+    const values = Array.isArray(value) ? value : [];
+    const rows = (values.length ? values : ['']).map((item) => `<div class="repeat-row"><input data-array-item data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(item ?? ''))}"><button type="button" class="secondary" data-remove-row>Remove</button></div>`).join('');
+    return `<div class="schema-repeat" data-array-path="${escapeHtml(path)}" data-item-kind="${escapeHtml(kind)}"><label>${escapeHtml(label)}</label><div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>`;
+  }
+  if (node.kind === 'record') {
+    const valueNode = unwrapSchema(objectField(node.valueSchema) ?? objectField(node.values) ?? objectField(node.value));
+    const kind = inputKind(valueNode);
+    const entries = isRecord(value) ? Object.entries(value) : [];
+    const rows = (entries.length ? entries : [['', '']]).map(([recordKey, recordValue]) => `<div class="repeat-row"><input data-record-key placeholder="Key" value="${escapeHtml(String(recordKey))}"><input data-record-value data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} placeholder="Value" value="${escapeHtml(String(recordValue ?? ''))}"><button type="button" class="secondary" data-remove-row>Remove</button></div>`).join('');
+    return `<div class="schema-repeat" data-record-path="${escapeHtml(path)}" data-value-kind="${escapeHtml(kind)}"><label>${escapeHtml(label)}</label><div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>`;
+  }
+  if (node.kind === 'tuple') {
+    const items = (Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : []).map((item) => objectField(item));
+    const values = Array.isArray(value) ? value : [];
+    return `<fieldset class="schema-box" data-tuple-path="${escapeHtml(path)}"><legend>${escapeHtml(label)}</legend>${items.map((item, index) => {
+      const child = unwrapSchema(item);
+      const kind = inputKind(child);
+      return `<label>Item ${index + 1}<input data-tuple-index="${index}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(values[index] ?? child?.default ?? ''))}"></label>`;
+    }).join('')}</fieldset>`;
+  }
+  if (node.kind === 'union' && Array.isArray(node.variants)) {
+    const variant = unwrapSchema(objectField(node.variants[0]));
+    return renderSchemaControl(label, variant, path, value);
+  }
+  const kind = inputKind(node);
+  return `<label>${escapeHtml(label)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(value ?? ''))}"></label>`;
+}
+
+function schemaLabel(key: string, node: Record<string, unknown>): string {
+  return node.metadata && typeof node.metadata === 'object' && 'description' in node.metadata
+    ? String((node.metadata as Record<string, unknown>).description)
+    : key;
+}
+
+function inputKind(node: Record<string, unknown> | null): 'number' | 'bool' | 'string' {
+  if (!node) return 'string';
+  if (node.kind === 'bool' || node.kind === 'boolean') return 'bool';
+  return ['int', 'int32', 'int64', 'number', 'float', 'float32', 'float64'].includes(String(node.kind)) ? 'number' : 'string';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function unwrapSchema(node: Record<string, unknown> | null): Record<string, unknown> | null {
+  let current = node;
+  while (current && (current.kind === 'optional' || current.kind === 'nullable')) {
+    current = objectField(current.inner);
+  }
+  return current;
+}
+
+function valueAtPath(source: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((acc, part) => objectField(acc)?.[part], source);
+}
+
 function profileRuntimeKeyTable(keys: DeploymentProfileData['runtimeKeys'], data: DeploymentProfileData): string {
   if (keys.length === 0) return '<p class="muted">No container keys created for this profile.</p>';
   return `<table>${keys.map((key) => `<tr>
@@ -890,6 +1090,165 @@ function formScript(): string {
         }
       }
     });
+  });
+  </script>`;
+}
+
+function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
+  const catalog = plugins.reduce((acc, plugin) => {
+    acc[plugin.id] = {
+      plugin: plugin.pluginId,
+      packageName: plugin.packageName ?? '',
+      version: plugin.version,
+      kind: plugin.kind,
+      schema: plugin.configSchema ?? null,
+    };
+    return acc;
+  }, {} as Record<string, unknown>);
+  return `<script>
+  const vaultPluginCatalog = ${jsonForScript(catalog)};
+  function setPath(target, path, value) {
+    const parts = path.split('.');
+    let current = target;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      current[parts[i]] = current[parts[i]] || {};
+      current = current[parts[i]];
+    }
+    current[parts[parts.length - 1]] = value;
+  }
+  function readConfigForm(form) {
+    const config = {};
+    form.querySelectorAll('[data-array-path]').forEach((group) => {
+      const values = Array.from(group.querySelectorAll('[data-array-item]'))
+        .map((field) => parseFieldValue(field))
+        .filter((value) => value !== undefined);
+      if (values.length > 0) setPath(config, group.dataset.arrayPath, values);
+    });
+    form.querySelectorAll('[data-record-path]').forEach((group) => {
+      const record = {};
+      group.querySelectorAll('.repeat-row').forEach((row) => {
+        const key = row.querySelector('[data-record-key]')?.value?.trim();
+        const valueField = row.querySelector('[data-record-value]');
+        const value = valueField ? parseFieldValue(valueField) : undefined;
+        if (key && value !== undefined) record[key] = value;
+      });
+      if (Object.keys(record).length > 0) setPath(config, group.dataset.recordPath, record);
+    });
+    form.querySelectorAll('[data-tuple-path]').forEach((group) => {
+      const values = [];
+      group.querySelectorAll('[data-tuple-index]').forEach((field) => {
+        const value = parseFieldValue(field);
+        if (value !== undefined) values[Number(field.dataset.tupleIndex)] = value;
+      });
+      if (values.length > 0) setPath(config, group.dataset.tuplePath, values);
+    });
+    form.querySelectorAll('[data-config-path]').forEach((field) => {
+      if (field.closest('[data-array-path],[data-record-path],[data-tuple-path]')) return;
+      const value = parseFieldValue(field);
+      if (value !== undefined) setPath(config, field.dataset.configPath, value);
+    });
+    return config;
+  }
+  function parseFieldValue(field) {
+    const raw = field.value;
+    if (raw === '') return undefined;
+    if (field.dataset.kind === 'number') return Number(raw);
+    if (field.dataset.kind === 'bool') return raw === 'true';
+    return raw;
+  }
+  function schemaRoot(schema) {
+    return schema && schema.root && schema.root.kind === 'object' ? schema.root : null;
+  }
+  function escapeClient(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  }
+  function unwrapNode(node) {
+    while (node && (node.kind === 'optional' || node.kind === 'nullable')) node = node.inner;
+    return node;
+  }
+  function inputKind(node) {
+    node = unwrapNode(node);
+    if (!node) return 'string';
+    if (node.kind === 'bool' || node.kind === 'boolean') return 'bool';
+    return ['int','int32','int64','number','float','float32','float64'].includes(String(node.kind)) ? 'number' : 'string';
+  }
+  function primitiveInput(attrs, kind, value) {
+    return '<input ' + attrs + ' data-kind="' + kind + '"' + (kind === 'number' ? ' type="number"' : '') + ' value="' + escapeClient(value || '') + '">';
+  }
+  function repeatRow(kind, key, value) {
+    return '<div class="repeat-row">'
+      + (key === null ? '' : '<input data-record-key placeholder="Key" value="' + escapeClient(key || '') + '">')
+      + primitiveInput(key === null ? 'data-array-item' : 'data-record-value', kind, value)
+      + '<button type="button" class="secondary" data-remove-row>Remove</button></div>';
+  }
+  function renderFields(properties, prefix) {
+    return Object.entries(properties || {}).map(([key, rawNode]) => {
+      let node = unwrapNode(rawNode);
+      if (!node) return '';
+      const path = prefix ? prefix + '.' + key : key;
+      const label = (node.metadata && node.metadata.description) || key;
+      if (node.kind === 'object' && node.properties) {
+        return '<fieldset class="schema-box"><legend>' + escapeClient(key) + '</legend>' + renderFields(node.properties, path) + '</fieldset>';
+      }
+      if (node.kind === 'bool' || node.kind === 'boolean') {
+        return '<label>' + escapeClient(label) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"><option value="true">true</option><option value="false">false</option></select></label>';
+      }
+      if (node.kind === 'enum' && Array.isArray(node.values)) {
+        return '<label>' + escapeClient(label) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string">' + node.values.map((item) => '<option value="' + escapeClient(item) + '">' + escapeClient(item) + '</option>').join('') + '</select></label>';
+      }
+      if (node.kind === 'array') {
+        const kind = inputKind(node.items || node.item);
+        return '<div class="schema-repeat" data-array-path="' + escapeClient(path) + '" data-item-kind="' + kind + '"><label>' + escapeClient(label) + '</label><div data-repeat-rows>' + repeatRow(kind, null, '') + '</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>';
+      }
+      if (node.kind === 'record') {
+        const kind = inputKind(node.valueSchema || node.values || node.value);
+        return '<div class="schema-repeat" data-record-path="' + escapeClient(path) + '" data-value-kind="' + kind + '"><label>' + escapeClient(label) + '</label><div data-repeat-rows>' + repeatRow(kind, '', '') + '</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>';
+      }
+      if (node.kind === 'tuple') {
+        const items = Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : [];
+        return '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + escapeClient(label) + '</legend>' + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
+      }
+      if (node.kind === 'union' && Array.isArray(node.variants) && node.variants[0]) {
+        return renderFields({ [key]: node.variants[0] }, prefix);
+      }
+      const kind = inputKind(node);
+      return '<label>' + escapeClient(label) + primitiveInput('data-config-path="' + escapeClient(path) + '"', kind, '') + '</label>';
+    }).join('');
+  }
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-add-array-item],[data-add-record-row],[data-remove-row]');
+    if (!button) return;
+    if (button.matches('[data-remove-row]')) {
+      button.closest('.repeat-row')?.remove();
+      return;
+    }
+    const group = button.closest('.schema-repeat');
+    const rows = group?.querySelector('[data-repeat-rows]');
+    if (!group || !rows) return;
+    if (button.matches('[data-add-array-item]')) rows.insertAdjacentHTML('beforeend', repeatRow(group.dataset.itemKind || 'string', null, ''));
+    if (button.matches('[data-add-record-row]')) rows.insertAdjacentHTML('beforeend', repeatRow(group.dataset.valueKind || 'string', '', ''));
+  });
+  document.querySelectorAll('[data-plugin-picker]').forEach((select) => {
+    const form = select.closest('form');
+    const sync = () => {
+      const item = vaultPluginCatalog[select.value];
+      if (!item || !form) return;
+      form.elements.plugin.value = item.plugin || '';
+      form.elements.packageName.value = item.packageName || '';
+      form.elements.version.value = item.version || '';
+      if (form.elements.section && item.kind) form.elements.section.value = item.kind === 'service' ? 'services' : item.kind;
+      if (form.elements.name && !form.elements.name.value) form.elements.name.value = item.plugin || '';
+      const root = schemaRoot(item.schema);
+      const fields = form.querySelector('[data-config-fields]');
+      if (fields) fields.innerHTML = root ? renderFields(root.properties, '') : '<p class="muted">No config schema available for this plugin.</p>';
+    };
+    select.addEventListener('change', sync);
+    sync();
+  });
+  document.querySelectorAll('form[data-config-form]').forEach((form) => {
+    form.addEventListener('submit', () => {
+      if (form.elements.config) form.elements.config.value = JSON.stringify(readConfigForm(form));
+    }, { capture: true });
   });
   </script>`;
 }
@@ -1016,6 +1375,10 @@ function parseKind(value: unknown): 'service' | 'events' | 'observable' | 'confi
   return value === 'events' || value === 'observable' || value === 'config' ? value : 'service';
 }
 
+function parseConfigSection(value: unknown): 'services' | 'events' | 'observable' {
+  return value === 'events' || value === 'observable' ? value : 'services';
+}
+
 function parseSource(value: unknown): 'registry' | 'manual' | 'upload' {
   return value === 'registry' || value === 'upload' ? value : 'manual';
 }
@@ -1032,4 +1395,8 @@ function escapeHtml(value: string): string {
     '"': '&quot;',
     "'": '&#39;',
   }[char] ?? char));
+}
+
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/<\//g, '<\\/');
 }

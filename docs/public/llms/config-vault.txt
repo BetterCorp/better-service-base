@@ -12,7 +12,9 @@
 - Runtime containers do not request app/group/profile/version. The Vault API key is bound server-side to application, service group, deployment profile, optional container identity, and config plugin id.
 - In the UI, call service groups "deployments". Creating a deployment must also create a `default` deployment profile.
 - Deployment profiles own config editing, publish, and container key create/rotate flows. Do not make standalone Configs or Runtime Keys pages the primary workflow.
-- Profile config editors accept the profile body only: `{ "observable": {}, "events": {}, "services": {} }`. Vault wraps that internally under the profile name such as `{ "default": { ... } }`.
+- Profile config is stored as the profile body `{ "observable": {}, "events": {}, "services": {} }`, but the normal UI must not ask admins to hand-author it. Use plugin catalog entries and generated config schemas to add/remove plugins, toggle enabled, and edit schema-derived fields.
+- Profile config saves must be schema-validated on the server. Apply defaults, safely coerce primitive form values, strip unknown object keys, and reject invalid values before encrypting drafts.
+- Vault wraps the profile body internally under the profile name such as `{ "default": { ... } }`.
 - Container keys are generated from the selected deployment profile. The container must not select or send a deployment profile.
 - Containers restart to pull the latest active published config for their API key's deployment profile.
 - Vault has a plugin catalog. Catalog records can come from registry import, manual/private creation, or uploaded generated schema metadata.
@@ -20,7 +22,7 @@
 - Published config versions are immutable. Deployment profile active version is moved when config is published/rolled.
 - Use HTTPS for runtime fetches. `allowInsecureHttp` is local-dev only.
 - Config payloads are encrypted before Postgres storage. Passwords and API secrets are hashed.
-- First setup creates the admin with setup code + password confirmation, then generates TOTP enrollment details. Do not ask for a TOTP code or pasted passkey JSON during initial setup.
+- First setup creates the single Vault admin with setup code + password confirmation, then generates TOTP enrollment details. Do not add multi-user admin flows or ask for a TOTP code/pasted passkey JSON during initial setup.
 - On first login, Vault verifies password + TOTP, checks for passkeys, and forces browser passkey enrollment if none exist.
 - After first passkey enrollment, Vault forces re-login. Normal login requires password + TOTP + passkey before a session is created.
 - Passkeys require normal browser WebAuthn flows. Do not invent JSON passkey setup forms. `publicUrl` must match the browser origin used to open Vault.

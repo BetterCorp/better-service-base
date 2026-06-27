@@ -52,6 +52,8 @@ Keep the value stable. If the key changes, Vault cannot decrypt configs already 
 
 On first startup, Vault logs a one-time setup code. Open `/setup`, enter the code, create the admin user, and confirm the password. Vault generates the TOTP enrollment secret and authenticator URI after the user is created.
 
+Vault has exactly one admin user. Treat that as part of the security model, not a missing team-management feature.
+
 On the first login, Vault verifies password and TOTP, then checks whether the admin has a registered passkey. If no passkey exists, Vault sends the admin through browser passkey enrollment and then forces a fresh login.
 
 After enrollment, every admin login requires password, TOTP, and a browser passkey assertion. Passkeys require HTTPS in browsers unless you are using localhost for local development, and `publicUrl` must match the external URL used to open Vault.
@@ -60,7 +62,7 @@ After enrollment, every admin login requires password, TOTP, and a browser passk
 
 Vault has pages for Overview, Applications, Deployments, Plugins, and Profile. Deployment profiles own config drafts, publishing, and container key create/rotate flows.
 
-When editing a profile config, enter only the profile body:
+Vault stores profile config internally as the profile body:
 
 ```json
 {
@@ -70,4 +72,4 @@ When editing a profile config, enter only the profile body:
 }
 ```
 
-Vault wraps that body under the profile name internally. Container keys are generated from the deployment profile page and the UI shows the BSB container env vars once on creation or rotation.
+The admin UI builds that body from plugin catalog entries and generated config schemas. Add a plugin, enable or disable it, then fill out the schema-derived fields instead of editing JSON. Vault validates those fields server-side, applies defaults, strips unknown keys, and rejects invalid values before encrypting drafts. Vault wraps the body under the profile name internally. Container keys are generated from the deployment profile page and the UI shows the BSB container env vars once on creation or rotation.

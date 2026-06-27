@@ -16,6 +16,8 @@ On first startup, if no admin exists, Vault logs a one-time setup code.
 
 Open `/setup`, enter the code, create the admin user, and confirm the password. Vault then generates the TOTP enrollment secret and authenticator URI for that user. Add it to an authenticator app before logging in.
 
+Vault is intentionally single-admin. Do not add multiple admin users without redesigning authorization, recovery, and audit ownership.
+
 Passkeys are not configured by pasting JSON into setup. On first login, Vault verifies password and TOTP, then forces browser passkey enrollment if no passkey exists. After enrollment succeeds, the temporary setup token is cleared and the admin must log in again.
 
 Normal admin login requires all three factors: password, TOTP, and passkey. Browser passkeys require HTTPS unless running on localhost. Set `publicUrl` to the same origin users open in the browser so WebAuthn origin and RP ID validation works.
@@ -26,7 +28,7 @@ Vault uses a structured admin UI:
 
 - **Overview**: inventory counts and recent runtime keys.
 - **Applications**: create, edit, delete, and list applications.
-- **Deployments**: create deployments, open profiles, edit profile config, publish drafts, and create or rotate container keys.
+- **Deployments**: create deployments, open profiles, add/remove configured plugins, edit schema-derived plugin settings, publish drafts, and create or rotate container keys.
 - **Plugins**: create private/manual plugin catalog entries and attach schemas.
 - **Profile**: account information and passkey accounts.
 
@@ -44,7 +46,7 @@ Vault uses this model:
 - **Active Version**: published version assigned to the profile.
 - **Container API Key**: key id + secret created from one deployment profile. The secret is shown only on creation or rotation.
 
-Profile config is edited as the body of that profile:
+Profile config is stored internally as the body of that profile:
 
 ```json
 {
@@ -54,7 +56,9 @@ Profile config is edited as the body of that profile:
 }
 ```
 
-Vault wraps it internally under the deployment profile name before publishing, for example `{ "default": { ... } }`. Containers do not choose a profile; the key already binds them to exactly one profile.
+Admins should not hand-author this JSON in normal use. The profile page uses the plugin catalog and each plugin's generated config schema so an admin can add a service/events/observable plugin, enable or disable it, and fill out structured fields. Strings, numbers, booleans, enums, nested objects, arrays, records, and tuples are rendered as form controls where possible. Vault wraps the resulting profile body internally under the deployment profile name before publishing, for example `{ "default": { ... } }`. Containers do not choose a profile; the key already binds them to exactly one profile.
+
+Schema validation is enforced server-side when saving a profile plugin. Vault applies schema defaults, coerces primitive HTML form values where safe, strips unknown object keys, and rejects invalid values before encrypting the draft. The browser form is only a convenience layer; API callers cannot bypass schema validation.
 
 Containers are not locked to versions. On restart, `config-vault` pulls the active published version for its key's profile.
 
@@ -70,7 +74,7 @@ Vault stores its own plugin catalog. Entries can be:
 
 Application configs reference Vault catalog snapshots, not live registry records.
 
-If a schema exists, the UI can guide config editing and validation. If no schema exists, Vault allows raw JSON object config and cannot deeply validate plugin-specific fields.
+If a schema exists, the UI guides config editing and Vault validates the saved shape. If no schema exists, Vault allows object config and cannot deeply validate plugin-specific fields.
 
 ## Security
 

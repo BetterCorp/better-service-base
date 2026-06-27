@@ -135,11 +135,15 @@ export class VaultStore {
   }
 
   async createUser(user: UserRecord): Promise<void> {
-    await this.pool.query(
+    const result = await this.pool.query(
       `insert into vault_users (id, email, password_hash, totp_secret, passkey_required, created_at, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7)`,
+       select $1, $2, $3, $4, $5, $6, $7
+       where not exists (select 1 from vault_users)`,
       [user.id, user.email, user.passwordHash, user.totpSecret, user.passkeyRequired, user.createdAt, user.updatedAt],
     );
+    if (result.rowCount !== 1) {
+      throw new Error('Vault supports exactly one admin user');
+    }
   }
 
   async getUserByEmail(email: string): Promise<UserRecord | null> {
