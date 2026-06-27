@@ -1,11 +1,11 @@
 {
   "_/config-default": "CORE",
   "_/config-env": "CORE",
+  "_/config-vault": "OFFICIAL",
   "_/events-default": "CORE",
-  "_/observable-default": "CORE",
-  "_/service-benchmarkify": "CORE",
   "_/events-rabbitmq": "OFFICIAL",
   "_/observable-axiom": "OFFICIAL",
+  "_/observable-default": "CORE",
   "_/observable-graylog": "OFFICIAL",
   "_/observable-logging-file": "OFFICIAL",
   "_/observable-opentelemetry": "OFFICIAL",
@@ -13,8 +13,10 @@
   "_/observable-syslog": "OFFICIAL",
   "_/observable-winston": "OFFICIAL",
   "_/observable-zipkin": "OFFICIAL",
+  "_/service-benchmarkify": "CORE",
   "_/service-bsb-registry": "OFFICIAL",
   "_/service-bsb-registry-ui": "OFFICIAL",
+  "_/service-config-vault": "OFFICIAL",
   "_/service-demo-todo": "OFFICIAL",
   "_/service-syslog-server": "OFFICIAL"
 }

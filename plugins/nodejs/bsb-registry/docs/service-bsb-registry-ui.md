@@ -121,7 +121,9 @@ See [service-bsb-registry.md](service-bsb-registry.md) for the full publish requ
 
 ## Plugin Badges
 
-Create a `BADGES.json` file to force specific badges. If `badgesFile` is omitted, the UI looks for `BADGES.json` in the built plugin directory, then the package root, then the app cwd.
+`BADGES.json` is generated during the registry package build. The generator marks core plugins from `nodejs/src/plugins` as `CORE`, excluding entries listed in `nodejs/package.json` `bsb.publishIgnore`, and marks plugins exported by `plugins/nodejs/*/bsb-plugin.json` as `OFFICIAL`.
+
+Do not hand-maintain the checked-in `BADGES.json` files for repo plugins. Run `npm run generate:badges --workspace plugins/nodejs/bsb-registry` when you need to refresh them without a full build. If `badgesFile` is omitted, the UI looks for `BADGES.json` in the built plugin directory, then the package root, then the app cwd.
 
 ```json
 {

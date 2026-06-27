@@ -17,6 +17,9 @@ WORKDIR /workspace
 ENV PATH="/home/bsb/lib/scripts:${PATH}"
 
 COPY plugins/nodejs/bsb-registry ./
+COPY nodejs/package.json ./.badge-source/nodejs/package.json
+COPY nodejs/src/plugins ./.badge-source/nodejs/src/plugins
+COPY plugins/nodejs ./.badge-source/plugins/nodejs
 
 RUN npm install --include=dev
 RUN npm run build
@@ -38,6 +41,9 @@ WORKDIR /workspace
 ENV PATH="/home/bsb/lib/scripts:${PATH}"
 
 COPY plugins/nodejs/bsb-registry ./
+COPY nodejs/package.json ./.badge-source/nodejs/package.json
+COPY nodejs/src/plugins ./.badge-source/nodejs/src/plugins
+COPY plugins/nodejs ./.badge-source/plugins/nodejs
 
 RUN npm install --omit=dev
 
@@ -56,7 +62,7 @@ FROM betterweb/service-base:${BSB_IMAGE_TAG}
 
 COPY --from=builder /out/ /mnt/plugins/
 COPY --from=buildermodules /out/ /mnt/plugins/
-COPY plugins/nodejs/bsb-registry/BADGES.json /home/bsb/BADGES.json
+COPY --from=builder /workspace/BADGES.json /home/bsb/BADGES.json
 COPY plugins/nodejs/bsb-registry/healthcheck.cjs /home/bsb/healthcheck.cjs
 
 ENV BSB_PLUGIN_DIRS=/mnt/plugins

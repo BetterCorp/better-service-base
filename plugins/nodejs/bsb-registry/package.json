@@ -11,6 +11,8 @@
     "bsb-plugin.json"
   ],
   "scripts": {
+    "prebuild": "npm run generate:badges",
+    "generate:badges": "node scripts/generate-badges.cjs",
     "build": "bsb-plugin-cli build",
     "clean": "bsb-plugin-cli clean",
     "start": "bsb-plugin-cli start",
