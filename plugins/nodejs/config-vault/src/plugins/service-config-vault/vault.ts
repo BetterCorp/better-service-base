@@ -619,6 +619,7 @@ function validateSchemaNode(node: Record<string, unknown>, value: unknown, path:
   if (value === undefined || value === '') {
     if ('default' in node) return cloneDefault(node.default);
     if (!required || node.kind === 'optional') return omitted;
+    if (node.kind === 'object') return validateObjectNode(node, {}, path);
   }
 
   if (node.kind === 'optional') {

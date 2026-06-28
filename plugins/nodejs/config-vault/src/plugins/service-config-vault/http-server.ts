@@ -463,6 +463,8 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .auth{max-width:480px;margin:32px auto}.stack{display:flex;flex-direction:column;gap:12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .status{margin-top:12px;color:var(--muted);font-size:14px}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
     .schema-box{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px}.schema-box legend{font-weight:750;color:#344054}
+    .schema-help{display:block;color:var(--muted);font-size:12px;font-weight:500;margin:-6px 0 10px}.schema-meta{color:var(--muted);font-size:12px;font-weight:500}
+    .schema-optional{border-left:3px solid #d0d5dd;margin:12px 0;padding-left:10px}.schema-toggle{display:flex;gap:8px;align-items:center;margin:0 0 8px}.schema-toggle input{width:auto;margin:0}
     .schema-repeat{border:1px solid #edf0f5;border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.repeat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:start}.schema-repeat[data-array-path] .repeat-row{grid-template-columns:minmax(0,1fr) auto}
     @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
@@ -953,66 +955,100 @@ function renderSchemaFields(schema: Record<string, unknown> | null | undefined, 
   if (!root || root.kind !== 'object' || !objectField(root.properties)) {
     return '<p class="muted">No config schema available for this plugin.</p>';
   }
-  return renderProperties(root.properties as Record<string, unknown>, config, '');
+  return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root));
 }
 
-function renderProperties(properties: Record<string, unknown>, config: Record<string, unknown>, prefix: string): string {
+function renderProperties(properties: Record<string, unknown>, config: Record<string, unknown>, prefix: string, required: Set<string>): string {
   return Object.entries(properties).map(([key, schema]) => {
     const path = prefix ? `${prefix}.${key}` : key;
     const value = prefix ? objectField(config)?.[key] : valueAtPath(config, path);
-    return renderSchemaControl(key, objectField(schema), path, value);
+    return renderSchemaControl(key, objectField(schema), path, value, required.has(key));
   }).join('');
 }
 
-function renderSchemaControl(key: string, rawNode: Record<string, unknown> | null, path: string, rawValue: unknown): string {
+function renderSchemaControl(key: string, rawNode: Record<string, unknown> | null, path: string, rawValue: unknown, required: boolean): string {
   const node = unwrapSchema(rawNode);
   if (!node) return '';
   const value = rawValue ?? node.default ?? '';
-  const label = schemaLabel(key, node);
+  const help = schemaHelp(rawNode, node, required);
+  let control = '';
   if (node.kind === 'object' && objectField(node.properties)) {
-    return `<fieldset class="schema-box"><legend>${escapeHtml(key)}</legend>${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path)}</fieldset>`;
-  }
-  if (node.kind === 'bool' || node.kind === 'boolean') {
-    return `<label>${escapeHtml(label)}<select data-config-path="${escapeHtml(path)}" data-kind="bool"><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select></label>`;
-  }
-  if (node.kind === 'enum' && Array.isArray(node.values)) {
-    return `<label>${escapeHtml(label)}<select data-config-path="${escapeHtml(path)}" data-kind="string">${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select></label>`;
-  }
-  if (node.kind === 'array') {
+    control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required)}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node))}</fieldset>`;
+  } else if (node.kind === 'bool' || node.kind === 'boolean') {
+    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="bool"><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
+  } else if (node.kind === 'enum' && Array.isArray(node.values)) {
+    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="string">${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select>${help}</label>`;
+  } else if (node.kind === 'array') {
     const itemNode = unwrapSchema(objectField(node.items) ?? objectField(node.item));
     const kind = inputKind(itemNode);
     const values = Array.isArray(value) ? value : [];
     const rows = (values.length ? values : ['']).map((item) => `<div class="repeat-row"><input data-array-item data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(item ?? ''))}"><button type="button" class="secondary" data-remove-row>Remove</button></div>`).join('');
-    return `<div class="schema-repeat" data-array-path="${escapeHtml(path)}" data-item-kind="${escapeHtml(kind)}"><label>${escapeHtml(label)}</label><div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>`;
-  }
-  if (node.kind === 'record') {
+    control = `<div class="schema-repeat" data-array-path="${escapeHtml(path)}" data-item-kind="${escapeHtml(kind)}"><label>${fieldLabel(key, rawNode, node, required)}</label>${help}<div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>`;
+  } else if (node.kind === 'record') {
     const valueNode = unwrapSchema(objectField(node.valueSchema) ?? objectField(node.values) ?? objectField(node.value));
     const kind = inputKind(valueNode);
     const entries = isRecord(value) ? Object.entries(value) : [];
     const rows = (entries.length ? entries : [['', '']]).map(([recordKey, recordValue]) => `<div class="repeat-row"><input data-record-key placeholder="Key" value="${escapeHtml(String(recordKey))}"><input data-record-value data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} placeholder="Value" value="${escapeHtml(String(recordValue ?? ''))}"><button type="button" class="secondary" data-remove-row>Remove</button></div>`).join('');
-    return `<div class="schema-repeat" data-record-path="${escapeHtml(path)}" data-value-kind="${escapeHtml(kind)}"><label>${escapeHtml(label)}</label><div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>`;
-  }
-  if (node.kind === 'tuple') {
+    control = `<div class="schema-repeat" data-record-path="${escapeHtml(path)}" data-value-kind="${escapeHtml(kind)}"><label>${fieldLabel(key, rawNode, node, required)}</label>${help}<div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>`;
+  } else if (node.kind === 'tuple') {
     const items = (Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : []).map((item) => objectField(item));
     const values = Array.isArray(value) ? value : [];
-    return `<fieldset class="schema-box" data-tuple-path="${escapeHtml(path)}"><legend>${escapeHtml(label)}</legend>${items.map((item, index) => {
+    control = `<fieldset class="schema-box" data-tuple-path="${escapeHtml(path)}"><legend>${fieldLabel(key, rawNode, node, required)}</legend>${help}${items.map((item, index) => {
       const child = unwrapSchema(item);
       const kind = inputKind(child);
       return `<label>Item ${index + 1}<input data-tuple-index="${index}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(values[index] ?? child?.default ?? ''))}"></label>`;
     }).join('')}</fieldset>`;
-  }
-  if (node.kind === 'union' && Array.isArray(node.variants)) {
+  } else if (node.kind === 'union' && Array.isArray(node.variants)) {
     const variant = unwrapSchema(objectField(node.variants[0]));
-    return renderSchemaControl(label, variant, path, value);
+    control = renderSchemaControl(key, variant, path, value, required);
+  } else {
+    const kind = inputKind(node);
+    control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
   }
-  const kind = inputKind(node);
-  return `<label>${escapeHtml(label)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(value ?? ''))}"></label>`;
+  return rawNode?.kind === 'optional' ? optionalShell(key, path, control, rawValue !== undefined) : control;
 }
 
-function schemaLabel(key: string, node: Record<string, unknown>): string {
-  return node.metadata && typeof node.metadata === 'object' && 'description' in node.metadata
+function fieldLabel(key: string, rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean): string {
+  const meta = fieldMeta(rawNode, node, required);
+  return `${escapeHtml(key)}${meta ? ` <span class="schema-meta">${escapeHtml(meta)}</span>` : ''}`;
+}
+
+function schemaHelp(rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean): string {
+  const description = node.metadata && typeof node.metadata === 'object' && 'description' in node.metadata
     ? String((node.metadata as Record<string, unknown>).description)
-    : key;
+    : '';
+  const notes = [
+    description,
+    rawNode?.kind === 'optional' ? 'Enable this field to send it; disable it to omit it.' : required ? 'Required.' : '',
+    'default' in node ? `Default: ${formatDefault(node.default)}.` : '',
+  ].filter(Boolean).join(' ');
+  return notes ? `<span class="schema-help">${escapeHtml(notes)}</span>` : '';
+}
+
+function fieldMeta(rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean): string {
+  if (rawNode?.kind === 'optional') return 'optional';
+  if ('default' in node) return `default: ${formatDefault(node.default)}`;
+  return required ? 'required' : 'optional';
+}
+
+function optionalShell(key: string, path: string, control: string, enabled: boolean): string {
+  return `<div class="schema-optional" data-optional-field="${escapeHtml(path)}">
+    <label class="schema-toggle"><input type="checkbox" data-optional-toggle ${enabled ? 'checked' : ''}>Enable ${escapeHtml(key)}</label>
+    <div data-optional-content>${control}</div>
+  </div>`;
+}
+
+function requiredSet(node: Record<string, unknown>): Set<string> {
+  if (Array.isArray(node.required)) return new Set(node.required.map(String));
+  const properties = objectField(node.properties) ?? {};
+  return new Set(Object.entries(properties)
+    .filter(([, value]) => objectField(value)?.kind !== 'optional')
+    .map(([key]) => key));
+}
+
+function formatDefault(value: unknown): string {
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
 }
 
 function inputKind(node: Record<string, unknown> | null): 'number' | 'bool' | 'string' {
@@ -1134,12 +1170,14 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   function readConfigForm(form) {
     const config = {};
     form.querySelectorAll('[data-array-path]').forEach((group) => {
+      if (!optionalEnabled(group)) return;
       const values = Array.from(group.querySelectorAll('[data-array-item]'))
         .map((field) => parseFieldValue(field))
         .filter((value) => value !== undefined);
       if (values.length > 0) setPath(config, group.dataset.arrayPath, values);
     });
     form.querySelectorAll('[data-record-path]').forEach((group) => {
+      if (!optionalEnabled(group)) return;
       const record = {};
       group.querySelectorAll('.repeat-row').forEach((row) => {
         const key = row.querySelector('[data-record-key]')?.value?.trim();
@@ -1150,6 +1188,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (Object.keys(record).length > 0) setPath(config, group.dataset.recordPath, record);
     });
     form.querySelectorAll('[data-tuple-path]').forEach((group) => {
+      if (!optionalEnabled(group)) return;
       const values = [];
       group.querySelectorAll('[data-tuple-index]').forEach((field) => {
         const value = parseFieldValue(field);
@@ -1158,11 +1197,17 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (values.length > 0) setPath(config, group.dataset.tuplePath, values);
     });
     form.querySelectorAll('[data-config-path]').forEach((field) => {
+      if (!optionalEnabled(field)) return;
       if (field.closest('[data-array-path],[data-record-path],[data-tuple-path]')) return;
       const value = parseFieldValue(field);
       if (value !== undefined) setPath(config, field.dataset.configPath, value);
     });
     return config;
+  }
+  function optionalEnabled(element) {
+    const group = element.closest('[data-optional-field]');
+    if (!group) return true;
+    return Boolean(group.querySelector('[data-optional-toggle]')?.checked);
   }
   function parseFieldValue(field) {
     const raw = field.value;
@@ -1187,6 +1232,38 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     if (node.kind === 'bool' || node.kind === 'boolean') return 'bool';
     return ['int','int32','int64','number','float','float32','float64'].includes(String(node.kind)) ? 'number' : 'string';
   }
+  function formatDefaultClient(value) {
+    return typeof value === 'string' ? value : JSON.stringify(value);
+  }
+  function fieldMetaClient(rawNode, node, required) {
+    if (rawNode && rawNode.kind === 'optional') return 'optional';
+    if (Object.prototype.hasOwnProperty.call(node, 'default')) return 'default: ' + formatDefaultClient(node.default);
+    return required ? 'required' : 'optional';
+  }
+  function fieldLabelClient(key, rawNode, node, required) {
+    const meta = fieldMetaClient(rawNode, node, required);
+    return escapeClient(key) + (meta ? ' <span class="schema-meta">' + escapeClient(meta) + '</span>' : '');
+  }
+  function schemaHelpClient(rawNode, node, required) {
+    const description = node && node.metadata && node.metadata.description ? String(node.metadata.description) : '';
+    const notes = [
+      description,
+      rawNode && rawNode.kind === 'optional' ? 'Enable this field to send it; disable it to omit it.' : required ? 'Required.' : '',
+      node && Object.prototype.hasOwnProperty.call(node, 'default') ? 'Default: ' + formatDefaultClient(node.default) + '.' : '',
+    ].filter(Boolean).join(' ');
+    return notes ? '<span class="schema-help">' + escapeClient(notes) + '</span>' : '';
+  }
+  function optionalShellClient(key, path, control) {
+    return '<div class="schema-optional" data-optional-field="' + escapeClient(path) + '">'
+      + '<label class="schema-toggle"><input type="checkbox" data-optional-toggle>Enable ' + escapeClient(key) + '</label>'
+      + '<div data-optional-content>' + control + '</div></div>';
+  }
+  function requiredKeysClient(node, properties) {
+    if (node && Array.isArray(node.required)) return node.required;
+    return Object.entries(properties || {})
+      .filter(([, value]) => !(value && value.kind === 'optional'))
+      .map(([key]) => key);
+  }
   function primitiveInput(attrs, kind, value) {
     return '<input ' + attrs + ' data-kind="' + kind + '"' + (kind === 'number' ? ' type="number"' : '') + ' value="' + escapeClient(value || '') + '">';
   }
@@ -1196,38 +1273,37 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       + primitiveInput(key === null ? 'data-array-item' : 'data-record-value', kind, value)
       + '<button type="button" class="secondary" data-remove-row>Remove</button></div>';
   }
-  function renderFields(properties, prefix) {
+  function renderFields(properties, prefix, requiredKeys) {
+    const requiredSet = new Set(requiredKeys || []);
     return Object.entries(properties || {}).map(([key, rawNode]) => {
       let node = unwrapNode(rawNode);
       if (!node) return '';
       const path = prefix ? prefix + '.' + key : key;
-      const label = (node.metadata && node.metadata.description) || key;
+      const required = requiredSet.has(key) && !(rawNode && rawNode.kind === 'optional') && !Object.prototype.hasOwnProperty.call(node, 'default');
+      const help = schemaHelpClient(rawNode, node, required);
+      let control = '';
       if (node.kind === 'object' && node.properties) {
-        return '<fieldset class="schema-box"><legend>' + escapeClient(key) + '</legend>' + renderFields(node.properties, path) + '</fieldset>';
-      }
-      if (node.kind === 'bool' || node.kind === 'boolean') {
-        return '<label>' + escapeClient(label) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"><option value="true">true</option><option value="false">false</option></select></label>';
-      }
-      if (node.kind === 'enum' && Array.isArray(node.values)) {
-        return '<label>' + escapeClient(label) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string">' + node.values.map((item) => '<option value="' + escapeClient(item) + '">' + escapeClient(item) + '</option>').join('') + '</select></label>';
-      }
-      if (node.kind === 'array') {
+        control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties)) + '</fieldset>';
+      } else if (node.kind === 'bool' || node.kind === 'boolean') {
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"><option value="true">true</option><option value="false">false</option></select>' + help + '</label>';
+      } else if (node.kind === 'enum' && Array.isArray(node.values)) {
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string">' + node.values.map((item) => '<option value="' + escapeClient(item) + '">' + escapeClient(item) + '</option>').join('') + '</select>' + help + '</label>';
+      } else if (node.kind === 'array') {
         const kind = inputKind(node.items || node.item);
-        return '<div class="schema-repeat" data-array-path="' + escapeClient(path) + '" data-item-kind="' + kind + '"><label>' + escapeClient(label) + '</label><div data-repeat-rows>' + repeatRow(kind, null, '') + '</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>';
-      }
-      if (node.kind === 'record') {
+        control = '<div class="schema-repeat" data-array-path="' + escapeClient(path) + '" data-item-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, null, '') + '</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>';
+      } else if (node.kind === 'record') {
         const kind = inputKind(node.valueSchema || node.values || node.value);
-        return '<div class="schema-repeat" data-record-path="' + escapeClient(path) + '" data-value-kind="' + kind + '"><label>' + escapeClient(label) + '</label><div data-repeat-rows>' + repeatRow(kind, '', '') + '</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>';
-      }
-      if (node.kind === 'tuple') {
+        control = '<div class="schema-repeat" data-record-path="' + escapeClient(path) + '" data-value-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, '', '') + '</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>';
+      } else if (node.kind === 'tuple') {
         const items = Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : [];
-        return '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + escapeClient(label) + '</legend>' + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
+        control = '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
+      } else if (node.kind === 'union' && Array.isArray(node.variants) && node.variants[0]) {
+        control = renderFields({ [key]: node.variants[0] }, prefix, requiredKeys);
+      } else {
+        const kind = inputKind(node);
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + primitiveInput('data-config-path="' + escapeClient(path) + '"', kind, node.default || '') + help + '</label>';
       }
-      if (node.kind === 'union' && Array.isArray(node.variants) && node.variants[0]) {
-        return renderFields({ [key]: node.variants[0] }, prefix);
-      }
-      const kind = inputKind(node);
-      return '<label>' + escapeClient(label) + primitiveInput('data-config-path="' + escapeClient(path) + '"', kind, '') + '</label>';
+      return rawNode && rawNode.kind === 'optional' ? optionalShellClient(key, path, control) : control;
     }).join('');
   }
   document.addEventListener('click', (event) => {
@@ -1256,11 +1332,25 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (form.elements.name && !form.elements.name.value) form.elements.name.value = item.plugin || '';
       const root = schemaRoot(item.schema);
       const fields = form.querySelector('[data-config-fields]');
-      if (fields) fields.innerHTML = root ? renderFields(root.properties, '') : '<p class="muted">No config schema available for this plugin.</p>';
+      if (fields) {
+        fields.innerHTML = root ? renderFields(root.properties, '', requiredKeysClient(root, root.properties)) : '<p class="muted">No config schema available for this plugin.</p>';
+        fields.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
+      }
     };
     select.addEventListener('change', sync);
     sync();
   });
+  function syncOptionalGroup(group) {
+    const enabled = Boolean(group.querySelector('[data-optional-toggle]')?.checked);
+    group.querySelectorAll('[data-optional-content] input,[data-optional-content] select,[data-optional-content] textarea,[data-optional-content] button').forEach((field) => {
+      field.disabled = !enabled;
+    });
+  }
+  document.addEventListener('change', (event) => {
+    const toggle = event.target.closest('[data-optional-toggle]');
+    if (toggle) syncOptionalGroup(toggle.closest('[data-optional-field]'));
+  });
+  document.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
   document.querySelectorAll('form[data-config-form]').forEach((form) => {
     form.addEventListener('submit', () => {
       if (form.elements.config) form.elements.config.value = JSON.stringify(readConfigForm(form));

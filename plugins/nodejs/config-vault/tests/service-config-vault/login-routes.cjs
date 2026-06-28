@@ -98,8 +98,9 @@ module.exports = async ({ pluginRoot }) => {
                 kind: 'object',
                 properties: {
                   host: { kind: 'string', metadata: { description: 'HTTP host' } },
-                  port: { kind: 'int32', metadata: { description: 'HTTP port' } },
+                  port: { kind: 'int32', default: 3200, metadata: { description: 'HTTP port' } },
                   enabled: { kind: 'bool', metadata: { description: 'Feature enabled' } },
+                  token: { kind: 'optional', inner: { kind: 'string' }, metadata: { description: 'Optional token' } },
                   tags: { kind: 'array', items: { kind: 'string' }, metadata: { description: 'Tags' } },
                   headers: { kind: 'record', valueSchema: { kind: 'string' }, metadata: { description: 'Headers' } },
                   bind: { kind: 'tuple', items: [{ kind: 'string' }, { kind: 'int32' }], metadata: { description: 'Bind Address' } },
@@ -222,6 +223,11 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(deploymentHtml, />config-vault 1\.0\.0</);
     assert.match(deploymentHtml, /data-config-path="host"/);
     assert.match(deploymentHtml, /HTTP port/);
+    assert.match(deploymentHtml, /required/);
+    assert.match(deploymentHtml, /default: 3200/);
+    assert.match(deploymentHtml, /data-optional-field="token"/);
+    assert.match(deploymentHtml, /Enable token/);
+    assert.match(deploymentHtml, /Enable this field to send it; disable it to omit it/);
     assert.match(deploymentHtml, /data-array-path="tags"/);
     assert.match(deploymentHtml, /data-record-path="headers"/);
     assert.match(deploymentHtml, /data-tuple-path="bind"/);
