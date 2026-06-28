@@ -964,15 +964,28 @@ function renderSchemaFields(schema: Record<string, unknown> | null | undefined, 
   return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root));
 }
 
-function renderProperties(properties: Record<string, unknown>, config: Record<string, unknown>, prefix: string, required: Set<string>): string {
+function renderProperties(
+  properties: Record<string, unknown>,
+  config: Record<string, unknown>,
+  prefix: string,
+  required: Set<string>,
+  hideLiteralFields = false,
+): string {
   return Object.entries(properties).map(([key, schema]) => {
     const path = prefix ? `${prefix}.${key}` : key;
     const value = prefix ? objectField(config)?.[key] : valueAtPath(config, path);
-    return renderSchemaControl(key, objectField(schema), path, value, required.has(key));
+    return renderSchemaControl(key, objectField(schema), path, value, required.has(key), hideLiteralFields);
   }).join('');
 }
 
-function renderSchemaControl(key: string, rawNode: Record<string, unknown> | null, path: string, rawValue: unknown, required: boolean): string {
+function renderSchemaControl(
+  key: string,
+  rawNode: Record<string, unknown> | null,
+  path: string,
+  rawValue: unknown,
+  required: boolean,
+  hideLiteralField = false,
+): string {
   const node = unwrapSchema(rawNode);
   if (!node) return '';
   const value = rawValue ?? node.default ?? '';
@@ -985,7 +998,9 @@ function renderSchemaControl(key: string, rawNode: Record<string, unknown> | nul
   } else if (node.kind === 'enum' && Array.isArray(node.values)) {
     control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="string" ${required ? 'required' : ''}>${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select>${help}</label>`;
   } else if (node.kind === 'literal') {
-    control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(node.value ?? ''))}" readonly ${required ? 'required' : ''}>${help}</label>`;
+    control = hideLiteralField
+      ? `<input type="hidden" data-config-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(node.value ?? ''))}">`
+      : `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(node.value ?? ''))}" readonly ${required ? 'required' : ''}>${help}</label>`;
   } else if (node.kind === 'array') {
     const itemNode = unwrapSchema(objectField(node.items) ?? objectField(node.item));
     const kind = inputKind(itemNode);
@@ -1036,7 +1051,7 @@ function renderUnionControl(
   const panels = variants.map((variant, index) => {
     const variantValue = index === selectedIndex && isRecord(value) ? value : {};
     const fields = variant.kind === 'object' && objectField(variant.properties)
-      ? renderProperties(variant.properties as Record<string, unknown>, variantValue, path, requiredSet(variant))
+      ? renderProperties(variant.properties as Record<string, unknown>, variantValue, path, requiredSet(variant), true)
       : renderSchemaControl(key, variant, path, variantValue, required);
     return `<div class="schema-union-panel" data-union-variant="${index}" ${index === selectedIndex ? '' : 'hidden'}>${fields}</div>`;
   }).join('');
@@ -1359,7 +1374,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       + primitiveInput(key === null ? 'data-array-item' : 'data-record-value', kind, value)
       + '<button type="button" class="secondary" data-remove-row>Remove</button></div>';
   }
-  function renderFields(properties, prefix, requiredKeys) {
+  function renderFields(properties, prefix, requiredKeys, hideLiteralFields) {
     const requiredSet = new Set(requiredKeys || []);
     return Object.entries(properties || {}).map(([key, rawNode]) => {
       let node = unwrapNode(rawNode);
@@ -1369,13 +1384,15 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       const help = schemaHelpClient(rawNode, node, required);
       let control = '';
       if (node.kind === 'object' && node.properties) {
-        control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties)) + '</fieldset>';
+        control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties), hideLiteralFields) + '</fieldset>';
       } else if (node.kind === 'bool' || node.kind === 'boolean') {
         control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"' + (required ? ' required' : '') + '><option value="true"' + (node.default === true ? ' selected' : '') + '>true</option><option value="false"' + (node.default === false ? ' selected' : '') + '>false</option></select>' + help + '</label>';
       } else if (node.kind === 'enum' && Array.isArray(node.values)) {
         control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string"' + (required ? ' required' : '') + '>' + node.values.map((item) => '<option value="' + escapeClient(item) + '"' + (String(node.default) === String(item) ? ' selected' : '') + '>' + escapeClient(item) + '</option>').join('') + '</select>' + help + '</label>';
       } else if (node.kind === 'literal') {
-        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<input data-config-path="' + escapeClient(path) + '" data-kind="string" value="' + escapeClient(node.value || '') + '" readonly' + (required ? ' required' : '') + '>' + help + '</label>';
+        control = hideLiteralFields
+          ? '<input type="hidden" data-config-path="' + escapeClient(path) + '" data-kind="string" value="' + escapeClient(node.value || '') + '">'
+          : '<label>' + fieldLabelClient(key, rawNode, node, required) + '<input data-config-path="' + escapeClient(path) + '" data-kind="string" value="' + escapeClient(node.value || '') + '" readonly' + (required ? ' required' : '') + '>' + help + '</label>';
       } else if (node.kind === 'array') {
         const kind = inputKind(node.items || node.item);
         control = '<div class="schema-repeat" data-array-path="' + escapeClient(path) + '" data-item-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, null, '') + '</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>';
@@ -1409,7 +1426,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     const options = variants.map((variant, index) => '<option value="' + index + '">' + escapeClient(unionVariantLabelClient(variant, index)) + '</option>').join('');
     const panels = variants.map((variant, index) => {
       const fields = variant.kind === 'object' && variant.properties
-        ? renderFields(variant.properties, path, requiredKeysClient(variant, variant.properties))
+        ? renderFields(variant.properties, path, requiredKeysClient(variant, variant.properties), true)
         : renderFields({ [key]: variant }, '', [key]);
       return '<div class="schema-union-panel" data-union-variant="' + index + '"' + (index === 0 ? '' : ' hidden') + '>' + fields + '</div>';
     }).join('');
