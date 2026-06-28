@@ -16,7 +16,7 @@ import {
 } from 'h3';
 import type { Observable } from '@bsb/base';
 import type { VaultService } from './vault.js';
-import type { RuntimeConfigDefinition } from './types.js';
+import type { RuntimeConfigDefinition, RuntimePluginDefinition } from './types.js';
 
 export interface VaultHttpOptions {
   host: string;
@@ -754,8 +754,8 @@ function deploymentDetailPage(
     </section>
   </div>
   ${hasConfigEntries(inherited) ? `<section><h2>Inherited Config</h2>
-    <p class="muted">These values are read-only here. Add the same plugin below to override selected fields for this deployment profile.</p>
-    ${readonlyConfigEditor(data, inherited)}
+    <p class="muted">These values come from the shared application config. Save an override here to customize any field for this deployment profile.</p>
+    ${inheritedOverrideEditor(data, inherited, draft, redirect)}
   </section>` : ''}
   <section><h2>Profile Config</h2>
     <p>${configStateBadge(data.configState)}</p>
@@ -1143,30 +1143,83 @@ function applicationConfigSectionEditor(
   </section>`;
 }
 
-function readonlyConfigEditor(data: DeploymentProfileData, draft: RuntimeConfigDefinition): string {
+function inheritedOverrideEditor(
+  data: DeploymentProfileData,
+  inherited: RuntimeConfigDefinition,
+  local: RuntimeConfigDefinition,
+  redirect: string,
+): string {
   return `
-    ${readonlyConfigSection(data, draft, 'services', 'Services')}
-    ${readonlyConfigSection(data, draft, 'events', 'Events')}
-    ${readonlyConfigSection(data, draft, 'observable', 'Observable')}
+    ${inheritedOverrideSection(data, inherited, local, 'services', 'Services', redirect)}
+    ${inheritedOverrideSection(data, inherited, local, 'events', 'Events', redirect)}
+    ${inheritedOverrideSection(data, inherited, local, 'observable', 'Observable', redirect)}
   `;
 }
 
-function readonlyConfigSection(
+function inheritedOverrideSection(
   data: DeploymentProfileData,
-  draft: RuntimeConfigDefinition,
+  inherited: RuntimeConfigDefinition,
+  local: RuntimeConfigDefinition,
   section: 'services' | 'events' | 'observable',
   title: string,
+  redirect: string,
 ): string {
-  const entries = Object.entries(draft[section] ?? {});
+  const entries = Object.entries(inherited[section] ?? {});
   if (entries.length === 0) return '';
   return `<section><h3>${escapeHtml(title)}</h3>${entries.map(([name, entry]) => {
+    const localEntry = local[section]?.[name];
+    const effective = localEntry ? mergePluginEntry(entry, localEntry) : entry;
     const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
     const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
     return `<details class="plugin-card">
-      <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} / inherited ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
-      <div class="plugin-card-body"><fieldset disabled>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</fieldset></div>
+      <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'} ${effective.enabled ? 'enabled' : 'disabled'}</span></summary>
+      <div class="plugin-card-body">
+        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
+          <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+          <input type="hidden" name="section" value="${escapeHtml(section)}">
+          <input type="hidden" name="name" value="${escapeHtml(name)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
+          <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
+          <input type="hidden" name="config">
+          <div class="form-grid">
+            ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
+            ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
+            <label>Enabled<select name="enabled">${effective.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
+          </div>
+          <div data-config-fields>${renderSchemaFields(catalog?.configSchema, effective.config ?? {})}</div>
+          <button>${localEntry ? 'Save Override' : 'Create Override'}</button><p class="status"></p>
+        </form>
+        ${localEntry ? `<form data-api="/api/profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove the local override and inherit the shared config again?">
+          <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+          <input type="hidden" name="section" value="${escapeHtml(section)}">
+          <input type="hidden" name="name" value="${escapeHtml(name)}">
+          <button class="secondary">Remove Override</button><p class="status"></p>
+        </form>` : ''}
+      </div>
     </details>`;
   }).join('')}</section>`;
+}
+
+function mergePluginEntry(base: RuntimePluginDefinition, override: RuntimePluginDefinition): RuntimePluginDefinition {
+  return {
+    ...base,
+    ...override,
+    config: mergeConfigObjects(base.config ?? {}, override.config ?? {}),
+  };
+}
+
+function mergeConfigObjects(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+  const output = cloneConfig(base);
+  for (const [key, value] of Object.entries(override)) {
+    const existing = output[key];
+    output[key] = isRecord(existing) && isRecord(value) ? mergeConfigObjects(existing, value) : cloneConfig(value);
+  }
+  return output;
+}
+
+function cloneConfig<T>(value: T): T {
+  return value === undefined ? value : JSON.parse(JSON.stringify(value)) as T;
 }
 
 function copyPluginForm(data: DeploymentProfileData, section: 'services' | 'events' | 'observable', name: string, redirect: string): string {

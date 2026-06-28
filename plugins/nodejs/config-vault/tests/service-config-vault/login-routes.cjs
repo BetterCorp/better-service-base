@@ -327,6 +327,8 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(deploymentHtml, /Profile Config/);
     assert.match(deploymentHtml, /Draft only/);
     assert.match(deploymentHtml, /Inherited Config/);
+    assert.match(deploymentHtml, /Create Override/);
+    assert.match(deploymentHtml, /These values come from the shared application config/);
     assert.match(deploymentHtml, /Shared App Config/);
     assert.match(deploymentHtml, /Live/);
     assert.match(deploymentHtml, /\/api\/profile-plugins\/copy/);
@@ -394,6 +396,7 @@ module.exports = async ({ pluginRoot }) => {
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
     await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
     await postJson(port, '/api/drafts', { profileId: 'profile-1', config: { services: { api: { plugin: 'service-api', enabled: true } } } });
+    await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'shared', plugin: 'service-api', enabled: true, config: { host: 'service-specific' } });
     await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', enabled: true, config: { host: '0.0.0.0', port: 3200 } });
     await postJson(port, '/api/profile-plugins/delete', { profileId: 'profile-1', section: 'services', name: 'api' });
     await postJson(port, '/api/profile-plugins/copy', { sourceProfileId: 'profile-1', targetProfileId: 'profile-2', section: 'services', name: 'api', overwrite: 'on' });
@@ -412,6 +415,7 @@ module.exports = async ({ pluginRoot }) => {
       ['createDeployment', 'user-1', 'app-1', 'worker'],
       ['createPlugin', 'user-1', 'service-worker', '1.0.0'],
       ['saveProfileDraft', 'user-1', 'profile-1', { services: { api: { plugin: 'service-api', enabled: true } } }],
+      ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'shared', 'service-api', { host: 'service-specific' }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'api', 'service-api', { host: '0.0.0.0', port: 3200 }],
       ['removeProfilePlugin', 'user-1', 'profile-1', 'services', 'api'],
       ['copyProfilePlugin', 'user-1', 'profile-1', 'profile-2', 'services', 'api', true],
