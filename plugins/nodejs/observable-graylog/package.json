@@ -18,7 +18,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/BetterCorp/better-service-base.git",
+    "url": "https://github.com/BetterCorp/better-service-base",
     "directory": "plugins/nodejs/observable-graylog"
   },
   "main": "lib/index.js",

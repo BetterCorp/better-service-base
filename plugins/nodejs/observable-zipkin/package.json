@@ -45,5 +45,10 @@
     "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
   },
-  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-zipkin"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-zipkin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BetterCorp/better-service-base",
+    "directory": "plugins/nodejs/observable-zipkin"
+  }
 }

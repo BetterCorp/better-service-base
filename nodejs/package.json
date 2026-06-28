@@ -17,7 +17,9 @@
     "framework"
   ],
   "repository": {
-    "url": "git+https://github.com/BetterCorp/better-service-base.git"
+    "type": "git",
+    "url": "https://github.com/BetterCorp/better-service-base",
+    "directory": "nodejs"
   },
   "bsb": {
     "publishIgnore": [

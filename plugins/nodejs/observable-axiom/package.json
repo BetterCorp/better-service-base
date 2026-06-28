@@ -50,5 +50,10 @@
     "rimraf": "^6.1.2",
     "typescript": "^6.0.3"
   },
-  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-axiom"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-axiom",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BetterCorp/better-service-base",
+    "directory": "plugins/nodejs/observable-axiom"
+  }
 }

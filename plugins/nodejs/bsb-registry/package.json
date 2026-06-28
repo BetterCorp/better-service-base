@@ -58,5 +58,10 @@
     "@bsb/base": "^9.1.11"
   },
   "bsb": {},
-  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/registry"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/registry",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BetterCorp/better-service-base",
+    "directory": "plugins/nodejs/bsb-registry"
+  }
 }
