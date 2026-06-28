@@ -348,6 +348,8 @@ export class VaultService {
       config?: Record<string, unknown>;
     },
   ): Promise<void> {
+    const binding = await this.store.resolveProfileBinding(input.profileId);
+    if (!binding) throw new Error('Deployment profile not found');
     const draft = await this.getProfileDraft(input.profileId) ?? { observable: {}, events: {}, services: {} };
     const section = draft[input.section] ?? {};
     const config = await this.validatePluginConfig(input);
@@ -365,6 +367,41 @@ export class VaultService {
       name: input.name,
       plugin: input.plugin,
     });
+    await this.syncProfilePluginPlaceholders(userId, binding.group.id, input);
+  }
+
+  private async syncProfilePluginPlaceholders(
+    userId: string,
+    groupId: string,
+    input: {
+      profileId: string;
+      section: 'services' | 'events' | 'observable';
+      name: string;
+      plugin: string;
+      packageName?: string | null;
+      version?: string | null;
+    },
+  ): Promise<void> {
+    const profiles = await this.store.listProfiles(groupId);
+    for (const profile of profiles) {
+      if (profile.id === input.profileId) continue;
+      const draft = await this.getProfileDraft(profile.id) ?? { observable: {}, events: {}, services: {} };
+      const section = draft[input.section] ?? {};
+      if (section[input.name]) continue;
+      section[input.name] = {
+        plugin: input.plugin,
+        package: input.packageName ?? undefined,
+        version: input.version ?? undefined,
+        enabled: false,
+      };
+      draft[input.section] = section;
+      await this.saveProfileDraft(userId, profile.id, draft);
+      await this.audit(userId, 'config.plugin.sync', profile.id, {
+        section: input.section,
+        name: input.name,
+        plugin: input.plugin,
+      });
+    }
   }
 
   async removeProfilePlugin(

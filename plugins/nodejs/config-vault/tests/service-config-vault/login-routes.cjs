@@ -104,6 +104,26 @@ module.exports = async ({ pluginRoot }) => {
                   tags: { kind: 'array', items: { kind: 'string' }, metadata: { description: 'Tags' } },
                   headers: { kind: 'record', valueSchema: { kind: 'string' }, metadata: { description: 'Headers' } },
                   bind: { kind: 'tuple', items: [{ kind: 'string' }, { kind: 'int32' }], metadata: { description: 'Bind Address' } },
+                  mode: { kind: 'enum', values: ['file', 'postgres'], default: 'file', metadata: { description: 'Storage mode' } },
+                  storage: {
+                    kind: 'union',
+                    variants: [{
+                      kind: 'object',
+                      properties: {
+                        backend: { kind: 'literal', value: 'file' },
+                        configPath: { kind: 'string', minLength: 1 },
+                      },
+                      required: ['backend', 'configPath'],
+                    }, {
+                      kind: 'object',
+                      properties: {
+                        backend: { kind: 'literal', value: 'postgres' },
+                        connectionString: { kind: 'string', minLength: 1 },
+                      },
+                      required: ['backend', 'connectionString'],
+                    }],
+                    default: { backend: 'file', configPath: './config.yaml' },
+                  },
                 },
               },
             },
@@ -231,6 +251,11 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(deploymentHtml, /data-array-path="tags"/);
     assert.match(deploymentHtml, /data-record-path="headers"/);
     assert.match(deploymentHtml, /data-tuple-path="bind"/);
+    assert.match(deploymentHtml, /data-config-path="mode"/);
+    assert.match(deploymentHtml, /data-union-path="storage"/);
+    assert.match(deploymentHtml, /backend: file/);
+    assert.match(deploymentHtml, /backend: postgres/);
+    assert.match(deploymentHtml, /class="plugin-card"/);
     assert.match(deploymentHtml, /\/api\/runtime-keys\/rotate/);
 
     const runtimeKeys = await fetch(`http://127.0.0.1:${port}/runtime-keys?keyId=vk_test&secret=vs_test`, {

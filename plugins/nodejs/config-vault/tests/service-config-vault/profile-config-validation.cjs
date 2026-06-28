@@ -7,7 +7,7 @@ module.exports = async ({ pluginRoot }) => {
   const { decryptJson } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/crypto.js')).href);
 
   const key = Buffer.alloc(32);
-  let draftRecord = null;
+  const draftRecords = new Map();
   const audits = [];
   const store = {
     async countAdmins() { return 1; },
@@ -31,15 +31,21 @@ module.exports = async ({ pluginRoot }) => {
         },
       }];
     },
-    async resolveProfileBinding() {
+    async resolveProfileBinding(profileId) {
       return {
         application: { id: 'app-1', name: 'App' },
         group: { id: 'group-1', name: 'api' },
-        profile: { id: 'profile-1', name: 'default' },
+        profile: { id: profileId, name: profileId === 'profile-2' ? 'prod' : 'default' },
       };
     },
-    async getDraft() { return draftRecord; },
-    async upsertDraft(record) { draftRecord = record; },
+    async listProfiles() {
+      return [
+        { id: 'profile-1', groupId: 'group-1', name: 'default' },
+        { id: 'profile-2', groupId: 'group-1', name: 'prod' },
+      ];
+    },
+    async getDraft(profileId) { return draftRecords.get(profileId) ?? null; },
+    async upsertDraft(record) { draftRecords.set(record.profileId, record); },
     async audit(record) { audits.push(record); },
   };
 
@@ -61,14 +67,22 @@ module.exports = async ({ pluginRoot }) => {
     config: { port: '3210', enabled: 'false', mode: 'prod', ignored: 'strip-me' },
   });
 
-  const saved = decryptJson(draftRecord, key);
+  const saved = decryptJson(draftRecords.get('profile-1'), key);
   assert.deepEqual(saved.default.services.api.config, {
     host: '0.0.0.0',
     port: 3210,
     enabled: false,
     mode: 'prod',
   });
+  const synced = decryptJson(draftRecords.get('profile-2'), key);
+  assert.deepEqual(synced.prod.services.api, {
+    plugin: 'service-api',
+    package: '@bsb/service-api',
+    version: '1.0.0',
+    enabled: false,
+  });
   assert.equal(audits.some((audit) => audit.action === 'config.plugin.upsert'), true);
+  assert.equal(audits.some((audit) => audit.action === 'config.plugin.sync'), true);
 
   await assert.rejects(() => vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',

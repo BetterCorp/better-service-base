@@ -17,7 +17,7 @@
       "pluginPath": "src/plugins/config-vault/",
       "image": "../../../docs/public/assets/images/bsb-logo.png",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     },
     {
@@ -39,7 +39,7 @@
       "pluginPath": "src/plugins/service-config-vault/",
       "image": "../../../docs/public/assets/images/bsb-logo.png",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     }
   ]

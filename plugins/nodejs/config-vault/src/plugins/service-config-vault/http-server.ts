@@ -466,6 +466,8 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .schema-help{display:block;color:var(--muted);font-size:12px;font-weight:500;margin:-6px 0 10px}.schema-meta{color:var(--muted);font-size:12px;font-weight:500}
     .schema-optional{border-left:3px solid #d0d5dd;margin:12px 0;padding-left:10px}.schema-toggle{display:flex;gap:8px;align-items:center;margin:0 0 8px}.schema-toggle input{width:auto;margin:0}
     .schema-repeat{border:1px solid #edf0f5;border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.repeat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:start}.schema-repeat[data-array-path] .repeat-row{grid-template-columns:minmax(0,1fr) auto}
+    .schema-union{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.schema-union-panel[hidden]{display:none}
+    details.plugin-card{border:1px solid var(--line);border-radius:6px;margin:10px 0;background:#fff}details.plugin-card>summary{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer;padding:12px 14px;font-weight:750;color:#344054}.plugin-card-body{border-top:1px solid var(--line);padding:14px}.chip{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:650;color:#344054;background:#f9fafb}
     @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
 </head>
@@ -897,7 +899,10 @@ function configSectionEditor(
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No plugins configured.</p>' : entries.map(([name, entry]) => {
       const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
-      return `<div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+      const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
+      return `<details class="plugin-card">
+        <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')} / ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
+        <div class="plugin-card-body">
         <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
@@ -908,7 +913,7 @@ function configSectionEditor(
           <input type="hidden" name="config">
           <div class="form-grid">
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
-            ${input('pluginDisplay', 'Plugin', false, entry.plugin).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
+            ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
           </div>
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
@@ -920,7 +925,8 @@ function configSectionEditor(
           <input type="hidden" name="name" value="${escapeHtml(name)}">
           <button class="secondary">Remove</button><p class="status"></p>
         </form>
-      </div>`;
+        </div>
+      </details>`;
     }).join('')}
   </section>`;
 }
@@ -975,9 +981,11 @@ function renderSchemaControl(key: string, rawNode: Record<string, unknown> | nul
   if (node.kind === 'object' && objectField(node.properties)) {
     control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required)}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node))}</fieldset>`;
   } else if (node.kind === 'bool' || node.kind === 'boolean') {
-    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="bool"><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
+    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="bool" ${required ? 'required' : ''}><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
   } else if (node.kind === 'enum' && Array.isArray(node.values)) {
-    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="string">${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select>${help}</label>`;
+    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="string" ${required ? 'required' : ''}>${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select>${help}</label>`;
+  } else if (node.kind === 'literal') {
+    control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(node.value ?? ''))}" readonly ${required ? 'required' : ''}>${help}</label>`;
   } else if (node.kind === 'array') {
     const itemNode = unwrapSchema(objectField(node.items) ?? objectField(node.item));
     const kind = inputKind(itemNode);
@@ -999,13 +1007,76 @@ function renderSchemaControl(key: string, rawNode: Record<string, unknown> | nul
       return `<label>Item ${index + 1}<input data-tuple-index="${index}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(values[index] ?? child?.default ?? ''))}"></label>`;
     }).join('')}</fieldset>`;
   } else if (node.kind === 'union' && Array.isArray(node.variants)) {
-    const variant = unwrapSchema(objectField(node.variants[0]));
-    control = renderSchemaControl(key, variant, path, value, required);
+    control = renderUnionControl(key, rawNode, node, path, value, required, help);
   } else {
     const kind = inputKind(node);
-    control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
+    control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
   }
   return rawNode?.kind === 'optional' ? optionalShell(key, path, control, rawValue !== undefined) : control;
+}
+
+function renderUnionControl(
+  key: string,
+  rawNode: Record<string, unknown> | null,
+  node: Record<string, unknown>,
+  path: string,
+  value: unknown,
+  required: boolean,
+  help: string,
+): string {
+  const variants = (node.variants as unknown[])
+    .map((variant) => unwrapSchema(objectField(variant)))
+    .filter((variant): variant is Record<string, unknown> => variant !== null);
+  if (variants.length === 0) return '';
+  const selectedIndex = selectUnionVariant(variants, value);
+  const options = variants.map((variant, index) => {
+    const label = unionVariantLabel(variant, index);
+    return `<option value="${index}" ${index === selectedIndex ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+  const panels = variants.map((variant, index) => {
+    const variantValue = index === selectedIndex && isRecord(value) ? value : {};
+    const fields = variant.kind === 'object' && objectField(variant.properties)
+      ? renderProperties(variant.properties as Record<string, unknown>, variantValue, path, requiredSet(variant))
+      : renderSchemaControl(key, variant, path, variantValue, required);
+    return `<div class="schema-union-panel" data-union-variant="${index}" ${index === selectedIndex ? '' : 'hidden'}>${fields}</div>`;
+  }).join('');
+  return `<div class="schema-union" data-union-path="${escapeHtml(path)}">
+    <label>${fieldLabel(key, rawNode, node, required)}<select data-union-picker ${required ? 'required' : ''}>${options}</select>${help}</label>
+    ${panels}
+  </div>`;
+}
+
+function selectUnionVariant(variants: Record<string, unknown>[], value: unknown): number {
+  if (!isRecord(value)) return 0;
+  const matched = variants.findIndex((variant) => {
+    if (variant.kind !== 'object' || !objectField(variant.properties)) return false;
+    return Object.values(variant.properties as Record<string, unknown>).some((raw) => {
+      const property = unwrapSchema(objectField(raw));
+      return property?.kind === 'literal' && Object.values(value).includes(property.value);
+    });
+  });
+  return matched >= 0 ? matched : 0;
+}
+
+function unionVariantLabel(variant: Record<string, unknown>, index: number): string {
+  if (variant.kind === 'object' && objectField(variant.properties)) {
+    for (const [name, raw] of Object.entries(variant.properties as Record<string, unknown>)) {
+      const property = unwrapSchema(objectField(raw));
+      if (property?.kind === 'literal') return `${name}: ${String(property.value)}`;
+    }
+  }
+  return `Option ${index + 1}`;
+}
+
+function inputAttrs(node: Record<string, unknown>, required: boolean, kind: 'number' | 'bool' | 'string'): string {
+  const attrs = [];
+  if (kind === 'number') attrs.push('type="number"');
+  if (required) attrs.push('required');
+  if (typeof node.minLength === 'number') attrs.push(`minlength="${node.minLength}"`);
+  if (typeof node.maxLength === 'number') attrs.push(`maxlength="${node.maxLength}"`);
+  if (typeof node.min === 'number') attrs.push(`min="${node.min}"`);
+  if (typeof node.max === 'number') attrs.push(`max="${node.max}"`);
+  return attrs.join(' ');
 }
 
 function fieldLabel(key: string, rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean): string {
@@ -1170,14 +1241,14 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   function readConfigForm(form) {
     const config = {};
     form.querySelectorAll('[data-array-path]').forEach((group) => {
-      if (!optionalEnabled(group)) return;
+      if (!fieldEnabled(group)) return;
       const values = Array.from(group.querySelectorAll('[data-array-item]'))
         .map((field) => parseFieldValue(field))
         .filter((value) => value !== undefined);
       if (values.length > 0) setPath(config, group.dataset.arrayPath, values);
     });
     form.querySelectorAll('[data-record-path]').forEach((group) => {
-      if (!optionalEnabled(group)) return;
+      if (!fieldEnabled(group)) return;
       const record = {};
       group.querySelectorAll('.repeat-row').forEach((row) => {
         const key = row.querySelector('[data-record-key]')?.value?.trim();
@@ -1188,7 +1259,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (Object.keys(record).length > 0) setPath(config, group.dataset.recordPath, record);
     });
     form.querySelectorAll('[data-tuple-path]').forEach((group) => {
-      if (!optionalEnabled(group)) return;
+      if (!fieldEnabled(group)) return;
       const values = [];
       group.querySelectorAll('[data-tuple-index]').forEach((field) => {
         const value = parseFieldValue(field);
@@ -1197,7 +1268,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (values.length > 0) setPath(config, group.dataset.tuplePath, values);
     });
     form.querySelectorAll('[data-config-path]').forEach((field) => {
-      if (!optionalEnabled(field)) return;
+      if (!fieldEnabled(field)) return;
       if (field.closest('[data-array-path],[data-record-path],[data-tuple-path]')) return;
       const value = parseFieldValue(field);
       if (value !== undefined) setPath(config, field.dataset.configPath, value);
@@ -1209,7 +1280,13 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     if (!group) return true;
     return Boolean(group.querySelector('[data-optional-toggle]')?.checked);
   }
+  function fieldEnabled(element) {
+    if (element.closest('[data-union-variant][hidden]')) return false;
+    if (element.disabled) return false;
+    return optionalEnabled(element);
+  }
   function parseFieldValue(field) {
+    if (field.disabled) return undefined;
     const raw = field.value;
     if (raw === '') return undefined;
     if (field.dataset.kind === 'number') return Number(raw);
@@ -1267,6 +1344,15 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   function primitiveInput(attrs, kind, value) {
     return '<input ' + attrs + ' data-kind="' + kind + '"' + (kind === 'number' ? ' type="number"' : '') + ' value="' + escapeClient(value || '') + '">';
   }
+  function inputAttrsClient(node, required, kind) {
+    const attrs = [];
+    if (required) attrs.push('required');
+    if (typeof node.minLength === 'number') attrs.push('minlength="' + node.minLength + '"');
+    if (typeof node.maxLength === 'number') attrs.push('maxlength="' + node.maxLength + '"');
+    if (typeof node.min === 'number') attrs.push('min="' + node.min + '"');
+    if (typeof node.max === 'number') attrs.push('max="' + node.max + '"');
+    return attrs.join(' ');
+  }
   function repeatRow(kind, key, value) {
     return '<div class="repeat-row">'
       + (key === null ? '' : '<input data-record-key placeholder="Key" value="' + escapeClient(key || '') + '">')
@@ -1285,9 +1371,11 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (node.kind === 'object' && node.properties) {
         control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties)) + '</fieldset>';
       } else if (node.kind === 'bool' || node.kind === 'boolean') {
-        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"><option value="true">true</option><option value="false">false</option></select>' + help + '</label>';
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"' + (required ? ' required' : '') + '><option value="true"' + (node.default === true ? ' selected' : '') + '>true</option><option value="false"' + (node.default === false ? ' selected' : '') + '>false</option></select>' + help + '</label>';
       } else if (node.kind === 'enum' && Array.isArray(node.values)) {
-        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string">' + node.values.map((item) => '<option value="' + escapeClient(item) + '">' + escapeClient(item) + '</option>').join('') + '</select>' + help + '</label>';
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string"' + (required ? ' required' : '') + '>' + node.values.map((item) => '<option value="' + escapeClient(item) + '"' + (String(node.default) === String(item) ? ' selected' : '') + '>' + escapeClient(item) + '</option>').join('') + '</select>' + help + '</label>';
+      } else if (node.kind === 'literal') {
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<input data-config-path="' + escapeClient(path) + '" data-kind="string" value="' + escapeClient(node.value || '') + '" readonly' + (required ? ' required' : '') + '>' + help + '</label>';
       } else if (node.kind === 'array') {
         const kind = inputKind(node.items || node.item);
         control = '<div class="schema-repeat" data-array-path="' + escapeClient(path) + '" data-item-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, null, '') + '</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>';
@@ -1298,13 +1386,37 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
         const items = Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : [];
         control = '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
       } else if (node.kind === 'union' && Array.isArray(node.variants) && node.variants[0]) {
-        control = renderFields({ [key]: node.variants[0] }, prefix, requiredKeys);
+        control = renderUnionClient(key, rawNode, node, path, required, help);
       } else {
         const kind = inputKind(node);
-        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + primitiveInput('data-config-path="' + escapeClient(path) + '"', kind, node.default || '') + help + '</label>';
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
       }
       return rawNode && rawNode.kind === 'optional' ? optionalShellClient(key, path, control) : control;
     }).join('');
+  }
+  function unionVariantLabelClient(variant, index) {
+    variant = unwrapNode(variant);
+    if (variant && variant.kind === 'object' && variant.properties) {
+      for (const [name, raw] of Object.entries(variant.properties)) {
+        const property = unwrapNode(raw);
+        if (property && property.kind === 'literal') return name + ': ' + property.value;
+      }
+    }
+    return 'Option ' + (index + 1);
+  }
+  function renderUnionClient(key, rawNode, node, path, required, help) {
+    const variants = (node.variants || []).map(unwrapNode).filter(Boolean);
+    const options = variants.map((variant, index) => '<option value="' + index + '">' + escapeClient(unionVariantLabelClient(variant, index)) + '</option>').join('');
+    const panels = variants.map((variant, index) => {
+      const fields = variant.kind === 'object' && variant.properties
+        ? renderFields(variant.properties, path, requiredKeysClient(variant, variant.properties))
+        : renderFields({ [key]: variant }, '', [key]);
+      return '<div class="schema-union-panel" data-union-variant="' + index + '"' + (index === 0 ? '' : ' hidden') + '>' + fields + '</div>';
+    }).join('');
+    return '<div class="schema-union" data-union-path="' + escapeClient(path) + '"><label>'
+      + fieldLabelClient(key, rawNode, node, required)
+      + '<select data-union-picker' + (required ? ' required' : '') + '>' + options + '</select>'
+      + help + '</label>' + panels + '</div>';
   }
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-add-array-item],[data-add-record-row],[data-remove-row]');
@@ -1329,12 +1441,13 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       form.elements.version.value = item.version || '';
       if (form.elements.section && item.kind) form.elements.section.value = item.kind === 'service' ? 'services' : item.kind;
       if (form.elements.typeDisplay && item.kindLabel) form.elements.typeDisplay.value = item.kindLabel;
-      if (form.elements.name && !form.elements.name.value) form.elements.name.value = item.plugin || '';
+      if (form.elements.name) form.elements.name.value = item.plugin || '';
       const root = schemaRoot(item.schema);
       const fields = form.querySelector('[data-config-fields]');
       if (fields) {
         fields.innerHTML = root ? renderFields(root.properties, '', requiredKeysClient(root, root.properties)) : '<p class="muted">No config schema available for this plugin.</p>';
         fields.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
+        fields.querySelectorAll('[data-union-path]').forEach(syncUnionGroup);
       }
     };
     select.addEventListener('change', sync);
@@ -1349,8 +1462,22 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   document.addEventListener('change', (event) => {
     const toggle = event.target.closest('[data-optional-toggle]');
     if (toggle) syncOptionalGroup(toggle.closest('[data-optional-field]'));
+    const unionPicker = event.target.closest('[data-union-picker]');
+    if (unionPicker) syncUnionGroup(unionPicker.closest('[data-union-path]'));
   });
+  function syncUnionGroup(group) {
+    if (!group) return;
+    const selected = group.querySelector('[data-union-picker]')?.value || '0';
+    group.querySelectorAll('[data-union-variant]').forEach((panel) => {
+      const active = panel.dataset.unionVariant === selected;
+      panel.hidden = !active;
+      panel.querySelectorAll('input,select,textarea,button').forEach((field) => {
+        field.disabled = !active;
+      });
+    });
+  }
   document.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
+  document.querySelectorAll('[data-union-path]').forEach(syncUnionGroup);
   document.querySelectorAll('form[data-config-form]').forEach((form) => {
     form.addEventListener('submit', () => {
       if (form.elements.config) form.elements.config.value = JSON.stringify(readConfigForm(form));
