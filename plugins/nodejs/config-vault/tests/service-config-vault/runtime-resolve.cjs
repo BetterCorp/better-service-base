@@ -10,7 +10,14 @@ module.exports = async ({ pluginRoot }) => {
   const encrypted = crypto.encryptJson({
     default: {
       services: {
-        api: { plugin: 'service-api', enabled: true },
+        api: { plugin: 'service-api', enabled: true, config: { serviceName: 'api' } },
+      },
+    },
+  }, key);
+  const sharedEncrypted = crypto.encryptJson({
+    default: {
+      services: {
+        api: { plugin: 'service-api', enabled: true, config: { url: 'https://axiom.example', serviceName: 'shared' } },
       },
     },
   }, key);
@@ -24,7 +31,7 @@ module.exports = async ({ pluginRoot }) => {
           secretHash: await crypto.hashSecret(secret),
           configPluginId: 'config-vault',
         },
-        application: { name: 'App' },
+        application: { id: 'app-1', name: 'App' },
         group: { name: 'api' },
         profile: { id: 'profile-1', name: 'default', activeVersionId: 'version-1' },
       };
@@ -36,6 +43,22 @@ module.exports = async ({ pluginRoot }) => {
         profileId: 'profile-1',
         version: 3,
         ...encrypted,
+        publishedAt: new Date().toISOString(),
+        publishedBy: 'admin',
+      };
+    },
+    async getApplicationProfile(applicationId, profileName) {
+      assert.equal(applicationId, 'app-1');
+      assert.equal(profileName, 'default');
+      return { id: 'app-profile-1', applicationId, name: profileName, activeVersionId: 'app-version-1' };
+    },
+    async getApplicationVersion(id) {
+      assert.equal(id, 'app-version-1');
+      return {
+        id,
+        applicationProfileId: 'app-profile-1',
+        version: 1,
+        ...sharedEncrypted,
         publishedAt: new Date().toISOString(),
         publishedBy: 'admin',
       };
@@ -56,4 +79,6 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(resolved.profile, 'default');
   assert.equal(resolved.version, 3);
   assert.equal(resolved.config.default.services.api.plugin, 'service-api');
+  assert.equal(resolved.config.default.services.api.config.url, 'https://axiom.example');
+  assert.equal(resolved.config.default.services.api.config.serviceName, 'api');
 };

@@ -66,6 +66,14 @@ export interface ProfileRecord {
   createdAt: string;
 }
 
+export interface ApplicationProfileRecord {
+  id: string;
+  applicationId: string;
+  name: string;
+  activeVersionId: string | null;
+  createdAt: string;
+}
+
 export interface PluginCatalogRecord {
   id: string;
   org: string;
@@ -90,9 +98,31 @@ export interface ConfigDraftRecord {
   updatedAt: string;
 }
 
+export interface ApplicationConfigDraftRecord {
+  id: string;
+  applicationProfileId: string;
+  encryptedPayload: string;
+  iv: string;
+  authTag: string;
+  keyVersion: string;
+  updatedAt: string;
+}
+
 export interface ConfigVersionRecord {
   id: string;
   profileId: string;
+  version: number;
+  encryptedPayload: string;
+  iv: string;
+  authTag: string;
+  keyVersion: string;
+  publishedAt: string;
+  publishedBy: string;
+}
+
+export interface ApplicationConfigVersionRecord {
+  id: string;
+  applicationProfileId: string;
   version: number;
   encryptedPayload: string;
   iv: string;

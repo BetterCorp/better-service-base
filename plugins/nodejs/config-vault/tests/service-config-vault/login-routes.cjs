@@ -2,16 +2,45 @@ const assert = require('node:assert');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const net = require('node:net');
+const http = require('node:http');
 
 module.exports = async ({ pluginRoot }) => {
   const { VaultHttpServer } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/http-server.js')).href);
   const port = await freePort();
+  const registryPort = await freePort();
+  const registryServer = http.createServer((req, res) => {
+    if (!req.url.startsWith('/plugins')) {
+      res.writeHead(404).end();
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      plugins: [{
+        org: '@bsb',
+        name: 'service-api',
+        pluginId: 'service-api',
+        packageName: '@bsb/service-api',
+        version: '1.0.0',
+        kind: 'service',
+        configSchema: { root: { kind: 'object', properties: { host: { kind: 'string' } } } },
+      }, {
+        org: '@bsb',
+        name: 'service-worker',
+        pluginId: 'service-worker',
+        packageName: '@bsb/service-worker',
+        version: '1.0.0',
+        kind: 'service',
+        configSchema: { root: { kind: 'object', properties: {} } },
+      }],
+    }));
+  });
+  await new Promise((resolve) => registryServer.listen(registryPort, '127.0.0.1', resolve));
   const calls = [];
   const server = new VaultHttpServer({
     host: '127.0.0.1',
     port,
     publicUrl: `http://127.0.0.1:${port}`,
-    registryUrl: 'http://127.0.0.1:1',
+    registryUrl: `http://127.0.0.1:${registryPort}`,
     production: false,
     obs: { log: { info() {}, debug() {}, warn() {}, error() {} } },
     vault: {
@@ -31,6 +60,15 @@ module.exports = async ({ pluginRoot }) => {
           groups: [{ id: 'group-1', applicationId: 'app-1', name: 'api' }],
           profiles: [{ id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null }],
           plugins: [{
+            id: 'service-plugin',
+            org: '@bsb',
+            name: 'service-api',
+            pluginId: 'service-api',
+            packageName: '@bsb/service-api',
+            version: '1.0.0',
+            kind: 'service',
+            source: 'manual',
+          }, {
             id: 'root-plugin',
             org: '_',
             name: 'syslog-client',
@@ -77,13 +115,109 @@ module.exports = async ({ pluginRoot }) => {
       async deleteProfile(userId, id) {
         calls.push(['deleteProfile', userId, id]);
       },
+      async createPlugin(userId, input) {
+        calls.push(['createPlugin', userId, input.pluginId, input.version]);
+        return { id: 'imported-plugin', createdAt: '2026-01-01T00:00:00.000Z', ...input };
+      },
       async deploymentProfile(profileId) {
         assert.equal(profileId, 'profile-1');
+        const pluginCatalog = [{
+          id: 'plugin-1',
+          org: '@bsb',
+          name: 'service-api',
+          pluginId: 'service-api',
+          packageName: '@bsb/service-api',
+          version: '1.0.0',
+          kind: 'service',
+          source: 'manual',
+          configSchema: {
+            root: {
+              kind: 'object',
+              properties: {
+                host: { kind: 'string', metadata: { description: 'HTTP host' } },
+                port: { kind: 'int32', default: 3200, metadata: { description: 'HTTP port' } },
+                enabled: { kind: 'bool', metadata: { description: 'Feature enabled' } },
+                token: { kind: 'optional', inner: { kind: 'string' }, metadata: { description: 'Optional token' } },
+                tags: { kind: 'array', items: { kind: 'string' }, metadata: { description: 'Tags' } },
+                headers: { kind: 'record', valueSchema: { kind: 'string' }, metadata: { description: 'Headers' } },
+                bind: { kind: 'tuple', items: [{ kind: 'string' }, { kind: 'int32' }], metadata: { description: 'Bind Address' } },
+                mode: { kind: 'enum', values: ['file', 'postgres'], default: 'file', metadata: { description: 'Storage mode' } },
+                storage: {
+                  kind: 'union',
+                  variants: [{
+                    kind: 'object',
+                    properties: {
+                      backend: { kind: 'literal', value: 'file' },
+                      configPath: { kind: 'string', minLength: 1 },
+                    },
+                    required: ['backend', 'configPath'],
+                  }, {
+                    kind: 'object',
+                    properties: {
+                      backend: { kind: 'literal', value: 'postgres' },
+                      connectionString: { kind: 'string', minLength: 1 },
+                    },
+                    required: ['backend', 'connectionString'],
+                  }],
+                  default: { backend: 'file', configPath: './config.yaml' },
+                },
+              },
+            },
+          },
+          eventSchema: null,
+        }, {
+          id: 'plugin-root',
+          org: '_',
+          name: 'syslog-client',
+          pluginId: 'syslog-client',
+          packageName: '@bsb/syslog-client',
+          version: '1.0.0',
+          kind: 'service',
+          source: 'manual',
+          configSchema: null,
+          eventSchema: null,
+        }, {
+          id: 'plugin-config',
+          org: '@bsb',
+          name: 'config-vault',
+          pluginId: 'config-vault',
+          packageName: '@bsb/config-vault',
+          version: '1.0.0',
+          kind: 'config',
+          source: 'manual',
+          configSchema: null,
+          eventSchema: null,
+        }];
         return {
           application: { id: 'app-1', name: 'App', description: 'Main app' },
           group: { id: 'group-1', applicationId: 'app-1', name: 'api' },
           profile: { id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null },
           profiles: [{ id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null }],
+          allProfiles: [
+            { id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null },
+            { id: 'profile-2', groupId: 'group-2', name: 'staging', activeVersionId: null },
+          ],
+          groups: [
+            { id: 'group-1', applicationId: 'app-1', name: 'api' },
+            { id: 'group-2', applicationId: 'app-1', name: 'worker' },
+          ],
+          applications: [{ id: 'app-1', name: 'App', description: 'Main app' }],
+          applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
+          plugins: pluginCatalog,
+          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true } } },
+          inheritedDraft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
+          configState: { state: 'draft-only', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: null },
+          inheritedConfigState: { state: 'published', draftUpdatedAt: '2026-01-02T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
+          runtimeKeys: [{ id: 'vk_old', name: 'api-default', profileId: 'profile-1', groupId: 'group-1', applicationId: 'app-1', containerName: null, revokedAt: null }],
+        };
+      },
+      async applicationProfile(applicationId, profileName) {
+        assert.equal(applicationId, 'app-1');
+        assert.equal(profileName, 'default');
+        return {
+          application: { id: 'app-1', name: 'App', description: 'Main app' },
+          applicationProfile: { id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null },
+          applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
           plugins: [{
             id: 'plugin-1',
             org: '@bsb',
@@ -93,66 +227,11 @@ module.exports = async ({ pluginRoot }) => {
             version: '1.0.0',
             kind: 'service',
             source: 'manual',
-            configSchema: {
-              root: {
-                kind: 'object',
-                properties: {
-                  host: { kind: 'string', metadata: { description: 'HTTP host' } },
-                  port: { kind: 'int32', default: 3200, metadata: { description: 'HTTP port' } },
-                  enabled: { kind: 'bool', metadata: { description: 'Feature enabled' } },
-                  token: { kind: 'optional', inner: { kind: 'string' }, metadata: { description: 'Optional token' } },
-                  tags: { kind: 'array', items: { kind: 'string' }, metadata: { description: 'Tags' } },
-                  headers: { kind: 'record', valueSchema: { kind: 'string' }, metadata: { description: 'Headers' } },
-                  bind: { kind: 'tuple', items: [{ kind: 'string' }, { kind: 'int32' }], metadata: { description: 'Bind Address' } },
-                  mode: { kind: 'enum', values: ['file', 'postgres'], default: 'file', metadata: { description: 'Storage mode' } },
-                  storage: {
-                    kind: 'union',
-                    variants: [{
-                      kind: 'object',
-                      properties: {
-                        backend: { kind: 'literal', value: 'file' },
-                        configPath: { kind: 'string', minLength: 1 },
-                      },
-                      required: ['backend', 'configPath'],
-                    }, {
-                      kind: 'object',
-                      properties: {
-                        backend: { kind: 'literal', value: 'postgres' },
-                        connectionString: { kind: 'string', minLength: 1 },
-                      },
-                      required: ['backend', 'connectionString'],
-                    }],
-                    default: { backend: 'file', configPath: './config.yaml' },
-                  },
-                },
-              },
-            },
-            eventSchema: null,
-          }, {
-            id: 'plugin-root',
-            org: '_',
-            name: 'syslog-client',
-            pluginId: 'syslog-client',
-            packageName: '@bsb/syslog-client',
-            version: '1.0.0',
-            kind: 'service',
-            source: 'manual',
-            configSchema: null,
-            eventSchema: null,
-          }, {
-            id: 'plugin-config',
-            org: '@bsb',
-            name: 'config-vault',
-            pluginId: 'config-vault',
-            packageName: '@bsb/config-vault',
-            version: '1.0.0',
-            kind: 'config',
-            source: 'manual',
-            configSchema: null,
+            configSchema: { root: { kind: 'object', properties: { host: { kind: 'string' } } } },
             eventSchema: null,
           }],
-          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true } } },
-          runtimeKeys: [{ id: 'vk_old', name: 'api-default', profileId: 'profile-1', groupId: 'group-1', applicationId: 'app-1', containerName: null, revokedAt: null }],
+          draft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
+          configState: { state: 'draft-pending', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
         };
       },
       async saveProfileDraft(userId, profileId, config) {
@@ -167,6 +246,19 @@ module.exports = async ({ pluginRoot }) => {
       },
       async removeProfilePlugin(userId, input) {
         calls.push(['removeProfilePlugin', userId, input.profileId, input.section, input.name]);
+      },
+      async copyProfilePlugin(userId, input) {
+        calls.push(['copyProfilePlugin', userId, input.sourceProfileId, input.targetProfileId, input.section, input.name, input.overwrite]);
+      },
+      async upsertApplicationProfilePlugin(userId, input) {
+        calls.push(['upsertApplicationProfilePlugin', userId, input.applicationProfileId, input.section, input.name, input.plugin, input.config]);
+      },
+      async removeApplicationProfilePlugin(userId, input) {
+        calls.push(['removeApplicationProfilePlugin', userId, input.applicationProfileId, input.section, input.name]);
+      },
+      async publishApplicationProfileDraft(userId, applicationProfileId) {
+        calls.push(['publishApplicationProfileDraft', userId, applicationProfileId]);
+        return { versionId: 'app-version-1', version: 1 };
       },
       async rotateProfileRuntimeKey(userId, input) {
         calls.push(['rotateProfileRuntimeKey', userId, input.keyId]);
@@ -214,6 +306,7 @@ module.exports = async ({ pluginRoot }) => {
     const applicationsHtml = await applications.text();
     assert.match(applicationsHtml, /\/api\/applications\/update/);
     assert.match(applicationsHtml, /\/api\/applications\/delete/);
+    assert.match(applicationsHtml, /Shared Config/);
 
     const deployments = await fetch(`http://127.0.0.1:${port}/deployments`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
@@ -232,6 +325,11 @@ module.exports = async ({ pluginRoot }) => {
     const deploymentHtml = await deployment.text();
     assert.equal(deployment.status, 200);
     assert.match(deploymentHtml, /Profile Config/);
+    assert.match(deploymentHtml, /Draft only/);
+    assert.match(deploymentHtml, /Inherited Config/);
+    assert.match(deploymentHtml, /Shared App Config/);
+    assert.match(deploymentHtml, /Live/);
+    assert.match(deploymentHtml, /\/api\/profile-plugins\/copy/);
     assert.doesNotMatch(deploymentHtml, /Config JSON/);
     assert.doesNotMatch(deploymentHtml, /\{"default":/);
     assert.match(deploymentHtml, /Add Plugin/);
@@ -258,6 +356,16 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(deploymentHtml, /class="plugin-card"/);
     assert.match(deploymentHtml, /\/api\/runtime-keys\/rotate/);
 
+    const appConfig = await fetch(`http://127.0.0.1:${port}/application-config?applicationId=app-1&profile=default`, {
+      headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
+    });
+    const appConfigHtml = await appConfig.text();
+    assert.equal(appConfig.status, 200);
+    assert.match(appConfigHtml, /Shared Config/);
+    assert.match(appConfigHtml, /Unpublished changes/);
+    assert.match(appConfigHtml, /\/api\/application-profile-plugins/);
+    assert.match(appConfigHtml, /\/api\/application-profile-publish/);
+
     const runtimeKeys = await fetch(`http://127.0.0.1:${port}/runtime-keys?keyId=vk_test&secret=vs_test`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
     });
@@ -279,11 +387,19 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(pluginsHtml, /config-vault/);
     assert.doesNotMatch(pluginsHtml, /<option value="config">config<\/option>/);
     assert.doesNotMatch(pluginsHtml, /name="source"/);
+    assert.match(pluginsHtml, /Imported/);
+    assert.match(pluginsHtml, /service-worker/);
+    assert.match(pluginsHtml, /Not imported/);
 
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
+    await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
     await postJson(port, '/api/drafts', { profileId: 'profile-1', config: { services: { api: { plugin: 'service-api', enabled: true } } } });
     await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', enabled: true, config: { host: '0.0.0.0', port: 3200 } });
     await postJson(port, '/api/profile-plugins/delete', { profileId: 'profile-1', section: 'services', name: 'api' });
+    await postJson(port, '/api/profile-plugins/copy', { sourceProfileId: 'profile-1', targetProfileId: 'profile-2', section: 'services', name: 'api', overwrite: 'on' });
+    await postJson(port, '/api/application-profile-plugins', { applicationProfileId: 'app-profile-1', section: 'services', name: 'shared', plugin: 'service-api', enabled: true, config: { host: 'shared' } });
+    await postJson(port, '/api/application-profile-plugins/delete', { applicationProfileId: 'app-profile-1', section: 'services', name: 'shared' });
+    await postJson(port, '/api/application-profile-publish', { applicationProfileId: 'app-profile-1' });
     await postJson(port, '/api/runtime-keys', { profileId: 'profile-1', name: 'api-default', containerName: 'api-1' });
     await postJson(port, '/api/runtime-keys/rotate', { keyId: 'vk_old' });
     await postJson(port, '/api/applications/update', { id: 'app-1', name: 'App 2', description: 'Updated' });
@@ -294,9 +410,14 @@ module.exports = async ({ pluginRoot }) => {
     await postJson(port, '/api/profiles/delete', { id: 'profile-1' });
     assert.deepEqual(calls, [
       ['createDeployment', 'user-1', 'app-1', 'worker'],
+      ['createPlugin', 'user-1', 'service-worker', '1.0.0'],
       ['saveProfileDraft', 'user-1', 'profile-1', { services: { api: { plugin: 'service-api', enabled: true } } }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'api', 'service-api', { host: '0.0.0.0', port: 3200 }],
       ['removeProfilePlugin', 'user-1', 'profile-1', 'services', 'api'],
+      ['copyProfilePlugin', 'user-1', 'profile-1', 'profile-2', 'services', 'api', true],
+      ['upsertApplicationProfilePlugin', 'user-1', 'app-profile-1', 'services', 'shared', 'service-api', { host: 'shared' }],
+      ['removeApplicationProfilePlugin', 'user-1', 'app-profile-1', 'services', 'shared'],
+      ['publishApplicationProfileDraft', 'user-1', 'app-profile-1'],
       ['createProfileRuntimeKey', 'user-1', 'profile-1', 'api-default', 'api-1'],
       ['rotateProfileRuntimeKey', 'user-1', 'vk_old'],
       ['updateApplication', 'user-1', 'app-1', 'App 2', 'Updated'],
@@ -308,6 +429,7 @@ module.exports = async ({ pluginRoot }) => {
     ]);
   } finally {
     await server.stop();
+    await new Promise((resolve) => registryServer.close(resolve));
   }
 };
 

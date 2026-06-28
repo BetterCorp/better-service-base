@@ -10,6 +10,7 @@ import { decryptJson, encryptJson, hashSecret, newId, newToken, createTotpSecret
 import { VaultStore } from './store.js';
 import type {
   ApplicationRecord,
+  ApplicationProfileRecord,
   FirstAdminInput,
   FirstAdminResult,
   LoginStartResult,
@@ -30,6 +31,12 @@ export interface VaultServiceOptions {
   setupCode: string;
   publicUrl: string;
 }
+
+type ConfigState = {
+  state: 'empty' | 'draft-only' | 'published' | 'draft-pending';
+  draftUpdatedAt: string | null;
+  publishedAt: string | null;
+};
 
 export class VaultService {
   private readonly store: VaultStore;
@@ -241,6 +248,7 @@ export class VaultService {
       createdAt: new Date().toISOString(),
     };
     await this.store.createApplication(record);
+    await this.ensureApplicationProfile(record.id, 'default');
     await this.audit(userId, 'application.create', record.id, { name });
     return record;
   }
@@ -308,6 +316,19 @@ export class VaultService {
   }
 
   async createPlugin(userId: string, input: Omit<PluginCatalogRecord, 'id' | 'createdAt'>): Promise<PluginCatalogRecord> {
+    const existing = (await this.store.listPlugins()).find((plugin) =>
+      plugin.pluginId === input.pluginId &&
+      plugin.version === input.version &&
+      (input.packageName ? plugin.packageName === input.packageName : true)
+    );
+    if (existing) {
+      await this.audit(userId, 'plugin.import.existing', existing.id, {
+        pluginId: existing.pluginId,
+        version: existing.version,
+        source: existing.source,
+      });
+      return existing;
+    }
     const record: PluginCatalogRecord = {
       ...input,
       id: newId(),
@@ -333,6 +354,107 @@ export class VaultService {
     const binding = await this.store.resolveProfileBinding(profileId);
     if (!binding) throw new Error('Deployment profile not found');
     await this.saveDraft(userId, profileId, { [binding.profile.name]: config });
+  }
+
+  async ensureApplicationProfile(applicationId: string, name: string): Promise<ApplicationProfileRecord> {
+    const existing = await this.store.getApplicationProfile(applicationId, name);
+    if (existing) return existing;
+    const record: ApplicationProfileRecord = {
+      id: newId(),
+      applicationId,
+      name,
+      activeVersionId: null,
+      createdAt: new Date().toISOString(),
+    };
+    await this.store.createApplicationProfile(record);
+    return await this.store.getApplicationProfile(applicationId, name) ?? record;
+  }
+
+  async saveApplicationProfileDraft(userId: string, applicationProfileId: string, config: RuntimeConfigDefinition): Promise<void> {
+    const profile = await this.store.getApplicationProfileById(applicationProfileId);
+    if (!profile) throw new Error('Application profile not found');
+    const encrypted = encryptJson({ [profile.name]: config }, this.masterKey);
+    await this.store.upsertApplicationDraft({
+      id: newId(),
+      applicationProfileId,
+      ...encrypted,
+      updatedAt: new Date().toISOString(),
+    });
+    await this.audit(userId, 'application-config.draft.save', applicationProfileId, {});
+  }
+
+  async getApplicationProfileDraft(applicationProfileId: string): Promise<RuntimeConfigDefinition | null> {
+    const profile = await this.store.getApplicationProfileById(applicationProfileId);
+    if (!profile) throw new Error('Application profile not found');
+    const draft = await this.store.getApplicationDraft(applicationProfileId);
+    if (!draft) return null;
+    const config = decryptJson<VaultRuntimeConfig>(draft, this.masterKey);
+    return config[profile.name] ?? null;
+  }
+
+  async publishApplicationProfileDraft(userId: string, applicationProfileId: string): Promise<{ versionId: string; version: number }> {
+    const draft = await this.store.getApplicationDraft(applicationProfileId);
+    if (!draft) throw new Error('No application profile draft found');
+    const version = await this.store.nextApplicationVersion(applicationProfileId);
+    const versionId = newId();
+    await this.store.createApplicationVersion({
+      id: versionId,
+      applicationProfileId,
+      version,
+      encryptedPayload: draft.encryptedPayload,
+      iv: draft.iv,
+      authTag: draft.authTag,
+      keyVersion: draft.keyVersion,
+      publishedAt: new Date().toISOString(),
+      publishedBy: userId,
+    });
+    await this.audit(userId, 'application-config.publish', applicationProfileId, { version });
+    return { versionId, version };
+  }
+
+  async upsertApplicationProfilePlugin(
+    userId: string,
+    input: {
+      applicationProfileId: string;
+      section: 'services' | 'events' | 'observable';
+      name: string;
+      plugin: string;
+      packageName?: string | null;
+      version?: string | null;
+      enabled: boolean;
+      config?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    const draft = await this.getApplicationProfileDraft(input.applicationProfileId) ?? { observable: {}, events: {}, services: {} };
+    const section = draft[input.section] ?? {};
+    const config = await this.validatePluginConfig(input);
+    section[input.name] = {
+      plugin: input.plugin,
+      package: input.packageName ?? undefined,
+      version: input.version ?? undefined,
+      enabled: input.enabled,
+      config,
+    };
+    draft[input.section] = section;
+    await this.saveApplicationProfileDraft(userId, input.applicationProfileId, draft);
+    await this.audit(userId, 'application-config.plugin.upsert', input.applicationProfileId, {
+      section: input.section,
+      name: input.name,
+      plugin: input.plugin,
+    });
+  }
+
+  async removeApplicationProfilePlugin(
+    userId: string,
+    input: { applicationProfileId: string; section: 'services' | 'events' | 'observable'; name: string },
+  ): Promise<void> {
+    const draft = await this.getApplicationProfileDraft(input.applicationProfileId) ?? { observable: {}, events: {}, services: {} };
+    delete draft[input.section]?.[input.name];
+    await this.saveApplicationProfileDraft(userId, input.applicationProfileId, draft);
+    await this.audit(userId, 'application-config.plugin.remove', input.applicationProfileId, {
+      section: input.section,
+      name: input.name,
+    });
   }
 
   async upsertProfilePlugin(
@@ -446,6 +568,33 @@ export class VaultService {
     return { versionId, version };
   }
 
+  async copyProfilePlugin(
+    userId: string,
+    input: {
+      sourceProfileId: string;
+      targetProfileId: string;
+      section: 'services' | 'events' | 'observable';
+      name: string;
+      overwrite: boolean;
+    },
+  ): Promise<void> {
+    const sourceDraft = await this.getProfileDraft(input.sourceProfileId) ?? { observable: {}, events: {}, services: {} };
+    const source = sourceDraft[input.section]?.[input.name];
+    if (!source) throw new Error('Source plugin config not found');
+    const targetDraft = await this.getProfileDraft(input.targetProfileId) ?? { observable: {}, events: {}, services: {} };
+    const section = targetDraft[input.section] ?? {};
+    if (section[input.name] && !input.overwrite) throw new Error('Target plugin config already exists');
+    section[input.name] = cloneJson(source) as RuntimePluginDefinition;
+    targetDraft[input.section] = section;
+    await this.saveProfileDraft(userId, input.targetProfileId, targetDraft);
+    await this.audit(userId, 'config.plugin.copy', input.targetProfileId, {
+      sourceProfileId: input.sourceProfileId,
+      section: input.section,
+      name: input.name,
+      overwrite: input.overwrite,
+    });
+  }
+
   async createRuntimeKey(
     userId: string,
     input: Pick<RuntimeKeyRecord, 'name' | 'applicationId' | 'groupId' | 'profileId' | 'containerName' | 'configPluginId'>,
@@ -525,6 +674,12 @@ export class VaultService {
       authTag: version.authTag,
       keyVersion: version.keyVersion,
     }, this.masterKey);
+    const shared = await this.getPublishedApplicationConfig(binding.application.id, binding.profile.name);
+    const mergedProfile = mergeRuntimeConfig(
+      shared?.[binding.profile.name] ?? {},
+      config[binding.profile.name] ?? {},
+    );
+    const mergedConfig = { [binding.profile.name]: mergedProfile };
     obs?.log.info('Vault runtime config resolved for {application}/{group}/{profile}', {
       application: binding.application.name,
       group: binding.group.name,
@@ -536,8 +691,21 @@ export class VaultService {
       group: binding.group.name,
       profile: binding.profile.name,
       version: version.version,
-      config,
+      config: mergedConfig,
     };
+  }
+
+  private async getPublishedApplicationConfig(applicationId: string, profileName: string): Promise<VaultRuntimeConfig | null> {
+    const profile = await this.store.getApplicationProfile(applicationId, profileName);
+    if (!profile?.activeVersionId) return null;
+    const version = await this.store.getApplicationVersion(profile.activeVersionId);
+    if (!version) return null;
+    return decryptJson<VaultRuntimeConfig>({
+      encryptedPayload: version.encryptedPayload,
+      iv: version.iv,
+      authTag: version.authTag,
+      keyVersion: version.keyVersion,
+    }, this.masterKey);
   }
 
   async dashboard(): Promise<{
@@ -563,21 +731,69 @@ export class VaultService {
     group: GroupRecord;
     profile: ProfileRecord;
     profiles: ProfileRecord[];
+    allProfiles: ProfileRecord[];
+    groups: GroupRecord[];
+    applications: ApplicationRecord[];
+    applicationProfiles: ApplicationProfileRecord[];
+    inheritedDraft: RuntimeConfigDefinition | null;
+    configState: ConfigState;
+    inheritedConfigState: ConfigState;
     plugins: PluginCatalogRecord[];
     draft: RuntimeConfigDefinition | null;
     runtimeKeys: RuntimeKeyRecord[];
   }> {
     const binding = await this.store.resolveProfileBinding(profileId);
     if (!binding) throw new Error('Deployment profile not found');
+    const applicationProfile = await this.ensureApplicationProfile(binding.application.id, binding.profile.name);
     return {
       application: binding.application,
       group: binding.group,
       profile: binding.profile,
       profiles: await this.store.listProfiles(binding.group.id),
+      allProfiles: await this.store.listAllProfiles(),
+      groups: await this.store.listAllGroups(),
+      applications: await this.store.listApplications(),
+      applicationProfiles: await this.store.listApplicationProfiles(binding.application.id),
       plugins: await this.store.listPlugins(),
       draft: await this.getProfileDraft(profileId),
+      inheritedDraft: await this.getApplicationProfileDraft(applicationProfile.id),
+      configState: await this.profileConfigState(binding.profile),
+      inheritedConfigState: await this.applicationConfigState(applicationProfile),
       runtimeKeys: await this.store.listRuntimeKeys(profileId),
     };
+  }
+
+  async applicationProfile(applicationId: string, profileName: string): Promise<{
+    application: ApplicationRecord;
+    applicationProfile: ApplicationProfileRecord;
+    applicationProfiles: ApplicationProfileRecord[];
+    plugins: PluginCatalogRecord[];
+    draft: RuntimeConfigDefinition | null;
+    configState: ConfigState;
+  }> {
+    const application = await this.store.getApplication(applicationId);
+    if (!application) throw new Error('Application not found');
+    const applicationProfile = await this.ensureApplicationProfile(applicationId, profileName);
+    return {
+      application,
+      applicationProfile,
+      applicationProfiles: await this.store.listApplicationProfiles(applicationId),
+      plugins: await this.store.listPlugins(),
+      draft: await this.getApplicationProfileDraft(applicationProfile.id),
+      configState: await this.applicationConfigState(applicationProfile),
+    };
+  }
+
+  private async profileConfigState(profile: ProfileRecord): Promise<ConfigState> {
+    const draft = await this.store.getDraft(profile.id);
+    const version = profile.activeVersionId ? await this.store.getVersion(profile.activeVersionId) : null;
+    return configState(draft?.updatedAt ?? null, version?.publishedAt ?? null);
+  }
+
+  private async applicationConfigState(profile: ApplicationProfileRecord): Promise<ConfigState> {
+    const draft = await this.store.getApplicationDraft(profile.id);
+    const version = profile.activeVersionId ? await this.store.getApplicationVersion(profile.activeVersionId) : null;
+    return configState(draft?.updatedAt ?? null, version?.publishedAt ?? null);
   }
 
   async userProfile(userId: string): Promise<{ user: { id: string; email: string; createdAt: string }; passkeys: PasskeyRecord[] }> {
@@ -820,4 +1036,55 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function cloneDefault(value: unknown): unknown {
   return isPlainObject(value) || Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : value;
+}
+
+function cloneJson(value: unknown): unknown {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function mergeRuntimeConfig(shared: RuntimeConfigDefinition, local: RuntimeConfigDefinition): RuntimeConfigDefinition {
+  return {
+    observable: mergePluginSection(shared.observable, local.observable),
+    events: mergePluginSection(shared.events, local.events),
+    services: mergePluginSection(shared.services, local.services),
+  };
+}
+
+function mergePluginSection(
+  shared: Record<string, RuntimePluginDefinition> | undefined,
+  local: Record<string, RuntimePluginDefinition> | undefined,
+): Record<string, RuntimePluginDefinition> {
+  const output: Record<string, RuntimePluginDefinition> = {};
+  for (const [name, plugin] of Object.entries(shared ?? {})) {
+    output[name] = cloneJson(plugin) as RuntimePluginDefinition;
+  }
+  for (const [name, plugin] of Object.entries(local ?? {})) {
+    const base = output[name];
+    output[name] = base ? {
+      ...base,
+      ...plugin,
+      config: deepMergeObjects(base.config ?? {}, plugin.config ?? {}),
+    } : cloneJson(plugin) as RuntimePluginDefinition;
+  }
+  return output;
+}
+
+function deepMergeObjects(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+  const output = cloneJson(base) as Record<string, unknown>;
+  for (const [key, value] of Object.entries(override)) {
+    const existing = output[key];
+    output[key] = isPlainObject(existing) && isPlainObject(value)
+      ? deepMergeObjects(existing, value)
+      : cloneJson(value);
+  }
+  return output;
+}
+
+function configState(draftUpdatedAt: string | null, publishedAt: string | null): ConfigState {
+  if (!draftUpdatedAt && !publishedAt) return { state: 'empty', draftUpdatedAt, publishedAt };
+  if (draftUpdatedAt && !publishedAt) return { state: 'draft-only', draftUpdatedAt, publishedAt };
+  if (draftUpdatedAt && publishedAt && Date.parse(draftUpdatedAt) > Date.parse(publishedAt)) {
+    return { state: 'draft-pending', draftUpdatedAt, publishedAt };
+  }
+  return { state: 'published', draftUpdatedAt, publishedAt };
 }

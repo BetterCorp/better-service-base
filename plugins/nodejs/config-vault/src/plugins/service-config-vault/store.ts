@@ -1,6 +1,9 @@
 import { Pool } from 'pg';
 import type {
   ApplicationRecord,
+  ApplicationConfigDraftRecord,
+  ApplicationConfigVersionRecord,
+  ApplicationProfileRecord,
   AuditRecord,
   ConfigDraftRecord,
   ConfigVersionRecord,
@@ -70,6 +73,14 @@ export class VaultStore {
         created_at timestamptz not null,
         unique(group_id, name)
       );
+      create table if not exists vault_application_profiles (
+        id text primary key,
+        application_id text not null references vault_applications(id) on delete cascade,
+        name text not null,
+        active_version_id text,
+        created_at timestamptz not null,
+        unique(application_id, name)
+      );
       create table if not exists vault_plugin_catalog (
         id text primary key,
         org text not null,
@@ -105,6 +116,28 @@ export class VaultStore {
         published_at timestamptz not null,
         published_by text not null,
         unique(profile_id, version)
+      );
+      create table if not exists vault_application_config_drafts (
+        id text primary key,
+        application_profile_id text not null references vault_application_profiles(id) on delete cascade,
+        encrypted_payload text not null,
+        iv text not null,
+        auth_tag text not null,
+        key_version text not null,
+        updated_at timestamptz not null,
+        unique(application_profile_id)
+      );
+      create table if not exists vault_application_config_versions (
+        id text primary key,
+        application_profile_id text not null references vault_application_profiles(id) on delete cascade,
+        version integer not null,
+        encrypted_payload text not null,
+        iv text not null,
+        auth_tag text not null,
+        key_version text not null,
+        published_at timestamptz not null,
+        published_by text not null,
+        unique(application_profile_id, version)
       );
       create table if not exists vault_runtime_keys (
         id text primary key,
@@ -216,6 +249,33 @@ export class VaultStore {
   async getApplication(id: string): Promise<ApplicationRecord | null> {
     const result = await this.pool.query('select * from vault_applications where id = $1', [id]);
     return result.rows[0] ? mapApplication(result.rows[0] as DbRow) : null;
+  }
+
+  async createApplicationProfile(record: ApplicationProfileRecord): Promise<void> {
+    await this.pool.query(
+      `insert into vault_application_profiles (id, application_id, name, active_version_id, created_at)
+       values ($1, $2, $3, $4, $5)
+       on conflict (application_id, name) do nothing`,
+      [record.id, record.applicationId, record.name, record.activeVersionId, record.createdAt],
+    );
+  }
+
+  async getApplicationProfile(applicationId: string, name: string): Promise<ApplicationProfileRecord | null> {
+    const result = await this.pool.query(
+      'select * from vault_application_profiles where application_id = $1 and name = $2',
+      [applicationId, name],
+    );
+    return result.rows[0] ? mapApplicationProfile(result.rows[0] as DbRow) : null;
+  }
+
+  async getApplicationProfileById(id: string): Promise<ApplicationProfileRecord | null> {
+    const result = await this.pool.query('select * from vault_application_profiles where id = $1', [id]);
+    return result.rows[0] ? mapApplicationProfile(result.rows[0] as DbRow) : null;
+  }
+
+  async listApplicationProfiles(applicationId: string): Promise<ApplicationProfileRecord[]> {
+    const result = await this.pool.query('select * from vault_application_profiles where application_id = $1 order by name', [applicationId]);
+    return result.rows.map((row) => mapApplicationProfile(row as DbRow));
   }
 
   async createGroup(record: GroupRecord): Promise<void> {
@@ -354,6 +414,58 @@ export class VaultStore {
   async getVersion(id: string): Promise<ConfigVersionRecord | null> {
     const result = await this.pool.query('select * from vault_config_versions where id = $1', [id]);
     return result.rows[0] ? mapVersion(result.rows[0] as DbRow) : null;
+  }
+
+  async upsertApplicationDraft(record: ApplicationConfigDraftRecord): Promise<void> {
+    await this.pool.query(
+      `insert into vault_application_config_drafts (id, application_profile_id, encrypted_payload, iv, auth_tag, key_version, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       on conflict (application_profile_id) do update set
+         encrypted_payload = excluded.encrypted_payload,
+         iv = excluded.iv,
+         auth_tag = excluded.auth_tag,
+         key_version = excluded.key_version,
+         updated_at = excluded.updated_at`,
+      [record.id, record.applicationProfileId, record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.updatedAt],
+    );
+  }
+
+  async getApplicationDraft(applicationProfileId: string): Promise<ApplicationConfigDraftRecord | null> {
+    const result = await this.pool.query('select * from vault_application_config_drafts where application_profile_id = $1', [applicationProfileId]);
+    return result.rows[0] ? mapApplicationDraft(result.rows[0] as DbRow) : null;
+  }
+
+  async createApplicationVersion(record: ApplicationConfigVersionRecord): Promise<void> {
+    await this.pool.query(
+      `insert into vault_application_config_versions
+       (id, application_profile_id, version, encrypted_payload, iv, auth_tag, key_version, published_at, published_by)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        record.id,
+        record.applicationProfileId,
+        record.version,
+        record.encryptedPayload,
+        record.iv,
+        record.authTag,
+        record.keyVersion,
+        record.publishedAt,
+        record.publishedBy,
+      ],
+    );
+    await this.pool.query('update vault_application_profiles set active_version_id = $1 where id = $2', [record.id, record.applicationProfileId]);
+  }
+
+  async nextApplicationVersion(applicationProfileId: string): Promise<number> {
+    const result = await this.pool.query<{ next: string }>(
+      'select (coalesce(max(version), 0) + 1)::text as next from vault_application_config_versions where application_profile_id = $1',
+      [applicationProfileId],
+    );
+    return Number(result.rows[0]?.next ?? '1');
+  }
+
+  async getApplicationVersion(id: string): Promise<ApplicationConfigVersionRecord | null> {
+    const result = await this.pool.query('select * from vault_application_config_versions where id = $1', [id]);
+    return result.rows[0] ? mapApplicationVersion(result.rows[0] as DbRow) : null;
   }
 
   async createRuntimeKey(record: RuntimeKeyRecord): Promise<void> {
@@ -520,6 +632,16 @@ function mapProfile(row: DbRow): ProfileRecord {
   };
 }
 
+function mapApplicationProfile(row: DbRow): ApplicationProfileRecord {
+  return {
+    id: String(row.id),
+    applicationId: String(row.application_id),
+    name: String(row.name),
+    activeVersionId: row.active_version_id === null ? null : String(row.active_version_id),
+    createdAt: iso(row.created_at),
+  };
+}
+
 function mapPlugin(row: DbRow): PluginCatalogRecord {
   return {
     id: String(row.id),
@@ -548,10 +670,36 @@ function mapDraft(row: DbRow): ConfigDraftRecord {
   };
 }
 
+function mapApplicationDraft(row: DbRow): ApplicationConfigDraftRecord {
+  return {
+    id: String(row.id),
+    applicationProfileId: String(row.application_profile_id),
+    encryptedPayload: String(row.encrypted_payload),
+    iv: String(row.iv),
+    authTag: String(row.auth_tag),
+    keyVersion: String(row.key_version),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
 function mapVersion(row: DbRow): ConfigVersionRecord {
   return {
     id: String(row.id),
     profileId: String(row.profile_id),
+    version: Number(row.version),
+    encryptedPayload: String(row.encrypted_payload),
+    iv: String(row.iv),
+    authTag: String(row.auth_tag),
+    keyVersion: String(row.key_version),
+    publishedAt: iso(row.published_at),
+    publishedBy: String(row.published_by),
+  };
+}
+
+function mapApplicationVersion(row: DbRow): ApplicationConfigVersionRecord {
+  return {
+    id: String(row.id),
+    applicationProfileId: String(row.application_profile_id),
     version: Number(row.version),
     encryptedPayload: String(row.encrypted_payload),
     iv: String(row.iv),
