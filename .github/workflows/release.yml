@@ -38,9 +38,6 @@ jobs:
     name: Node.js
     needs: [prepare]
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -66,6 +63,41 @@ jobs:
         working-directory: nodejs
         run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
 
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: nodejs-package
+          path: |
+            nodejs
+            !nodejs/node_modules
+            !nodejs/src
+            !nodejs/junit.json
+
+  nodejs-publish:
+    name: Node.js Publish
+    needs: [nodejs, prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Download package artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: nodejs-package
+          path: nodejs
+
       - name: Publish to npm
         working-directory: nodejs
         run: npm publish --tag ${{ needs.prepare.outputs.npm-tag }} --access public --provenance
@@ -74,9 +106,6 @@ jobs:
     name: Node.js Tests Package
     needs: [nodejs, prepare]
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -101,6 +130,40 @@ jobs:
       - name: Set version
         working-directory: tests/nodejs
         run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: nodejs-tests-package
+          path: |
+            tests/nodejs
+            !tests/nodejs/node_modules
+            !tests/nodejs/src
+
+  nodejs-tests-publish:
+    name: Node.js Tests Package Publish
+    needs: [nodejs-tests, prepare]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Download package artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: nodejs-tests-package
+          path: tests/nodejs
 
       - name: Publish to npm
         working-directory: tests/nodejs
@@ -133,7 +196,8 @@ jobs:
               if (!fs.existsSync(packagePath)) return null;
               const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
               if (pkg.private === true) return null;
-              return { workspace: dir, name: pkg.name };
+              const artifact = `nodejs-plugin-${pkg.name.replace(/^@/, '').replace(/[^a-zA-Z0-9._-]+/g, '-')}`;
+              return { workspace: dir, name: pkg.name, artifact };
             })
             .filter(Boolean);
           console.log(JSON.stringify({ include }));
@@ -149,9 +213,6 @@ jobs:
     needs: [nodejs, nodejs-plugin-list, prepare]
     if: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix).include[0] != null }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    permissions:
-      contents: read
-      id-token: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix) }}
@@ -191,6 +252,62 @@ jobs:
       - name: Build plugin
         run: npm run build --workspace "${{ matrix.workspace }}"
 
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.workspace }}
+            !${{ matrix.workspace }}/node_modules
+            !${{ matrix.workspace }}/src
+
+  nodejs-plugin-publish:
+    name: Node.js Plugin Publish ${{ matrix.name }}
+    needs: [nodejs, nodejs-plugin-list, nodejs-plugins, prepare]
+    if: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix).include[0] != null }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download base package artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: nodejs-package
+          path: nodejs
+
+      - name: Download plugin package artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.workspace }}
+
+      - name: Link workspace bins
+        run: |
+          chmod +x nodejs/lib/cli.js nodejs/lib/scripts/bsb-plugin-cli.js nodejs/lib/scripts/bsb-client-cli.js
+          for bin in bsb:lib/cli.js bsb-plugin-cli:lib/scripts/bsb-plugin-cli.js bsb-client-cli:lib/scripts/bsb-client-cli.js; do
+            name="${bin%%:*}"
+            target="../../nodejs/${bin#*:}"
+            ln -sf "$target" "node_modules/.bin/$name"
+          done
+
       - name: Publish plugin to npm
         run: npm publish --workspace "${{ matrix.workspace }}" --tag "${{ needs.prepare.outputs.npm-tag }}" --access public --provenance
 
@@ -202,7 +319,7 @@ jobs:
   registry-core-plugins:
     name: Publish Core BSB Registry Plugins
     needs: [nodejs, prepare]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -217,15 +334,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sync workspace versions
-        run: npm run ws:version -- ${{ needs.prepare.outputs.version }}
-
-      - name: Build base
-        run: npm run build-release --workspace nodejs
-
-      - name: Set version
-        working-directory: nodejs
-        run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
+      - name: Download package artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: nodejs-package
+          path: nodejs
 
       - name: Publish core plugins to BSB registry
         working-directory: nodejs
@@ -314,8 +427,8 @@ jobs:
 
   docker-nodejs:
     name: Docker Node.js
-    needs: [nodejs, nodejs-plugins, prepare]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [nodejs-publish, nodejs-plugin-publish, prepare]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -337,8 +450,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Compute tags
         id: tags
@@ -359,7 +472,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           build-args: |
             BSB_VERSION=${{ needs.prepare.outputs.version }}
@@ -373,7 +486,7 @@ jobs:
   docker-go:
     name: Docker Go
     needs: [go, prepare]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -385,8 +498,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Compute tags
         id: tags
@@ -407,7 +520,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./go
           file: ./go/Dockerfile
@@ -418,7 +531,7 @@ jobs:
   docker-python:
     name: Docker Python
     needs: [python, prepare]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -430,8 +543,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Compute tags
         id: tags
@@ -452,7 +565,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./python
           file: ./python/Dockerfile
@@ -463,7 +576,7 @@ jobs:
   docker-dotnet:
     name: Docker .NET
     needs: [dotnet, prepare]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -475,8 +588,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Compute tags
         id: tags
@@ -497,7 +610,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./dotnet
           file: ./dotnet/BetterServiceBase/Dockerfile

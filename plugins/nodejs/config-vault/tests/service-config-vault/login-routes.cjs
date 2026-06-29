@@ -86,6 +86,15 @@ module.exports = async ({ pluginRoot }) => {
             kind: 'service',
             source: 'manual',
           }, {
+            id: 'bp-theme-old',
+            org: 'betterportal',
+            name: 'service-betterportal-theme-bootstrap1',
+            pluginId: 'service-betterportal-theme-bootstrap1',
+            packageName: '@betterportal/theme-bootstrap1',
+            version: '10.0.8',
+            kind: 'service',
+            source: 'registry',
+          }, {
             id: 'config-plugin',
             org: '@bsb',
             name: 'config-vault',
@@ -133,6 +142,10 @@ module.exports = async ({ pluginRoot }) => {
       },
       async deletePlugin(userId, id) {
         calls.push(['deletePlugin', userId, id]);
+      },
+      async cleanupUnusedImportedPlugins(userId) {
+        calls.push(['cleanupUnusedImportedPlugins', userId]);
+        return 1;
       },
       async deploymentProfile(profileId) {
         assert.equal(profileId, 'profile-1');
@@ -414,8 +427,10 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /Not imported/);
     assert.match(pluginsHtml, /In use/);
     assert.match(pluginsHtml, /\/api\/plugins\/delete/);
+    assert.match(pluginsHtml, /Sync Imported Plugins/);
 
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
+    await postJson(port, '/api/plugins/sync', {});
     await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
     await postJson(port, '/api/plugins/import', { org: 'betterportal', name: 'service-betterportal-theme-bootstrap1', pluginId: 'service-betterportal-theme-bootstrap1', packageName: '@betterportal/theme-bootstrap1', version: '10.0.9', kind: 'service', configSchema: {} });
     await postJson(port, '/api/plugins/delete', { id: 'root-plugin' });
@@ -437,6 +452,8 @@ module.exports = async ({ pluginRoot }) => {
     await postJson(port, '/api/profiles/delete', { id: 'profile-1' });
     assert.deepEqual(calls, [
       ['createDeployment', 'user-1', 'app-1', 'worker'],
+      ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
+      ['cleanupUnusedImportedPlugins', 'user-1'],
       ['createPlugin', 'user-1', 'service-worker', '1.0.0', '@bsb/service-worker'],
       ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
       ['deletePlugin', 'user-1', 'root-plugin'],

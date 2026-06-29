@@ -210,6 +210,33 @@ export class VaultHttpServer {
       });
     }));
 
+    app.use('/api/plugins/sync', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const dashboard = await this.options.vault.dashboard();
+      const imported = dashboard.plugins.filter((plugin) => plugin.kind !== 'config' && plugin.source === 'registry');
+      const groups = latestImportedPluginGroups(imported);
+      let importedCount = 0;
+      for (const plugin of groups) {
+        const registry = await registrySearch(this.options.registryUrl, pluginDisplayName(plugin));
+        const candidate = latestRegistryCandidate(registry.filter((item) => registryCandidateMatchesPlugin(item, plugin)));
+        if (!candidate || compareVersionStrings(candidate.version, plugin.version) <= 0) continue;
+        await this.options.vault.createPlugin(user.userId, {
+          org: candidate.org,
+          name: candidate.name,
+          pluginId: candidate.pluginId,
+          packageName: candidate.packageName,
+          version: candidate.version,
+          kind: candidate.kind,
+          source: 'registry',
+          configSchema: candidate.configSchema,
+          eventSchema: candidate.eventSchema,
+        });
+        importedCount += 1;
+      }
+      const cleanedCount = await this.options.vault.cleanupUnusedImportedPlugins(user.userId);
+      return { success: true, imported: importedCount, cleaned: cleanedCount };
+    }));
+
     app.use('/api/plugins/delete', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -518,8 +545,14 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     label{display:block;font-size:13px;font-weight:650;color:#344054;margin:12px 0 6px}
     input,textarea,select{display:block;width:100%;margin:0 0 12px;padding:10px 11px;border:1px solid #b9c0ca;border-radius:6px;font:inherit;background:#fff}
     textarea{min-height:140px;font-family:ui-monospace,Consolas,monospace}
-    button,.button{display:inline-flex;align-items:center;gap:8px;background:var(--primary);color:#fff;border:0;border-radius:6px;padding:10px 13px;font:inherit;font-weight:650;cursor:pointer;text-decoration:none}
-    button.secondary,.button.secondary{background:#fff;color:#344054;border:1px solid var(--line)}
+    button,.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--primary);color:#fff;border:1px solid transparent;border-radius:6px;padding:10px 13px;font:inherit;font-weight:650;cursor:pointer;text-decoration:none;min-height:38px}
+    button:hover,.button:hover{filter:brightness(.97)}
+    button:disabled,.button:disabled{cursor:not-allowed;opacity:.58;filter:none}
+    button.secondary,.button.secondary{background:#fff;color:#344054;border-color:var(--line)}
+    button.success,.button.success{background:var(--ok);color:#fff;border-color:var(--ok)}
+    button.danger,.button.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+    button.ghost,.button.ghost{background:transparent;color:#344054;border-color:transparent}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
     table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid #e3e6eb;text-align:left;padding:8px;vertical-align:top}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
     .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
@@ -697,7 +730,7 @@ function applicationsPage(data: DashboardData): string {
         ${input('name', 'Name', true)}
         ${input('description', 'Description')}
       </div>
-      <button>Create Application</button><p class="status"></p>
+      <button class="success">Create Application</button><p class="status"></p>
     </form>
   </section>
   <section><h2>Applications</h2>${applicationsTable(data)}</section>
@@ -710,7 +743,7 @@ function deploymentsPage(data: DashboardData): string {
       <form data-api="/api/groups" data-redirect="/deployments">
         ${select('applicationId', 'Application', data.applications.map((x) => [x.id, x.name]))}
         ${input('name', 'Deployment Name', true)}
-        <button>Create Deployment</button><p class="status"></p>
+        <button class="success">Create Deployment</button><p class="status"></p>
       </form>
     </section>
   <section><h2>Deployments</h2>${groupsTable(data)}</section>
@@ -751,7 +784,7 @@ function deploymentDetailPage(
       <form data-api="/api/profiles" data-redirect="${escapeHtml(redirect)}">
         <input type="hidden" name="groupId" value="${escapeHtml(data.group.id)}">
         ${input('name', 'Profile Name', true)}
-        <button>Create Profile</button><p class="status"></p>
+        <button class="success">Create Profile</button><p class="status"></p>
       </form>
     </section>
     <section><h2>Container Key</h2>
@@ -759,7 +792,7 @@ function deploymentDetailPage(
         <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
         ${input('name', 'Key Name', true, `${data.group.name}-${data.profile.name}`)}
         ${input('containerName', 'Container Name')}
-        <button>Create Key</button><p class="status"></p>
+        <button class="success">Create Key</button><p class="status"></p>
       </form>
     </section>
   </div>
@@ -801,6 +834,12 @@ function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: 
   const visiblePlugins = data.plugins.filter((plugin) => plugin.kind !== 'config');
   const visibleRegistry = registry.filter((plugin) => plugin.kind !== 'config');
   return `<div class="page-head"><div><h1>Plugin Catalog</h1><p class="muted">Import registry plugins for config authoring, or create private plugin entries manually.</p></div></div>
+  <section><h2>Sync</h2>
+    <p class="muted">Import newer registry versions for existing imported plugins and clean unused registry imports older than 12 hours.</p>
+    <form data-api="/api/plugins/sync" data-redirect="/plugins">
+      <button class="success">Sync Imported Plugins</button><p class="status"></p>
+    </form>
+  </section>
   <section><h2>Registry Search</h2>
     <form method="get" action="/plugins" class="inline-form">
       ${input('query', 'Search', false, query)}
@@ -819,7 +858,7 @@ function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: 
         ${select('kind', 'Kind', [['service', 'service'], ['events', 'events'], ['observable', 'observable']])}
       </div>
       <label>Config Schema JSON</label><textarea name="configSchema" placeholder='{"type":"object"}'></textarea>
-      <button>Create Plugin</button><p class="status"></p>
+      <button class="success">Create Plugin</button><p class="status"></p>
     </form>
   </section>
   <section><h2>Catalog</h2>${pluginCatalogTable(visiblePlugins, data.pluginUsage)}</section>
@@ -837,7 +876,7 @@ function pluginCatalogTable(plugins: DashboardData['plugins'], usage: DashboardD
       <td>${escapeHtml(plugin.source)}</td>
       <td>${escapeHtml(plugin.packageName ?? '')}</td>
       <td>${used}</td>
-      <td>${used === 0 ? `<form data-api="/api/plugins/delete" data-redirect="/plugins" data-confirm="Delete this unused plugin version?"><input type="hidden" name="id" value="${escapeHtml(plugin.id)}"><button class="secondary">Delete</button><p class="status"></p></form>` : '<span class="muted">In use</span>'}</td>
+      <td>${used === 0 ? `<form data-api="/api/plugins/delete" data-redirect="/plugins" data-confirm="Delete this unused plugin version?"><input type="hidden" name="id" value="${escapeHtml(plugin.id)}"><button class="danger">Delete</button><p class="status"></p></form>` : '<span class="muted">In use</span>'}</td>
     </tr>`;
   }).join('')}</table>`;
 }
@@ -861,7 +900,7 @@ function registryTable(items: RegistryCandidate[], importedPlugins: DashboardDat
         <input type="hidden" name="kind" value="${escapeHtml(item.kind)}">
         <input type="hidden" name="configSchema" value="${escapeHtml(JSON.stringify(item.configSchema ?? {}))}">
         <input type="hidden" name="eventSchema" value="${escapeHtml(JSON.stringify(item.eventSchema ?? {}))}">
-        <button class="secondary">Import</button><p class="status"></p>
+        <button class="success">Import</button><p class="status"></p>
       </form>`}
     </td>
   </tr>`;
@@ -936,7 +975,7 @@ function profilesTable(data: DashboardData): string {
 function deleteForm(action: string, id: string, redirect: string, confirm: string): string {
   return `<form data-api="${escapeHtml(action)}" data-redirect="${escapeHtml(redirect)}" data-confirm="${escapeHtml(confirm)}">
     <input type="hidden" name="id" value="${escapeHtml(id)}">
-    <button class="secondary" type="submit">Delete</button><p class="status"></p>
+    <button class="danger" type="submit">Delete</button><p class="status"></p>
   </form>`;
 }
 
@@ -1037,7 +1076,7 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
   if (configurablePlugins.length === 0) {
     return '<p class="muted">Import or create plugins in the Plugin Catalog before adding profile config.</p>';
   }
-  return `<section><h3>Add Plugin</h3>
+  return `<details class="plugin-card"><summary><span>Add Plugin</span><span class="chip">${configurablePlugins.length} available</span></summary><div class="plugin-card-body">
     <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
       <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
       <input type="hidden" name="plugin">
@@ -1053,9 +1092,9 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
         <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock>Lock Version</label>
       </div>
       <div data-config-fields></div>
-      <button>Add Plugin</button><p class="status"></p>
+      <button class="success">Add Plugin</button><p class="status"></p>
     </form>
-  </section>`;
+  </div></details>`;
 }
 
 function addApplicationPluginForm(data: ApplicationProfileData, redirect: string): string {
@@ -1079,7 +1118,7 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
         <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock>Lock Version</label>
       </div>
       <div data-config-fields></div>
-      <button>Add Shared Plugin</button><p class="status"></p>
+      <button class="success">Add Shared Plugin</button><p class="status"></p>
     </form>
   </section>`;
 }
@@ -1121,7 +1160,7 @@ function configSectionEditor(
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <button class="secondary">Remove</button><p class="status"></p>
+          <button class="danger">Remove</button><p class="status"></p>
         </form>
         </div>
       </details>`;
@@ -1165,7 +1204,7 @@ function applicationConfigSectionEditor(
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <button class="secondary">Remove</button><p class="status"></p>
+          <button class="danger">Remove</button><p class="status"></p>
         </form>
         </div>
       </details>`;
@@ -1225,13 +1264,13 @@ function inheritedOverrideSection(
             </div>
           </div>
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, effective.config ?? {}, { overrideMode: true, overrideConfig: localEntry?.config ?? {} })}</div>
-          <button>${localEntry ? 'Save Override' : 'Create Override'}</button><p class="status"></p>
+          <button class="${localEntry ? '' : 'success'}">${localEntry ? 'Save Override' : 'Create Override'}</button><p class="status"></p>
         </form>
         ${localEntry ? `<form data-api="/api/profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove the local override and inherit the shared config again?">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <button class="secondary">Remove Override</button><p class="status"></p>
+          <button class="danger">Remove Override</button><p class="status"></p>
         </form>` : ''}
       </div>
     </details>`;
@@ -1290,6 +1329,27 @@ function findCatalogPlugin(
 
 function latestCatalogPlugin(plugins: DeploymentProfileData['plugins']): DeploymentProfileData['plugins'][number] | undefined {
   return [...plugins].sort((left, right) => compareVersionStrings(right.version, left.version))[0];
+}
+
+function latestImportedPluginGroups(plugins: DashboardData['plugins']): DashboardData['plugins'] {
+  const byKey = new Map<string, DashboardData['plugins'][number]>();
+  for (const plugin of plugins) {
+    const key = `${plugin.kind}:${plugin.org}:${plugin.pluginId}:${plugin.packageName ?? ''}`;
+    const existing = byKey.get(key);
+    if (!existing || compareVersionStrings(plugin.version, existing.version) > 0) byKey.set(key, plugin);
+  }
+  return [...byKey.values()];
+}
+
+function latestRegistryCandidate(plugins: RegistryCandidate[]): RegistryCandidate | undefined {
+  return [...plugins].sort((left, right) => compareVersionStrings(right.version, left.version))[0];
+}
+
+function registryCandidateMatchesPlugin(candidate: RegistryCandidate, plugin: DashboardData['plugins'][number]): boolean {
+  return candidate.kind === plugin.kind &&
+    candidate.pluginId === plugin.pluginId &&
+    candidate.org === plugin.org &&
+    (plugin.packageName ? candidate.packageName === plugin.packageName : true);
 }
 
 function compareVersionStrings(left: string, right: string): number {

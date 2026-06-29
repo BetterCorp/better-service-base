@@ -359,6 +359,23 @@ export class VaultService {
     await this.audit(userId, 'plugin.delete', plugin.id, { pluginId: plugin.pluginId, version: plugin.version });
   }
 
+  async cleanupUnusedImportedPlugins(userId: string, olderThanMs = 12 * 60 * 60 * 1000): Promise<number> {
+    const plugins = await this.store.listPlugins();
+    const usage = await this.pluginUsage(plugins);
+    const now = Date.now();
+    let deleted = 0;
+    for (const plugin of plugins) {
+      if (plugin.source !== 'registry') continue;
+      if (usage[plugin.id]?.count) continue;
+      const createdAt = Date.parse(plugin.createdAt);
+      if (!Number.isFinite(createdAt) || now - createdAt < olderThanMs) continue;
+      await this.store.deletePlugin(plugin.id);
+      deleted += 1;
+      await this.audit(userId, 'plugin.cleanup.unused', plugin.id, { pluginId: plugin.pluginId, version: plugin.version });
+    }
+    return deleted;
+  }
+
   async saveDraft(userId: string, profileId: string, config: VaultRuntimeConfig): Promise<void> {
     const encrypted = encryptJson(config, this.masterKey);
     await this.store.upsertDraft({
