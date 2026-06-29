@@ -16,7 +16,7 @@ concurrency:
 jobs:
   prepare:
     name: Prepare
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       version: ${{ steps.version.outputs.version }}
       npm-tag: ${{ steps.version.outputs.npm-tag }}
@@ -37,7 +37,7 @@ jobs:
   nodejs:
     name: Node.js
     needs: [prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       id-token: write
@@ -73,7 +73,7 @@ jobs:
   nodejs-tests:
     name: Node.js Tests Package
     needs: [nodejs, prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       id-token: write
@@ -109,7 +109,7 @@ jobs:
   nodejs-plugin-list:
     name: Node.js Plugin List
     needs: [prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       matrix: ${{ steps.plugins.outputs.matrix }}
     steps:
@@ -148,7 +148,7 @@ jobs:
     name: Node.js Plugin ${{ matrix.name }}
     needs: [nodejs, nodejs-plugin-list, prepare]
     if: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix).include[0] != null }}
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
       id-token: write
@@ -202,7 +202,7 @@ jobs:
   registry-core-plugins:
     name: Publish Core BSB Registry Plugins
     needs: [nodejs, prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -236,7 +236,7 @@ jobs:
   python:
     name: Python
     needs: [prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     defaults:
       run:
         working-directory: python
@@ -266,7 +266,7 @@ jobs:
   go:
     name: Go
     needs: [prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     defaults:
       run:
         working-directory: go
@@ -291,7 +291,7 @@ jobs:
   dotnet:
     name: .NET
     needs: [prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     defaults:
       run:
         working-directory: dotnet
@@ -315,7 +315,7 @@ jobs:
   docker-nodejs:
     name: Docker Node.js
     needs: [nodejs, nodejs-plugins, prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -337,8 +337,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Compute tags
         id: tags
@@ -359,7 +359,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         with:
           build-args: |
             BSB_VERSION=${{ needs.prepare.outputs.version }}
@@ -373,7 +373,7 @@ jobs:
   docker-go:
     name: Docker Go
     needs: [go, prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -385,8 +385,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Compute tags
         id: tags
@@ -407,7 +407,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: ./go
           file: ./go/Dockerfile
@@ -418,7 +418,7 @@ jobs:
   docker-python:
     name: Docker Python
     needs: [python, prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -430,8 +430,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Compute tags
         id: tags
@@ -452,7 +452,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: ./python
           file: ./python/Dockerfile
@@ -463,7 +463,7 @@ jobs:
   docker-dotnet:
     name: Docker .NET
     needs: [dotnet, prepare]
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -475,8 +475,8 @@ jobs:
         with:
           platforms: all
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Compute tags
         id: tags
@@ -497,7 +497,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: ./dotnet
           file: ./dotnet/BetterServiceBase/Dockerfile
