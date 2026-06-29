@@ -329,16 +329,7 @@ jobs:
       - name: Publish plugin to BSB registry
         env:
           BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
-        run: |
-          for attempt in 1 2 3; do
-            if npm run publish:client --workspace "${{ matrix.workspace }}"; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              sleep $((attempt * 15))
-            fi
-          done
-          exit 1
+        run: npm run publish:client --workspace "${{ matrix.workspace }}"
 
   registry-core-plugins:
     name: Publish Core BSB Registry Plugins
@@ -368,16 +359,7 @@ jobs:
         working-directory: nodejs
         env:
           BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
-        run: |
-          for attempt in 1 2 3; do
-            if npm run publish:client; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              sleep $((attempt * 15))
-            fi
-          done
-          exit 1
+        run: npm run publish:client
 
   python:
     name: Python

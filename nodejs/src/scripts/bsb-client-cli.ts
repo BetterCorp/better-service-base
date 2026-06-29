@@ -25,6 +25,7 @@ import * as path from 'node:path';
 import * as https from 'node:https';
 import * as http from 'node:http';
 import { getModuleDir } from '../base/module-runtime.js';
+import { retryRegistryPublish } from './registry-retry.js';
 
 type ColorName = 'reset' | 'bright' | 'red' | 'green' | 'yellow' | 'blue' | 'cyan';
 
@@ -594,10 +595,24 @@ async function publishPlugin(): Promise<void> {
 
         info(`Publishing ${display} @ ${pkg.version}...`);
 
-        const result = await registryRequest('POST', '/plugins', publishRequest, true);
+        const result = await retryRegistryPublish(
+          () => registryRequest('POST', '/plugins', publishRequest, true),
+          {
+            onRetry: (attempt, maxAttempts, err) => {
+              warn(`Publish failed with a network error (${err.message}); retrying ${attempt}/${maxAttempts}...`);
+            },
+          }
+        );
         if (imagePath) {
           info(`Uploading image for ${display}...`);
-          await uploadPluginImage(org, pluginName, imagePath);
+          await retryRegistryPublish(
+            () => uploadPluginImage(org, pluginName, imagePath),
+            {
+              onRetry: (attempt, maxAttempts, err) => {
+                warn(`Image upload failed with a network error (${err.message}); retrying ${attempt}/${maxAttempts}...`);
+              },
+            }
+          );
         }
 
         success(`Published: ${display} @ ${result.version}${imagePath ? ' (with image)' : ''}`);
