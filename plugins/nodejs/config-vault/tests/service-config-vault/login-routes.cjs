@@ -328,6 +328,11 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(deploymentHtml, /Draft only/);
     assert.match(deploymentHtml, /Inherited Config/);
     assert.match(deploymentHtml, /Create Override/);
+    assert.match(deploymentHtml, /data-inherited-override-form/);
+    assert.match(deploymentHtml, /data-enabled-override-toggle/);
+    assert.match(deploymentHtml, /data-override-path="host"/);
+    assert.match(deploymentHtml, /name="overridePaths"/);
+    assert.match(deploymentHtml, /name="baseConfig"/);
     assert.match(deploymentHtml, /These values come from the shared application config/);
     assert.match(deploymentHtml, /Shared App Config/);
     assert.match(deploymentHtml, /Live/);

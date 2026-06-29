@@ -466,22 +466,29 @@ export class VaultService {
       plugin: string;
       packageName?: string | null;
       version?: string | null;
-      enabled: boolean;
+      enabled?: boolean;
       config?: Record<string, unknown>;
+      baseEnabled?: boolean;
+      baseConfig?: Record<string, unknown>;
+      overridePaths?: string[];
     },
   ): Promise<void> {
     const binding = await this.store.resolveProfileBinding(input.profileId);
     if (!binding) throw new Error('Deployment profile not found');
     const draft = await this.getProfileDraft(input.profileId) ?? { observable: {}, events: {}, services: {} };
     const section = draft[input.section] ?? {};
-    const config = await this.validatePluginConfig(input);
-    section[input.name] = {
+    const config = await this.validatePluginConfig(input) ?? {};
+    const storedConfig = input.overridePaths ? pickConfigPaths(config, input.overridePaths) : config;
+    const entry: RuntimePluginDefinition = {
       plugin: input.plugin,
       package: input.packageName ?? undefined,
       version: input.version ?? undefined,
-      enabled: input.enabled,
-      config,
     };
+    if (input.baseEnabled === undefined || input.enabled !== undefined) {
+      entry.enabled = input.enabled ?? false;
+    }
+    if (Object.keys(storedConfig).length > 0) entry.config = storedConfig;
+    section[input.name] = entry;
     draft[input.section] = section;
     await this.saveProfileDraft(userId, input.profileId, draft);
     await this.audit(userId, 'config.plugin.upsert', input.profileId, {
@@ -489,7 +496,7 @@ export class VaultService {
       name: input.name,
       plugin: input.plugin,
     });
-    await this.syncProfilePluginPlaceholders(userId, binding.group.id, input);
+    if (!input.baseConfig) await this.syncProfilePluginPlaceholders(userId, binding.group.id, input);
   }
 
   private async syncProfilePluginPlaceholders(
@@ -1078,6 +1085,32 @@ function deepMergeObjects(base: Record<string, unknown>, override: Record<string
       : cloneJson(value);
   }
   return output;
+}
+
+function pickConfigPaths(source: Record<string, unknown>, paths: string[]): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  for (const path of paths) {
+    if (!path) continue;
+    const value = valueAtPath(source, path);
+    if (value === undefined) continue;
+    setValueAtPath(output, path, value);
+  }
+  return output;
+}
+
+function valueAtPath(source: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((acc, part) => isPlainObject(acc) ? acc[part] : undefined, source);
+}
+
+function setValueAtPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let current = target;
+  for (const part of parts.slice(0, -1)) {
+    const existing = current[part];
+    if (!isPlainObject(existing)) current[part] = {};
+    current = current[part] as Record<string, unknown>;
+  }
+  current[parts[parts.length - 1] ?? path] = cloneJson(value);
 }
 
 function configState(draftUpdatedAt: string | null, publishedAt: string | null): ConfigState {

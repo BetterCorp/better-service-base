@@ -11,7 +11,7 @@ export interface RuntimePluginDefinition {
   plugin: string;
   package?: string;
   version?: string;
-  enabled: boolean;
+  enabled?: boolean;
   filter?: string[];
   config?: Record<string, unknown>;
 }

@@ -84,6 +84,26 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(audits.some((audit) => audit.action === 'config.plugin.upsert'), true);
   assert.equal(audits.some((audit) => audit.action === 'config.plugin.sync'), true);
 
+  await vault.upsertProfilePlugin('user-1', {
+    profileId: 'profile-1',
+    section: 'services',
+    name: 'inherited',
+    plugin: 'service-api',
+    packageName: '@bsb/service-api',
+    version: '1.0.0',
+    config: { host: 'shared-host', port: '3211', enabled: 'true', mode: 'prod' },
+    baseEnabled: true,
+    baseConfig: { host: 'shared-host', port: 3200, enabled: true, mode: 'dev' },
+    overridePaths: ['port'],
+  });
+  const inheritedOverride = decryptJson(draftRecords.get('profile-1'), key);
+  assert.deepEqual(inheritedOverride.default.services.inherited, {
+    plugin: 'service-api',
+    package: '@bsb/service-api',
+    version: '1.0.0',
+    config: { port: 3211 },
+  });
+
   await assert.rejects(() => vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',
     section: 'services',

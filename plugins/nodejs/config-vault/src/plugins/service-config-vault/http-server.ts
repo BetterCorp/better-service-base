@@ -308,8 +308,11 @@ export class VaultHttpServer {
         plugin: String(body.plugin ?? ''),
         packageName: stringOrUndefined(body.packageName) ?? null,
         version: stringOrUndefined(body.version) ?? null,
-        enabled: body.enabled === true || body.enabled === 'true' || body.enabled === 'on',
+        enabled: parseOptionalBoolean(body.enabled),
         config: parseJsonObject(body.config) ?? {},
+        baseEnabled: parseOptionalBoolean(body.baseEnabled),
+        baseConfig: parseJsonObject(body.baseConfig),
+        overridePaths: parseStringArray(body.overridePaths),
       });
       return { success: true };
     }));
@@ -521,7 +524,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .status{margin-top:12px;color:var(--muted);font-size:14px}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
     .schema-box{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px}.schema-box legend{font-weight:750;color:#344054}
     .schema-help{display:block;color:var(--muted);font-size:12px;font-weight:500;margin:-6px 0 10px}.schema-meta{color:var(--muted);font-size:12px;font-weight:500}
-    .schema-optional{border-left:3px solid #d0d5dd;margin:12px 0;padding-left:10px}.schema-toggle{display:flex;gap:8px;align-items:center;margin:0 0 8px}.schema-toggle input{width:auto;margin:0}
+    .schema-optional,.schema-override{border-left:3px solid #d0d5dd;margin:12px 0;padding-left:10px}.schema-override{border-left-color:#84c5a8}.schema-toggle{display:flex;gap:8px;align-items:center;margin:0 0 8px}.schema-toggle input{width:auto;margin:0}
     .schema-repeat{border:1px solid #edf0f5;border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.repeat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:start}.schema-repeat[data-array-path] .repeat-row{grid-template-columns:minmax(0,1fr) auto}
     .schema-union{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.schema-union-panel[hidden]{display:none}
     details.plugin-card{border:1px solid var(--line);border-radius:6px;margin:10px 0;background:#fff}details.plugin-card>summary{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer;padding:12px 14px;font-weight:750;color:#344054}.plugin-card-body{border-top:1px solid var(--line);padding:14px}.chip{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:650;color:#344054;background:#f9fafb}
@@ -1171,10 +1174,11 @@ function inheritedOverrideSection(
     const effective = localEntry ? mergePluginEntry(entry, localEntry) : entry;
     const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
     const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
+    const enabledOverridden = localEntry?.enabled !== undefined;
     return `<details class="plugin-card">
       <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'} ${effective.enabled ? 'enabled' : 'disabled'}</span></summary>
       <div class="plugin-card-body">
-        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
+        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-inherited-override-form>
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
@@ -1182,12 +1186,18 @@ function inheritedOverrideSection(
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
+          <input type="hidden" name="baseConfig" value="${escapeHtml(JSON.stringify(entry.config ?? {}))}">
+          <input type="hidden" name="baseEnabled" value="${entry.enabled ? 'true' : 'false'}">
+          <input type="hidden" name="overridePaths">
           <div class="form-grid">
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
-            <label>Enabled<select name="enabled">${effective.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
+            <div class="schema-optional" data-enabled-override>
+              <label class="schema-toggle"><input type="checkbox" data-enabled-override-toggle ${enabledOverridden ? 'checked' : ''}>Override enabled</label>
+              <label>Enabled<select name="enabled">${effective.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
+            </div>
           </div>
-          <div data-config-fields>${renderSchemaFields(catalog?.configSchema, effective.config ?? {})}</div>
+          <div data-config-fields>${renderSchemaFields(catalog?.configSchema, effective.config ?? {}, { overrideMode: true, overrideConfig: localEntry?.config ?? {} })}</div>
           <button>${localEntry ? 'Save Override' : 'Create Override'}</button><p class="status"></p>
         </form>
         ${localEntry ? `<form data-api="/api/profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove the local override and inherit the shared config again?">
@@ -1260,12 +1270,17 @@ function pluginKindLabel(kind: string): string {
   return kind;
 }
 
-function renderSchemaFields(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>): string {
+type RenderSchemaOptions = {
+  overrideMode?: boolean;
+  overrideConfig?: Record<string, unknown>;
+};
+
+function renderSchemaFields(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>, options: RenderSchemaOptions = {}): string {
   const root = objectField(objectField(schema)?.root);
   if (!root || root.kind !== 'object' || !objectField(root.properties)) {
     return '<p class="muted">No config schema available for this plugin.</p>';
   }
-  return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root));
+  return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root), false, options);
 }
 
 function renderProperties(
@@ -1274,11 +1289,12 @@ function renderProperties(
   prefix: string,
   required: Set<string>,
   hideLiteralFields = false,
+  options: RenderSchemaOptions = {},
 ): string {
   return Object.entries(properties).map(([key, schema]) => {
     const path = prefix ? `${prefix}.${key}` : key;
     const value = prefix ? objectField(config)?.[key] : valueAtPath(config, path);
-    return renderSchemaControl(key, objectField(schema), path, value, required.has(key), hideLiteralFields);
+    return renderSchemaControl(key, objectField(schema), path, value, required.has(key), hideLiteralFields, options);
   }).join('');
 }
 
@@ -1289,6 +1305,7 @@ function renderSchemaControl(
   rawValue: unknown,
   required: boolean,
   hideLiteralField = false,
+  options: RenderSchemaOptions = {},
 ): string {
   const node = unwrapSchema(rawNode);
   if (!node) return '';
@@ -1296,7 +1313,7 @@ function renderSchemaControl(
   const help = schemaHelp(rawNode, node, required);
   let control = '';
   if (node.kind === 'object' && objectField(node.properties)) {
-    control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required)}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node))}</fieldset>`;
+    control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required)}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node), false, options)}</fieldset>`;
   } else if (node.kind === 'bool' || node.kind === 'boolean') {
     control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="bool" ${required ? 'required' : ''}><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
   } else if (node.kind === 'enum' && Array.isArray(node.values)) {
@@ -1326,12 +1343,16 @@ function renderSchemaControl(
       return `<label>Item ${index + 1}<input data-tuple-index="${index}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(values[index] ?? child?.default ?? ''))}"></label>`;
     }).join('')}</fieldset>`;
   } else if (node.kind === 'union' && Array.isArray(node.variants)) {
-    control = renderUnionControl(key, rawNode, node, path, value, required, help);
+    control = renderUnionControl(key, rawNode, node, path, value, required, help, options);
   } else {
     const kind = inputKind(node);
     control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
   }
-  return rawNode?.kind === 'optional' ? optionalShell(key, path, control, rawValue !== undefined) : control;
+  if (rawNode?.kind === 'optional') control = optionalShell(key, path, control, rawValue !== undefined);
+  if (options.overrideMode && node.kind !== 'object' && !(node.kind === 'literal' && hideLiteralField)) {
+    control = overrideShell(path, control, valueAtPath(options.overrideConfig ?? {}, path) !== undefined);
+  }
+  return control;
 }
 
 function renderUnionControl(
@@ -1342,25 +1363,27 @@ function renderUnionControl(
   value: unknown,
   required: boolean,
   help: string,
+  options: RenderSchemaOptions = {},
 ): string {
   const variants = (node.variants as unknown[])
     .map((variant) => unwrapSchema(objectField(variant)))
     .filter((variant): variant is Record<string, unknown> => variant !== null);
   if (variants.length === 0) return '';
   const selectedIndex = selectUnionVariant(variants, value);
-  const options = variants.map((variant, index) => {
+  const optionHtml = variants.map((variant, index) => {
     const label = unionVariantLabel(variant, index);
     return `<option value="${index}" ${index === selectedIndex ? 'selected' : ''}>${escapeHtml(label)}</option>`;
   }).join('');
   const panels = variants.map((variant, index) => {
     const variantValue = index === selectedIndex && isRecord(value) ? value : {};
+    const childOptions = { ...options, overrideMode: false };
     const fields = variant.kind === 'object' && objectField(variant.properties)
-      ? renderProperties(variant.properties as Record<string, unknown>, variantValue, path, requiredSet(variant), true)
-      : renderSchemaControl(key, variant, path, variantValue, required);
+      ? renderProperties(variant.properties as Record<string, unknown>, variantValue, path, requiredSet(variant), true, childOptions)
+      : renderSchemaControl(key, variant, path, variantValue, required, false, childOptions);
     return `<div class="schema-union-panel" data-union-variant="${index}" ${index === selectedIndex ? '' : 'hidden'}>${fields}</div>`;
   }).join('');
   return `<div class="schema-union" data-union-path="${escapeHtml(path)}">
-    <label>${fieldLabel(key, rawNode, node, required)}<select data-union-picker ${required ? 'required' : ''}>${options}</select>${help}</label>
+    <label>${fieldLabel(key, rawNode, node, required)}<select data-union-picker ${required ? 'required' : ''}>${optionHtml}</select>${help}</label>
     ${panels}
   </div>`;
 }
@@ -1425,6 +1448,13 @@ function optionalShell(key: string, path: string, control: string, enabled: bool
   return `<div class="schema-optional" data-optional-field="${escapeHtml(path)}">
     <label class="schema-toggle"><input type="checkbox" data-optional-toggle ${enabled ? 'checked' : ''}>Enable ${escapeHtml(key)}</label>
     <div data-optional-content>${control}</div>
+  </div>`;
+}
+
+function overrideShell(path: string, control: string, enabled: boolean): string {
+  return `<div class="schema-override" data-override-field="${escapeHtml(path)}">
+    <label class="schema-toggle"><input type="checkbox" data-override-toggle data-override-path="${escapeHtml(path)}" ${enabled ? 'checked' : ''}>Override this value</label>
+    <div data-override-content>${control}</div>
   </div>`;
 }
 
@@ -1602,6 +1632,10 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   function fieldEnabled(element) {
     if (element.closest('[data-union-variant][hidden]')) return false;
     if (element.disabled) return false;
+    const overrideGroup = element.closest('[data-override-field]');
+    if (overrideGroup && element.closest('form[data-inherited-override-form]')) {
+      return Boolean(overrideGroup.querySelector('[data-override-toggle]')?.checked);
+    }
     return optionalEnabled(element);
   }
   function parseFieldValue(field) {
@@ -1780,11 +1814,34 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       field.disabled = !enabled;
     });
   }
+  function syncOverrideGroup(group) {
+    const enabled = Boolean(group.querySelector('[data-override-toggle]')?.checked);
+    group.querySelectorAll('[data-override-content] input,[data-override-content] select,[data-override-content] textarea,[data-override-content] button').forEach((field) => {
+      field.disabled = !enabled;
+    });
+    group.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
+    group.querySelectorAll('[data-union-path]').forEach(syncUnionGroup);
+  }
+  function syncEnabledOverrideGroup(group) {
+    const enabled = Boolean(group.querySelector('[data-enabled-override-toggle]')?.checked);
+    group.querySelectorAll('select[name="enabled"]').forEach((field) => {
+      field.disabled = !enabled;
+    });
+  }
   document.addEventListener('change', (event) => {
     const toggle = event.target.closest('[data-optional-toggle]');
     if (toggle) syncOptionalGroup(toggle.closest('[data-optional-field]'));
+    const overrideToggle = event.target.closest('[data-override-toggle]');
+    if (overrideToggle) syncOverrideGroup(overrideToggle.closest('[data-override-field]'));
+    const enabledOverrideToggle = event.target.closest('[data-enabled-override-toggle]');
+    if (enabledOverrideToggle) syncEnabledOverrideGroup(enabledOverrideToggle.closest('[data-enabled-override]'));
     const unionPicker = event.target.closest('[data-union-picker]');
-    if (unionPicker) syncUnionGroup(unionPicker.closest('[data-union-path]'));
+    if (unionPicker) {
+      const unionGroup = unionPicker.closest('[data-union-path]');
+      syncUnionGroup(unionGroup);
+      const overrideGroup = unionGroup?.closest('[data-override-field]');
+      if (overrideGroup) syncOverrideGroup(overrideGroup);
+    }
   });
   function syncUnionGroup(group) {
     if (!group) return;
@@ -1797,11 +1854,16 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       });
     });
   }
-  document.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
   document.querySelectorAll('[data-union-path]').forEach(syncUnionGroup);
+  document.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
+  document.querySelectorAll('[data-override-field]').forEach(syncOverrideGroup);
+  document.querySelectorAll('[data-enabled-override]').forEach(syncEnabledOverrideGroup);
   document.querySelectorAll('form[data-config-form]').forEach((form) => {
     form.addEventListener('submit', () => {
       if (form.elements.config) form.elements.config.value = JSON.stringify(readConfigForm(form));
+      if (form.elements.overridePaths) {
+        form.elements.overridePaths.value = JSON.stringify(Array.from(form.querySelectorAll('[data-override-toggle]:checked')).map((toggle) => toggle.dataset.overridePath).filter(Boolean));
+      }
     }, { capture: true });
   });
   </script>`;
@@ -1925,12 +1987,25 @@ function parseJsonObject(value: unknown): Record<string, unknown> | undefined {
   return parsed as Record<string, unknown>;
 }
 
+function parseStringArray(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
+  if (typeof value !== 'string' || value.trim() === '') return undefined;
+  const parsed = JSON.parse(value) as unknown;
+  if (!Array.isArray(parsed)) throw new Error('Expected JSON array');
+  return parsed.filter((item): item is string => typeof item === 'string');
+}
+
 function parseKind(value: unknown): 'service' | 'events' | 'observable' | 'config' {
   return value === 'events' || value === 'observable' || value === 'config' ? value : 'service';
 }
 
 function parseConfigSection(value: unknown): 'services' | 'events' | 'observable' {
   return value === 'events' || value === 'observable' ? value : 'services';
+}
+
+function parseOptionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  return value === true || value === 'true' || value === 'on';
 }
 
 function parseSource(value: unknown): 'registry' | 'manual' | 'upload' {

@@ -119,9 +119,9 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
       ...services[key],
     }));
     const enabledPlugin = keydWithMap.find((plugin) => plugin.plugin === pluginName && plugin.enabled === true);
-    if (enabledPlugin) return { name: enabledPlugin.mappedName, enabled: enabledPlugin.enabled };
+    if (enabledPlugin) return { name: enabledPlugin.mappedName, enabled: enabledPlugin.enabled ?? false };
     const plugin = keydWithMap.find((item) => item.plugin === pluginName);
-    if (plugin) return { name: plugin.mappedName, enabled: plugin.enabled };
+    if (plugin) return { name: plugin.mappedName, enabled: plugin.enabled ?? false };
     throw new BSBError(obs.trace, 'Cannot find the plugin {plugin} in the Vault config', {
       plugin: pluginName,
     });
