@@ -318,14 +318,15 @@ export class VaultService {
   }
 
   async createPlugin(userId: string, input: Omit<PluginCatalogRecord, 'id' | 'createdAt'>): Promise<PluginCatalogRecord> {
-    if (!input.name.trim()) throw new Error('Plugin name is required');
-    if (!input.pluginId.trim()) throw new Error('Plugin id is required');
-    if (!input.version.trim()) throw new Error('Plugin version is required');
+    const normalizedInput = normalizePluginCatalogInput(input);
+    if (!normalizedInput.name.trim()) throw new Error('Plugin name is required');
+    if (!normalizedInput.pluginId.trim()) throw new Error('Plugin id is required');
+    if (!normalizedInput.version.trim()) throw new Error('Plugin version is required');
     const existing = (await this.store.listPlugins()).find((plugin) =>
-      plugin.pluginId === input.pluginId &&
-      plugin.version === input.version &&
-      plugin.packageName === input.packageName &&
-      plugin.kind === input.kind
+      plugin.pluginId === normalizedInput.pluginId &&
+      plugin.version === normalizedInput.version &&
+      plugin.packageName === normalizedInput.packageName &&
+      plugin.kind === normalizedInput.kind
     );
     if (existing) {
       await this.audit(userId, 'plugin.import.existing', existing.id, {
@@ -336,7 +337,7 @@ export class VaultService {
       return existing;
     }
     const record: PluginCatalogRecord = {
-      ...input,
+      ...normalizedInput,
       id: newId(),
       createdAt: new Date().toISOString(),
     };
@@ -508,6 +509,7 @@ export class VaultService {
       package: catalog.packageName ?? undefined,
       version: input.version ? catalog.version : undefined,
     };
+    if (input.overridePaths) entry.override = true;
     if (input.baseEnabled === undefined || input.enabled !== undefined) {
       entry.enabled = input.enabled ?? false;
     }
@@ -520,7 +522,12 @@ export class VaultService {
       name: input.name,
       plugin: input.plugin,
     });
-    if (!input.baseConfig) await this.syncProfilePluginPlaceholders(userId, binding.group.id, input);
+    if (!input.baseConfig) await this.syncProfilePluginPlaceholders(userId, binding.group.id, {
+      ...input,
+      plugin: catalog.pluginId,
+      packageName: catalog.packageName,
+      version: input.version ? catalog.version : undefined,
+    });
   }
 
   private async syncProfilePluginPlaceholders(
@@ -710,7 +717,7 @@ export class VaultService {
       shared?.[binding.profile.name] ?? {},
       config[binding.profile.name] ?? {},
     );
-    const mergedConfig = { [binding.profile.name]: mergedProfile };
+    const mergedConfig = { [binding.profile.name]: normalizeRuntimeConfig(mergedProfile, await this.store.listPlugins()) };
     obs?.log.info('Vault runtime config resolved for {application}/{group}/{profile}', {
       application: binding.application.name,
       group: binding.group.name,
@@ -1016,7 +1023,7 @@ export class VaultService {
   }): Promise<PluginCatalogRecord> {
     const expectedKind = input.section === 'services' ? 'service' : input.section;
     const plugins = (await this.store.listPlugins()).filter((plugin) =>
-      plugin.pluginId === input.plugin &&
+      (plugin.pluginId === input.plugin || `${plugin.org}/${plugin.pluginId}` === input.plugin) &&
       plugin.kind === expectedKind &&
       (input.packageName ? plugin.packageName === input.packageName : true)
     );
@@ -1275,6 +1282,51 @@ function versionPart(value: string): number | string {
   return /^\d+$/.test(value) ? Number(value) : value;
 }
 
+function normalizePluginCatalogInput(input: Omit<PluginCatalogRecord, 'id' | 'createdAt'>): Omit<PluginCatalogRecord, 'id' | 'createdAt'> {
+  const slashIndex = input.pluginId.indexOf('/');
+  const orgFromPluginId = slashIndex > 0 ? input.pluginId.slice(0, slashIndex) : null;
+  const pluginId = slashIndex > 0 ? input.pluginId.slice(slashIndex + 1) : input.pluginId;
+  const org = orgFromPluginId ?? input.org;
+  if (input.source === 'registry' && org !== '_' && !input.packageName) {
+    throw new Error(`Package name is required for registry plugin ${org}/${pluginId}`);
+  }
+  if (!input.packageName && input.pluginId.includes('/')) {
+    throw new Error(`Package name is required for plugin ${input.pluginId}`);
+  }
+  return {
+    ...input,
+    org,
+    pluginId,
+  };
+}
+
+function normalizeRuntimeConfig(config: RuntimeConfigDefinition, plugins: PluginCatalogRecord[]): RuntimeConfigDefinition {
+  return {
+    observable: normalizeRuntimeSection(config.observable, 'observable', plugins),
+    events: normalizeRuntimeSection(config.events, 'events', plugins),
+    services: normalizeRuntimeSection(config.services, 'services', plugins),
+  };
+}
+
+function normalizeRuntimeSection(
+  section: Record<string, RuntimePluginDefinition> | undefined,
+  sectionName: 'services' | 'events' | 'observable',
+  plugins: PluginCatalogRecord[],
+): Record<string, RuntimePluginDefinition> | undefined {
+  if (!section) return undefined;
+  return Object.fromEntries(Object.entries(section).map(([name, entry]) => {
+    const catalog = resolveCatalogForEntry(plugins, sectionName, entry);
+    const normalized: RuntimePluginDefinition = {
+      ...entry,
+      plugin: catalog?.pluginId ?? entry.plugin,
+      package: entry.package ?? catalog?.packageName ?? undefined,
+    };
+    delete normalized.override;
+    if (!normalized.package) delete normalized.package;
+    return [name, normalized];
+  }));
+}
+
 function mergeRuntimeConfig(shared: RuntimeConfigDefinition, local: RuntimeConfigDefinition): RuntimeConfigDefinition {
   return {
     observable: mergePluginSection(shared.observable, local.observable),
@@ -1298,6 +1350,7 @@ function mergePluginSection(
       ...plugin,
       config: deepMergeObjects(base.config ?? {}, plugin.config ?? {}),
     } : cloneJson(plugin) as RuntimePluginDefinition;
+    if (output[name].override) delete output[name].override;
   }
   return output;
 }
@@ -1309,7 +1362,7 @@ function resolveCatalogForEntry(
 ): PluginCatalogRecord | undefined {
   const expectedKind = section === 'services' ? 'service' : section;
   const matches = plugins.filter((plugin) =>
-    plugin.pluginId === entry.plugin &&
+    (plugin.pluginId === entry.plugin || `${plugin.org}/${plugin.pluginId}` === entry.plugin) &&
     plugin.kind === expectedKind &&
     (entry.package ? plugin.packageName === entry.package : true)
   );

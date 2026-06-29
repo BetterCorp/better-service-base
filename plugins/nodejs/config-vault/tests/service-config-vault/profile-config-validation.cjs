@@ -73,6 +73,25 @@ module.exports = async ({ pluginRoot }) => {
     },
     eventSchema: null,
     createdAt: '2026-01-01T00:00:00.000Z',
+  }, {
+    id: 'plugin-betterportal-config',
+    pluginId: 'service-betterportal-config-manager',
+    packageName: '@betterportal/config-manager',
+    version: '10.0.5',
+    kind: 'service',
+    source: 'registry',
+    org: 'betterportal',
+    name: 'BetterPortal Config Manager',
+    configSchema: {
+      root: {
+        kind: 'object',
+        properties: {
+          port: { kind: 'int32', min: 1, default: 3300 },
+        },
+      },
+    },
+    eventSchema: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
   }];
   const store = {
     async countAdmins() { return 1; },
@@ -157,6 +176,7 @@ module.exports = async ({ pluginRoot }) => {
     plugin: 'service-api',
     package: '@bsb/service-api',
     version: '1.0.0',
+    override: true,
     config: { port: 3211 },
   });
 
@@ -177,8 +197,40 @@ module.exports = async ({ pluginRoot }) => {
     plugin: 'observable-axiom',
     package: '@bsb/observable-axiom',
     version: '1.0.0',
+    override: true,
     config: { serviceName: 'api-service' },
   });
+
+  await vault.upsertProfilePlugin('user-1', {
+    profileId: 'profile-1',
+    section: 'services',
+    name: 'betterportal-config',
+    plugin: 'betterportal/service-betterportal-config-manager',
+    packageName: '@betterportal/config-manager',
+    version: '10.0.5',
+    enabled: true,
+    config: { port: '3300' },
+  });
+  const betterPortalConfig = decryptJson(draftRecords.get('profile-1'), key);
+  assert.deepEqual(betterPortalConfig.default.services['betterportal-config'], {
+    plugin: 'service-betterportal-config-manager',
+    package: '@betterportal/config-manager',
+    version: '10.0.5',
+    enabled: true,
+    config: { port: 3300 },
+  });
+
+  await assert.rejects(() => vault.createPlugin('user-1', {
+    org: 'betterportal',
+    name: 'Broken Plugin',
+    pluginId: 'betterportal/service-broken',
+    packageName: null,
+    version: '1.0.0',
+    kind: 'service',
+    source: 'registry',
+    configSchema: null,
+    eventSchema: null,
+  }), /Package name is required/i);
 
   await vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',

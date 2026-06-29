@@ -1091,7 +1091,7 @@ function configSectionEditor(
   title: string,
   redirect: string,
 ): string {
-  const entries = Object.entries(draft[section] ?? {});
+  const entries = Object.entries(draft[section] ?? {}).filter(([, entry]) => !entry.override);
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No plugins configured.</p>' : entries.map(([name, entry]) => {
       const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
@@ -1279,7 +1279,7 @@ function findCatalogPlugin(
   packageName?: string,
 ): DeploymentProfileData['plugins'][number] | undefined {
   const matches = data.plugins.filter((plugin) =>
-    plugin.pluginId === pluginId &&
+    (plugin.pluginId === pluginId || `${plugin.org}/${plugin.pluginId}` === pluginId) &&
     plugin.kind !== 'config' &&
     (packageName ? plugin.packageName === packageName : true)
   );
@@ -2004,11 +2004,13 @@ async function registrySearch(registryUrl: string, query: string): Promise<Regis
 function normalizeRegistryCandidate(input: unknown): RegistryCandidate | null {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) return null;
   const value = input as Record<string, unknown>;
-  const org = stringField(value.org) ?? orgFromPackage(value.packageName ?? value.package) ?? '_';
-  const name = stringField(value.name) ?? stringField(value.pluginId) ?? stringField(value.id);
-  if (!name) return null;
+  const rawPluginId = stringField(value.pluginId) ?? stringField(value.id) ?? stringField(value.name);
+  const split = splitPluginId(rawPluginId);
+  const org = stringField(value.org) ?? split.org ?? orgFromPackage(value.packageName ?? value.package) ?? '_';
+  const pluginId = split.pluginId ?? rawPluginId;
+  const name = stringField(value.name) ?? pluginId;
+  if (!name || !pluginId) return null;
   const packageName = stringField(value.packageName) ?? stringField(value.package) ?? null;
-  const pluginId = stringField(value.pluginId) ?? stringField(value.id) ?? name;
   return {
     org,
     name,
@@ -2019,6 +2021,13 @@ function normalizeRegistryCandidate(input: unknown): RegistryCandidate | null {
     configSchema: objectField(value.configSchema) ?? objectField(value.schema) ?? objectField(value.validationSchema) ?? null,
     eventSchema: objectField(value.eventSchema) ?? objectField(value.events) ?? null,
   };
+}
+
+function splitPluginId(value: string | undefined): { org: string | null; pluginId: string | null } {
+  if (!value) return { org: null, pluginId: null };
+  const slashIndex = value.indexOf('/');
+  if (slashIndex <= 0) return { org: null, pluginId: value };
+  return { org: value.slice(0, slashIndex), pluginId: value.slice(slashIndex + 1) };
 }
 
 function stringField(value: unknown): string | undefined {

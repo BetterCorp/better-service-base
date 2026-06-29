@@ -12,6 +12,7 @@ export interface RuntimePluginDefinition {
   package?: string;
   version?: string;
   enabled?: boolean;
+  override?: boolean;
   filter?: string[];
   config?: Record<string, unknown>;
 }
