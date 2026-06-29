@@ -2010,7 +2010,7 @@ function normalizeRegistryCandidate(input: unknown): RegistryCandidate | null {
   const pluginId = split.pluginId ?? rawPluginId;
   const name = stringField(value.name) ?? pluginId;
   if (!name || !pluginId) return null;
-  const packageName = stringField(value.packageName) ?? stringField(value.package) ?? null;
+  const packageName = stringField(value.packageName) ?? packageNameFromRegistry(value.package, 'nodejs') ?? null;
   return {
     org,
     name,
@@ -2028,6 +2028,13 @@ function splitPluginId(value: string | undefined): { org: string | null; pluginI
   const slashIndex = value.indexOf('/');
   if (slashIndex <= 0) return { org: null, pluginId: value };
   return { org: value.slice(0, slashIndex), pluginId: value.slice(slashIndex + 1) };
+}
+
+function packageNameFromRegistry(value: unknown, language: string): string | undefined {
+  const direct = stringField(value);
+  if (direct) return direct;
+  const packages = objectField(value);
+  return packages ? stringField(packages[language]) : undefined;
 }
 
 function stringField(value: unknown): string | undefined {

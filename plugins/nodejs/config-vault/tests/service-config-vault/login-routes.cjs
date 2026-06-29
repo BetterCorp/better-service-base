@@ -31,6 +31,14 @@ module.exports = async ({ pluginRoot }) => {
         version: '1.0.0',
         kind: 'service',
         configSchema: { root: { kind: 'object', properties: {} } },
+      }, {
+        org: 'betterportal',
+        name: 'service-betterportal-theme-bootstrap1',
+        pluginId: 'betterportal/service-betterportal-theme-bootstrap1',
+        package: { nodejs: '@betterportal/theme-bootstrap1' },
+        version: '10.0.9',
+        category: 'service',
+        configSchema: { root: { kind: 'object', properties: {} } },
       }],
     }));
   });
@@ -120,7 +128,7 @@ module.exports = async ({ pluginRoot }) => {
         calls.push(['deleteProfile', userId, id]);
       },
       async createPlugin(userId, input) {
-        calls.push(['createPlugin', userId, input.pluginId, input.version]);
+        calls.push(['createPlugin', userId, input.pluginId, input.version, input.packageName]);
         return { id: 'imported-plugin', createdAt: '2026-01-01T00:00:00.000Z', ...input };
       },
       async deletePlugin(userId, id) {
@@ -409,6 +417,7 @@ module.exports = async ({ pluginRoot }) => {
 
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
     await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
+    await postJson(port, '/api/plugins/import', { org: 'betterportal', name: 'service-betterportal-theme-bootstrap1', pluginId: 'service-betterportal-theme-bootstrap1', packageName: '@betterportal/theme-bootstrap1', version: '10.0.9', kind: 'service', configSchema: {} });
     await postJson(port, '/api/plugins/delete', { id: 'root-plugin' });
     await postJson(port, '/api/drafts', { profileId: 'profile-1', config: { services: { api: { plugin: 'service-api', enabled: true } } } });
     await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'shared', plugin: 'service-api', enabled: true, config: { host: 'service-specific' } });
@@ -428,7 +437,8 @@ module.exports = async ({ pluginRoot }) => {
     await postJson(port, '/api/profiles/delete', { id: 'profile-1' });
     assert.deepEqual(calls, [
       ['createDeployment', 'user-1', 'app-1', 'worker'],
-      ['createPlugin', 'user-1', 'service-worker', '1.0.0'],
+      ['createPlugin', 'user-1', 'service-worker', '1.0.0', '@bsb/service-worker'],
+      ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
       ['deletePlugin', 'user-1', 'root-plugin'],
       ['saveProfileDraft', 'user-1', 'profile-1', { services: { api: { plugin: 'service-api', enabled: true } } }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'shared', 'service-api', { host: 'service-specific' }],
