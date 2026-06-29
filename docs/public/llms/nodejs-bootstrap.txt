@@ -105,7 +105,7 @@ Container deployment:
 - `BSB_PLUGINS` env var: comma-separated npm packages installed at container start (e.g. `@scope/plugin@1.2.3`).
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_DEBUG=true`: enable debug logging in production mode (mode becomes `production-debug`).
-- `BSB_LIVE=true` and `NODE_ENV=production` are set by the base image for production mode.
+- `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins` are set by the base image. Dockerfiles that extend the BSB Node image do not need to set these again unless intentionally overriding them.
 - Plugin dirs are read/search roots. Do not require BSB to write `package.json` into them; versioned plugin package directories contain package metadata.
 - Full Docker guide: https://bsbcode.dev/llms/docker.txt
 

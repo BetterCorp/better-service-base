@@ -144,7 +144,8 @@ Built-in plugin types include: `config-*`, `observable-*`, `events-*`, `service-
 
 ### Docker
 Multi-stage build produces a minimal runtime image:
-- `ENV BSB_LIVE=true`, `ENV BSB_CONTAINER=true`, `ENV BSB_PLUGIN_DIRS=/mnt/plugins`
+- `ENV NODE_ENV=production`, `ENV BSB_LIVE=true`, `ENV BSB_CONTAINER=true`, `ENV BSB_PLUGIN_DIRS=/mnt/plugins`
+- Dockerfiles that extend the BSB Node image do not need to repeat those defaults unless intentionally overriding them.
 - Volumes: `/mnt/plugins` (external plugins), `/mnt/temp`
 - Entrypoint runs `node lib/cli.js` as an unprivileged `node` user
 - Optional plugin install/update at startup:

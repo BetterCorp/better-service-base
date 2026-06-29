@@ -52,6 +52,8 @@ services:
 ```
 
 Environment:
+- The official Node image already sets `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins`.
+- Dockerfiles that extend `betterweb/service-base:node` or `betterweb/service-base:node-latest` should not restate those defaults unless they intentionally need to override them.
 - `BSB_PLUGIN_DIRS`: comma-separated plugin directories. Prefer this over legacy aliases.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR`: legacy aliases; still work and accept comma-separated values.
 - `BSB_PLUGINS`: comma-separated npm packages installed at container start. Prefer exact versions; avoid unversioned packages and `@latest`.

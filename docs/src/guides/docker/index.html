@@ -79,6 +79,7 @@ betterweb/service-base:node-9.5.1</code></pre></div>
       - bsb-data:/data</code></pre></div>
 
         <h2>Environment Variables</h2>
+        <p>The official Node image already sets <code>NODE_ENV=production</code>, <code>BSB_CONTAINER=true</code>, <code>BSB_LIVE=true</code>, and <code>BSB_PLUGIN_DIRS=/mnt/plugins</code>. Dockerfiles that extend <code>betterweb/service-base:node</code> or <code>betterweb/service-base:node-latest</code> do not need to repeat those defaults unless they intentionally override them.</p>
         <ul>
           <li><code>BSB_PLUGIN_DIRS</code>: comma-separated plugin directories. Prefer this over legacy aliases.</li>
           <li><code>BSB_PLUGINS</code>: comma-separated npm packages to install at container start. Prefer exact versions.</li>
