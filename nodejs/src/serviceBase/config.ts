@@ -56,6 +56,10 @@ function exportRootNode(schema: AnySchema): SchemaNode {
   return schema.export('extended').root;
 }
 
+function envStatus(name: string): string {
+  return typeof process.env[name] === "string" && process.env[name]!.length > 0 ? "set" : "unset";
+}
+
 /**
  * @hidden
  */
@@ -146,6 +150,22 @@ export class SBConfig {
     }
 
     return scopedEnv;
+  }
+
+  private getConfigPluginEnvKeys(
+    validationSchema: AnySchema | undefined,
+    fallbackKeys: readonly string[] = [],
+  ): string[] {
+    const allowedKeys = new Set<string>(fallbackKeys);
+
+    if (!Tools.isNullOrUndefined(validationSchema)) {
+      const root = exportRootNode(validationSchema);
+      if (root.kind === 'object' && Tools.isObject(root.properties)) {
+        Object.keys(root.properties).forEach((key) => allowedKeys.add(key));
+      }
+    }
+
+    return [...allowedKeys].sort();
   }
 
   private resolveConfigPluginConfig(
@@ -243,6 +263,10 @@ export class SBConfig {
     const pluginConfig = this.resolveConfigPluginConfig(
       reference.serviceConfig?.validationSchema
     );
+    const configEnvKeys = this.getConfigPluginEnvKeys(reference.serviceConfig?.validationSchema);
+    this.observableBackend.info(tTrace, "Config plugin environment keys: {keys}", {
+      keys: configEnvKeys.length > 0 ? configEnvKeys.map((key) => `${key}:${envStatus(key)}`).join(", ") : "(none)",
+    });
     type ConfigCtorInput = ConstructorParameters<typeof reference.plugin>[0]["config"];
     this.configPlugin = new reference.plugin({
       appId: this.appId,
@@ -278,6 +302,12 @@ export class SBConfig {
    */
   public async init(): Promise<void> {
     const tTrace = internalTrace(`init`);
+    this.observableBackend.info(tTrace, "Config startup env: BSB_CONFIG_PLUGIN={pluginEnv}, BSB_CONFIG_PLUGIN_PACKAGE={packageEnv}, BSB_PROFILE={profileEnv}, BSB_CONFIG_FILE={fileEnv}", {
+      pluginEnv: process.env.BSB_CONFIG_PLUGIN ?? "(unset)",
+      packageEnv: process.env.BSB_CONFIG_PLUGIN_PACKAGE ?? "(unset)",
+      profileEnv: process.env.BSB_PROFILE ?? "(unset)",
+      fileEnv: process.env.BSB_CONFIG_FILE ?? "(unset)",
+    });
     if (
       Tools.isString(process.env.BSB_CONFIG_PLUGIN) &&
       process.env.BSB_CONFIG_PLUGIN.startsWith("config-")
@@ -286,8 +316,12 @@ export class SBConfig {
       if (Tools.isString(process.env.BSB_CONFIG_PLUGIN_PACKAGE)) {
         this.configPackage = process.env.BSB_CONFIG_PLUGIN_PACKAGE;
       }
+      this.observableBackend.info(tTrace, "Config plugin requested from environment: {name} from ({package})", {
+        package: this.configPackage ?? "this project",
+        name: this.configPluginName,
+      });
     }
-    this.observableBackend.debug(tTrace, "Add config {name} from ({package})", {
+    this.observableBackend.info(tTrace, "Selected config plugin {name} from ({package})", {
       package: this.configPackage ?? "this project",
       name: this.configPluginName,
     });
@@ -296,7 +330,7 @@ export class SBConfig {
       await SmartFunctionCallAsync(this.configPlugin, this.configPlugin.init, obs);
       return;
     }
-    this.observableBackend.debug(tTrace, `Import config plugin: {name} from ({package})`, {
+    this.observableBackend.info(tTrace, `Loading config plugin {name} from ({package})`, {
       package: this.configPackage ?? "this project",
       name: this.configPluginName,
     });
@@ -315,9 +349,22 @@ export class SBConfig {
           name: this.configPluginName,
         }
       );
-      return;
+      const obs = this.createObservable(tTrace, "config");
+      throw new BSBError(
+        obs.trace,
+        "Failed to import config plugin {name} from ({package}); startup cannot continue with a different config plugin.",
+        {
+          package: this.configPackage ?? "this project",
+          name: this.configPluginName,
+        },
+      );
     }
 
+    this.observableBackend.info(tTrace, "Loaded config plugin {name} v{version} from {pluginPath}", {
+      name: newPlugin.data.name,
+      version: newPlugin.data.version,
+      pluginPath: newPlugin.data.pluginPath,
+    });
     await this.setConfigPlugin(newPlugin.data);
   }
 }

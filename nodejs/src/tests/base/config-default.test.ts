@@ -121,4 +121,28 @@ default:
       /at least one service is required/i,
     );
   });
+
+  it("should throw a clear error when accessed before init", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "bsb-config-default-uninit-"));
+    tempDirs.push(tempDir);
+    const plugin = new DefaultConfigPlugin({
+      appId: "test-app",
+      mode: "development",
+      cwd: tempDir,
+      packageCwd: tempDir,
+      pluginCwd: tempDir,
+      pluginName: "config-default",
+      pluginVersion: "0.0.0",
+      config: {
+        BSB_PROFILE: "default",
+        BSB_CONFIG_FILE: join(tempDir, "sec-config.yaml"),
+      },
+      sbObservable: MockSBObservable(),
+    });
+
+    await assert.rejects(
+      () => plugin.getObservablePlugins(createTestObservable()),
+      /has not been initialized/i,
+    );
+  });
 });

@@ -73,8 +73,29 @@ export class Plugin
     };
   }
 
+  private getProfileConfig(obs?: Observable): ConfigProfile {
+    if (Tools.isNullOrUndefined(this._appConfig)) {
+      const message = "Default config plugin has not been initialized before config access.";
+      if (obs !== undefined) {
+        throw new BSBError(obs.trace, message);
+      }
+      throw new Error(message);
+    }
+
+    const profile = this._appConfig[this._deploymentProfile];
+    if (Tools.isNullOrUndefined(profile)) {
+      const message = "unknown deployment profile ({deploymentProfile}), please create it first.";
+      if (obs !== undefined) {
+        throw new BSBError(obs.trace, message, { deploymentProfile: this._deploymentProfile });
+      }
+      throw new Error(message.replace("{deploymentProfile}", this._deploymentProfile));
+    }
+
+    return profile;
+  }
+
   private getRequiredServices(obs?: Observable) {
-    const services = this._appConfig[this._deploymentProfile].services ?? {};
+    const services = this.getProfileConfig(obs).services ?? {};
     const enabledServices = Object.keys(services)
       .filter((x) => services[x].enabled === true);
 
@@ -100,12 +121,12 @@ export class Plugin
     pluginName: string,
   ): Promise<{ name: string; enabled: boolean }> {
     const keydPlugins = Object.keys(
-      this._appConfig[this._deploymentProfile].services ?? {},
+      this.getProfileConfig(obs).services ?? {},
     );
     const keydWithMap = keydPlugins.map((x) => {
       return {
         mappedName: x,
-        ...this._appConfig[this._deploymentProfile].services[x],
+        ...this.getProfileConfig(obs).services[x],
       };
     });
     let plugin = keydWithMap.find((x) => {
@@ -137,43 +158,45 @@ export class Plugin
   }
 
   async getObservablePlugins(_obs: Observable): Promise<Record<string, ObservableConfig>> {
+    const profile = this.getProfileConfig(_obs);
     const plugins = Object.keys(
-      this._appConfig[this._deploymentProfile].observable ?? {},
+      profile.observable ?? {},
     )
       .filter((x) => {
         return (
-          this._appConfig[this._deploymentProfile].observable[x].enabled === true
+          profile.observable[x].enabled === true
         );
       });
     return plugins.reduce((acc, x) => {
       acc[x] = {
-        version: this._appConfig[this._deploymentProfile].observable[x].version,
-        plugin: this._appConfig[this._deploymentProfile].observable[x].plugin,
-        package: this._appConfig[this._deploymentProfile].observable[x].package,
-        enabled: this._appConfig[this._deploymentProfile].observable[x].enabled,
-        filter: this._appConfig[this._deploymentProfile].observable[x].filter,
+        version: profile.observable[x].version,
+        plugin: profile.observable[x].plugin,
+        package: profile.observable[x].package,
+        enabled: profile.observable[x].enabled,
+        filter: profile.observable[x].filter,
       };
       return acc;
     }, {} as Record<string, ObservableConfig>);
   }
 
   async getEventsPlugins(_obs: Observable): Promise<Record<string, EventsConfig>> {
+    const profile = this.getProfileConfig(_obs);
     const plugins = Object.keys(
-      this._appConfig[this._deploymentProfile].events ?? {},
+      profile.events ?? {},
     )
       .filter((x) => {
         return (
-          this._appConfig[this._deploymentProfile].events[x].enabled === true
+          profile.events[x].enabled === true
         );
       });
     return plugins.reduce((acc, x) => {
       acc[x] = {
         //name: this._appConfig[this._deploymentProfile].events[x].name,
-        version: this._appConfig[this._deploymentProfile].events[x].version,
-        plugin: this._appConfig[this._deploymentProfile].events[x].plugin,
-        package: this._appConfig[this._deploymentProfile].events[x].package,
-        enabled: this._appConfig[this._deploymentProfile].events[x].enabled,
-        filter: this._appConfig[this._deploymentProfile].events[x].filter,
+        version: profile.events[x].version,
+        plugin: profile.events[x].plugin,
+        package: profile.events[x].package,
+        enabled: profile.events[x].enabled,
+        filter: profile.events[x].filter,
       };
       return acc;
     }, {} as Record<string, EventsConfig>);
@@ -214,7 +237,7 @@ export class Plugin
     if (pluginType === PluginTypes.observable) {
       configKey = "observable";
     }
-    const pluginConfig = this._appConfig[this._deploymentProfile][configKey]?.[plugin]?.config;
+    const pluginConfig = this.getProfileConfig(obs)[configKey]?.[plugin]?.config;
     return Tools.isNullOrUndefined(pluginConfig) ? {} : pluginConfig;
   }
 
