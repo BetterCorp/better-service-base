@@ -141,6 +141,7 @@ Built-in plugin types include: `config-*`, `observable-*`, `events-*`, `service-
 - API Reference: Hosted at `https://types.bsbcode.dev/nodejs/`
 - `npm run export-schemas`: Export event schemas to `lib/schemas/{plugin-name}.json`
 - `npm run generate-plugin-json`: Generate plugin metadata in `lib/schemas/`
+- `npm run list-plugin-search-paths`: Print the plugins visible to BSB and their paths; runs automatically during `build` and `build-release`
 
 ### Docker
 Multi-stage build produces a minimal runtime image:
@@ -151,6 +152,7 @@ Multi-stage build produces a minimal runtime image:
 - Optional plugin install/update at startup:
   - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b@2.4.1"` -> installs listed packages
   - `BSB_PLUGIN_UPDATE=yes` -> refreshes installed plugins through the startup installer
+- Derived Dockerfiles can log visible plugins after copying/installing them with `RUN node /home/bsb/lib/scripts/list-plugin-search-paths.js`
 
 Example run (with mounted plugins directory):
 ```bash

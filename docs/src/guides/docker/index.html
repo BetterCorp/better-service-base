@@ -94,6 +94,15 @@ betterweb/service-base:node-9.5.1</code></pre></div>
           <h4>Build Plugins Separately</h4>
           <p>Plugin projects should build with <code>bsb-plugin-cli build</code> before deployment. The container loads built plugin packages; it should not compile application plugin source at startup.</p>
         </div>
+
+        <h2>Build-Time Plugin Discovery</h2>
+        <p>The Node build logs a plugin search report automatically. For Dockerfiles that extend the BSB Node image and add plugins in a later build stage, run the same report after copying or installing those plugins:</p>
+
+        <div class="code-block" data-title="Dockerfile"><pre><code class="language-dockerfile">RUN node /home/bsb/lib/scripts/list-plugin-search-paths.js</code></pre></div>
+
+        <p>When working in this repository, the equivalent command is:</p>
+
+        <div class="code-block" data-title="bash"><pre><code class="language-bash">npm run list-plugin-search-paths --workspace nodejs</code></pre></div>
       </div>
     </main>
   </div>

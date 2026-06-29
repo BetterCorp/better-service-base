@@ -106,6 +106,7 @@ Container deployment:
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_DEBUG=true`: enable debug logging in production mode (mode becomes `production-debug`).
 - `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins` are set by the base image. Dockerfiles that extend the BSB Node image do not need to set these again unless intentionally overriding them.
+- To log plugin discovery during a derived container build, run `node /home/bsb/lib/scripts/list-plugin-search-paths.js` after plugins have been copied or installed. In the BSB repo, run `npm run list-plugin-search-paths --workspace nodejs`; the core Node build runs it automatically.
 - Plugin dirs are read/search roots. Do not require BSB to write `package.json` into them; versioned plugin package directories contain package metadata.
 - Full Docker guide: https://bsbcode.dev/llms/docker.txt
 
