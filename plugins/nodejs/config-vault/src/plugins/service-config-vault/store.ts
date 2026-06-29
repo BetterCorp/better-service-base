@@ -278,6 +278,11 @@ export class VaultStore {
     return result.rows.map((row) => mapApplicationProfile(row as DbRow));
   }
 
+  async listAllApplicationProfiles(): Promise<ApplicationProfileRecord[]> {
+    const result = await this.pool.query('select * from vault_application_profiles order by application_id, name');
+    return result.rows.map((row) => mapApplicationProfile(row as DbRow));
+  }
+
   async createGroup(record: GroupRecord): Promise<void> {
     await this.pool.query(
       'insert into vault_groups (id, application_id, name, created_at) values ($1, $2, $3, $4)',
@@ -362,6 +367,10 @@ export class VaultStore {
   async listPlugins(): Promise<PluginCatalogRecord[]> {
     const result = await this.pool.query('select * from vault_plugin_catalog order by org, name, version');
     return result.rows.map((row) => mapPlugin(row as DbRow));
+  }
+
+  async deletePlugin(id: string): Promise<void> {
+    await this.pool.query('delete from vault_plugin_catalog where id = $1', [id]);
   }
 
   async upsertDraft(record: ConfigDraftRecord): Promise<void> {

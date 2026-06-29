@@ -87,6 +87,10 @@ module.exports = async ({ pluginRoot }) => {
             kind: 'config',
             source: 'manual',
           }],
+          pluginUsage: {
+            'service-plugin': { count: 1, locations: ['draft:profile-1/services/api'] },
+            'root-plugin': { count: 0, locations: [] },
+          },
           runtimeKeys: [],
         };
       },
@@ -118,6 +122,9 @@ module.exports = async ({ pluginRoot }) => {
       async createPlugin(userId, input) {
         calls.push(['createPlugin', userId, input.pluginId, input.version]);
         return { id: 'imported-plugin', createdAt: '2026-01-01T00:00:00.000Z', ...input };
+      },
+      async deletePlugin(userId, id) {
+        calls.push(['deletePlugin', userId, id]);
       },
       async deploymentProfile(profileId) {
         assert.equal(profileId, 'profile-1');
@@ -397,9 +404,12 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /Imported/);
     assert.match(pluginsHtml, /service-worker/);
     assert.match(pluginsHtml, /Not imported/);
+    assert.match(pluginsHtml, /In use/);
+    assert.match(pluginsHtml, /\/api\/plugins\/delete/);
 
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
     await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
+    await postJson(port, '/api/plugins/delete', { id: 'root-plugin' });
     await postJson(port, '/api/drafts', { profileId: 'profile-1', config: { services: { api: { plugin: 'service-api', enabled: true } } } });
     await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'shared', plugin: 'service-api', enabled: true, config: { host: 'service-specific' } });
     await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', enabled: true, config: { host: '0.0.0.0', port: 3200 } });
@@ -419,6 +429,7 @@ module.exports = async ({ pluginRoot }) => {
     assert.deepEqual(calls, [
       ['createDeployment', 'user-1', 'app-1', 'worker'],
       ['createPlugin', 'user-1', 'service-worker', '1.0.0'],
+      ['deletePlugin', 'user-1', 'root-plugin'],
       ['saveProfileDraft', 'user-1', 'profile-1', { services: { api: { plugin: 'service-api', enabled: true } } }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'shared', 'service-api', { host: 'service-specific' }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'api', 'service-api', { host: '0.0.0.0', port: 3200 }],

@@ -210,6 +210,13 @@ export class VaultHttpServer {
       });
     }));
 
+    app.use('/api/plugins/delete', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.deletePlugin(user.userId, String(body.id ?? ''));
+      return { success: true };
+    }));
+
     app.use('/api/plugins', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -815,8 +822,24 @@ function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: 
       <button>Create Plugin</button><p class="status"></p>
     </form>
   </section>
-  <section><h2>Catalog</h2>${table(visiblePlugins.map((x) => [pluginDisplayName(x), x.version, x.kind, x.source, x.packageName ?? '']))}</section>
+  <section><h2>Catalog</h2>${pluginCatalogTable(visiblePlugins, data.pluginUsage)}</section>
   ${formScript()}`;
+}
+
+function pluginCatalogTable(plugins: DashboardData['plugins'], usage: DashboardData['pluginUsage']): string {
+  if (plugins.length === 0) return '<p class="muted">No plugins imported.</p>';
+  return `<table>${plugins.map((plugin) => {
+    const used = usage[plugin.id]?.count ?? 0;
+    return `<tr>
+      <td>${escapeHtml(pluginDisplayName(plugin))}</td>
+      <td>${escapeHtml(plugin.version)}</td>
+      <td>${escapeHtml(plugin.kind)}</td>
+      <td>${escapeHtml(plugin.source)}</td>
+      <td>${escapeHtml(plugin.packageName ?? '')}</td>
+      <td>${used}</td>
+      <td>${used === 0 ? `<form data-api="/api/plugins/delete" data-redirect="/plugins" data-confirm="Delete this unused plugin version?"><input type="hidden" name="id" value="${escapeHtml(plugin.id)}"><button class="secondary">Delete</button><p class="status"></p></form>` : '<span class="muted">In use</span>'}</td>
+    </tr>`;
+  }).join('')}</table>`;
 }
 
 function registryTable(items: RegistryCandidate[], importedPlugins: DashboardData['plugins']): string {
@@ -1027,6 +1050,7 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
+        <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock>Lock Version</label>
       </div>
       <div data-config-fields></div>
       <button>Add Plugin</button><p class="status"></p>
@@ -1052,6 +1076,7 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
+        <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock>Lock Version</label>
       </div>
       <div data-config-fields></div>
       <button>Add Shared Plugin</button><p class="status"></p>
@@ -1086,6 +1111,7 @@ function configSectionEditor(
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
+            <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
           </div>
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
@@ -1130,6 +1156,7 @@ function applicationConfigSectionEditor(
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
+            <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
           </div>
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
@@ -1251,11 +1278,37 @@ function findCatalogPlugin(
   version?: string,
   packageName?: string,
 ): DeploymentProfileData['plugins'][number] | undefined {
-  return data.plugins.find((plugin) =>
+  const matches = data.plugins.filter((plugin) =>
     plugin.pluginId === pluginId &&
-    (version ? plugin.version === version : true) &&
+    plugin.kind !== 'config' &&
     (packageName ? plugin.packageName === packageName : true)
-  ) ?? data.plugins.find((plugin) => plugin.pluginId === pluginId);
+  );
+  return version
+    ? matches.find((plugin) => plugin.version === version)
+    : latestCatalogPlugin(matches);
+}
+
+function latestCatalogPlugin(plugins: DeploymentProfileData['plugins']): DeploymentProfileData['plugins'][number] | undefined {
+  return [...plugins].sort((left, right) => compareVersionStrings(right.version, left.version))[0];
+}
+
+function compareVersionStrings(left: string, right: string): number {
+  const leftParts = left.split(/[.-]/).map(versionPart);
+  const rightParts = right.split(/[.-]/).map(versionPart);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = leftParts[index] ?? 0;
+    const b = rightParts[index] ?? 0;
+    if (typeof a === 'number' && typeof b === 'number' && a !== b) return a - b;
+    const textA = String(a);
+    const textB = String(b);
+    if (textA !== textB) return textA.localeCompare(textB);
+  }
+  return 0;
+}
+
+function versionPart(value: string): number | string {
+  return /^\d+$/.test(value) ? Number(value) : value;
 }
 
 function pluginDisplayName(plugin: { org?: string; pluginId: string; name?: string }): string {
@@ -1793,7 +1846,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (!item || !form) return;
       form.elements.plugin.value = item.plugin || '';
       form.elements.packageName.value = item.packageName || '';
-      form.elements.version.value = item.version || '';
+      form.elements.version.value = form.querySelector('[data-version-lock]')?.checked ? item.version || '' : '';
       if (form.elements.section && item.kind) form.elements.section.value = item.kind === 'service' ? 'services' : item.kind;
       if (form.elements.typeDisplay && item.kindLabel) form.elements.typeDisplay.value = item.kindLabel;
       if (form.elements.name) form.elements.name.value = item.plugin || '';
@@ -1806,6 +1859,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       }
     };
     select.addEventListener('change', sync);
+    form?.querySelector('[data-version-lock]')?.addEventListener('change', sync);
     sync();
   });
   function syncOptionalGroup(group) {
@@ -1860,6 +1914,8 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   document.querySelectorAll('[data-enabled-override]').forEach(syncEnabledOverrideGroup);
   document.querySelectorAll('form[data-config-form]').forEach((form) => {
     form.addEventListener('submit', () => {
+      const lock = form.querySelector('[data-version-lock]');
+      if (lock && !lock.checked && form.elements.version) form.elements.version.value = '';
       if (form.elements.config) form.elements.config.value = JSON.stringify(readConfigForm(form));
       if (form.elements.overridePaths) {
         form.elements.overridePaths.value = JSON.stringify(Array.from(form.querySelectorAll('[data-override-toggle]:checked')).map((toggle) => toggle.dataset.overridePath).filter(Boolean));

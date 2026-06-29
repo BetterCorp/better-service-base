@@ -38,6 +38,8 @@ type ConfigState = {
   publishedAt: string | null;
 };
 
+type PluginUsage = Record<string, { count: number; locations: string[] }>;
+
 export class VaultService {
   private readonly store: VaultStore;
   private readonly masterKey: Buffer;
@@ -316,10 +318,14 @@ export class VaultService {
   }
 
   async createPlugin(userId: string, input: Omit<PluginCatalogRecord, 'id' | 'createdAt'>): Promise<PluginCatalogRecord> {
+    if (!input.name.trim()) throw new Error('Plugin name is required');
+    if (!input.pluginId.trim()) throw new Error('Plugin id is required');
+    if (!input.version.trim()) throw new Error('Plugin version is required');
     const existing = (await this.store.listPlugins()).find((plugin) =>
       plugin.pluginId === input.pluginId &&
       plugin.version === input.version &&
-      (input.packageName ? plugin.packageName === input.packageName : true)
+      plugin.packageName === input.packageName &&
+      plugin.kind === input.kind
     );
     if (existing) {
       await this.audit(userId, 'plugin.import.existing', existing.id, {
@@ -334,9 +340,22 @@ export class VaultService {
       id: newId(),
       createdAt: new Date().toISOString(),
     };
+    const previousPlugins = await this.store.listPlugins();
     await this.store.createPlugin(record);
+    await this.lockIncompatibleUnlockedConfigs(userId, record, previousPlugins);
     await this.audit(userId, 'plugin.create', record.id, { pluginId: record.pluginId, version: record.version, source: record.source });
     return record;
+  }
+
+  async deletePlugin(userId: string, pluginId: string): Promise<void> {
+    const plugins = await this.store.listPlugins();
+    const plugin = plugins.find((candidate) => candidate.id === pluginId);
+    if (!plugin) throw new Error('Plugin not found');
+    const usage = await this.pluginUsage(plugins);
+    const used = usage[plugin.id];
+    if (used?.count) throw new Error(`Plugin version is used by ${used.count} config entries`);
+    await this.store.deletePlugin(plugin.id);
+    await this.audit(userId, 'plugin.delete', plugin.id, { pluginId: plugin.pluginId, version: plugin.version });
   }
 
   async saveDraft(userId: string, profileId: string, config: VaultRuntimeConfig): Promise<void> {
@@ -425,13 +444,15 @@ export class VaultService {
       config?: Record<string, unknown>;
     },
   ): Promise<void> {
+    validateConfigName(input.name);
     const draft = await this.getApplicationProfileDraft(input.applicationProfileId) ?? { observable: {}, events: {}, services: {} };
     const section = draft[input.section] ?? {};
-    const config = await this.validatePluginConfig(input);
+    const catalog = await this.resolveCatalogPlugin(input);
+    const config = await this.validatePluginConfig(input, catalog);
     section[input.name] = {
-      plugin: input.plugin,
-      package: input.packageName ?? undefined,
-      version: input.version ?? undefined,
+      plugin: catalog.pluginId,
+      package: catalog.packageName ?? undefined,
+      version: input.version ? catalog.version : undefined,
       enabled: input.enabled,
       config,
     };
@@ -473,21 +494,24 @@ export class VaultService {
       overridePaths?: string[];
     },
   ): Promise<void> {
+    validateConfigName(input.name);
     const binding = await this.store.resolveProfileBinding(input.profileId);
     if (!binding) throw new Error('Deployment profile not found');
     const draft = await this.getProfileDraft(input.profileId) ?? { observable: {}, events: {}, services: {} };
     const section = draft[input.section] ?? {};
-    const config = await this.validatePluginConfig(input) ?? {};
-    const storedConfig = input.overridePaths ? pickConfigPaths(config, input.overridePaths) : config;
+    const catalog = await this.resolveCatalogPlugin(input);
+    const config = input.overridePaths
+      ? await this.validatePluginConfigPaths(input, catalog, input.overridePaths)
+      : await this.validatePluginConfig(input, catalog) ?? {};
     const entry: RuntimePluginDefinition = {
-      plugin: input.plugin,
-      package: input.packageName ?? undefined,
-      version: input.version ?? undefined,
+      plugin: catalog.pluginId,
+      package: catalog.packageName ?? undefined,
+      version: input.version ? catalog.version : undefined,
     };
     if (input.baseEnabled === undefined || input.enabled !== undefined) {
       entry.enabled = input.enabled ?? false;
     }
-    if (Object.keys(storedConfig).length > 0) entry.config = storedConfig;
+    if (Object.keys(config).length > 0) entry.config = config;
     section[input.name] = entry;
     draft[input.section] = section;
     await this.saveProfileDraft(userId, input.profileId, draft);
@@ -721,16 +745,123 @@ export class VaultService {
     groups: GroupRecord[];
     profiles: ProfileRecord[];
     plugins: PluginCatalogRecord[];
+    pluginUsage: PluginUsage;
     runtimeKeys: RuntimeKeyRecord[];
   }> {
+    const plugins = await this.store.listPlugins();
     return {
       setupRequired: await this.setupRequired(),
       applications: await this.store.listApplications(),
       groups: await this.store.listAllGroups(),
       profiles: await this.store.listAllProfiles(),
-      plugins: await this.store.listPlugins(),
+      plugins,
+      pluginUsage: await this.pluginUsage(plugins),
       runtimeKeys: await this.store.listRuntimeKeys(),
     };
+  }
+
+  private async pluginUsage(plugins: PluginCatalogRecord[]): Promise<PluginUsage> {
+    const usage: PluginUsage = {};
+    const add = (plugin: PluginCatalogRecord | undefined, location: string) => {
+      if (!plugin) return;
+      usage[plugin.id] ??= { count: 0, locations: [] };
+      usage[plugin.id].count += 1;
+      usage[plugin.id].locations.push(location);
+    };
+    const scan = (config: RuntimeConfigDefinition | null | undefined, location: string) => {
+      if (!config) return;
+      for (const sectionName of ['services', 'events', 'observable'] as const) {
+        const section = config[sectionName] ?? {};
+        for (const [name, entry] of Object.entries(section)) {
+          add(resolveCatalogForEntry(plugins, sectionName, entry), `${location}/${sectionName}/${name}`);
+        }
+      }
+    };
+    for (const profile of await this.store.listAllProfiles()) {
+      scan(await this.getProfileDraft(profile.id), `draft:${profile.id}`);
+      if (profile.activeVersionId) {
+        const version = await this.store.getVersion(profile.activeVersionId);
+        if (version) {
+          const decrypted = decryptJson<VaultRuntimeConfig>(version, this.masterKey);
+          scan(decrypted[profile.name], `live:${profile.id}`);
+        }
+      }
+    }
+    for (const profile of await this.store.listAllApplicationProfiles()) {
+      scan(await this.getApplicationProfileDraft(profile.id), `app-draft:${profile.id}`);
+      if (profile.activeVersionId) {
+        const version = await this.store.getApplicationVersion(profile.activeVersionId);
+        if (version) {
+          const decrypted = decryptJson<VaultRuntimeConfig>(version, this.masterKey);
+          scan(decrypted[profile.name], `app-live:${profile.id}`);
+        }
+      }
+    }
+    return usage;
+  }
+
+  private async lockIncompatibleUnlockedConfigs(
+    userId: string,
+    imported: PluginCatalogRecord,
+    previousPlugins: PluginCatalogRecord[],
+  ): Promise<void> {
+    const sectionName = sectionForKind(imported.kind);
+    if (!sectionName) return;
+    const previous = latestPlugin(previousPlugins.filter((plugin) =>
+      plugin.pluginId === imported.pluginId &&
+      plugin.kind === imported.kind &&
+      plugin.packageName === imported.packageName
+    ));
+    if (!previous || compareVersions(imported.version, previous.version) <= 0) return;
+
+    const visit = async (config: RuntimeConfigDefinition | null, save: (next: RuntimeConfigDefinition) => Promise<void>) => {
+      if (!config) return;
+      let changed = false;
+      const section = config[sectionName] ?? {};
+      for (const entry of Object.values(section)) {
+        if (entry.version) continue;
+        if (entry.plugin !== imported.pluginId) continue;
+        if ((entry.package ?? null) !== imported.packageName) continue;
+        try {
+          await this.validatePluginConfig({
+            section: sectionName,
+            plugin: entry.plugin,
+            packageName: entry.package ?? null,
+            config: entry.config ?? {},
+          }, imported);
+        } catch {
+          entry.version = previous.version;
+          changed = true;
+        }
+      }
+      if (changed) await save(config);
+    };
+
+    for (const profile of await this.store.listAllProfiles()) {
+      const draft = await this.getProfileDraft(profile.id);
+      if (draft) {
+        await visit(draft, (next) => this.saveProfileDraft(userId, profile.id, next));
+        continue;
+      }
+      if (!profile.activeVersionId) continue;
+      const version = await this.store.getVersion(profile.activeVersionId);
+      if (!version) continue;
+      const live = decryptJson<VaultRuntimeConfig>(version, this.masterKey)[profile.name] ?? null;
+      await visit(live, (next) => this.saveProfileDraft(userId, profile.id, next));
+    }
+
+    for (const profile of await this.store.listAllApplicationProfiles()) {
+      const draft = await this.getApplicationProfileDraft(profile.id);
+      if (draft) {
+        await visit(draft, (next) => this.saveApplicationProfileDraft(userId, profile.id, next));
+        continue;
+      }
+      if (!profile.activeVersionId) continue;
+      const version = await this.store.getApplicationVersion(profile.activeVersionId);
+      if (!version) continue;
+      const live = decryptJson<VaultRuntimeConfig>(version, this.masterKey)[profile.name] ?? null;
+      await visit(live, (next) => this.saveApplicationProfileDraft(userId, profile.id, next));
+    }
   }
 
   async deploymentProfile(profileId: string): Promise<{
@@ -841,14 +972,7 @@ export class VaultService {
     packageName?: string | null;
     version?: string | null;
     config?: Record<string, unknown>;
-  }): Promise<RuntimePluginDefinition['config']> {
-    const plugins = await this.store.listPlugins();
-    const catalog = plugins.find((plugin) =>
-      plugin.pluginId === input.plugin &&
-      plugin.kind === (input.section === 'services' ? 'service' : input.section) &&
-      (input.version ? plugin.version === input.version : true) &&
-      (input.packageName ? plugin.packageName === input.packageName : true)
-    ) ?? plugins.find((plugin) => plugin.pluginId === input.plugin);
+  }, catalog: PluginCatalogRecord): Promise<RuntimePluginDefinition['config']> {
     if (!catalog?.configSchema) return input.config ?? {};
     const root = objectField(objectField(catalog.configSchema.root) ?? catalog.configSchema);
     if (!root) return input.config ?? {};
@@ -857,6 +981,51 @@ export class VaultService {
       throw new Error(`Invalid config for ${input.plugin}: config must be an object`);
     }
     return value;
+  }
+
+  private async validatePluginConfigPaths(
+    input: {
+      section: 'services' | 'events' | 'observable';
+      plugin: string;
+      packageName?: string | null;
+      version?: string | null;
+      config?: Record<string, unknown>;
+    },
+    catalog: PluginCatalogRecord,
+    paths: string[],
+  ): Promise<Record<string, unknown>> {
+    if (!catalog.configSchema) return pickConfigPaths(input.config ?? {}, paths);
+    const root = objectField(objectField(catalog.configSchema.root) ?? catalog.configSchema);
+    if (!root) return pickConfigPaths(input.config ?? {}, paths);
+    const output: Record<string, unknown> = {};
+    for (const path of paths) {
+      const node = schemaNodeAtPath(root, path);
+      const value = valueAtPath(input.config ?? {}, path);
+      if (!node || value === undefined) continue;
+      const validated = validateSchemaNode(node, value, `config.${path}`, true);
+      if (validated !== omitted) setValueAtPath(output, path, validated);
+    }
+    return output;
+  }
+
+  private async resolveCatalogPlugin(input: {
+    section: 'services' | 'events' | 'observable';
+    plugin: string;
+    packageName?: string | null;
+    version?: string | null;
+  }): Promise<PluginCatalogRecord> {
+    const expectedKind = input.section === 'services' ? 'service' : input.section;
+    const plugins = (await this.store.listPlugins()).filter((plugin) =>
+      plugin.pluginId === input.plugin &&
+      plugin.kind === expectedKind &&
+      (input.packageName ? plugin.packageName === input.packageName : true)
+    );
+    if (plugins.length === 0) throw new Error(`Plugin ${input.plugin} (${expectedKind}) is not imported`);
+    const catalog = input.version
+      ? plugins.find((plugin) => plugin.version === input.version)
+      : latestPlugin(plugins);
+    if (!catalog) throw new Error(`Plugin ${input.plugin} version ${input.version ?? 'latest'} is not imported`);
+    return catalog;
   }
 }
 
@@ -1023,6 +1192,29 @@ function validateUnionNode(node: Record<string, unknown>, value: unknown, path: 
   throw new Error(errors[0] ?? `${path} does not match any allowed shape`);
 }
 
+function schemaNodeAtPath(root: Record<string, unknown>, path: string): Record<string, unknown> | null {
+  let current: Record<string, unknown> | null = root;
+  for (const part of path.split('.')) {
+    current = unwrapSchemaNode(current);
+    if (!current) return null;
+    if (current.kind === 'object') {
+      const properties = objectField(current.properties);
+      current = properties ? objectField(properties[part]) : null;
+      continue;
+    }
+    return null;
+  }
+  return unwrapSchemaNode(current);
+}
+
+function unwrapSchemaNode(node: Record<string, unknown> | null): Record<string, unknown> | null {
+  let current = node;
+  while (current && (current.kind === 'optional' || current.kind === 'nullable')) {
+    current = objectField(current.inner);
+  }
+  return current;
+}
+
 function isOptional(value: unknown): boolean {
   return isPlainObject(value) && (value.kind === 'optional' || ('default' in value));
 }
@@ -1047,6 +1239,40 @@ function cloneDefault(value: unknown): unknown {
 
 function cloneJson(value: unknown): unknown {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function validateConfigName(name: string): void {
+  if (!name.trim()) throw new Error('Config name is required');
+}
+
+function sectionForKind(kind: PluginCatalogRecord['kind']): 'services' | 'events' | 'observable' | null {
+  if (kind === 'service') return 'services';
+  if (kind === 'events') return 'events';
+  if (kind === 'observable') return 'observable';
+  return null;
+}
+
+function latestPlugin(plugins: PluginCatalogRecord[]): PluginCatalogRecord | undefined {
+  return [...plugins].sort((left, right) => compareVersions(right.version, left.version))[0];
+}
+
+function compareVersions(left: string, right: string): number {
+  const leftParts = left.split(/[.-]/).map(versionPart);
+  const rightParts = right.split(/[.-]/).map(versionPart);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = leftParts[index] ?? 0;
+    const b = rightParts[index] ?? 0;
+    if (typeof a === 'number' && typeof b === 'number' && a !== b) return a - b;
+    const textA = String(a);
+    const textB = String(b);
+    if (textA !== textB) return textA.localeCompare(textB);
+  }
+  return 0;
+}
+
+function versionPart(value: string): number | string {
+  return /^\d+$/.test(value) ? Number(value) : value;
 }
 
 function mergeRuntimeConfig(shared: RuntimeConfigDefinition, local: RuntimeConfigDefinition): RuntimeConfigDefinition {
@@ -1074,6 +1300,22 @@ function mergePluginSection(
     } : cloneJson(plugin) as RuntimePluginDefinition;
   }
   return output;
+}
+
+function resolveCatalogForEntry(
+  plugins: PluginCatalogRecord[],
+  section: 'services' | 'events' | 'observable',
+  entry: RuntimePluginDefinition,
+): PluginCatalogRecord | undefined {
+  const expectedKind = section === 'services' ? 'service' : section;
+  const matches = plugins.filter((plugin) =>
+    plugin.pluginId === entry.plugin &&
+    plugin.kind === expectedKind &&
+    (entry.package ? plugin.packageName === entry.package : true)
+  );
+  return entry.version
+    ? matches.find((plugin) => plugin.version === entry.version)
+    : latestPlugin(matches);
 }
 
 function deepMergeObjects(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
