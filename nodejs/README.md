@@ -16,7 +16,7 @@ Better Service Base (BSB) is an event-driven microservices framework for Node.js
 - Deploy the container and supply plugins via `BSB_PLUGIN_DIRS` (recommended, comma-separated) or `BSB_PLUGINS` installation at container startup.
 
 #### Requirements
-- Node.js >= 23.0.0, npm >= 11.0.0
+- Node.js >= 24.0.0, npm >= 11.0.0
 - TypeScript 5.x for development
 
 ### Project Structure
@@ -141,7 +141,7 @@ Built-in plugin types include: `config-*`, `observable-*`, `events-*`, `service-
 - API Reference: Hosted at `https://types.bsbcode.dev/nodejs/`
 - `npm run export-schemas`: Export event schemas to `lib/schemas/{plugin-name}.json`
 - `npm run generate-plugin-json`: Generate plugin metadata in `lib/schemas/`
-- `npm run list-plugin-search-paths`: Print the plugins visible to BSB and their paths; runs automatically during `build` and `build-release`
+- `npm run list-plugin-search-paths`: Print the packages/plugins visible to BSB, including package versions, plugin types, paths, and config-reference snippets; runs automatically during `build` and `build-release`
 
 ### Docker
 Multi-stage build produces a minimal runtime image:
@@ -156,6 +156,7 @@ Multi-stage build produces a minimal runtime image:
 - Optional plugin install/update at startup:
   - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b@2.4.1"` -> installs listed packages
   - `BSB_PLUGIN_UPDATE=yes` -> refreshes installed plugins through the startup installer
+- `BSB_SHOW_PACKAGES=true` -> prints the package/plugin discovery report before BSB starts
 - Derived Dockerfiles can log visible plugins after copying/installing them with `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js`
 
 Example run (with mounted plugins directory):
@@ -191,7 +192,8 @@ Notes
 - `BSB_PLUGIN_DIRS`: Comma-separated list of external plugin directories (searched in order; first is install target)
 - `BSB_PLUGIN_DIR`: Single external plugin directory (legacy, still supported). Accepts comma-separated paths.
 - `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Prefer exact versions.
-- `BSB_PLUGIN_UPDATE`: `yes|y|true` to run `npm update` at container start
+- `BSB_PLUGIN_UPDATE`: `yes|y|true` to refresh installed plugin packages through the startup installer
+- `BSB_SHOW_PACKAGES`: `yes|y|true` to print package/plugin discovery before startup
 - Config plugin override (advanced):
   - `BSB_CONFIG_PLUGIN`: Name of config plugin (must start with `config-`)
   - `BSB_CONFIG_PLUGIN_PACKAGE`: npm package name hosting the config plugin

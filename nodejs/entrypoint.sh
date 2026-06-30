@@ -107,6 +107,10 @@ if [ -n "$RAW_PLUGIN_DIRS" ]; then
   IFS="$OLDIFS"
 fi
 
+if [ "${BSB_SHOW_PACKAGES:-}" = "1" ] || [ "${BSB_SHOW_PACKAGES:-}" = "true" ] || [ "${BSB_SHOW_PACKAGES:-}" = "TRUE" ] || [ "${BSB_SHOW_PACKAGES:-}" = "yes" ] || [ "${BSB_SHOW_PACKAGES:-}" = "YES" ] || [ "${BSB_SHOW_PACKAGES:-}" = "y" ] || [ "${BSB_SHOW_PACKAGES:-}" = "Y" ]; then
+  gosu node:node node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js
+fi
+
 # Check if the first argument is BSBDEBUG for debugging purposes
 if [ "$1" = "BSBDEBUG" ]; then
   shift

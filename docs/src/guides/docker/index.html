@@ -87,6 +87,7 @@ code.bettercorp.dev/bettercorp/service-base:node-9.5.1</code></pre></div>
           <li><code>BSB_WRITABLE_PATHS</code>: comma-separated files or directories that the entrypoint should create if needed, chown to the Node user, and chmod as writable. Use this for runtime state such as <code>/data</code>.</li>
           <li><code>BSB_CONFIG_FILE</code>: config file path inside the container.</li>
           <li><code>BSB_PROFILE</code>: config profile to load, defaulting to <code>default</code>.</li>
+          <li><code>BSB_SHOW_PACKAGES=true</code>: print the package/plugin discovery report before BSB starts, including package names, versions, plugin types, paths, and config-reference snippets.</li>
           <li><code>BSB_DEBUG=true</code>: enable production debug logging.</li>
         </ul>
 
@@ -96,9 +97,11 @@ code.bettercorp.dev/bettercorp/service-base:node-9.5.1</code></pre></div>
         </div>
 
         <h2>Build-Time Plugin Discovery</h2>
-        <p>The Node build logs a plugin search report automatically. For Dockerfiles that extend the BSB Node image and add plugins in a later build stage, run the same report after copying or installing those plugins:</p>
+        <p>The Node build logs a package/plugin search report automatically. For Dockerfiles that extend the BSB Node image and add plugins in a later build stage, run the same report after copying or installing those plugins:</p>
 
         <div class="code-block" data-title="Dockerfile"><pre><code class="language-dockerfile">RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js</code></pre></div>
+
+        <p>At runtime, enable the same report with <code>BSB_SHOW_PACKAGES=true</code>.</p>
 
         <p>When working in this repository, the equivalent command is:</p>
 

@@ -17,7 +17,7 @@
       "pluginPath": "src/plugins/config-default/",
       "image": "../docs/public/assets/images/bsb-logo.png",
       "links": {
-        "github": "git+https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     },
     {
@@ -36,7 +36,7 @@
       "pluginPath": "src/plugins/config-env/",
       "image": "../docs/public/assets/images/bsb-logo.png",
       "links": {
-        "github": "git+https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     },
     {
@@ -56,7 +56,7 @@
       "pluginPath": "src/plugins/events-default/",
       "image": "../docs/public/assets/images/bsb-logo.png",
       "links": {
-        "github": "git+https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     },
     {
@@ -77,7 +77,7 @@
       "pluginPath": "src/plugins/observable-default/",
       "image": "../docs/public/assets/images/bsb-logo.png",
       "links": {
-        "github": "git+https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     }
   ]

@@ -68,11 +68,12 @@ Environment:
 - `BSB_CONFIG_PLUGIN=config-env` and `BSB_CONFIG_JSON=...`: use these instead of `BSB_CONFIG_FILE` when the full runtime config is supplied by environment.
 - `BSB_PROFILE`: config profile to load, default `default`.
 - `BSB_DEBUG=true`: enable production debug logging.
+- `BSB_SHOW_PACKAGES=true`: print a startup package/plugin discovery report, including package names, versions, plugin types, paths, and config-reference snippets.
 
 Rules:
 - Do not add `@bsb/config-vault` to `BSB_PLUGINS` when using an official Node image that already bundles it.
 - Build plugin packages before deployment with `bsb-plugin-cli build`.
-- To log what plugins an image can see during a derived Docker build, run `node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins.
+- To log what plugins an image can see during a derived Docker build, run `node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins. At runtime, set `BSB_SHOW_PACKAGES=true` for the same report before BSB starts.
 - In the BSB repo itself, the equivalent command is `npm run list-plugin-search-paths --workspace nodejs`; it runs automatically during Node build/build-release.
 - Do not compile plugin source in the production container.
 - Do not invent Docker tags; use the runtime-prefixed tags above.
