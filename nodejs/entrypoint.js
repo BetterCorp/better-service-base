@@ -25,6 +25,7 @@ const MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
 const EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
 const SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
 const REMOVE_RETRY_DELAYS_MS = [100, 250, 500, 1000, 2000];
+const PLUGIN_LOCK_STALE_MS = 15 * 60 * 1000;
 
 function isTruthy(value) {
   return TRUTHY.has(String(value || "").trim().toLowerCase());
@@ -89,7 +90,9 @@ function runNpm(cwd, args, capture = false) {
     encoding: "utf-8",
   });
   if (result.status !== 0) {
-    throw new Error(`npm ${args.join(" ")} failed in ${cwd}${capture ? `\n${result.stderr || ""}` : ""}`);
+    const stdout = capture && result.stdout ? `\nstdout:\n${result.stdout}` : "";
+    const stderr = capture && result.stderr ? `\nstderr:\n${result.stderr}` : "";
+    throw new Error(`npm ${args.join(" ")} failed in ${cwd}${stdout}${stderr}`);
   }
   return result;
 }
@@ -124,7 +127,7 @@ async function removeDir(dir) {
   }
 }
 
-async function ensureHostBaseShim(targetDir) {
+async function ensureHostBaseShim(targetDir, log = true) {
   const scopeDir = path.join(targetDir, "node_modules", "@bsb");
   const baseLink = path.join(scopeDir, "base");
   const hostBaseRoot = "/home/bsb/node_modules/@bsb/base";
@@ -140,7 +143,9 @@ async function ensureHostBaseShim(targetDir) {
   await ensureDir(scopeDir);
   await removeDir(baseLink);
   await fs.symlink(linkTarget, baseLink);
-  console.log(`[BSB] Linked plugin-local @bsb/base -> ${linkTarget}`);
+  if (log) {
+    console.log(`[BSB] Linked plugin-local @bsb/base -> ${linkTarget}`);
+  }
 }
 
 async function listVersionsForPackage(pluginRoot) {
@@ -183,6 +188,14 @@ async function fileExists(filePath) {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function readMtimeMs(filePath) {
+  try {
+    return (await fs.stat(filePath)).mtimeMs;
+  } catch {
+    return null;
   }
 }
 
@@ -238,6 +251,46 @@ async function replaceDir(from, to, tempRoot) {
   }
 }
 
+async function acquirePluginInstallLock(pluginDir) {
+  const lockDir = path.join(pluginDir, ".bsb-plugin-install.lock");
+  let warned = false;
+
+  while (true) {
+    try {
+      await fs.mkdir(lockDir);
+      await fs.writeFile(
+        path.join(lockDir, "owner.json"),
+        JSON.stringify({
+          pid: process.pid,
+          createdAt: new Date().toISOString(),
+        }, null, 2),
+        "utf-8",
+      );
+      return async () => {
+        await removeDir(lockDir);
+      };
+    } catch (error) {
+      if (!error || typeof error !== "object" || error.code !== "EEXIST") {
+        throw error;
+      }
+
+      const mtimeMs = await readMtimeMs(lockDir);
+      const ageMs = mtimeMs === null ? 0 : Date.now() - mtimeMs;
+      if (ageMs > PLUGIN_LOCK_STALE_MS) {
+        console.warn(`[BSB] Removing stale plugin install lock at ${lockDir}`);
+        await removeDir(lockDir);
+        continue;
+      }
+
+      if (!warned) {
+        console.log(`[BSB] Waiting for plugin install lock at ${lockDir}`);
+        warned = true;
+      }
+      await sleep(2000);
+    }
+  }
+}
+
 async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
   const pkg = parsedSpec.pkg;
   const pluginRoot = path.join(pluginDir, pkg);
@@ -276,7 +329,7 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
       "--loglevel=silent",
       "--silent",
       requestSpec,
-    ]);
+    ], true);
     await ensureHostBaseShim(pluginDir);
 
     const installedPkgJsonPath = path.join(installedPkgDir, "package.json");
@@ -399,7 +452,7 @@ async function repairInstalledPluginBaseShims(pluginDir) {
   await ensureHostBaseShim(pluginDir);
   for (const installed of versionDirs) {
     try {
-      await ensureHostBaseShim(installed.dir);
+      await ensureHostBaseShim(installed.dir, false);
     } catch (error) {
       console.warn(
         `[BSB] Warning: failed to repair @bsb/base shim for ${installed.pkg}@${installed.version}: ${error.message}`
@@ -448,32 +501,37 @@ async function main() {
   }
 
   await ensureDir(tempRoot);
-  await repairInstalledPluginBaseShims(pluginDir);
+  const releaseLock = await acquirePluginInstallLock(pluginDir);
+  try {
+    await repairInstalledPluginBaseShims(pluginDir);
 
-  let parsedPlugins = rawPlugins
-    .map(parsePluginSpec)
-    .filter(Boolean);
+    let parsedPlugins = rawPlugins
+      .map(parsePluginSpec)
+      .filter(Boolean);
 
-  if (parsedPlugins.length === 0 && forceUpdate) {
-    const existing = await listInstalledPlugins(pluginDir);
-    parsedPlugins = existing.map((pkg) => ({ pkg, type: "none", selector: null }));
-    if (parsedPlugins.length > 0) {
-      console.log(`[BSB] BSB_PLUGIN_UPDATE requested. Refreshing ${parsedPlugins.length} installed plugin(s).`);
+    if (parsedPlugins.length === 0 && forceUpdate) {
+      const existing = await listInstalledPlugins(pluginDir);
+      parsedPlugins = existing.map((pkg) => ({ pkg, type: "none", selector: null }));
+      if (parsedPlugins.length > 0) {
+        console.log(`[BSB] BSB_PLUGIN_UPDATE requested. Refreshing ${parsedPlugins.length} installed plugin(s).`);
+      }
     }
-  }
 
-  if (parsedPlugins.length === 0) {
-    console.log("[BSB] No BSB_PLUGINS requested. Nothing to install.");
-    return;
-  }
+    if (parsedPlugins.length === 0) {
+      console.log("[BSB] No BSB_PLUGINS requested. Nothing to install.");
+      return;
+    }
 
-  for (const plugin of parsedPlugins) {
-    await installPlugin({
-      parsedSpec: plugin,
-      pluginDir,
-      tempRoot,
-      forceUpdate,
-    });
+    for (const plugin of parsedPlugins) {
+      await installPlugin({
+        parsedSpec: plugin,
+        pluginDir,
+        tempRoot,
+        forceUpdate,
+      });
+    }
+  } finally {
+    await releaseLock();
   }
 }
 
