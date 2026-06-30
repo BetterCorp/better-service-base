@@ -500,7 +500,7 @@ jobs:
 
   docker-go:
     name: Docker Go
-    needs: [go, prepare]
+    needs: [go, prepare, docker-nodejs]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -545,7 +545,7 @@ jobs:
 
   docker-python:
     name: Docker Python
-    needs: [python, prepare]
+    needs: [python, prepare, docker-go]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -590,7 +590,7 @@ jobs:
 
   docker-dotnet:
     name: Docker .NET
-    needs: [dotnet, prepare]
+    needs: [dotnet, prepare, docker-python]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
