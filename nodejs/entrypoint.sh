@@ -47,7 +47,10 @@ fi
 
 if [ -n "$RAW_PLUGIN_DIRS" ] && { [ "$NEED_INSTALL" -eq 1 ] || [ -n "$BSB_PLUGINS" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "1" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "true" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "TRUE" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "yes" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "YES" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "y" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "Y" ]; }; then
   echo "BSB plugin bootstrap: syncing plugins"
-  node /home/bsb/entrypoint.js
+  if ! node /home/bsb/entrypoint.js; then
+    echo "BSB plugin bootstrap failed; refusing to start BSB"
+    exit 1
+  fi
 fi
 
 chown -R node:node /home/bsb

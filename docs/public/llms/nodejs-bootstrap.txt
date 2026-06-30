@@ -104,7 +104,7 @@ Container deployment:
 - The Node image runs BSB from `/home/bsb/node_modules/@bsb/base`, and built-in core plugins resolve from installed `@bsb/*` packages.
 - Provide plugins via `BSB_PLUGIN_DIRS` env var (comma-separated paths). First dir is used as install target.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR` are legacy aliases (still work, accept comma-separated).
-- `BSB_PLUGINS` env var: comma-separated npm packages installed at container start (e.g. `@scope/plugin@1.2.3`).
+- `BSB_PLUGINS` env var: comma-separated npm packages installed at container start (e.g. `@scope/plugin@1.2.3`, `@scope/plugin@10`, or legacy `@scope/plugin:10`). Selectors may be omitted, major-only, minor, or exact; `@latest` is rejected.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_SHOW_PACKAGES=true`: print package/plugin discovery at startup, including package names, versions, plugin types, paths, and config-reference snippets.
 - `BSB_DEBUG=true`: enable debug logging in production mode (mode becomes `production-debug`).

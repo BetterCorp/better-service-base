@@ -61,7 +61,7 @@ Environment:
 - Dockerfiles that extend `code.bettercorp.dev/bettercorp/service-base:node` or `code.bettercorp.dev/bettercorp/service-base:node-latest` should not restate those defaults unless they intentionally need to override them.
 - `BSB_PLUGIN_DIRS`: comma-separated plugin directories. Prefer this over legacy aliases.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR`: legacy aliases; still work and accept comma-separated values.
-- `BSB_PLUGINS`: comma-separated npm packages installed at container start. Prefer exact versions; avoid unversioned packages and `@latest`.
+- `BSB_PLUGINS`: comma-separated npm packages installed at container start. Supported selectors are no selector, `@X`/`:X`, `@X.Y`/`:X.Y`, or exact `@X.Y.Z`/`:X.Y.Z`. Prefer exact versions for production; use major/minor selectors only when you intentionally want controlled updates. `@latest` is rejected; use no selector if you want npm latest.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_WRITABLE_PATHS`: comma-separated files/directories that the Node entrypoint creates if needed and makes writable for runtime state, for example `/data`.
 - `BSB_CONFIG_FILE`: config file path inside the container.
@@ -73,6 +73,7 @@ Environment:
 Rules:
 - Do not add `@bsb/config-vault` to `BSB_PLUGINS` when using an official Node image that already bundles it.
 - Build plugin packages before deployment with `bsb-plugin-cli build`.
+- If `BSB_PLUGINS` is set and install/validation fails, the container must exit instead of starting BSB without the requested plugins.
 - To log what plugins an image can see during a derived Docker build, run `node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins. At runtime, set `BSB_SHOW_PACKAGES=true` for the same report before BSB starts.
 - In the BSB repo itself, the equivalent command is `npm run list-plugin-search-paths --workspace nodejs`; it runs automatically during Node build/build-release.
 - Do not compile plugin source in the production container.

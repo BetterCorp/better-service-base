@@ -6,12 +6,12 @@
  *
  * Supported selectors:
  *   - @scope/name            -> highest available version
+ *   - @scope/name@X          -> highest X.y.z
  *   - @scope/name@X.Y        -> highest X.Y.micro
  *   - @scope/name@X.Y.Z      -> exact
- *   - @scope/name:X.Y or :X.Y.Z (legacy delimiter)
+ *   - @scope/name:X, :X.Y, or :X.Y.Z (legacy delimiter)
  *
  * Rejected:
- *   - @scope/name@X          (major-only selector)
  *   - @scope/name@latest     (use no selector instead)
  */
 
@@ -20,6 +20,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const TRUTHY = new Set(["1", "true", "yes", "y"]);
+const MAJOR_SELECTOR_REGEX = /^\d+$/;
 const MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
 const EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
 const SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
@@ -54,10 +55,10 @@ function parsePluginSpec(specRaw) {
 
   const normalized = selector.trim();
   if (normalized.toLowerCase() === "latest") {
-    throw new Error(`Invalid selector "${selector}" for ${pkg}. Use no selector, X.Y, or X.Y.Z.`);
+    throw new Error(`Invalid selector "${selector}" for ${pkg}. Use no selector, X, X.Y, or X.Y.Z.`);
   }
-  if (/^\d+$/.test(normalized)) {
-    throw new Error(`Invalid selector "${selector}" for ${pkg}. Major-only is not allowed; use X.Y or X.Y.Z.`);
+  if (MAJOR_SELECTOR_REGEX.test(normalized)) {
+    return { pkg, type: "major", selector: normalized };
   }
   if (MINOR_SELECTOR_REGEX.test(normalized)) {
     return { pkg, type: "minor", selector: normalized };
@@ -66,7 +67,7 @@ function parsePluginSpec(specRaw) {
     return { pkg, type: "exact", selector: normalized };
   }
 
-  throw new Error(`Invalid selector "${selector}" for ${pkg}. Allowed formats: X.Y or X.Y.Z.`);
+  throw new Error(`Invalid selector "${selector}" for ${pkg}. Allowed formats: X, X.Y, or X.Y.Z.`);
 }
 
 function runNpm(cwd, args, capture = false) {
@@ -220,6 +221,14 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
         );
       }
     }
+    if (parsedSpec.type === "major") {
+      const maj = Number(parsedSpec.selector);
+      if (semver[0] !== maj) {
+        throw new Error(
+          `Resolved version ${resolvedVersion} does not match selector ${parsedSpec.selector} for ${pkg}`
+        );
+      }
+    }
     if (parsedSpec.type === "exact" && parsedSpec.selector !== resolvedVersion) {
       throw new Error(
         `Resolved version ${resolvedVersion} does not match exact selector ${parsedSpec.selector} for ${pkg}`
@@ -295,6 +304,12 @@ async function main() {
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
+
+  console.log(`[BSB] Plugin dirs: ${pluginDirs.join(", ")}`);
+  console.log(`[BSB] Plugin install target: ${pluginDir}`);
+  if (rawPlugins.length > 0) {
+    console.log(`[BSB] Requested plugins: ${rawPlugins.join(", ")}`);
+  }
 
   for (const dir of pluginDirs) {
     await ensureDir(dir);

@@ -154,7 +154,7 @@ Multi-stage build produces a minimal runtime image:
 - Built-in core plugins resolve from the installed `@bsb/base` package, not from a copied local `/home/bsb/lib/plugins` tree.
 - The runtime package includes `npm run start`, `npm run debug`, and `npm run plugins` for shell/debug use inside the container.
 - Optional plugin install/update at startup:
-  - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b@2.4.1"` -> installs listed packages
+  - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b@10"` -> installs listed packages
   - `BSB_PLUGIN_UPDATE=yes` -> refreshes installed plugins through the startup installer
 - `BSB_SHOW_PACKAGES=true` -> prints the package/plugin discovery report before BSB starts
 - Derived Dockerfiles can log visible plugins after copying/installing them with `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js`
@@ -184,14 +184,14 @@ Recommended plugin directory layout (when using `BSB_PLUGIN_DIRS`):
 Notes
 - In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIRS` as above. This avoids network installs on boot and ensures deterministic versions via immutable versioned folders.
 - `BSB_PLUGINS` is available for dynamic `npm install` at startup, but mounting a curated plugin repository via `BSB_PLUGIN_DIRS` is recommended for production.
-- Avoid unversioned `BSB_PLUGINS` entries and `@latest`; they can cross breaking releases and add network install time to every boot that runs the installer.
+- Avoid unversioned `BSB_PLUGINS` entries in production unless you intentionally want npm latest; `@latest` is rejected, and major/minor/exact selectors are supported.
 
 ### Environment Variables
 - `APP_DIR`: Override working directory (mainly used in local development/testing)
 - `BSB_DEBUG`: Enable debug logging in production mode (`true|1|yes|y`). Produces `production-debug` mode.
 - `BSB_PLUGIN_DIRS`: Comma-separated list of external plugin directories (searched in order; first is install target)
 - `BSB_PLUGIN_DIR`: Single external plugin directory (legacy, still supported). Accepts comma-separated paths.
-- `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Prefer exact versions.
+- `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Supports no selector, major, minor, and exact selectors. If installation fails, the container exits before BSB starts.
 - `BSB_PLUGIN_UPDATE`: `yes|y|true` to refresh installed plugin packages through the startup installer
 - `BSB_SHOW_PACKAGES`: `yes|y|true` to print package/plugin discovery before startup
 - Config plugin override (advanced):
