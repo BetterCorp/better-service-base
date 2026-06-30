@@ -97,6 +97,21 @@ function runNpm(cwd, args, capture = false) {
   return result;
 }
 
+function runCommand(command, args, cwd, capture = false) {
+  const result = spawnSync(command, args, {
+    cwd,
+    stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    env: process.env,
+    encoding: "utf-8",
+  });
+  if (result.status !== 0) {
+    const stdout = capture && result.stdout ? `\nstdout:\n${result.stdout}` : "";
+    const stderr = capture && result.stderr ? `\nstderr:\n${result.stderr}` : "";
+    throw new Error(`${command} ${args.join(" ")} failed in ${cwd}${stdout}${stderr}`);
+  }
+  return result;
+}
+
 async function ensureDir(dir) {
   await fs.mkdir(dir, { recursive: true });
 }
@@ -124,27 +139,6 @@ async function removeDir(dir) {
       console.warn(`[BSB] Waiting ${delayMs}ms before retrying removal of ${dir}: ${error.message}`);
       await sleep(delayMs);
     }
-  }
-}
-
-async function ensureHostBaseShim(targetDir, log = true) {
-  const scopeDir = path.join(targetDir, "node_modules", "@bsb");
-  const baseLink = path.join(scopeDir, "base");
-  const hostBaseRoot = "/home/bsb/node_modules/@bsb/base";
-  const fallbackHostBaseRoot = "/home/bsb";
-  const linkTarget = await fileExists(path.join(hostBaseRoot, "package.json"))
-    ? hostBaseRoot
-    : fallbackHostBaseRoot;
-
-  if (!(await fileExists(path.join(linkTarget, "package.json")))) {
-    throw new Error(`Unable to create @bsb/base shim: host package not found at ${hostBaseRoot}`);
-  }
-
-  await ensureDir(scopeDir);
-  await removeDir(baseLink);
-  await fs.symlink(linkTarget, baseLink);
-  if (log) {
-    console.log(`[BSB] Linked plugin-local @bsb/base -> ${linkTarget}`);
   }
 }
 
@@ -191,6 +185,12 @@ async function fileExists(filePath) {
   }
 }
 
+async function isCompleteInstalledPackage(packageDir) {
+  return (await fileExists(path.join(packageDir, "package.json")))
+    && (await fileExists(path.join(packageDir, "lib", "plugins")))
+    && (await fileExists(path.join(packageDir, "node_modules")));
+}
+
 async function readMtimeMs(filePath) {
   try {
     return (await fs.stat(filePath)).mtimeMs;
@@ -218,6 +218,41 @@ function resolveRequestSpec(pkg, parsedSpec) {
   if (parsedSpec.type === "none") return `${pkg}@latest`;
   if (parsedSpec.type === "minor") return `${pkg}@${parsedSpec.selector}`;
   return `${pkg}@${parsedSpec.selector}`;
+}
+
+function parseNpmViewVersionOutput(output) {
+  const raw = String(output || "").trim();
+  if (raw.length === 0) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "string") return parsed;
+    if (Array.isArray(parsed)) {
+      const versions = parsed.filter((value) => typeof value === "string" && parseSemver(value));
+      versions.sort(compareSemver);
+      return versions[versions.length - 1] ?? null;
+    }
+  } catch {
+    return raw.replace(/^"|"$/g, "");
+  }
+
+  return null;
+}
+
+function resolveNpmVersion(requestSpec) {
+  const result = runNpm(".", [
+    "view",
+    requestSpec,
+    "version",
+    "--json",
+    "--loglevel=silent",
+    "--silent",
+  ], true);
+  const version = parseNpmViewVersionOutput(result.stdout);
+  if (!version || !parseSemver(version)) {
+    throw new Error(`Unable to resolve npm version for ${requestSpec}`);
+  }
+  return version;
 }
 
 async function replaceDir(from, to, tempRoot) {
@@ -294,31 +329,60 @@ async function acquirePluginInstallLock(pluginDir) {
 async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
   const pkg = parsedSpec.pkg;
   const pluginRoot = path.join(pluginDir, pkg);
-  const hasExplicitSelector = parsedSpec.type !== "none";
-  const installedVersions = await listVersionsForPackage(pluginRoot);
-
-  if (
-    !forceUpdate &&
-    !hasExplicitSelector &&
-    installedVersions.length > 0
-  ) {
-    const highest = installedVersions[installedVersions.length - 1];
-    console.log(`[BSB] Plugin ${pkg} already present at ${highest}. Skipping (set BSB_PLUGIN_UPDATE=true to refresh).`);
-    return;
+  const requestSpec = resolveRequestSpec(pkg, parsedSpec);
+  const resolvedVersion = resolveNpmVersion(requestSpec);
+  const semver = parseSemver(resolvedVersion);
+  if (!semver) {
+    throw new Error(`Unable to resolve installed semver version for ${pkg}: ${resolvedVersion}`);
   }
 
-  const requestSpec = resolveRequestSpec(pkg, parsedSpec);
+  const [major, minor, micro] = semver.map((x) => String(x));
+  const versionDir = path.join(pluginRoot, major, minor, micro);
+  if (await fileExists(versionDir)) {
+    if (!forceUpdate && await isCompleteInstalledPackage(versionDir)) {
+      console.log(`[BSB] Plugin ${pkg}@${resolvedVersion} already present at ${versionDir}. Skipping.`);
+      return;
+    }
+    const reason = forceUpdate ? "update requested" : "existing install is incomplete";
+    console.warn(`[BSB] Reinstalling plugin ${pkg}@${resolvedVersion}: ${reason}.`);
+  }
+
   const stageDir = path.join(
     tempRoot,
     `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
   );
-  const installedPkgDir = path.join(pluginDir, "node_modules", pkg);
+  const packDir = path.join(stageDir, "pack");
+  const unpackDir = path.join(stageDir, "unpack");
+  const stagedPackageDir = path.join(unpackDir, "package");
 
-  console.log(`[BSB] Installing plugin ${requestSpec}`);
+  console.log(`[BSB] Installing plugin ${pkg}@${resolvedVersion}`);
   await ensureDir(stageDir);
 
   try {
-    runNpm(pluginDir, [
+    await ensureDir(packDir);
+    await ensureDir(unpackDir);
+
+    const packResult = runNpm(stageDir, [
+      "pack",
+      `${pkg}@${resolvedVersion}`,
+      "--json",
+      "--pack-destination",
+      packDir,
+      "--loglevel=silent",
+      "--silent",
+    ], true);
+
+    const packed = JSON.parse(packResult.stdout);
+    const filename = Array.isArray(packed) && packed[0] && typeof packed[0].filename === "string"
+      ? packed[0].filename
+      : null;
+    if (!filename) {
+      throw new Error(`Unable to resolve npm pack filename for ${pkg}@${resolvedVersion}`);
+    }
+
+    runCommand("tar", ["-xzf", path.join(packDir, filename), "-C", unpackDir], stageDir, true);
+
+    runNpm(stagedPackageDir, [
       "install",
       "--omit=dev",
       "--no-audit",
@@ -328,49 +392,9 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
       "--no-update-notifier",
       "--loglevel=silent",
       "--silent",
-      requestSpec,
     ], true);
-    await ensureHostBaseShim(pluginDir);
-
-    const installedPkgJsonPath = path.join(installedPkgDir, "package.json");
-    const installedPkgJson = JSON.parse(await fs.readFile(installedPkgJsonPath, "utf-8"));
-    const resolvedVersion = String(installedPkgJson.version || "");
-    const semver = parseSemver(resolvedVersion);
-    if (!semver) {
-      throw new Error(`Unable to resolve installed semver version for ${pkg}: ${resolvedVersion}`);
-    }
-
-    if (parsedSpec.type === "minor") {
-      const [maj, min] = parsedSpec.selector.split(".").map((x) => Number(x));
-      if (semver[0] !== maj || semver[1] !== min) {
-        throw new Error(
-          `Resolved version ${resolvedVersion} does not match selector ${parsedSpec.selector} for ${pkg}`
-        );
-      }
-    }
-    if (parsedSpec.type === "major") {
-      const maj = Number(parsedSpec.selector);
-      if (semver[0] !== maj) {
-        throw new Error(
-          `Resolved version ${resolvedVersion} does not match selector ${parsedSpec.selector} for ${pkg}`
-        );
-      }
-    }
-    if (parsedSpec.type === "exact" && parsedSpec.selector !== resolvedVersion) {
-      throw new Error(
-        `Resolved version ${resolvedVersion} does not match exact selector ${parsedSpec.selector} for ${pkg}`
-      );
-    }
-
-    const [major, minor, micro] = semver.map((x) => String(x));
-    const versionDir = path.join(pluginRoot, major, minor, micro);
-    const stagedVersionDir = path.join(stageDir, "package");
     await ensureDir(path.join(pluginRoot, major, minor));
-
-    await fs.cp(installedPkgDir, stagedVersionDir, { recursive: true });
-    await removeDir(path.join(stagedVersionDir, "node_modules"));
-    await replaceDir(stagedVersionDir, versionDir, tempRoot);
-    await ensureHostBaseShim(versionDir);
+    await replaceDir(stagedPackageDir, versionDir, tempRoot);
 
     const pluginEntryPath = path.join(versionDir, "lib", "plugins");
     if (!(await fileExists(pluginEntryPath))) {
@@ -412,53 +436,6 @@ async function listInstalledPlugins(pluginDir) {
     }
   }
   return out;
-}
-
-async function listInstalledPluginVersionDirs(pluginDir) {
-  const out = [];
-  let packages = [];
-  try {
-    packages = await listInstalledPlugins(pluginDir);
-  } catch {
-    return out;
-  }
-
-  for (const pkg of packages) {
-    const pluginRoot = path.join(pluginDir, pkg);
-    const versions = await listVersionsForPackage(pluginRoot);
-    for (const version of versions) {
-      const semver = parseSemver(version);
-      if (!semver) continue;
-      const [major, minor, micro] = semver.map((x) => String(x));
-      const hierarchical = path.join(pluginRoot, major, minor, micro);
-      if (await fileExists(hierarchical)) {
-        out.push({ pkg, version, dir: hierarchical });
-        continue;
-      }
-      const legacy = path.join(pluginRoot, version);
-      if (await fileExists(legacy)) {
-        out.push({ pkg, version, dir: legacy });
-      }
-    }
-  }
-
-  return out;
-}
-
-async function repairInstalledPluginBaseShims(pluginDir) {
-  const versionDirs = await listInstalledPluginVersionDirs(pluginDir);
-  if (versionDirs.length === 0) return;
-
-  await ensureHostBaseShim(pluginDir);
-  for (const installed of versionDirs) {
-    try {
-      await ensureHostBaseShim(installed.dir, false);
-    } catch (error) {
-      console.warn(
-        `[BSB] Warning: failed to repair @bsb/base shim for ${installed.pkg}@${installed.version}: ${error.message}`
-      );
-    }
-  }
 }
 
 async function main() {
@@ -503,8 +480,6 @@ async function main() {
   await ensureDir(tempRoot);
   const releaseLock = await acquirePluginInstallLock(pluginDir);
   try {
-    await repairInstalledPluginBaseShims(pluginDir);
-
     let parsedPlugins = rawPlugins
       .map(parsePluginSpec)
       .filter(Boolean);
