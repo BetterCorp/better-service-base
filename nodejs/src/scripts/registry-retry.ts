@@ -15,7 +15,7 @@ const RETRYABLE_NETWORK_CODES = new Set([
 export type RegistryPublishRetryOptions = {
   maxAttempts?: number;
   delayMs?: number;
-  onRetry?: (attempt: number, maxAttempts: number, error: Error) => void;
+  onRetry?: (attempt: number, maxAttempts: number, error: Error, delayMs: number) => void;
 };
 
 function errorCode(error: unknown): string | undefined {
@@ -63,8 +63,8 @@ export async function retryRegistryPublish<T>(
   operation: () => Promise<T>,
   options: RegistryPublishRetryOptions = {}
 ): Promise<T> {
-  const maxAttempts = options.maxAttempts ?? 3;
-  const delayMs = options.delayMs ?? 1500;
+  const maxAttempts = options.maxAttempts ?? 10;
+  const delayMs = options.delayMs ?? 10_000;
   let attempt = 1;
 
   while (true) {
@@ -76,8 +76,8 @@ export async function retryRegistryPublish<T>(
         throw error;
       }
 
-      options.onRetry?.(attempt + 1, maxAttempts, error);
-      await delay(delayMs * attempt);
+      options.onRetry?.(attempt + 1, maxAttempts, error, delayMs);
+      await delay(delayMs);
       attempt++;
     }
   }

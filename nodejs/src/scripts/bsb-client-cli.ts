@@ -598,8 +598,8 @@ async function publishPlugin(): Promise<void> {
         const result = await retryRegistryPublish(
           () => registryRequest('POST', '/plugins', publishRequest, true),
           {
-            onRetry: (attempt, maxAttempts, err) => {
-              warn(`Publish failed with a network error (${err.message}); retrying ${attempt}/${maxAttempts}...`);
+            onRetry: (attempt, maxAttempts, err, delayMs) => {
+              warn(`Publish failed with a network error (${err.message}); waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt}/${maxAttempts}...`);
             },
           }
         );
@@ -608,8 +608,8 @@ async function publishPlugin(): Promise<void> {
           await retryRegistryPublish(
             () => uploadPluginImage(org, pluginName, imagePath),
             {
-              onRetry: (attempt, maxAttempts, err) => {
-                warn(`Image upload failed with a network error (${err.message}); retrying ${attempt}/${maxAttempts}...`);
+              onRetry: (attempt, maxAttempts, err, delayMs) => {
+                warn(`Image upload failed with a network error (${err.message}); waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt}/${maxAttempts}...`);
               },
             }
           );
