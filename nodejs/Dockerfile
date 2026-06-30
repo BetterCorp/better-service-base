@@ -45,7 +45,7 @@ ADD nodejs/src/ /home/bsb/src/
 RUN npm install
 RUN npm version $BSB_VERSION --allow-same-version --no-git-tag-version
 RUN npm run build-release
-RUN npm pack --pack-destination /tmp/bsb-pack
+RUN mkdir -p /tmp/bsb-pack && npm pack --pack-destination /tmp/bsb-pack
 
 # Stage 2: Install production dependencies
 FROM ${NODE_BASE_IMAGE} AS dependencies
