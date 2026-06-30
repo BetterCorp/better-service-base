@@ -61,6 +61,7 @@
   },
   "files": [
     "lib/**/*",
+    "index.js",
     "bsb-plugin.json",
     "README.md",
     "LICENSE"
@@ -71,6 +72,10 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./index.js": {
+      "types": "./lib/index.d.ts",
+      "default": "./index.js"
     },
     "./dev": {
       "types": "./lib/dev.d.ts",

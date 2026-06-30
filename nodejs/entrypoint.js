@@ -81,7 +81,7 @@ function runNpm(cwd, args, capture = false) {
       NPM_CONFIG_AUDIT: "false",
       NPM_CONFIG_FUND: "false",
       NPM_CONFIG_IGNORE_SCRIPTS: "false",
-      NPM_CONFIG_LOGLEVEL: "error",
+      NPM_CONFIG_LOGLEVEL: "silent",
       NPM_CONFIG_PROGRESS: "false",
       NPM_CONFIG_UPDATE_NOTIFIER: "false",
       NPM_CONFIG_YES: "true",
@@ -273,7 +273,8 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
       "--package-lock=false",
       "--no-progress",
       "--no-update-notifier",
-      "--loglevel=error",
+      "--loglevel=silent",
+      "--silent",
       requestSpec,
     ]);
     await ensureHostBaseShim(pluginDir);
