@@ -146,6 +146,12 @@ jobs:
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
 
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
@@ -166,6 +172,12 @@ jobs:
 
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build image
         uses: useblacksmith/build-push-action@v2
@@ -188,6 +200,12 @@ jobs:
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
 
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
@@ -208,6 +226,12 @@ jobs:
 
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build image
         uses: useblacksmith/build-push-action@v2
