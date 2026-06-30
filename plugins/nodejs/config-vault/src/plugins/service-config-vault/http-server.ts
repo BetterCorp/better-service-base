@@ -1,13 +1,16 @@
 import { createServer, type Server } from 'node:http';
 import {
   createApp,
+  createError,
   defineEventHandler,
   deleteCookie,
   getCookie,
   getHeader,
   getMethod,
   getQuery,
+  getRequestPath,
   readBody,
+  send,
   sendRedirect,
   setCookie,
   setResponseHeader,
@@ -37,7 +40,19 @@ export class VaultHttpServer {
   }
 
   async start(): Promise<void> {
-    const app = createApp();
+    const app = createApp({
+      onError: async (error, event) => {
+        if (error.statusCode !== 401) return;
+        this.clearAuthCookies(event);
+        if (getRequestPath(event).startsWith('/api/')) {
+          setResponseStatus(event, 401);
+          setResponseHeader(event, 'content-type', 'application/json; charset=utf-8');
+          await send(event, JSON.stringify({ error: 'Authentication required' }));
+          return;
+        }
+        await sendRedirect(event, '/login');
+      },
+    });
 
     app.use('/health', defineEventHandler(() => ({ status: 'ok' })));
 
@@ -451,9 +466,7 @@ export class VaultHttpServer {
 
     app.use('/', defineEventHandler(async (event) => {
       if (await this.options.vault.setupRequired()) return sendRedirect(event, '/setup');
-      const session = getCookie(event, 'vault_session');
-      if (!session) return sendRedirect(event, '/login');
-      await this.options.vault.requireSession(session);
+      await this.requireUser(event);
       const dashboard = await this.options.vault.dashboard();
       return this.page('Vault', overviewPage(dashboard), 'overview');
     }));
@@ -480,13 +493,33 @@ export class VaultHttpServer {
   }
 
   private async requireUser(event: Parameters<typeof getCookie>[0]): Promise<{ userId: string; csrfToken: string }> {
-    const session = await this.options.vault.requireSession(getCookie(event, 'vault_session'));
+    let session: { userId: string; csrfToken: string };
+    try {
+      session = await this.options.vault.requireSession(getCookie(event, 'vault_session'));
+    } catch {
+      this.clearAuthCookies(event);
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Authentication required',
+        message: 'Authentication required',
+      });
+    }
     const headerCsrf = getHeader(event, 'x-csrf-token');
     const cookieCsrf = getCookie(event, 'vault_csrf');
     if (headerCsrf !== session.csrfToken && cookieCsrf !== session.csrfToken) {
-      throw new Error('Invalid CSRF token');
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Invalid CSRF token',
+        message: 'Invalid CSRF token',
+      });
     }
     return session;
+  }
+
+  private clearAuthCookies(event: Parameters<typeof deleteCookie>[0]): void {
+    deleteCookie(event, 'vault_session', { path: '/' });
+    deleteCookie(event, 'vault_csrf', { path: '/' });
+    deleteCookie(event, 'vault_passkey_setup', { path: '/' });
   }
 
   private async passkeySetupUser(event: Parameters<typeof getCookie>[0]): Promise<{ userId: string; setupToken?: string }> {
