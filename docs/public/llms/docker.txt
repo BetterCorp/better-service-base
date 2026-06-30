@@ -74,6 +74,7 @@ Rules:
 - Do not add `@bsb/config-vault` to `BSB_PLUGINS` when using an official Node image that already bundles it.
 - Build plugin packages before deployment with `bsb-plugin-cli build`.
 - If `BSB_PLUGINS` is set and install/validation fails, the container must exit instead of starting BSB without the requested plugins.
+- After changing BSB image versions that affect plugin install layout, run once with `BSB_PLUGIN_UPDATE=true` or clear the plugin cache volume so stale `/mnt/plugins/<package>/<version>` installs are rebuilt.
 - To log what plugins an image can see during a derived Docker build, run `node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins. At runtime, set `BSB_SHOW_PACKAGES=true` for the same report before BSB starts.
 - In the BSB repo itself, the equivalent command is `npm run list-plugin-search-paths --workspace nodejs`; it runs automatically during Node build/build-release.
 - Do not compile plugin source in the production container.

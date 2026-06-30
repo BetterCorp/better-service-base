@@ -108,9 +108,20 @@ async function copyDir(from, to) {
 async function ensureHostBaseShim(targetDir) {
   const scopeDir = path.join(targetDir, "node_modules", "@bsb");
   const baseLink = path.join(scopeDir, "base");
+  const hostBaseRoot = "/home/bsb/node_modules/@bsb/base";
+  const fallbackHostBaseRoot = "/home/bsb";
+  const linkTarget = await fileExists(path.join(hostBaseRoot, "package.json"))
+    ? hostBaseRoot
+    : fallbackHostBaseRoot;
+
+  if (!(await fileExists(path.join(linkTarget, "package.json")))) {
+    throw new Error(`Unable to create @bsb/base shim: host package not found at ${hostBaseRoot}`);
+  }
+
   await ensureDir(scopeDir);
   await removeDir(baseLink);
-  await fs.symlink("/home/bsb", baseLink);
+  await fs.symlink(linkTarget, baseLink);
+  console.log(`[BSB] Linked plugin-local @bsb/base -> ${linkTarget}`);
 }
 
 async function listVersionsForPackage(pluginRoot) {

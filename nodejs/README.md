@@ -185,6 +185,7 @@ Notes
 - In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIRS` as above. This avoids network installs on boot and ensures deterministic versions via immutable versioned folders.
 - `BSB_PLUGINS` is available for dynamic `npm install` at startup, but mounting a curated plugin repository via `BSB_PLUGIN_DIRS` is recommended for production.
 - Avoid unversioned `BSB_PLUGINS` entries in production unless you intentionally want npm latest; `@latest` is rejected, and major/minor/exact selectors are supported.
+- After changing BSB image versions that affect plugin install layout, run once with `BSB_PLUGIN_UPDATE=true` or clear the plugin cache volume so stale installed plugin folders are rebuilt.
 
 ### Environment Variables
 - `APP_DIR`: Override working directory (mainly used in local development/testing)
