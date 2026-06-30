@@ -486,6 +486,12 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+      - name: Check Docker Hub quota
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        run: bash .github/scripts/check-dockerhub-rate-limit.sh betterweb/node:26
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -534,6 +540,12 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+      - name: Check Docker Hub quota
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        run: bash .github/scripts/check-dockerhub-rate-limit.sh golang:1.26-alpine alpine:3.24
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -578,6 +590,12 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Check Docker Hub quota
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        run: bash .github/scripts/check-dockerhub-rate-limit.sh python:3.14-slim
 
       - name: Build and push
         uses: docker/build-push-action@v6
