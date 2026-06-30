@@ -4,8 +4,10 @@ Goal:
 - Run BSB in production with the official Docker image and mounted/installed plugins.
 
 Image tags:
-- Node.js runtime: `betterweb/service-base:node` or `betterweb/service-base:node-latest`.
-- Version-specific Node.js runtime: `betterweb/service-base:node-<version>`, for example `betterweb/service-base:node-9.5.1`.
+- Primary registry: `code.bettercorp.dev/bettercorp/service-base`.
+- Docker Hub mirror: `betterweb/service-base`. Treat it as best-effort fallback because Docker Hub rate limits can delay or skip mirror pushes.
+- Node.js runtime: `code.bettercorp.dev/bettercorp/service-base:node` or `code.bettercorp.dev/bettercorp/service-base:node-latest`.
+- Version-specific Node.js runtime: `code.bettercorp.dev/bettercorp/service-base:node-<version>`, for example `code.bettercorp.dev/bettercorp/service-base:node-9.5.1`.
 - Do NOT use tags like `9-node`; BSB tags are runtime-first, not version-first.
 - Other runtime tags follow the same pattern: `go`, `go-latest`, `go-<version>`, `python`, `python-latest`, `dotnet`, etc.
 
@@ -22,7 +24,7 @@ docker run --rm \
   -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
   -e BSB_CONFIG_FILE=/app/sec-config.yaml \
-  betterweb/service-base:node
+  code.bettercorp.dev/bettercorp/service-base:node
 ```
 
 Install plugins at startup:
@@ -33,14 +35,14 @@ docker run --rm \
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
   -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@2.4.1' \
   -e BSB_CONFIG_FILE=/app/sec-config.yaml \
-  betterweb/service-base:node-latest
+  code.bettercorp.dev/bettercorp/service-base:node-latest
 ```
 
 Compose:
 ```yaml
 services:
   bsb:
-    image: betterweb/service-base:node
+    image: code.bettercorp.dev/bettercorp/service-base:node
     environment:
       BSB_PLUGIN_DIRS: /mnt/plugins
       BSB_CONFIG_FILE: /app/sec-config.yaml
@@ -53,7 +55,7 @@ services:
 
 Environment:
 - The official Node image already sets `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins`.
-- Dockerfiles that extend `betterweb/service-base:node` or `betterweb/service-base:node-latest` should not restate those defaults unless they intentionally need to override them.
+- Dockerfiles that extend `code.bettercorp.dev/bettercorp/service-base:node` or `code.bettercorp.dev/bettercorp/service-base:node-latest` should not restate those defaults unless they intentionally need to override them.
 - `BSB_PLUGIN_DIRS`: comma-separated plugin directories. Prefer this over legacy aliases.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR`: legacy aliases; still work and accept comma-separated values.
 - `BSB_PLUGINS`: comma-separated npm packages installed at container start. Prefer exact versions; avoid unversioned packages and `@latest`.
@@ -71,3 +73,4 @@ Rules:
 - In the BSB repo itself, the equivalent command is `npm run list-plugin-search-paths --workspace nodejs`; it runs automatically during Node build/build-release.
 - Do not compile plugin source in the production container.
 - Do not invent Docker tags; use the runtime-prefixed tags above.
+- Prefer Forgejo image names in production. Docker Hub image names are compatibility mirrors.

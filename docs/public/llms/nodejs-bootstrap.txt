@@ -98,8 +98,9 @@ Events: events-default.
 (change plugins for production deployment - get plugins from BSB Registry for more information - https://io.bsbcode.dev/llms.txt)
 
 Container deployment:
-- BSB is designed to run as `betterweb/service-base:node` Docker image.
-- Use `betterweb/service-base:node` or `betterweb/service-base:node-latest`; version-specific tags are `node-<version>` like `node-9.5.1`. Never use `9-node`.
+- BSB is designed to run as the `code.bettercorp.dev/bettercorp/service-base:node` Docker image.
+- Use `code.bettercorp.dev/bettercorp/service-base:node` or `code.bettercorp.dev/bettercorp/service-base:node-latest`; version-specific tags are `node-<version>` like `node-9.5.1`. Never use `9-node`.
+- Docker Hub `betterweb/service-base` tags are compatibility mirrors, not the primary image source.
 - Provide plugins via `BSB_PLUGIN_DIRS` env var (comma-separated paths). First dir is used as install target.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR` are legacy aliases (still work, accept comma-separated).
 - `BSB_PLUGINS` env var: comma-separated npm packages installed at container start (e.g. `@scope/plugin@1.2.3`).

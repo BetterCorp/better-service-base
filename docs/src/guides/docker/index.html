@@ -24,11 +24,11 @@
 
       <div class="content-section">
         <h2>Image Tags</h2>
-        <p>Use the runtime-prefixed tags. For Node.js production deployments, use:</p>
+        <p>Use the runtime-prefixed tags. Forgejo is the primary registry; Docker Hub is a best-effort compatibility mirror and can lag if Docker Hub rejects a push. For Node.js production deployments, use:</p>
 
-        <div class="code-block" data-title="supported tags"><pre><code class="language-text">betterweb/service-base:node
-betterweb/service-base:node-latest
-betterweb/service-base:node-9.5.1</code></pre></div>
+        <div class="code-block" data-title="supported tags"><pre><code class="language-text">code.bettercorp.dev/bettercorp/service-base:node
+code.bettercorp.dev/bettercorp/service-base:node-latest
+code.bettercorp.dev/bettercorp/service-base:node-9.5.1</code></pre></div>
 
         <div class="warning">
           <strong>Do not use tags like <code>9-node</code>.</strong> BSB tags are runtime-first: <code>node</code>, <code>node-latest</code>, or <code>node-&lt;version&gt;</code>. The same pattern applies to other runtimes, such as <code>go</code>, <code>python</code>, and <code>dotnet</code>.
@@ -52,7 +52,7 @@ betterweb/service-base:node-9.5.1</code></pre></div>
   -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
   -e BSB_CONFIG_FILE=/app/sec-config.yaml \
-  betterweb/service-base:node</code></pre></div>
+  code.bettercorp.dev/bettercorp/service-base:node</code></pre></div>
 
         <h2>Install Plugins On Startup</h2>
         <p>Use <code>BSB_PLUGINS</code> when the container should install published plugin packages before starting. Pin exact versions; avoid unversioned packages and <code>@latest</code> in production because they can cross breaking releases and add network install time to boot.</p>
@@ -63,12 +63,12 @@ betterweb/service-base:node-9.5.1</code></pre></div>
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
   -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@2.4.1' \
   -e BSB_CONFIG_FILE=/app/sec-config.yaml \
-  betterweb/service-base:node-latest</code></pre></div>
+  code.bettercorp.dev/bettercorp/service-base:node-latest</code></pre></div>
 
         <h2>Compose</h2>
         <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
   bsb:
-    image: betterweb/service-base:node
+    image: code.bettercorp.dev/bettercorp/service-base:node
     environment:
       BSB_PLUGIN_DIRS: /mnt/plugins
       BSB_CONFIG_FILE: /app/sec-config.yaml
@@ -79,7 +79,7 @@ betterweb/service-base:node-9.5.1</code></pre></div>
       - bsb-data:/data</code></pre></div>
 
         <h2>Environment Variables</h2>
-        <p>The official Node image already sets <code>NODE_ENV=production</code>, <code>BSB_CONTAINER=true</code>, <code>BSB_LIVE=true</code>, and <code>BSB_PLUGIN_DIRS=/mnt/plugins</code>. Dockerfiles that extend <code>betterweb/service-base:node</code> or <code>betterweb/service-base:node-latest</code> do not need to repeat those defaults unless they intentionally override them.</p>
+        <p>The official Node image already sets <code>NODE_ENV=production</code>, <code>BSB_CONTAINER=true</code>, <code>BSB_LIVE=true</code>, and <code>BSB_PLUGIN_DIRS=/mnt/plugins</code>. Dockerfiles that extend <code>code.bettercorp.dev/bettercorp/service-base:node</code> or <code>code.bettercorp.dev/bettercorp/service-base:node-latest</code> do not need to repeat those defaults unless they intentionally override them.</p>
         <ul>
           <li><code>BSB_PLUGIN_DIRS</code>: comma-separated plugin directories. Prefer this over legacy aliases.</li>
           <li><code>BSB_PLUGINS</code>: comma-separated npm packages to install at container start. Prefer exact versions.</li>

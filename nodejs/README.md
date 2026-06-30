@@ -145,6 +145,8 @@ Built-in plugin types include: `config-*`, `observable-*`, `events-*`, `service-
 
 ### Docker
 Multi-stage build produces a minimal runtime image:
+- Primary published image: `code.bettercorp.dev/bettercorp/service-base:node`
+- Docker Hub mirror: `betterweb/service-base:node`
 - `ENV NODE_ENV=production`, `ENV BSB_LIVE=true`, `ENV BSB_CONTAINER=true`, `ENV BSB_PLUGIN_DIRS=/mnt/plugins`
 - Dockerfiles that extend the BSB Node image do not need to repeat those defaults unless intentionally overriding them.
 - Volumes: `/mnt/plugins` (external plugins), `/mnt/temp`
@@ -159,7 +161,7 @@ Example run (with mounted plugins directory):
 docker run --rm \
   -e BSB_PLUGINS="@bettercorp/your-plugin@1.2.3" \
   -v $(pwd)/plugins:/mnt/plugins \
-  betterweb/service-base:node
+  code.bettercorp.dev/bettercorp/service-base:node
 ```
 
 Recommended plugin directory layout (when using `BSB_PLUGIN_DIRS`):
@@ -227,7 +229,7 @@ At minimum, export a `Plugin` class in `lib/plugins/<type>-<name>/index.js` (or 
 docker run --rm \
   -v $(pwd)/plugins:/mnt/plugins:ro \
   -e BSB_PLUGIN_DIR=/mnt/plugins \
-  betterweb/service-base:node
+  code.bettercorp.dev/bettercorp/service-base:node
 ```
 
 Local development (for contributors only):

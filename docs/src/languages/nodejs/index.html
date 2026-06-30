@@ -282,9 +282,9 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v $(pwd)/plugins:/mnt/plugins:ro \
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
-  betterweb/service-base:node</code></pre></div>
+  code.bettercorp.dev/bettercorp/service-base:node</code></pre></div>
             <div class="warning"><strong>Note:</strong> This is the supported production deployment. Use comma-separated paths for multiple plugin directories.</div>
-            <p>See the <a href="/guides/docker/">Docker guide</a> for supported image tags and container environment variables. Use <code>betterweb/service-base:node</code> or <code>betterweb/service-base:node-latest</code>; do not use version-first tags like <code>9-node</code>.</p>
+            <p>See the <a href="/guides/docker/">Docker guide</a> for supported image tags and container environment variables. Use <code>code.bettercorp.dev/bettercorp/service-base:node</code> or <code>code.bettercorp.dev/bettercorp/service-base:node-latest</code>; do not use version-first tags like <code>9-node</code>.</p>
         </div>
 
         <div class="section">
@@ -735,10 +735,10 @@ export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas
             <div class="code-block" data-title="bash"><pre><code class="language-bash">docker run --rm \
   -v /path/to/plugins:/mnt/plugins:ro \
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
-  betterweb/service-base:node</code></pre></div>
+  code.bettercorp.dev/bettercorp/service-base:node</code></pre></div>
             <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
   bsb:
-    image: betterweb/service-base:node
+    image: code.bettercorp.dev/bettercorp/service-base:node
     environment:
       - BSB_PLUGIN_DIRS=/mnt/plugins
       - BSB_PROFILE=default

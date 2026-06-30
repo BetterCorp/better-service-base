@@ -1,5 +1,8 @@
 # Stage 1: Build
-FROM golang:1.26-alpine AS builder
+ARG GO_BUILDER_IMAGE=golang:1.26-alpine
+ARG GO_RUNTIME_IMAGE=alpine:3.24
+
+FROM ${GO_BUILDER_IMAGE} AS builder
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
@@ -7,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /bsb ./cmd/bsb
 
 # Stage 2: Runtime
-FROM alpine:3.24
+FROM ${GO_RUNTIME_IMAGE}
 RUN adduser -D -u 1000 bsb
 WORKDIR /home/bsb
 COPY --from=builder /bsb /usr/local/bin/bsb

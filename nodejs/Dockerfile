@@ -23,8 +23,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+ARG NODE_BASE_IMAGE=betterweb/node:26
+
 # Stage 1: Build TypeScript
-FROM betterweb/node:26 AS builder
+FROM ${NODE_BASE_IMAGE} AS builder
 
 ARG BSB_VERSION=0.0.0
 ARG BSB_BUNDLED_PLUGINS=
@@ -46,7 +48,7 @@ RUN npm run build-release
 RUN rm -rf /home/bsb/lib/plugins/service-*
 
 # Stage 2: Install production dependencies
-FROM betterweb/node:26 AS dependencies
+FROM ${NODE_BASE_IMAGE} AS dependencies
 
 ARG BSB_BUNDLED_PLUGINS=
 
@@ -60,7 +62,7 @@ RUN npm install --production
 RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then echo "Installing bundled BSB plugins: $BSB_BUNDLED_PLUGINS"; npm install --omit=dev $BSB_BUNDLED_PLUGINS; fi
 
 # Stage 3: Final image
-FROM betterweb/node:26
+FROM ${NODE_BASE_IMAGE}
 
 RUN mkdir -p /mnt /mnt/plugins /mnt/temp /home/bsb
 

@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  FORGEJO_REGISTRY: code.bettercorp.dev
+  FORGEJO_SERVICE_BASE_IMAGE: code.bettercorp.dev/bettercorp/service-base
+  FORGEJO_NODE_BASE_IMAGE: code.bettercorp.dev/bettercorp/docker-node:26
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -473,36 +478,64 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
-          TAGS="betterweb/service-base:node-${VERSION}"
-          TAGS="${TAGS},betterweb/service-base:node-${NPM_TAG}"
+          DOCKERHUB_TAGS="betterweb/service-base:node-${VERSION}"
+          DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:node-${NPM_TAG}"
+          FORGEJO_TAGS="${FORGEJO_SERVICE_BASE_IMAGE}:node-${VERSION}"
+          FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:node-${NPM_TAG}"
           if [ "${NPM_TAG}" = "latest" ]; then
-            TAGS="${TAGS},betterweb/service-base:node"
+            DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:node"
+            FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:node"
           fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
+          echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
-      - name: Login to DockerHub
+      - name: Login to Forgejo
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
-      - name: Check Docker Hub quota
-        env:
-          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
-          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-        run: bash .github/scripts/check-dockerhub-rate-limit.sh betterweb/node:26
-
-      - name: Build and push
+      - name: Build and push to Forgejo
         uses: docker/build-push-action@v6
         with:
           build-args: |
+            NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
             BSB_VERSION=${{ needs.prepare.outputs.version }}
             BSB_BUNDLED_PLUGINS=@bsb/config-vault@${{ needs.prepare.outputs.version }}
           context: .
           file: ./nodejs/Dockerfile
           platforms: ${{ steps.upstream.outputs.platforms }}
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.tags.outputs.forgejo_tags }}
+
+      - name: Login to DockerHub
+        continue-on-error: true
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Check Docker Hub quota
+        continue-on-error: true
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        run: bash .github/scripts/check-dockerhub-rate-limit.sh betterweb/node:26
+
+      - name: Build and push to DockerHub
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          build-args: |
+            NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
+            BSB_VERSION=${{ needs.prepare.outputs.version }}
+            BSB_BUNDLED_PLUGINS=@bsb/config-vault@${{ needs.prepare.outputs.version }}
+          context: .
+          file: ./nodejs/Dockerfile
+          platforms: ${{ steps.upstream.outputs.platforms }}
+          push: true
+          tags: ${{ steps.tags.outputs.dockerhub_tags }}
 
   docker-go:
     name: Docker Go
@@ -527,33 +560,56 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
-          TAGS="betterweb/service-base:go-${VERSION}"
-          TAGS="${TAGS},betterweb/service-base:go-${NPM_TAG}"
+          DOCKERHUB_TAGS="betterweb/service-base:go-${VERSION}"
+          DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:go-${NPM_TAG}"
+          FORGEJO_TAGS="${FORGEJO_SERVICE_BASE_IMAGE}:go-${VERSION}"
+          FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:go-${NPM_TAG}"
           if [ "${NPM_TAG}" = "latest" ]; then
-            TAGS="${TAGS},betterweb/service-base:go"
+            DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:go"
+            FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:go"
           fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
+          echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Forgejo
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Login to DockerHub
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Check Docker Hub quota
+        continue-on-error: true
         env:
           DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
           DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
         run: bash .github/scripts/check-dockerhub-rate-limit.sh golang:1.26-alpine alpine:3.24
 
-      - name: Build and push
+      - name: Build and push to Forgejo
         uses: docker/build-push-action@v6
         with:
           context: ./go
           file: ./go/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.tags.outputs.forgejo_tags }}
+
+      - name: Build and push to DockerHub
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: ./go
+          file: ./go/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.dockerhub_tags }}
 
   docker-python:
     name: Docker Python
@@ -578,33 +634,56 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
-          TAGS="betterweb/service-base:python-${VERSION}"
-          TAGS="${TAGS},betterweb/service-base:python-${NPM_TAG}"
+          DOCKERHUB_TAGS="betterweb/service-base:python-${VERSION}"
+          DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:python-${NPM_TAG}"
+          FORGEJO_TAGS="${FORGEJO_SERVICE_BASE_IMAGE}:python-${VERSION}"
+          FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:python-${NPM_TAG}"
           if [ "${NPM_TAG}" = "latest" ]; then
-            TAGS="${TAGS},betterweb/service-base:python"
+            DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:python"
+            FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:python"
           fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
+          echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Forgejo
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Login to DockerHub
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Check Docker Hub quota
+        continue-on-error: true
         env:
           DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
           DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
         run: bash .github/scripts/check-dockerhub-rate-limit.sh python:3.14-slim
 
-      - name: Build and push
+      - name: Build and push to Forgejo
         uses: docker/build-push-action@v6
         with:
           context: ./python
           file: ./python/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.tags.outputs.forgejo_tags }}
+
+      - name: Build and push to DockerHub
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: ./python
+          file: ./python/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.dockerhub_tags }}
 
   docker-dotnet:
     name: Docker .NET
@@ -629,24 +708,46 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
-          TAGS="betterweb/service-base:dotnet-${VERSION}"
-          TAGS="${TAGS},betterweb/service-base:dotnet-${NPM_TAG}"
+          DOCKERHUB_TAGS="betterweb/service-base:dotnet-${VERSION}"
+          DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:dotnet-${NPM_TAG}"
+          FORGEJO_TAGS="${FORGEJO_SERVICE_BASE_IMAGE}:dotnet-${VERSION}"
+          FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:dotnet-${NPM_TAG}"
           if [ "${NPM_TAG}" = "latest" ]; then
-            TAGS="${TAGS},betterweb/service-base:dotnet"
+            DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:dotnet"
+            FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:dotnet"
           fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
+          echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Forgejo
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Login to DockerHub
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push to Forgejo
         uses: docker/build-push-action@v6
         with:
           context: ./dotnet
           file: ./dotnet/BetterServiceBase/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.tags.outputs.forgejo_tags }}
+
+      - name: Build and push to DockerHub
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dotnet
+          file: ./dotnet/BetterServiceBase/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.dockerhub_tags }}

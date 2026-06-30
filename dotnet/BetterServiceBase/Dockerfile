@@ -1,4 +1,7 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0
+ARG DOTNET_RUNTIME_IMAGE=mcr.microsoft.com/dotnet/runtime:10.0
+
+FROM ${DOTNET_SDK_IMAGE} AS build
 WORKDIR /src
 
 COPY BSB.sln .
@@ -12,7 +15,7 @@ RUN dotnet restore BSB.sln
 COPY . .
 RUN dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0
+FROM ${DOTNET_RUNTIME_IMAGE}
 WORKDIR /app
 RUN useradd --no-create-home bsb
 COPY --from=build /app/publish .

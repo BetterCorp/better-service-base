@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+env:
+  FORGEJO_REGISTRY: code.bettercorp.dev
+  FORGEJO_NODE_BASE_IMAGE: code.bettercorp.dev/bettercorp/docker-node:26
+
 concurrency:
   group: build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -146,23 +150,20 @@ jobs:
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
 
-      - name: Login to DockerHub
+      - name: Login to Forgejo
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      - name: Check Docker Hub quota
-        env:
-          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
-          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-        run: bash .github/scripts/check-dockerhub-rate-limit.sh betterweb/node:26
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
           context: .
           file: ./nodejs/Dockerfile
+          build-args: |
+            NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
           platforms: linux/amd64
           push: false
 
@@ -180,12 +181,14 @@ jobs:
         uses: useblacksmith/setup-docker-builder@v1
 
       - name: Login to DockerHub
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Check Docker Hub quota
+        continue-on-error: true
         env:
           DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
           DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -213,12 +216,14 @@ jobs:
         uses: useblacksmith/setup-docker-builder@v1
 
       - name: Login to DockerHub
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Check Docker Hub quota
+        continue-on-error: true
         env:
           DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
           DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -246,6 +251,7 @@ jobs:
         uses: useblacksmith/setup-docker-builder@v1
 
       - name: Login to DockerHub
+        continue-on-error: true
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
