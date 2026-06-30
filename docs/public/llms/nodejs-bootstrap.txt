@@ -101,13 +101,14 @@ Container deployment:
 - BSB is designed to run as the `code.bettercorp.dev/bettercorp/service-base:node` Docker image.
 - Use `code.bettercorp.dev/bettercorp/service-base:node` or `code.bettercorp.dev/bettercorp/service-base:node-latest`; version-specific tags are `node-<version>` like `node-9.5.1`. Never use `9-node`.
 - Docker Hub `betterweb/service-base` tags are compatibility mirrors, not the primary image source.
+- The Node image runs BSB from `/home/bsb/node_modules/@bsb/base`, and built-in core plugins resolve from installed `@bsb/*` packages.
 - Provide plugins via `BSB_PLUGIN_DIRS` env var (comma-separated paths). First dir is used as install target.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR` are legacy aliases (still work, accept comma-separated).
 - `BSB_PLUGINS` env var: comma-separated npm packages installed at container start (e.g. `@scope/plugin@1.2.3`).
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_DEBUG=true`: enable debug logging in production mode (mode becomes `production-debug`).
 - `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins` are set by the base image. Dockerfiles that extend the BSB Node image do not need to set these again unless intentionally overriding them.
-- To log plugin discovery during a derived container build, run `node /home/bsb/lib/scripts/list-plugin-search-paths.js` after plugins have been copied or installed. In the BSB repo, run `npm run list-plugin-search-paths --workspace nodejs`; the core Node build runs it automatically.
+- To log plugin discovery during a derived container build, run `node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after plugins have been copied or installed. In the BSB repo, run `npm run list-plugin-search-paths --workspace nodejs`; the core Node build runs it automatically.
 - Plugin dirs are read/search roots. Do not require BSB to write `package.json` into them; versioned plugin package directories contain package metadata.
 - Full Docker guide: https://bsbcode.dev/llms/docker.txt
 

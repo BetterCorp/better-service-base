@@ -65,5 +65,8 @@
     "node": ">=24.0.0",
     "npm": ">=11.0.0"
   },
-  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-opentelemetry"
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-opentelemetry",
+  "bsb": {
+    "orgId": "bsb"
+  }
 }

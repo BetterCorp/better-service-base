@@ -12,6 +12,9 @@ Image tags:
 - Other runtime tags follow the same pattern: `go`, `go-latest`, `go-<version>`, `python`, `python-latest`, `dotnet`, etc.
 
 Bundled Node.js plugins:
+- The Node.js runtime image runs BSB from `/home/bsb/node_modules/@bsb/base`, not from a copied local `/home/bsb/lib` tree.
+- Built-in core plugins resolve from `@bsb/base`; plugin configs should use package-qualified plugins for non-local packages.
+- The runtime package includes `npm run start`, `npm run debug`, and `npm run plugins` for shell/debug use inside the container.
 - The Node.js runtime image includes `@bsb/config-vault` in `/home/bsb/node_modules` when built by the official release workflow.
 - Reference bundled Vault plugins by package name in config: `package: "@bsb/config-vault"`.
 - Do not set `BSB_PLUGINS` for bundled plugins such as `@bsb/config-vault`; that forces the startup installer and can slow or break boot.
@@ -69,7 +72,7 @@ Environment:
 Rules:
 - Do not add `@bsb/config-vault` to `BSB_PLUGINS` when using an official Node image that already bundles it.
 - Build plugin packages before deployment with `bsb-plugin-cli build`.
-- To log what plugins an image can see during a derived Docker build, run `node /home/bsb/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins.
+- To log what plugins an image can see during a derived Docker build, run `node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins.
 - In the BSB repo itself, the equivalent command is `npm run list-plugin-search-paths --workspace nodejs`; it runs automatically during Node build/build-release.
 - Do not compile plugin source in the production container.
 - Do not invent Docker tags; use the runtime-prefixed tags above.

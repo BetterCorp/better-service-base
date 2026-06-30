@@ -45,7 +45,7 @@ ADD nodejs/src/ /home/bsb/src/
 RUN npm install
 RUN npm version $BSB_VERSION --allow-same-version --no-git-tag-version
 RUN npm run build-release
-RUN rm -rf /home/bsb/lib/plugins/service-*
+RUN npm pack --pack-destination /tmp/bsb-pack
 
 # Stage 2: Install production dependencies
 FROM ${NODE_BASE_IMAGE} AS dependencies
@@ -54,11 +54,11 @@ ARG BSB_BUNDLED_PLUGINS=
 
 WORKDIR /home/bsb
 
-COPY --from=builder /home/bsb/package.json /home/bsb/package.json
-COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
+COPY --from=builder /tmp/bsb-pack/*.tgz /tmp/bsb-base.tgz
 
-# Install only production dependencies
-RUN npm install --production
+# Install BSB as a normal package so plugins resolve through @bsb/* packages.
+RUN printf '{"type":"module","private":true,"scripts":{"start":"node node_modules/@bsb/base/lib/cli.js","debug":"BSB_DEBUG=true node node_modules/@bsb/base/lib/cli.js","plugins":"node node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js"}}\n' > /home/bsb/package.json
+RUN npm install --omit=dev /tmp/bsb-base.tgz
 RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then echo "Installing bundled BSB plugins: $BSB_BUNDLED_PLUGINS"; npm install --omit=dev $BSB_BUNDLED_PLUGINS; fi
 
 # Stage 3: Final image
@@ -79,12 +79,8 @@ COPY nodejs/entrypoint.sh /home/bsb/entrypoint.sh
 COPY nodejs/entrypoint.js /home/bsb/entrypoint.js
 COPY nodejs/LICENSE /home/bsb/LICENSE
 
-# Copy compiled TypeScript from builder
-COPY --from=builder /home/bsb/lib /home/bsb/lib
-COPY --from=builder /home/bsb/package.json /home/bsb/package.json
-COPY --from=builder /home/bsb/package-lock.json /home/bsb/package-lock.json
-
-# Copy production node_modules from dependencies stage
+COPY --from=dependencies /home/bsb/package.json /home/bsb/package.json
+COPY --from=dependencies /home/bsb/package-lock.json /home/bsb/package-lock.json
 COPY --from=dependencies /home/bsb/node_modules /home/bsb/node_modules
 
 RUN chown -R node:node /home/bsb \

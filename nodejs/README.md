@@ -150,11 +150,13 @@ Multi-stage build produces a minimal runtime image:
 - `ENV NODE_ENV=production`, `ENV BSB_LIVE=true`, `ENV BSB_CONTAINER=true`, `ENV BSB_PLUGIN_DIRS=/mnt/plugins`
 - Dockerfiles that extend the BSB Node image do not need to repeat those defaults unless intentionally overriding them.
 - Volumes: `/mnt/plugins` (external plugins), `/mnt/temp`
-- Entrypoint runs `node lib/cli.js` as an unprivileged `node` user
+- Entrypoint runs `node /home/bsb/node_modules/@bsb/base/lib/cli.js` as an unprivileged `node` user
+- Built-in core plugins resolve from the installed `@bsb/base` package, not from a copied local `/home/bsb/lib/plugins` tree.
+- The runtime package includes `npm run start`, `npm run debug`, and `npm run plugins` for shell/debug use inside the container.
 - Optional plugin install/update at startup:
   - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b@2.4.1"` -> installs listed packages
   - `BSB_PLUGIN_UPDATE=yes` -> refreshes installed plugins through the startup installer
-- Derived Dockerfiles can log visible plugins after copying/installing them with `RUN node /home/bsb/lib/scripts/list-plugin-search-paths.js`
+- Derived Dockerfiles can log visible plugins after copying/installing them with `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js`
 
 Example run (with mounted plugins directory):
 ```bash

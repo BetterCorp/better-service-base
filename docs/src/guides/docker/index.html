@@ -35,7 +35,7 @@ code.bettercorp.dev/bettercorp/service-base:node-9.5.1</code></pre></div>
         </div>
 
         <h2>Bundled Node.js Plugins</h2>
-        <p>The official Node.js runtime image includes <code>@bsb/config-vault</code> in <code>/home/bsb/node_modules</code>. Reference Vault plugins directly by package name in your config:</p>
+        <p>The official Node.js runtime image runs BSB from <code>/home/bsb/node_modules/@bsb/base</code>, and built-in core plugins resolve from that package. The runtime package includes <code>npm run start</code>, <code>npm run debug</code>, and <code>npm run plugins</code> for shell/debug use inside the container. It also includes <code>@bsb/config-vault</code> in <code>/home/bsb/node_modules</code>. Reference Vault plugins directly by package name in your config:</p>
 
         <div class="code-block" data-title="sec-config.yaml"><pre><code class="language-yaml">service-config-vault:
   plugin: service-config-vault
@@ -98,7 +98,7 @@ code.bettercorp.dev/bettercorp/service-base:node-9.5.1</code></pre></div>
         <h2>Build-Time Plugin Discovery</h2>
         <p>The Node build logs a plugin search report automatically. For Dockerfiles that extend the BSB Node image and add plugins in a later build stage, run the same report after copying or installing those plugins:</p>
 
-        <div class="code-block" data-title="Dockerfile"><pre><code class="language-dockerfile">RUN node /home/bsb/lib/scripts/list-plugin-search-paths.js</code></pre></div>
+        <div class="code-block" data-title="Dockerfile"><pre><code class="language-dockerfile">RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js</code></pre></div>
 
         <p>When working in this repository, the equivalent command is:</p>
 

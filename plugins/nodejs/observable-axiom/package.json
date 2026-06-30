@@ -55,5 +55,8 @@
     "type": "git",
     "url": "https://github.com/BetterCorp/better-service-base",
     "directory": "plugins/nodejs/observable-axiom"
+  },
+  "bsb": {
+    "orgId": "bsb"
   }
 }

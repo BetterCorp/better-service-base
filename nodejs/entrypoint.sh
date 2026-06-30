@@ -119,5 +119,5 @@ if [ "$1" = "BSBDEBUG" ]; then
   echo " - RUNNING YOUR COMMAND [$@]"
   exec gosu node:node "$@"
 else
-  exec gosu node:node node /home/bsb/lib/cli.js
+  exec gosu node:node node /home/bsb/node_modules/@bsb/base/lib/cli.js
 fi

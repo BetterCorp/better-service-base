@@ -12,9 +12,9 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function addBadge(pluginId, badge) {
+function addBadge(orgId, pluginId, badge) {
   if (typeof pluginId === 'string' && pluginId.length > 0) {
-    badges[`_/${pluginId}`] = badge;
+    badges[`${orgId || '_'}/${pluginId}`] = badge;
   }
 }
 
@@ -22,10 +22,11 @@ const corePackageJson = path.join(sourceRoot, 'nodejs', 'package.json');
 const corePluginDir = path.join(sourceRoot, 'nodejs', 'src', 'plugins');
 if (fs.existsSync(corePackageJson) && fs.existsSync(corePluginDir)) {
   const corePackage = readJson(corePackageJson);
+  const coreOrgId = corePackage.bsb?.orgId || '_';
   const publishIgnore = new Set(corePackage.bsb?.publishIgnore ?? []);
   for (const entry of fs.readdirSync(corePluginDir, { withFileTypes: true })) {
     if (entry.isDirectory() && !publishIgnore.has(entry.name)) {
-      addBadge(entry.name, 'CORE');
+      addBadge(coreOrgId, entry.name, 'CORE');
     }
   }
 }
@@ -35,10 +36,14 @@ if (fs.existsSync(workspacePluginsDir)) {
   for (const entry of fs.readdirSync(workspacePluginsDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const manifestFile = path.join(workspacePluginsDir, entry.name, 'bsb-plugin.json');
+    const packageFile = path.join(workspacePluginsDir, entry.name, 'package.json');
     if (!fs.existsSync(manifestFile)) continue;
+    const pkg = fs.existsSync(packageFile) ? readJson(packageFile) : {};
+    if (pkg.private === true) continue;
     const manifest = readJson(manifestFile);
+    const orgId = pkg.bsb?.orgId || '_';
     for (const plugin of manifest.nodejs ?? []) {
-      addBadge(plugin.id, 'OFFICIAL');
+      addBadge(orgId, plugin.id, 'OFFICIAL');
     }
   }
 }

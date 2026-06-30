@@ -57,7 +57,9 @@
   "peerDependencies": {
     "@bsb/base": "^9.1.11"
   },
-  "bsb": {},
+  "bsb": {
+    "orgId": "bsb"
+  },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/registry",
   "repository": {
     "type": "git",

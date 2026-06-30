@@ -3,5 +3,5 @@
 /sec.config.yaml
 /node_modules
 /.nyc_output
-/lib/plugins/service-
+/lib/plugins/service-*
 /src

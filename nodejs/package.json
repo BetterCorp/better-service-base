@@ -27,8 +27,10 @@
       "service-default1",
       "service-default2",
       "service-default3",
-      "service-default4"
-    ]
+      "service-default4",
+      "service-benchmarkify"
+    ],
+    "orgId": "bsb"
   },
   "engines": {
     "npm": ">=11.0.0",
@@ -40,7 +42,8 @@
     "start": "node lib/cli.js",
     "tsc": "echo 'cleaning...' && rimraf ./lib && echo 'building...' && tsc && echo 'done'",
     "build": "rimraf ./lib && tsc && npm run list-plugin-search-paths && npm run testDev && npm run generate-docs && npm run export-schemas && npm run generate-plugin-json",
-    "build-release": "rimraf ./lib && tsc --p ./tsconfig-release.json && npm run list-plugin-search-paths && npm run export-schemas && npm run generate-plugin-json",
+    "build-release": "rimraf ./lib && tsc --p ./tsconfig-release.json && npm run prune-release-plugins && npm run list-plugin-search-paths && npm run export-schemas && npm run generate-plugin-json",
+    "prune-release-plugins": "node --import tsx src/scripts/prune-release-plugins.ts",
     "export-schemas": "node --import tsx src/scripts/export-schemas.ts",
     "generate-client-types": "node --import tsx src/scripts/generate-client-types.ts",
     "generate-plugin-json": "node --import tsx src/scripts/generate-plugin-json.ts",

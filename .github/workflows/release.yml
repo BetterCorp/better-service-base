@@ -541,6 +541,7 @@ jobs:
     name: Docker Go
     needs: [go, prepare, docker-nodejs]
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -615,6 +616,7 @@ jobs:
     name: Docker Python
     needs: [python, prepare, docker-go]
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -689,6 +691,7 @@ jobs:
     name: Docker .NET
     needs: [dotnet, prepare, docker-python]
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v7

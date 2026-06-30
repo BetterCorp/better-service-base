@@ -127,7 +127,7 @@ Do not hand-maintain the checked-in `BADGES.json` files for repo plugins. Run `n
 
 ```json
 {
-  "bettercorp/config-default": ["CORE", "OFFICIAL"],
+  "bsb/config-default": ["CORE", "OFFICIAL"],
   "bettercorp/events-rabbitmq": "OFFICIAL"
 }
 ```
