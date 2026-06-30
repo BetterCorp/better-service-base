@@ -124,26 +124,6 @@ async function removeDir(dir) {
   }
 }
 
-async function copyDir(from, to) {
-  await removeDir(to);
-  await ensureDir(path.dirname(to));
-  await fs.cp(from, to, { recursive: true });
-}
-
-async function moveDir(from, to) {
-  await removeDir(to);
-  await ensureDir(path.dirname(to));
-  try {
-    await fs.rename(from, to);
-  } catch (error) {
-    if (!error || typeof error !== "object" || error.code !== "EXDEV") {
-      throw error;
-    }
-    await fs.cp(from, to, { recursive: true });
-    await removeDir(from);
-  }
-}
-
 async function ensureHostBaseShim(targetDir) {
   const scopeDir = path.join(targetDir, "node_modules", "@bsb");
   const baseLink = path.join(scopeDir, "base");
@@ -227,6 +207,37 @@ function resolveRequestSpec(pkg, parsedSpec) {
   return `${pkg}@${parsedSpec.selector}`;
 }
 
+async function replaceDir(from, to, tempRoot) {
+  await ensureDir(path.dirname(to));
+  const oldDir = path.join(
+    tempRoot,
+    `old-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
+
+  if (await fileExists(to)) {
+    await ensureDir(tempRoot);
+    await fs.rename(to, oldDir);
+  }
+
+  try {
+    await fs.rename(from, to);
+  } catch (error) {
+    if (!error || typeof error !== "object" || error.code !== "EXDEV") {
+      throw error;
+    }
+    await fs.cp(from, to, { recursive: true });
+    await removeDir(from);
+  }
+
+  if (await fileExists(oldDir)) {
+    try {
+      await removeDir(oldDir);
+    } catch (error) {
+      console.warn(`[BSB] Warning: failed to remove old plugin cache ${oldDir}: ${error.message}`);
+    }
+  }
+}
+
 async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
   const pkg = parsedSpec.pkg;
   const pluginRoot = path.join(pluginDir, pkg);
@@ -248,29 +259,25 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
     tempRoot,
     `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
   );
+  const installedPkgDir = path.join(pluginDir, "node_modules", pkg);
 
   console.log(`[BSB] Installing plugin ${requestSpec}`);
   await ensureDir(stageDir);
 
   try {
-    await fs.writeFile(
-      path.join(stageDir, "package.json"),
-      JSON.stringify({ name: "bsb-plugin-installer", version: "1.0.0", private: true }, null, 2),
-      "utf-8",
-    );
-
-    runNpm(stageDir, [
+    runNpm(pluginDir, [
       "install",
       "--omit=dev",
       "--no-audit",
       "--no-fund",
+      "--package-lock=false",
       "--no-progress",
       "--no-update-notifier",
       "--loglevel=error",
       requestSpec,
     ]);
+    await ensureHostBaseShim(pluginDir);
 
-    const installedPkgDir = path.join(stageDir, "node_modules", pkg);
     const installedPkgJsonPath = path.join(installedPkgDir, "package.json");
     const installedPkgJson = JSON.parse(await fs.readFile(installedPkgJsonPath, "utf-8"));
     const resolvedVersion = String(installedPkgJson.version || "");
@@ -303,11 +310,12 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
 
     const [major, minor, micro] = semver.map((x) => String(x));
     const versionDir = path.join(pluginRoot, major, minor, micro);
+    const stagedVersionDir = path.join(stageDir, "package");
     await ensureDir(path.join(pluginRoot, major, minor));
 
-    await removeDir(versionDir);
-    await fs.cp(installedPkgDir, versionDir, { recursive: true });
-    await moveDir(path.join(stageDir, "node_modules"), path.join(versionDir, "node_modules"));
+    await fs.cp(installedPkgDir, stagedVersionDir, { recursive: true });
+    await removeDir(path.join(stagedVersionDir, "node_modules"));
+    await replaceDir(stagedVersionDir, versionDir, tempRoot);
     await ensureHostBaseShim(versionDir);
 
     const pluginEntryPath = path.join(versionDir, "lib", "plugins");
