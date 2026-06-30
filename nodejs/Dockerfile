@@ -30,6 +30,11 @@ FROM ${NODE_BASE_IMAGE} AS builder
 
 ARG BSB_VERSION=0.0.0
 ARG BSB_BUNDLED_PLUGINS=
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_YES=true
 
 RUN set -eux && mkdir /home/bsb && npm i -g typescript ts-node
 
@@ -51,6 +56,11 @@ RUN mkdir -p /tmp/bsb-pack && npm pack --pack-destination /tmp/bsb-pack
 FROM ${NODE_BASE_IMAGE} AS dependencies
 
 ARG BSB_BUNDLED_PLUGINS=
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_YES=true
 
 WORKDIR /home/bsb
 
@@ -74,6 +84,11 @@ ENV NODE_ENV=production
 ENV BSB_LIVE=true
 ENV BSB_CONTAINER=true
 ENV BSB_PLUGIN_DIRS=/mnt/plugins
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_YES=true
 
 COPY nodejs/entrypoint.sh /home/bsb/entrypoint.sh
 COPY nodejs/entrypoint.js /home/bsb/entrypoint.js

@@ -75,7 +75,14 @@ function runNpm(cwd, args, capture = false) {
   const result = spawnSync(npmCmd, args, {
     cwd,
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
-    env: process.env,
+    env: {
+      ...process.env,
+      NPM_CONFIG_AUDIT: "false",
+      NPM_CONFIG_FUND: "false",
+      NPM_CONFIG_PROGRESS: "false",
+      NPM_CONFIG_UPDATE_NOTIFIER: "false",
+      NPM_CONFIG_YES: "true",
+    },
     encoding: "utf-8",
   });
   if (result.status !== 0) {

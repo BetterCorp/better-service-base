@@ -15,6 +15,11 @@ FROM betterweb/service-base:${BSB_IMAGE_TAG} AS builder
 
 WORKDIR /workspace
 ENV PATH="/home/bsb/lib/scripts:${PATH}"
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_YES=true
 
 COPY plugins/nodejs/bsb-registry ./
 COPY nodejs/package.json ./.badge-source/nodejs/package.json
@@ -39,6 +44,11 @@ FROM betterweb/service-base:${BSB_IMAGE_TAG} AS buildermodules
 
 WORKDIR /workspace
 ENV PATH="/home/bsb/lib/scripts:${PATH}"
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_YES=true
 
 COPY plugins/nodejs/bsb-registry ./
 COPY nodejs/package.json ./.badge-source/nodejs/package.json

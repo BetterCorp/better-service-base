@@ -1,4 +1,9 @@
-FROM node:23-alpine AS build
+FROM node:24-alpine AS build
+ENV NPM_CONFIG_AUDIT=false
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_PROGRESS=false
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_YES=true
 WORKDIR /app
 
 COPY package*.json ./
