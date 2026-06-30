@@ -24,6 +24,7 @@ const MAJOR_SELECTOR_REGEX = /^\d+$/;
 const MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
 const EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
 const SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
+const REMOVE_RETRY_DELAYS_MS = [100, 250, 500, 1000, 2000];
 
 function isTruthy(value) {
   return TRUTHY.has(String(value || "").trim().toLowerCase());
@@ -80,6 +81,7 @@ function runNpm(cwd, args, capture = false) {
       NPM_CONFIG_AUDIT: "false",
       NPM_CONFIG_FUND: "false",
       NPM_CONFIG_IGNORE_SCRIPTS: "false",
+      NPM_CONFIG_LOGLEVEL: "error",
       NPM_CONFIG_PROGRESS: "false",
       NPM_CONFIG_UPDATE_NOTIFIER: "false",
       NPM_CONFIG_YES: "true",
@@ -96,8 +98,30 @@ async function ensureDir(dir) {
   await fs.mkdir(dir, { recursive: true });
 }
 
+function isRetryableRemoveError(error) {
+  return error &&
+    typeof error === "object" &&
+    ["EBUSY", "ENOTEMPTY", "EPERM"].includes(String(error.code || ""));
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function removeDir(dir) {
-  await fs.rm(dir, { recursive: true, force: true });
+  for (let attempt = 0; attempt <= REMOVE_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      await fs.rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      return;
+    } catch (error) {
+      if (attempt >= REMOVE_RETRY_DELAYS_MS.length || !isRetryableRemoveError(error)) {
+        throw error;
+      }
+      const delayMs = REMOVE_RETRY_DELAYS_MS[attempt];
+      console.warn(`[BSB] Waiting ${delayMs}ms before retrying removal of ${dir}: ${error.message}`);
+      await sleep(delayMs);
+    }
+  }
 }
 
 async function copyDir(from, to) {
@@ -242,7 +266,7 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
       "--no-fund",
       "--no-progress",
       "--no-update-notifier",
-      "--loglevel=warn",
+      "--loglevel=error",
       requestSpec,
     ]);
 
@@ -328,6 +352,53 @@ async function listInstalledPlugins(pluginDir) {
   return out;
 }
 
+async function listInstalledPluginVersionDirs(pluginDir) {
+  const out = [];
+  let packages = [];
+  try {
+    packages = await listInstalledPlugins(pluginDir);
+  } catch {
+    return out;
+  }
+
+  for (const pkg of packages) {
+    const pluginRoot = path.join(pluginDir, pkg);
+    const versions = await listVersionsForPackage(pluginRoot);
+    for (const version of versions) {
+      const semver = parseSemver(version);
+      if (!semver) continue;
+      const [major, minor, micro] = semver.map((x) => String(x));
+      const hierarchical = path.join(pluginRoot, major, minor, micro);
+      if (await fileExists(hierarchical)) {
+        out.push({ pkg, version, dir: hierarchical });
+        continue;
+      }
+      const legacy = path.join(pluginRoot, version);
+      if (await fileExists(legacy)) {
+        out.push({ pkg, version, dir: legacy });
+      }
+    }
+  }
+
+  return out;
+}
+
+async function repairInstalledPluginBaseShims(pluginDir) {
+  const versionDirs = await listInstalledPluginVersionDirs(pluginDir);
+  if (versionDirs.length === 0) return;
+
+  await ensureHostBaseShim(pluginDir);
+  for (const installed of versionDirs) {
+    try {
+      await ensureHostBaseShim(installed.dir);
+    } catch (error) {
+      console.warn(
+        `[BSB] Warning: failed to repair @bsb/base shim for ${installed.pkg}@${installed.version}: ${error.message}`
+      );
+    }
+  }
+}
+
 async function main() {
   const rawDirs = process.env.BSB_PLUGIN_DIRS
     || process.env.BSB_PLUGINS_DIR
@@ -368,6 +439,7 @@ async function main() {
   }
 
   await ensureDir(tempRoot);
+  await repairInstalledPluginBaseShims(pluginDir);
 
   let parsedPlugins = rawPlugins
     .map(parsePluginSpec)
