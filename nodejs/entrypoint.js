@@ -79,6 +79,7 @@ function runNpm(cwd, args, capture = false) {
       ...process.env,
       NPM_CONFIG_AUDIT: "false",
       NPM_CONFIG_FUND: "false",
+      NPM_CONFIG_IGNORE_SCRIPTS: "false",
       NPM_CONFIG_PROGRESS: "false",
       NPM_CONFIG_UPDATE_NOTIFIER: "false",
       NPM_CONFIG_YES: "true",
@@ -103,6 +104,20 @@ async function copyDir(from, to) {
   await removeDir(to);
   await ensureDir(path.dirname(to));
   await fs.cp(from, to, { recursive: true });
+}
+
+async function moveDir(from, to) {
+  await removeDir(to);
+  await ensureDir(path.dirname(to));
+  try {
+    await fs.rename(from, to);
+  } catch (error) {
+    if (!error || typeof error !== "object" || error.code !== "EXDEV") {
+      throw error;
+    }
+    await fs.cp(from, to, { recursive: true });
+    await removeDir(from);
+  }
 }
 
 async function ensureHostBaseShim(targetDir) {
@@ -220,7 +235,16 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
       "utf-8",
     );
 
-    runNpm(stageDir, ["install", "--omit=dev", "--no-audit", "--no-fund", requestSpec]);
+    runNpm(stageDir, [
+      "install",
+      "--omit=dev",
+      "--no-audit",
+      "--no-fund",
+      "--no-progress",
+      "--no-update-notifier",
+      "--loglevel=warn",
+      requestSpec,
+    ]);
 
     const installedPkgDir = path.join(stageDir, "node_modules", pkg);
     const installedPkgJsonPath = path.join(installedPkgDir, "package.json");
@@ -257,8 +281,9 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
     const versionDir = path.join(pluginRoot, major, minor, micro);
     await ensureDir(path.join(pluginRoot, major, minor));
 
-    await copyDir(path.join(stageDir, "node_modules"), path.join(versionDir, "node_modules"));
+    await removeDir(versionDir);
     await fs.cp(installedPkgDir, versionDir, { recursive: true });
+    await moveDir(path.join(stageDir, "node_modules"), path.join(versionDir, "node_modules"));
     await ensureHostBaseShim(versionDir);
 
     const pluginEntryPath = path.join(versionDir, "lib", "plugins");
@@ -316,7 +341,7 @@ async function main() {
   }
 
   const pluginDir = pluginDirs[0];
-  const tempRoot = process.env.BSB_PLUGIN_TEMP_DIR || "/mnt/temp/bsb-plugin-installer";
+  const tempRoot = process.env.BSB_PLUGIN_TEMP_DIR || path.join(pluginDir, ".bsb-plugin-installer");
   const forceUpdate = isTruthy(process.env.BSB_PLUGIN_UPDATE);
   const rawPlugins = String(process.env.BSB_PLUGINS || "")
     .split(",")

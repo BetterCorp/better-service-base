@@ -28,6 +28,9 @@
 RAW_PLUGIN_DIRS="${BSB_PLUGIN_DIRS:-${BSB_PLUGINS_DIR:-${BSB_PLUGIN_DIR:-}}}"
 RAW_WRITABLE_PATHS="${BSB_WRITABLE_PATHS:-}"
 
+BSB_RUNTIME_VERSION="$(node -p "require('/home/bsb/node_modules/@bsb/base/package.json').version" 2>/dev/null || echo unknown)"
+echo "BSB runtime version: ${BSB_RUNTIME_VERSION}"
+
 mkdir -p /mnt/temp || true
 
 NEED_INSTALL=0
