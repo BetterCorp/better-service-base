@@ -38,7 +38,12 @@ type ConfigState = {
   publishedAt: string | null;
 };
 
-type PluginUsage = Record<string, { count: number; locations: string[] }>;
+type PluginUsageLocation = {
+  label: string;
+  href: string;
+};
+
+type PluginUsage = Record<string, { count: number; locations: PluginUsageLocation[] }>;
 
 export class VaultService {
   private readonly store: VaultStore;
@@ -786,38 +791,53 @@ export class VaultService {
 
   private async pluginUsage(plugins: PluginCatalogRecord[]): Promise<PluginUsage> {
     const usage: PluginUsage = {};
-    const add = (plugin: PluginCatalogRecord | undefined, location: string) => {
+    const add = (plugin: PluginCatalogRecord | undefined, location: PluginUsageLocation) => {
       if (!plugin) return;
       usage[plugin.id] ??= { count: 0, locations: [] };
       usage[plugin.id].count += 1;
       usage[plugin.id].locations.push(location);
     };
-    const scan = (config: RuntimeConfigDefinition | null | undefined, location: string) => {
+    const scan = (config: RuntimeConfigDefinition | null | undefined, context: { prefix: string; href: string }) => {
       if (!config) return;
       for (const sectionName of ['services', 'events', 'observable'] as const) {
         const section = config[sectionName] ?? {};
         for (const [name, entry] of Object.entries(section)) {
-          add(resolveCatalogForEntry(plugins, sectionName, entry), `${location}/${sectionName}/${name}`);
+          add(resolveCatalogForEntry(plugins, sectionName, entry), {
+            label: `${context.prefix} / ${sectionName} / ${name}`,
+            href: context.href,
+          });
         }
       }
     };
     for (const profile of await this.store.listAllProfiles()) {
-      scan(await this.getProfileDraft(profile.id), `draft:${profile.id}`);
+      scan(await this.getProfileDraft(profile.id), {
+        prefix: `deployment draft ${profile.name}`,
+        href: `/deployment?profileId=${encodeURIComponent(profile.id)}`,
+      });
       if (profile.activeVersionId) {
         const version = await this.store.getVersion(profile.activeVersionId);
         if (version) {
           const decrypted = decryptJson<VaultRuntimeConfig>(version, this.masterKey);
-          scan(decrypted[profile.name], `live:${profile.id}`);
+          scan(decrypted[profile.name], {
+            prefix: `deployment live ${profile.name}`,
+            href: `/deployment?profileId=${encodeURIComponent(profile.id)}`,
+          });
         }
       }
     }
     for (const profile of await this.store.listAllApplicationProfiles()) {
-      scan(await this.getApplicationProfileDraft(profile.id), `app-draft:${profile.id}`);
+      scan(await this.getApplicationProfileDraft(profile.id), {
+        prefix: `shared draft ${profile.name}`,
+        href: `/application-config?applicationId=${encodeURIComponent(profile.applicationId)}&profile=${encodeURIComponent(profile.name)}`,
+      });
       if (profile.activeVersionId) {
         const version = await this.store.getApplicationVersion(profile.activeVersionId);
         if (version) {
           const decrypted = decryptJson<VaultRuntimeConfig>(version, this.masterKey);
-          scan(decrypted[profile.name], `app-live:${profile.id}`);
+          scan(decrypted[profile.name], {
+            prefix: `shared live ${profile.name}`,
+            href: `/application-config?applicationId=${encodeURIComponent(profile.applicationId)}&profile=${encodeURIComponent(profile.name)}`,
+          });
         }
       }
     }

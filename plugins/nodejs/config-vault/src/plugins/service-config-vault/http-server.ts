@@ -601,6 +601,8 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .schema-repeat{border:1px solid #edf0f5;border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.repeat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:start}.schema-repeat[data-array-path] .repeat-row{grid-template-columns:minmax(0,1fr) auto}
     .schema-union{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.schema-union-panel[hidden]{display:none}
     details.plugin-card{border:1px solid var(--line);border-radius:6px;margin:10px 0;background:#fff}details.plugin-card>summary{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer;padding:12px 14px;font-weight:750;color:#344054}.plugin-card-body{border-top:1px solid var(--line);padding:14px}.chip{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:650;color:#344054;background:#f9fafb}
+    .callout{border:1px solid #fedf89;background:#fffaeb;color:#93370d;border-radius:6px;padding:10px 12px;margin:10px 0;font-size:13px}
+    .usage-list{margin:8px 0 0;padding-left:18px}.usage-list a{color:var(--primary);text-decoration:none}.usage-list a:hover{text-decoration:underline}
     .state-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:750;border:1px solid #d0d5dd;background:#f9fafb;color:#344054}.state-badge.live{border-color:#abefc6;background:#ecfdf3;color:#067647}.state-badge.pending,.state-badge.draft{border-color:#fedf89;background:#fffaeb;color:#b54708}.state-badge.empty{border-color:#d0d5dd;background:#f9fafb;color:#637083}
     @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
@@ -908,10 +910,19 @@ function pluginCatalogTable(plugins: DashboardData['plugins'], usage: DashboardD
       <td>${escapeHtml(plugin.kind)}</td>
       <td>${escapeHtml(plugin.source)}</td>
       <td>${escapeHtml(plugin.packageName ?? '')}</td>
-      <td>${used}</td>
+      <td>${pluginUsageDetails(usage[plugin.id])}</td>
       <td>${used === 0 ? `<form data-api="/api/plugins/delete" data-redirect="/plugins" data-confirm="Delete this unused plugin version?"><input type="hidden" name="id" value="${escapeHtml(plugin.id)}"><button class="danger">Delete</button><p class="status"></p></form>` : '<span class="muted">In use</span>'}</td>
     </tr>`;
   }).join('')}</table>`;
+}
+
+function pluginUsageDetails(usage: DashboardData['pluginUsage'][string] | undefined): string {
+  if (!usage?.count) return '0';
+  const items = usage.locations.map((location) => {
+    if (typeof location === 'string') return `<li>${escapeHtml(location)}</li>`;
+    return `<li><a href="${escapeHtml(location.href)}">${escapeHtml(location.label)}</a></li>`;
+  }).join('');
+  return `<details><summary>${usage.count} config${usage.count === 1 ? '' : 's'}</summary><ul class="usage-list">${items}</ul></details>`;
 }
 
 function registryTable(items: RegistryCandidate[], importedPlugins: DashboardData['plugins']): string {
@@ -1167,11 +1178,13 @@ function configSectionEditor(
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No plugins configured.</p>' : entries.map(([name, entry]) => {
       const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package);
+      const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
         <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')} / ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
         <div class="plugin-card-body">
-        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
+        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(entry.config ?? {}))}">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
@@ -1185,6 +1198,7 @@ function configSectionEditor(
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
             <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
           </div>
+          ${updateCatalog ? `<div class="callout" data-version-update-note><strong>Update available:</strong> unlock this config to edit against ${escapeHtml(updateCatalog.version)} before saving.</div>` : ''}
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
         </form>
@@ -1212,11 +1226,13 @@ function applicationConfigSectionEditor(
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No shared plugins configured.</p>' : entries.map(([name, entry]) => {
       const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package);
+      const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
         <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')} / ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
         <div class="plugin-card-body">
-        <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
+        <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(entry.config ?? {}))}">
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
@@ -1230,6 +1246,7 @@ function applicationConfigSectionEditor(
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
             <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
           </div>
+          ${updateCatalog ? `<div class="callout" data-version-update-note><strong>Update available:</strong> unlock this shared config to edit against ${escapeHtml(updateCatalog.version)} before saving.</div>` : ''}
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
         </form>
@@ -1362,6 +1379,14 @@ function findCatalogPlugin(
 
 function latestCatalogPlugin(plugins: DeploymentProfileData['plugins']): DeploymentProfileData['plugins'][number] | undefined {
   return [...plugins].sort((left, right) => compareVersionStrings(right.version, left.version))[0];
+}
+
+function lockedUpdateCatalog(
+  entry: RuntimePluginDefinition,
+  latest: DeploymentProfileData['plugins'][number] | undefined,
+): DeploymentProfileData['plugins'][number] | undefined {
+  if (!entry.version || !latest || compareVersionStrings(latest.version, entry.version) <= 0) return undefined;
+  return latest;
 }
 
 function latestImportedPluginGroups(plugins: DashboardData['plugins']): DashboardData['plugins'] {
@@ -1919,6 +1944,63 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       + '<select data-union-picker' + (required ? ' required' : '') + '>' + options + '</select>'
       + help + '</label>' + panels + '</div>';
   }
+  function readCurrentConfig(form) {
+    try {
+      return JSON.parse(form.dataset.currentConfig || '{}') || {};
+    } catch {
+      return {};
+    }
+  }
+  function getPath(source, path) {
+    return path.split('.').reduce((current, part) => current && typeof current === 'object' ? current[part] : undefined, source);
+  }
+  function setFieldsFromConfig(scope, config) {
+    scope.querySelectorAll('[data-optional-field]').forEach((group) => {
+      const value = getPath(config, group.dataset.optionalField || '');
+      const toggle = group.querySelector('[data-optional-toggle]');
+      if (toggle && value !== undefined) toggle.checked = true;
+    });
+    scope.querySelectorAll('[data-union-path]').forEach((group) => {
+      const unionValue = getPath(config, group.dataset.unionPath || '');
+      if (!unionValue || typeof unionValue !== 'object') return;
+      const picker = group.querySelector('[data-union-picker]');
+      if (!picker) return;
+      for (const panel of group.querySelectorAll('[data-union-variant]')) {
+        const literalFields = Array.from(panel.querySelectorAll('input[readonly][data-config-path],input[type="hidden"][data-config-path]'));
+        const matches = literalFields.length > 0 && literalFields.every((field) => String(getPath(config, field.dataset.configPath || '')) === String(field.value));
+        if (matches) {
+          picker.value = panel.dataset.unionVariant || '0';
+          break;
+        }
+      }
+    });
+    scope.querySelectorAll('[data-config-path]').forEach((field) => {
+      if (field.closest('[data-array-path],[data-record-path],[data-tuple-path]')) return;
+      const value = getPath(config, field.dataset.configPath || '');
+      if (value !== undefined && value !== null) field.value = String(value);
+    });
+  }
+  function syncDynamicFields(scope) {
+    scope.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
+    scope.querySelectorAll('[data-union-path]').forEach(syncUnionGroup);
+    scope.querySelectorAll('[data-override-field]').forEach(syncOverrideGroup);
+  }
+  function renderCatalogFieldsInto(form, item, config) {
+    if (!item || !form) return;
+    form.elements.plugin.value = item.plugin || '';
+    form.elements.packageName.value = item.packageName || '';
+    if (form.elements.version) {
+      form.elements.version.value = form.querySelector('[data-version-lock]')?.checked ? item.version || '' : '';
+    }
+    if (form.elements.section && item.kind) form.elements.section.value = item.kind === 'service' ? 'services' : item.kind;
+    if (form.elements.typeDisplay && item.kindLabel) form.elements.typeDisplay.value = item.kindLabel;
+    const fields = form.querySelector('[data-config-fields]');
+    const root = schemaRoot(item.schema);
+    if (!fields) return;
+    fields.innerHTML = root ? renderFields(root.properties, '', requiredKeysClient(root, root.properties)) : '<p class="muted">No config schema available for this plugin.</p>';
+    setFieldsFromConfig(fields, config || {});
+    syncDynamicFields(fields);
+  }
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-add-array-item],[data-add-record-row],[data-remove-row]');
     if (!button) return;
@@ -1937,23 +2019,22 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     const sync = () => {
       const item = vaultPluginCatalog[select.value];
       if (!item || !form) return;
-      form.elements.plugin.value = item.plugin || '';
-      form.elements.packageName.value = item.packageName || '';
-      form.elements.version.value = form.querySelector('[data-version-lock]')?.checked ? item.version || '' : '';
-      if (form.elements.section && item.kind) form.elements.section.value = item.kind === 'service' ? 'services' : item.kind;
-      if (form.elements.typeDisplay && item.kindLabel) form.elements.typeDisplay.value = item.kindLabel;
       if (form.elements.name) form.elements.name.value = item.plugin || '';
-      const root = schemaRoot(item.schema);
-      const fields = form.querySelector('[data-config-fields]');
-      if (fields) {
-        fields.innerHTML = root ? renderFields(root.properties, '', requiredKeysClient(root, root.properties)) : '<p class="muted">No config schema available for this plugin.</p>';
-        fields.querySelectorAll('[data-optional-field]').forEach(syncOptionalGroup);
-        fields.querySelectorAll('[data-union-path]').forEach(syncUnionGroup);
-      }
+      renderCatalogFieldsInto(form, item, {});
     };
     select.addEventListener('change', sync);
     form?.querySelector('[data-version-lock]')?.addEventListener('change', sync);
     sync();
+  });
+  document.querySelectorAll('form[data-config-form][data-update-catalog-id]').forEach((form) => {
+    const lock = form.querySelector('[data-version-lock]');
+    if (!lock || !form.dataset.updateCatalogId) return;
+    lock.addEventListener('change', () => {
+      const item = vaultPluginCatalog[lock.checked ? form.dataset.currentCatalogId : form.dataset.updateCatalogId];
+      renderCatalogFieldsInto(form, item, readConfigForm(form));
+      const note = form.querySelector('[data-version-update-note]');
+      if (note) note.hidden = !lock.checked;
+    });
   });
   function syncOptionalGroup(group) {
     const enabled = Boolean(group.querySelector('[data-optional-toggle]')?.checked);
