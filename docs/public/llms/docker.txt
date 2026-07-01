@@ -2,6 +2,7 @@ Docker (BSB)
 
 Goal:
 - Run BSB in production with the official Docker image and mounted/installed plugins.
+- Keep Docker build-time concerns separate from Docker deployment/runtime concerns.
 
 Image tags:
 - Primary registry: `code.bettercorp.dev/bettercorp/service-base`.
@@ -19,6 +20,19 @@ Bundled Node.js plugins:
 - Reference bundled Vault plugins by package name in config: `package: "@bsb/config-vault"`.
 - Do not set `BSB_PLUGINS` for bundled plugins such as `@bsb/config-vault`; that forces the startup installer and can slow or break boot.
 - Other plugins should still be mounted with `BSB_PLUGIN_DIRS` or, when needed, installed at startup with pinned `BSB_PLUGINS` versions.
+
+Build service images:
+- A service/plugin image build should run the project build command that uses `bsb-plugin-cli build`.
+- Do not replace the BSB plugin build with plain `tsc`, `node script.js`, or `ts-node`; that bypasses schemas, generated clients, hooks, validation, and asset copying.
+- Derived Dockerfiles normally start with `FROM code.bettercorp.dev/bettercorp/service-base:node`.
+- The official Node image already sets `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins`; derived Dockerfiles should not restate those defaults unless overriding intentionally.
+- During a Docker build, log visible plugins with `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins.
+- Do not bake npm, registry, Vault, or app secrets into the final image.
+
+Deploy service containers:
+- Deployment config is provided through the active config plugin and its env/schema values.
+- Exactly one config plugin is active at runtime.
+- The container entrypoint prepares `BSB_WRITABLE_PATHS`, optionally installs `BSB_PLUGINS`, optionally prints the package report, then starts BSB.
 
 Mounted plugin deployment:
 ```bash
@@ -64,11 +78,51 @@ Environment:
 - `BSB_PLUGINS`: comma-separated npm packages installed at container start. Supported selectors are no selector, `@X`/`:X`, `@X.Y`/`:X.Y`, or exact `@X.Y.Z`/`:X.Y.Z`. Prefer exact versions for production; use major/minor selectors only when you intentionally want controlled updates. `@latest` is rejected; use no selector if you want npm latest.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
 - `BSB_WRITABLE_PATHS`: comma-separated files/directories that the Node entrypoint creates if needed and makes writable for runtime state, for example `/data`.
+- `BSB_CONFIG_PLUGIN`: active config plugin id. Common values: `config-default`, `config-env`, `config-vault`.
+- `BSB_CONFIG_PLUGIN_PACKAGE`: npm package containing the config plugin. Use `@bsb/base` for `config-default` and `config-env`; use `@bsb/config-vault` for `config-vault`.
 - `BSB_CONFIG_FILE`: config file path inside the container.
-- `BSB_CONFIG_PLUGIN=config-env` and `BSB_CONFIG_JSON=...`: use these instead of `BSB_CONFIG_FILE` when the full runtime config is supplied by environment.
+- `BSB_CONFIG_PLUGIN=config-default` + `BSB_CONFIG_FILE=/app/sec-config.yaml`: YAML file config.
+- `BSB_CONFIG_PLUGIN=config-env` + `BSB_CONFIG_PLUGIN_PACKAGE=@bsb/base` + `BSB_CONFIG_JSON=...`: full runtime config supplied by environment, no config file mount.
+- `BSB_CONFIG_PLUGIN=config-vault` + `BSB_CONFIG_PLUGIN_PACKAGE=@bsb/config-vault` + `vaultUrl=...` + `apiKeyId=...` + `apiSecret=...`: fetch runtime config from Vault.
 - `BSB_PROFILE`: config profile to load, default `default`.
 - `BSB_DEBUG=true`: enable production debug logging.
 - `BSB_SHOW_PACKAGES=true`: print a startup package/plugin discovery report, including package names, versions, plugin types, paths, and config-reference snippets.
+
+Config plugin examples:
+```yaml
+# YAML file config
+environment:
+  BSB_CONFIG_PLUGIN: config-default
+  BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
+  BSB_CONFIG_FILE: /app/sec-config.yaml
+  BSB_PROFILE: default
+```
+
+```yaml
+# Full JSON env config
+environment:
+  BSB_CONFIG_PLUGIN: config-env
+  BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
+  BSB_PROFILE: default
+  BSB_CONFIG_JSON: >
+    {"default":{"observable":{},"events":{},"services":{}}}
+```
+
+```yaml
+# Runtime container using Vault
+environment:
+  BSB_CONFIG_PLUGIN: config-vault
+  BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/config-vault"
+  vaultUrl: https://vault.example.com
+  apiKeyId: vk_xxx
+  apiSecret: vs_xxx
+```
+
+Vault notes:
+- Runtime containers do not define app/service-group/deployment-profile in YAML. The Vault API key is bound to those server-side.
+- Config plugin env keys come from the config plugin schema and are case-sensitive. For Vault, use lower camel case: `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs`, `allowInsecureHttp`.
+- The Vault manager service is itself a normal BSB service and can bootstrap with `config-env` to enable `service-config-vault`.
+- The Vault manager service image should use `code.bettercorp.dev/bettercorp/service-base:node-latest` and should not add `@bsb/config-vault` to `BSB_PLUGINS` because it is bundled.
 
 Rules:
 - Do not add `@bsb/config-vault` to `BSB_PLUGINS` when using an official Node image that already bundles it.
