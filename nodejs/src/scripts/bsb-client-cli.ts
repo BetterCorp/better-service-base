@@ -64,6 +64,7 @@ function warn(message: string): void {
 // Get registry URL from env or use default
 const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'https://io.bsbcode.dev';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
+const REGISTRY_REQUEST_TIMEOUT_MS = Number.parseInt(process.env.BSB_REGISTRY_TIMEOUT_MS || '30000', 10);
 const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
 
 const COMMAND = process.argv[2];
@@ -226,6 +227,11 @@ async function registryRequest(
     req.on('error', (err) => {
       reject(err);
     });
+    req.setTimeout(REGISTRY_REQUEST_TIMEOUT_MS, () => {
+      const err = new Error(`Registry request timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
+      (err as NodeJS.ErrnoException).code = 'ETIMEDOUT';
+      req.destroy(err);
+    });
 
     if (body) {
       req.write(JSON.stringify(body));
@@ -304,6 +310,11 @@ async function uploadPluginImage(org: string, pluginName: string, imagePath: str
     );
 
     req.on('error', reject);
+    req.setTimeout(REGISTRY_REQUEST_TIMEOUT_MS, () => {
+      const err = new Error(`Registry image upload timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
+      (err as NodeJS.ErrnoException).code = 'ETIMEDOUT';
+      req.destroy(err);
+    });
     req.write(body);
     req.end();
   });
