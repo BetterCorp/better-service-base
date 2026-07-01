@@ -89,6 +89,7 @@ volumes:
 ```
 - Use exact versions where possible.
 - If `BSB_PLUGINS` install fails, startup fails.
+- Shared plugin storage uses package-scoped install locks, so one package install does not block unrelated packages.
 - If image changes affected plugin install layout, run once with `BSB_PLUGIN_UPDATE=true` or clear the plugin cache volume.
 
 Vault manager service example:

@@ -286,16 +286,22 @@ async function replaceDir(from, to, tempRoot) {
   }
 }
 
-async function acquirePluginInstallLock(pluginDir) {
-  const lockDir = path.join(pluginDir, ".bsb-plugin-install.lock");
+function lockNameForPackage(pkg) {
+  return `${Buffer.from(pkg, "utf-8").toString("hex")}.lock`;
+}
+
+async function acquirePluginInstallLock(pluginDir, pkg) {
+  const lockDir = path.join(pluginDir, ".bsb-plugin-install-locks", lockNameForPackage(pkg));
   let warned = false;
 
   while (true) {
     try {
+      await ensureDir(path.dirname(lockDir));
       await fs.mkdir(lockDir);
       await fs.writeFile(
         path.join(lockDir, "owner.json"),
         JSON.stringify({
+          package: pkg,
           pid: process.pid,
           createdAt: new Date().toISOString(),
         }, null, 2),
@@ -312,13 +318,13 @@ async function acquirePluginInstallLock(pluginDir) {
       const mtimeMs = await readMtimeMs(lockDir);
       const ageMs = mtimeMs === null ? 0 : Date.now() - mtimeMs;
       if (ageMs > PLUGIN_LOCK_STALE_MS) {
-        console.warn(`[BSB] Removing stale plugin install lock at ${lockDir}`);
+        console.warn(`[BSB] Removing stale plugin install lock for ${pkg} at ${lockDir}`);
         await removeDir(lockDir);
         continue;
       }
 
       if (!warned) {
-        console.log(`[BSB] Waiting for plugin install lock at ${lockDir}`);
+        console.log(`[BSB] Waiting for plugin install lock for ${pkg} at ${lockDir}`);
         warned = true;
       }
       await sleep(2000);
@@ -338,72 +344,77 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
 
   const [major, minor, micro] = semver.map((x) => String(x));
   const versionDir = path.join(pluginRoot, major, minor, micro);
-  if (await fileExists(versionDir)) {
-    if (!forceUpdate && await isCompleteInstalledPackage(versionDir)) {
-      console.log(`[BSB] Plugin ${pkg}@${resolvedVersion} already present at ${versionDir}. Skipping.`);
-      return;
-    }
-    const reason = forceUpdate ? "update requested" : "existing install is incomplete";
-    console.warn(`[BSB] Reinstalling plugin ${pkg}@${resolvedVersion}: ${reason}.`);
-  }
-
-  const stageDir = path.join(
-    tempRoot,
-    `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-  );
-  const packDir = path.join(stageDir, "pack");
-  const unpackDir = path.join(stageDir, "unpack");
-  const stagedPackageDir = path.join(unpackDir, "package");
-
-  console.log(`[BSB] Installing plugin ${pkg}@${resolvedVersion}`);
-  await ensureDir(stageDir);
-
+  const releaseLock = await acquirePluginInstallLock(pluginDir, pkg);
   try {
-    await ensureDir(packDir);
-    await ensureDir(unpackDir);
-
-    const packResult = runNpm(stageDir, [
-      "pack",
-      `${pkg}@${resolvedVersion}`,
-      "--json",
-      "--pack-destination",
-      packDir,
-      "--loglevel=silent",
-      "--silent",
-    ], true);
-
-    const packed = JSON.parse(packResult.stdout);
-    const filename = Array.isArray(packed) && packed[0] && typeof packed[0].filename === "string"
-      ? packed[0].filename
-      : null;
-    if (!filename) {
-      throw new Error(`Unable to resolve npm pack filename for ${pkg}@${resolvedVersion}`);
+    if (await fileExists(versionDir)) {
+      if (!forceUpdate && await isCompleteInstalledPackage(versionDir)) {
+        console.log(`[BSB] Plugin ${pkg}@${resolvedVersion} already present at ${versionDir}. Skipping.`);
+        return;
+      }
+      const reason = forceUpdate ? "update requested" : "existing install is incomplete";
+      console.warn(`[BSB] Reinstalling plugin ${pkg}@${resolvedVersion}: ${reason}.`);
     }
 
-    runCommand("tar", ["-xzf", path.join(packDir, filename), "-C", unpackDir], stageDir, true);
+    const stageDir = path.join(
+      tempRoot,
+      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    );
+    const packDir = path.join(stageDir, "pack");
+    const unpackDir = path.join(stageDir, "unpack");
+    const stagedPackageDir = path.join(unpackDir, "package");
 
-    runNpm(stagedPackageDir, [
-      "install",
-      "--omit=dev",
-      "--no-audit",
-      "--no-fund",
-      "--package-lock=false",
-      "--no-progress",
-      "--no-update-notifier",
-      "--loglevel=silent",
-      "--silent",
-    ], true);
-    await ensureDir(path.join(pluginRoot, major, minor));
-    await replaceDir(stagedPackageDir, versionDir, tempRoot);
+    console.log(`[BSB] Installing plugin ${pkg}@${resolvedVersion}`);
+    await ensureDir(stageDir);
 
-    const pluginEntryPath = path.join(versionDir, "lib", "plugins");
-    if (!(await fileExists(pluginEntryPath))) {
-      console.warn(`[BSB] Warning: ${pkg}@${resolvedVersion} does not contain lib/plugins`);
+    try {
+      await ensureDir(packDir);
+      await ensureDir(unpackDir);
+
+      const packResult = runNpm(stageDir, [
+        "pack",
+        `${pkg}@${resolvedVersion}`,
+        "--json",
+        "--pack-destination",
+        packDir,
+        "--loglevel=silent",
+        "--silent",
+      ], true);
+
+      const packed = JSON.parse(packResult.stdout);
+      const filename = Array.isArray(packed) && packed[0] && typeof packed[0].filename === "string"
+        ? packed[0].filename
+        : null;
+      if (!filename) {
+        throw new Error(`Unable to resolve npm pack filename for ${pkg}@${resolvedVersion}`);
+      }
+
+      runCommand("tar", ["-xzf", path.join(packDir, filename), "-C", unpackDir], stageDir, true);
+
+      runNpm(stagedPackageDir, [
+        "install",
+        "--omit=dev",
+        "--no-audit",
+        "--no-fund",
+        "--package-lock=false",
+        "--no-progress",
+        "--no-update-notifier",
+        "--loglevel=silent",
+        "--silent",
+      ], true);
+      await ensureDir(path.join(pluginRoot, major, minor));
+      await replaceDir(stagedPackageDir, versionDir, tempRoot);
+
+      const pluginEntryPath = path.join(versionDir, "lib", "plugins");
+      if (!(await fileExists(pluginEntryPath))) {
+        console.warn(`[BSB] Warning: ${pkg}@${resolvedVersion} does not contain lib/plugins`);
+      }
+
+      console.log(`[BSB] Installed ${pkg} -> ${versionDir}`);
+    } finally {
+      await removeDir(stageDir);
     }
-
-    console.log(`[BSB] Installed ${pkg} -> ${versionDir}`);
   } finally {
-    await removeDir(stageDir);
+    await releaseLock();
   }
 }
 
@@ -478,35 +489,30 @@ async function main() {
   }
 
   await ensureDir(tempRoot);
-  const releaseLock = await acquirePluginInstallLock(pluginDir);
-  try {
-    let parsedPlugins = rawPlugins
-      .map(parsePluginSpec)
-      .filter(Boolean);
+  let parsedPlugins = rawPlugins
+    .map(parsePluginSpec)
+    .filter(Boolean);
 
-    if (parsedPlugins.length === 0 && forceUpdate) {
-      const existing = await listInstalledPlugins(pluginDir);
-      parsedPlugins = existing.map((pkg) => ({ pkg, type: "none", selector: null }));
-      if (parsedPlugins.length > 0) {
-        console.log(`[BSB] BSB_PLUGIN_UPDATE requested. Refreshing ${parsedPlugins.length} installed plugin(s).`);
-      }
+  if (parsedPlugins.length === 0 && forceUpdate) {
+    const existing = await listInstalledPlugins(pluginDir);
+    parsedPlugins = existing.map((pkg) => ({ pkg, type: "none", selector: null }));
+    if (parsedPlugins.length > 0) {
+      console.log(`[BSB] BSB_PLUGIN_UPDATE requested. Refreshing ${parsedPlugins.length} installed plugin(s).`);
     }
+  }
 
-    if (parsedPlugins.length === 0) {
-      console.log("[BSB] No BSB_PLUGINS requested. Nothing to install.");
-      return;
-    }
+  if (parsedPlugins.length === 0) {
+    console.log("[BSB] No BSB_PLUGINS requested. Nothing to install.");
+    return;
+  }
 
-    for (const plugin of parsedPlugins) {
-      await installPlugin({
-        parsedSpec: plugin,
-        pluginDir,
-        tempRoot,
-        forceUpdate,
-      });
-    }
-  } finally {
-    await releaseLock();
+  for (const plugin of parsedPlugins) {
+    await installPlugin({
+      parsedSpec: plugin,
+      pluginDir,
+      tempRoot,
+      forceUpdate,
+    });
   }
 }
 

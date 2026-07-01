@@ -192,7 +192,7 @@ Notes
 - `BSB_DEBUG`: Enable debug logging in production mode (`true|1|yes|y`). Produces `production-debug` mode.
 - `BSB_PLUGIN_DIRS`: Comma-separated list of external plugin directories (searched in order; first is install target)
 - `BSB_PLUGIN_DIR`: Single external plugin directory (legacy, still supported). Accepts comma-separated paths.
-- `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Supports no selector, major, minor, and exact selectors. If installation fails, the container exits before BSB starts.
+- `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Supports no selector, major, minor, and exact selectors. If installation fails, the container exits before BSB starts. Shared plugin storage uses package-scoped install locks so unrelated packages do not block each other.
 - `BSB_PLUGIN_UPDATE`: `yes|y|true` to refresh installed plugin packages through the startup installer
 - `BSB_SHOW_PACKAGES`: `yes|y|true` to print package/plugin discovery before startup
 - Config plugin override (advanced):

@@ -127,6 +127,7 @@ volumes:
   bsb-plugins:</code></pre></div>
 
         <p><code>@latest</code> is rejected. Omit the selector for npm latest, or use major/minor/exact selectors. If startup install fails, the container exits before BSB starts.</p>
+        <p>When multiple containers share plugin storage, startup installs use package-scoped locks. Installing one package does not block unrelated package installs.</p>
 
         <h2>Vault Manager Service</h2>
         <p>The Vault manager service is itself a BSB service. Bootstrap it with <code>config-env</code> and enable <code>service-config-vault</code> from the bundled <code>@bsb/config-vault</code> package.</p>
