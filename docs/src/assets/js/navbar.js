@@ -31,10 +31,20 @@ function createNavbar(activePage = '') {
             <div class="dropdown-content">
               <a href="/guides/docker/" class="${activePage === 'guides-docker' ? 'active' : ''}">Docker</a>
               <a href="/guides/nodejs/" class="${activePage === 'guides-nodejs' ? 'active' : ''}">Node.js</a>
+              <a href="/guides/nodejs/docker/" class="nav-sub-link ${activePage === 'guides-nodejs-docker' ? 'active' : ''}">Node.js Docker</a>
               <a href="/guides/nodejs/build-hooks/" class="nav-sub-link ${activePage === 'guides-nodejs' ? '' : ''}">Build Hooks</a>
               <span class="coming-soon">Go</span>
               <span class="coming-soon">Python</span>
               <span class="coming-soon">Rust</span>
+            </div>
+          </div>
+
+          <div class="nav-dropdown">
+            <button class="nav-link ${activePage.startsWith('deploy') ? 'active' : ''}">
+              Deploy <span class="dropdown-arrow">&#9662;</span>
+            </button>
+            <div class="dropdown-content">
+              <a href="/deploy/production/" class="${activePage === 'deploy-production' ? 'active' : ''}">Production</a>
             </div>
           </div>
 
@@ -48,8 +58,6 @@ function createNavbar(activePage = '') {
               <span class="coming-soon">Python</span>
             </div>
           </div>
-
-          <a href="/core-plugins/" class="nav-link ${activePage === 'core-plugins' ? 'active' : ''}">Core Plugins</a>
 
           <a href="/registry/" class="nav-link ${activePage === 'registry' ? 'active' : ''}">Plugins</a>
 

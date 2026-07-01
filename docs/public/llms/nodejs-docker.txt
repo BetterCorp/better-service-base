@@ -1,0 +1,60 @@
+Node.js Docker Builds (BSB)
+
+Goal:
+- Build Node.js service/plugin images by extending the official BSB Node image.
+- Keep deployment config, secrets, Vault keys, writable volumes, and production Compose examples out of build Dockerfiles.
+- For production deployment, use https://bsbcode.dev/llms/deploy-production.txt
+- For base image environment and tags, use https://bsbcode.dev/llms/docker.txt
+
+Base image:
+```dockerfile
+FROM code.bettercorp.dev/bettercorp/service-base:node
+```
+
+Default env already set by the base image:
+- `NODE_ENV=production`
+- `BSB_CONTAINER=true`
+- `BSB_LIVE=true`
+- `BSB_PLUGIN_DIRS=/mnt/plugins`
+
+Build pattern:
+```dockerfile
+FROM code.bettercorp.dev/bettercorp/service-base:node
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js
+```
+
+Build command rules:
+- `npm run build` must call `bsb-plugin-cli build` for BSB plugin packages.
+- Do not replace the BSB plugin build with plain `tsc`.
+- Do not run direct build scripts such as `node scripts/build.js`, `tsx ...`, or `ts-node ...` when they bypass the BSB lifecycle.
+- The BSB build handles schema extraction, generated clients, lifecycle hooks, validation, asset copying, and `bsb-tests.json`.
+
+Plugin/package rules:
+- Keep each plugin self-contained under its own plugin directory.
+- Do not store shared schemas or generated clients in unrelated directories.
+- If a plugin needs another plugin client, reference the generated client from that built plugin, not a duplicated event string.
+- Build output should be packageable without relying on source-only local paths.
+
+Secrets:
+- Use CI/build secrets for private npm access.
+- Do not bake npm tokens, registry tokens, Vault API keys, API secrets, or deployment config into the image.
+- Runtime config belongs in production deployment env, mounted config files, or Vault.
+
+Useful build check:
+- Add the plugin search report near the end of a derived build when diagnosing plugin visibility:
+  `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js`
+- At runtime, use `BSB_SHOW_PACKAGES=true` instead.
+
+Rules:
+- This guide is for image builds only.
+- Do not include production Compose config here.
+- Do not configure `BSB_CONFIG_PLUGIN`, `BSB_CONFIG_FILE`, `BSB_CONFIG_JSON`, `vaultUrl`, `apiKeyId`, or `apiSecret` in the Dockerfile.
+- Link deployment instructions to https://bsbcode.dev/llms/deploy-production.txt

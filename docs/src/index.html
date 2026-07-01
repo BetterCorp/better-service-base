@@ -321,7 +321,7 @@
       font-style: italic;
     }
 
-    /* Core Plugins Section */
+    /* Built-in Plugins Section */
     .core-section {
       padding: 5rem 2rem;
       background: var(--bg-secondary);
@@ -447,7 +447,6 @@
             <span class="coming-soon">Python</span>
           </div>
         </div>
-        <a href="/core-plugins/" class="nav-link">Core Plugins</a>
         <a href="/registry/" class="nav-link">Plugins</a>
         <div class="nav-dropdown">
           <button class="nav-link">API Reference <span class="dropdown-arrow">&#9662;</span></button>
@@ -531,11 +530,11 @@
             <span class="card-cta">Extend the Framework</span>
           </a>
 
-          <a href="/core-plugins/" class="journey-card">
+          <a href="/deploy/production/" class="journey-card">
             <div class="journey-number">4</div>
-            <h3>Core Plugins</h3>
-            <p>Explore the built-in plugins that power BSB: default config, event bus, and unified observability.</p>
-            <span class="card-cta">View Core Plugins</span>
+            <h3>Deploy Services</h3>
+            <p>Run BSB in production with Docker, config plugins, writable state, and plugin package loading.</p>
+            <span class="card-cta">Deploy BSB</span>
           </a>
         </div>
       </section>
@@ -609,23 +608,23 @@
         </div>
       </section>
 
-      <!-- Core Plugins Section -->
+      <!-- Built-in Plugins Section -->
       <section class="core-section">
-        <h2>Built-in Core Plugins</h2>
-        <p>BSB ships with sensible defaults. These core plugins are part of the framework and ready to use.</p>
+        <h2>Built-in Runtime Plugins</h2>
+        <p>BSB ships with sensible defaults for local development and simple single-container services.</p>
 
         <div class="core-grid">
-          <a href="https://io.bsbcode.dev/plugins/_/config-default" class="core-item config">
+          <a href="https://io.bsbcode.dev/plugins/bsb/config-default" class="core-item config">
             <h4>config-default</h4>
             <p>YAML-based configuration with environment overrides</p>
           </a>
 
-          <a href="https://io.bsbcode.dev/plugins/_/events-default" class="core-item events">
+          <a href="https://io.bsbcode.dev/plugins/bsb/events-default" class="core-item events">
             <h4>events-default</h4>
             <p>In-memory event bus for single-process deployments</p>
           </a>
 
-          <a href="https://io.bsbcode.dev/plugins/_/observable-default" class="core-item logging">
+          <a href="https://io.bsbcode.dev/plugins/bsb/observable-default" class="core-item logging">
             <h4>observable-default</h4>
             <p>Console-based logging, metrics, and tracing</p>
           </a>

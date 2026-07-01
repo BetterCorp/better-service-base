@@ -49,13 +49,14 @@ export default defineConfig({
         // Guides - Building Services
         'guides-docker': 'src/guides/docker/index.html',
         'guides-nodejs': 'src/guides/nodejs/index.html',
+        'guides-nodejs-docker': 'src/guides/nodejs/docker/index.html',
         'guides-nodejs-build-hooks': 'src/guides/nodejs/build-hooks/index.html',
+
+        // Deployment
+        'deploy-production': 'src/deploy/production/index.html',
 
         // Extending BSB
         'extending-nodejs': 'src/extending/nodejs/index.html',
-
-        // Core Plugins
-        'core-plugins': 'src/core-plugins/index.html',
 
         // External Plugin Registry Redirect
         'registry': 'src/registry/index.html',

@@ -1,136 +1,82 @@
-Docker (BSB)
+Docker Images (BSB)
 
 Goal:
-- Run BSB in production with the official Docker image and mounted/installed plugins.
-- Keep Docker build-time concerns separate from Docker deployment/runtime concerns.
+- Explain official BSB Docker images, image tags, base image defaults, startup behavior, and container environment variables.
+- Keep this separate from production deployment recipes and language-specific service builds.
+- For production deployment, use https://bsbcode.dev/llms/deploy-production.txt
+- For Node.js Docker builds, use https://bsbcode.dev/llms/nodejs-docker.txt
 
 Image tags:
 - Primary registry: `code.bettercorp.dev/bettercorp/service-base`.
 - Docker Hub mirror: `betterweb/service-base`. Treat it as best-effort fallback because Docker Hub rate limits can delay or skip mirror pushes.
 - Node.js runtime: `code.bettercorp.dev/bettercorp/service-base:node` or `code.bettercorp.dev/bettercorp/service-base:node-latest`.
-- Version-specific Node.js runtime: `code.bettercorp.dev/bettercorp/service-base:node-<version>`, for example `code.bettercorp.dev/bettercorp/service-base:node-9.5.1`.
-- Do NOT use tags like `9-node`; BSB tags are runtime-first, not version-first.
+- Version-specific Node.js runtime: `code.bettercorp.dev/bettercorp/service-base:node-<version>`, for example `code.bettercorp.dev/bettercorp/service-base:node-9.6.46`.
+- Do not use tags like `9-node`; BSB tags are runtime-first, not version-first.
 - Other runtime tags follow the same pattern: `go`, `go-latest`, `go-<version>`, `python`, `python-latest`, `dotnet`, etc.
 
-Bundled Node.js plugins:
-- The Node.js runtime image runs BSB from `/home/bsb/node_modules/@bsb/base`, not from a copied local `/home/bsb/lib` tree.
-- Built-in core plugins resolve from `@bsb/base`; plugin configs should use package-qualified plugins for non-local packages.
-- The runtime package includes `npm run start`, `npm run debug`, and `npm run plugins` for shell/debug use inside the container.
-- The Node.js runtime image includes `@bsb/config-vault` in `/home/bsb/node_modules` when built by the official release workflow.
-- Reference bundled Vault plugins by package name in config: `package: "@bsb/config-vault"`.
-- Do not set `BSB_PLUGINS` for bundled plugins such as `@bsb/config-vault`; that forces the startup installer and can slow or break boot.
-- Other plugins should still be mounted with `BSB_PLUGIN_DIRS` or, when needed, installed at startup with pinned `BSB_PLUGINS` versions.
+Node image contents:
+- BSB runs from `/home/bsb/node_modules/@bsb/base`, not from a copied local `/home/bsb/lib` tree.
+- Built-in plugins resolve from `@bsb/base`.
+- The official Node image includes `@bsb/config-vault` in `/home/bsb/node_modules` when built by the official release workflow.
+- Reference bundled Vault plugins with `package: "@bsb/config-vault"` or `BSB_CONFIG_PLUGIN_PACKAGE=@bsb/config-vault`.
+- Do not add bundled packages such as `@bsb/config-vault` to `BSB_PLUGINS`; that forces startup install work.
+- The runtime package exposes useful shell commands: `npm run start`, `npm run debug`, and `npm run plugins`.
 
-Build service images:
-- A service/plugin image build should run the project build command that uses `bsb-plugin-cli build`.
-- Do not replace the BSB plugin build with plain `tsc`, `node script.js`, or `ts-node`; that bypasses schemas, generated clients, hooks, validation, and asset copying.
-- Derived Dockerfiles normally start with `FROM code.bettercorp.dev/bettercorp/service-base:node`.
-- The official Node image already sets `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins`; derived Dockerfiles should not restate those defaults unless overriding intentionally.
-- During a Docker build, log visible plugins with `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins.
-- Do not bake npm, registry, Vault, or app secrets into the final image.
+Default environment:
+- The official Node image already sets:
+  - `NODE_ENV=production`
+  - `BSB_CONTAINER=true`
+  - `BSB_LIVE=true`
+  - `BSB_PLUGIN_DIRS=/mnt/plugins`
+- Dockerfiles that extend `code.bettercorp.dev/bettercorp/service-base:node` should not restate these defaults unless intentionally overriding them.
 
-Deploy service containers:
-- Deployment config is provided through the active config plugin and its env/schema values.
-- Exactly one config plugin is active at runtime.
-- The container entrypoint prepares `BSB_WRITABLE_PATHS`, optionally installs `BSB_PLUGINS`, optionally prints the package report, then starts BSB.
+Entrypoint flow:
+- Print the BSB runtime version.
+- Prepare writable paths from `BSB_WRITABLE_PATHS`.
+- Ensure plugin storage exists.
+- Install packages listed in `BSB_PLUGINS`, if any.
+- Optionally print package/plugin discovery when `BSB_SHOW_PACKAGES=true`.
+- Start BSB.
+- If requested plugin installation fails, the container must exit instead of starting without the requested plugins.
 
-Mounted plugin deployment:
-```bash
-docker run --rm \
-  -v "$(pwd)/plugins:/mnt/plugins:ro" \
-  -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
-  -e BSB_PLUGIN_DIRS=/mnt/plugins \
-  -e BSB_CONFIG_FILE=/app/sec-config.yaml \
-  code.bettercorp.dev/bettercorp/service-base:node
-```
-
-Install plugins at startup:
-```bash
-docker run --rm \
-  -v bsb-plugins:/mnt/plugins \
-  -v "$(pwd)/sec-config.yaml:/app/sec-config.yaml:ro" \
-  -e BSB_PLUGIN_DIRS=/mnt/plugins \
-  -e BSB_PLUGINS='@myorg/service-api@1.2.3,@myorg/observable-custom@2.4.1' \
-  -e BSB_CONFIG_FILE=/app/sec-config.yaml \
-  code.bettercorp.dev/bettercorp/service-base:node-latest
-```
-
-Compose:
-```yaml
-services:
-  bsb:
-    image: code.bettercorp.dev/bettercorp/service-base:node
-    environment:
-      BSB_PLUGIN_DIRS: /mnt/plugins
-      BSB_CONFIG_FILE: /app/sec-config.yaml
-      BSB_WRITABLE_PATHS: /data
-    volumes:
-      - ./plugins:/mnt/plugins:ro
-      - ./sec-config.yaml:/app/sec-config.yaml:ro
-      - bsb-data:/data
-```
-
-Environment:
-- The official Node image already sets `NODE_ENV=production`, `BSB_CONTAINER=true`, `BSB_LIVE=true`, and `BSB_PLUGIN_DIRS=/mnt/plugins`.
-- Dockerfiles that extend `code.bettercorp.dev/bettercorp/service-base:node` or `code.bettercorp.dev/bettercorp/service-base:node-latest` should not restate those defaults unless they intentionally need to override them.
+Plugin loading environment:
 - `BSB_PLUGIN_DIRS`: comma-separated plugin directories. Prefer this over legacy aliases.
 - `BSB_PLUGIN_DIR` and `BSB_PLUGINS_DIR`: legacy aliases; still work and accept comma-separated values.
-- `BSB_PLUGINS`: comma-separated npm packages installed at container start. Supported selectors are no selector, `@X`/`:X`, `@X.Y`/`:X.Y`, or exact `@X.Y.Z`/`:X.Y.Z`. Prefer exact versions for production; use major/minor selectors only when you intentionally want controlled updates. `@latest` is rejected; use no selector if you want npm latest.
+- `BSB_PLUGINS`: comma-separated npm packages installed at container start.
+- Supported `BSB_PLUGINS` selectors: no selector, major, minor, or exact version.
+- `@latest` is rejected; omit the selector for npm latest.
+- Prefer exact versions in production. Use major/minor selectors only when controlled updates are intended.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
-- `BSB_WRITABLE_PATHS`: comma-separated files/directories that the Node entrypoint creates if needed and makes writable for runtime state, for example `/data`.
+
+Config selection environment:
 - `BSB_CONFIG_PLUGIN`: active config plugin id. Common values: `config-default`, `config-env`, `config-vault`.
-- `BSB_CONFIG_PLUGIN_PACKAGE`: npm package containing the config plugin. Use `@bsb/base` for `config-default` and `config-env`; use `@bsb/config-vault` for `config-vault`.
-- `BSB_CONFIG_FILE`: config file path inside the container.
-- `BSB_CONFIG_PLUGIN=config-default` + `BSB_CONFIG_FILE=/app/sec-config.yaml`: YAML file config.
-- `BSB_CONFIG_PLUGIN=config-env` + `BSB_CONFIG_PLUGIN_PACKAGE=@bsb/base` + `BSB_CONFIG_JSON=...`: full runtime config supplied by environment, no config file mount.
-- `BSB_CONFIG_PLUGIN=config-vault` + `BSB_CONFIG_PLUGIN_PACKAGE=@bsb/config-vault` + `vaultUrl=...` + `apiKeyId=...` + `apiSecret=...`: fetch runtime config from Vault.
-- `BSB_PROFILE`: config profile to load, default `default`.
+- `BSB_CONFIG_PLUGIN_PACKAGE`: npm package containing the config plugin.
+- Use `@bsb/base` for `config-default` and `config-env`.
+- Use `@bsb/config-vault` for `config-vault`.
+- Exactly one config plugin is active at runtime. BSB does not activate multiple config plugins as a fallback chain.
+- Config plugin schema fields are read from env by exact, case-sensitive key names.
+
+Common config plugin schema values:
+- `config-default`: uses `BSB_CONFIG_FILE` for the YAML config path.
+- `config-env`: uses `BSB_CONFIG_JSON` for the full runtime config object.
+- `config-vault`: uses `vaultUrl`, `apiKeyId`, `apiSecret`, and optional fields such as `timeoutMs` and `allowInsecureHttp`.
+- `BSB_PROFILE`: selects the deployment profile in config sources that expose profiles, default `default`.
+
+Other runtime environment:
+- `BSB_WRITABLE_PATHS`: comma-separated files/directories that the Node entrypoint creates if needed and makes writable for runtime state, for example `/data`.
 - `BSB_DEBUG=true`: enable production debug logging.
 - `BSB_SHOW_PACKAGES=true`: print a startup package/plugin discovery report, including package names, versions, plugin types, paths, and config-reference snippets.
 
-Config plugin examples:
-```yaml
-# YAML file config
-environment:
-  BSB_CONFIG_PLUGIN: config-default
-  BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
-  BSB_CONFIG_FILE: /app/sec-config.yaml
-  BSB_PROFILE: default
-```
-
-```yaml
-# Full JSON env config
-environment:
-  BSB_CONFIG_PLUGIN: config-env
-  BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
-  BSB_PROFILE: default
-  BSB_CONFIG_JSON: >
-    {"default":{"observable":{},"events":{},"services":{}}}
-```
-
-```yaml
-# Runtime container using Vault
-environment:
-  BSB_CONFIG_PLUGIN: config-vault
-  BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/config-vault"
-  vaultUrl: https://vault.example.com
-  apiKeyId: vk_xxx
-  apiSecret: vs_xxx
-```
-
-Vault notes:
-- Runtime containers do not define app/service-group/deployment-profile in YAML. The Vault API key is bound to those server-side.
-- Config plugin env keys come from the config plugin schema and are case-sensitive. For Vault, use lower camel case: `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs`, `allowInsecureHttp`.
-- The Vault manager service is itself a normal BSB service and can bootstrap with `config-env` to enable `service-config-vault`.
-- The Vault manager service image should use `code.bettercorp.dev/bettercorp/service-base:node-latest` and should not add `@bsb/config-vault` to `BSB_PLUGINS` because it is bundled.
+Plugin search report:
+- Runtime: set `BSB_SHOW_PACKAGES=true`.
+- Inside a running/debug shell: `npm run plugins`.
+- In a derived Dockerfile after installing/copying plugins:
+  `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js`
+- In the BSB repo itself:
+  `npm run list-plugin-search-paths --workspace nodejs`
 
 Rules:
-- Do not add `@bsb/config-vault` to `BSB_PLUGINS` when using an official Node image that already bundles it.
-- Build plugin packages before deployment with `bsb-plugin-cli build`.
-- If `BSB_PLUGINS` is set and install/validation fails, the container must exit instead of starting BSB without the requested plugins.
-- After changing BSB image versions that affect plugin install layout, run once with `BSB_PLUGIN_UPDATE=true` or clear the plugin cache volume so stale `/mnt/plugins/<package>/<version>` installs are rebuilt.
-- To log what plugins an image can see during a derived Docker build, run `node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js` after installing/copying plugins. At runtime, set `BSB_SHOW_PACKAGES=true` for the same report before BSB starts.
-- In the BSB repo itself, the equivalent command is `npm run list-plugin-search-paths --workspace nodejs`; it runs automatically during Node build/build-release.
 - Do not compile plugin source in the production container.
-- Do not invent Docker tags; use the runtime-prefixed tags above.
+- Do not invent Docker tags; use runtime-prefixed tags.
 - Prefer Forgejo image names in production. Docker Hub image names are compatibility mirrors.
+- Keep deployment config out of service build Dockerfiles.

@@ -247,7 +247,6 @@
             <span class="coming-soon">Python</span>
           </div>
         </div>
-        <a href="/core-plugins/" class="nav-link">Core Plugins</a>
         <a href="/registry/" class="nav-link">Plugins</a><div class="nav-dropdown"><button class="nav-link">API Reference <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="https://types.bsbcode.dev/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span><span class="coming-soon">Rust</span></div></div>
         <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
           GitHub
@@ -266,15 +265,15 @@
     <main class="main-content">
       <header class="page-header">
         <h1>Building Services with Node.js</h1>
-        <p>Create your first BSB service plugin. This guide covers setup, event handling, configuration, and deployment.</p>
+        <p>Create your first BSB service plugin. This guide covers setup, event handling, and configuration. Docker build and production deployment are covered in separate guides.</p>
       </header>
 
       <div class="requirements-box">
         <h3>Requirements</h3>
         <ul>
-          <li>Node.js 23.0.0 or higher</li>
+          <li>Node.js 24.0.0 or higher</li>
           <li>npm 11.0.0 or higher</li>
-          <li>Docker (for container deployment)</li>
+          <li>Docker (optional, for image builds and production deployment)</li>
         </ul>
       </div>
 
@@ -516,11 +515,21 @@ export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typ
         greeting: "Welcome"
         maxNameLength: 50</code></pre>
 
+        <h2>Built-In Runtime Plugins</h2>
+        <p>For local development and simple single-container services, BSB includes defaults from <code>@bsb/base</code>:</p>
+        <ul>
+          <li><code>config-default</code>: reads <code>sec-config.yaml</code>.</li>
+          <li><code>config-env</code>: reads the full runtime config from <code>BSB_CONFIG_JSON</code>.</li>
+          <li><code>events-default</code>: in-process event bus for one container/process.</li>
+          <li><code>observable-default</code>: console logging plus basic tracing/metrics hooks.</li>
+        </ul>
+        <p>Replace these in production when you need remote config, distributed events, or external observability. Find replacement plugins in the <a href="/registry/">Plugin Registry</a>.</p>
+
         <div class="next-steps">
           <h3>Next Steps</h3>
           <p>Now that you've built your first service, explore more advanced topics.</p>
           <a href="/extending/nodejs/" class="next-link">Extend BSB</a>
-          <a href="/core-plugins/" class="next-link secondary">Core Plugins</a>
+          <a href="/deploy/production/" class="next-link secondary">Deploy BSB</a>
         </div>
       </div>
     </main>

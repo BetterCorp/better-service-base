@@ -177,7 +177,6 @@
         <div class="nav-dropdown"><button class="nav-link">Learn <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/">Home</a><a href="/overview/">Overview</a></div></div>
         <div class="nav-dropdown"><button class="nav-link">Build Services <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/guides/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
         <div class="nav-dropdown"><button class="nav-link">Extend BSB <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="/extending/nodejs/">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span></div></div>
-        <a href="/core-plugins/" class="nav-link">Core Plugins</a>
         <a href="/registry/" class="nav-link">Plugins</a><div class="nav-dropdown"><button class="nav-link active">API Reference <span class="dropdown-arrow">&#9662;</span></button><div class="dropdown-content"><a href="https://types.bsbcode.dev/nodejs/" class="active">Node.js</a><span class="coming-soon">Go</span><span class="coming-soon">Python</span><span class="coming-soon">Rust</span></div></div>
         <a href="https://github.com/BetterCorp/better-service-base" class="nav-link nav-external" target="_blank" rel="noopener">
           GitHub
@@ -284,7 +283,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
   -e BSB_PLUGIN_DIRS=/mnt/plugins \
   code.bettercorp.dev/bettercorp/service-base:node</code></pre></div>
             <div class="warning"><strong>Note:</strong> This is the supported production deployment. Use comma-separated paths for multiple plugin directories.</div>
-            <p>See the <a href="/guides/docker/">Docker guide</a> for supported image tags and container environment variables. Use <code>code.bettercorp.dev/bettercorp/service-base:node</code> or <code>code.bettercorp.dev/bettercorp/service-base:node-latest</code>; do not use version-first tags like <code>9-node</code>.</p>
+            <p>See <a href="/deploy/production/">Production Deployment</a> for runtime config and <a href="/guides/docker/">Docker Images</a> for supported image tags. Use <code>code.bettercorp.dev/bettercorp/service-base:node</code> or <code>code.bettercorp.dev/bettercorp/service-base:node-latest</code>; do not use version-first tags like <code>9-node</code>.</p>
         </div>
 
         <div class="section">
@@ -747,7 +746,7 @@ export class AdvancedPlugin extends BSBService<null, typeof AdvancedEventSchemas
     ports:
       - "8080:8080"  # if your service exposes HTTP
 </code></pre></div>
-            <p>For tag details, startup plugin installation, and config variables, see the <a href="/guides/docker/">Docker guide</a>.</p>
+            <p>For production config variables, writable paths, and startup plugin installation, see <a href="/deploy/production/">Production Deployment</a>. For tag details, see <a href="/guides/docker/">Docker Images</a>.</p>
         </div>
         
         <div class="warning">

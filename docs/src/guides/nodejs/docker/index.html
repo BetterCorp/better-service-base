@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Node.js Docker Builds - BSB Documentation</title>
+  <meta name="description" content="Build Node.js BSB service images by extending the official BSB Docker image.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+</head>
+<body>
+  <div class="doc-layout">
+    <header class="top-nav">
+      <div class="nav-container">
+        <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      </div>
+    </header>
+
+    <main>
+      <header class="page-header">
+        <h1>Node.js Docker Builds</h1>
+        <p>Build a Node.js BSB service image by extending the official runtime image and adding built plugin packages.</p>
+      </header>
+
+      <div class="content-section">
+        <h2>Use the BSB Image</h2>
+        <p>Service images should extend the official BSB Node image. The base image already contains <code>@bsb/base</code>, the core config/events/observable plugins, and bundled <code>@bsb/config-vault</code>.</p>
+
+        <div class="code-block" data-title="Dockerfile"><pre><code class="language-dockerfile">FROM code.bettercorp.dev/bettercorp/service-base:node
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js</code></pre></div>
+
+        <h2>Build Command</h2>
+        <p>Your project <code>npm run build</code> should call <code>bsb-plugin-cli build</code>. That build step extracts schemas, generates clients, runs hooks, validates source restrictions, compiles TypeScript, copies assets, writes schemas, and writes BSB metadata.</p>
+
+        <div class="code-block" data-title="package.json"><pre><code class="language-json">{
+  "scripts": {
+    "build": "bsb-plugin-cli build"
+  }
+}</code></pre></div>
+
+        <div class="warning">
+          <strong>Do not replace the BSB build.</strong> Plain <code>tsc</code>, <code>node scripts/build.js</code>, <code>tsx</code>, or <code>ts-node</code> bypasses BSB schema extraction, generated clients, hooks, copied assets, and metadata generation.
+        </div>
+
+        <h2>Self-Contained Plugins</h2>
+        <p>Each plugin package should be self-contained. Keep plugin schemas, static assets, generated clients, and runtime files inside the package that owns the plugin. Other packages can reference the built plugin client or schema output, but should not require shared source files from another plugin package at runtime.</p>
+
+        <h2>Build-Time Checks</h2>
+        <p>After copying or installing plugins in a derived image, print the BSB package search report. It shows package names, versions, plugin ids, plugin types, paths, schema metadata, and config snippets.</p>
+
+        <div class="code-block" data-title="Dockerfile"><pre><code class="language-dockerfile">RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js</code></pre></div>
+
+        <h2>Do Not Restate Runtime Defaults</h2>
+        <p>The official BSB Node image already sets the standard runtime defaults. Only override these when you intentionally need different behavior.</p>
+
+        <div class="code-block" data-title="already set by base image"><pre><code class="language-text">NODE_ENV=production
+BSB_CONTAINER=true
+BSB_LIVE=true
+BSB_PLUGIN_DIRS=/mnt/plugins</code></pre></div>
+
+        <h2>Secrets</h2>
+        <p>If the build needs private npm packages, pass credentials through CI/build secrets. Do not bake npm tokens, registry tokens, Vault API secrets, or deployment config into the final image. Runtime config belongs in deployment env, mounted config, or Vault.</p>
+
+        <div class="info-box">
+          <h4>Deployment is separate</h4>
+          <p>This page covers building a service image. For production runtime config, writable volumes, Vault keys, and Compose examples, use <a href="/deploy/production/">Production Deployment</a>.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script type="module" src="/assets/js/navbar.js" data-page="guides-nodejs-docker"></script>
+</body>
+</html>

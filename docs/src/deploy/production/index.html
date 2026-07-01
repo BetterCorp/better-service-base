@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Production Deployment - BSB Documentation</title>
+  <meta name="description" content="Deploy BSB services in production with Docker, config plugins, Vault, writable volumes, and plugin loading.">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.min.css">
+</head>
+<body>
+  <div class="doc-layout">
+    <header class="top-nav">
+      <div class="nav-container">
+        <a href="/" class="nav-brand"><span class="brand-text">BSB</span></a>
+      </div>
+    </header>
+
+    <main>
+      <header class="page-header">
+        <h1>Production Deployment</h1>
+        <p>Run BSB services in production with Docker. Choose one config source, provide plugin packages, and mount writable runtime state explicitly.</p>
+      </header>
+
+      <div class="content-section">
+        <h2>Deployment Model</h2>
+        <p>A production BSB container starts with one active config plugin. That config plugin supplies the observable, events, and service plugin definitions. After config loads, BSB initializes and runs those plugins through the normal lifecycle.</p>
+
+        <ul>
+          <li>Use one active config plugin: <code>config-default</code>, <code>config-env</code>, or <code>config-vault</code>.</li>
+          <li>Provide runtime state through mounted volumes and <code>BSB_WRITABLE_PATHS</code>.</li>
+          <li>Use prebuilt plugin directories or pinned startup installs for non-bundled plugins.</li>
+          <li>Prefer Forgejo image names in production. Docker Hub is a compatibility mirror.</li>
+        </ul>
+
+        <div class="info-box">
+          <h4>Built-in defaults</h4>
+          <p>The Node image includes <code>@bsb/base</code>, which provides <code>config-default</code>, <code>config-env</code>, <code>events-default</code>, and <code>observable-default</code>. These are useful defaults, not a separate deployment step. Use the registry when you need distributed events or external observability.</p>
+        </div>
+
+        <h2>Config Plugin Selection</h2>
+        <p><code>BSB_CONFIG_PLUGIN</code> chooses the config plugin id. <code>BSB_CONFIG_PLUGIN_PACKAGE</code> tells BSB which package contains that plugin. Config plugin schema fields are read from env by exact, case-sensitive key names.</p>
+
+        <h3>YAML File Config</h3>
+        <p>Use <code>config-default</code> when production config is mounted as a YAML file.</p>
+
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_CONFIG_PLUGIN: config-default
+      BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
+      BSB_CONFIG_FILE: /app/sec-config.yaml
+      BSB_PROFILE: default
+    volumes:
+      - ./sec-config.yaml:/app/sec-config.yaml:ro</code></pre></div>
+
+        <h3>Full JSON Env Config</h3>
+        <p>Use <code>config-env</code> when the full runtime config is supplied by the environment instead of a mounted file.</p>
+
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_CONFIG_PLUGIN: config-env
+      BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
+      BSB_PROFILE: default
+      BSB_CONFIG_JSON: >
+        {"default":{"observable":{},"events":{},"services":{}}}</code></pre></div>
+
+        <h3>Vault Runtime Config</h3>
+        <p>Use <code>config-vault</code> when the container should fetch its published runtime config from Vault. The container does not receive application, service group, or deployment profile names. The Vault API key is bound to those server-side.</p>
+
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_CONFIG_PLUGIN: config-vault
+      BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/config-vault"
+      vaultUrl: https://vault.example.com
+      apiKeyId: vk_xxx
+      apiSecret: vs_xxx</code></pre></div>
+
+        <p>Vault config plugin keys are case-sensitive: <code>vaultUrl</code>, <code>apiKeyId</code>, <code>apiSecret</code>, <code>timeoutMs</code>, and <code>allowInsecureHttp</code>.</p>
+
+        <h2>Writable Runtime State</h2>
+        <p>Use <code>BSB_WRITABLE_PATHS</code> for paths the entrypoint should create and make writable before dropping privileges. This is the correct way to prepare directories such as <code>/data</code>.</p>
+
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_WRITABLE_PATHS: /data,/cache
+    volumes:
+      - bsb-data:/data
+      - bsb-cache:/cache
+
+volumes:
+  bsb-data:
+  bsb-cache:</code></pre></div>
+
+        <h2>Plugins in Production</h2>
+        <p>For deterministic production boots, prefer a prepared plugin directory or exact startup install versions.</p>
+
+        <h3>Mounted Plugin Directory</h3>
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_PLUGIN_DIRS: /mnt/plugins
+    volumes:
+      - ./plugins:/mnt/plugins:ro</code></pre></div>
+
+        <h3>Startup Plugin Install</h3>
+        <p>Use <code>BSB_PLUGINS</code> when the container should install published npm plugin packages before BSB starts. Pin exact versions where possible.</p>
+
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  bsb:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_PLUGIN_DIRS: /mnt/plugins
+      BSB_PLUGINS: "@myorg/service-api@1.2.3,@myorg/observable-custom@2.4.1"
+    volumes:
+      - bsb-plugins:/mnt/plugins
+
+volumes:
+  bsb-plugins:</code></pre></div>
+
+        <p><code>@latest</code> is rejected. Omit the selector for npm latest, or use major/minor/exact selectors. If startup install fails, the container exits before BSB starts.</p>
+
+        <h2>Vault Manager Service</h2>
+        <p>The Vault manager service is itself a BSB service. Bootstrap it with <code>config-env</code> and enable <code>service-config-vault</code> from the bundled <code>@bsb/config-vault</code> package.</p>
+
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: bsb_vault
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: change-me
+    volumes:
+      - vault-postgres-data:/var/lib/postgresql/data
+
+  vault:
+    image: code.bettercorp.dev/bettercorp/service-base:node-latest
+    environment:
+      BSB_CONFIG_PLUGIN: config-env
+      BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
+      BSB_PROFILE: default
+      BSB_CONFIG_JSON: >
+        {"default":{"observable":{},"events":{},"services":{"service-config-vault":{"plugin":"service-config-vault","package":"@bsb/config-vault","enabled":true,"config":{"host":"0.0.0.0","port":8080,"publicUrl":"https://vault.example.com","production":true,"databaseUrl":"postgres://vault:change-me@postgres:5432/bsb_vault","masterKey":"BASE64_32_BYTE_KEY"}}}}}
+    ports:
+      - "8080:8080"
+
+volumes:
+  vault-postgres-data:</code></pre></div>
+
+        <p>Do not add <code>@bsb/config-vault</code> to <code>BSB_PLUGINS</code> for the official Node image. It is already bundled.</p>
+
+        <h2>Debugging Startup</h2>
+        <ul>
+          <li><code>BSB_SHOW_PACKAGES=true</code>: print discovered packages, plugins, versions, paths, and config snippets.</li>
+          <li><code>BSB_DEBUG=true</code>: enable production debug logging.</li>
+          <li><code>npm run plugins</code>: run the package/plugin discovery report inside a container shell.</li>
+        </ul>
+
+        <div class="info-box">
+          <h4>Build separately</h4>
+          <p>This page covers deployment. For building a Node.js service image with <code>FROM code.bettercorp.dev/bettercorp/service-base:node</code>, use <a href="/guides/nodejs/docker/">Node.js Docker Builds</a>.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script type="module" src="/assets/js/navbar.js" data-page="deploy-production"></script>
+</body>
+</html>

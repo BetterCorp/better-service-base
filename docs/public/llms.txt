@@ -7,9 +7,13 @@ Bootstrap (start here for a new project):
 - Explains the minimal project skeleton, config files, and entry points so code you generate compiles and runs.
   https://bsbcode.dev/llms/nodejs-bootstrap.txt
 
-Docker:
-- Official image tags, plugin mounting/installing, and container environment variables.
+Docker Images:
+- Official image tags, base image behavior, plugin search paths, and container environment variables.
   https://bsbcode.dev/llms/docker.txt
+
+Production Deployment:
+- Runtime Docker/Compose deployment, config plugins, BSB_CONFIG variables, Vault keys, writable paths, and plugin install behavior.
+  https://bsbcode.dev/llms/deploy-production.txt
 
 Plugins (Node.js) - pick the type you are building:
 - Service plugin: a deployable service with lifecycle hooks, config, and plugin clients.
@@ -28,6 +32,10 @@ Plugins (Node.js) - pick the type you are building:
 Build Hooks (Node.js):
 - Run custom npm scripts at specific points in the build/dev pipeline (codegen, transforms, packaging).
   https://bsbcode.dev/llms/nodejs-build-hooks.txt
+
+Docker Builds (Node.js):
+- Extend the official BSB Node image for service/plugin builds without mixing in deployment config.
+  https://bsbcode.dev/llms/nodejs-docker.txt
 
 Dev Mode (Node.js):
 - Dev watcher paths, default dot-directory ignores, generated output ignores, and `bsb.dev.ignore`.
