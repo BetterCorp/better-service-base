@@ -33,6 +33,11 @@ echo "BSB runtime version: ${BSB_RUNTIME_VERSION}"
 
 mkdir -p /mnt/temp || true
 
+if [ "${BSB_PLUGIN_WATCHER:-}" = "1" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "true" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "TRUE" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "yes" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "YES" ]; then
+  echo "BSB plugin watcher mode enabled"
+  exec node /home/bsb/plugin-watcher.js
+fi
+
 NEED_INSTALL=0
 if [ -n "$RAW_PLUGIN_DIRS" ]; then
   OLDIFS="$IFS"

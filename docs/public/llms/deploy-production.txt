@@ -92,6 +92,31 @@ volumes:
 - Shared plugin storage uses package-scoped install locks, so one package install does not block unrelated packages.
 - If image changes affected plugin install layout, run once with `BSB_PLUGIN_UPDATE=true` or clear the plugin cache volume.
 
+Shared plugin watcher:
+```yaml
+services:
+  plugin-watcher:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_PLUGIN_WATCHER: "true"
+      BSB_PLUGIN_DIRS: /mnt/plugins
+      BSB_PLUGINS: "@myorg/service-api@1.2,@bsb/observable-axiom@9.6"
+      BSB_PLUGIN_WATCH_INTERVAL_SECONDS: 3600
+    volumes:
+      - bsb-plugins:/mnt/plugins
+
+  app:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_PLUGIN_DIRS: /mnt/plugins
+    volumes:
+      - bsb-plugins:/mnt/plugins:ro
+```
+- Use watcher mode when many services share the same plugin storage.
+- Runtime services should normally omit `BSB_PLUGINS`; they consume the synced plugin cache.
+- Services pick up newly synced versions on restart.
+- Exact selectors stay pinned. Minor/major/no selector allow controlled automatic updates according to npm resolution.
+
 Vault manager service example:
 ```yaml
 services:

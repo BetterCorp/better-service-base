@@ -129,6 +129,37 @@ volumes:
         <p><code>@latest</code> is rejected. Omit the selector for npm latest, or use major/minor/exact selectors. If startup install fails, the container exits before BSB starts.</p>
         <p>When multiple containers share plugin storage, startup installs use package-scoped locks. Installing one package does not block unrelated package installs.</p>
 
+        <h3>Shared Plugin Watcher</h3>
+        <p>For shared storage, run one watcher container that keeps the plugin volume current. Runtime services mount the same volume read-only and do not install plugins during boot.</p>
+
+        <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
+  plugin-watcher:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_PLUGIN_WATCHER: "true"
+      BSB_PLUGIN_DIRS: /mnt/plugins
+      BSB_PLUGINS: "@myorg/service-api@1.2,@bsb/observable-axiom@9.6"
+      BSB_PLUGIN_WATCH_INTERVAL_SECONDS: 3600
+    volumes:
+      - bsb-plugins:/mnt/plugins
+
+  bsb:
+    image: code.bettercorp.dev/bettercorp/service-base:node
+    environment:
+      BSB_PLUGIN_DIRS: /mnt/plugins
+      BSB_CONFIG_PLUGIN: config-vault
+      BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/config-vault"
+      vaultUrl: https://vault.example.com
+      apiKeyId: vk_xxx
+      apiSecret: vs_xxx
+    volumes:
+      - bsb-plugins:/mnt/plugins:ro
+
+volumes:
+  bsb-plugins:</code></pre></div>
+
+        <p>Use exact selectors for fully pinned deployments, minor selectors for patch updates, and major/no selector only when you intentionally want broader automatic updates. Services pick up newly synced packages on restart.</p>
+
         <h2>Vault Manager Service</h2>
         <p>The Vault manager service is itself a BSB service. Bootstrap it with <code>config-env</code> and enable <code>service-config-vault</code> from the bundled <code>@bsb/config-vault</code> package.</p>
 

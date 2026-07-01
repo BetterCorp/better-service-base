@@ -45,6 +45,7 @@ code.bettercorp.dev/bettercorp/service-base:node-9.6.46</code></pre></div>
           <li>The image includes <code>npm run start</code>, <code>npm run debug</code>, and <code>npm run plugins</code> for shell/debug use.</li>
           <li>The container runs as an unprivileged Node user after entrypoint preparation.</li>
         </ul>
+        <p>The same image can run plugin watcher mode by setting <code>BSB_PLUGIN_WATCHER=true</code>. Watcher mode syncs plugins and does not start BSB.</p>
 
         <h2>Default Environment</h2>
         <p>The Node image already sets these defaults. Dockerfiles that extend the image should not repeat them unless intentionally overriding behavior.</p>
@@ -72,6 +73,9 @@ BSB_PLUGIN_DIRS=/mnt/plugins</code></pre></div>
           <li><code>BSB_PLUGIN_DIR</code>, <code>BSB_PLUGINS_DIR</code>: legacy aliases for plugin directories.</li>
           <li><code>BSB_PLUGINS</code>: comma-separated npm packages to install before startup. Supports no selector, major, minor, and exact selectors. <code>@latest</code> is rejected; omit the selector for npm latest.</li>
           <li><code>BSB_PLUGIN_UPDATE=true</code>: reinstall/refresh requested startup plugins.</li>
+          <li><code>BSB_PLUGIN_WATCHER=true</code>: run plugin watcher mode instead of starting BSB.</li>
+          <li><code>BSB_PLUGIN_WATCH_INTERVAL_SECONDS</code>: watcher image sync interval, defaulting to one hour.</li>
+          <li><code>BSB_PLUGIN_WATCH_ONCE=true</code>: run one watcher sync and exit.</li>
           <li><code>BSB_SHOW_PACKAGES=true</code>: print package, plugin, type, version, path, metadata, and config-reference snippets before startup.</li>
         </ul>
 

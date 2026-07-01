@@ -92,6 +92,7 @@ ENV NPM_CONFIG_YES=true
 
 COPY nodejs/entrypoint.sh /home/bsb/entrypoint.sh
 COPY nodejs/entrypoint.js /home/bsb/entrypoint.js
+COPY nodejs/plugin-watcher.js /home/bsb/plugin-watcher.js
 COPY nodejs/LICENSE /home/bsb/LICENSE
 
 COPY --from=dependencies /home/bsb/package.json /home/bsb/package.json

@@ -21,6 +21,7 @@ Node image contents:
 - Reference bundled Vault plugins with `package: "@bsb/config-vault"` or `BSB_CONFIG_PLUGIN_PACKAGE=@bsb/config-vault`.
 - Do not add bundled packages such as `@bsb/config-vault` to `BSB_PLUGINS`; that forces startup install work.
 - The runtime package exposes useful shell commands: `npm run start`, `npm run debug`, and `npm run plugins`.
+- The same image can run plugin watcher mode with `BSB_PLUGIN_WATCHER=true`; watcher mode syncs plugins and never starts BSB.
 
 Default environment:
 - The official Node image already sets:
@@ -47,6 +48,10 @@ Plugin loading environment:
 - `@latest` is rejected; omit the selector for npm latest.
 - Prefer exact versions in production. Use major/minor selectors only when controlled updates are intended.
 - `BSB_PLUGIN_UPDATE=true`: refresh already-installed plugins on startup.
+- `BSB_PLUGIN_WATCHER=true`: run plugin watcher mode instead of BSB.
+- `BSB_PLUGIN_WATCH_INTERVAL_SECONDS`: watcher image sync interval. Default: 3600.
+- `BSB_PLUGIN_SYNC_INTERVAL_SECONDS`: legacy/alias interval name for watcher mode.
+- `BSB_PLUGIN_WATCH_ONCE=true`: watcher mode runs one sync and exits.
 
 Config selection environment:
 - `BSB_CONFIG_PLUGIN`: active config plugin id. Common values: `config-default`, `config-env`, `config-vault`.
