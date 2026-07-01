@@ -337,6 +337,7 @@ jobs:
           fi
 
       - name: Publish plugin to BSB registry
+        continue-on-error: true
         env:
           BSB_REGISTRY_TOKEN: ${{ secrets.BSB_REGISTRY_TOKEN }}
         run: npm run publish:client --workspace "${{ matrix.workspace }}"
