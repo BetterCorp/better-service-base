@@ -344,13 +344,14 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
 
   const [major, minor, micro] = semver.map((x) => String(x));
   const versionDir = path.join(pluginRoot, major, minor, micro);
+  if (!forceUpdate && await isCompleteInstalledPackage(versionDir)) {
+    console.log(`[BSB] Plugin ${pkg}@${resolvedVersion} already present at ${versionDir}. Skipping.`);
+    return;
+  }
+
   const releaseLock = await acquirePluginInstallLock(pluginDir, pkg);
   try {
     if (await fileExists(versionDir)) {
-      if (!forceUpdate && await isCompleteInstalledPackage(versionDir)) {
-        console.log(`[BSB] Plugin ${pkg}@${resolvedVersion} already present at ${versionDir}. Skipping.`);
-        return;
-      }
       const reason = forceUpdate ? "update requested" : "existing install is incomplete";
       console.warn(`[BSB] Reinstalling plugin ${pkg}@${resolvedVersion}: ${reason}.`);
     }
@@ -464,6 +465,9 @@ async function main() {
   const pluginDir = pluginDirs[0];
   const tempRoot = process.env.BSB_PLUGIN_TEMP_DIR || path.join(pluginDir, ".bsb-plugin-installer");
   const forceUpdate = isTruthy(process.env.BSB_PLUGIN_UPDATE);
+  if (process.env.BSB_PLUGIN_UPDATE && !forceUpdate) {
+    console.warn(`[BSB] Ignoring BSB_PLUGIN_UPDATE=${JSON.stringify(process.env.BSB_PLUGIN_UPDATE)}. Use one of: 1, true, yes, y.`);
+  }
   const rawPlugins = String(process.env.BSB_PLUGINS || "")
     .split(",")
     .map((x) => x.trim())
