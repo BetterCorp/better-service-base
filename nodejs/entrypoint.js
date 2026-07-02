@@ -424,37 +424,6 @@ async function installPlugin({ parsedSpec, pluginDir, tempRoot, forceUpdate }) {
   }
 }
 
-async function listInstalledPlugins(pluginDir) {
-  const out = [];
-  let topEntries = [];
-  try {
-    topEntries = await fs.readdir(pluginDir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-
-  for (const entry of topEntries) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name.startsWith("@")) {
-      const scopeDir = path.join(pluginDir, entry.name);
-      const scopedEntries = await fs.readdir(scopeDir, { withFileTypes: true });
-      for (const scopedEntry of scopedEntries) {
-        if (!scopedEntry.isDirectory()) continue;
-        const pkg = `${entry.name}/${scopedEntry.name}`;
-        if ((await listVersionsForPackage(path.join(pluginDir, pkg))).length > 0) {
-          out.push(pkg);
-        }
-      }
-    } else {
-      const pkg = entry.name;
-      if ((await listVersionsForPackage(path.join(pluginDir, pkg))).length > 0) {
-        out.push(pkg);
-      }
-    }
-  }
-  return out;
-}
-
 async function main() {
   const rawDirs = process.env.BSB_PLUGIN_DIRS
     || process.env.BSB_PLUGINS_DIR
@@ -498,16 +467,12 @@ async function main() {
   }
 
   await ensureDir(tempRoot);
-  let parsedPlugins = rawPlugins
+  const parsedPlugins = rawPlugins
     .map(parsePluginSpec)
     .filter(Boolean);
 
   if (parsedPlugins.length === 0 && forceUpdate) {
-    const existing = await listInstalledPlugins(pluginDir);
-    parsedPlugins = existing.map((pkg) => ({ pkg, type: "none", selector: null }));
-    if (parsedPlugins.length > 0) {
-      console.log(`[BSB] BSB_PLUGIN_UPDATE requested. Refreshing ${parsedPlugins.length} installed plugin(s).`);
-    }
+    console.warn("[BSB] BSB_PLUGIN_UPDATE ignored because BSB_PLUGINS is empty. Updates only apply to explicitly requested plugins.");
   }
 
   if (parsedPlugins.length === 0) {
