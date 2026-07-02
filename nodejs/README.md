@@ -195,7 +195,7 @@ Notes
 - `BSB_PLUGIN_DIRS`: Comma-separated list of external plugin directories (searched in order; first is install target)
 - `BSB_PLUGIN_DIR`: Single external plugin directory (legacy, still supported). Accepts comma-separated paths.
 - `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Supports no selector, major, minor, and exact selectors. If installation fails, the container exits before BSB starts. Shared plugin storage uses package-scoped install locks so unrelated packages do not block each other.
-- `BSB_PLUGIN_UPDATE`: `yes|y|true` to refresh installed plugin packages through the startup installer
+- `BSB_PLUGIN_UPDATE`: `yes|true` to refresh installed plugin packages through the startup installer
 - `BSB_PLUGIN_WATCHER`: `yes|y|true` to run plugin watcher mode instead of BSB
 - `BSB_PLUGIN_WATCH_INTERVAL_SECONDS`: Seconds between `node-watcher` sync runs. Default: 3600.
 - `BSB_PLUGIN_WATCH_ONCE`: `yes|y|true` to run one watcher sync and exit.

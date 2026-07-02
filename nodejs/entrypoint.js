@@ -20,6 +20,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const TRUTHY = new Set(["1", "true", "yes", "y"]);
+const UPDATE_TRUTHY = new Set(["true", "yes"]);
 const MAJOR_SELECTOR_REGEX = /^\d+$/;
 const MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
 const EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
@@ -29,6 +30,10 @@ const PLUGIN_LOCK_STALE_MS = 15 * 60 * 1000;
 
 function isTruthy(value) {
   return TRUTHY.has(String(value || "").trim().toLowerCase());
+}
+
+function isUpdateTruthy(value) {
+  return UPDATE_TRUTHY.has(String(value || "").trim().toLowerCase());
 }
 
 function parsePluginSpec(specRaw) {
@@ -464,9 +469,9 @@ async function main() {
 
   const pluginDir = pluginDirs[0];
   const tempRoot = process.env.BSB_PLUGIN_TEMP_DIR || path.join(pluginDir, ".bsb-plugin-installer");
-  const forceUpdate = isTruthy(process.env.BSB_PLUGIN_UPDATE);
+  const forceUpdate = isUpdateTruthy(process.env.BSB_PLUGIN_UPDATE);
   if (process.env.BSB_PLUGIN_UPDATE && !forceUpdate) {
-    console.warn(`[BSB] Ignoring BSB_PLUGIN_UPDATE=${JSON.stringify(process.env.BSB_PLUGIN_UPDATE)}. Use one of: 1, true, yes, y.`);
+    console.warn(`[BSB] Ignoring BSB_PLUGIN_UPDATE=${JSON.stringify(process.env.BSB_PLUGIN_UPDATE)}. Use true or yes to refresh installed plugins.`);
   }
   const rawPlugins = String(process.env.BSB_PLUGINS || "")
     .split(",")
