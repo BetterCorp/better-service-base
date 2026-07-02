@@ -28,6 +28,16 @@
 RAW_PLUGIN_DIRS="${BSB_PLUGIN_DIRS:-${BSB_PLUGINS_DIR:-${BSB_PLUGIN_DIR:-}}}"
 RAW_WRITABLE_PATHS="${BSB_WRITABLE_PATHS:-}"
 
+is_writable_dir() {
+  DIR="$1"
+  TEST_FILE="$DIR/.bsb-write-test-$$"
+  if ( : > "$TEST_FILE" ) 2>/dev/null; then
+    rm -f "$TEST_FILE" 2>/dev/null || true
+    return 0
+  fi
+  return 1
+}
+
 BSB_RUNTIME_VERSION="$(node -p "require('/home/bsb/node_modules/@bsb/base/package.json').version" 2>/dev/null || echo unknown)"
 echo "BSB runtime version: ${BSB_RUNTIME_VERSION}"
 
@@ -68,7 +78,11 @@ if [ -n "$RAW_PLUGIN_DIRS" ]; then
   for DIR in $RAW_PLUGIN_DIRS; do
     DIR=$(echo "$DIR" | xargs)
     [ -z "$DIR" ] && continue
-    chown -R node:node "$DIR"
+    if is_writable_dir "$DIR"; then
+      chown -R node:node "$DIR" || true
+    else
+      echo "BSB plugin dir is read-only; skipping ownership fix: $DIR"
+    fi
   done
   IFS="$OLDIFS"
 fi
@@ -112,8 +126,12 @@ if [ -n "$RAW_PLUGIN_DIRS" ]; then
   for DIR in $RAW_PLUGIN_DIRS; do
     DIR=$(echo "$DIR" | xargs)
     [ -z "$DIR" ] && continue
-    find "$DIR" -type d -exec chmod 550 {} \; 2>/dev/null || true
-    find "$DIR" -type f -exec chmod 440 {} \; 2>/dev/null || true
+    if is_writable_dir "$DIR"; then
+      find "$DIR" -type d -exec chmod 550 {} \; 2>/dev/null || true
+      find "$DIR" -type f -exec chmod 440 {} \; 2>/dev/null || true
+    else
+      echo "BSB plugin dir is read-only; skipping permission fix: $DIR"
+    fi
   done
   IFS="$OLDIFS"
 fi

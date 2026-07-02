@@ -46,8 +46,23 @@ async function ensurePluginDirs(dirs) {
   }
 }
 
-function fixPermissions(dirs) {
+async function isWritableDir(dir) {
+  const file = `${dir}/.bsb-write-test-${process.pid}`;
+  try {
+    await fs.writeFile(file, "");
+    await fs.rm(file, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fixPermissions(dirs) {
   for (const dir of dirs) {
+    if (!(await isWritableDir(dir))) {
+      console.log(`[BSB] Plugin dir is read-only; skipping permission fix: ${dir}`);
+      continue;
+    }
     run("chown", ["-R", "node:node", dir]);
     run("find", [dir, "-type", "d", "-exec", "chmod", "550", "{}", ";"]);
     run("find", [dir, "-type", "f", "-exec", "chmod", "440", "{}", ";"]);
@@ -59,7 +74,7 @@ function runSync() {
     stdio: "inherit",
     env: {
       ...process.env,
-      BSB_PLUGIN_UPDATE: process.env.BSB_PLUGIN_UPDATE || "",
+      BSB_PLUGIN_UPDATE: "",
     },
   });
   return result.status === 0;
@@ -83,7 +98,7 @@ async function main() {
     const startedAt = new Date();
     console.log(`[BSB] Plugin watcher sync started at ${startedAt.toISOString()}`);
     const ok = runSync();
-    fixPermissions(dirs);
+    await fixPermissions(dirs);
 
     if (ok) {
       console.log("[BSB] Plugin watcher sync completed");
