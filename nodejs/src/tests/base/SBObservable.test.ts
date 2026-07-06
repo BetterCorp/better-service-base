@@ -324,4 +324,36 @@ describe("SBObservable", () => {
     assert.deepStrictEqual(loaded, []);
     assert.deepStrictEqual(pluginNames(observable), ["observable-default"]);
   });
+
+  it("logs observable loader failure details", async () => {
+    const sbPlugins = {
+      loadPlugin: async () => ({
+        success: false,
+        error: new Error("Cannot find module '/mnt/plugins/@bsb/observable-axiom/index.js'"),
+      }),
+    } as any;
+    const sbConfig = {
+      getObservablePlugins: async () => ({
+        "observable-axiom": {
+          enabled: true,
+          plugin: "observable-axiom",
+          package: "@bsb/observable-axiom",
+          version: "latest",
+        },
+      }),
+      getPluginConfig: async () => ({}),
+    } as any;
+    const observable = new SBObservable(
+      "test-app",
+      "development",
+      process.cwd(),
+      sbPlugins,
+    );
+
+    const { logs } = await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+
+    assert.ok(logs.some((line) =>
+      line.includes("Failed to load observable plugin observable-axiom as observable-axiom from (@bsb/observable-axiom) version latest: Cannot find module")
+    ));
+  });
 });

@@ -503,7 +503,20 @@ export class SBObservable {
         );
 
         if (!loadResult || !loadResult.success) {
-          this.observableBackend.error(trace, "Failed to load observable plugin {plugin}", { plugin: pluginKey });
+          const error = loadResult?.success === false
+            ? loadResult.error
+            : new Error("Plugin loader returned no result");
+          this.observableBackend.error(
+            trace,
+            "Failed to load observable plugin {plugin} as {target} from ({package}) version {version}: {error}",
+            {
+              plugin: pluginKey,
+              target: pluginDef.plugin,
+              package: pluginDef.package ?? "this project",
+              version: pluginDef.version ?? "latest",
+              error: error.message,
+            }
+          );
           continue;
         }
 
