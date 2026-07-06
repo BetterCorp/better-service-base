@@ -9,7 +9,7 @@ Prereqs:
 - Node.js plugins are ESM-only. Use `"type": "module"` in `package.json`, `module: "NodeNext"` in `tsconfig.json`, and `.js` specifiers for relative imports in TypeScript source.
 
 Bootstrap steps:
-1. Create a new npm project (npm init) and install `@bsb/base` as a dev and peer dependency.
+1. Create a new npm project (npm init) and install `@bsb/base` as a runtime dependency. Do not put `@bsb/base` in peerDependencies; Node plugins import it at runtime and published plugin packages must install it.
 2. Make plugins directory `src/plugins/`
 3. Add `/tsconfig.json` with:
 ```json

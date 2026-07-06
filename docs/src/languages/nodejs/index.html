@@ -222,6 +222,7 @@ echo 'console.log("BSB service ready!");' > src/plugins/service-my-api/index.ts<
         <div class="info-box">
             <h4>How BSB Works</h4>
             <p><strong>BSB is designed to run as a standalone Docker container</strong> that loads and runs <em>plugins</em> (published separately). In production you deploy the container and provide plugins via <code>BSB_PLUGIN_DIRS</code> (comma-separated) or <code>BSB_PLUGINS</code>. Installing BSB as a dependency is only for contributors and local plugin development.</p>
+            <p>For Node plugin packages, <code>@bsb/base</code> must be in <code>dependencies</code>, not <code>peerDependencies</code>. Plugin code imports it at runtime after BSB unpacks the package.</p>
         </div>
 
         <div class="info-box">

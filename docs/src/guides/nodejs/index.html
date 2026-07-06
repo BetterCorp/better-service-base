@@ -288,8 +288,12 @@
           <pre><code class="language-bash">mkdir my-bsb-service
 cd my-bsb-service
 npm init -y
-npm install @bsb/base typescript @types/node
+npm install @bsb/base
+npm install -D typescript @types/node
 npx tsc --init</code></pre>
+          <div class="info-box">
+            <p><code>@bsb/base</code> is a runtime dependency for Node plugins. Do not put it in <code>peerDependencies</code>; published plugins import it when BSB loads them.</p>
+          </div>
         </div>
 
         <div class="step">
