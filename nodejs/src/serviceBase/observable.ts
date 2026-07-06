@@ -154,6 +154,7 @@ export class SBObservable {
     this.setupGaugeEvents();
     this.setupHistogramEvents();
     this.setupSpanEvents();
+    this.observableBackend.info(internalTrace("CONSTRUCTOR"), "Initialized bootstrap observable plugin observable-default");
   }
 
   private setupCounterEvents() {

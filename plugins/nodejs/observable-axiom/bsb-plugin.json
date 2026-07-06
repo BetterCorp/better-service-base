@@ -15,7 +15,10 @@
       ],
       "documentation": [],
       "pluginPath": "src/plugins/observable-axiom/",
-      "image": "./axiom-co-logo.png"
+      "image": "./axiom-co-logo.png",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
     }
   ]
 }

@@ -34,7 +34,7 @@ import {
 } from "@bsb/base";
 import { DTrace, LogMeta } from "@bsb/base";
 import * as av from "anyvali";
-import { Axiom } from "@axiomhq/js";
+import { AxiomWithoutBatching } from "@axiomhq/js";
 import * as api from "@opentelemetry/api";
 import { defaultResource, resourceFromAttributes } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
@@ -126,7 +126,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   static Config = Config;
 
   private logFormatter = new LogFormatter();
-  private axiom: Axiom | null = null;
+  private axiom: AxiomWithoutBatching | null = null;
   private tracerProvider: NodeTracerProvider | null = null;
   private tracer: api.Tracer | null = null;
   private idGenerator: BSBIdGenerator | null = null;
@@ -159,7 +159,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
         axiomOptions.url = this.config.axiom.url;
       }
 
-      this.axiom = new Axiom(axiomOptions);
+      this.axiom = new AxiomWithoutBatching(axiomOptions);
     }
 
     // Initialize OpenTelemetry for traces (Axiom supports OTLP natively)
@@ -540,8 +540,6 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   }
 
   public async dispose(): Promise<void> {
-    this.isDisposed = true;
-
     // Stop flush timer
     if (this.flushTimer) {
       clearInterval(this.flushTimer);
@@ -550,6 +548,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
     // Flush remaining logs
     await this.flushLogs();
+    this.isDisposed = true;
 
     // Clear any active spans (but don't end them - they should already be ended)
     this.spans.clear();
