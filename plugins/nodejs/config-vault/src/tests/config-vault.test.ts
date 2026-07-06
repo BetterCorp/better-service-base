@@ -76,6 +76,17 @@ describe('config-vault plugin', () => {
         production: {
           observable: {
             logs: { plugin: 'observable-default', enabled: true },
+            'observable-axiom': {
+              plugin: 'observable-axiom',
+              package: '@bsb/observable-axiom',
+              enabled: true,
+              config: {
+                axiom: {
+                  token: 'xaat-test',
+                  dataset: 'betterportal',
+                },
+              },
+            },
           },
           events: {
             bus: { plugin: 'events-default', enabled: true, filter: ['api'] },
@@ -105,6 +116,13 @@ describe('config-vault plugin', () => {
         plugin: 'observable-default',
         version: undefined,
       },
+      'observable-axiom': {
+        enabled: true,
+        filter: undefined,
+        package: '@bsb/observable-axiom',
+        plugin: 'observable-axiom',
+        version: undefined,
+      },
     });
     assert.deepStrictEqual(await plugin.getEventsPlugins(testObs), {
       bus: {
@@ -125,6 +143,12 @@ describe('config-vault plugin', () => {
       },
     });
     assert.deepStrictEqual(await plugin.getPluginConfig(testObs, 'service', 'api'), { port: 3000 });
+    assert.deepStrictEqual(await plugin.getPluginConfig(testObs, 'observable', 'observable-axiom'), {
+      axiom: {
+        token: 'xaat-test',
+        dataset: 'betterportal',
+      },
+    });
   });
 
   it('rejects insecure Vault URLs unless explicitly allowed', async () => {

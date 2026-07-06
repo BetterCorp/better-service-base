@@ -134,4 +134,63 @@ describe("SBObservable", () => {
 
     assert.strictEqual((observable as any).observablePlugins[0].plugin.receivedConfig, undefined);
   });
+
+  it("loads multiple enabled observable plugins", async () => {
+    const loaded: Array<{ packageName: string | null; pluginName: string; mappedName: string }> = [];
+    const sbPlugins = {
+      loadPlugin: async (_log: unknown, packageName: string | null, pluginName: string, mappedName: string) => {
+        loaded.push({ packageName, pluginName, mappedName });
+        return {
+          success: true,
+          data: {
+            name: pluginName,
+            version: "1.0.0",
+            plugin: TestObservablePlugin,
+            packageCwd: process.cwd(),
+            pluginCwd: process.cwd(),
+          },
+        };
+      },
+    } as any;
+    const sbConfig = {
+      getObservablePlugins: async () => ({
+        "observable-axiom": {
+          enabled: true,
+          plugin: "observable-axiom",
+          package: "@bsb/observable-axiom",
+        },
+        "observable-default": {
+          enabled: true,
+          plugin: "observable-default",
+          package: "@bsb/base",
+        },
+      }),
+      getPluginConfig: async () => ({}),
+    } as any;
+    const observable = new SBObservable(
+      "test-app",
+      "development",
+      process.cwd(),
+      sbPlugins,
+    );
+
+    await observable.setupObservablePlugins(sbConfig);
+
+    assert.deepStrictEqual(loaded, [
+      {
+        packageName: "@bsb/observable-axiom",
+        pluginName: "observable-axiom",
+        mappedName: "observable-axiom",
+      },
+      {
+        packageName: "@bsb/base",
+        pluginName: "observable-default",
+        mappedName: "observable-default",
+      },
+    ]);
+    assert.deepStrictEqual(
+      (observable as any).observablePlugins.map((entry: any) => entry.plugin.pluginName),
+      ["observable-axiom", "observable-default"],
+    );
+  });
 });

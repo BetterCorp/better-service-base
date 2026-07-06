@@ -424,8 +424,13 @@ export class SBObservable {
 
     this.observableBackend.info(trace, "Setting up observable plugins");
     const observablePluginsFromConfig = await sbConfig.getObservablePlugins(trace);
+    const configuredPluginKeys = Object.keys(observablePluginsFromConfig);
+    this.observableBackend.info(trace, "Configured observable plugins: {count} ({plugins})", {
+      count: configuredPluginKeys.length,
+      plugins: configuredPluginKeys.length > 0 ? configuredPluginKeys.join(", ") : "none",
+    });
 
-    for (const pluginKey of Object.keys(observablePluginsFromConfig)) {
+    for (const pluginKey of configuredPluginKeys) {
       const pluginDef = observablePluginsFromConfig[pluginKey];
       if (!pluginDef.enabled) {
         this.observableBackend.info(trace, "Observable plugin {plugin} is disabled", { plugin: pluginKey });
@@ -433,6 +438,12 @@ export class SBObservable {
       }
 
       try {
+        this.observableBackend.info(trace, "Loading observable plugin {plugin} as {target} from ({package}) version {version}", {
+          plugin: pluginKey,
+          target: pluginDef.plugin,
+          package: pluginDef.package ?? "this project",
+          version: pluginDef.version ?? "latest",
+        });
         const loadResult = await this.sbPlugins.loadPlugin<"observable">(
           this.observableBackend,
           pluginDef.package ?? null,
@@ -553,6 +564,7 @@ export class SBObservable {
             await SmartFunctionCallAsync(defaultPlugin.plugin, defaultPlugin.plugin.dispose);
           }
           this.observablePlugins = this.observablePlugins.filter((x) => x.plugin.pluginName !== "observable-default");
+          this.observableBackend.info(trace, "Removed observable-default because another observable handles all telemetry");
         }
       }
     }
@@ -562,7 +574,9 @@ export class SBObservable {
         await (observablePlugin.plugin.run as any).call(observablePlugin.plugin);
       }
     }
-    this.observableBackend.info(trace, "Observable plugins running");
+    this.observableBackend.info(trace, "Observable plugins running: {plugins}", {
+      plugins: this.observablePlugins.map((x) => x.plugin.pluginName).join(", "),
+    });
   }
 
   /**

@@ -30,6 +30,17 @@ module.exports = async ({ pluginRoot }) => {
               plugin: 'observable-default',
               enabled: true,
             },
+            'observable-axiom': {
+              plugin: 'observable-axiom',
+              package: '@bsb/observable-axiom',
+              enabled: true,
+              config: {
+                axiom: {
+                  token: 'xaat-test',
+                  dataset: 'betterportal',
+                },
+              },
+            },
           },
           events: {
             bus: {
@@ -79,6 +90,13 @@ module.exports = async ({ pluginRoot }) => {
         plugin: 'observable-default',
         version: undefined,
       },
+      'observable-axiom': {
+        enabled: true,
+        filter: undefined,
+        package: '@bsb/observable-axiom',
+        plugin: 'observable-axiom',
+        version: undefined,
+      },
     });
     assert.deepStrictEqual(await plugin.getEventsPlugins(testObs), {
       bus: {
@@ -99,6 +117,12 @@ module.exports = async ({ pluginRoot }) => {
       },
     });
     assert.deepStrictEqual(await plugin.getPluginConfig(testObs, 'service', 'api'), { port: 3000 });
+    assert.deepStrictEqual(await plugin.getPluginConfig(testObs, 'observable', 'observable-axiom'), {
+      axiom: {
+        token: 'xaat-test',
+        dataset: 'betterportal',
+      },
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
