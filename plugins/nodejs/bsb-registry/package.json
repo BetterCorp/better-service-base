@@ -45,17 +45,14 @@
     "fastify": "^5.2.0",
     "handlebars": "^4.7.8",
     "marked": "^17.0.2",
-    "sql.js": "^1.12.0"
+    "sql.js": "^1.12.0",
+    "@bsb/base": "^9.1.11"
   },
   "devDependencies": {
-    "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
     "rimraf": "^6.0.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
-  },
-  "peerDependencies": {
-    "@bsb/base": "^9.1.11"
   },
   "bsb": {
     "orgId": "bsb"

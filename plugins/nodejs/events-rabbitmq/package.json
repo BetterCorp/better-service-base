@@ -41,16 +41,13 @@
     "test:run": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= mocha --reporter json --reporter-options output=junit.json",
     "testDev": "cross-env TS_NODE_PROJECT=tsconfig.test.json NODE_OPTIONS= mocha"
   },
-  "peerDependencies": {
-    "@bsb/base": "^9.1.11"
-  },
   "dependencies": {
     "amqp-connection-manager": "^5.0.0",
     "amqplib": "^2.0.1",
-    "anyvali": "^1.0.6"
+    "anyvali": "^1.0.6",
+    "@bsb/base": "^9.1.11"
   },
   "devDependencies": {
-    "@bsb/base": "^9.1.11",
     "@types/amqplib": "^0.10.4",
     "@types/mocha": "^10.0.6",
     "@types/node": "^25.6.0",

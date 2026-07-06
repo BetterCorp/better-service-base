@@ -36,16 +36,13 @@
     "publish:client": "bsb client publish",
     "prepublishOnly": "npm run build"
   },
-  "peerDependencies": {
-    "@bsb/base": "^9.1.11"
-  },
   "dependencies": {
     "anyvali": "^1.0.6",
     "winston": "^3.17.0",
-    "winston-daily-rotate-file": "^5.0.0"
+    "winston-daily-rotate-file": "^5.0.0",
+    "@bsb/base": "^9.1.11"
   },
   "devDependencies": {
-    "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
     "mocha": "^11.7.6",
     "typescript": "^6.0.3"

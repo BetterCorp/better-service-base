@@ -37,14 +37,11 @@
     "publish:client": "bsb client publish",
     "prepublishOnly": "npm run build"
   },
-  "peerDependencies": {
+  "dependencies": {
+    "anyvali": "^1.0.6",
     "@bsb/base": "^9.1.11"
   },
-  "dependencies": {
-    "anyvali": "^1.0.6"
-  },
   "devDependencies": {
-    "@bsb/base": "^9.1.11",
     "@types/node": "^25.6.0",
     "mocha": "^11.7.6",
     "typescript": "^6.0.3"
