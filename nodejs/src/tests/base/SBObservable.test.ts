@@ -13,6 +13,34 @@ describe("SBObservable", () => {
     }
   }
 
+  function pluginNames(observable: SBObservable): string[] {
+    return (observable as any).observablePlugins.map((entry: any) => entry.plugin.pluginName);
+  }
+
+  function findPlugin(observable: SBObservable, pluginName: string): any {
+    return (observable as any).observablePlugins.find((entry: any) => entry.plugin.pluginName === pluginName)?.plugin;
+  }
+
+  async function withCapturedConsole<T>(run: () => Promise<T> | T): Promise<{ result: T; logs: string[] }> {
+    const originalLog = console.log;
+    const originalDebug = console.debug;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    const logs: string[] = [];
+    console.log = (...args: unknown[]) => logs.push(args.join(" "));
+    console.debug = (...args: unknown[]) => logs.push(args.join(" "));
+    console.warn = (...args: unknown[]) => logs.push(args.join(" "));
+    console.error = (...args: unknown[]) => logs.push(args.join(" "));
+    try {
+      return { result: await run(), logs };
+    } finally {
+      console.log = originalLog;
+      console.debug = originalDebug;
+      console.warn = originalWarn;
+      console.error = originalError;
+    }
+  }
+
   async function loadObservablePlugin(pluginConfig: object | null) {
     const schema = av.object({
       host: av.string().minLength(1).default("0.0.0.0"),
@@ -54,9 +82,9 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    await observable.setupObservablePlugins(sbConfig);
+    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
 
-    return (observable as any).observablePlugins[0].plugin.receivedConfig;
+    return findPlugin(observable, "demo-observable").receivedConfig;
   }
 
   it("applies AnyVali defaults for missing observable plugin config", async () => {
@@ -130,9 +158,9 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    await observable.setupObservablePlugins(sbConfig);
+    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
 
-    assert.strictEqual((observable as any).observablePlugins[0].plugin.receivedConfig, undefined);
+    assert.strictEqual(findPlugin(observable, "demo-observable").receivedConfig, undefined);
   });
 
   it("loads multiple enabled observable plugins", async () => {
@@ -174,7 +202,7 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    await observable.setupObservablePlugins(sbConfig);
+    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
 
     assert.deepStrictEqual(loaded, [
       {
@@ -182,15 +210,118 @@ describe("SBObservable", () => {
         pluginName: "observable-axiom",
         mappedName: "observable-axiom",
       },
-      {
-        packageName: "@bsb/base",
-        pluginName: "observable-default",
-        mappedName: "observable-default",
-      },
     ]);
-    assert.deepStrictEqual(
-      (observable as any).observablePlugins.map((entry: any) => entry.plugin.pluginName),
-      ["observable-axiom", "observable-default"],
+    assert.deepStrictEqual(pluginNames(observable), ["observable-axiom"]);
+  });
+
+  it("logs startup through bootstrap observable-default before configured observables load", async () => {
+    const sbPlugins = {
+      loadPlugin: async () => ({
+        success: true,
+        data: {
+          name: "demo-observable",
+          version: "1.0.0",
+          plugin: TestObservablePlugin,
+          packageCwd: process.cwd(),
+          pluginCwd: process.cwd(),
+        },
+      }),
+    } as any;
+    const sbConfig = {
+      getObservablePlugins: async () => ({
+        "demo-observable": {
+          enabled: true,
+          plugin: "observable-demo",
+        },
+      }),
+      getPluginConfig: async () => ({}),
+    } as any;
+    const observable = new SBObservable(
+      "test-app",
+      "development",
+      process.cwd(),
+      sbPlugins,
     );
+
+    const { logs } = await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+
+    assert.ok(logs.some((line) => line.includes("Configured observable plugins: 1 (demo-observable)")));
+    assert.ok(logs.some((line) => line.includes("Loading observable plugin demo-observable")));
+    assert.deepStrictEqual(pluginNames(observable), ["demo-observable"]);
+  });
+
+  it("keeps bootstrap observable-default when no configured observable handles logs", async () => {
+    const sbPlugins = {
+      loadPlugin: async () => ({
+        success: true,
+        data: {
+          name: "metrics-observable",
+          version: "1.0.0",
+          plugin: TestObservablePlugin,
+          packageCwd: process.cwd(),
+          pluginCwd: process.cwd(),
+        },
+      }),
+    } as any;
+    const sbConfig = {
+      getObservablePlugins: async () => ({
+        "metrics-observable": {
+          enabled: true,
+          plugin: "observable-metrics",
+          filter: ["counter"],
+        },
+      }),
+      getPluginConfig: async () => ({}),
+    } as any;
+    const observable = new SBObservable(
+      "test-app",
+      "development",
+      process.cwd(),
+      sbPlugins,
+    );
+
+    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+
+    assert.deepStrictEqual(pluginNames(observable), ["observable-default", "metrics-observable"]);
+  });
+
+  it("uses bootstrap observable-default for configured observable-default without loading it twice", async () => {
+    const loaded: string[] = [];
+    const sbPlugins = {
+      loadPlugin: async (_log: unknown, _packageName: string | null, pluginName: string) => {
+        loaded.push(pluginName);
+        return {
+          success: true,
+          data: {
+            name: pluginName,
+            version: "1.0.0",
+            plugin: TestObservablePlugin,
+            packageCwd: process.cwd(),
+            pluginCwd: process.cwd(),
+          },
+        };
+      },
+    } as any;
+    const sbConfig = {
+      getObservablePlugins: async () => ({
+        "observable-default": {
+          enabled: true,
+          plugin: "observable-default",
+          package: "@bsb/base",
+        },
+      }),
+      getPluginConfig: async () => ({}),
+    } as any;
+    const observable = new SBObservable(
+      "test-app",
+      "development",
+      process.cwd(),
+      sbPlugins,
+    );
+
+    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+
+    assert.deepStrictEqual(loaded, []);
+    assert.deepStrictEqual(pluginNames(observable), ["observable-default"]);
   });
 });

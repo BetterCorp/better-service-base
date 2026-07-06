@@ -80,6 +80,7 @@ export class SBObservable {
     plugin: BSBObservable<any>;
     on?: ObservableFilter;
     onTypeof: FilterOnType;
+    bootstrap?: boolean;
   }> = [];
   public observableBus: EventEmitter = new EventEmitter();
   private mode: DEBUG_MODE = "development";
@@ -116,6 +117,21 @@ export class SBObservable {
     this.sbPlugins = sbPlugins;
     const observablePluginName = "core-observable";
     this.observableBackend = new ObservableBackend(this.mode, appId, observablePluginName, this);
+    this.observablePlugins.push({
+      plugin: new DefaultObservable({
+        appId: this.appId,
+        mode: this.mode,
+        pluginName: "observable-default",
+        cwd: this.cwd,
+        packageCwd: this.cwd,
+        pluginCwd: this.cwd,
+        pluginVersion: "0.0.0",
+        config: {},
+      }),
+      on: undefined,
+      onTypeof: "all",
+      bootstrap: true,
+    });
 
     // Setup logging events
     if (this.mode !== "production") {
@@ -333,7 +349,7 @@ export class SBObservable {
   private shouldTriggerForPlugin(
     eventType: ObservableEventTypes,
     pluginName: string,
-    observablePlugin: { plugin: BSBObservable<any>; on?: ObservableFilter; onTypeof: FilterOnType }
+    observablePlugin: { plugin: BSBObservable<any>; on?: ObservableFilter; onTypeof: FilterOnType; bootstrap?: boolean }
   ): boolean {
     if (observablePlugin.onTypeof === "all") {
       return true;
@@ -378,6 +394,29 @@ export class SBObservable {
     }
 
     return false;
+  }
+
+  private handlesLogEvents(
+    observablePlugin: { plugin: BSBObservable<any>; on?: ObservableFilter; onTypeof: FilterOnType; bootstrap?: boolean }
+  ): boolean {
+    return (
+      this.shouldTriggerForPlugin("debug", "", observablePlugin) ||
+      this.shouldTriggerForPlugin("info", "", observablePlugin) ||
+      this.shouldTriggerForPlugin("warn", "", observablePlugin) ||
+      this.shouldTriggerForPlugin("error", "", observablePlugin)
+    );
+  }
+
+  private async removeDefaultObservable(reason: string, trace: DTrace) {
+    const defaultPlugins = this.observablePlugins.filter((x) => x.plugin.pluginName === "observable-default");
+    if (defaultPlugins.length === 0) return;
+    for (const defaultPlugin of defaultPlugins) {
+      if (defaultPlugin.plugin.dispose) {
+        await SmartFunctionCallAsync(defaultPlugin.plugin, defaultPlugin.plugin.dispose);
+      }
+    }
+    this.observablePlugins = this.observablePlugins.filter((x) => x.plugin.pluginName !== "observable-default");
+    this.observableBackend.info(trace, "Removed observable-default: {reason}", { reason });
   }
 
   private determineFilterType(filter?: ObservableFilter): FilterOnType {
@@ -444,6 +483,16 @@ export class SBObservable {
           package: pluginDef.package ?? "this project",
           version: pluginDef.version ?? "latest",
         });
+        if (pluginKey === "observable-default" && pluginDef.plugin === "observable-default") {
+          const bootstrapDefault = this.observablePlugins.find((x) => x.bootstrap === true && x.plugin.pluginName === "observable-default");
+          if (bootstrapDefault) {
+            bootstrapDefault.on = pluginDef.filter;
+            bootstrapDefault.onTypeof = this.determineFilterType(pluginDef.filter);
+            bootstrapDefault.bootstrap = false;
+            this.observableBackend.info(trace, "Using bootstrap observable-default as configured observable-default");
+            continue;
+          }
+        }
         const loadResult = await this.sbPlugins.loadPlugin<"observable">(
           this.observableBackend,
           pluginDef.package ?? null,
@@ -498,22 +547,11 @@ export class SBObservable {
       }
     }
 
-    if (this.observablePlugins.length === 0) {
-      this.observableBackend.info(trace, "No observable plugins configured, enabling default console logger");
-      this.observablePlugins.push({
-        plugin: new DefaultObservable({
-          appId: this.appId,
-          mode: this.mode,
-          pluginName: "observable-default",
-          cwd: this.cwd,
-          packageCwd: this.cwd,
-          pluginCwd: this.cwd,
-          pluginVersion: "0.0.0",
-          config: undefined,
-        }),
-        on: undefined,
-        onTypeof: "all",
-      });
+    const nonDefaultLogHandler = this.observablePlugins.some((x) => x.plugin.pluginName !== "observable-default" && this.handlesLogEvents(x));
+    if (nonDefaultLogHandler) {
+      await this.removeDefaultObservable("configured non-default observable handles log events", trace);
+    } else if (this.observablePlugins.some((x) => x.bootstrap === true)) {
+      this.observableBackend.info(trace, "Keeping bootstrap observable-default because no configured observable handles log events");
     }
 
     this._ready = true;
