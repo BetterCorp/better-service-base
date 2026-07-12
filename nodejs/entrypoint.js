@@ -481,12 +481,16 @@ async function main() {
   }
 
   for (const plugin of parsedPlugins) {
-    await installPlugin({
-      parsedSpec: plugin,
-      pluginDir,
-      tempRoot,
-      forceUpdate,
-    });
+    try {
+      await installPlugin({
+        parsedSpec: plugin,
+        pluginDir,
+        tempRoot,
+        forceUpdate,
+      });
+    } catch (err) {
+      console.error(`[BSB] Plugin installation failed for ${plugin.pkg}:`, err && err.stack ? err.stack : err);
+    }
   }
 }
 
