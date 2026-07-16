@@ -77,4 +77,9 @@ describe('BSBService', () => {
 
     assert.throws(() => BrokenPlugin.PLUGIN_CLIENT, /static Config property/);
   });
+
+  it('rejects construction outside the ServiceBase runtime', () => {
+    assert.throws(() => new TestPlugin({ sbObservable: {} } as any), /ServiceBase runtime/);
+    assert.throws(() => new TestPlugin({ sbEvents: {} } as any), /ServiceBase runtime/);
+  });
 });

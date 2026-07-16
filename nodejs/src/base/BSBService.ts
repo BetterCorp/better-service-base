@@ -64,6 +64,13 @@ export interface BSBServiceClientDefinition {
   runAfterPlugins?: Array<string>;
 }
 
+function validateServiceStartup<Config extends BSBServiceConstructor<any, any>>(config: Config): Config {
+  if (!config?.sbObservable || !config.sbEvents) {
+    throw new Error("BSBService must be constructed by the ServiceBase runtime");
+  }
+  return config;
+}
+
 /**
  * @group Services
  * @category Plugins
@@ -245,7 +252,7 @@ export abstract class BSBService<
   private _resourceContext: ResourceContext;
 
   constructor(config: BSBServiceConstructor<ReferencedConfig, TEventSchemas>) {
-    super(config);
+    super(validateServiceStartup(config));
 
     // Observable backend initialized
 
