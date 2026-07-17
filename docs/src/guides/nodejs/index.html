@@ -374,6 +374,9 @@ export class Plugin extends BSBService&lt;InstanceType&lt;typeof Config&gt;, typ
 }</code></pre>
         </div>
 
+        <h4>Keep lifecycle observables scoped</h4>
+        <p>The <code>obs</code> passed to <code>init</code> or <code>run</code> belongs to that lifecycle invocation. Use it for operations called directly from that method, but do not store it as <code>this.obs</code> or reuse it later. Event handlers receive a handler observable from BSB. Start each independent HTTP request, queue message, scheduled job, or background iteration with <code>this.createTrace(...)</code>, then create child spans for nested work in that flow.</p>
+
         <div class="step">
           <div class="step-number">3</div>
           <h3>Create the configuration</h3>

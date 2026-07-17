@@ -359,24 +359,28 @@
           <div class="step-number">4</div>
           <div class="step-content"><strong>Clean</strong><p>Removes previous <code>lib/</code> output</p></div>
         </div>
-        <div class="pipeline-step hook">
+        <div class="pipeline-step internal">
           <div class="step-number">5</div>
+          <div class="step-content"><strong>Source validation</strong><p>BSB rejects restricted APIs and stored lifecycle Observables such as <code>this.obs = obs</code></p></div>
+        </div>
+        <div class="pipeline-step hook">
+          <div class="step-number">6</div>
           <div class="step-content"><strong>beforeCompile</strong><p>Your hook runs here</p></div>
         </div>
         <div class="pipeline-step internal">
-          <div class="step-number">6</div>
+          <div class="step-number">7</div>
           <div class="step-content"><strong>TypeScript compilation</strong><p>Compiles <code>src/</code> to <code>lib/</code>, including generated virtual clients</p></div>
         </div>
         <div class="pipeline-step hook">
-          <div class="step-number">7</div>
+          <div class="step-number">8</div>
           <div class="step-content"><strong>afterCompile</strong><p>Your hook runs here -- compiled JS is available in <code>lib/</code></p></div>
         </div>
         <div class="pipeline-step internal">
-          <div class="step-number">8</div>
+          <div class="step-number">9</div>
           <div class="step-content"><strong>Post-compile steps</strong><p>Copy assets, schemas to lib, generate plugin metadata and manifests</p></div>
         </div>
         <div class="pipeline-step hook">
-          <div class="step-number">9</div>
+          <div class="step-number">10</div>
           <div class="step-content"><strong>afterBuild</strong><p>Your hook runs here -- build is fully complete</p></div>
         </div>
 

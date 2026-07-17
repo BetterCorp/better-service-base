@@ -30,6 +30,7 @@ export * from "./PluginConfig.js";
 export * from "./tools.js";
 export * from "./errorMessages.js";
 export * from "./functions.js";
+export * from "./entrypoint.js";
 export * from "./logFormatter.js";
 export * from "./PluginEvents.js";
 export * from "./ObservableBackend.js";

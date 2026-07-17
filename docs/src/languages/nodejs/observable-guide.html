@@ -1062,14 +1062,29 @@ const processSpan = orderContext.span("process-order");
             <h4>Performance Best Practices</h4>
             <ul>
               <li><strong>Create metrics once:</strong> Create counters, gauges, and histograms in <code>init()</code>, not in request handlers</li>
-              <li><strong>Reuse Observables:</strong> Don't create new attributes for every operation if not needed</li>
+              <li><strong>Keep Observables flow-scoped:</strong> Never store the <code>obs</code> passed to <code>init()</code> or <code>run()</code>; create a root trace for each new flow and child spans for its nested work</li>
               <li><strong>Batch attributes:</strong> Use <code>setAttributes()</code> for multiple attributes instead of chaining <code>setAttribute()</code></li>
               <li><strong>End spans properly:</strong> Always end spans to avoid memory leaks in tracing systems</li>
               <li><strong>Use appropriate log levels:</strong> Avoid excessive debug logging in production</li>
             </ul>
           </div>
 
-          <div class="code-block" data-title="Good vs Bad Performance"><pre><code class="language-ts">// ❌ BAD: Creating metrics repeatedly
+          <div class="code-block" data-title="Good vs Bad Performance"><pre><code class="language-ts">// BAD: lifecycle context outlives init()
+private obs?: Observable;
+public async init(obs: Observable) {
+  this.obs = obs;
+}
+
+// GOOD: each independent flow gets its own root trace
+public async handleHttpRequest(req: Request) {
+  const obs = this.createTrace("http.request", { method: req.method });
+  try {
+    // Handle this request and pass obs to nested work.
+  } finally {
+    obs.end();
+  }
+}
+// ❌ BAD: Creating metrics repeatedly
 public async handleRequest(obs: Observable, req: Request) {
   const counter = obs.metrics.counter("requests", "...", "...");
   counter.increment(1); // Creates metric every request!

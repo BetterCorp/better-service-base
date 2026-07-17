@@ -16,6 +16,7 @@ Build/runtime rules:
 - package.json build must be `"bsb-plugin-cli build"`, not `tsc`.
 - Use BSB hooks for codegen/setup. Do not hide pre/post work in raw npm scripts around `tsc`.
 - Do not run plugin runtime files directly with `node`, `tsx`, or `ts-node`; use `bsb-plugin-cli dev`, `bsb-plugin-cli start`, tests, or hooks so the BSB lifecycle is active.
+- In package-root `src/index.ts`, call `guardBsbEntrypoint(import.meta.url)` from `@bsb/base`. It allows normal imports but rejects direct execution. This is recommended rather than build-enforced for existing-plugin compatibility.
 - Keep each plugin self-contained. Store schemas, assets, helpers, generated inputs, and local docs in the plugin project/folder; reference them from other code when needed. Avoid shared side directories that are required for a plugin to build or run.
 
 Event contract rules:
@@ -32,6 +33,8 @@ Plugin types (Node.js):
 - config-*: load configuration (e.g., file/env/remote vault). This plugin supplies config to the platform.
 
 Service lifecycle placement:
+- The `obs` passed to `init(obs)` or `run(obs)` belongs only to that lifecycle invocation. Use it for calls made directly there; never assign it to `this.*`, capture it for later callbacks, or reuse it after the method returns.
+- BSB event callbacks receive their own handler Observable. For each independent HTTP request, queue message, scheduled job, or background iteration, call `this.createTrace(...)`; use child spans only for nested work in that same flow.
 - constructor: class fields, generated clients, pure helpers. No network/database/listeners.
 - init(obs): setup resources and register event handlers.
 - run(obs): start long-lived external work after init: HTTP server listen, queue consume, scheduler/background loop.

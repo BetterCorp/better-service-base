@@ -28,6 +28,7 @@ import {
   type HookLogger,
 } from './build-hooks.js';
 import { isDevIgnoredPath, resolveDevIgnorePatterns } from './dev-config.js';
+import { STORED_OBSERVABLE_PATTERN } from './source-validation.js';
 
 interface PluginInfo {
   name: string;
@@ -398,6 +399,7 @@ const RESTRICTED_PATTERNS: RestrictedPattern[] = [
   { pattern: /\b__dirname\b/, name: '__dirname', message: 'Use BSB-provided paths from constructor args' },
   { pattern: /\b__filename\b/, name: '__filename', message: 'Use BSB-provided paths from constructor args' },
   { pattern: /\bconsole\.\w+/, name: 'console', message: 'Use this.log (BSB observable) instead', skipForPluginType: 'observable' },
+  { pattern: STORED_OBSERVABLE_PATTERN, name: 'stored lifecycle Observable', message: 'Do not store init/run obs; use the current callback Observable or create and pass a new flow Observable' },
   { pattern: /['"](?:node:)?child_process['"]/, name: 'child_process', message: 'Spawning child processes is not allowed in BSB plugins' },
   { pattern: /['"](?:node:)?cluster['"]/, name: 'cluster', message: 'Cluster management is handled by BSB' },
   { pattern: /\beval\s*\(/, name: 'eval()', message: 'eval() is not allowed in BSB plugins' },

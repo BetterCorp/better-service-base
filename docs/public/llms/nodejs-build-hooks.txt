@@ -27,21 +27,23 @@ Pipeline order (build):
 2. Schema extraction + virtual client generation (BSB)
 3. afterSchemas
 4. clean
-5. beforeCompile
-6. tsc
-7. afterCompile
-8. Copy assets, copy schemas to lib, generate plugin metadata + manifests (BSB)
-9. afterBuild
+5. Built-in source validation (including rejection of stored lifecycle Observables such as `this.obs = obs`)
+6. beforeCompile
+7. tsc
+8. afterCompile
+9. Copy assets, copy schemas to lib, generate plugin metadata + manifests (BSB)
+10. afterBuild
 
 Pipeline order (dev initial start):
 1. beforeSchemas
 2. Schema extraction (BSB)
 3. afterSchemas
-4. beforeCompile
-5. typecheck
-6. afterCompile (only if typecheck passed)
-7. beforeDev (one-time)
-8. start service
+4. Built-in source validation
+5. beforeCompile
+6. typecheck
+7. afterCompile (only if typecheck passed)
+8. beforeDev (one-time)
+9. start service
 
 Pipeline order (dev rebuild):
 - beforeSchemas/afterSchemas skipped for config-only or asset-only changes.

@@ -38,10 +38,8 @@ export class testClient extends BSBServiceClient<Plugin> {
   public run?(): Promise<void>;
   public readonly pluginName: string = "service-default1";
   private count = 0;
-  private initObs?: Observable;
 
   public async init(obs: Observable): Promise<void> {
-    this.initObs = obs;
     // Handle emittable events
     this.events.onEvent("onEmittable", obs, async (obs: Observable, input: any) => {
       obs.log.warn( "onEmittable ({a},{b})", { a: input.a, b: input.b });
@@ -58,17 +56,17 @@ export class testClient extends BSBServiceClient<Plugin> {
     await this.events.emitEvent("onReceivable", obs, { a: 56, b: 7 });
   }
 
-  async abc(a: number, b: number, c: number, d: number): Promise<void> {
-    const obs = this.initObs!.startSpan('abc', { component: 'test' });
+  async abc(obs: Observable, a: number, b: number, c: number, d: number): Promise<void> {
+    const abcObs = obs.startSpan('abc', { component: 'test' });
 
     try {
-      const result = await this.events.emitEventAndReturn("onReturnable", obs, { a: c, b: d }, 5);
-      obs.log.warn("TESTING onReturnable ({result})", { result });
+      const result = await this.events.emitEventAndReturn("onReturnable", abcObs, { a: c, b: d }, 5);
+      abcObs.log.warn("TESTING onReturnable ({result})", { result });
     } catch (error) {
-      obs.error(error instanceof Error ? error : new Error(String(error)));
+      abcObs.error(error instanceof Error ? error : new Error(String(error)));
       throw error;
     } finally {
-      obs.end();
+      abcObs.end();
     }
   }
 }
