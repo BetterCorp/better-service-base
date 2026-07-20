@@ -16,7 +16,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Observable } from '@bsb/base';
-import type { RegistryDB } from './index.js';
+import type { RegistryDB, RegistryEntryFilter } from './index.js';
 import type {
   RegistryEntry,
   ListQuery,
@@ -108,14 +108,15 @@ export class FileDB implements RegistryDB {
     }
   }
 
-  async get(obs: Observable, org: string, name: string, version?: string): Promise<RegistryEntry | null> {
+  async get(obs: Observable, org: string, name: string, version?: string, filter?: RegistryEntryFilter): Promise<RegistryEntry | null> {
     const span = obs.startSpan('FileDB.get', { org, name, ...(version ? { version } : {}) });
     try {
       if (version) {
-        return this.readVersion(org, name, version);
+        const entry = this.readVersion(org, name, version);
+        return entry && (!filter || await filter(entry)) ? entry : null;
       }
       // No version specified -- return the latest
-      const entries = this.readAllVersions(org, name);
+      const entries = await this.filterEntries(this.readAllVersions(org, name), filter);
       if (entries.length === 0) return null;
       return this.latestEntry(entries);
     } finally {
@@ -154,10 +155,10 @@ export class FileDB implements RegistryDB {
   // Queries
   // ============================================================================
 
-  async list(obs: Observable, query: ListQuery): Promise<{ results: RegistryEntry[]; total: number }> {
+  async list(obs: Observable, query: ListQuery, filter?: RegistryEntryFilter): Promise<{ results: RegistryEntry[]; total: number }> {
     const span = obs.startSpan('FileDB.list');
     try {
-      let results = this.allLatestEntries();
+      let results = await this.allLatestEntries(filter);
 
       // Apply filters
       if (query.org) results = results.filter(e => e.org === query.org);
@@ -177,11 +178,11 @@ export class FileDB implements RegistryDB {
     }
   }
 
-  async search(obs: Observable, query: SearchQuery): Promise<{ results: RegistryEntry[]; total: number }> {
+  async search(obs: Observable, query: SearchQuery, filter?: RegistryEntryFilter): Promise<{ results: RegistryEntry[]; total: number }> {
     const span = obs.startSpan('FileDB.search', { query: query.query });
     try {
       const q = query.query.toLowerCase();
-      let results = this.allLatestEntries().filter(e => {
+      let results = (await this.allLatestEntries(filter)).filter(e => {
         return (
           e.id.toLowerCase().includes(q) ||
           e.name.toLowerCase().includes(q) ||
@@ -206,10 +207,10 @@ export class FileDB implements RegistryDB {
     }
   }
 
-  async getVersions(obs: Observable, org: string, name: string, majorMinor?: string): Promise<VersionInfo[]> {
+  async getVersions(obs: Observable, org: string, name: string, majorMinor?: string, filter?: RegistryEntryFilter): Promise<VersionInfo[]> {
     const span = obs.startSpan('FileDB.getVersions', { org, name, ...(majorMinor ? { majorMinor } : {}) });
     try {
-      const entries = this.readAllVersions(org, name);
+      const entries = await this.filterEntries(this.readAllVersions(org, name), filter);
       let infos: VersionInfo[] = entries.map(e => ({
         version: e.version,
         majorMinor: e.majorMinor,
@@ -227,10 +228,10 @@ export class FileDB implements RegistryDB {
     }
   }
 
-  async getStats(obs: Observable): Promise<RegistryStats> {
+  async getStats(obs: Observable, filter?: RegistryEntryFilter): Promise<RegistryStats> {
     const span = obs.startSpan('FileDB.getStats');
     try {
-      const latest = this.allLatestEntries();
+      const latest = await this.allLatestEntries(filter);
       const byLanguage: Record<string, number> = {};
       const byCategory: Record<string, number> = {};
       let totalDownloads = 0;
@@ -550,7 +551,7 @@ export class FileDB implements RegistryDB {
   }
 
   /** Walk every org/plugin directory and return the latest entry of each plugin. */
-  private allLatestEntries(): RegistryEntry[] {
+  private async allLatestEntries(filter?: RegistryEntryFilter): Promise<RegistryEntry[]> {
     const results: RegistryEntry[] = [];
 
     if (!fs.existsSync(this.pluginsDir)) return results;
@@ -564,7 +565,7 @@ export class FileDB implements RegistryDB {
         .filter(d => d.isDirectory());
 
       for (const pluginDir of plugins) {
-        const entries = this.readAllVersions(orgDir.name, pluginDir.name);
+        const entries = await this.filterEntries(this.readAllVersions(orgDir.name, pluginDir.name), filter);
         if (entries.length === 0) continue;
         const latest = this.latestEntry(entries);
         if (latest) results.push(latest);
@@ -572,6 +573,12 @@ export class FileDB implements RegistryDB {
     }
 
     return results;
+  }
+
+  private async filterEntries(entries: RegistryEntry[], filter?: RegistryEntryFilter): Promise<RegistryEntry[]> {
+    if (!filter) return entries;
+    const allowed = await Promise.all(entries.map(filter));
+    return entries.filter((_entry, index) => allowed[index]);
   }
 
   /** Pick the entry with the most recent publishedAt. */

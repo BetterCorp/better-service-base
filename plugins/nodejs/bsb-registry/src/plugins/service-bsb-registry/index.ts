@@ -49,6 +49,7 @@ export const EventSchemas = createEventSchemas({
         org: bsb.string({ description: 'Organization name' }),
         name: bsb.string({ description: 'Plugin name' }),
         version: optional(bsb.string({ description: 'Version (defaults to latest)' })),
+        token: optional(Types.ReadTokenSchema),
       }),
       Types.RegistryEntrySchema,
       'Get plugin details by org/name'
@@ -80,6 +81,7 @@ export const EventSchemas = createEventSchemas({
         org: bsb.string({ description: 'Organization name' }),
         name: bsb.string({ description: 'Plugin name' }),
         majorMinor: optional(bsb.string({ description: 'Filter by major.minor' })),
+        token: optional(Types.ReadTokenSchema),
       }),
       Types.VersionListSchema,
       'Get all versions of a plugin'
@@ -87,7 +89,7 @@ export const EventSchemas = createEventSchemas({
 
     // Stats
     'registry.stats.get': createReturnableEvent(
-      bsb.object({}),
+      bsb.object({ token: optional(Types.ReadTokenSchema) }),
       Types.RegistryStatsSchema,
       'Get registry statistics'
     ),
@@ -265,7 +267,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
     // Stats
     await this.events.onReturnableEvent('registry.stats.get', obs, async (trace, data) => {
-      return await this.handleStatsGet(trace);
+      return await this.handleStatsGet(trace, data);
     });
 
     // Auth
@@ -427,8 +429,9 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     try {
       trace.log.debug('Getting plugin {org}/{name}', { org: data.org, name: data.name });
 
+      const readFilter = await this.authManager.createPluginReadFilter(trace, data.token);
       const getSpan = trace.startSpan('storage.get');
-      const plugin = await this.storage.get(trace, data.org, data.name, data.version);
+      const plugin = await this.storage.get(trace, data.org, data.name, data.version, readFilter);
       getSpan.end();
 
       if (!plugin) {
@@ -468,8 +471,9 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     try {
       trace.log.debug('Listing plugins');
 
+      const readFilter = await this.authManager.createPluginReadFilter(trace, data.token);
       const listSpan = trace.startSpan('storage.list');
-      const result = await this.storage.list(trace, data);
+      const result = await this.storage.list(trace, data, readFilter);
       listSpan.end();
 
       const page = Math.floor((data.offset || 0) / (data.limit || 50)) + 1;
@@ -513,8 +517,9 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     try {
       trace.log.debug('Searching plugins: {query}', { query: data.query });
 
+      const readFilter = await this.authManager.createPluginReadFilter(trace, data.token);
       const searchSpan = trace.startSpan('storage.search');
-      const result = await this.storage.search(trace, data);
+      const result = await this.storage.search(trace, data, readFilter);
       searchSpan.end();
 
       // Add result count to span for dashboarding
@@ -591,8 +596,9 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     try {
       trace.log.debug('Getting versions for {org}/{name}', { org: data.org, name: data.name });
 
+      const readFilter = await this.authManager.createPluginReadFilter(trace, data.token);
       const versionsSpan = trace.startSpan('storage.getVersions');
-      const versions = await this.storage.getVersions(trace, data.org, data.name, data.majorMinor);
+      const versions = await this.storage.getVersions(trace, data.org, data.name, data.majorMinor, readFilter);
       versionsSpan.end();
 
       const latest = versions.length > 0 ? versions[0].version : '0.0.0';
@@ -627,14 +633,15 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   /**
    * Handle get stats request
    */
-  private async handleStatsGet(trace: Observable): Promise<Types.RegistryStats> {
+  private async handleStatsGet(trace: Observable, data: { token?: string }): Promise<Types.RegistryStats> {
     const span = trace.startSpan('registry.stats.get');
 
     try {
       trace.log.debug('Getting registry statistics');
 
+      const readFilter = await this.authManager.createPluginReadFilter(trace, data.token);
       const statsSpan = trace.startSpan('storage.getStats');
-      const stats = await this.storage.getStats(trace);
+      const stats = await this.storage.getStats(trace, readFilter);
       statsSpan.end();
 
       trace.log.debug('Registry stats: {totalPlugins} plugins', { totalPlugins: stats.totalPlugins });

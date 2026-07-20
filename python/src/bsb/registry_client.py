@@ -56,9 +56,9 @@ def registry_request(method: str, path: str, body: Any | None = None, require_au
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
-    if require_auth:
-        if not REGISTRY_TOKEN:
-            raise RuntimeError("BSB_REGISTRY_TOKEN environment variable not set")
+    if require_auth and not REGISTRY_TOKEN:
+        raise RuntimeError("BSB_REGISTRY_TOKEN environment variable not set")
+    if REGISTRY_TOKEN:
         headers["Authorization"] = f"Bearer {REGISTRY_TOKEN}"
 
     data = json.dumps(body).encode("utf-8") if body is not None else None

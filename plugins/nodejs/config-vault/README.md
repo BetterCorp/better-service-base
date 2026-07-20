@@ -38,7 +38,10 @@ service-config-vault:
     databaseUrl: postgres://vault:secret@postgres:5432/vault
     masterKey: BASE64_32_BYTE_KEY
     registryUrl: https://io.bsbcode.dev
+    registryToken: REGISTRY_READ_TOKEN
 ```
+
+`registryToken` is optional. Set it from a deployment secret when Vault must import private plugins; the registry user needs global `read` permission plus publisher, package, or organization access. Vault sends it only as a bearer token on server-side registry requests.
 
 `masterKey` must be a base64 encoded 32-byte key. Generate one with:
 

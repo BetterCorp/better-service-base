@@ -26,6 +26,7 @@ export interface VaultHttpOptions {
   port: number;
   publicUrl: string;
   registryUrl: string;
+  registryToken?: string;
   production: boolean;
   obs: Observable;
   vault: VaultService;
@@ -232,7 +233,7 @@ export class VaultHttpServer {
       const groups = latestImportedPluginGroups(imported);
       let importedCount = 0;
       for (const plugin of groups) {
-        const registry = await registrySearch(this.options.registryUrl, pluginDisplayName(plugin));
+        const registry = await registrySearch(this.options.registryUrl, pluginDisplayName(plugin), this.options.registryToken);
         const candidate = latestRegistryCandidate(registry.filter((item) => registryCandidateMatchesPlugin(item, plugin)));
         if (!candidate || compareVersionStrings(candidate.version, plugin.version) <= 0) continue;
         await this.options.vault.createPlugin(user.userId, {
@@ -454,7 +455,7 @@ export class VaultHttpServer {
       await this.requireUser(event);
       const query = getQuery(event);
       const dashboard = await this.options.vault.dashboard();
-      const registry = await registrySearch(this.options.registryUrl, String(query.query ?? ''));
+      const registry = await registrySearch(this.options.registryUrl, String(query.query ?? ''), this.options.registryToken);
       return this.page('Plugins', pluginsPage(dashboard, registry, String(query.query ?? '')), 'plugins');
     }));
 
@@ -2158,13 +2159,18 @@ function table(rows: string[][]): string {
   return `<table>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</table>`;
 }
 
-async function registrySearch(registryUrl: string, query: string): Promise<RegistryCandidate[]> {
+async function registrySearch(registryUrl: string, query: string, registryToken?: string): Promise<RegistryCandidate[]> {
   const url = new URL('/plugins', registryUrl);
   url.searchParams.set('language', 'nodejs');
   url.searchParams.set('limit', '20');
   if (query.trim()) url.searchParams.set('query', query.trim());
   try {
-    const response = await fetch(url, { headers: { accept: 'application/json' } });
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json',
+        ...(registryToken ? { authorization: `Bearer ${registryToken}` } : {}),
+      },
+    });
     if (!response.ok) return [];
     const parsed = await response.json() as { plugins?: unknown[] };
     return (Array.isArray(parsed.plugins) ? parsed.plugins : [])

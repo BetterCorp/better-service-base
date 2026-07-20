@@ -218,12 +218,15 @@ export type RegistryEntry = InferBSBType<typeof RegistryEntrySchema>;
 // API Request/Response Schemas
 // ========================================
 
+export const ReadTokenSchema = bsb.string({ min: 1, max: 500, description: 'Optional bearer token for private plugin access' });
+
 export const ListQuerySchema = bsb.object({
   org: optional(bsb.string({ max: 100, description: 'Filter by organization' })),
   language: optional(bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Filter by language')),
   category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 50)' })),
   offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
+  token: optional(ReadTokenSchema),
 }, 'Query parameters for listing plugins');
 
 export type ListQuery = InferBSBType<typeof ListQuerySchema>;
@@ -234,6 +237,7 @@ export const SearchQuerySchema = bsb.object({
   category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 20)' })),
   offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
+  token: optional(ReadTokenSchema),
 }, 'Query parameters for searching plugins');
 
 export type SearchQuery = InferBSBType<typeof SearchQuerySchema>;

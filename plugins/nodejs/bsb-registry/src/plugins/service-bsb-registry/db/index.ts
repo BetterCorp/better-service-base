@@ -20,6 +20,8 @@ import type {
 } from '../types.js';
 import { FileDB } from './file.js';
 
+export type RegistryEntryFilter = (entry: RegistryEntry) => boolean | Promise<boolean>;
+
 export interface RegistryDB {
   /** Initialize the database (create dirs, run migrations, etc.) */
   init(obs: Observable): Promise<void>;
@@ -36,7 +38,7 @@ export interface RegistryDB {
   insert(obs: Observable, entry: RegistryEntry): Promise<void>;
 
   /** Get a single plugin. Returns latest version when version is omitted. */
-  get(obs: Observable, org: string, name: string, version?: string): Promise<RegistryEntry | null>;
+  get(obs: Observable, org: string, name: string, version?: string, filter?: RegistryEntryFilter): Promise<RegistryEntry | null>;
 
   /** Delete a plugin -- a single version when specified, otherwise all versions. */
   delete(obs: Observable, org: string, name: string, version?: string): Promise<void>;
@@ -44,16 +46,16 @@ export interface RegistryDB {
   // ---- Queries ----
 
   /** List plugins with optional filters and pagination. Returns latest version of each plugin. */
-  list(obs: Observable, query: ListQuery): Promise<{ results: RegistryEntry[]; total: number }>;
+  list(obs: Observable, query: ListQuery, filter?: RegistryEntryFilter): Promise<{ results: RegistryEntry[]; total: number }>;
 
   /** Full-text search across plugin metadata. Returns latest version of each match. */
-  search(obs: Observable, query: SearchQuery): Promise<{ results: RegistryEntry[]; total: number }>;
+  search(obs: Observable, query: SearchQuery, filter?: RegistryEntryFilter): Promise<{ results: RegistryEntry[]; total: number }>;
 
   /** Get all versions of a plugin, optionally filtered to a major.minor. Sorted newest-first. */
-  getVersions(obs: Observable, org: string, name: string, majorMinor?: string): Promise<VersionInfo[]>;
+  getVersions(obs: Observable, org: string, name: string, majorMinor?: string, filter?: RegistryEntryFilter): Promise<VersionInfo[]>;
 
   /** Aggregate registry statistics. */
-  getStats(obs: Observable): Promise<RegistryStats>;
+  getStats(obs: Observable, filter?: RegistryEntryFilter): Promise<RegistryStats>;
 
   // ---- Organizations ----
 

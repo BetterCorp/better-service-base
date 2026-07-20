@@ -726,6 +726,12 @@ export class RegistryUIServer {
     }
   }
 
+  /** Forward validly formatted bearer credentials to optional-auth read events. */
+  private readAuth(request: FastifyRequest): { token?: string } {
+    const match = request.headers.authorization?.match(/^Bearer (.+)$/);
+    return match ? { token: match[1] } : {};
+  }
+
   // ============================================================================
   // Helpers
   // ============================================================================
@@ -1282,11 +1288,15 @@ a.s:hover{background:#333;border-color:#FB8C00}
 
     try {
       const statsSpan = trace.startSpan('events.registry.stats.get');
-      const stats = await this.registryClient.registryStatsGet(trace, {});
+      const stats = await this.registryClient.registryStatsGet(trace, this.readAuth(request));
       statsSpan.end();
 
       const listSpan = trace.startSpan('events.registry.plugin.list');
-      const listResult = await this.registryClient.registryPluginList(trace, { limit: 12, offset: 0 });
+      const listResult = await this.registryClient.registryPluginList(trace, {
+        limit: 12,
+        offset: 0,
+        ...this.readAuth(request),
+      });
       listSpan.end();
       const plugins = this.enrichPluginList(listResult.results as unknown[]);
 
@@ -1341,12 +1351,17 @@ a.s:hover{background:#333;border-color:#FB8C00}
           org: params.org,
           limit: 1,
           offset: 0,
+          ...this.readAuth(request),
         });
 
         if (!Number(listResult.total || 0)) {
           let plugin: any = null;
           try {
-            plugin = await this.registryClient.registryPluginGet(trace, { org: '_', name: params.org });
+            plugin = await this.registryClient.registryPluginGet(trace, {
+              org: '_',
+              name: params.org,
+              ...this.readAuth(request),
+            });
           } catch {
             plugin = null;
           }
@@ -1365,7 +1380,11 @@ a.s:hover{background:#333;border-color:#FB8C00}
     return this._handleBrowseInternal(request, reply, params.org);
   }
 
-  private async listAllPluginsByLanguage(trace: Observable, language: 'nodejs' | 'csharp' | 'go' | 'java' | 'python'): Promise<any[]> {
+  private async listAllPluginsByLanguage(
+    trace: Observable,
+    language: 'nodejs' | 'csharp' | 'go' | 'java' | 'python',
+    readAuth: { token?: string },
+  ): Promise<any[]> {
     const all: any[] = [];
     const limit = 100;
     let offset = 0;
@@ -1373,7 +1392,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
 
     do {
       const pageSpan = trace.startSpan('events.registry.plugin.list.page', { limit, offset, language });
-      const page = await this.registryClient.registryPluginList(trace, { language, limit, offset });
+      const page = await this.registryClient.registryPluginList(trace, { language, limit, offset, ...readAuth });
       pageSpan.end();
 
       all.push(...(page.results || []));
@@ -1404,7 +1423,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
     const span = trace.startSpan('render.package-lookup');
 
     try {
-      const allLanguagePlugins = await this.listAllPluginsByLanguage(trace, params.language);
+      const allLanguagePlugins = await this.listAllPluginsByLanguage(trace, params.language, this.readAuth(request));
       const matches = allLanguagePlugins.filter((plugin: any) => {
         const pkg = plugin?.package;
         if (!pkg || typeof pkg !== 'object') return false;
@@ -1523,6 +1542,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
             offset,
             category: categoryFilter,
             language: languageFilter,
+            ...this.readAuth(request),
           }
         );
         searchSpan.end();
@@ -1539,6 +1559,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
             org: orgFilter,
             category: categoryFilter,
             language: languageFilter,
+            ...this.readAuth(request),
           }
         );
         listSpan.end();
@@ -1622,7 +1643,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name }
+          { org: params.org, name: params.name, ...this.readAuth(request) }
         );
       } catch {
         plugin = null;
@@ -1637,7 +1658,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
       const versions = await this.registryClient.registryPluginVersions(
         trace,
-        { org: params.org, name: params.name }
+        { org: params.org, name: params.name, ...this.readAuth(request) }
       );
       versionsSpan.end();
 
@@ -1739,7 +1760,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
 
     try {
       const statsSpan = trace.startSpan('events.registry.stats.get');
-      const stats = await this.registryClient.registryStatsGet(trace, {});
+      const stats = await this.registryClient.registryStatsGet(trace, this.readAuth(request));
       statsSpan.end();
 
       reply.send(stats);
@@ -1766,7 +1787,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
       const result = await this.registryClient.registryPluginVersions(
         trace,
-        { org: params.org, name: params.name, majorMinor: query.majorMinor }
+        { org: params.org, name: params.name, majorMinor: query.majorMinor, ...this.readAuth(request) }
       );
       versionsSpan.end();
 
@@ -1804,7 +1825,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
       const result = await this.registryClient.registryPluginVersions(
         trace,
-        { org: params.org, name: params.name, majorMinor: requested }
+        { org: params.org, name: params.name, majorMinor: requested, ...this.readAuth(request) }
       );
       versionsSpan.end();
 
@@ -1857,7 +1878,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, version: params.version }
+          { org: params.org, name: params.name, version: params.version, ...this.readAuth(request) }
         );
       } catch {
         plugin = null;
@@ -1914,7 +1935,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, version: params.version }
+          { org: params.org, name: params.name, version: params.version, ...this.readAuth(request) }
         );
       } catch {
         plugin = null;
@@ -1976,7 +1997,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, version: params.version }
+          { org: params.org, name: params.name, version: params.version, ...this.readAuth(request) }
         );
       } catch {
         plugin = null;
@@ -2029,7 +2050,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name }
+          { org: params.org, name: params.name, ...this.readAuth(request) }
         );
       } catch {
         plugin = null;

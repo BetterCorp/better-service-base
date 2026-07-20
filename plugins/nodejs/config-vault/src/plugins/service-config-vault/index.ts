@@ -21,6 +21,7 @@ export const VaultServiceConfigSchema = av.object({
   databaseUrl: av.string().minLength(1).describe('Postgres connection string'),
   masterKey: av.string().minLength(1).describe('Base64 encoded 32-byte Vault master key'),
   registryUrl: av.string().default('https://io.bsbcode.dev').describe('BSB registry URL used for plugin catalog search/import'),
+  registryToken: av.optional(av.string().minLength(1)).describe('Bearer token used to read private registry plugins'),
 }).describe('Vault service configuration');
 
 export type VaultServiceConfig = av.Infer<typeof VaultServiceConfigSchema>;
@@ -103,6 +104,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       port: this.config.port,
       publicUrl: this.config.publicUrl,
       registryUrl: this.config.registryUrl,
+      registryToken: this.config.registryToken,
       production: this.config.production,
       obs,
       vault: this.vault,

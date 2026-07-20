@@ -8,6 +8,7 @@ import type {
   ResourcePermission,
   OrgMember,
   PackagePermission,
+  RegistryEntry,
 } from './types.js';
 
 export interface AuthConfig {
@@ -204,6 +205,26 @@ export class AuthManager {
    */
   hasUserPermission(auth: ResolvedAuth, required: UserPermission): boolean {
     return auth.effectivePermissions.includes(required);
+  }
+
+  /** Build a per-request filter that hides private plugins from unauthorized readers. */
+  async createPluginReadFilter(obs: Observable, token?: string): Promise<(entry: RegistryEntry) => Promise<boolean>> {
+    const auth = token ? await this.resolveToken(obs, token) : null;
+    const orgMembers = new Map<string, Promise<OrgMember[]>>();
+
+    return async (entry: RegistryEntry): Promise<boolean> => {
+      if (entry.visibility === 'public') return true;
+      if (!auth || !this.hasUserPermission(auth, 'read')) return false;
+      if (entry.publishedBy === auth.userId) return true;
+
+      let members = orgMembers.get(entry.org);
+      if (!members) {
+        members = this.db.getOrgMembers(obs, entry.org);
+        orgMembers.set(entry.org, members);
+      }
+
+      return this.hasResourcePermission(auth.userId, 'read', entry.permissions, await members);
+    };
   }
 
   /**

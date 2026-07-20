@@ -181,6 +181,10 @@ async function registryRequest(
   body?: any,
   requireAuth: boolean = false
 ): Promise<any> {
+  if (requireAuth && !REGISTRY_TOKEN) {
+    throw new Error('BSB_REGISTRY_TOKEN environment variable not set');
+  }
+
   return new Promise((resolve, reject) => {
     const url = new URL(path, REGISTRY_URL);
     const isHttps = url.protocol === 'https:';
@@ -194,7 +198,7 @@ async function registryRequest(
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        ...(requireAuth && REGISTRY_TOKEN ? { Authorization: `Bearer ${REGISTRY_TOKEN}` } : {}),
+        ...(REGISTRY_TOKEN ? { Authorization: `Bearer ${REGISTRY_TOKEN}` } : {}),
       },
     };
 

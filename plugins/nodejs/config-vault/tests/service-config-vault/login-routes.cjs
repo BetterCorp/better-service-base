@@ -8,11 +8,13 @@ module.exports = async ({ pluginRoot }) => {
   const { VaultHttpServer } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/http-server.js')).href);
   const port = await freePort();
   const registryPort = await freePort();
+  const registryAuthorization = [];
   const registryServer = http.createServer((req, res) => {
     if (!req.url.startsWith('/plugins')) {
       res.writeHead(404).end();
       return;
     }
+    registryAuthorization.push(req.headers.authorization);
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({
       plugins: [{
@@ -49,6 +51,7 @@ module.exports = async ({ pluginRoot }) => {
     port,
     publicUrl: `http://127.0.0.1:${port}`,
     registryUrl: `http://127.0.0.1:${registryPort}`,
+    registryToken: 'vault-registry-token',
     production: false,
     obs: { log: { info() {}, debug() {}, warn() {}, error() {} } },
     vault: {
@@ -450,6 +453,8 @@ module.exports = async ({ pluginRoot }) => {
     await postJson(port, '/api/groups/delete', { id: 'group-1' });
     await postJson(port, '/api/profiles/update', { id: 'profile-1', groupId: 'group-1', name: 'prod' });
     await postJson(port, '/api/profiles/delete', { id: 'profile-1' });
+    assert.ok(registryAuthorization.length >= 2);
+    assert.ok(registryAuthorization.every((value) => value === 'Bearer vault-registry-token'));
     assert.deepEqual(calls, [
       ['createDeployment', 'user-1', 'app-1', 'worker'],
       ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
