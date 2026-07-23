@@ -17,7 +17,7 @@ Steps:
    - Example: if service-tunnel-client-api exposes `proxy.request` in onReturnableEvents, service-tunnel-web should use `new TunnelClientApiClient(this)` and `clientApi.proxyRequest(...)`, not define `emitReturnableEvents["proxy.request"]`.
    - Plugin implements lifecycle: init(obs), run(obs), dispose().
    - this.config is fully typed from the config schema (via BSBService<InstanceType<typeof Config>, ...>). Never cast it.
-   - Do not pass `{ unknownKeys: "strip" }` to plugin config `av.object(...)`; BSB enforces `schema.parse(config, { unknownKeys: "strip" })` centrally at startup.
+   - Do not pass `{ unknownKeys: "strip" }` to plugin config `av.object(...)`; unknown object keys are stripped by default.
    - For config fields with defaults use av.string().default("x") (key optional in config file, type stays string).
      Only use av.optional(...) for fields with no default that may be absent (type becomes T | undefined).
    Example index.ts: (example events added for you)

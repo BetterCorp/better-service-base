@@ -12,7 +12,7 @@ service-bsb-registry-ui:
   host: 0.0.0.0
   pageSize: 20                   # plugins per page in browse view
   uploadDir: ./.temp/registry-images
-  # badgesFile is optional; defaults to BADGES.json in the built UI plugin dir
+  # badgesFile is optional; defaults to ./BADGES.json in the built UI plugin dir
   maxImageUploadMb: 5
 ```
 
@@ -21,9 +21,11 @@ service-bsb-registry-ui:
 | `port` | number | `3200` | HTTP server port |
 | `host` | string | `0.0.0.0` | Bind address |
 | `pageSize` | number | `20` | Plugins per page |
-| `uploadDir` | string | `./.temp/registry-images` | Directory to store plugin images |
-| `badgesFile` | string | auto-discover | Optional badge map file keyed by `org/name` |
+| `uploadDir` | string | `./.temp/registry-images` | Runtime directory used to store plugin images |
+| `badgesFile` | string | `./BADGES.json` | Plugin-relative or absolute badge map file keyed by `org/name` |
 | `maxImageUploadMb` | number | `5` | Max image upload size in MB |
+
+Absolute paths are used unchanged. A relative `uploadDir` resolves from the service process working directory because uploads are mutable runtime data. A relative `badgesFile` resolves from this UI plugin's `pluginCwd` because it is a bundled read-only default. Templates and static assets also load from the built UI plugin directory, so the standard registry requires no asset configuration and never writes into its versioned plugin directory.
 
 ## Content Negotiation
 
@@ -123,7 +125,7 @@ See [service-bsb-registry.md](service-bsb-registry.md) for the full publish requ
 
 `BADGES.json` is generated during the registry package build. The generator marks core plugins from `nodejs/src/plugins` as `CORE`, excluding entries listed in `nodejs/package.json` `bsb.publishIgnore`, and marks plugins exported by `plugins/nodejs/*/bsb-plugin.json` as `OFFICIAL`.
 
-Do not hand-maintain the checked-in `BADGES.json` files for repo plugins. Run `npm run generate:badges --workspace plugins/nodejs/bsb-registry` when you need to refresh them without a full build. If `badgesFile` is omitted, the UI looks for `BADGES.json` in the built plugin directory, then the package root, then the app cwd.
+Do not hand-maintain the checked-in `BADGES.json` files for repo plugins. Run `npm run generate:badges --workspace plugins/nodejs/bsb-registry` when you need to refresh them without a full build. Relative paths resolve from the UI plugin directory; absolute paths are used unchanged. BSB's build copies `BADGES.json`, templates, static files, and every other non-TypeScript plugin asset into the built plugin directory.
 
 ```json
 {

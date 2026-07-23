@@ -483,7 +483,7 @@ await this.events.onBroadcast("cache.invalidate", obs, async (handlerObs, input)
 
         <h2>Adding Configuration</h2>
 
-        <p>To add configuration to your plugin, create a config schema with AnyVali. BSB strips unknown config keys centrally during startup, so plugin schemas do not need <code>{ unknownKeys: "strip" }</code>.</p>
+        <p>To add configuration to your plugin, create a config schema with AnyVali. Unknown object keys are stripped by default, so omit the redundant <code>{ unknownKeys: "strip" }</code> option.</p>
 
         <pre><code class="language-typescript">import * as av from "anyvali";
 import { createConfigSchema } from "@bsb/base";

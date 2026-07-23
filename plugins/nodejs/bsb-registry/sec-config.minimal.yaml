@@ -1,30 +1,37 @@
 # BSB Registry - Minimal Configuration
 # Quick start for local development with minimal setup
 
-# Registry API Backend
-service-bsb-registry:
-  database:
-    type: file
-    path: ./.temp/registry-data.json
-  auth:
-    requireAuth: false                  # Disable auth for local dev
+default:
+  config:
+    config-default:
+      plugin: config-default
+      enabled: true
 
-# Registry Web UI
-service-bsb-registry-ui:
-  port: 3200
-  host: 0.0.0.0
-  apiUrl: http://localhost:3100
-  cors: true
+  observable:
+    observable-default:
+      plugin: observable-default
+      enabled: true
+      config:
+        level: debug                    # Verbose logging for development
+        colors: true
 
-# Core plugins only
-config-default:
-  enabled: true
+  events:
+    events-default:
+      plugin: events-default
+      enabled: true
 
-events-default:
-  enabled: true
+  services:
+    service-bsb-registry:
+      plugin: service-bsb-registry
+      enabled: true
+      config:
+        database:
+          type: file
+          path: ./.temp/registry-data
+        auth:
+          requireAuth: false            # Disable auth for local dev
 
-observable-default:
-  enabled: true
-  level: debug                          # Verbose logging for development
-  colors: true
-  timestamps: true
+    service-bsb-registry-ui:
+      plugin: service-bsb-registry-ui
+      enabled: true
+      # No config required: all UI defaults and bundled assets are used.

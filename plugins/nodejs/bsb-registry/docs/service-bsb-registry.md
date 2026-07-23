@@ -19,6 +19,12 @@ service-bsb-registry:
 | `database.path` | string | `./.temp/data` | Directory for file-based storage |
 | `auth.requireAuth` | boolean | `true` | Require authentication for publish/delete |
 
+Absolute database paths are used unchanged. Relative paths retain the existing Node.js behaviour and resolve from the service process working directory. The directory is created automatically during initialization and is never placed under the versioned plugin directory.
+
+## Scope and extension boundary
+
+The built-in events and record schema describe BSB plugins only. A separate registry deployment may provide opt-in custom record definitions and its own UI, but product-specific schemas and presentation do not belong in this plugin's defaults. Adding a generic record API is deferred until that deployment defines its identity, validation, versioning, and query requirements; the no-config behaviour must remain the current BSB registry.
+
 ## Events
 
 All operations are exposed as returnable events. The UI/API plugin (or any other BSB plugin) calls these via the generated `BsbRegistryClient`.

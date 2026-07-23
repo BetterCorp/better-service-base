@@ -461,7 +461,7 @@ export class RegistryUIServer {
       this.registryClient = plugin.registryClient;
       this.createTrace = plugin.createTrace.bind(plugin);
       this.pluginCwd = plugin.pluginCwd;
-      this.badgesFile = this.resolveBadgesFile(plugin.pluginCwd, plugin.packageCwd);
+      this.badgesFile = this.resolveBadgesFile();
       const packageJsonPath = path.join(plugin.packageCwd, 'package.json');
       if (fs.existsSync(packageJsonPath)) {
         const packageJson = JSON.parse(await fsp.readFile(packageJsonPath, 'utf-8')) as { version?: string };
@@ -826,29 +826,9 @@ export class RegistryUIServer {
     obs.log.debug('Loaded badge map with {count} entries', { count: Object.keys(this.badgeMap).length });
   }
 
-  private resolveBadgesFile(pluginCwd: string, packageCwd: string): string | undefined {
-    const defaultCandidates = [
-      path.resolve(pluginCwd, 'BADGES.json'),
-      path.resolve(packageCwd, 'BADGES.json'),
-      path.resolve('BADGES.json'),
-    ];
-
-    if (this.badgesFileInput && path.isAbsolute(this.badgesFileInput)) {
-      return [
-        this.badgesFileInput,
-        ...defaultCandidates,
-      ].find((candidate) => fs.existsSync(candidate));
-    }
-
-    const filename = this.badgesFileInput ?? 'BADGES.json';
-    const candidates = [
-      path.resolve(pluginCwd, filename),
-      path.resolve(packageCwd, filename),
-      path.resolve(filename),
-      ...defaultCandidates,
-    ];
-
-    return candidates.find((candidate) => fs.existsSync(candidate));
+  private resolveBadgesFile(): string | undefined {
+    const filename = path.resolve(this.pluginCwd, this.badgesFileInput ?? './BADGES.json');
+    return fs.existsSync(filename) ? filename : undefined;
   }
 
   private resolvePluginImageUrl(pluginId: string): string | null {

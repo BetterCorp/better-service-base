@@ -8,10 +8,10 @@ File-based storage backend for the BSB Registry. Stores all data as JSON files i
 service-bsb-registry:
   database:
     type: file
-    path: ./.temp/data
+    path: ./.temp/data           # relative to the process working directory, or absolute
 ```
 
-The `path` is the root directory. All subdirectories and files are created automatically on first startup.
+Absolute paths are used unchanged. Relative paths resolve from the service process working directory. The default directory and all required files are created automatically on first startup, outside the versioned plugin directory.
 
 ## Directory Layout
 

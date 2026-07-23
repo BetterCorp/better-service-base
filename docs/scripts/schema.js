@@ -11,7 +11,7 @@ const LinksSchema = av.object({
   npm: av.optional(av.string().format('url')),
   github: av.optional(av.string().format('url')),
   website: av.optional(av.string().format('url'))
-}, { unknownKeys: 'strip' })
+})
 
 // Individual plugin schema
 const PluginSchema = av.object({
@@ -24,13 +24,13 @@ const PluginSchema = av.object({
   documentation: av.array(av.string()).minItems(1),
   pluginPath: av.string().minLength(1),
   links: av.optional(LinksSchema)
-}, { unknownKeys: 'strip' })
+})
 
 // Manifest schema (multi-language support)
 const ManifestSchema = av.object({
   nodejs: av.optional(av.array(PluginSchema)),
   go: av.optional(av.array(PluginSchema)),
   python: av.optional(av.array(PluginSchema))
-}, { unknownKeys: 'strip' })
+})
 
 export { PluginSchema, ManifestSchema, CategorySchema }

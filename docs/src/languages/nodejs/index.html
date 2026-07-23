@@ -368,7 +368,7 @@ mkdir -p src/plugins/service-my-api</code></pre></div>
 import * as av from 'anyvali';
 
 // Plugin metadata + config schema (auto-generates bsb-plugin.json)
-// BSB strips unknown config keys centrally during startup.
+// Unknown config keys are stripped by default.
 const Config = createConfigSchema(
   {
     name: 'service-my-api',

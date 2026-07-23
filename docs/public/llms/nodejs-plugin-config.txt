@@ -10,7 +10,7 @@ Steps:
 1. Create plugin folder: src/plugins/config-<name>.
 2. Create index.ts with Config + Plugin (BSBConfig).
    - Config defines plugin metadata and config schema (only include fields you actually have).
-   - Do not pass `{ unknownKeys: "strip" }` to plugin config `av.object(...)`; BSB enforces `schema.parse(config, { unknownKeys: "strip" })` centrally at startup.
+   - Do not pass `{ unknownKeys: "strip" }` to plugin config `av.object(...)`; unknown object keys are stripped by default.
    - Plugin implements getters for events/observable/service configs and reads config source.
    Example index.ts:
    ```ts

@@ -8,7 +8,7 @@ Steps:
 1. Create plugin folder: src/plugins/events-<name>.
 2. Create index.ts with Config + Plugin (BSBEvents).
    - Config defines plugin metadata and optional config schema (only include fields you actually have).
-   - Do not pass `{ unknownKeys: "strip" }` to plugin config `av.object(...)`; BSB enforces `schema.parse(config, { unknownKeys: "strip" })` centrally at startup.
+   - Do not pass `{ unknownKeys: "strip" }` to plugin config `av.object(...)`; unknown object keys are stripped by default.
    - Plugin composes transport helpers (see events-default) or your own implementation.
    Example index.ts:
    ```ts
