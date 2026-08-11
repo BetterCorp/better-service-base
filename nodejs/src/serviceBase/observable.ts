@@ -397,29 +397,6 @@ export class SBObservable {
     return false;
   }
 
-  private handlesLogEvents(
-    observablePlugin: { plugin: BSBObservable<any>; on?: ObservableFilter; onTypeof: FilterOnType; bootstrap?: boolean }
-  ): boolean {
-    return (
-      this.shouldTriggerForPlugin("debug", "", observablePlugin) ||
-      this.shouldTriggerForPlugin("info", "", observablePlugin) ||
-      this.shouldTriggerForPlugin("warn", "", observablePlugin) ||
-      this.shouldTriggerForPlugin("error", "", observablePlugin)
-    );
-  }
-
-  private async removeDefaultObservable(reason: string, trace: DTrace) {
-    const defaultPlugins = this.observablePlugins.filter((x) => x.plugin.pluginName === "observable-default");
-    if (defaultPlugins.length === 0) return;
-    for (const defaultPlugin of defaultPlugins) {
-      if (defaultPlugin.plugin.dispose) {
-        await SmartFunctionCallAsync(defaultPlugin.plugin, defaultPlugin.plugin.dispose);
-      }
-    }
-    this.observablePlugins = this.observablePlugins.filter((x) => x.plugin.pluginName !== "observable-default");
-    this.observableBackend.info(trace, "Removed observable-default: {reason}", { reason });
-  }
-
   private determineFilterType(filter?: ObservableFilter): FilterOnType {
     if (!filter) {
       return "all";
@@ -561,13 +538,6 @@ export class SBObservable {
       }
     }
 
-    const nonDefaultLogHandler = this.observablePlugins.some((x) => x.plugin.pluginName !== "observable-default" && this.handlesLogEvents(x));
-    if (nonDefaultLogHandler) {
-      await this.removeDefaultObservable("configured non-default observable handles log events", trace);
-    } else if (this.observablePlugins.some((x) => x.bootstrap === true)) {
-      this.observableBackend.info(trace, "Keeping bootstrap observable-default because no configured observable handles log events");
-    }
-
     this._ready = true;
     this.observableBackend.info(trace, "Observable plugins setup complete");
   }
@@ -605,22 +575,6 @@ export class SBObservable {
   public async run(trace: DTrace) {
     this.observableBackend.info(trace, "Running observable plugins");
 
-    // If any non-default plugin handles all events, remove the default to avoid duplicate output
-    if (this.observablePlugins.length > 1) {
-      const nonDefault = this.observablePlugins.filter((x) => x.plugin.pluginName !== "observable-default");
-      const hasAllHandler = nonDefault.some((x) => x.onTypeof === "all");
-      if (hasAllHandler) {
-        const defaultPlugin = this.observablePlugins.find((x) => x.plugin.pluginName === "observable-default");
-        if (defaultPlugin) {
-          if (defaultPlugin.plugin.dispose) {
-            await SmartFunctionCallAsync(defaultPlugin.plugin, defaultPlugin.plugin.dispose);
-          }
-          this.observablePlugins = this.observablePlugins.filter((x) => x.plugin.pluginName !== "observable-default");
-          this.observableBackend.info(trace, "Removed observable-default because another observable handles all telemetry");
-        }
-      }
-    }
-
     for (const observablePlugin of this.observablePlugins) {
       if (observablePlugin.plugin.run) {
         await (observablePlugin.plugin.run as any).call(observablePlugin.plugin);
@@ -629,6 +583,26 @@ export class SBObservable {
     this.observableBackend.info(trace, "Observable plugins running: {plugins}", {
       plugins: this.observablePlugins.map((x) => x.plugin.pluginName).join(", "),
     });
+  }
+
+  /**
+   * Remove the temporary console observable after BSB startup completes.
+   * Explicitly configured observable-default instances are retained.
+   *
+   * @param trace - DTrace for tracking bootstrap completion
+   */
+  public async completeBootstrap(trace: DTrace) {
+    const bootstrapDefault = this.observablePlugins.find((x) => x.bootstrap === true);
+    if (!bootstrapDefault) return;
+
+    this.observableBackend.info(
+      trace,
+      "BSB startup complete; disabling bootstrap observable-default because it is not configured"
+    );
+    if (bootstrapDefault.plugin.dispose) {
+      await SmartFunctionCallAsync(bootstrapDefault.plugin, bootstrapDefault.plugin.dispose);
+    }
+    this.observablePlugins = this.observablePlugins.filter((x) => x !== bootstrapDefault);
   }
 
   /**

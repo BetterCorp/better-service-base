@@ -426,6 +426,7 @@ export class ServiceBase {
     this.heartBeat();
     this._outputKeep(BOOT_STAT_KEYS.BSB);
     this.bsbBootTimeMetric.set(this._keeps![BOOT_STAT_KEYS.BSB] as number);
+    await this.observable.completeBootstrap(internalTrace("BOOTSTRAP_COMPLETE"));
     this._keeps = undefined;
   }
 

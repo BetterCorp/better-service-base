@@ -1,15 +1,21 @@
 import * as assert from "assert";
 import * as av from "anyvali";
 import { SBObservable } from "../../serviceBase/observable.js";
+import { createFakeDTrace } from "../../interfaces/metrics.js";
 
 describe("SBObservable", () => {
   class TestObservablePlugin {
     pluginName: string;
     receivedConfig: unknown;
+    receivedLogs: string[] = [];
 
     constructor(config: any) {
       this.pluginName = config.pluginName;
       this.receivedConfig = config.config;
+    }
+
+    info(_trace: unknown, _pluginName: string, message: string) {
+      this.receivedLogs.push(message);
     }
   }
 
@@ -202,7 +208,13 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+    const trace = createFakeDTrace("tests/SBObservable", "multiple-plugins");
+    const { logs } = await withCapturedConsole(async () => {
+      await observable.setupObservablePlugins(sbConfig);
+      await observable.run(trace);
+      await observable.completeBootstrap(trace);
+      observable.info("test-plugin", trace, "fan-out-check", {});
+    });
 
     assert.deepStrictEqual(loaded, [
       {
@@ -211,10 +223,12 @@ describe("SBObservable", () => {
         mappedName: "observable-axiom",
       },
     ]);
-    assert.deepStrictEqual(pluginNames(observable), ["observable-axiom"]);
+    assert.deepStrictEqual(pluginNames(observable), ["observable-default", "observable-axiom"]);
+    assert.ok(logs.some((line) => line.includes("fan-out-check")));
+    assert.ok(findPlugin(observable, "observable-axiom").receivedLogs.includes("fan-out-check"));
   });
 
-  it("logs startup through bootstrap observable-default before configured observables load", async () => {
+  it("keeps bootstrap observable-default through startup then removes it", async () => {
     const sbPlugins = {
       loadPlugin: async () => ({
         success: true,
@@ -243,10 +257,18 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    const { logs } = await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+    const trace = createFakeDTrace("tests/SBObservable", "bootstrap-complete");
+    const { logs } = await withCapturedConsole(async () => {
+      await observable.setupObservablePlugins(sbConfig);
+      assert.deepStrictEqual(pluginNames(observable), ["observable-default", "demo-observable"]);
+      await observable.run(trace);
+      assert.deepStrictEqual(pluginNames(observable), ["observable-default", "demo-observable"]);
+      await observable.completeBootstrap(trace);
+    });
 
     assert.ok(logs.some((line) => line.includes("Configured observable plugins: 1 (demo-observable)")));
     assert.ok(logs.some((line) => line.includes("Loading observable plugin demo-observable")));
+    assert.ok(logs.some((line) => line.includes("BSB startup complete; disabling bootstrap observable-default because it is not configured")));
     assert.deepStrictEqual(pluginNames(observable), ["demo-observable"]);
   });
 
