@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import type {
+  AuthMethodRecord,
   ApplicationRecord,
   ApplicationConfigDraftRecord,
   ApplicationConfigVersionRecord,
@@ -18,12 +20,18 @@ import type {
 
 export class VaultStore {
   private readonly pool: Pool;
+  private readonly auditPool: Pool;
+  private readonly auditKey: Buffer;
+  private auditQueue: Promise<void> = Promise.resolve();
 
-  constructor(databaseUrl: string) {
+  constructor(databaseUrl: string, auditKey: Buffer, auditDatabaseUrl?: string) {
     this.pool = new Pool({ connectionString: databaseUrl });
+    this.auditPool = auditDatabaseUrl ? new Pool({ connectionString: auditDatabaseUrl }) : this.pool;
+    this.auditKey = auditKey;
   }
 
   async close(): Promise<void> {
+    if (this.auditPool !== this.pool) await this.auditPool.end();
     await this.pool.end();
   }
 
@@ -32,9 +40,12 @@ export class VaultStore {
       create table if not exists vault_users (
         id text primary key,
         email text not null unique,
-        password_hash text not null,
-        totp_secret text not null,
+        password_hash text,
+        totp_secret text,
         passkey_required boolean not null default true,
+        status text not null default 'active',
+        setup_token_hash text,
+        setup_expires_at timestamptz,
         created_at timestamptz not null,
         updated_at timestamptz not null
       );
@@ -44,6 +55,26 @@ export class VaultStore {
         credential_id text not null unique,
         public_key jsonb not null,
         sign_count integer not null default 0,
+        created_at timestamptz not null
+      );
+      alter table vault_users alter column password_hash drop not null;
+      alter table vault_users alter column totp_secret drop not null;
+      alter table vault_users add column if not exists status text not null default 'active';
+      alter table vault_users add column if not exists setup_token_hash text;
+      alter table vault_users add column if not exists setup_expires_at timestamptz;
+      create table if not exists vault_auth_methods (
+        id text primary key,
+        user_id text not null references vault_users(id) on delete cascade,
+        label text not null,
+        encrypted_totp text not null,
+        iv text not null,
+        auth_tag text not null,
+        key_version text not null,
+        credential_id text unique,
+        public_key jsonb,
+        sign_count integer not null default 0,
+        last_totp_step bigint,
+        active boolean not null default false,
         created_at timestamptz not null
       );
       create table if not exists vault_sessions (
@@ -151,15 +182,64 @@ export class VaultStore {
         revoked_at timestamptz,
         created_at timestamptz not null
       );
+    `);
+    if (this.auditPool === this.pool) {
+      await this.initAudit();
+      await this.anchorLegacyAudit();
+    } else {
+      // The runtime read path remains available; every mutation preflight still fails closed until audit recovers.
+      await this.initAudit().then(() => this.anchorLegacyAudit()).catch(() => undefined);
+    }
+  }
+
+  private async initAudit(): Promise<void> {
+    await this.auditPool.query(`
       create table if not exists vault_audit_log (
+        ordinal bigserial unique not null,
         id text primary key,
         actor text not null,
+        actor_email text,
         action text not null,
         target text not null,
         details jsonb not null,
+        mutation_id text,
+        outcome text,
+        previous_hash text,
+        entry_hash text,
         created_at timestamptz not null
       );
+      alter table vault_audit_log add column if not exists ordinal bigserial;
+      alter table vault_audit_log add column if not exists actor_email text;
+      alter table vault_audit_log add column if not exists mutation_id text;
+      alter table vault_audit_log add column if not exists outcome text;
+      alter table vault_audit_log add column if not exists previous_hash text;
+      alter table vault_audit_log add column if not exists entry_hash text;
+      create unique index if not exists vault_audit_log_ordinal_idx on vault_audit_log (ordinal);
+      create or replace function vault_audit_append_only() returns trigger language plpgsql as $$
+      begin
+        raise exception 'vault_audit_log is append-only';
+      end $$;
+      drop trigger if exists vault_audit_no_update on vault_audit_log;
+      create trigger vault_audit_no_update before update or delete or truncate on vault_audit_log
+        for each statement execute function vault_audit_append_only();
     `);
+  }
+
+  private async anchorLegacyAudit(): Promise<void> {
+    const legacy = await this.auditPool.query('select * from vault_audit_log where entry_hash is null order by ordinal');
+    if (legacy.rows.length === 0) return;
+    const signed = await this.auditPool.query('select 1 from vault_audit_log where entry_hash is not null limit 1');
+    if (signed.rows.length > 0) return;
+    await this.audit({
+      id: randomUUID(),
+      actor: 'system',
+      actorEmail: null,
+      action: 'audit.legacy.anchor',
+      target: 'vault_audit_log',
+      details: { entries: legacy.rows.length, digest: legacyAuditDigest(legacy.rows as DbRow[]) },
+      outcome: 'success',
+      createdAt: new Date().toISOString(),
+    });
   }
 
   async countAdmins(): Promise<number> {
@@ -168,15 +248,18 @@ export class VaultStore {
   }
 
   async createUser(user: UserRecord): Promise<void> {
-    const result = await this.pool.query(
-      `insert into vault_users (id, email, password_hash, totp_secret, passkey_required, created_at, updated_at)
-       select $1, $2, $3, $4, $5, $6, $7
-       where not exists (select 1 from vault_users)`,
-      [user.id, user.email, user.passwordHash, user.totpSecret, user.passkeyRequired, user.createdAt, user.updatedAt],
+    await this.pool.query(
+      `insert into vault_users
+       (id, email, password_hash, totp_secret, passkey_required, status, setup_token_hash, setup_expires_at, created_at, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [user.id, user.email, user.passwordHash, user.totpSecret, user.passkeyRequired, user.status,
+        user.setupTokenHash, user.setupExpiresAt, user.createdAt, user.updatedAt],
     );
-    if (result.rowCount !== 1) {
-      throw new Error('Vault supports exactly one admin user');
-    }
+  }
+
+  async listUsers(): Promise<UserRecord[]> {
+    const result = await this.pool.query('select * from vault_users order by email');
+    return result.rows.map((row) => mapUser(row as DbRow));
   }
 
   async getUserByEmail(email: string): Promise<UserRecord | null> {
@@ -187,6 +270,147 @@ export class VaultStore {
   async getUser(id: string): Promise<UserRecord | null> {
     const result = await this.pool.query('select * from vault_users where id = $1', [id]);
     return result.rows[0] ? mapUser(result.rows[0] as DbRow) : null;
+  }
+
+  async getUserBySetupTokenHash(hash: string): Promise<UserRecord | null> {
+    const result = await this.pool.query(
+      "select * from vault_users where setup_token_hash = $1 and setup_expires_at > now() and status = 'pending'",
+      [hash],
+    );
+    return result.rows[0] ? mapUser(result.rows[0] as DbRow) : null;
+  }
+
+  async setPendingPassword(userId: string, passwordHash: string): Promise<void> {
+    await this.pool.query('update vault_users set password_hash = $1, updated_at = now() where id = $2 and status = \'pending\'', [passwordHash, userId]);
+  }
+
+  async activateUser(userId: string): Promise<void> {
+    await this.pool.query(
+      "update vault_users set status = 'active', setup_token_hash = null, setup_expires_at = null, updated_at = now() where id = $1",
+      [userId],
+    );
+  }
+
+  async rotateUserSetupToken(userId: string, currentHash: string, replacementHash: string): Promise<boolean> {
+    const result = await this.pool.query(
+      "update vault_users set setup_token_hash = $1, updated_at = now() where id = $2 and setup_token_hash = $3 and setup_expires_at > now() and status = 'pending'",
+      [replacementHash, userId, currentHash],
+    );
+    return result.rowCount === 1;
+  }
+
+  async clearLegacyTotp(userId: string): Promise<void> {
+    await this.pool.query('update vault_users set totp_secret = null where id = $1', [userId]);
+  }
+
+  async createAuthMethod(method: AuthMethodRecord): Promise<void> {
+    await this.pool.query(
+      `insert into vault_auth_methods
+       (id, user_id, label, encrypted_totp, iv, auth_tag, key_version, credential_id, public_key, sign_count, last_totp_step, active, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [method.id, method.userId, method.label, method.encryptedTotp, method.iv, method.authTag, method.keyVersion,
+        method.credentialId, method.publicKey, method.signCount, method.lastTotpStep, method.active, method.createdAt],
+    );
+  }
+
+  async listAuthMethods(userId: string, activeOnly = false): Promise<AuthMethodRecord[]> {
+    const result = await this.pool.query(
+      `select * from vault_auth_methods where user_id = $1 ${activeOnly ? 'and active = true' : ''} order by created_at`,
+      [userId],
+    );
+    return result.rows.map((row) => mapAuthMethod(row as DbRow));
+  }
+
+  async getAuthMethod(id: string): Promise<AuthMethodRecord | null> {
+    const result = await this.pool.query('select * from vault_auth_methods where id = $1', [id]);
+    return result.rows[0] ? mapAuthMethod(result.rows[0] as DbRow) : null;
+  }
+
+  async getAuthMethodByCredential(credentialId: string): Promise<AuthMethodRecord | null> {
+    const result = await this.pool.query('select * from vault_auth_methods where credential_id = $1 and active = true', [credentialId]);
+    return result.rows[0] ? mapAuthMethod(result.rows[0] as DbRow) : null;
+  }
+
+  async completeAuthMethod(id: string, credentialId: string, publicKey: Record<string, unknown>, signCount: number): Promise<void> {
+    await this.pool.query(
+      'update vault_auth_methods set credential_id = $1, public_key = $2, sign_count = $3, active = true where id = $4',
+      [credentialId, publicKey, signCount, id],
+    );
+  }
+
+  async updateAuthMethodCounter(id: string, signCount: number): Promise<void> {
+    await this.pool.query('update vault_auth_methods set sign_count = $1 where id = $2', [signCount, id]);
+  }
+
+  async useTotpStep(id: string, step: number): Promise<boolean> {
+    const result = await this.pool.query(
+      'update vault_auth_methods set last_totp_step = $1 where id = $2 and active = true and (last_totp_step is null or last_totp_step < $1)',
+      [step, id],
+    );
+    return result.rowCount === 1;
+  }
+
+  async deleteAuthMethod(id: string, userId: string): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('select pg_advisory_xact_lock(hashtext($1))', [`vault-auth-methods:${userId}`]);
+      const count = await client.query<{ count: string }>(
+        'select count(*)::text as count from vault_auth_methods where user_id = $1 and active = true',
+        [userId],
+      );
+      if (Number(count.rows[0]?.count ?? 0) <= 1) {
+        await client.query('rollback');
+        return false;
+      }
+      const deleted = await client.query('delete from vault_auth_methods where id = $1 and user_id = $2 and active = true', [id, userId]);
+      await client.query('commit');
+      return deleted.rowCount === 1;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async suspendUser(
+    userId: string,
+    status: 'inactive' | 'pending',
+    invitation?: { hash: string; expiresAt: string },
+  ): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query("select pg_advisory_xact_lock(hashtext('vault-active-admins'))");
+      const target = await client.query<{ status: UserRecord['status'] }>('select status from vault_users where id = $1', [userId]);
+      if (target.rows.length === 0) {
+        await client.query('rollback');
+        return false;
+      }
+      if (target.rows[0]?.status === 'active') {
+        const active = await client.query<{ count: string }>("select count(*)::text as count from vault_users where status = 'active'");
+        if (Number(active.rows[0]?.count ?? 0) <= 1) {
+          await client.query('rollback');
+          return false;
+        }
+      }
+      await client.query(
+        `update vault_users set status = $1, setup_token_hash = $2, setup_expires_at = $3,
+         password_hash = case when $1 = 'pending' then null else password_hash end, updated_at = now() where id = $4`,
+        [status, invitation?.hash ?? null, invitation?.expiresAt ?? null, userId],
+      );
+      await client.query('delete from vault_sessions where user_id = $1', [userId]);
+      if (status === 'pending') await client.query('delete from vault_auth_methods where user_id = $1', [userId]);
+      else await client.query('update vault_auth_methods set active = false where user_id = $1', [userId]);
+      await client.query('commit');
+      return true;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async createPasskey(passkey: PasskeyRecord): Promise<void> {
@@ -568,10 +792,92 @@ export class VaultStore {
   }
 
   async audit(record: AuditRecord): Promise<void> {
-    await this.pool.query(
-      'insert into vault_audit_log (id, actor, action, target, details, created_at) values ($1, $2, $3, $4, $5, $6)',
-      [record.id, record.actor, record.action, record.target, record.details, record.createdAt],
+    const operation = this.auditQueue.then(async () => {
+      const client = await this.auditPool.connect();
+      try {
+        await client.query('begin');
+        await client.query("select pg_advisory_xact_lock(hashtext('vault_audit_log'))");
+        const previous = await client.query<{ entry_hash: string | null }>(
+          'select entry_hash from vault_audit_log order by ordinal desc limit 1',
+        );
+        const previousHash = previous.rows[0]?.entry_hash ?? null;
+        const signed: Record<string, unknown> = {
+          id: record.id,
+          actor: record.actor,
+          actorEmail: record.actorEmail ?? null,
+          action: record.action,
+          target: record.target,
+          details: record.details,
+          mutationId: record.mutationId ?? null,
+          outcome: record.outcome ?? null,
+          previousHash,
+          createdAt: record.createdAt,
+        };
+        const entryHash = createHmac('sha256', this.auditKey).update(canonicalJson(signed)).digest('base64url');
+        await client.query(
+          `insert into vault_audit_log
+           (id, actor, actor_email, action, target, details, mutation_id, outcome, previous_hash, entry_hash, created_at)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [record.id, record.actor, record.actorEmail ?? null, record.action, record.target, record.details,
+            record.mutationId ?? null, record.outcome ?? null, previousHash, entryHash, record.createdAt],
+        );
+        await client.query('commit');
+      } catch (error) {
+        await client.query('rollback').catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
+      }
+    });
+    this.auditQueue = operation.catch(() => undefined);
+    await operation;
+  }
+
+  async assertAuditWritable(): Promise<void> {
+    await this.auditPool.query('select 1');
+    if (!(await this.verifyAuditChain())) throw new Error('Audit log integrity verification failed');
+  }
+
+  async listAudit(limit = 100, before?: number): Promise<AuditRecord[]> {
+    const result = await this.auditPool.query(
+      `select * from vault_audit_log where ($1::bigint is null or ordinal < $1) order by ordinal desc limit $2`,
+      [before ?? null, Math.min(Math.max(limit, 1), 200)],
     );
+    return result.rows.map((row) => mapAudit(row as DbRow));
+  }
+
+  async verifyAuditChain(): Promise<boolean> {
+    const result = await this.auditPool.query('select * from vault_audit_log order by ordinal');
+    const legacyRows = result.rows.filter((raw) => (raw as DbRow).entry_hash === null) as DbRow[];
+    if (legacyRows.length > 0) {
+      const anchor = result.rows.find((raw) => String((raw as DbRow).action) === 'audit.legacy.anchor') as DbRow | undefined;
+      const details = anchor?.details as Record<string, unknown> | undefined;
+      if (!anchor || legacyRows.some((row) => Number(row.ordinal) >= Number(anchor.ordinal)) ||
+          details?.digest !== legacyAuditDigest(legacyRows) || details.entries !== legacyRows.length) return false;
+    }
+    let previousHash: string | null = null;
+    for (const raw of result.rows) {
+      const row = raw as DbRow;
+      const entryHash = row.entry_hash === null ? null : String(row.entry_hash);
+      if (!entryHash) continue;
+      if ((row.previous_hash === null ? null : String(row.previous_hash)) !== previousHash) return false;
+      const signed = {
+        id: String(row.id),
+        actor: String(row.actor),
+        actorEmail: row.actor_email === null ? null : String(row.actor_email),
+        action: String(row.action),
+        target: String(row.target),
+        details: row.details as Record<string, unknown>,
+        mutationId: row.mutation_id === null ? null : String(row.mutation_id),
+        outcome: row.outcome === null ? null : String(row.outcome),
+        previousHash,
+        createdAt: iso(row.created_at),
+      };
+      const expected: string = createHmac('sha256', this.auditKey).update(canonicalJson(signed)).digest('base64url');
+      if (expected !== entryHash) return false;
+      previousHash = entryHash;
+    }
+    return true;
   }
 }
 
@@ -585,12 +891,69 @@ function mapUser(row: DbRow): UserRecord {
   return {
     id: String(row.id),
     email: String(row.email),
-    passwordHash: String(row.password_hash),
-    totpSecret: String(row.totp_secret),
+    passwordHash: row.password_hash === null ? null : String(row.password_hash),
+    totpSecret: row.totp_secret === null ? null : String(row.totp_secret),
     passkeyRequired: Boolean(row.passkey_required),
+    status: (row.status ?? 'active') as UserRecord['status'],
+    setupTokenHash: row.setup_token_hash === null || row.setup_token_hash === undefined ? null : String(row.setup_token_hash),
+    setupExpiresAt: row.setup_expires_at === null || row.setup_expires_at === undefined ? null : iso(row.setup_expires_at),
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
   };
+}
+
+function mapAuthMethod(row: DbRow): AuthMethodRecord {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    label: String(row.label),
+    encryptedTotp: String(row.encrypted_totp),
+    iv: String(row.iv),
+    authTag: String(row.auth_tag),
+    keyVersion: String(row.key_version),
+    credentialId: row.credential_id === null ? null : String(row.credential_id),
+    publicKey: row.public_key === null ? null : row.public_key as Record<string, unknown>,
+    signCount: Number(row.sign_count),
+    lastTotpStep: row.last_totp_step === null ? null : Number(row.last_totp_step),
+    active: Boolean(row.active),
+    createdAt: iso(row.created_at),
+  };
+}
+
+function mapAudit(row: DbRow): AuditRecord {
+  return {
+    id: String(row.id),
+    actor: String(row.actor),
+    actorEmail: row.actor_email === null ? null : String(row.actor_email),
+    action: String(row.action),
+    target: String(row.target),
+    details: row.details as Record<string, unknown>,
+    mutationId: row.mutation_id === null ? null : String(row.mutation_id),
+    outcome: row.outcome as AuditRecord['outcome'],
+    previousHash: row.previous_hash === null ? null : String(row.previous_hash),
+    entryHash: row.entry_hash === null ? null : String(row.entry_hash),
+    ordinal: Number(row.ordinal),
+    createdAt: iso(row.created_at),
+  };
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  return `{${Object.keys(value as Record<string, unknown>).sort().map((key) =>
+    `${JSON.stringify(key)}:${canonicalJson((value as Record<string, unknown>)[key])}`).join(',')}}`;
+}
+
+function legacyAuditDigest(rows: DbRow[]): string {
+  return createHash('sha256').update(canonicalJson(rows.map((row) => ({
+    ordinal: Number(row.ordinal),
+    id: String(row.id),
+    actor: String(row.actor),
+    action: String(row.action),
+    target: String(row.target),
+    details: row.details,
+    createdAt: iso(row.created_at),
+  })))).digest('base64url');
 }
 
 function mapPasskey(row: DbRow): PasskeyRecord {

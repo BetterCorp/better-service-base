@@ -1,4 +1,5 @@
 import * as av from 'anyvali';
+import { createHmac } from 'node:crypto';
 import {
   BSBService,
   type BSBServiceConstructor,
@@ -18,10 +19,11 @@ export const VaultServiceConfigSchema = av.object({
   port: av.int32().min(1).max(65535).default(8080).describe('HTTP port for Vault admin UI and API'),
   publicUrl: av.string().default('http://localhost:8080').describe('External URL used for admin and passkey flows'),
   production: av.bool().default(false).describe('Enable production cookie/security checks'),
-  databaseUrl: av.string().minLength(1).describe('Postgres connection string'),
-  masterKey: av.string().minLength(1).describe('Base64 encoded 32-byte Vault master key'),
+  databaseUrl: av.string().minLength(1).describe('Postgres connection string', { sensitive: true, writeonly: true }),
+  masterKey: av.string().minLength(1).describe('Base64 encoded 32-byte Vault master key', { sensitive: true, writeonly: true }),
   registryUrl: av.string().default('https://io.bsbcode.dev').describe('BSB registry URL used for plugin catalog search/import'),
-  registryToken: av.optional(av.string().minLength(1)).describe('Bearer token used to read private registry plugins'),
+  registryToken: av.optional(av.string().minLength(1).describe('Bearer token used to read private registry plugins', { sensitive: true, writeonly: true })),
+  auditDatabaseUrl: av.optional(av.string().minLength(1).describe('Optional append-only audit Postgres connection string', { sensitive: true, writeonly: true })),
 }).describe('Vault service configuration');
 
 export type VaultServiceConfig = av.Infer<typeof VaultServiceConfigSchema>;
@@ -79,10 +81,12 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     });
 
     this.setupCode = newToken(18);
-    this.store = new VaultStore(this.config.databaseUrl);
+    const masterKey = loadMasterKey(this.config.masterKey);
+    const auditKey = createHmac('sha256', masterKey).update('bsb-vault-audit-v1').digest();
+    this.store = new VaultStore(this.config.databaseUrl, auditKey, this.config.auditDatabaseUrl);
     this.vault = new VaultService({
       store: this.store,
-      masterKey: loadMasterKey(this.config.masterKey),
+      masterKey,
       setupCode: this.setupCode,
       publicUrl: this.config.publicUrl,
     });
@@ -91,6 +95,14 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   async init(obs: Observable): Promise<void> {
     obs.log.info('Initializing Vault service');
     await this.store.init();
+    try {
+      await this.vault.assertAuditWritable();
+      await this.vault.migrateLegacyAuthentication();
+    } catch (error) {
+      obs.log.warn('Vault audit is unavailable or invalid; authentication/admin mutations are blocked: {error}', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     if (await this.vault.setupRequired()) {
       obs.log.warn('Vault first admin setup required. Setup code: {setupCode}', {
         setupCode: this.setupCode,

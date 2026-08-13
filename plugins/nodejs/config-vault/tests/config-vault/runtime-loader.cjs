@@ -1,6 +1,8 @@
 const assert = require('node:assert');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
+const os = require('node:os');
+const { mkdtemp, rm } = require('node:fs/promises');
 
 function obs() {
   return {
@@ -17,6 +19,8 @@ function obs() {
 module.exports = async ({ pluginRoot }) => {
   const mod = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/config-vault/index.js')).href);
   const originalFetch = globalThis.fetch;
+  const originalNow = Date.now;
+  const cwd = await mkdtemp(path.join(os.tmpdir(), 'bsb-vault-cache-'));
   try {
     globalThis.fetch = async () => new Response(JSON.stringify({
       application: 'BetterPortal',
@@ -65,7 +69,7 @@ module.exports = async ({ pluginRoot }) => {
     const plugin = new mod.Plugin({
       appId: 'test',
       mode: 'development',
-      cwd: process.cwd(),
+      cwd,
       packageCwd: process.cwd(),
       pluginCwd: process.cwd(),
       pluginName: 'config-vault',
@@ -75,6 +79,7 @@ module.exports = async ({ pluginRoot }) => {
         apiKeyId: 'vk_test',
         apiSecret: 'vs_test',
         timeoutMs: 1000,
+        staleAllowedHours: 168,
         allowInsecureHttp: false,
       },
       sbObservable: {},
@@ -123,7 +128,31 @@ module.exports = async ({ pluginRoot }) => {
         dataset: 'betterportal',
       },
     });
+
+    globalThis.fetch = async () => { throw new Error('vault offline'); };
+    let clockReads = 0;
+    Date.now = () => originalNow() + (clockReads++ === 0 ? 0 : 16_000);
+    const cachedPlugin = new mod.Plugin({
+      appId: 'test', mode: 'development', cwd, packageCwd: cwd, pluginCwd: cwd,
+      pluginName: 'config-vault', pluginVersion: '0.0.0', sbObservable: {},
+      config: { vaultUrl: 'https://vault.example.com', apiKeyId: 'vk_test', apiSecret: 'vs_test', timeoutMs: 1000, staleAllowedHours: 168, allowInsecureHttp: false },
+    });
+    await cachedPlugin.init(testObs);
+    assert.deepStrictEqual(await cachedPlugin.getPluginConfig(testObs, 'service', 'api'), { port: 3000 });
+
+    Date.now = originalNow;
+    globalThis.fetch = async () => new Response('denied', { status: 401 });
+    const deniedPlugin = new mod.Plugin({
+      appId: 'test', mode: 'development', cwd, packageCwd: cwd, pluginCwd: cwd,
+      pluginName: 'config-vault', pluginVersion: '0.0.0', sbObservable: {},
+      config: { vaultUrl: 'https://vault.example.com', apiKeyId: 'vk_test', apiSecret: 'vs_test', timeoutMs: 1000, staleAllowedHours: 168, allowInsecureHttp: false },
+    });
+    await assert.rejects(() => deniedPlugin.init(testObs), /HTTP 401/);
+    globalThis.fetch = async () => new Response('not-json', { status: 200 });
+    await assert.rejects(() => deniedPlugin.init(testObs), /expected JSON/);
   } finally {
     globalThis.fetch = originalFetch;
+    Date.now = originalNow;
+    await rm(cwd, { recursive: true, force: true });
   }
 };

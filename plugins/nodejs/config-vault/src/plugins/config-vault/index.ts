@@ -1,4 +1,7 @@
 import * as av from 'anyvali';
+import { createCipheriv, createDecipheriv, createHash, scryptSync, randomBytes } from 'node:crypto';
+import { mkdir, readFile, rename, chmod, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   BSBConfig,
   type BSBConfigConstructor,
@@ -17,8 +20,9 @@ import type { RuntimePluginDefinition, VaultRuntimeConfig } from '../service-con
 const ConfigSchema = av.object({
   vaultUrl: av.string().minLength(1).describe('Vault service base URL'),
   apiKeyId: av.string().minLength(1).describe('Vault runtime API key id'),
-  apiSecret: av.string().minLength(1).describe('Vault runtime API secret'),
+  apiSecret: av.string().minLength(1).describe('Vault runtime API secret', { sensitive: true, writeonly: true }),
   timeoutMs: av.int32().min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
+  staleAllowedHours: av.int32().min(0).default(168).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
   allowInsecureHttp: av.bool().default(false).describe('Allow http:// Vault URLs for local development only'),
 }).describe('Vault config plugin settings');
 
@@ -41,6 +45,15 @@ interface RuntimeResolveResponse {
   config: VaultRuntimeConfig;
 }
 
+interface CachedRuntimeConfig {
+  fetchedAt: string;
+  vaultOrigin: string;
+  keyId: string;
+  response: RuntimeResolveResponse;
+}
+
+const STARTUP_BUDGET_MS = 15_000;
+
 export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
   static Config = Config;
 
@@ -57,34 +70,73 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
       throw new BSBError(obs.trace, 'config-vault requires https Vault URLs unless allowInsecureHttp is true');
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
-    let response: Response;
     try {
-      response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'x-vault-key-id': this.config.apiKeyId,
-          'x-vault-secret': this.config.apiSecret,
-        },
-        signal: controller.signal,
+      const resolved = await this.fetchWithRetry(url, obs);
+      this.applyResolved(resolved, obs);
+      await this.writeCache(url, resolved).catch((error: unknown) => {
+        obs.log.warn('Vault config loaded but encrypted cache could not be updated: {error}', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
+      return;
     } catch (error) {
-      throw new BSBError(obs.trace, 'Failed to fetch Vault config: {error}', {
-        error: error instanceof Error ? error.message : String(error),
+      if (!(error instanceof RetryableVaultError) || this.config.staleAllowedHours === 0) throw error;
+      const cached = await this.readCache(url, obs);
+      this.applyResolved(cached.response, obs);
+      obs.log.warn('Vault unavailable after {budgetMs}ms; using encrypted cached config {application}/{group}/{profile}@{version} from {fetchedAt}: {error}', {
+        budgetMs: STARTUP_BUDGET_MS,
+        application: cached.response.application,
+        group: cached.response.group,
+        profile: cached.response.profile,
+        version: cached.response.version,
+        fetchedAt: cached.fetchedAt,
+        error: error.message,
       });
-    } finally {
-      clearTimeout(timeout);
     }
+  }
 
-    if (!response.ok) {
-      throw new BSBError(obs.trace, 'Vault config fetch failed with HTTP {status}', {
-        status: response.status,
-      });
+  private async fetchWithRetry(url: URL, obs: Observable): Promise<RuntimeResolveResponse> {
+    const deadline = Date.now() + STARTUP_BUDGET_MS;
+    let lastError = new RetryableVaultError('Vault request failed');
+    for (let attempt = 1; Date.now() < deadline; attempt += 1) {
+      const remaining = deadline - Date.now();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), Math.min(this.config.timeoutMs, remaining));
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'x-vault-key-id': this.config.apiKeyId,
+            'x-vault-secret': this.config.apiSecret,
+          },
+          signal: controller.signal,
+        });
+        if (response.status >= 500) {
+          lastError = new RetryableVaultError(`Vault config fetch failed with HTTP ${response.status}`);
+        } else if (!response.ok) {
+          throw new BSBError(obs.trace, 'Vault config fetch failed with HTTP {status}', { status: response.status });
+        } else {
+          let parsed: unknown;
+          try {
+            parsed = await response.json();
+          } catch {
+            throw new BSBError(obs.trace, 'Invalid Vault response: expected JSON');
+          }
+          return parseRuntimeResolve(parsed, obs);
+        }
+      } catch (error) {
+        if (error instanceof BSBError) throw error;
+        lastError = new RetryableVaultError(error instanceof Error ? error.message : String(error));
+      } finally {
+        clearTimeout(timeout);
+      }
+      const delayMs = Math.min(250 * attempt, 1_000, Math.max(0, deadline - Date.now()));
+      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
+    throw lastError;
+  }
 
-    const parsed = await response.json() as unknown;
-    const resolved = parseRuntimeResolve(parsed, obs);
+  private applyResolved(resolved: RuntimeResolveResponse, obs: Observable): void {
     this.deploymentProfile = resolved.profile;
     this.appConfig = resolved.config;
 
@@ -107,6 +159,62 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
       profile: resolved.profile,
       version: resolved.version,
     });
+  }
+
+  private async writeCache(url: URL, response: RuntimeResolveResponse): Promise<void> {
+    const directory = join(this.cwd, '.bsb', 'config-vault');
+    const path = this.cachePath(directory, url);
+    const temp = `${path}.${process.pid}.tmp`;
+    const payload: CachedRuntimeConfig = {
+      fetchedAt: new Date().toISOString(),
+      vaultOrigin: url.origin,
+      keyId: this.config.apiKeyId,
+      response,
+    };
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', this.cacheKey(url), iv);
+    const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()]);
+    await mkdir(directory, { recursive: true });
+    await writeFile(temp, JSON.stringify({
+      iv: iv.toString('base64url'),
+      authTag: cipher.getAuthTag().toString('base64url'),
+      payload: encrypted.toString('base64url'),
+    }), { encoding: 'utf8', mode: 0o600 });
+    await rename(temp, path);
+    await chmod(path, 0o600).catch(() => undefined);
+  }
+
+  private async readCache(url: URL, obs: Observable): Promise<CachedRuntimeConfig> {
+    try {
+      const raw = JSON.parse(await readFile(this.cachePath(join(this.cwd, '.bsb', 'config-vault'), url), 'utf8')) as Record<string, unknown>;
+      const decipher = createDecipheriv('aes-256-gcm', this.cacheKey(url), Buffer.from(String(raw.iv), 'base64url'));
+      decipher.setAuthTag(Buffer.from(String(raw.authTag), 'base64url'));
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(String(raw.payload), 'base64url')),
+        decipher.final(),
+      ]);
+      const cached = JSON.parse(decrypted.toString('utf8')) as CachedRuntimeConfig;
+      if (cached.vaultOrigin !== url.origin || cached.keyId !== this.config.apiKeyId) throw new Error('cache binding mismatch');
+      const ageMs = Date.now() - Date.parse(cached.fetchedAt);
+      if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > this.config.staleAllowedHours * 60 * 60 * 1000) {
+        throw new Error('cache expired');
+      }
+      cached.response = parseRuntimeResolve(cached.response, obs);
+      return cached;
+    } catch (error) {
+      throw new BSBError(obs.trace, 'Vault is unavailable and no valid cached config can be used: {error}', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private cacheKey(url: URL): Buffer {
+    return scryptSync(this.config.apiSecret, `${url.origin}\0${this.config.apiKeyId}`, 32);
+  }
+
+  private cachePath(directory: string, url: URL): string {
+    const binding = createHash('sha256').update(`${url.origin}\0${this.config.apiKeyId}`).digest('hex');
+    return join(directory, `${binding}.json`);
   }
 
   async getServicePluginDefinition(
@@ -179,6 +287,8 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
     return services;
   }
 }
+
+class RetryableVaultError extends Error {}
 
 function mapEnabledPlugins<T extends PluginDefinition | EventsConfig | ObservableConfig>(
   plugins: Record<string, RuntimePluginDefinition>,

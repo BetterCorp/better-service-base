@@ -7,12 +7,17 @@ module.exports = async ({ pluginRoot }) => {
   const crypto = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/crypto.js')).href);
 
   const users = [];
+  const authMethods = [];
   const audits = [];
   const store = {
     async countAdmins() { return users.length; },
     async createUser(user) { users.push(user); },
+    async getUser(id) { return users.find((user) => user.id === id) ?? null; },
     async getUserByEmail(email) { return users.find((user) => user.email === email) ?? null; },
     async listPasskeys() { return []; },
+    async listAuthMethods(userId) { return authMethods.filter((method) => method.userId === userId); },
+    async createAuthMethod(method) { authMethods.push(method); },
+    async clearLegacyTotp(userId) { const user = users.find((item) => item.id === userId); if (user) user.totpSecret = null; },
     async createPasskey() { throw new Error('passkeys should not be created during first setup'); },
     async setUserPasskeyRequired() { throw new Error('passkey should not be marked required during first setup'); },
     async updatePasskeyCounter() { throw new Error('passkey counter should not change during first setup'); },
@@ -43,6 +48,8 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(users.length, 1);
   assert.equal(users[0].email, 'admin@example.com');
   assert.equal(users[0].passkeyRequired, false);
+  assert.equal(authMethods.length, 1);
+  assert.equal(authMethods[0].active, false);
   assert.equal(result.email, 'admin@example.com');
   assert.match(result.totpSecret, /^[A-Z2-7]+$/);
   assert.match(result.totpUri, /^otpauth:\/\/totp\//);

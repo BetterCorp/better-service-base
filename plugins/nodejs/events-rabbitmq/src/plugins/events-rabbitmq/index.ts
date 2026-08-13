@@ -26,7 +26,7 @@ const ConfigSchema = av.object({
   endpoints: av.array(av.string()).default(["amqp://localhost"]).describe("RabbitMQ connection endpoint URLs"),
   credentials: av.object({
     username: av.string().default("guest").describe("RabbitMQ username"),
-    password: av.string().default("guest").describe("RabbitMQ password"),
+    password: av.string().default("guest").describe("RabbitMQ password", { sensitive: true, writeonly: true }),
   }).default({ username: "guest", password: "guest" }).describe("RabbitMQ authentication credentials"),
   uniqueId: av.nullable(av.string()).default(null).describe("Optional stable instance ID used in event consumer identity"),
 }).describe("RabbitMQ events plugin configuration");

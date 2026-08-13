@@ -6,15 +6,16 @@ import {
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
-import { decryptJson, encryptJson, hashSecret, newId, newToken, createTotpSecret, createTotpUri, verifySecret, verifyTotp } from './crypto.js';
+import { createHash } from 'node:crypto';
+import { decryptJson, encryptJson, hashSecret, newId, newToken, createTotpSecret, createTotpUri, verifySecret, verifyTotp, matchingTotpStep } from './crypto.js';
 import { VaultStore } from './store.js';
 import type {
   ApplicationRecord,
+  AuthMethodRecord,
   ApplicationProfileRecord,
   FirstAdminInput,
   FirstAdminResult,
   LoginStartResult,
-  PasskeyRecord,
   GroupRecord,
   PluginCatalogRecord,
   ProfileRecord,
@@ -52,8 +53,11 @@ export class VaultService {
   private readonly origin: string;
   private readonly rpId: string;
   private readonly pendingPasskeySetups = new Map<string, { userId: string; expiresAt: number }>();
-  private readonly registrationChallenges = new Map<string, { userId: string; challenge: string; expiresAt: number }>();
+  private readonly registrationChallenges = new Map<string, { userId: string; methodId: string; challenge: string; expiresAt: number }>();
   private readonly authenticationChallenges = new Map<string, { userId: string; challenge: string; expiresAt: number }>();
+  private readonly pendingTotpLogins = new Map<string, { userId: string; methodId: string; expiresAt: number }>();
+  private readonly verifiedEnrollments = new Map<string, number>();
+  private readonly attempts = new Map<string, { count: number; resetAt: number }>();
 
   constructor(options: VaultServiceOptions) {
     this.store = options.store;
@@ -66,6 +70,32 @@ export class VaultService {
 
   async setupRequired(): Promise<boolean> {
     return (await this.store.countAdmins()) === 0;
+  }
+
+  async migrateLegacyAuthentication(): Promise<void> {
+    for (const user of await this.store.listUsers()) {
+      if ((await this.store.listAuthMethods(user.id)).length > 0 || !user.totpSecret) continue;
+      const passkeys = await this.store.listPasskeys(user.id);
+      const encrypted = encryptJson(user.totpSecret, this.masterKey);
+      if (passkeys.length === 0) {
+        await this.store.createAuthMethod({
+          id: newId(), userId: user.id, label: 'Migrated authenticator',
+          encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
+          credentialId: null, publicKey: null, signCount: 0, lastTotpStep: null, active: false, createdAt: new Date().toISOString(),
+        });
+      } else {
+        for (const [index, passkey] of passkeys.entries()) {
+          await this.store.createAuthMethod({
+            id: passkey.id, userId: user.id, label: `Migrated passkey ${index + 1}`,
+            encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
+            credentialId: passkey.credentialId, publicKey: passkey.publicKey, signCount: passkey.signCount,
+            lastTotpStep: null, active: true, createdAt: passkey.createdAt,
+          });
+        }
+      }
+      await this.store.clearLegacyTotp(user.id);
+      await this.audit('system', 'authentication.legacy.migrated', user.id, { pairedMethods: Math.max(passkeys.length, 1) });
+    }
   }
 
   async createFirstAdmin(input: FirstAdminInput): Promise<FirstAdminResult> {
@@ -81,6 +111,8 @@ export class VaultService {
     if (input.password !== input.passwordConfirm) {
       throw new Error('Passwords do not match');
     }
+    const email = input.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Valid email is required');
 
     const now = new Date().toISOString();
     const totpSecret = createTotpSecret();
@@ -88,31 +120,52 @@ export class VaultService {
     const userId = newId();
     await this.store.createUser({
       id: userId,
-      email: input.email,
+      email,
       passwordHash: await hashSecret(input.password),
       totpSecret,
       passkeyRequired: false,
+      status: 'active',
+      setupTokenHash: null,
+      setupExpiresAt: null,
       createdAt: now,
       updatedAt: now,
     });
+    const encrypted = encryptJson(totpSecret, this.masterKey);
+    await this.store.createAuthMethod({
+      id: newId(), userId, label: 'Primary authenticator',
+      encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
+      credentialId: null, publicKey: null, signCount: 0, lastTotpStep: null, active: false, createdAt: now,
+    });
+    await this.store.clearLegacyTotp(userId);
 
-    await this.audit('setup', 'admin.created', userId, { email: input.email });
+    await this.audit('setup', 'admin.created', userId, { email });
     return {
-      email: input.email,
+      email,
       totpSecret,
-      totpUri: createTotpUri(totpSecret, input.email),
+      totpUri: createTotpUri(totpSecret, email),
     };
   }
 
   async login(email: string, password: string, totpCode: string): Promise<LoginStartResult> {
-    const user = await this.store.getUserByEmail(email);
-    if (!user || !(await verifySecret(password, user.passwordHash)) || !verifyTotp(user.totpSecret, totpCode)) {
+    this.checkRateLimit(`login:${email.toLowerCase()}`);
+    const user = await this.store.getUserByEmail(email.trim().toLowerCase());
+    if (!user || user.status !== 'active' || !user.passwordHash || !(await verifySecret(password, user.passwordHash))) {
+      this.recordFailure(`login:${email.toLowerCase()}`);
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
     }
 
-    const keys = await this.store.listPasskeys(user.id);
-    if (keys.length === 0) {
+    const methods = await this.store.listAuthMethods(user.id);
+    const activeMethods = methods.filter((method) => method.active && method.credentialId);
+    if (activeMethods.length === 0) {
+      const pending = methods.find((method) => !method.active);
+      if (pending && !totpCode) return { status: 'totp_setup_verification_required' };
+      if (!pending || !this.verifyMethodTotp(pending, totpCode)) {
+        this.recordFailure(`login:${email.toLowerCase()}`);
+        await this.audit('anonymous', 'admin.login.failed', email, {});
+        throw new Error('Invalid login');
+      }
+      this.verifiedEnrollments.set(pending.id, Date.now() + 10 * 60 * 1000);
       const setupToken = newToken();
       this.pendingPasskeySetups.set(setupToken, { userId: user.id, expiresAt: Date.now() + 10 * 60 * 1000 });
       await this.audit(user.id, 'admin.passkey.setup.required', user.id, {});
@@ -121,7 +174,7 @@ export class VaultService {
 
     const options = await generateAuthenticationOptions({
       rpID: this.rpId,
-      allowCredentials: keys.map((key) => ({ id: key.credentialId })),
+      allowCredentials: activeMethods.map((method) => ({ id: method.credentialId! })),
       userVerification: 'required',
     });
     const challengeId = newToken();
@@ -133,15 +186,14 @@ export class VaultService {
     return { status: 'passkey_required', challengeId, options: options as unknown as Record<string, unknown> };
   }
 
-  async finishLogin(challengeId: string, credential: Record<string, unknown>): Promise<{ sessionId: string; csrfToken: string }> {
+  async finishLogin(challengeId: string, credential: Record<string, unknown>): Promise<{ totpToken: string; methodLabel: string }> {
     const challenge = this.authenticationChallenges.get(challengeId);
     this.authenticationChallenges.delete(challengeId);
     if (!challenge || challenge.expiresAt < Date.now()) throw new Error('Passkey challenge expired');
 
-    const keys = await this.store.listPasskeys(challenge.userId);
     const responseId = typeof credential.id === 'string' ? credential.id : '';
-    const key = keys.find((candidate) => candidate.credentialId === responseId);
-    if (!key) {
+    const method = await this.store.getAuthMethodByCredential(responseId);
+    if (!method || method.userId !== challenge.userId) {
       await this.audit(challenge.userId, 'admin.passkey.failed', challenge.userId, {});
       throw new Error('Invalid passkey');
     }
@@ -151,27 +203,75 @@ export class VaultService {
       expectedChallenge: challenge.challenge,
       expectedOrigin: this.origin,
       expectedRPID: this.rpId,
-      credential: toWebAuthnCredential(key),
+      credential: toWebAuthnCredential(method),
       requireUserVerification: true,
     });
     if (!verification.verified) {
       await this.audit(challenge.userId, 'admin.passkey.failed', challenge.userId, {});
       throw new Error('Invalid passkey');
     }
-    await this.store.updatePasskeyCounter(key.id, verification.authenticationInfo.newCounter);
+    await this.store.updateAuthMethodCounter(method.id, verification.authenticationInfo.newCounter);
+    await this.audit(challenge.userId, 'admin.passkey.verified', method.id, {});
+    const totpToken = newToken();
+    this.pendingTotpLogins.set(totpToken, { userId: challenge.userId, methodId: method.id, expiresAt: Date.now() + 5 * 60 * 1000 });
+    return { totpToken, methodLabel: method.label };
+  }
 
+  async finishTotpLogin(totpToken: string, code: string): Promise<{ sessionId: string; csrfToken: string }> {
+    const pending = this.pendingTotpLogins.get(totpToken);
+    this.checkRateLimit(`totp:${pending?.userId ?? 'invalid'}`);
+    this.pendingTotpLogins.delete(totpToken);
+    if (!pending || pending.expiresAt < Date.now()) throw new Error('TOTP challenge expired');
+    const method = await this.store.getAuthMethod(pending.methodId);
+    if (!method || !method.active) throw new Error('Invalid authentication method');
+    const step = matchingTotpStep(this.decryptMethodTotp(method), code);
+    if (step === null || !(await this.store.useTotpStep(method.id, step))) {
+      this.recordFailure(`totp:${pending.userId}`);
+      await this.audit(pending.userId, 'admin.totp.failed', method.id, {});
+      throw new Error('Invalid TOTP code');
+    }
     const sessionId = newToken();
     const csrfToken = newToken();
     const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
-    await this.store.createSession({ id: sessionId, userId: challenge.userId, csrfToken, expiresAt });
-    await this.audit(challenge.userId, 'admin.login', challenge.userId, {});
+    await this.store.createSession({ id: sessionId, userId: pending.userId, csrfToken, expiresAt });
+    await this.audit(pending.userId, 'admin.login', pending.userId, { authMethodId: method.id });
     return { sessionId, csrfToken };
   }
 
-  async startPasskeyRegistration(userId: string): Promise<Record<string, unknown>> {
+  async startAuthMethodEnrollment(userId: string, label: string): Promise<{ methodId: string; totpSecret: string; totpUri: string }> {
     const user = await this.store.getUser(userId);
     if (!user) throw new Error('User not found');
-    const keys = await this.store.listPasskeys(user.id);
+    if (!label.trim()) throw new Error('Authentication method name is required');
+    const secret = createTotpSecret();
+    const encrypted = encryptJson(secret, this.masterKey);
+    const methodId = newId();
+    await this.store.createAuthMethod({
+      id: methodId, userId, label: label.trim(),
+      encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
+      credentialId: null, publicKey: null, signCount: 0, lastTotpStep: null, active: false, createdAt: new Date().toISOString(),
+    });
+    await this.audit(userId, 'admin.auth-method.enrollment.started', methodId, { label: label.trim() });
+    return { methodId, totpSecret: secret, totpUri: createTotpUri(secret, user.email) };
+  }
+
+  async verifyAuthMethodEnrollmentTotp(userId: string, methodId: string, code: string): Promise<Record<string, unknown>> {
+    const method = await this.store.getAuthMethod(methodId);
+    if (!method || method.userId !== userId || method.active || !this.verifyMethodTotp(method, code)) {
+      throw new Error('Invalid TOTP code');
+    }
+    this.verifiedEnrollments.set(method.id, Date.now() + 10 * 60 * 1000);
+    return this.startPasskeyRegistration(userId, method.id);
+  }
+
+  async startPasskeyRegistration(userId: string, methodId?: string): Promise<Record<string, unknown>> {
+    const user = await this.store.getUser(userId);
+    if (!user) throw new Error('User not found');
+    const methods = await this.store.listAuthMethods(user.id);
+    const method = methodId ? methods.find((item) => item.id === methodId) : methods.find((item) => !item.active);
+    if (!method || method.active || (this.verifiedEnrollments.get(method.id) ?? 0) < Date.now()) {
+      throw new Error('Verify TOTP before registering the paired passkey');
+    }
+    const keys = methods.filter((item) => item.active && item.credentialId);
     const options = await generateRegistrationOptions({
       rpName: 'BSB Vault',
       rpID: this.rpId,
@@ -182,10 +282,11 @@ export class VaultService {
         residentKey: 'preferred',
         userVerification: 'required',
       },
-      excludeCredentials: keys.map((key) => ({ id: key.credentialId })),
+      excludeCredentials: keys.map((key) => ({ id: key.credentialId! })),
     });
     this.registrationChallenges.set(user.id, {
       userId: user.id,
+      methodId: method.id,
       challenge: options.challenge,
       expiresAt: Date.now() + 5 * 60 * 1000,
     });
@@ -207,19 +308,20 @@ export class VaultService {
     if (!verification.verified) throw new Error('Invalid passkey registration');
 
     const registered = verification.registrationInfo.credential;
-    await this.store.createPasskey({
-      id: newId(),
-      userId,
-      credentialId: registered.id,
-      publicKey: {
+    await this.store.completeAuthMethod(
+      challenge.methodId,
+      registered.id,
+      {
         publicKey: isoBase64URL.fromBuffer(registered.publicKey),
         transports: registered.transports ?? [],
       },
-      signCount: registered.counter,
-      createdAt: new Date().toISOString(),
-    });
+      registered.counter,
+    );
+    this.verifiedEnrollments.delete(challenge.methodId);
     await this.store.setUserPasskeyRequired(userId, true);
-    await this.audit(userId, 'admin.passkey.created', userId, {});
+    const user = await this.store.getUser(userId);
+    if (user?.status === 'pending' && user.passwordHash) await this.store.activateUser(userId);
+    await this.audit(userId, 'admin.auth-method.created', challenge.methodId, {});
   }
 
   consumePasskeySetupToken(token?: string): string {
@@ -236,8 +338,9 @@ export class VaultService {
     if (token) this.pendingPasskeySetups.delete(token);
   }
 
-  async logout(sessionId: string): Promise<void> {
+  async logout(sessionId: string, userId: string): Promise<void> {
     await this.store.deleteSession(sessionId);
+    await this.audit(userId, 'admin.logout', userId, {});
   }
 
   async requireSession(sessionId?: string): Promise<{ userId: string; csrfToken: string }> {
@@ -255,7 +358,7 @@ export class VaultService {
       createdAt: new Date().toISOString(),
     };
     await this.store.createApplication(record);
-    await this.ensureApplicationProfile(record.id, 'default');
+    await this.ensureApplicationProfile(record.id, 'default', userId);
     await this.audit(userId, 'application.create', record.id, { name });
     return record;
   }
@@ -398,7 +501,7 @@ export class VaultService {
     await this.saveDraft(userId, profileId, { [binding.profile.name]: config });
   }
 
-  async ensureApplicationProfile(applicationId: string, name: string): Promise<ApplicationProfileRecord> {
+  async ensureApplicationProfile(applicationId: string, name: string, userId?: string): Promise<ApplicationProfileRecord> {
     const existing = await this.store.getApplicationProfile(applicationId, name);
     if (existing) return existing;
     const record: ApplicationProfileRecord = {
@@ -409,7 +512,9 @@ export class VaultService {
       createdAt: new Date().toISOString(),
     };
     await this.store.createApplicationProfile(record);
-    return await this.store.getApplicationProfile(applicationId, name) ?? record;
+    const created = await this.store.getApplicationProfile(applicationId, name) ?? record;
+    if (userId) await this.audit(userId, 'application-profile.create', created.id, { applicationId, name });
+    return created;
   }
 
   async saveApplicationProfileDraft(userId: string, applicationProfileId: string, config: RuntimeConfigDefinition): Promise<void> {
@@ -465,12 +570,19 @@ export class VaultService {
       version?: string | null;
       enabled: boolean;
       config?: Record<string, unknown>;
+      sensitiveClearPaths?: string[];
     },
   ): Promise<void> {
     validateConfigName(input.name);
     const draft = await this.getApplicationProfileDraft(input.applicationProfileId) ?? { observable: {}, events: {}, services: {} };
     const section = draft[input.section] ?? {};
     const catalog = await this.resolveCatalogPlugin(input);
+    input.config = mergeSensitiveConfig(
+      catalog.configSchema,
+      input.config ?? {},
+      section[input.name]?.config ?? {},
+      input.sensitiveClearPaths ?? [],
+    );
     const config = await this.validatePluginConfig(input, catalog);
     section[input.name] = {
       plugin: catalog.pluginId,
@@ -515,6 +627,7 @@ export class VaultService {
       baseEnabled?: boolean;
       baseConfig?: Record<string, unknown>;
       overridePaths?: string[];
+      sensitiveClearPaths?: string[];
     },
   ): Promise<void> {
     validateConfigName(input.name);
@@ -523,6 +636,12 @@ export class VaultService {
     const draft = await this.getProfileDraft(input.profileId) ?? { observable: {}, events: {}, services: {} };
     const section = draft[input.section] ?? {};
     const catalog = await this.resolveCatalogPlugin(input);
+    input.config = mergeSensitiveConfig(
+      catalog.configSchema,
+      input.config ?? {},
+      section[input.name]?.config ?? {},
+      input.sensitiveClearPaths ?? [],
+    );
     const config = input.overridePaths
       ? await this.validatePluginConfigPaths(input, catalog, input.overridePaths)
       : await this.validatePluginConfig(input, catalog) ?? {};
@@ -712,7 +831,7 @@ export class VaultService {
   async resolveRuntimeConfig(keyId: string, secret: string, obs?: Observable): Promise<ResolvedRuntimeConfig> {
     const binding = await this.store.resolveRuntimeBinding(keyId);
     if (!binding || !(await verifySecret(secret, binding.key.secretHash))) {
-      await this.audit(keyId, 'runtime-config.auth.failed', keyId, {});
+      await this.audit(keyId, 'runtime-config.auth.failed', keyId, {}).catch(() => undefined);
       throw new Error('Invalid Vault API key');
     }
 
@@ -745,7 +864,11 @@ export class VaultService {
       group: binding.group.name,
       profile: binding.profile.name,
     });
-    await this.audit(keyId, 'runtime-config.read', binding.profile.id, { version: version.version });
+    await this.audit(keyId, 'runtime-config.read', binding.profile.id, { version: version.version }).catch((error: unknown) => {
+      obs?.log.warn('Vault runtime config resolved but audit write failed: {error}', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     return {
       application: binding.application.name,
       group: binding.group.name,
@@ -908,7 +1031,7 @@ export class VaultService {
     }
   }
 
-  async deploymentProfile(profileId: string): Promise<{
+  async deploymentProfile(profileId: string, userId?: string): Promise<{
     application: ApplicationRecord;
     group: GroupRecord;
     profile: ProfileRecord;
@@ -926,7 +1049,7 @@ export class VaultService {
   }> {
     const binding = await this.store.resolveProfileBinding(profileId);
     if (!binding) throw new Error('Deployment profile not found');
-    const applicationProfile = await this.ensureApplicationProfile(binding.application.id, binding.profile.name);
+    const applicationProfile = await this.ensureApplicationProfile(binding.application.id, binding.profile.name, userId);
     return {
       application: binding.application,
       group: binding.group,
@@ -945,7 +1068,7 @@ export class VaultService {
     };
   }
 
-  async applicationProfile(applicationId: string, profileName: string): Promise<{
+  async applicationProfile(applicationId: string, profileName: string, userId?: string): Promise<{
     application: ApplicationRecord;
     applicationProfile: ApplicationProfileRecord;
     applicationProfiles: ApplicationProfileRecord[];
@@ -955,7 +1078,7 @@ export class VaultService {
   }> {
     const application = await this.store.getApplication(applicationId);
     if (!application) throw new Error('Application not found');
-    const applicationProfile = await this.ensureApplicationProfile(applicationId, profileName);
+    const applicationProfile = await this.ensureApplicationProfile(applicationId, profileName, userId);
     return {
       application,
       applicationProfile,
@@ -978,7 +1101,109 @@ export class VaultService {
     return configState(draft?.updatedAt ?? null, version?.publishedAt ?? null);
   }
 
-  async userProfile(userId: string): Promise<{ user: { id: string; email: string; createdAt: string }; passkeys: PasskeyRecord[] }> {
+  async users(): Promise<Array<{ id: string; email: string; status: string; createdAt: string; authMethodCount: number }>> {
+    return Promise.all((await this.store.listUsers()).map(async (user) => ({
+      id: user.id,
+      email: user.email,
+      status: user.status,
+      createdAt: user.createdAt,
+      authMethodCount: (await this.store.listAuthMethods(user.id, true)).length,
+    })));
+  }
+
+  async inviteUser(actorId: string, email: string): Promise<{ setupUrl: string }> {
+    const normalized = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw new Error('Valid email is required');
+    if (await this.store.getUserByEmail(normalized)) throw new Error('User already exists');
+    const token = newToken(32);
+    const now = new Date().toISOString();
+    const userId = newId();
+    await this.store.createUser({
+      id: userId,
+      email: normalized,
+      passwordHash: null,
+      totpSecret: null,
+      passkeyRequired: true,
+      status: 'pending',
+      setupTokenHash: tokenHash(token),
+      setupExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: now,
+      updatedAt: now,
+    });
+    await this.audit(actorId, 'user.invited', userId, { email: normalized });
+    return { setupUrl: `${this.origin}/user-setup#token=${encodeURIComponent(token)}` };
+  }
+
+  async beginInvitedUserSetup(token: string, password: string, passwordConfirm: string, label: string): Promise<{ userId: string; methodId: string; totpSecret: string; totpUri: string }> {
+    const user = await this.store.getUserBySetupTokenHash(tokenHash(token));
+    if (!user) throw new Error('Setup link is invalid or expired');
+    if (password.length < 12) throw new Error('Password must be at least 12 characters');
+    if (password !== passwordConfirm) throw new Error('Passwords do not match');
+    if (user.passwordHash) {
+      if (!(await verifySecret(password, user.passwordHash))) throw new Error('Setup has already started with a different password');
+      const pending = (await this.store.listAuthMethods(user.id)).find((method) => !method.active);
+      if (!pending) throw new Error('Setup has already been completed');
+      const totpSecret = this.decryptMethodTotp(pending);
+      return { userId: user.id, methodId: pending.id, totpSecret, totpUri: createTotpUri(totpSecret, user.email) };
+    }
+    await this.store.setPendingPassword(user.id, await hashSecret(password));
+    const enrollment = await this.startAuthMethodEnrollment(user.id, label);
+    return { userId: user.id, ...enrollment };
+  }
+
+  async setupUserId(token: string): Promise<string> {
+    const user = await this.store.getUserBySetupTokenHash(tokenHash(token));
+    if (!user) throw new Error('Setup link is invalid or expired');
+    return user.id;
+  }
+
+  async exchangeUserSetupToken(token: string): Promise<string> {
+    const currentHash = tokenHash(token);
+    const user = await this.store.getUserBySetupTokenHash(currentHash);
+    if (!user) throw new Error('Setup link is invalid or expired');
+    const sessionToken = newToken(32);
+    if (!(await this.store.rotateUserSetupToken(user.id, currentHash, tokenHash(sessionToken)))) {
+      throw new Error('Setup link has already been used');
+    }
+    await this.audit(user.id, 'user.setup-link.exchanged', user.id, {});
+    return sessionToken;
+  }
+
+  async deactivateUser(actorId: string, userId: string): Promise<void> {
+    const target = await this.store.getUser(userId);
+    if (!target) throw new Error('User not found');
+    if (!(await this.store.suspendUser(userId, 'inactive'))) throw new Error('Cannot deactivate the last active admin');
+    await this.audit(actorId, 'user.deactivated', userId, { email: target.email });
+  }
+
+  async resetUser(actorId: string, userId: string): Promise<{ setupUrl: string }> {
+    const target = await this.store.getUser(userId);
+    if (!target) throw new Error('User not found');
+    const token = newToken(32);
+    if (!(await this.store.suspendUser(userId, 'pending', {
+      hash: tokenHash(token),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    }))) throw new Error('Cannot reset the last active admin');
+    await this.audit(actorId, 'user.reset', userId, { email: target.email });
+    return { setupUrl: `${this.origin}/user-setup#token=${encodeURIComponent(token)}` };
+  }
+
+  async deleteOwnAuthMethod(userId: string, methodId: string): Promise<void> {
+    if (!(await this.store.deleteAuthMethod(methodId, userId))) {
+      throw new Error('At least one TOTP and passkey pair is required');
+    }
+    await this.audit(userId, 'admin.auth-method.deleted', methodId, {});
+  }
+
+  async auditLog(before?: number): Promise<{ valid: boolean; entries: Awaited<ReturnType<VaultStore['listAudit']>> }> {
+    return { valid: await this.store.verifyAuditChain(), entries: await this.store.listAudit(100, before) };
+  }
+
+  async assertAuditWritable(): Promise<void> {
+    await this.store.assertAuditWritable();
+  }
+
+  async userProfile(userId: string): Promise<{ user: { id: string; email: string; createdAt: string }; authMethods: AuthMethodRecord[] }> {
     const user = await this.store.getUser(userId);
     if (!user) throw new Error('User not found');
     return {
@@ -987,7 +1212,7 @@ export class VaultService {
         email: user.email,
         createdAt: user.createdAt,
       },
-      passkeys: await this.store.listPasskeys(user.id),
+      authMethods: await this.store.listAuthMethods(user.id, true),
     };
   }
 
@@ -1000,14 +1225,43 @@ export class VaultService {
   }
 
   private async audit(actor: string, action: string, target: string, details: Record<string, unknown>): Promise<void> {
+    const actorUser = await this.store.getUser(actor).catch(() => null);
     await this.store.audit({
       id: newId(),
       actor,
+      actorEmail: actorUser?.email ?? null,
       action,
       target,
       details,
       createdAt: new Date().toISOString(),
     });
+  }
+
+  private decryptMethodTotp(method: AuthMethodRecord): string {
+    return decryptJson<string>({
+      encryptedPayload: method.encryptedTotp,
+      iv: method.iv,
+      authTag: method.authTag,
+      keyVersion: method.keyVersion,
+    }, this.masterKey);
+  }
+
+  private verifyMethodTotp(method: AuthMethodRecord, code: string): boolean {
+    return verifyTotp(this.decryptMethodTotp(method), code);
+  }
+
+  private checkRateLimit(key: string): void {
+    const attempt = this.attempts.get(key);
+    if (attempt && attempt.resetAt > Date.now() && attempt.count >= 5) {
+      throw new Error('Too many authentication attempts; try again later');
+    }
+  }
+
+  private recordFailure(key: string): void {
+    const current = this.attempts.get(key);
+    this.attempts.set(key, !current || current.resetAt <= Date.now()
+      ? { count: 1, resetAt: Date.now() + 5 * 60 * 1000 }
+      : { ...current, count: current.count + 1 });
   }
 
   private async validatePluginConfig(input: {
@@ -1073,11 +1327,15 @@ export class VaultService {
   }
 }
 
-function toWebAuthnCredential(passkey: PasskeyRecord) {
-  const stored = passkey.publicKey as { publicKey?: string; transports?: string[] };
-  if (typeof stored.publicKey !== 'string') throw new Error('Invalid stored passkey');
+function tokenHash(token: string): string {
+  return createHash('sha256').update(token).digest('base64url');
+}
+
+function toWebAuthnCredential(passkey: AuthMethodRecord) {
+  const stored = passkey.publicKey as { publicKey?: string; transports?: string[] } | null;
+  if (!stored || typeof stored.publicKey !== 'string') throw new Error('Invalid stored passkey');
   return {
-    id: passkey.credentialId,
+    id: passkey.credentialId!,
     publicKey: isoBase64URL.toBuffer(stored.publicKey),
     counter: passkey.signCount,
     transports: stored.transports as never,
@@ -1089,18 +1347,18 @@ const omitted = Symbol('omitted');
 type ValidationValue = unknown | typeof omitted;
 
 function validateSchemaNode(node: Record<string, unknown>, value: unknown, path: string, required: boolean): ValidationValue {
-  if (value === undefined || value === '') {
+  if (value === undefined) {
     if ('default' in node) return cloneDefault(node.default);
     if (!required || node.kind === 'optional') return omitted;
     if (node.kind === 'object') return validateObjectNode(node, {}, path);
   }
 
   if (node.kind === 'optional') {
-    if (value === undefined || value === '') return omitted;
+    if (value === undefined) return omitted;
     return validateSchemaNode(requireObject(node.inner, path), value, path, false);
   }
   if (node.kind === 'nullable') {
-    if (value === null || value === '') return null;
+    if (value === null) return null;
     return validateSchemaNode(requireObject(node.inner, path), value, path, required);
   }
 
@@ -1443,6 +1701,47 @@ function setValueAtPath(target: Record<string, unknown>, path: string, value: un
     current = current[part] as Record<string, unknown>;
   }
   current[parts[parts.length - 1] ?? path] = cloneJson(value);
+}
+
+function mergeSensitiveConfig(
+  schema: Record<string, unknown> | null,
+  incoming: Record<string, unknown>,
+  existing: Record<string, unknown>,
+  clearPaths: string[],
+): Record<string, unknown> {
+  const output = cloneJson(incoming) as Record<string, unknown>;
+  const root = objectField(objectField(schema?.root) ?? schema);
+  if (!root) return output;
+  const clear = new Set(clearPaths);
+  for (const path of sensitiveSchemaPaths(root)) {
+    if (clear.has(path)) {
+      deleteValueAtPath(output, path);
+      continue;
+    }
+    const prior = valueAtPath(existing, path);
+    if (valueAtPath(output, path) === undefined && prior !== undefined) setValueAtPath(output, path, prior);
+  }
+  return output;
+}
+
+function sensitiveSchemaPaths(node: Record<string, unknown>, prefix = ''): string[] {
+  const unwrapped = unwrapSchemaNode(node);
+  const rawMetadata = objectField(node.metadata);
+  const metadata = objectField(unwrapped?.metadata);
+  if (prefix && (rawMetadata?.sensitive === true || rawMetadata?.writeonly === true ||
+      metadata?.sensitive === true || metadata?.writeonly === true)) return [prefix];
+  if (!unwrapped || unwrapped.kind !== 'object') return [];
+  return Object.entries(objectField(unwrapped.properties) ?? {}).flatMap(([key, value]) => {
+    const child = objectField(value);
+    return child ? sensitiveSchemaPaths(child, prefix ? `${prefix}.${key}` : key) : [];
+  });
+}
+
+function deleteValueAtPath(target: Record<string, unknown>, path: string): void {
+  const parts = path.split('.');
+  let current: Record<string, unknown> | null = target;
+  for (const part of parts.slice(0, -1)) current = objectField(current?.[part]);
+  if (current) delete current[parts[parts.length - 1] ?? path];
 }
 
 function configState(draftUpdatedAt: string | null, publishedAt: string | null): ConfigState {

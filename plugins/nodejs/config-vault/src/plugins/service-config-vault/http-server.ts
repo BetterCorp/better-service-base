@@ -1,4 +1,5 @@
 import { createServer, type Server } from 'node:http';
+import { randomBytes } from 'node:crypto';
 import {
   createApp,
   createError,
@@ -41,6 +42,9 @@ export class VaultHttpServer {
   }
 
   async start(): Promise<void> {
+    if (this.options.production && new URL(this.options.publicUrl).protocol !== 'https:') {
+      throw new Error('Vault production publicUrl must use HTTPS');
+    }
     const app = createApp({
       onError: async (error, event) => {
         if (error.statusCode !== 401) return;
@@ -55,6 +59,20 @@ export class VaultHttpServer {
       },
     });
 
+    app.use(defineEventHandler(async (event) => {
+      setResponseHeader(event, 'cache-control', 'no-store');
+      setResponseHeader(event, 'x-content-type-options', 'nosniff');
+      setResponseHeader(event, 'referrer-policy', 'no-referrer');
+      setResponseHeader(event, 'x-frame-options', 'DENY');
+      setResponseHeader(event, 'permissions-policy', 'camera=(), microphone=(), geolocation=()');
+      setResponseHeader(event, 'content-security-policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+      if (this.options.production) setResponseHeader(event, 'strict-transport-security', 'max-age=31536000; includeSubDomains');
+      if (getMethod(event) === 'POST') {
+        // ponytail: O(n) integrity verification per admin mutation; checkpoint hashes if audit volume makes this measurable.
+        await this.options.vault.assertAuditWritable();
+      }
+    }));
+
     app.use('/health', defineEventHandler(() => ({ status: 'ok' })));
 
     app.use('/runtime/config', defineEventHandler(async (event) => {
@@ -65,7 +83,7 @@ export class VaultHttpServer {
     }));
 
     app.use('/setup', defineEventHandler(async (event) => {
-      if (getMethod(event) === 'GET') return this.page('Vault Setup', setupForm(), 'overview', false);
+      if (getMethod(event) === 'GET') return this.page(event, 'Vault Setup', setupForm(), 'overview', false);
       const body = await readBody<Record<string, unknown>>(event);
       const result = await this.options.vault.createFirstAdmin({
         setupCode: String(body.setupCode ?? ''),
@@ -73,7 +91,55 @@ export class VaultHttpServer {
         password: String(body.password ?? ''),
         passwordConfirm: String(body.passwordConfirm ?? ''),
       });
-      return this.page('Vault Setup Complete', setupComplete(result.email, result.totpSecret, result.totpUri), 'overview', false);
+      return this.page(event, 'Vault Setup Complete', setupComplete(result.email, result.totpSecret, result.totpUri), 'overview', false);
+    }));
+
+    app.use('/user-setup/exchange', defineEventHandler(async (event) => {
+      const body = await readBody<Record<string, unknown>>(event);
+      const token = String(body.token ?? '');
+      const sessionToken = await this.options.vault.exchangeUserSetupToken(token);
+      setCookie(event, 'vault_user_setup', sessionToken, {
+        httpOnly: true,
+        sameSite: 'strict',
+        secure: this.options.production,
+        path: '/user-setup',
+        maxAge: 24 * 60 * 60,
+      });
+      return { success: true };
+    }));
+
+    app.use('/user-setup/start', defineEventHandler(async (event) => {
+      const token = getCookie(event, 'vault_user_setup') ?? '';
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.beginInvitedUserSetup(
+        token,
+        String(body.password ?? ''),
+        String(body.passwordConfirm ?? ''),
+        String(body.label ?? ''),
+      );
+    }));
+
+    app.use('/user-setup/totp', defineEventHandler(async (event) => {
+      const token = getCookie(event, 'vault_user_setup') ?? '';
+      const userId = await this.options.vault.setupUserId(token);
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.verifyAuthMethodEnrollmentTotp(userId, String(body.methodId ?? ''), String(body.totpCode ?? ''));
+    }));
+
+    app.use('/user-setup/passkey', defineEventHandler(async (event) => {
+      const token = getCookie(event, 'vault_user_setup') ?? '';
+      const userId = await this.options.vault.setupUserId(token);
+      const body = await readBody<Record<string, unknown>>(event);
+      const credential = parseJsonObject(body.credential);
+      if (!credential) throw new Error('Passkey credential is required');
+      await this.options.vault.finishPasskeyRegistration(userId, credential);
+      deleteCookie(event, 'vault_user_setup', { path: '/user-setup' });
+      return { success: true, redirect: '/login' };
+    }));
+
+    app.use('/user-setup', defineEventHandler(async (event) => {
+      if (getMethod(event) !== 'GET') return sendRedirect(event, '/user-setup');
+      return this.page(event, 'Complete Vault Setup', invitedUserSetupPage(), 'profile', false);
     }));
 
     app.use('/login/start', defineEventHandler(async (event) => {
@@ -96,26 +162,33 @@ export class VaultHttpServer {
       if (result.status === 'passkey_required') {
         return result;
       }
+      return result;
     }));
 
     app.use('/login/finish', defineEventHandler(async (event) => {
       const body = await readBody<Record<string, unknown>>(event);
       const credential = parseJsonObject(body.credential);
       if (!credential) throw new Error('Passkey credential is required');
-      const session = await this.options.vault.finishLogin(String(body.challengeId ?? ''), credential);
+      const pending = await this.options.vault.finishLogin(String(body.challengeId ?? ''), credential);
+      return { status: 'totp_required', ...pending };
+    }));
+
+    app.use('/login/totp', defineEventHandler(async (event) => {
+      const body = await readBody<Record<string, unknown>>(event);
+      const session = await this.options.vault.finishTotpLogin(String(body.totpToken ?? ''), String(body.totpCode ?? ''));
       setLoginCookies(event, session.sessionId, session.csrfToken, this.options.production);
       return { status: 'success', redirect: '/' };
     }));
 
     app.use('/login', defineEventHandler(async (event) => {
-      if (getMethod(event) === 'GET') return this.page('Vault Login', loginForm(), 'overview', false);
+      if (getMethod(event) === 'GET') return this.page(event, 'Vault Login', loginForm(), 'overview', false);
       return sendRedirect(event, '/login');
     }));
 
     app.use('/passkeys/setup', defineEventHandler(async (event) => {
       if (getMethod(event) !== 'GET') return sendRedirect(event, '/passkeys/setup');
       const user = await this.passkeySetupUser(event);
-      return this.page('Set Up Passkey', passkeySetupPage(), 'profile', !user.setupToken);
+      return this.page(event, 'Set Up Passkey', passkeySetupPage(), 'profile', !user.setupToken);
     }));
 
     app.use('/api/passkeys/register/options', defineEventHandler(async (event) => {
@@ -137,8 +210,10 @@ export class VaultHttpServer {
     }));
 
     app.use('/logout', defineEventHandler(async (event) => {
+      if (getMethod(event) !== 'POST') return sendRedirect(event, '/');
+      const user = await this.requireUser(event);
       const sessionId = getCookie(event, 'vault_session');
-      if (sessionId) await this.options.vault.logout(sessionId);
+      if (sessionId) await this.options.vault.logout(sessionId, user.userId);
       deleteCookie(event, 'vault_session', { path: '/' });
       deleteCookie(event, 'vault_csrf', { path: '/' });
       deleteCookie(event, 'vault_passkey_setup', { path: '/' });
@@ -314,6 +389,7 @@ export class VaultHttpServer {
         version: stringOrUndefined(body.version) ?? null,
         enabled: body.enabled === true || body.enabled === 'true' || body.enabled === 'on',
         config: parseJsonObject(body.config) ?? {},
+        sensitiveClearPaths: parseStringArray(body.sensitiveClearPaths),
       });
       return { success: true };
     }));
@@ -363,6 +439,7 @@ export class VaultHttpServer {
         baseEnabled: parseOptionalBoolean(body.baseEnabled),
         baseConfig: parseJsonObject(body.baseConfig),
         overridePaths: parseStringArray(body.overridePaths),
+        sensitiveClearPaths: parseStringArray(body.sensitiveClearPaths),
       });
       return { success: true };
     }));
@@ -386,40 +463,93 @@ export class VaultHttpServer {
       });
     }));
 
+    app.use('/api/users/deactivate', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.deactivateUser(user.userId, String(body.userId ?? ''));
+      return { success: true };
+    }));
+
+    app.use('/api/users/reset', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.resetUser(user.userId, String(body.userId ?? ''));
+    }));
+
+    app.use('/api/users', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.inviteUser(user.userId, String(body.email ?? ''));
+    }));
+
+    app.use('/api/auth-methods/start', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.startAuthMethodEnrollment(user.userId, String(body.label ?? ''));
+    }));
+
+    app.use('/api/auth-methods/totp', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      return this.options.vault.verifyAuthMethodEnrollmentTotp(user.userId, String(body.methodId ?? ''), String(body.totpCode ?? ''));
+    }));
+
+    app.use('/api/auth-methods/delete', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.deleteOwnAuthMethod(user.userId, String(body.methodId ?? ''));
+      return { success: true };
+    }));
+
     app.use('/applications', defineEventHandler(async (event) => {
       await this.requireUser(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page('Applications', applicationsPage(dashboard), 'applications');
+      return this.page(event, 'Applications', applicationsPage(dashboard), 'applications');
+    }));
+
+    app.use('/users', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      return this.page(event, 'Users', usersPage(await this.options.vault.users()), 'users');
+    }));
+
+    app.use('/audit', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      const query = getQuery(event);
+      const before = Number(query.before);
+      return this.page(event, 'Audit Log', auditPage(await this.options.vault.auditLog(Number.isFinite(before) ? before : undefined)), 'audit');
     }));
 
     app.use('/application-config', defineEventHandler(async (event) => {
-      await this.requireUser(event);
+      const user = await this.requireUser(event);
+      await this.options.vault.assertAuditWritable();
       const query = getQuery(event);
       const applicationId = String(query.applicationId ?? '');
       const profile = String(query.profile ?? 'default');
       if (!applicationId) return sendRedirect(event, '/applications');
-      const data = await this.options.vault.applicationProfile(applicationId, profile);
-      return this.page('Application Config', applicationConfigPage(data), 'applications');
+      const data = await this.options.vault.applicationProfile(applicationId, profile, user.userId);
+      return this.page(event, 'Application Config', applicationConfigPage(data), 'applications');
     }));
 
     app.use('/deployments', defineEventHandler(async (event) => {
       await this.requireUser(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page('Deployments', deploymentsPage(dashboard), 'deployments');
+      return this.page(event, 'Deployments', deploymentsPage(dashboard), 'deployments');
     }));
 
     app.use('/deployment', defineEventHandler(async (event) => {
-      await this.requireUser(event);
+      const user = await this.requireUser(event);
+      await this.options.vault.assertAuditWritable();
       const query = getQuery(event);
       const profileId = String(query.profileId ?? '');
       if (!profileId) return sendRedirect(event, '/deployments');
-      const profile = await this.options.vault.deploymentProfile(profileId);
+      const profile = await this.options.vault.deploymentProfile(profileId, user.userId);
       return this.page(
+        event,
         'Deployment',
         deploymentDetailPage(profile, {
           publicUrl: this.options.publicUrl,
-          keyId: String(query.keyId ?? ''),
-          secret: String(query.secret ?? ''),
+          keyId: '',
+          secret: '',
         }),
         'deployments',
       );
@@ -434,18 +564,18 @@ export class VaultHttpServer {
 
     app.use('/runtime-keys', defineEventHandler(async (event) => {
       await this.requireUser(event);
-      const query = getQuery(event);
       const dashboard = await this.options.vault.dashboard();
       const firstProfile = dashboard.profiles[0];
-      if (!String(query.secret ?? '') && firstProfile) {
+      if (firstProfile) {
         return sendRedirect(event, `/deployment?profileId=${encodeURIComponent(firstProfile.id)}`);
       }
       return this.page(
+        event,
         'Container Key',
         runtimeKeysPage(dashboard, {
           publicUrl: this.options.publicUrl,
-          keyId: String(query.keyId ?? ''),
-          secret: String(query.secret ?? ''),
+          keyId: '',
+          secret: '',
         }),
         'runtime-keys',
       );
@@ -456,25 +586,25 @@ export class VaultHttpServer {
       const query = getQuery(event);
       const dashboard = await this.options.vault.dashboard();
       const registry = await registrySearch(this.options.registryUrl, String(query.query ?? ''), this.options.registryToken);
-      return this.page('Plugins', pluginsPage(dashboard, registry, String(query.query ?? '')), 'plugins');
+      return this.page(event, 'Plugins', pluginsPage(dashboard, registry, String(query.query ?? '')), 'plugins');
     }));
 
     app.use('/profile', defineEventHandler(async (event) => {
       const session = await this.requireUser(event);
       const profile = await this.options.vault.userProfile(session.userId);
-      return this.page('Profile', profilePage(profile), 'profile');
+      return this.page(event, 'Profile', profilePage(profile), 'profile');
     }));
 
     app.use('/', defineEventHandler(async (event) => {
       if (await this.options.vault.setupRequired()) return sendRedirect(event, '/setup');
       await this.requireUser(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page('Vault', overviewPage(dashboard), 'overview');
+      return this.page(event, 'Vault', overviewPage(dashboard), 'overview');
     }));
 
     app.use(defineEventHandler((event) => {
       setResponseStatus(event, 404);
-      return this.page('Not Found', '<p>Not found.</p>');
+      return this.page(event, 'Not Found', '<p>Not found.</p>');
     }));
 
     this.server = createServer(toNodeListener(app));
@@ -506,8 +636,7 @@ export class VaultHttpServer {
       });
     }
     const headerCsrf = getHeader(event, 'x-csrf-token');
-    const cookieCsrf = getCookie(event, 'vault_csrf');
-    if (headerCsrf !== session.csrfToken && cookieCsrf !== session.csrfToken) {
+    if (getMethod(event) !== 'GET' && headerCsrf !== session.csrfToken) {
       throw createError({
         statusCode: 403,
         statusMessage: 'Invalid CSRF token',
@@ -535,12 +664,16 @@ export class VaultHttpServer {
     return { userId: session.userId };
   }
 
-  private page(title: string, body: string, active: NavItem = 'overview', authenticated = true): string {
-    return html(title, body, active, authenticated);
+  private page(event: Parameters<typeof setResponseHeader>[0], title: string, body: string, active: NavItem = 'overview', authenticated = true): string {
+    const nonce = randomBytes(18).toString('base64url');
+    setResponseHeader(event, 'content-security-policy', `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'nonce-${nonce}'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`);
+    return html(title, body, active, authenticated)
+      .replaceAll('<script>', `<script nonce="${nonce}">`)
+      .replace('<style>', `<style nonce="${nonce}">`);
   }
 }
 
-type NavItem = 'overview' | 'applications' | 'deployments' | 'runtime-keys' | 'plugins' | 'profile';
+type NavItem = 'overview' | 'applications' | 'deployments' | 'runtime-keys' | 'plugins' | 'users' | 'audit' | 'profile';
 type DashboardData = Awaited<ReturnType<VaultService['dashboard']>>;
 type UserProfileData = Awaited<ReturnType<VaultService['userProfile']>>;
 type DeploymentProfileData = Awaited<ReturnType<VaultService['deploymentProfile']>>;
@@ -585,7 +718,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     button.secondary,.button.secondary{background:#fff;color:#344054;border-color:var(--line)}
     button.success,.button.success{background:var(--ok);color:#fff;border-color:var(--ok)}
     button.danger,.button.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
-    button.ghost,.button.ghost{background:transparent;color:#344054;border-color:transparent}
+    button.ghost,.button.ghost{background:transparent;color:#344054;border-color:transparent}header button.ghost{color:#fff}
     .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
     table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid #e3e6eb;text-align:left;padding:8px;vertical-align:top}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
@@ -609,8 +742,9 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
   </style>
 </head>
 <body>
-  <header><strong>Vault</strong>${authenticated ? '<a href="/logout" style="color:#fff">Logout</a>' : ''}</header>
+  <header><strong>Vault</strong>${authenticated ? '<form data-logout><button class="ghost">Logout</button></form>' : ''}</header>
   ${authenticated ? `<div class="shell">${nav(active)}<main>${body}</main></div>` : `<main>${body}</main>`}
+  ${authenticated ? `<script>document.querySelector('[data-logout]').addEventListener('submit',async(event)=>{event.preventDefault();const csrf=document.cookie.split('; ').find((item)=>item.startsWith('vault_csrf='))?.split('=')[1]||'';await fetch('/logout',{method:'POST',headers:{'x-csrf-token':csrf}});location.href='/login';});</script>` : ''}
 </body>
 </html>`;
 }
@@ -621,6 +755,8 @@ function nav(active: NavItem): string {
     ['applications', 'Applications', '/applications'],
     ['deployments', 'Deployments', '/deployments'],
     ['plugins', 'Plugins', '/plugins'],
+    ['users', 'Users', '/users'],
+    ['audit', 'Audit', '/audit'],
     ['profile', 'Profile', '/profile'],
   ];
   return `<nav>${items.map(([id, label, href]) => `<a class="${id === active ? 'active' : ''}" href="${href}">${label}</a>`).join('')}</nav>`;
@@ -665,13 +801,71 @@ function setupComplete(email: string, totpSecret: string, totpUri: string): stri
   </section>`;
 }
 
+function invitedUserSetupPage(): string {
+  return `<section class="auth"><h1>Complete Account Setup</h1>
+    <p class="muted">Choose a password, then enroll one paired TOTP authenticator and passkey. Dashboard access stays blocked until all steps finish.</p>
+    <form id="invited-setup-form">
+      <label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="12" required>
+      <label>Confirm Password</label><input name="passwordConfirm" type="password" autocomplete="new-password" minlength="12" required>
+      <label>Authentication Method Name</label><input name="label" placeholder="Work laptop + authenticator" maxlength="100" required>
+      <button>Start Enrollment</button>
+    </form>
+    <div id="invited-totp" hidden>
+      <p>Add this secret to your authenticator app:</p><p class="code"><code id="invited-secret"></code></p>
+      <p class="code"><code id="invited-uri"></code></p>
+      <form id="invited-totp-form"><label>Current 6-digit Code</label><input name="totpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,}" required><button>Verify and Add Passkey</button></form>
+    </div>
+    <p id="invited-status" class="status"></p>
+  </section>
+  <script>${webauthnClientScript()}
+  const setupStatus = document.getElementById('invited-status');
+  const setupForm = document.getElementById('invited-setup-form');
+  const totpForm = document.getElementById('invited-totp-form');
+  let methodId = '';
+  (async () => {
+    const token = new URLSearchParams(location.hash.slice(1)).get('token');
+    if (!token) return;
+    const exchanged = await fetch('/user-setup/exchange', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) });
+    history.replaceState(null, '', '/user-setup');
+    if (!exchanged.ok) setupStatus.textContent = 'Setup link is invalid or expired.';
+  })().catch(() => { setupStatus.textContent = 'Could not validate setup link.'; });
+  setupForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const response = await fetch('/user-setup/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(setupForm).entries())) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Could not start setup');
+      methodId = result.methodId;
+      document.getElementById('invited-secret').textContent = result.totpSecret;
+      document.getElementById('invited-uri').textContent = result.totpUri;
+      document.getElementById('invited-totp').hidden = false;
+      setupForm.hidden = true;
+    } catch (error) { setupStatus.textContent = error instanceof Error ? error.message : 'Setup failed'; setupStatus.className = 'status danger'; }
+  });
+  totpForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      setupStatus.textContent = 'Verifying TOTP...';
+      const code = new FormData(totpForm).get('totpCode');
+      const optionsRes = await fetch('/user-setup/totp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ methodId, totpCode: code }) });
+      const options = await optionsRes.json();
+      if (!optionsRes.ok) throw new Error(options.message || 'Invalid TOTP code');
+      const credential = await navigator.credentials.create({ publicKey: publicKeyCreationToBrowser(options) });
+      const verifyRes = await fetch('/user-setup/passkey', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: credentialToJSON(credential) }) });
+      const result = await verifyRes.json();
+      if (!verifyRes.ok) throw new Error(result.message || 'Passkey registration failed');
+      location.href = result.redirect || '/login';
+    } catch (error) { setupStatus.textContent = error instanceof Error ? error.message : 'Setup failed'; setupStatus.className = 'status danger'; }
+  });
+  </script>`;
+}
+
 function loginForm(): string {
   return `<section class="auth"><h1>Login</h1>
-    <p class="muted">Vault requires password, TOTP, and passkey. If no passkey is enrolled yet, you will be sent to passkey setup and then asked to log in again.</p>
+    <p class="muted">Vault verifies your password, then passkey, then the TOTP paired with that passkey.</p>
     <form id="login-form">
       <label>Email</label><input name="email" type="email" autocomplete="username" required>
       <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
-      <label>TOTP Code</label><input name="totpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,}" required>
       <div class="actions"><button>Continue</button></div>
       <p id="login-status" class="status"></p>
     </form>
@@ -687,6 +881,16 @@ function loginForm(): string {
       const started = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
       const result = await started.json();
       if (!started.ok) throw new Error(result.message || 'Login failed');
+      if (result.status === 'totp_setup_verification_required') {
+        const totpCode = prompt('Enter the current TOTP code to finish initial passkey setup');
+        if (!totpCode) throw new Error('TOTP code is required');
+        const retry = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...data, totpCode }) });
+        const setup = await retry.json();
+        if (!retry.ok) throw new Error(setup.message || 'Invalid TOTP code');
+        if (setup.status !== 'passkey_setup_required') throw new Error('Could not start passkey setup');
+        location.href = setup.redirect;
+        return;
+      }
       if (result.status === 'passkey_setup_required') {
         location.href = result.redirect;
         return;
@@ -701,7 +905,17 @@ function loginForm(): string {
         });
         const done = await finished.json();
         if (!finished.ok) throw new Error(done.message || 'Passkey login failed');
-        location.href = done.redirect || '/';
+        const totpCode = prompt('Enter the TOTP code paired with ' + done.methodLabel);
+        if (!totpCode) throw new Error('TOTP code is required');
+        loginStatus.textContent = 'Checking the TOTP paired with ' + done.methodLabel + '...';
+        const completed = await fetch('/login/totp', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ totpToken: done.totpToken, totpCode }),
+        });
+        const login = await completed.json();
+        if (!completed.ok) throw new Error(login.message || 'TOTP login failed');
+        location.href = login.redirect || '/';
         return;
       }
     } catch (error) {
@@ -721,17 +935,18 @@ function passkeySetupPage(): string {
   </section>
   <script>${webauthnClientScript()}
   const statusEl = document.getElementById('passkey-status');
+  const passkeyCsrf = () => decodeURIComponent(document.cookie.split('; ').find((x) => x.startsWith('vault_csrf='))?.split('=')[1] || '');
   document.getElementById('register-passkey').addEventListener('click', async () => {
     try {
       statusEl.textContent = 'Preparing passkey registration...';
-      const optionsRes = await fetch('/api/passkeys/register/options', { method: 'POST' });
+      const optionsRes = await fetch('/api/passkeys/register/options', { method: 'POST', headers: { 'x-csrf-token': passkeyCsrf() } });
       const options = await optionsRes.json();
       if (!optionsRes.ok) throw new Error(options.message || 'Could not start passkey registration');
       statusEl.textContent = 'Use your device passkey prompt...';
       const credential = await navigator.credentials.create({ publicKey: publicKeyCreationToBrowser(options) });
       const verifyRes = await fetch('/api/passkeys/register/verify', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-csrf-token': passkeyCsrf() },
         body: JSON.stringify({ credential: credentialToJSON(credential) }),
       });
       const verified = await verifyRes.json();
@@ -963,10 +1178,56 @@ function registryPluginImported(item: RegistryCandidate, importedPlugins: Dashbo
 function profilePage(data: UserProfileData): string {
   return `<div class="page-head"><div><h1>Profile</h1><p class="muted">Account security and admin authentication settings.</p></div></div>
   <section><h2>Account</h2>${table([[data.user.email, data.user.createdAt]])}</section>
-  <section><h2>Passkey Accounts</h2>
-    ${data.passkeys.length === 0 ? '<p class="muted">No passkeys registered.</p>' : table(data.passkeys.map((x) => [shortId(x.credentialId), x.createdAt]))}
-    <p><a class="button" href="/passkeys/setup">Add Passkey</a></p>
-  </section>`;
+  <section><h2>Paired Authentication Methods</h2>
+    <table>${data.authMethods.map((method) => `<tr><td>${escapeHtml(method.label)}</td><td>${escapeHtml(shortId(method.credentialId ?? ''))}</td><td>${escapeHtml(method.createdAt)}</td><td>${data.authMethods.length > 1 ? `<form data-api="/api/auth-methods/delete" data-redirect="/profile" data-confirm="Delete this TOTP and passkey pair?"><input type="hidden" name="methodId" value="${escapeHtml(method.id)}"><button class="danger">Delete</button><p class="status"></p></form>` : 'Required'}</td></tr>`).join('')}</table>
+  </section>
+  <section><h2>Add Authentication Method</h2>
+    <form id="auth-method-start"><label>Method Name</label><input name="label" placeholder="Work laptop + authenticator" maxlength="100" required><button>Start</button></form>
+    <div id="auth-method-totp" hidden><p class="code"><code id="auth-method-secret"></code></p><p class="code"><code id="auth-method-uri"></code></p>
+      <form id="auth-method-totp-form"><label>Current 6-digit Code</label><input name="totpCode" inputmode="numeric" autocomplete="one-time-code" required><button>Verify and Add Passkey</button></form></div>
+    <p id="auth-method-status" class="status"></p>
+  </section>
+  ${formScript()}
+  <script>${webauthnClientScript()}
+  let authMethodId = '';
+  const authStatus = document.getElementById('auth-method-status');
+  const csrf = () => decodeURIComponent(document.cookie.split('; ').find((x) => x.startsWith('vault_csrf='))?.split('=')[1] || '');
+  document.getElementById('auth-method-start').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const form = event.currentTarget;
+      const response = await fetch('/api/auth-methods/start', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf() }, body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.message || 'Could not start enrollment');
+      authMethodId = result.methodId; document.getElementById('auth-method-secret').textContent = result.totpSecret; document.getElementById('auth-method-uri').textContent = result.totpUri;
+      document.getElementById('auth-method-totp').hidden = false; form.hidden = true;
+    } catch (error) { authStatus.textContent = error instanceof Error ? error.message : 'Enrollment failed'; authStatus.className = 'status danger'; }
+  });
+  document.getElementById('auth-method-totp-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const code = new FormData(event.currentTarget).get('totpCode');
+      const optionsRes = await fetch('/api/auth-methods/totp', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf() }, body: JSON.stringify({ methodId: authMethodId, totpCode: code }) });
+      const options = await optionsRes.json(); if (!optionsRes.ok) throw new Error(options.message || 'Invalid TOTP code');
+      const credential = await navigator.credentials.create({ publicKey: publicKeyCreationToBrowser(options) });
+      const verifyRes = await fetch('/api/passkeys/register/verify', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf() }, body: JSON.stringify({ credential: credentialToJSON(credential) }) });
+      const result = await verifyRes.json(); if (!verifyRes.ok) throw new Error(result.message || 'Passkey registration failed'); location.reload();
+    } catch (error) { authStatus.textContent = error instanceof Error ? error.message : 'Enrollment failed'; authStatus.className = 'status danger'; }
+  });
+  </script>`;
+}
+
+function usersPage(users: Awaited<ReturnType<VaultService['users']>>): string {
+  return `<div class="page-head"><div><h1>Users</h1><p class="muted">All active users are Vault administrators. Deactivation preserves audit identity.</p></div></div>
+  <section><h2>Invite User</h2><form data-api="/api/users"><label>Email</label><input name="email" type="email" required><button>Generate One-time Setup Link</button><p class="status"></p></form></section>
+  <section><h2>Users</h2><table>${users.map((user) => `<tr><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.status)}</td><td>${user.authMethodCount} paired method(s)</td><td>${escapeHtml(user.createdAt)}</td><td class="actions">
+    ${user.status === 'active' ? `<form data-api="/api/users/deactivate" data-redirect="/users" data-confirm="Deactivate this user and revoke all sessions?"><input type="hidden" name="userId" value="${escapeHtml(user.id)}"><button class="danger">Deactivate</button><p class="status"></p></form>` : ''}
+    <form data-api="/api/users/reset"><input type="hidden" name="userId" value="${escapeHtml(user.id)}"><button class="secondary">Reset Access</button><p class="status"></p></form>
+  </td></tr>`).join('')}</table></section>${formScript()}`;
+}
+
+function auditPage(data: Awaited<ReturnType<VaultService['auditLog']>>): string {
+  const rows = data.entries.map((entry) => `<tr><td>${entry.ordinal ?? ''}</td><td>${escapeHtml(entry.createdAt)}</td><td>${escapeHtml(entry.actorEmail ?? entry.actor)}</td><td>${escapeHtml(entry.action)}</td><td>${escapeHtml(entry.target)}</td><td><code>${escapeHtml(JSON.stringify(entry.details))}</code></td><td>${entry.entryHash ? shortId(entry.entryHash) : 'legacy unsigned'}</td></tr>`).join('');
+  return `<div class="page-head"><div><h1>Audit Log</h1><p class="${data.valid ? 'ok' : 'danger'}">${data.valid ? 'Signed chain verified.' : 'Audit integrity verification failed. Administrative mutations are blocked.'}</p></div></div><section><table>${rows}</table></section>`;
 }
 
 function applicationsTable(data: DashboardData): string {
@@ -1128,7 +1389,8 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
       <input type="hidden" name="section">
-      <input type="hidden" name="config">
+        <input type="hidden" name="config">
+        <input type="hidden" name="sensitiveClearPaths">
       <div class="form-grid">
         <label>Plugin<select name="catalogId" data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
@@ -1154,7 +1416,8 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
       <input type="hidden" name="section">
-      <input type="hidden" name="config">
+        <input type="hidden" name="config">
+        <input type="hidden" name="sensitiveClearPaths">
       <div class="form-grid">
         <label>Plugin<select name="catalogId" data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
@@ -1185,7 +1448,7 @@ function configSectionEditor(
       return `<details class="plugin-card">
         <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')} / ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
         <div class="plugin-card-body">
-        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(entry.config ?? {}))}">
+        <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
@@ -1193,6 +1456,7 @@ function configSectionEditor(
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
+          <input type="hidden" name="sensitiveClearPaths">
           <div class="form-grid">
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
@@ -1233,7 +1497,7 @@ function applicationConfigSectionEditor(
       return `<details class="plugin-card">
         <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')} / ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
         <div class="plugin-card-body">
-        <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(entry.config ?? {}))}">
+        <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
@@ -1241,6 +1505,7 @@ function applicationConfigSectionEditor(
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
+          <input type="hidden" name="sensitiveClearPaths">
           <div class="form-grid">
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
@@ -1303,7 +1568,8 @@ function inheritedOverrideSection(
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
-          <input type="hidden" name="baseConfig" value="${escapeHtml(JSON.stringify(entry.config ?? {}))}">
+          <input type="hidden" name="sensitiveClearPaths">
+          <input type="hidden" name="baseConfig" value="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="baseEnabled" value="${entry.enabled ? 'true' : 'false'}">
           <input type="hidden" name="overridePaths">
           <div class="form-grid">
@@ -1518,7 +1784,12 @@ function renderSchemaControl(
     control = renderUnionControl(key, rawNode, node, path, value, required, help, options);
   } else {
     const kind = inputKind(node);
-    control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
+    if (isSensitiveSchema(rawNode, node)) {
+      const isSet = rawValue !== undefined;
+      control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${fieldLabel(key, rawNode, node, required)}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="string" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${help}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
+    } else {
+      control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
+    }
   }
   if (rawNode?.kind === 'optional') control = optionalShell(key, path, control, rawValue !== undefined);
   if (options.overrideMode && node.kind !== 'object' && !(node.kind === 'literal' && hideLiteralField)) {
@@ -1608,6 +1879,40 @@ function schemaHelp(rawNode: Record<string, unknown> | null, node: Record<string
     'default' in node ? `Default: ${formatDefault(node.default)}.` : '',
   ].filter(Boolean).join(' ');
   return notes ? `<span class="schema-help">${escapeHtml(notes)}</span>` : '';
+}
+
+function isSensitiveSchema(rawNode: Record<string, unknown> | null, node: Record<string, unknown>): boolean {
+  const rawMetadata = objectField(rawNode?.metadata);
+  const metadata = objectField(node.metadata);
+  return rawMetadata?.sensitive === true || rawMetadata?.writeonly === true || metadata?.sensitive === true || metadata?.writeonly === true;
+}
+
+function redactSensitiveConfig(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>): Record<string, unknown> {
+  const copy = structuredClone(config);
+  const root = objectField(objectField(schema?.root) ?? schema);
+  if (!root) return copy;
+  for (const path of sensitiveSchemaPaths(root)) deleteValueAtPath(copy, path);
+  return copy;
+}
+
+function sensitiveSchemaPaths(node: Record<string, unknown>, prefix = ''): string[] {
+  const unwrapped = unwrapSchema(node);
+  if (!unwrapped) return [];
+  if (prefix && isSensitiveSchema(node, unwrapped)) return [prefix];
+  if (unwrapped.kind !== 'object') return [];
+  const properties = objectField(unwrapped.properties) ?? {};
+  return Object.entries(properties).flatMap(([key, child]) => {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const childNode = objectField(child);
+    return childNode ? sensitiveSchemaPaths(childNode, path) : [];
+  });
+}
+
+function deleteValueAtPath(target: Record<string, unknown>, path: string): void {
+  const parts = path.split('.');
+  let current: Record<string, unknown> | null = target;
+  for (const part of parts.slice(0, -1)) current = objectField(current?.[part]);
+  if (current) delete current[parts.at(-1)!];
 }
 
 function fieldMeta(rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean): string {
@@ -1717,11 +2022,18 @@ function formScript(): string {
         });
         const result = await res.json();
         if (!res.ok) throw new Error(result.message || 'Save failed');
-        if (form.dataset.secretRedirect && result.secret) {
-          const joiner = form.dataset.secretRedirect.includes('?') ? '&' : '?';
-          location.href = form.dataset.secretRedirect
-            + joiner + 'keyId=' + encodeURIComponent(result.keyId || result.id || '')
-            + '&secret=' + encodeURIComponent(result.secret);
+        if (result.secret) {
+          if (status) {
+            status.textContent = 'Shown once — key id: ' + (result.keyId || result.id || '') + ' secret: ' + result.secret;
+            status.className = 'status code ok';
+          }
+          return;
+        }
+        if (result.setupUrl) {
+          if (status) {
+            status.textContent = 'Shown once — setup link: ' + result.setupUrl;
+            status.className = 'status code ok';
+          }
           return;
         }
         location.href = form.dataset.redirect || location.pathname;
@@ -1813,7 +2125,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   function parseFieldValue(field) {
     if (field.disabled) return undefined;
     const raw = field.value;
-    if (raw === '') return undefined;
+    if (raw === '' && field.dataset.sensitive !== 'true') return undefined;
     if (field.dataset.kind === 'number') return Number(raw);
     if (field.dataset.kind === 'bool') return raw === 'true';
     return raw;
@@ -1854,6 +2166,11 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       node && Object.prototype.hasOwnProperty.call(node, 'default') ? 'Default: ' + formatDefaultClient(node.default) + '.' : '',
     ].filter(Boolean).join(' ');
     return notes ? '<span class="schema-help">' + escapeClient(notes) + '</span>' : '';
+  }
+  function isSensitiveClient(rawNode, node) {
+    const rawMeta = rawNode && rawNode.metadata || {};
+    const meta = node && node.metadata || {};
+    return rawMeta.sensitive === true || rawMeta.writeonly === true || meta.sensitive === true || meta.writeonly === true;
   }
   function optionalShellClient(key, path, control) {
     return '<div class="schema-optional" data-optional-field="' + escapeClient(path) + '">'
@@ -1916,7 +2233,9 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
         control = renderUnionClient(key, rawNode, node, path, required, help);
       } else {
         const kind = inputKind(node);
-        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
+        control = isSensitiveClient(rawNode, node)
+          ? '<div class="schema-sensitive" data-sensitive-field="' + escapeClient(path) + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="string" data-sensitive="true" ' + inputAttrsClient(node, required, 'string') + '>' + help + '</label></div>'
+          : '<label>' + fieldLabelClient(key, rawNode, node, required) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
       }
       return rawNode && rawNode.kind === 'optional' ? optionalShellClient(key, path, control) : control;
     }).join('');
@@ -2058,6 +2377,15 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     });
   }
   document.addEventListener('change', (event) => {
+    const sensitiveReplace = event.target.closest('[data-sensitive-replace]');
+    if (sensitiveReplace) {
+      const field = sensitiveReplace.closest('[data-sensitive-field]')?.querySelector('[data-sensitive="true"]');
+      if (field) {
+        field.disabled = !sensitiveReplace.checked;
+        if (!sensitiveReplace.checked) field.value = '';
+        if (sensitiveReplace.checked) field.focus();
+      }
+    }
     const toggle = event.target.closest('[data-optional-toggle]');
     if (toggle) syncOptionalGroup(toggle.closest('[data-optional-field]'));
     const overrideToggle = event.target.closest('[data-override-toggle]');
@@ -2092,6 +2420,12 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       const lock = form.querySelector('[data-version-lock]');
       if (lock && !lock.checked && form.elements.version) form.elements.version.value = '';
       if (form.elements.config) form.elements.config.value = JSON.stringify(readConfigForm(form));
+      if (form.elements.sensitiveClearPaths) {
+        form.elements.sensitiveClearPaths.value = JSON.stringify(Array.from(form.querySelectorAll('[data-sensitive="true"][data-secret-set="true"]'))
+          .filter((field) => !optionalEnabled(field))
+          .map((field) => field.dataset.configPath)
+          .filter(Boolean));
+      }
       if (form.elements.overridePaths) {
         form.elements.overridePaths.value = JSON.stringify(Array.from(form.querySelectorAll('[data-override-toggle]:checked')).map((toggle) => toggle.dataset.overridePath).filter(Boolean));
       }

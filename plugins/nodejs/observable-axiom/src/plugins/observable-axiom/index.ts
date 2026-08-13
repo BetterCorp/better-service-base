@@ -47,7 +47,7 @@ const ConfigSchema = av.object({
   serviceName: av.string().default("bsb-service").describe("Service name reported to Axiom and OpenTelemetry"),
   serviceVersion: av.optional(av.string()).describe("Optional service version reported with telemetry"),
   axiom: av.object({
-    token: av.string().describe("Axiom API token used for ingesting telemetry"),
+    token: av.string().describe("Axiom API token used for ingesting telemetry", { sensitive: true, writeonly: true }),
     dataset: av.string().default("bsb-logs").describe("Axiom dataset used for logs and metrics"),
     orgId: av.optional(av.string()).describe("Optional Axiom organization ID"),
     url: av.optional(av.string().format("url")).describe("Optional custom Axiom API base URL"),

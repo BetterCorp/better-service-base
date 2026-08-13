@@ -17,7 +17,7 @@
       "pluginPath": "src/plugins/observable-syslog/",
       "image": "./assets/syslog-icon.png",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     },
     {
@@ -37,7 +37,7 @@
       "pluginPath": "src/plugins/service-syslog-server/",
       "image": "./assets/syslog-icon.png",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     }
   ]

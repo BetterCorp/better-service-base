@@ -71,10 +71,17 @@ export function createTotpSecret(): string {
 }
 
 export function verifyTotp(secret: string, code: string, now = Date.now()): boolean {
+  return matchingTotpStep(secret, code, now) !== null;
+}
+
+export function matchingTotpStep(secret: string, code: string, now = Date.now()): number | null {
   const cleaned = code.replace(/\s+/g, '');
-  if (!/^\d{6}$/.test(cleaned)) return false;
+  if (!/^\d{6}$/.test(cleaned)) return null;
   const step = Math.floor(now / 30000);
-  return [-1, 0, 1].some((offset) => generateTotp(secret, step + offset) === cleaned);
+  for (const offset of [-1, 0, 1]) {
+    if (generateTotp(secret, step + offset) === cleaned) return step + offset;
+  }
+  return null;
 }
 
 export function generateTotp(secret: string, step = Math.floor(Date.now() / 30000)): string {

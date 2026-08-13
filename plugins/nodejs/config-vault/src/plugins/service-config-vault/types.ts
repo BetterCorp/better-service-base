@@ -22,11 +22,30 @@ export type VaultRuntimeConfig = Record<string, RuntimeConfigDefinition>;
 export interface UserRecord {
   id: string;
   email: string;
-  passwordHash: string;
-  totpSecret: string;
+  passwordHash: string | null;
+  totpSecret: string | null;
   passkeyRequired: boolean;
+  status: 'pending' | 'active' | 'inactive';
+  setupTokenHash: string | null;
+  setupExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AuthMethodRecord {
+  id: string;
+  userId: string;
+  label: string;
+  encryptedTotp: string;
+  iv: string;
+  authTag: string;
+  keyVersion: string;
+  credentialId: string | null;
+  publicKey: Record<string, unknown> | null;
+  signCount: number;
+  lastTotpStep: number | null;
+  active: boolean;
+  createdAt: string;
 }
 
 export interface SessionRecord {
@@ -149,10 +168,16 @@ export interface RuntimeKeyRecord {
 export interface AuditRecord {
   id: string;
   actor: string;
+  actorEmail?: string | null;
   action: string;
   target: string;
   details: Record<string, unknown>;
   createdAt: string;
+  mutationId?: string | null;
+  outcome?: 'intent' | 'success' | 'failure' | null;
+  previousHash?: string | null;
+  entryHash?: string | null;
+  ordinal?: number;
 }
 
 export interface ResolvedRuntimeConfig {
@@ -177,5 +202,6 @@ export interface FirstAdminResult {
 }
 
 export type LoginStartResult =
+  | { status: 'totp_setup_verification_required' }
   | { status: 'passkey_setup_required'; setupToken: string }
   | { status: 'passkey_required'; challengeId: string; options: Record<string, unknown> };

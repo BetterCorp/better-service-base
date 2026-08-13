@@ -24,6 +24,7 @@ module.exports = async ({ pluginRoot }) => {
           port: { kind: 'int32', min: 1, default: 3200 },
           enabled: { kind: 'bool', default: true },
           mode: { kind: 'enum', values: ['dev', 'prod'], default: 'dev' },
+          password: { kind: 'optional', inner: { kind: 'string' }, metadata: { sensitive: true, writeonly: true } },
         },
       },
     },
@@ -121,6 +122,7 @@ module.exports = async ({ pluginRoot }) => {
     async createPlugin(record) { plugins.push(record); },
     async getDraft(profileId) { return draftRecords.get(profileId) ?? null; },
     async upsertDraft(record) { draftRecords.set(record.profileId, record); },
+    async getUser() { return null; },
     async audit(record) { audits.push(record); },
   };
 
@@ -139,7 +141,7 @@ module.exports = async ({ pluginRoot }) => {
     packageName: '@bsb/service-api',
     version: '1.0.0',
     enabled: true,
-    config: { port: '3210', enabled: 'false', mode: 'prod', ignored: 'strip-me' },
+    config: { port: '3210', enabled: 'false', mode: 'prod', password: 'vault-secret', ignored: 'strip-me' },
   });
 
   const saved = decryptJson(draftRecords.get('profile-1'), key);
@@ -148,6 +150,7 @@ module.exports = async ({ pluginRoot }) => {
     port: 3210,
     enabled: false,
     mode: 'prod',
+    password: 'vault-secret',
   });
   const synced = decryptJson(draftRecords.get('profile-2'), key);
   assert.deepEqual(synced.prod.services.api, {
@@ -158,6 +161,24 @@ module.exports = async ({ pluginRoot }) => {
   });
   assert.equal(audits.some((audit) => audit.action === 'config.plugin.upsert'), true);
   assert.equal(audits.some((audit) => audit.action === 'config.plugin.sync'), true);
+
+  await vault.upsertProfilePlugin('user-1', {
+    profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', packageName: '@bsb/service-api',
+    version: '1.0.0', enabled: true, config: { port: 3210, enabled: false, mode: 'prod' },
+  });
+  assert.equal(decryptJson(draftRecords.get('profile-1'), key).default.services.api.config.password, 'vault-secret');
+
+  await vault.upsertProfilePlugin('user-1', {
+    profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', packageName: '@bsb/service-api',
+    version: '1.0.0', enabled: true, config: { port: 3210, enabled: false, mode: 'prod', password: '' },
+  });
+  assert.equal(decryptJson(draftRecords.get('profile-1'), key).default.services.api.config.password, '');
+
+  await vault.upsertProfilePlugin('user-1', {
+    profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', packageName: '@bsb/service-api',
+    version: '1.0.0', enabled: true, config: { port: 3210, enabled: false, mode: 'prod' }, sensitiveClearPaths: ['password'],
+  });
+  assert.equal(decryptJson(draftRecords.get('profile-1'), key).default.services.api.config.password, undefined);
 
   await vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',

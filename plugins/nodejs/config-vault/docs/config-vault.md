@@ -15,9 +15,10 @@ vaultUrl=https://vault.example.com
 apiKeyId=vk_xxx
 apiSecret=vs_xxx
 timeoutMs=5000
+staleAllowedHours=168
 ```
 
-The lower camel case keys are intentional. BSB reads config plugin env vars from the plugin schema, so `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs`, and `allowInsecureHttp` are the exact keys used by this plugin.
+The lower camel case keys are intentional. BSB reads config plugin env vars from the plugin schema, so these are the exact schema keys. `staleAllowedHours` defaults to 168 (seven days); set it to `0` to disable cached startup.
 
 The API key is bound in Vault to:
 
@@ -31,13 +32,15 @@ The container cannot ask for another profile. Vault derives the target from the 
 
 ## Failures
 
-Startup fails if:
+At startup, the client retries network errors, timeouts, and Vault HTTP 5xx responses for up to 15 seconds. After any successful fetch it writes an AES-256-GCM encrypted last-known-good response under `.bsb/config-vault` in the service working directory. The cache key is derived from the runtime secret and is bound to the Vault origin and key id. Mount that directory on persistent storage if the fallback must survive container replacement.
 
-- Vault is unreachable,
+If the retry window expires, a cache no older than `staleAllowedHours` is loaded and a warning names its version and fetch time. Authentication/authorization failures (HTTP 4xx), malformed responses, expired/tampered caches, and configs without an enabled service always fail closed. There is no fallback to `config-env` or `config-default`.
+
+Startup therefore fails if:
+
+- Vault is unreachable and no valid last-known-good cache exists,
 - authentication fails,
 - `vaultUrl` is not HTTPS and `allowInsecureHttp` is not enabled,
 - no active version exists,
 - Vault returns invalid config,
 - the selected profile has no enabled service plugins.
-
-There is no fallback chain to `config-env` or `config-default`.

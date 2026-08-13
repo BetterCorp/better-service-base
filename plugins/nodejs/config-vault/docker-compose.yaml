@@ -15,7 +15,7 @@ services:
       retries: 10
 
   vault:
-    image: code.bettercorp.dev/bettercorp/service-base:node-latest
+    image: code.bettercorp.dev/bettercorp/service-base:node-vault-latest
     restart: unless-stopped
     depends_on:
       postgres:

@@ -55,6 +55,7 @@ module.exports = async ({ pluginRoot }) => {
     production: false,
     obs: { log: { info() {}, debug() {}, warn() {}, error() {} } },
     vault: {
+      async assertAuditWritable() {},
       async setupRequired() {
         return false;
       },
@@ -298,7 +299,7 @@ module.exports = async ({ pluginRoot }) => {
       async userProfile() {
         return {
           user: { id: 'user-1', email: 'admin@example.com', createdAt: '2026-01-01T00:00:00.000Z' },
-          passkeys: [{ credentialId: 'credential-1234567890', createdAt: '2026-01-02T00:00:00.000Z' }],
+          authMethods: [{ id: 'method-1', label: 'Laptop', credentialId: 'credential-1234567890', createdAt: '2026-01-02T00:00:00.000Z' }],
         };
       },
     },
@@ -321,7 +322,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const profileHtml = await profile.text();
     assert.equal(profile.status, 200);
-    assert.match(profileHtml, /Passkey Accounts/);
+    assert.match(profileHtml, /Paired Authentication Methods/);
     assert.match(profileHtml, /credential\.\.\.567890/);
 
     const overview = await fetch(`http://127.0.0.1:${port}/`, {
@@ -409,11 +410,10 @@ module.exports = async ({ pluginRoot }) => {
     });
     const runtimeKeysHtml = await runtimeKeys.text();
     assert.equal(runtimeKeys.status, 200);
-    assert.match(runtimeKeysHtml, /BSB_CONFIG_PLUGIN=config-vault/);
-    assert.match(runtimeKeysHtml, /BSB_CONFIG_PLUGIN_PACKAGE=@bsb\/config-vault/);
-    assert.match(runtimeKeysHtml, /vaultUrl=http:\/\/127\.0\.0\.1:/);
-    assert.match(runtimeKeysHtml, /apiKeyId=vk_test/);
-    assert.match(runtimeKeysHtml, /apiSecret=vs_test/);
+    assert.doesNotMatch(runtimeKeysHtml, /apiKeyId=vk_test/);
+    assert.doesNotMatch(runtimeKeysHtml, /apiSecret=vs_test/);
+    assert.doesNotMatch(runtimeKeys.headers.get('content-security-policy') ?? '', /unsafe-inline/);
+    assert.match(runtimeKeys.headers.get('content-security-policy') ?? '', /script-src 'self' 'nonce-/);
 
     const pluginsPage = await fetch(`http://127.0.0.1:${port}/plugins`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },

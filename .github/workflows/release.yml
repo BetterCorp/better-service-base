@@ -582,6 +582,135 @@ jobs:
           push: true
           tags: ${{ steps.tags.outputs.dockerhub_tags }}
 
+  docker-nodejs-vault-forgejo:
+    name: Docker Node.js Vault Forgejo
+    needs: [docker-nodejs-forgejo, prepare]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve upstream platforms
+        id: upstream
+        run: |
+          MANIFEST=$(curl -fsSL https://github.com/BetterCorp/docker-node/releases/latest/download/manifest.json)
+          PLATFORMS=$(echo "$MANIFEST" | jq -r '(.builds[] | select(.major == 24) | .variants.base.platforms | join(",")) // empty')
+          if [ -z "$PLATFORMS" ]; then
+            PLATFORMS="linux/amd64,linux/arm64"
+          fi
+          echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          FORGEJO_TAGS="${FORGEJO_SERVICE_BASE_IMAGE}:node-vault-${VERSION}"
+          FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:node-vault-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:node-vault"
+          fi
+          echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Forgejo
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
+
+      - name: Build and push to Forgejo
+        uses: useblacksmith/build-push-action@v2
+        with:
+          build-args: |
+            BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-${{ needs.prepare.outputs.version }}
+            BSB_PLUGIN_VERSION=${{ needs.prepare.outputs.version }}
+          context: ./plugins/nodejs/config-vault
+          file: ./plugins/nodejs/config-vault/Dockerfile
+          platforms: ${{ steps.upstream.outputs.platforms }}
+          push: true
+          tags: ${{ steps.tags.outputs.forgejo_tags }}
+
+  docker-nodejs-vault-dockerhub:
+    name: Docker Node.js Vault Docker Hub
+    needs: [docker-nodejs-forgejo, prepare]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve upstream platforms
+        id: upstream
+        run: |
+          MANIFEST=$(curl -fsSL https://github.com/BetterCorp/docker-node/releases/latest/download/manifest.json)
+          PLATFORMS=$(echo "$MANIFEST" | jq -r '(.builds[] | select(.major == 24) | .variants.base.platforms | join(",")) // empty')
+          if [ -z "$PLATFORMS" ]; then
+            PLATFORMS="linux/amd64,linux/arm64"
+          fi
+          echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          DOCKERHUB_TAGS="betterweb/service-base:node-vault-${VERSION}"
+          DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:node-vault-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:node-vault"
+          fi
+          echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Forgejo
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
+
+      - name: Login to DockerHub
+        continue-on-error: true
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Check Docker Hub quota
+        continue-on-error: true
+        env:
+          DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
+          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        run: bash .github/scripts/check-dockerhub-rate-limit.sh betterweb/node:26
+
+      - name: Build and push to DockerHub
+        continue-on-error: true
+        uses: docker/build-push-action@v6
+        with:
+          build-args: |
+            BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-${{ needs.prepare.outputs.version }}
+            BSB_PLUGIN_VERSION=${{ needs.prepare.outputs.version }}
+          context: ./plugins/nodejs/config-vault
+          file: ./plugins/nodejs/config-vault/Dockerfile
+          platforms: ${{ steps.upstream.outputs.platforms }}
+          push: true
+          tags: ${{ steps.tags.outputs.dockerhub_tags }}
+
   docker-go-forgejo:
     name: Docker Go Forgejo
     needs: [go, prepare]

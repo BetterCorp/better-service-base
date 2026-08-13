@@ -43,7 +43,7 @@ export const SyslogClientConfigSchema = av.object({
     rejectUnauthorized: av.bool().default(true).describe("Whether TLS certificate validation rejects unauthorized certificates"),
     ca: av.optional(av.string()).describe("Optional TLS certificate authority data"),
     cert: av.optional(av.string()).describe("Optional TLS client certificate data"),
-    key: av.optional(av.string()).describe("Optional TLS client private key data"),
+    key: av.optional(av.string().describe("Optional TLS client private key data", { sensitive: true, writeonly: true })),
   }).describe("TLS connection settings for syslog transport")),
   facility: av.int32().min(0).max(23).default(16).describe("Syslog facility code"),
   hostname: av.optional(av.string()).describe("Hostname reported in syslog messages, defaulting to the local hostname"),

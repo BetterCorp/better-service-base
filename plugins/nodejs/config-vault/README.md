@@ -25,6 +25,19 @@ When a container restarts, it pulls the active published version for the API key
 
 ## Service
 
+The dedicated Vault image includes `@bsb/config-vault`, all BSB observable integrations, and `@bsb/syslog`; event transport plugins remain deployment-specific:
+
+```text
+code.bettercorp.dev/bettercorp/service-base:node-vault-latest
+betterweb/service-base:node-vault-latest
+```
+
+It uses the normal BSB entrypoint and configuration variables. Build it locally with:
+
+```bash
+docker build -f plugins/nodejs/config-vault/Dockerfile --build-arg BSB_BASE_IMAGE=betterweb/service-base:node-latest --build-arg BSB_PLUGIN_VERSION=latest -t betterweb/service-base:node-vault-local plugins/nodejs/config-vault
+```
+
 ```yaml
 service-config-vault:
   plugin: service-config-vault
@@ -55,15 +68,11 @@ Keep the value stable. If the key changes, Vault cannot decrypt configs already 
 
 On first startup, Vault logs a one-time setup code. Open `/setup`, enter the code, create the admin user, and confirm the password. Vault generates the TOTP enrollment secret and authenticator URI after the user is created.
 
-Vault has exactly one admin user. Treat that as part of the security model, not a missing team-management feature.
-
-On the first login, Vault verifies password and TOTP, then checks whether the admin has a registered passkey. If no passkey exists, Vault sends the admin through browser passkey enrollment and then forces a fresh login.
-
-After enrollment, every admin login requires password, TOTP, and a browser passkey assertion. Passkeys require HTTPS in browsers unless you are using localhost for local development, and `publicUrl` must match the external URL used to open Vault.
+Vault supports multiple administrators. Invite them from Users with a one-time setup link; each user chooses a password and enrolls at least one named TOTP/passkey pair. Login verifies password, passkey, then the TOTP paired with that exact passkey. Passkeys require HTTPS in browsers unless you are using localhost for local development, and `publicUrl` must match the external URL used to open Vault.
 
 ## Admin UI
 
-Vault has pages for Overview, Applications, Deployments, Plugins, and Profile. Deployment profiles own config drafts, publishing, and container key create/rotate flows.
+Vault has pages for Overview, Applications, Deployments, Plugins, Users, Audit, and Profile. Deployment profiles own config drafts, publishing, and container key create/rotate flows.
 
 Vault stores profile config internally as the profile body:
 
@@ -76,3 +85,5 @@ Vault stores profile config internally as the profile body:
 ```
 
 The admin UI builds that body from plugin catalog entries and generated config schemas. Add a plugin, enable or disable it, then fill out the schema-derived fields instead of editing JSON. Vault validates those fields server-side, applies defaults, strips unknown keys, and rejects invalid values before encrypting drafts. Vault wraps the body under the profile name internally. Container keys are generated from the deployment profile page and the UI shows the BSB container env vars once on creation or rotation.
+
+Fields carrying AnyVali `{ sensitive: true, writeonly: true }` metadata use write-only password controls. Runtime clients retry Vault for 15 seconds and can use an encrypted seven-day last-known-good cache; configure `staleAllowedHours=0` to disable that fallback. See the plugin docs for audit-database separation and recovery details.

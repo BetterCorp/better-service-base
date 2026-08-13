@@ -17,7 +17,7 @@
       "pluginPath": "src/plugins/events-rabbitmq/",
       "image": "./assets/events-rabbitmq.png",
       "links": {
-        "github": "https://github.com/BetterCorp/better-service-base.git"
+        "github": "https://github.com/BetterCorp/better-service-base"
       }
     }
   ]
