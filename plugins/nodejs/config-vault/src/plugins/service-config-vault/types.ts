@@ -108,6 +108,18 @@ export interface PluginCatalogRecord {
   createdAt: string;
 }
 
+export interface PluginPublisherRecord {
+  pluginId: string;
+  org: string;
+  name: string;
+  packageName: string;
+  kind: Exclude<PluginKind, 'config'>;
+  tokenId: string;
+  secretHash: string;
+  createdAt: string;
+  rotatedAt: string;
+}
+
 export interface ConfigDraftRecord {
   id: string;
   profileId: string;

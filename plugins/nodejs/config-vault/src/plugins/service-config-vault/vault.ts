@@ -7,6 +7,7 @@ import {
 } from '@simplewebauthn/server';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { decryptJson, encryptJson, hashSecret, newId, newToken, createTotpSecret, createTotpUri, verifySecret, verifyTotp, matchingTotpStep } from './crypto.js';
 import { VaultStore } from './store.js';
 import type {
@@ -18,6 +19,7 @@ import type {
   LoginStartResult,
   GroupRecord,
   PluginCatalogRecord,
+  PluginPublisherRecord,
   ProfileRecord,
   ResolvedRuntimeConfig,
   RuntimeKeyRecord,
@@ -45,6 +47,23 @@ type PluginUsageLocation = {
 };
 
 type PluginUsage = Record<string, { count: number; locations: PluginUsageLocation[] }>;
+
+type PrivatePluginUploadInput = {
+  org: string;
+  packageName: string;
+  schemaFileName: string;
+  schema: Record<string, unknown>;
+};
+
+type PrivatePluginPublishInput = {
+  org: string;
+  pluginId: string;
+  packageName: string;
+  version: string;
+  kind: PluginPublisherRecord['kind'];
+  configSchema: Record<string, unknown> | null;
+  eventSchema: Record<string, unknown>;
+};
 
 export class VaultService {
   private readonly store: VaultStore;
@@ -456,6 +475,126 @@ export class VaultService {
     return record;
   }
 
+  async createPrivatePlugin(userId: string, input: PrivatePluginUploadInput): Promise<{ plugin: PluginCatalogRecord; keyId: string; secret: string }> {
+    const parsed = privatePluginFromSchema(input);
+    if ((await this.store.listPlugins()).some((plugin) => plugin.pluginId === parsed.pluginId)) {
+      throw new Error(`Plugin ${parsed.pluginId} already exists`);
+    }
+    const plugin: PluginCatalogRecord = {
+      ...parsed,
+      id: newId(),
+      source: 'manual',
+      createdAt: new Date().toISOString(),
+    };
+    const credential = await createPublisherCredential(plugin);
+    await this.store.createPrivatePlugin(plugin, credential.publisher);
+    await this.audit(userId, 'plugin.private.create', plugin.id, {
+      pluginId: plugin.pluginId,
+      version: plugin.version,
+      packageName: plugin.packageName,
+      tokenId: credential.publisher.tokenId,
+    });
+    return { plugin, keyId: credential.publisher.tokenId, secret: credential.secret };
+  }
+
+  async enablePluginPublisher(userId: string, pluginId: string): Promise<{ keyId: string; secret: string }> {
+    if (await this.store.getPluginPublisher(pluginId)) throw new Error('Plugin publishing is already enabled');
+    const versions = (await this.store.listPlugins()).filter((plugin) => plugin.pluginId === pluginId);
+    if (versions.length === 0 || versions.some((plugin) => plugin.source === 'registry' || !plugin.packageName)) {
+      throw new Error('Only private plugins with an npm package can enable publishing');
+    }
+    const latest = latestPlugin(versions)!;
+    if (versions.some((plugin) => plugin.org !== latest.org || plugin.packageName !== latest.packageName || plugin.kind !== latest.kind)) {
+      throw new Error('Private plugin versions have inconsistent identities');
+    }
+    const credential = await createPublisherCredential(latest);
+    await this.store.createPluginPublisher(credential.publisher);
+    await this.audit(userId, 'plugin.publisher.create', pluginId, { tokenId: credential.publisher.tokenId });
+    return { keyId: credential.publisher.tokenId, secret: credential.secret };
+  }
+
+  async rotatePluginPublisher(userId: string, pluginId: string): Promise<{ keyId: string; secret: string }> {
+    const existing = await this.store.getPluginPublisher(pluginId);
+    if (!existing) throw new Error('Plugin publisher not found');
+    const credential = await createPublisherCredential(existing);
+    await this.store.rotatePluginPublisher(pluginId, credential.publisher.tokenId, credential.publisher.secretHash, credential.publisher.rotatedAt);
+    await this.audit(userId, 'plugin.publisher.rotate', pluginId, {
+      previousTokenId: existing.tokenId,
+      tokenId: credential.publisher.tokenId,
+    });
+    return { keyId: credential.publisher.tokenId, secret: credential.secret };
+  }
+
+  async publishPrivatePlugin(token: string, rawInput: Record<string, unknown>): Promise<{ status: 'published' | 'unchanged'; plugin: PluginCatalogRecord }> {
+    const tokenId = publisherTokenId(token);
+    const publisher = tokenId ? await this.store.getPluginPublisherByTokenId(tokenId) : null;
+    if (!publisher || !(await verifySecret(token, publisher.secretHash))) {
+      await this.audit(`publisher:${tokenId ?? 'unknown'}`, 'plugin.publish.auth.failed', 'plugin', {}).catch(() => undefined);
+      throw new Error('Invalid plugin publish token');
+    }
+    const input = privatePluginPublishInput(rawInput);
+    if (input.pluginId !== publisher.pluginId || input.org !== publisher.org || input.packageName !== publisher.packageName || input.kind !== publisher.kind) {
+      await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.identity.rejected', publisher.pluginId, {
+        requestedPluginId: input.pluginId,
+      });
+      throw new Error('Publish token is not authorized for this plugin');
+    }
+
+    const previousPlugins = await this.store.listPlugins();
+    const versions = previousPlugins.filter((plugin) => plugin.pluginId === publisher.pluginId);
+    const existing = versions.find((plugin) => plugin.version === input.version);
+    if (existing) {
+      if (isDeepStrictEqual(existing.configSchema, input.configSchema) && isDeepStrictEqual(existing.eventSchema, input.eventSchema)) {
+        await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.unchanged', existing.id, { version: existing.version });
+        return { status: 'unchanged', plugin: existing };
+      }
+      await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.conflict', existing.id, { version: existing.version });
+      throw new Error(`Plugin version ${input.version} already exists and cannot be overwritten`);
+    }
+    const latest = latestPlugin(versions);
+    if (latest && compareVersions(input.version, latest.version) <= 0) {
+      await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.conflict', publisher.pluginId, {
+        requestedVersion: input.version,
+        latestVersion: latest.version,
+      });
+      throw new Error(`Plugin version ${input.version} must be newer than ${latest.version}`);
+    }
+
+    const record: PluginCatalogRecord = {
+      id: newId(),
+      org: publisher.org,
+      name: publisher.name,
+      pluginId: publisher.pluginId,
+      packageName: publisher.packageName,
+      version: input.version,
+      kind: publisher.kind,
+      source: 'upload',
+      configSchema: input.configSchema,
+      eventSchema: input.eventSchema,
+      createdAt: new Date().toISOString(),
+    };
+    if (!(await this.store.createPluginIfAbsent(record))) {
+      const concurrent = (await this.store.listPlugins()).find((plugin) =>
+        plugin.pluginId === record.pluginId && plugin.version === record.version
+      );
+      if (concurrent && isDeepStrictEqual(concurrent.configSchema, record.configSchema) && isDeepStrictEqual(concurrent.eventSchema, record.eventSchema)) {
+        await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.unchanged', concurrent.id, { version: concurrent.version });
+        return { status: 'unchanged', plugin: concurrent };
+      }
+      await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.conflict', concurrent?.id ?? publisher.pluginId, {
+        version: record.version,
+      });
+      throw new Error(`Plugin version ${record.version} already exists and cannot be overwritten`);
+    }
+    await this.lockIncompatibleUnlockedConfigs(`publisher:${publisher.tokenId}`, record, previousPlugins);
+    await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish', record.id, {
+      pluginId: record.pluginId,
+      version: record.version,
+      packageName: record.packageName,
+    });
+    return { status: 'published', plugin: record };
+  }
+
   async deletePlugin(userId: string, pluginId: string): Promise<void> {
     const plugins = await this.store.listPlugins();
     const plugin = plugins.find((candidate) => candidate.id === pluginId);
@@ -463,8 +602,8 @@ export class VaultService {
     const usage = await this.pluginUsage(plugins);
     const used = usage[plugin.id];
     if (used?.count) throw new Error(`Plugin version is used by ${used.count} config entries`);
-    await this.store.deletePlugin(plugin.id);
-    await this.audit(userId, 'plugin.delete', plugin.id, { pluginId: plugin.pluginId, version: plugin.version });
+    const publisherRemoved = await this.store.deletePlugin(plugin.id);
+    await this.audit(userId, 'plugin.delete', plugin.id, { pluginId: plugin.pluginId, version: plugin.version, publisherRemoved });
   }
 
   async cleanupUnusedImportedPlugins(userId: string, olderThanMs = 12 * 60 * 60 * 1000): Promise<number> {
@@ -897,6 +1036,7 @@ export class VaultService {
     groups: GroupRecord[];
     profiles: ProfileRecord[];
     plugins: PluginCatalogRecord[];
+    pluginPublishers: Array<Omit<PluginPublisherRecord, 'secretHash'>>;
     pluginUsage: PluginUsage;
     runtimeKeys: RuntimeKeyRecord[];
   }> {
@@ -907,6 +1047,7 @@ export class VaultService {
       groups: await this.store.listAllGroups(),
       profiles: await this.store.listAllProfiles(),
       plugins,
+      pluginPublishers: (await this.store.listPluginPublishers()).map(({ secretHash: _secretHash, ...publisher }) => publisher),
       pluginUsage: await this.pluginUsage(plugins),
       runtimeKeys: await this.store.listRuntimeKeys(),
     };
@@ -1545,6 +1686,106 @@ function cloneJson(value: unknown): unknown {
 
 function validateConfigName(name: string): void {
   if (!name.trim()) throw new Error('Config name is required');
+}
+
+function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCatalogRecord, 'id' | 'source' | 'createdAt'> {
+  const fileName = input.schemaFileName.trim();
+  if (!/^[a-z0-9][a-z0-9._-]*\.json$/i.test(fileName)) throw new Error('Schema file must be named {plugin-id}.json');
+  const pluginId = fileName.slice(0, -5);
+  const org = input.org.trim();
+  const packageName = input.packageName.trim();
+  if (!/^(_|@?[a-z0-9][a-z0-9._-]*)$/i.test(org)) throw new Error('Plugin org is invalid');
+  if (!packageName || /\s/.test(packageName)) throw new Error('Plugin npm package is required');
+  const version = requiredVersion(input.schema.version, 'Schema version');
+  const rawKind = requiredString(input.schema.pluginType, 'Schema pluginType');
+  if (rawKind !== 'service' && rawKind !== 'events' && rawKind !== 'observable') {
+    throw new Error('Private plugin type must be service, events, or observable');
+  }
+  const events = objectField(input.schema.events);
+  if (!events) throw new Error('Schema events must be an object');
+  const name = typeof input.schema.pluginName === 'string' && input.schema.pluginName.trim()
+    ? input.schema.pluginName.trim()
+    : pluginId;
+  const eventSchema: Record<string, unknown> = { pluginName: name, version, events };
+  if (objectField(input.schema.capabilities)) eventSchema.capabilities = input.schema.capabilities;
+  if (Array.isArray(input.schema.dependencies)) eventSchema.dependencies = input.schema.dependencies;
+  return {
+    org,
+    name,
+    pluginId,
+    packageName,
+    version,
+    kind: rawKind,
+    configSchema: objectField(input.schema.configSchema),
+    eventSchema,
+  };
+}
+
+function privatePluginPublishInput(input: Record<string, unknown>): PrivatePluginPublishInput {
+  const metadata = objectField(input.metadata) ?? {};
+  const packages = objectField(input.package) ?? {};
+  const eventSchema = objectField(input.eventSchema);
+  if (!eventSchema) throw new Error('eventSchema must be an object');
+  if (!objectField(eventSchema.events)) throw new Error('eventSchema.events must be an object');
+  const version = requiredVersion(input.version, 'Plugin version');
+  if (typeof eventSchema.version === 'string' && eventSchema.version !== version) {
+    throw new Error('Plugin version must match eventSchema.version');
+  }
+  const rawKind = requiredString(input.kind ?? metadata.category, 'Plugin kind');
+  if (rawKind !== 'service' && rawKind !== 'events' && rawKind !== 'observable') {
+    throw new Error('Plugin kind must be service, events, or observable');
+  }
+  if (input.language !== undefined && input.language !== 'nodejs') throw new Error('Only Node.js plugins can be published to Vault');
+  return {
+    org: requiredString(input.org, 'Plugin org'),
+    pluginId: requiredString(input.pluginId ?? input.name, 'Plugin id'),
+    packageName: requiredString(input.packageName ?? packages.nodejs, 'Plugin npm package'),
+    version,
+    kind: rawKind,
+    configSchema: input.configSchema === undefined || input.configSchema === null ? null : requireObject(input.configSchema, 'configSchema'),
+    eventSchema,
+  };
+}
+
+function requiredString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${label} is required`);
+  return value.trim();
+}
+
+function requiredVersion(value: unknown, label: string): string {
+  const version = requiredString(value, label);
+  if (!/^\d+\.\d+\.\d+(?:-[0-9a-z.-]+)?(?:\+[0-9a-z.-]+)?$/i.test(version)) {
+    throw new Error(`${label} must use semantic versioning`);
+  }
+  return version;
+}
+
+async function createPublisherCredential(
+  plugin: Pick<PluginCatalogRecord, 'pluginId' | 'org' | 'name' | 'packageName' | 'kind'> | PluginPublisherRecord,
+): Promise<{ publisher: PluginPublisherRecord; secret: string }> {
+  if (!plugin.packageName || plugin.kind === 'config') throw new Error('Private plugin requires a configurable Node.js package');
+  const tokenId = newToken(9);
+  const slug = plugin.pluginId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'plugin';
+  const secret = `bv_p_${slug}_${tokenId}_${newToken(32)}`;
+  const now = new Date().toISOString();
+  return {
+    secret,
+    publisher: {
+      pluginId: plugin.pluginId,
+      org: plugin.org,
+      name: plugin.name,
+      packageName: plugin.packageName,
+      kind: plugin.kind,
+      tokenId,
+      secretHash: await hashSecret(secret),
+      createdAt: 'createdAt' in plugin ? plugin.createdAt : now,
+      rotatedAt: now,
+    },
+  };
+}
+
+function publisherTokenId(token: string): string | null {
+  return /^bv_p_[a-z0-9-]{1,48}_([A-Za-z0-9_-]{12})_[A-Za-z0-9_-]{43}$/.exec(token)?.[1] ?? null;
 }
 
 function sectionForKind(kind: PluginCatalogRecord['kind']): 'services' | 'events' | 'observable' | null {

@@ -9,6 +9,7 @@
  *   bsb-client list                 - List all plugins from registry
  *   bsb-client search <query>       - Search plugins
  *   bsb-client publish              - Publish current plugin(s) to registry
+ *   bsb-client publish --target URL --plugin ID --token TOKEN - Publish one plugin to Vault
  *   bsb-client schema <name>        - Get plugin event schema
  *   bsb-client info <name>          - Get plugin details
  *   bsb-client install <name>       - Download schema and generate types
@@ -151,7 +152,7 @@ function formatRegistryError(parsed: any, statusCode?: number, raw?: string): st
       : `HTTP ${statusCode ?? 'error'}`;
   }
 
-  const base = parsed.error || `HTTP ${statusCode ?? 'error'}`;
+  const base = parsed.error || parsed.statusMessage || parsed.message || `HTTP ${statusCode ?? 'error'}`;
   const code = parsed.code ? ` [${parsed.code}]` : '';
 
   if (Array.isArray(parsed.details) && parsed.details.length > 0) {
@@ -179,14 +180,16 @@ async function registryRequest(
   method: string,
   path: string,
   body?: any,
-  requireAuth: boolean = false
+  requireAuth: boolean = false,
+  baseUrl: string = REGISTRY_URL,
+  token: string | undefined = REGISTRY_TOKEN,
 ): Promise<any> {
-  if (requireAuth && !REGISTRY_TOKEN) {
-    throw new Error('BSB_REGISTRY_TOKEN environment variable not set');
+  if (requireAuth && !token) {
+    throw new Error('Publish token is required');
   }
 
   return new Promise((resolve, reject) => {
-    const url = new URL(path, REGISTRY_URL);
+    const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
     const isHttps = url.protocol === 'https:';
     const lib = isHttps ? https : http;
 
@@ -198,7 +201,7 @@ async function registryRequest(
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        ...(REGISTRY_TOKEN ? { Authorization: `Bearer ${REGISTRY_TOKEN}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     };
 
@@ -245,8 +248,14 @@ async function registryRequest(
   });
 }
 
-async function uploadPluginImage(org: string, pluginName: string, imagePath: string): Promise<any> {
-  if (!REGISTRY_TOKEN) {
+async function uploadPluginImage(
+  org: string,
+  pluginName: string,
+  imagePath: string,
+  baseUrl: string = REGISTRY_URL,
+  token: string | undefined = REGISTRY_TOKEN,
+): Promise<any> {
+  if (!token) {
     throw new Error('BSB_REGISTRY_TOKEN environment variable not set');
   }
   if (!imagePath.toLowerCase().endsWith('.png')) {
@@ -276,7 +285,7 @@ async function uploadPluginImage(org: string, pluginName: string, imagePath: str
 
   return new Promise((resolve, reject) => {
     const uploadPath = `/plugins/${encodeURIComponent(org)}/${encodeURIComponent(pluginName)}/image`;
-    const url = new URL(uploadPath, REGISTRY_URL);
+    const url = new URL(uploadPath, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
     const isHttps = url.protocol === 'https:';
     const lib = isHttps ? https : http;
 
@@ -288,7 +297,7 @@ async function uploadPluginImage(org: string, pluginName: string, imagePath: str
         method: 'POST',
         headers: {
           'Accept': 'application/json',
-          'Authorization': `Bearer ${REGISTRY_TOKEN}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': `multipart/form-data; boundary=${boundary}`,
           'Content-Length': body.length,
         },
@@ -456,14 +465,41 @@ async function getPluginSchema(pluginId: string): Promise<void> {
  * Iterates over all plugins in bsb-plugin.json and publishes each separately.
  * Org is read from package.json "bsb.orgId" field, defaulting to "_" (unaffiliated).
  */
-async function publishPlugin(): Promise<void> {
-  if (!REGISTRY_TOKEN) {
-    error('BSB_REGISTRY_TOKEN environment variable not set. Get a token from the registry admin.');
+function parsePublishOptions(args: string[]): { target?: string; token?: string; plugin?: string; allowInsecure: boolean } {
+  const options: { target?: string; token?: string; plugin?: string; allowInsecure: boolean } = { allowInsecure: false };
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === '--allow-insecure') {
+      options.allowInsecure = true;
+      continue;
+    }
+    if (argument !== '--target' && argument !== '--token' && argument !== '--plugin') {
+      throw new Error(`Unknown publish option: ${argument}`);
+    }
+    const value = args[index + 1];
+    if (!value || value.startsWith('--')) throw new Error(`${argument} requires a value`);
+    options[argument.slice(2) as 'target' | 'token' | 'plugin'] = value;
+    index += 1;
   }
+  return options;
+}
 
-  info('Publishing plugin(s) to registry...');
-
+async function publishPlugin(): Promise<void> {
   try {
+    const options = parsePublishOptions(ARGS);
+    const token = options.token ?? REGISTRY_TOKEN;
+    if (!token) throw new Error('Provide --token or set BSB_REGISTRY_TOKEN');
+    const vaultTarget = token.startsWith('bv_p_');
+    const target = options.target ?? REGISTRY_URL;
+    if (vaultTarget && !options.target) throw new Error('Vault publishing requires --target <vault-url>');
+    const targetUrl = new URL(target);
+    if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') throw new Error('Publish target must use HTTP or HTTPS');
+    const loopback = targetUrl.hostname === 'localhost' || targetUrl.hostname === '127.0.0.1' || targetUrl.hostname === '[::1]';
+    if (vaultTarget && targetUrl.protocol !== 'https:' && !loopback && !options.allowInsecure) {
+      throw new Error('Vault publishing requires HTTPS; use --allow-insecure only for development');
+    }
+    info(`Publishing plugin(s) to ${vaultTarget ? 'Vault' : 'registry'}...`);
+
     // Read package.json
     const pkgPath = path.join(process.cwd(), 'package.json');
     if (!fs.existsSync(pkgPath)) {
@@ -478,9 +514,16 @@ async function publishPlugin(): Promise<void> {
       error('No bsb-plugin.json found. Run "bsb-plugin-cli build" first.');
     }
     const manifest: RootPluginManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-    const plugins = Array.isArray(manifest.nodejs) ? manifest.nodejs : [];
+    const allPlugins = Array.isArray(manifest.nodejs) ? manifest.nodejs : [];
+    const requestedPlugin = options.plugin ? normalizeIgnoredPluginId(options.plugin, pkg.bsb?.orgId || '_') : undefined;
+    const plugins = requestedPlugin ? allPlugins.filter((plugin) => plugin.id === requestedPlugin) : allPlugins;
     if (plugins.length === 0) {
-      error('No Node.js plugins found in bsb-plugin.json');
+      throw new Error(requestedPlugin
+        ? `Plugin ${options.plugin} was not found in bsb-plugin.json`
+        : 'No Node.js plugins found in bsb-plugin.json');
+    }
+    if (vaultTarget && allPlugins.length > 1 && !requestedPlugin) {
+      throw new Error('Vault publish tokens authorize one plugin; select it with --plugin <plugin-id>');
     }
 
     // Schemas are still sourced from generated lib/schemas/{plugin}.json
@@ -491,7 +534,7 @@ async function publishPlugin(): Promise<void> {
 
     // Read project README.md as fallback documentation
     const readmePath = path.join(process.cwd(), 'README.md');
-    const readmeContent = fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf-8') : undefined;
+    const readmeContent = !vaultTarget && fs.existsSync(readmePath) ? fs.readFileSync(readmePath, 'utf-8') : undefined;
 
     // Org from package.json bsb.orgId, default to "_" (unaffiliated)
     const org: string = pkg.bsb?.orgId || '_';
@@ -519,7 +562,7 @@ async function publishPlugin(): Promise<void> {
 
       try {
         const category = resolveCategory(pluginName);
-        const imagePath = resolveImagePath({ basePath: pluginMeta.basePath, image: pluginMeta.image });
+        const imagePath = vaultTarget ? null : resolveImagePath({ basePath: pluginMeta.basePath, image: pluginMeta.image });
 
         // Read event schema from lib/schemas/{pluginId}.json
         const schemaPath = path.join(schemasDir, `${pluginName}.json`);
@@ -557,22 +600,24 @@ async function publishPlugin(): Promise<void> {
 
         // Read documentation files listed in plugin metadata
         const documentation: string[] = [];
-        const docPaths: string[] = Array.isArray(pluginMeta.documentation) ? pluginMeta.documentation : [];
-        for (const docPath of docPaths) {
-          const fullPath = path.resolve(process.cwd(), docPath);
-          if (fs.existsSync(fullPath)) {
-            documentation.push(fs.readFileSync(fullPath, 'utf-8'));
-          } else {
-            warn(`Documentation file not found: ${docPath}`);
+        if (!vaultTarget) {
+          const docPaths: string[] = Array.isArray(pluginMeta.documentation) ? pluginMeta.documentation : [];
+          for (const docPath of docPaths) {
+            const fullPath = path.resolve(process.cwd(), docPath);
+            if (fs.existsSync(fullPath)) {
+              documentation.push(fs.readFileSync(fullPath, 'utf-8'));
+            } else {
+              warn(`Documentation file not found: ${docPath}`);
+            }
           }
-        }
 
-        // Fallback to project README.md
-        if (documentation.length === 0) {
-          if (readmeContent) {
-            documentation.push(readmeContent);
-          } else {
-            error(`No documentation found for ${display}. Add documentation paths to Config metadata or provide a README.md.`);
+          // Fallback to project README.md
+          if (documentation.length === 0) {
+            if (readmeContent) {
+              documentation.push(readmeContent);
+            } else {
+              throw new Error(`No documentation found for ${display}. Add documentation paths to Config metadata or provide a README.md.`);
+            }
           }
         }
 
@@ -592,12 +637,15 @@ async function publishPlugin(): Promise<void> {
             repository: pluginMeta.repository || (typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url),
           },
           eventSchema,
-          documentation,
           package: {
             nodejs: pkg.name,
           },
-          visibility: 'public',
         };
+
+        if (!vaultTarget) {
+          publishRequest.documentation = documentation;
+          publishRequest.visibility = 'public';
+        }
 
         if (configSchema) {
           publishRequest.configSchema = configSchema;
@@ -611,7 +659,7 @@ async function publishPlugin(): Promise<void> {
         info(`Publishing ${display} @ ${pkg.version}...`);
 
         const result = await retryRegistryPublish(
-          () => registryRequest('POST', '/plugins', publishRequest, true),
+          () => registryRequest('POST', vaultTarget ? '/api/plugins/publish' : '/plugins', publishRequest, true, target, token),
           {
             onRetry: (attempt, maxAttempts, err, delayMs) => {
               warn(`Publish failed with a network error (${err.message}); waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt}/${maxAttempts}...`);
@@ -621,7 +669,7 @@ async function publishPlugin(): Promise<void> {
         if (imagePath) {
           info(`Uploading image for ${display}...`);
           await retryRegistryPublish(
-            () => uploadPluginImage(org, pluginName, imagePath),
+            () => uploadPluginImage(org, pluginName, imagePath, target, token),
             {
               onRetry: (attempt, maxAttempts, err, delayMs) => {
                 warn(`Image upload failed with a network error (${err.message}); waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt}/${maxAttempts}...`);
@@ -630,7 +678,8 @@ async function publishPlugin(): Promise<void> {
           );
         }
 
-        success(`Published: ${display} @ ${result.version}${imagePath ? ' (with image)' : ''}`);
+        const publishedVersion = result.plugin?.version ?? result.version ?? pkg.version;
+        success(`${result.status === 'unchanged' ? 'Unchanged' : 'Published'}: ${display} @ ${publishedVersion}${imagePath ? ' (with image)' : ''}`);
         published++;
       } catch (err: any) {
         log(`  Failed to publish ${display}: ${err.message}`, 'red');
@@ -796,6 +845,7 @@ async function main(): Promise<void> {
     log('  bsb-client schema <name>         - Get plugin event schema');
     log('  bsb-client install <name>        - Download schema and generate types');
     log('  bsb-client publish               - Publish current plugin(s) to registry');
+    log('  bsb-client publish --target URL --plugin ID --token TOKEN - Publish one plugin directly to Vault');
     log('  bsb-client token generate        - Generate a new API token');
     log('');
     log('Plugin IDs:', 'cyan');

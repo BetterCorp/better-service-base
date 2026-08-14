@@ -153,6 +153,10 @@ module.exports = async ({ pluginRoot }) => {
         calls.push(['createPlugin', userId, input.pluginId, input.version, input.packageName]);
         return { id: 'imported-plugin', createdAt: '2026-01-01T00:00:00.000Z', ...input };
       },
+      async publishPrivatePlugin(token, input) {
+        calls.push(['publishPrivatePlugin', token, input.name, input.version]);
+        return { status: 'published', plugin: { version: input.version } };
+      },
       async deletePlugin(userId, id) {
         calls.push(['deletePlugin', userId, id]);
       },
@@ -470,6 +474,14 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /\/api\/plugins\/delete/);
     assert.match(pluginsHtml, /Sync Imported Plugins/);
 
+    const directPublish = await fetch(`http://127.0.0.1:${port}/api/plugins/publish`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer bv_p_test' },
+      body: JSON.stringify({ name: 'service-private', version: '1.1.0' }),
+    });
+    assert.equal(directPublish.status, 200);
+    assert.equal((await directPublish.json()).status, 'published');
+
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
     await postJson(port, '/api/plugins/sync', {});
     await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
@@ -494,6 +506,7 @@ module.exports = async ({ pluginRoot }) => {
     assert.ok(registryAuthorization.length >= 2);
     assert.ok(registryAuthorization.every((value) => value === 'Bearer vault-registry-token'));
     assert.deepEqual(calls, [
+      ['publishPrivatePlugin', 'bv_p_test', 'service-private', '1.1.0'],
       ['createDeployment', 'user-1', 'app-1', 'worker'],
       ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
       ['cleanupUnusedImportedPlugins', 'user-1'],

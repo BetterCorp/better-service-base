@@ -185,6 +185,7 @@ Recommended plugin directory layout (when using `BSB_PLUGIN_DIRS`):
 Notes
 - In container deployments, prefer placing prebuilt plugins under `BSB_PLUGIN_DIRS` as above. This avoids network installs on boot and ensures deterministic versions via immutable versioned folders.
 - `BSB_PLUGINS` is available for dynamic `npm install` at startup, but mounting a curated plugin repository via `BSB_PLUGIN_DIRS` is recommended for production.
+- `bsb client publish --target https://vault.example.com --plugin <id> --token <bv_p_...>` publishes a generated private-plugin schema directly to Vault; the npm package must still be available to the runtime.
 - For shared plugin storage, run `code.bettercorp.dev/bettercorp/service-base:node` with `BSB_PLUGIN_WATCHER=true` and write access to `/mnt/plugins`; mount that volume read-only into runtime BSB containers. Runtime containers skip plugin-dir ownership and permission fixes when the mount is read-only.
 - Avoid unversioned `BSB_PLUGINS` entries in production unless you intentionally want npm latest; `@latest` is rejected, and major/minor/exact selectors are supported.
 - After changing BSB image versions that affect plugin install layout, run once with `BSB_PLUGIN_UPDATE=true` or clear the plugin cache volume so stale installed plugin folders are rebuilt.

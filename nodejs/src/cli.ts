@@ -115,6 +115,7 @@ Client Commands (Registry Operations):
   bsb client schema <org/name>  Get plugin event schema from registry
   bsb client install <org/name> Download schema and generate types
   bsb client publish            Publish current plugin to registry
+  bsb client publish --target <vault-url> --plugin <id> --token <bv_p_...>
   bsb client token generate     Generate API token for registry
 
 Examples:
@@ -224,7 +225,7 @@ async function main() {
           await spawnClientCli(['install', process.argv[4]]);
           break;
         case 'publish':
-          await spawnClientCli(['publish']);
+          await spawnClientCli(['publish', ...process.argv.slice(4)]);
           break;
         case 'token':
           if (!process.argv[4] || process.argv[4] !== 'generate') {

@@ -12,6 +12,7 @@ import type {
   GroupRecord,
   PasskeyRecord,
   PluginCatalogRecord,
+  PluginPublisherRecord,
   ProfileRecord,
   RuntimeKeyRecord,
   SessionRecord,
@@ -125,6 +126,17 @@ export class VaultStore {
         event_schema jsonb,
         created_at timestamptz not null,
         unique(plugin_id, version)
+      );
+      create table if not exists vault_plugin_publishers (
+        plugin_id text primary key,
+        org text not null,
+        name text not null,
+        package_name text not null,
+        kind text not null,
+        token_id text not null unique,
+        secret_hash text not null,
+        created_at timestamptz not null,
+        rotated_at timestamptz not null
       );
       create table if not exists vault_config_drafts (
         id text primary key,
@@ -588,13 +600,105 @@ export class VaultStore {
     );
   }
 
+  async createPluginIfAbsent(record: PluginCatalogRecord): Promise<boolean> {
+    const result = await this.pool.query(
+      `insert into vault_plugin_catalog
+       (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       on conflict (plugin_id, version) do nothing`,
+      [record.id, record.org, record.name, record.pluginId, record.packageName, record.version, record.kind,
+        record.source, record.configSchema, record.eventSchema, record.createdAt],
+    );
+    return result.rowCount === 1;
+  }
+
+  async createPrivatePlugin(record: PluginCatalogRecord, publisher: PluginPublisherRecord): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(
+        `insert into vault_plugin_catalog
+         (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [record.id, record.org, record.name, record.pluginId, record.packageName, record.version, record.kind,
+          record.source, record.configSchema, record.eventSchema, record.createdAt],
+      );
+      await client.query(
+        `insert into vault_plugin_publishers
+         (plugin_id, org, name, package_name, kind, token_id, secret_hash, created_at, rotated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [publisher.pluginId, publisher.org, publisher.name, publisher.packageName, publisher.kind,
+          publisher.tokenId, publisher.secretHash, publisher.createdAt, publisher.rotatedAt],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async createPluginPublisher(record: PluginPublisherRecord): Promise<void> {
+    await this.pool.query(
+      `insert into vault_plugin_publishers
+       (plugin_id, org, name, package_name, kind, token_id, secret_hash, created_at, rotated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [record.pluginId, record.org, record.name, record.packageName, record.kind,
+        record.tokenId, record.secretHash, record.createdAt, record.rotatedAt],
+    );
+  }
+
+  async getPluginPublisher(pluginId: string): Promise<PluginPublisherRecord | null> {
+    const result = await this.pool.query('select * from vault_plugin_publishers where plugin_id = $1', [pluginId]);
+    return result.rows[0] ? mapPluginPublisher(result.rows[0] as DbRow) : null;
+  }
+
+  async getPluginPublisherByTokenId(tokenId: string): Promise<PluginPublisherRecord | null> {
+    const result = await this.pool.query('select * from vault_plugin_publishers where token_id = $1', [tokenId]);
+    return result.rows[0] ? mapPluginPublisher(result.rows[0] as DbRow) : null;
+  }
+
+  async listPluginPublishers(): Promise<PluginPublisherRecord[]> {
+    const result = await this.pool.query('select * from vault_plugin_publishers order by org, plugin_id');
+    return result.rows.map((row) => mapPluginPublisher(row as DbRow));
+  }
+
+  async rotatePluginPublisher(pluginId: string, tokenId: string, secretHash: string, rotatedAt: string): Promise<void> {
+    const result = await this.pool.query(
+      'update vault_plugin_publishers set token_id = $1, secret_hash = $2, rotated_at = $3 where plugin_id = $4',
+      [tokenId, secretHash, rotatedAt, pluginId],
+    );
+    if (result.rowCount !== 1) throw new Error('Plugin publisher not found');
+  }
+
   async listPlugins(): Promise<PluginCatalogRecord[]> {
     const result = await this.pool.query('select * from vault_plugin_catalog order by org, name, version');
     return result.rows.map((row) => mapPlugin(row as DbRow));
   }
 
-  async deletePlugin(id: string): Promise<void> {
-    await this.pool.query('delete from vault_plugin_catalog where id = $1', [id]);
+  async deletePlugin(id: string): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const deleted = await client.query<{ plugin_id: string }>('delete from vault_plugin_catalog where id = $1 returning plugin_id', [id]);
+      const pluginId = deleted.rows[0]?.plugin_id;
+      let publisherRemoved = false;
+      if (pluginId) {
+        const remaining = await client.query('select 1 from vault_plugin_catalog where plugin_id = $1 limit 1', [pluginId]);
+        if (remaining.rows.length === 0) {
+          const removed = await client.query('delete from vault_plugin_publishers where plugin_id = $1', [pluginId]);
+          publisherRemoved = (removed.rowCount ?? 0) > 0;
+        }
+      }
+      await client.query('commit');
+      return publisherRemoved;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async upsertDraft(record: ConfigDraftRecord): Promise<void> {
@@ -1027,6 +1131,20 @@ function mapPlugin(row: DbRow): PluginCatalogRecord {
     configSchema: row.config_schema === null ? null : row.config_schema as Record<string, unknown>,
     eventSchema: row.event_schema === null ? null : row.event_schema as Record<string, unknown>,
     createdAt: iso(row.created_at),
+  };
+}
+
+function mapPluginPublisher(row: DbRow): PluginPublisherRecord {
+  return {
+    pluginId: String(row.plugin_id),
+    org: String(row.org),
+    name: String(row.name),
+    packageName: String(row.package_name),
+    kind: row.kind as PluginPublisherRecord['kind'],
+    tokenId: String(row.token_id),
+    secretHash: String(row.secret_hash),
+    createdAt: iso(row.created_at),
+    rotatedAt: iso(row.rotated_at),
   };
 }
 

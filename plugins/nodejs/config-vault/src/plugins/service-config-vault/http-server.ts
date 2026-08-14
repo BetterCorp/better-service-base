@@ -285,6 +285,37 @@ export class VaultHttpServer {
       return this.options.vault.createProfile(user.userId, String(body.groupId ?? ''), String(body.name ?? 'default'));
     }));
 
+    app.use('/api/plugins/publish', defineEventHandler(async (event) => {
+      const contentLength = Number(getHeader(event, 'content-length') ?? '0');
+      if (contentLength > 1024 * 1024) throw createError({ statusCode: 413, statusMessage: 'Plugin schema payload is too large' });
+      const authorization = getHeader(event, 'authorization') ?? '';
+      const token = /^Bearer\s+(.+)$/i.exec(authorization)?.[1] ?? '';
+      const body = await readBody<Record<string, unknown>>(event);
+      if (JSON.stringify(body).length > 1024 * 1024) throw createError({ statusCode: 413, statusMessage: 'Plugin schema payload is too large' });
+      try {
+        return await this.options.vault.publishPrivatePlugin(token, body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Plugin publish failed';
+        throw createError({ statusCode: pluginPublishStatus(message), statusMessage: message });
+      }
+    }));
+
+    app.use('/api/plugins/publish-key/rotate', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      const pluginId = String(body.pluginId ?? '');
+      const credential = await this.options.vault.rotatePluginPublisher(user.userId, pluginId);
+      return { ...credential, publishCommand: vaultPublishCommand(this.options.publicUrl, pluginId, credential.secret) };
+    }));
+
+    app.use('/api/plugins/publish-key/enable', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      const pluginId = String(body.pluginId ?? '');
+      const credential = await this.options.vault.enablePluginPublisher(user.userId, pluginId);
+      return { ...credential, publishCommand: vaultPublishCommand(this.options.publicUrl, pluginId, credential.secret) };
+    }));
+
     app.use('/api/plugins/import', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -338,17 +369,18 @@ export class VaultHttpServer {
     app.use('/api/plugins', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      return this.options.vault.createPlugin(user.userId, {
+      const schema = parseJsonObject(body.schema);
+      if (!schema) throw new Error('Select a generated plugin schema JSON file');
+      const created = await this.options.vault.createPrivatePlugin(user.userId, {
         org: String(body.org ?? '_'),
-        name: String(body.name ?? ''),
-        pluginId: String(body.pluginId ?? body.name ?? ''),
-        packageName: body.packageName === undefined ? null : String(body.packageName),
-        version: String(body.version ?? '0.0.0'),
-        kind: parseKind(body.kind),
-        source: parseSource(body.source),
-        configSchema: parseJsonObject(body.configSchema) ?? null,
-        eventSchema: parseJsonObject(body.eventSchema) ?? null,
+        packageName: String(body.packageName ?? ''),
+        schemaFileName: String(body.schemaFileName ?? ''),
+        schema,
       });
+      return {
+        ...created,
+        publishCommand: vaultPublishCommand(this.options.publicUrl, created.plugin.pluginId, created.secret),
+      };
     }));
 
     app.use('/api/drafts', defineEventHandler(async (event) => {
@@ -1099,27 +1131,36 @@ function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: 
     ${visibleRegistry.length === 0 ? '<p class="muted">No configurable registry results loaded.</p>' : registryTable(visibleRegistry, visiblePlugins)}
   </section>
   <section><h2>Private Plugin</h2>
-    <form data-api="/api/plugins" data-redirect="/plugins">
+    <p class="muted">Upload the generated <code>lib/schemas/{plugin-id}.json</code> file. Vault derives the plugin identity and creates its CI publish key.</p>
+    <form data-api="/api/plugins">
       <div class="form-grid">
         ${input('org', 'Org', true, '_')}
-        ${input('name', 'Name', true)}
-        ${input('pluginId', 'Plugin ID', true)}
-        ${input('packageName', 'Package')}
-        ${input('version', 'Version', true, '0.0.0')}
-        ${select('kind', 'Kind', [['service', 'service'], ['events', 'events'], ['observable', 'observable']])}
+        ${input('packageName', 'NPM Package', true)}
       </div>
-      <label>Config Schema JSON</label><textarea name="configSchema" placeholder='{"type":"object"}'></textarea>
+      <label>Generated Schema JSON<input name="schemaFile" type="file" accept="application/json,.json" required></label>
       <button class="success">Create Plugin</button><p class="status"></p>
     </form>
   </section>
-  <section><h2>Catalog</h2>${pluginCatalogTable(visiblePlugins, data.pluginUsage)}</section>
+  <section><h2>Catalog</h2>${pluginCatalogTable(visiblePlugins, data.pluginUsage, data.pluginPublishers ?? [])}</section>
   ${formScript()}`;
 }
 
-function pluginCatalogTable(plugins: DashboardData['plugins'], usage: DashboardData['pluginUsage']): string {
+function pluginCatalogTable(
+  plugins: DashboardData['plugins'],
+  usage: DashboardData['pluginUsage'],
+  publishers: DashboardData['pluginPublishers'],
+): string {
   if (plugins.length === 0) return '<p class="muted">No plugins imported.</p>';
+  const publisherByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisher]));
+  const renderedPublishers = new Set<string>();
   return `<table>${plugins.map((plugin) => {
     const used = usage[plugin.id]?.count ?? 0;
+    const publisher = publisherByPlugin.get(plugin.pluginId);
+    const showPublisher = !renderedPublishers.has(plugin.pluginId) && (publisher || plugin.source !== 'registry');
+    renderedPublishers.add(plugin.pluginId);
+    const publisherAction = !showPublisher ? '' : publisher
+      ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
+      : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
     return `<tr>
       <td>${escapeHtml(pluginDisplayName(plugin))}</td>
       <td>${escapeHtml(plugin.version)}</td>
@@ -1127,6 +1168,7 @@ function pluginCatalogTable(plugins: DashboardData['plugins'], usage: DashboardD
       <td>${escapeHtml(plugin.source)}</td>
       <td>${escapeHtml(plugin.packageName ?? '')}</td>
       <td>${pluginUsageDetails(usage[plugin.id])}</td>
+      <td>${publisherAction}</td>
       <td>${used === 0 ? `<form data-api="/api/plugins/delete" data-redirect="/plugins" data-confirm="Delete this unused plugin version?"><input type="hidden" name="id" value="${escapeHtml(plugin.id)}"><button class="danger">Delete</button><p class="status"></p></form>` : '<span class="muted">In use</span>'}</td>
     </tr>`;
   }).join('')}</table>`;
@@ -2011,7 +2053,14 @@ function formScript(): string {
       try {
         const data = {};
         for (const [key, value] of new FormData(form).entries()) {
-          if (typeof value !== 'string' || value.trim() === '') continue;
+          if (value instanceof File) {
+            if (!value.size) continue;
+            if (value.size > 1024 * 1024) throw new Error('Plugin schema file must be 1 MB or smaller');
+            data.schemaFileName = value.name;
+            data.schema = JSON.parse(await value.text());
+            continue;
+          }
+          if (value.trim() === '') continue;
           data[key] = value;
         }
         const csrf = document.cookie.split('; ').find((x) => x.startsWith('vault_csrf='))?.split('=')[1] || '';
@@ -2024,6 +2073,11 @@ function formScript(): string {
         if (!res.ok) throw new Error(result.message || 'Save failed');
         if (result.secret) {
           if (status) {
+            if (result.publishCommand) {
+              status.textContent = 'Shown once - CI command: ' + result.publishCommand;
+              status.className = 'status code ok';
+              return;
+            }
             status.textContent = 'Shown once — key id: ' + (result.keyId || result.id || '') + ' secret: ' + result.secret;
             status.className = 'status code ok';
           }
@@ -2594,8 +2648,15 @@ function parseOptionalBoolean(value: unknown): boolean | undefined {
   return value === true || value === 'true' || value === 'on';
 }
 
-function parseSource(value: unknown): 'registry' | 'manual' | 'upload' {
-  return value === 'registry' || value === 'upload' ? value : 'manual';
+function pluginPublishStatus(message: string): number {
+  if (message === 'Invalid plugin publish token') return 401;
+  if (message === 'Publish token is not authorized for this plugin') return 403;
+  if (message.includes('already exists') || message.includes('must be newer')) return 409;
+  return 400;
+}
+
+function vaultPublishCommand(publicUrl: string, pluginId: string, secret: string): string {
+  return `bsb client publish --target "${publicUrl}" --plugin "${pluginId}" --token "${secret}"`;
 }
 
 function stringOrUndefined(value: unknown): string | undefined {
