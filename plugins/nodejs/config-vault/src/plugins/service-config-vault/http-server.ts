@@ -9,7 +9,7 @@ import {
   getHeader,
   getMethod,
   getQuery,
-  getRequestPath,
+  getRequestURL,
   readBody,
   send,
   sendRedirect,
@@ -49,10 +49,10 @@ export class VaultHttpServer {
       onError: async (error, event) => {
         if (error.statusCode !== 401) return;
         this.clearAuthCookies(event);
-        if (getRequestPath(event).startsWith('/api/')) {
+        if (getRequestURL(event).pathname.startsWith('/api/')) {
           setResponseStatus(event, 401);
           setResponseHeader(event, 'content-type', 'application/json; charset=utf-8');
-          await send(event, JSON.stringify({ error: 'Authentication required' }));
+          await send(event, JSON.stringify({ message: 'Authentication required' }));
           return;
         }
         await sendRedirect(event, '/login');
@@ -940,6 +940,7 @@ function passkeySetupPage(): string {
     try {
       statusEl.textContent = 'Preparing passkey registration...';
       const optionsRes = await fetch('/api/passkeys/register/options', { method: 'POST', headers: { 'x-csrf-token': passkeyCsrf() } });
+      if (optionsRes.status === 401) { location.href = '/login'; return; }
       const options = await optionsRes.json();
       if (!optionsRes.ok) throw new Error(options.message || 'Could not start passkey registration');
       statusEl.textContent = 'Use your device passkey prompt...';

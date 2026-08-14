@@ -59,7 +59,8 @@ module.exports = async ({ pluginRoot }) => {
       async setupRequired() {
         return false;
       },
-      async requireSession() {
+      async requireSession(sessionId) {
+        if (sessionId !== 'session') throw new Error('Authentication required');
         return { userId: 'user-1', csrfToken: 'csrf-token' };
       },
       async login() {
@@ -316,6 +317,14 @@ module.exports = async ({ pluginRoot }) => {
     assert.equal(response.status, 200);
     assert.match(response.headers.get('set-cookie') ?? '', /vault_passkey_setup=/);
     assert.deepEqual(await response.json(), { status: 'passkey_setup_required', redirect: '/passkeys/setup' });
+
+    const unauthorizedPasskey = await fetch(`http://127.0.0.1:${port}/api/passkeys/register/options`, {
+      method: 'POST',
+      redirect: 'manual',
+    });
+    assert.equal(unauthorizedPasskey.status, 401);
+    assert.match(unauthorizedPasskey.headers.get('content-type') ?? '', /application\/json/);
+    assert.deepEqual(await unauthorizedPasskey.json(), { message: 'Authentication required' });
 
     const profile = await fetch(`http://127.0.0.1:${port}/profile`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
