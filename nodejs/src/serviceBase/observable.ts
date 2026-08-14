@@ -397,6 +397,13 @@ export class SBObservable {
     return false;
   }
 
+  private handlesLogEvents(
+    observablePlugin: { plugin: BSBObservable<any>; on?: ObservableFilter; onTypeof: FilterOnType; bootstrap?: boolean }
+  ): boolean {
+    return (["debug", "info", "warn", "error"] as const)
+      .some((eventType) => this.shouldTriggerForPlugin(eventType, "", observablePlugin));
+  }
+
   private determineFilterType(filter?: ObservableFilter): FilterOnType {
     if (!filter) {
       return "all";
@@ -586,8 +593,8 @@ export class SBObservable {
   }
 
   /**
-   * Remove the temporary console observable after BSB startup completes.
-   * Explicitly configured observable-default instances are retained.
+   * Complete bootstrap and remove the temporary console observable only when
+   * a configured observable handles logs. Explicit observable-default instances are retained.
    *
    * @param trace - DTrace for tracking bootstrap completion
    */
@@ -595,9 +602,20 @@ export class SBObservable {
     const bootstrapDefault = this.observablePlugins.find((x) => x.bootstrap === true);
     if (!bootstrapDefault) return;
 
+    const configuredLogHandler = this.observablePlugins.some(
+      (x) => x !== bootstrapDefault && this.handlesLogEvents(x)
+    );
+    if (!configuredLogHandler) {
+      this.observableBackend.info(
+        trace,
+        "BSB startup complete; keeping bootstrap observable-default because no configured observable handles logs"
+      );
+      return;
+    }
+
     this.observableBackend.info(
       trace,
-      "BSB startup complete; disabling bootstrap observable-default because it is not configured"
+      "BSB startup complete; disabling bootstrap observable-default because a configured observable handles logs"
     );
     if (bootstrapDefault.plugin.dispose) {
       await SmartFunctionCallAsync(bootstrapDefault.plugin, bootstrapDefault.plugin.dispose);

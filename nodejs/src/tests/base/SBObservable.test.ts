@@ -268,7 +268,7 @@ describe("SBObservable", () => {
 
     assert.ok(logs.some((line) => line.includes("Configured observable plugins: 1 (demo-observable)")));
     assert.ok(logs.some((line) => line.includes("Loading observable plugin demo-observable")));
-    assert.ok(logs.some((line) => line.includes("BSB startup complete; disabling bootstrap observable-default because it is not configured")));
+    assert.ok(logs.some((line) => line.includes("disabling bootstrap observable-default because a configured observable handles logs")));
     assert.deepStrictEqual(pluginNames(observable), ["demo-observable"]);
   });
 
@@ -302,9 +302,52 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+    const trace = createFakeDTrace("tests/SBObservable", "metrics-only");
+    const { logs } = await withCapturedConsole(async () => {
+      await observable.setupObservablePlugins(sbConfig);
+      await observable.completeBootstrap(trace);
+    });
 
     assert.deepStrictEqual(pluginNames(observable), ["observable-default", "metrics-observable"]);
+    assert.ok(logs.some((line) => line.includes("keeping bootstrap observable-default because no configured observable handles logs")));
+  });
+
+  it("keeps bootstrap observable-default for empty or disabled observable config", async () => {
+    const configs = [
+      {},
+      {
+        "disabled-observable": {
+          enabled: false,
+          plugin: "observable-disabled",
+        },
+      },
+    ];
+
+    for (const config of configs) {
+      const sbPlugins = {
+        loadPlugin: async () => {
+          throw new Error("disabled observable must not load");
+        },
+      } as any;
+      const sbConfig = {
+        getObservablePlugins: async () => config,
+        getPluginConfig: async () => ({}),
+      } as any;
+      const observable = new SBObservable(
+        "test-app",
+        "development",
+        process.cwd(),
+        sbPlugins,
+      );
+      const trace = createFakeDTrace("tests/SBObservable", "no-observable");
+
+      await withCapturedConsole(async () => {
+        await observable.setupObservablePlugins(sbConfig);
+        await observable.completeBootstrap(trace);
+      });
+
+      assert.deepStrictEqual(pluginNames(observable), ["observable-default"]);
+    }
   });
 
   it("uses bootstrap observable-default for configured observable-default without loading it twice", async () => {
@@ -341,7 +384,11 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+    const trace = createFakeDTrace("tests/SBObservable", "configured-default");
+    await withCapturedConsole(async () => {
+      await observable.setupObservablePlugins(sbConfig);
+      await observable.completeBootstrap(trace);
+    });
 
     assert.deepStrictEqual(loaded, []);
     assert.deepStrictEqual(pluginNames(observable), ["observable-default"]);
@@ -372,10 +419,15 @@ describe("SBObservable", () => {
       sbPlugins,
     );
 
-    const { logs } = await withCapturedConsole(() => observable.setupObservablePlugins(sbConfig));
+    const trace = createFakeDTrace("tests/SBObservable", "load-failure");
+    const { logs } = await withCapturedConsole(async () => {
+      await observable.setupObservablePlugins(sbConfig);
+      await observable.completeBootstrap(trace);
+    });
 
     assert.ok(logs.some((line) =>
       line.includes("Failed to load observable plugin observable-axiom as observable-axiom from (@bsb/observable-axiom) version latest: Cannot find module")
     ));
+    assert.deepStrictEqual(pluginNames(observable), ["observable-default"]);
   });
 });
