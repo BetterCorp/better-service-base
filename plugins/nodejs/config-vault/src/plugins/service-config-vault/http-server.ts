@@ -48,7 +48,7 @@ export class VaultHttpServer {
     const app = createApp({
       onError: async (error, event) => {
         if (error.statusCode !== 401) return;
-        this.clearAuthCookies(event);
+        this.clearSessionCookies(event);
         if (getRequestURL(event).pathname.startsWith('/api/')) {
           setResponseStatus(event, 401);
           setResponseHeader(event, 'content-type', 'application/json; charset=utf-8');
@@ -628,7 +628,7 @@ export class VaultHttpServer {
     try {
       session = await this.options.vault.requireSession(getCookie(event, 'vault_session'));
     } catch {
-      this.clearAuthCookies(event);
+      this.clearSessionCookies(event);
       throw createError({
         statusCode: 401,
         statusMessage: 'Authentication required',
@@ -646,10 +646,9 @@ export class VaultHttpServer {
     return session;
   }
 
-  private clearAuthCookies(event: Parameters<typeof deleteCookie>[0]): void {
+  private clearSessionCookies(event: Parameters<typeof deleteCookie>[0]): void {
     deleteCookie(event, 'vault_session', { path: '/' });
     deleteCookie(event, 'vault_csrf', { path: '/' });
-    deleteCookie(event, 'vault_passkey_setup', { path: '/' });
   }
 
   private async passkeySetupUser(event: Parameters<typeof getCookie>[0]): Promise<{ userId: string; setupToken?: string }> {

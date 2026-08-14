@@ -66,6 +66,14 @@ module.exports = async ({ pluginRoot }) => {
       async login() {
         return { status: 'passkey_setup_required', setupToken: 'setup-token' };
       },
+      consumePasskeySetupToken(token) {
+        assert.equal(token, 'setup-token');
+        return 'user-1';
+      },
+      async startPasskeyRegistration(userId) {
+        assert.equal(userId, 'user-1');
+        return { challenge: 'registration-challenge' };
+      },
       async dashboard() {
         return {
           setupRequired: false,
@@ -315,8 +323,29 @@ module.exports = async ({ pluginRoot }) => {
       body: JSON.stringify({ email: 'admin@example.com', password: 'password', totpCode: '123456' }),
     });
     assert.equal(response.status, 200);
-    assert.match(response.headers.get('set-cookie') ?? '', /vault_passkey_setup=/);
+    const setupCookie = response.headers.get('set-cookie')?.match(/vault_passkey_setup=[^;]+/)?.[0] ?? '';
+    assert.match(setupCookie, /vault_passkey_setup=/);
     assert.deepEqual(await response.json(), { status: 'passkey_setup_required', redirect: '/passkeys/setup' });
+
+    const passkeySetup = await fetch(`http://127.0.0.1:${port}/passkeys/setup`, {
+      headers: { cookie: setupCookie },
+    });
+    assert.equal(passkeySetup.status, 200);
+    assert.match(await passkeySetup.text(), /Register Passkey/);
+
+    const unrelatedUnauthorized = await fetch(`http://127.0.0.1:${port}/favicon.ico`, {
+      headers: { cookie: setupCookie },
+      redirect: 'manual',
+    });
+    assert.equal(unrelatedUnauthorized.status, 302);
+    assert.doesNotMatch(unrelatedUnauthorized.headers.get('set-cookie') ?? '', /vault_passkey_setup=/);
+
+    const passkeyOptions = await fetch(`http://127.0.0.1:${port}/api/passkeys/register/options`, {
+      method: 'POST',
+      headers: { cookie: setupCookie },
+    });
+    assert.equal(passkeyOptions.status, 200);
+    assert.deepEqual(await passkeyOptions.json(), { challenge: 'registration-challenge' });
 
     const unauthorizedPasskey = await fetch(`http://127.0.0.1:${port}/api/passkeys/register/options`, {
       method: 'POST',
