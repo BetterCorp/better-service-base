@@ -46,9 +46,9 @@ export const EventSchemas = createEventSchemas({
     ),
     'registry.plugin.get': createReturnableEvent(
       bsb.object({
-        org: bsb.string({ description: 'Organization name' }),
-        name: bsb.string({ description: 'Plugin name' }),
-        version: optional(bsb.string({ description: 'Version (defaults to latest)' })),
+        org: Types.registryIdentifier('Organization name'),
+        name: Types.registryIdentifier('Plugin name'),
+        version: optional(Types.semanticVersion('Version (defaults to latest)')),
         token: optional(Types.ReadTokenSchema),
       }),
       Types.RegistryEntrySchema,
@@ -66,9 +66,9 @@ export const EventSchemas = createEventSchemas({
     ),
     'registry.plugin.delete': createReturnableEvent(
       bsb.object({
-        org: bsb.string({ description: 'Organization name' }),
-        name: bsb.string({ description: 'Plugin name' }),
-        version: optional(bsb.string({ description: 'Version (or all if not provided)' })),
+        org: Types.registryIdentifier('Organization name'),
+        name: Types.registryIdentifier('Plugin name'),
+        version: optional(Types.semanticVersion('Version (or all if not provided)')),
       }),
       bsb.object({
         success: bsb.boolean('Success status'),
@@ -78,9 +78,9 @@ export const EventSchemas = createEventSchemas({
     ),
     'registry.plugin.versions': createReturnableEvent(
       bsb.object({
-        org: bsb.string({ description: 'Organization name' }),
-        name: bsb.string({ description: 'Plugin name' }),
-        majorMinor: optional(bsb.string({ description: 'Filter by major.minor' })),
+        org: Types.registryIdentifier('Organization name'),
+        name: Types.registryIdentifier('Plugin name'),
+        majorMinor: optional(Types.majorMinorVersion('Filter by major.minor')),
         token: optional(Types.ReadTokenSchema),
       }),
       Types.VersionListSchema,
@@ -97,8 +97,8 @@ export const EventSchemas = createEventSchemas({
     // Auth Operations
     'registry.auth.login': createReturnableEvent(
       bsb.object({
-        username: bsb.string({ description: 'Username' }),
-        password: bsb.string({ description: 'Encrypted password' }),
+        username: bsb.string({ min: 1, max: 200, description: 'Username' }),
+        password: bsb.string({ min: 1, max: 500, description: 'Encrypted password' }),
       }),
       bsb.object({
         success: bsb.boolean('Login success'),
@@ -110,7 +110,7 @@ export const EventSchemas = createEventSchemas({
     ),
     'registry.auth.verify': createReturnableEvent(
       bsb.object({
-        token: bsb.string({ description: 'Token to verify' }),
+        token: Types.ReadTokenSchema,
       }),
       bsb.object({
         valid: bsb.boolean('Token validity'),

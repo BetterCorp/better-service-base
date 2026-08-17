@@ -1,6 +1,47 @@
 import { bsb, optional, nullable } from '@bsb/base';
 import type { InferBSBType } from '@bsb/base';
 
+export const REGISTRY_IDENTIFIER_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*)$';
+export const REGISTRY_PLUGIN_ID_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*)(?:/(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*))?$';
+export const PACKAGE_LOOKUP_ID_PATTERN = '^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9@._:-]+(?:/[A-Za-z0-9@._:-]+)*$';
+export const SEMANTIC_VERSION_PATTERN = '^\\d{1,5}\\.\\d{1,5}\\.\\d{1,5}(?:-[a-zA-Z0-9.]+)?$';
+export const MAJOR_MINOR_PATTERN = '^\\d{1,5}\\.\\d{1,5}$';
+
+export const registryIdentifier = (description: string) => bsb.string({
+  min: 1,
+  max: 100,
+  pattern: REGISTRY_IDENTIFIER_PATTERN,
+  description,
+});
+
+export const registryPluginId = (description: string) => bsb.string({
+  min: 1,
+  max: 200,
+  pattern: REGISTRY_PLUGIN_ID_PATTERN,
+  description,
+});
+
+export const packageLookupId = (description: string) => bsb.string({
+  min: 1,
+  max: 300,
+  pattern: PACKAGE_LOOKUP_ID_PATTERN,
+  description,
+});
+
+export const semanticVersion = (description: string) => bsb.string({
+  min: 5,
+  max: 50,
+  pattern: SEMANTIC_VERSION_PATTERN,
+  description,
+});
+
+export const majorMinorVersion = (description: string) => bsb.string({
+  min: 3,
+  max: 11,
+  pattern: MAJOR_MINOR_PATTERN,
+  description,
+});
+
 // ========================================
 // Registry Entry Schema (Main Data Model)
 // ========================================
@@ -48,7 +89,7 @@ const Documentation = bsb.array(
 );
 
 const Dependency = bsb.object({
-  id: bsb.string({ min: 1, max: 200, description: 'Plugin ID (org/name or just name for _ org)' }),
+  id: registryPluginId('Plugin ID (org/name or just name for _ org)'),
   version: bsb.string({ min: 1, max: 50, description: 'Semver range constraint (e.g. ^1.0.0, ~2.1, >=3.0.0)' }),
 }, 'Plugin dependency declaration');
 
@@ -151,15 +192,15 @@ export type PackagePermission = InferBSBType<typeof PackagePermissionSchema>;
 
 export const RegistryEntrySchema = bsb.object({
   // Identity (Docker-style: org/plugin-name)
-  id: bsb.string({ min: 1, max: 200, description: 'Full ID: org/plugin-name' }),
-  org: bsb.string({ min: 1, max: 100, description: 'Organization or user name' }),
-  name: bsb.string({ min: 1, max: 100, description: 'Plugin name' }),
+  id: registryPluginId('Full ID: org/plugin-name'),
+  org: registryIdentifier('Organization or user name'),
+  name: registryIdentifier('Plugin name'),
   displayName: bsb.string({ min: 1, max: 200, description: 'Human-readable name' }),
   description: bsb.string({ min: 1, max: 1000, description: 'Short description' }),
 
   // Version & Language
-  version: bsb.string({ min: 1, max: 50, description: 'Semantic version (1.0.0)' }),
-  majorMinor: bsb.string({ min: 1, max: 20, description: 'Major.minor only (1.0)' }),
+  version: semanticVersion('Semantic version (1.0.0)'),
+  majorMinor: majorMinorVersion('Major.minor only (1.0)'),
   language: bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Programming language'),
 
   // Language-specific package info
@@ -221,7 +262,7 @@ export type RegistryEntry = InferBSBType<typeof RegistryEntrySchema>;
 export const ReadTokenSchema = bsb.string({ min: 1, max: 500, description: 'Optional bearer token for private plugin access' });
 
 export const ListQuerySchema = bsb.object({
-  org: optional(bsb.string({ max: 100, description: 'Filter by organization' })),
+  org: optional(registryIdentifier('Filter by organization')),
   language: optional(bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Filter by language')),
   category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 50)' })),
@@ -243,9 +284,9 @@ export const SearchQuerySchema = bsb.object({
 export type SearchQuery = InferBSBType<typeof SearchQuerySchema>;
 
 export const PublishRequestSchema = bsb.object({
-  org: bsb.string({ min: 1, max: 100, description: 'Organization name' }),
-  name: bsb.string({ min: 1, max: 100, description: 'Plugin name' }),
-  version: bsb.string({ min: 1, max: 50, description: 'Semantic version' }),
+  org: registryIdentifier('Organization name'),
+  name: registryIdentifier('Plugin name'),
+  version: semanticVersion('Semantic version'),
   language: bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Programming language'),
   metadata: bsb.object({
     displayName: bsb.string({ min: 1, max: 200, description: 'Human-readable name' }),
@@ -331,8 +372,8 @@ export const RegistryStatsSchema = bsb.object({
 export type RegistryStats = InferBSBType<typeof RegistryStatsSchema>;
 
 export const OrganizationSchema = bsb.object({
-  id: bsb.string({ min: 1, max: 100, description: 'Organization ID' }),
-  name: bsb.string({ min: 1, max: 100, description: 'Organization name' }),
+  id: registryIdentifier('Organization ID'),
+  name: registryIdentifier('Organization name'),
   displayName: bsb.string({ min: 1, max: 200, description: 'Display name' }),
   pluginCount: bsb.int32({ min: 0, description: 'Number of plugins' }),
   visibility: bsb.enum(['public', 'private'], 'Default visibility'),

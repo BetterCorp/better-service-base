@@ -21,6 +21,13 @@ import * as av from 'anyvali';
 import { Observable } from '@bsb/base';
 import type { Plugin } from './index.js';
 import type { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry.js';
+import {
+  majorMinorVersion,
+  packageLookupId,
+  registryIdentifier,
+  registryPluginId,
+  semanticVersion,
+} from '../service-bsb-registry/types.js';
 
 type ValidationIssue = av.ValidationIssue;
 
@@ -82,19 +89,8 @@ function emptyStringToUndefined(value: unknown): unknown {
 
 // ASCII-only printable, no control chars or unicode exploits
 const safeAscii = /^[\x20-\x7E]*$/;
-// Slug: alphanumeric, dash, underscore, dot, @, /
-const slugPattern = /^[a-zA-Z0-9_@.\-/]+$/;
-// Semver: strict major.minor.patch with optional pre-release
-const semverPattern = /^\d{1,5}\.\d{1,5}\.\d{1,5}(-[a-zA-Z0-9.]+)?$/;
-// Major.minor only
-const majorMinorPattern = /^\d{1,5}\.\d{1,5}$/;
-// Package name: npm-style scoped or unscoped
-const packageNamePattern = /^(@[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9._-]+$/;
-
-const slugField = () => av.string().minLength(1).maxLength(100).pattern(slugPattern.source)
-  .describe('Slug containing letters, numbers, dash, underscore, dot, at-sign, or slash');
-const semverField = () => av.string().minLength(5).maxLength(50).pattern(semverPattern.source)
-  .describe('Strict semantic version in major.minor.patch format with optional prerelease');
+const slugField = () => registryIdentifier('Slug containing letters, numbers, dash, underscore, dot, or at-sign');
+const semverField = () => semanticVersion('Strict semantic version in major.minor.patch format with optional prerelease');
 const languageEnum = () => av.enum_(['nodejs', 'csharp', 'go', 'java', 'python'] as const)
   .describe('Plugin implementation language');
 const categoryEnum = () => av.enum_(['service', 'observable', 'events', 'config'] as const)
@@ -130,13 +126,11 @@ const PluginTypesParamsSchema = createValidator(objectSchema({
   language: languageEnum().describe('Type definition language'),
 }).describe('Plugin type definition route parameters'));
 
-const packageLookupIdPattern = /^[A-Za-z0-9@._\-/:]+$/;
 const staticLookupPattern = /(^|\/)(README|LICENSE|CHANGELOG|CONTRIBUTING)(\..*)?$|[.](md|json|txt|ya?ml|xml|html?|css|js|map|ico|png|jpe?g|svg|webp|gif)$/i;
 
 const PackageLookupParamsSchema = createValidator(objectSchema({
   language: languageEnum().describe('Package language to resolve'),
-  '*': av.string().minLength(1).maxLength(300).pattern(packageLookupIdPattern.source)
-    .describe('Package lookup identifier, including scoped package names and encoded path segments'),
+  '*': packageLookupId('Package lookup identifier, including scoped and language-specific package names'),
 }).describe('Package lookup route parameters'), {
   normalize: (input) => mapObjectInput(input, (value) => {
     const packageId = value['*'];
@@ -144,17 +138,10 @@ const PackageLookupParamsSchema = createValidator(objectSchema({
       return value;
     }
 
-    try {
-      return {
-        ...value,
-        '*': decodeURIComponent(packageId).trim(),
-      };
-    } catch {
-      return {
-        ...value,
-        '*': '__INVALID_PACKAGE_ID__',
-      };
-    }
+    return {
+      ...value,
+      '*': packageId.trim(),
+    };
   }),
 });
 
@@ -179,13 +166,12 @@ const BrowseQuerySchema = createValidator(objectSchema({
 });
 
 const VersionsQuerySchema = createValidator(objectSchema({
-  majorMinor: av.optional(av.string().maxLength(11).pattern(majorMinorPattern.source))
+  majorMinor: av.optional(majorMinorVersion('Optional major.minor version filter'))
     .describe('Optional major.minor version filter'),
 }).describe('Plugin versions query parameters'));
 
 const MatchQuerySchema = createValidator(objectSchema({
-  version: av.string().minLength(1).maxLength(20).pattern(safeAscii.source)
-    .describe('Version or version range to match'),
+  version: majorMinorVersion('Major.minor version to match'),
 }).describe('Plugin version match query parameters'));
 
 const DocsQuerySchema = createValidator(objectSchema({
@@ -218,7 +204,7 @@ const EventSchemaExportObjectSchema = objectSchema({
   events: av.record(EventExportEntrySchema).default({}).describe('Map of event names to exported event definitions'),
   capabilities: av.optional(av.unknown()).describe('Optional plugin capability metadata'),
   dependencies: av.optional(av.array(objectSchema({
-    id: av.string().minLength(1).maxLength(200).describe('Dependency plugin ID'),
+    id: registryPluginId('Dependency plugin ID'),
     version: safeStringRequired(1, 50).describe('Dependency version constraint'),
   }).describe('Generated client dependency')).maxItems(100)).describe('Plugins referenced by generated client imports'),
 }).describe('Exported plugin event schema object');
@@ -237,8 +223,8 @@ const AuthorSchema = av.union([
 ] as const).describe('Author value, either a string or an object with name, email, and URL fields');
 
 const PublishBodyObjectSchema = objectSchema({
-  org: av.string().minLength(1).maxLength(100).pattern(slugPattern.source).describe('Organization or user namespace'),
-  name: av.string().minLength(1).maxLength(100).pattern(packageNamePattern.source).describe('Plugin package name'),
+  org: slugField().describe('Organization or user namespace'),
+  name: slugField().describe('Plugin name'),
   version: semverField().describe('Published plugin semantic version'),
   language: languageEnum().describe('Published plugin implementation language'),
   metadata: objectSchema({
@@ -263,7 +249,7 @@ const PublishBodyObjectSchema = objectSchema({
   documentation: av.array(av.string().maxLength(1_000_000)).minItems(1).maxItems(20)
     .describe('Markdown documentation files published with the plugin'),
   dependencies: av.optional(av.array(objectSchema({
-    id: av.string().minLength(1).maxLength(200).pattern(slugPattern.source).describe('Dependency plugin ID'),
+    id: registryPluginId('Dependency plugin ID'),
     version: safeStringRequired(1, 50).describe('Dependency version constraint'),
   }).describe('Published plugin dependency')).maxItems(100)).describe('Plugins this plugin depends on'),
   package: av.optional(objectSchema({
