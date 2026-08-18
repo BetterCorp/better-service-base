@@ -148,6 +148,10 @@ module.exports = async ({ pluginRoot }) => {
       config: { vaultUrl: 'https://vault.example.com', apiKeyId: 'vk_test', apiSecret: 'vs_test', timeoutMs: 1000, staleAllowedHours: 168, allowInsecureHttp: false },
     });
     await assert.rejects(() => deniedPlugin.init(testObs), /HTTP 401/);
+    globalThis.fetch = async () => new Response('internal error', { status: 500 });
+    await assert.rejects(() => deniedPlugin.init(testObs), /HTTP 500/);
+    globalThis.fetch = async () => new Response('', { status: 302, headers: { location: 'https://login.example.com' } });
+    await assert.rejects(() => deniedPlugin.init(testObs), /redirect/i);
     globalThis.fetch = async () => new Response('not-json', { status: 200 });
     await assert.rejects(() => deniedPlugin.init(testObs), /expected JSON/);
   } finally {

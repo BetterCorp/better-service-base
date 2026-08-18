@@ -9,7 +9,11 @@ module.exports = async ({ pluginRoot }) => {
   const audits = [];
   let publisher = null;
   const store = {
+    async authenticationAllowed() { return true; },
+    async recordAuthenticationFailure() {},
+    async clearAuthenticationFailures() {},
     async listPlugins() { return plugins; },
+    async createPlugin(plugin) { plugins.push(plugin); },
     async createPrivatePlugin(plugin, createdPublisher) {
       plugins.push(plugin);
       publisher = createdPublisher;
@@ -28,6 +32,15 @@ module.exports = async ({ pluginRoot }) => {
     async audit(entry) { audits.push(entry); },
   };
   const vault = new VaultService({ store, masterKey: key, setupCode: 'setup', publicUrl: 'http://localhost:8080' });
+  await assert.rejects(() => vault.createPlugin('admin', {
+    org: 'example', name: 'Unsafe', pluginId: 'unsafe', packageName: '@example/unsafe', version: '1.0.0',
+    kind: 'service', source: 'manual',
+    configSchema: { root: { kind: 'string', pattern: '(a+)+$' } }, eventSchema: null,
+  }), /unsafe regular expression/i);
+  await assert.rejects(() => vault.createPlugin('admin', {
+    org: 'example', name: 'Polluting', pluginId: 'polluting', packageName: '@example/polluting', version: '1.0.0',
+    kind: 'service', source: 'manual', configSchema: JSON.parse('{"root":{"kind":"object","__proto__":{}}}'), eventSchema: null,
+  }), /forbidden key/i);
   const created = await vault.createPrivatePlugin('admin', {
     org: 'example',
     packageName: '@example/private-api',

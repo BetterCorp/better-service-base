@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   createApp,
   createError,
@@ -10,7 +10,6 @@ import {
   getMethod,
   getQuery,
   getRequestURL,
-  readBody,
   send,
   sendRedirect,
   setCookie,
@@ -21,6 +20,13 @@ import {
 import type { Observable } from '@bsb/base';
 import type { VaultService } from './vault.js';
 import type { RuntimeConfigDefinition, RuntimePluginDefinition } from './types.js';
+import { readAndValidateBody, validatedBody } from './http-validation.js';
+
+const getOnlyPaths = new Set([
+  '/health', '/health/live', '/health/ready', '/login', '/user-setup', '/passkeys/setup', '/',
+  '/applications', '/users', '/audit', '/application-config', '/deployments', '/deployment',
+  '/configs', '/runtime-keys', '/plugins', '/profile',
+]);
 
 export interface VaultHttpOptions {
   host: string;
@@ -47,19 +53,28 @@ export class VaultHttpServer {
     }
     const app = createApp({
       onError: async (error, event) => {
-        if (error.statusCode !== 401) return;
-        this.clearSessionCookies(event);
-        if (getRequestURL(event).pathname.startsWith('/api/')) {
-          setResponseStatus(event, 401);
+        const pathname = getRequestURL(event).pathname;
+        const statusCode = error.statusCode || vaultErrorStatus(error.message);
+        if (statusCode === 401) this.clearSessionCookies(event);
+        if (pathname.startsWith('/api/') || pathname === '/runtime/config' || pathname.startsWith('/login/') ||
+            pathname.startsWith('/user-setup/') || pathname === '/logout') {
+          setResponseStatus(event, statusCode);
           setResponseHeader(event, 'content-type', 'application/json; charset=utf-8');
-          await send(event, JSON.stringify({ message: 'Authentication required' }));
+          const data = objectField(error.data) ?? {};
+          await send(event, JSON.stringify({
+            code: typeof data.code === 'string' ? data.code : vaultErrorCode(statusCode),
+            message: statusCode >= 500 ? 'Vault request failed' : error.message,
+            ...(Array.isArray(data.issues) ? { issues: data.issues } : {}),
+          }));
           return;
         }
-        await sendRedirect(event, '/login');
+        if (statusCode === 401) await sendRedirect(event, '/login');
       },
     });
 
     app.use(defineEventHandler(async (event) => {
+      const pathname = getRequestURL(event).pathname;
+      const method = getMethod(event);
       setResponseHeader(event, 'cache-control', 'no-store');
       setResponseHeader(event, 'x-content-type-options', 'nosniff');
       setResponseHeader(event, 'referrer-policy', 'no-referrer');
@@ -67,19 +82,57 @@ export class VaultHttpServer {
       setResponseHeader(event, 'permissions-policy', 'camera=(), microphone=(), geolocation=()');
       setResponseHeader(event, 'content-security-policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
       if (this.options.production) setResponseHeader(event, 'strict-transport-security', 'max-age=31536000; includeSubDomains');
-      if (getMethod(event) === 'POST') {
-        // ponytail: O(n) integrity verification per admin mutation; checkpoint hashes if audit volume makes this measurable.
+      if ((pathname.startsWith('/api/') && method !== 'POST') ||
+          (pathname === '/runtime/config' && method !== 'GET') ||
+          (pathname.startsWith('/login/') && method !== 'POST') ||
+          (pathname.startsWith('/user-setup/') && method !== 'POST') ||
+          (pathname === '/logout' && method !== 'POST') ||
+          (pathname === '/setup' && method !== 'GET' && method !== 'POST') ||
+          (getOnlyPaths.has(pathname) && method !== 'GET')) {
+        throw createError({ statusCode: 405, statusMessage: 'Method not allowed', message: 'Method not allowed' });
+      }
+      if (method === 'POST') {
+        event.context.vaultValidatedBody = await readAndValidateBody(event, pathname);
+      }
+      if (method === 'POST') {
         await this.options.vault.assertAuditWritable();
+        let actor = 'anonymous';
+        const sessionId = getCookie(event, 'vault_session');
+        if (sessionId) {
+          actor = await this.options.vault.requireSession(sessionId).then((session) => session.userId).catch(() => 'anonymous');
+        }
+        if (actor !== 'anonymous') {
+          event.context.vaultMutationId = await this.options.vault.auditMutationIntent(actor, pathname);
+        }
       }
     }));
 
-    app.use('/health', defineEventHandler(() => ({ status: 'ok' })));
+    app.use('/health/live', defineEventHandler(() => ({ status: 'ok' })));
+    app.use('/health/ready', defineEventHandler(async () => {
+      await this.options.vault.health();
+      return { status: 'ok' };
+    }));
+    app.use('/health', defineEventHandler(async () => {
+      await this.options.vault.health();
+      return { status: 'ok' };
+    }));
 
     app.use('/runtime/config', defineEventHandler(async (event) => {
       const keyId = getHeader(event, 'x-vault-key-id') ?? '';
       const secret = getHeader(event, 'x-vault-secret') ?? '';
-      const resolved = await this.options.vault.resolveRuntimeConfig(keyId, secret, this.options.obs);
-      return resolved;
+      if (!/^vk_[A-Za-z0-9_-]{1,64}$/.test(keyId) || !/^vs_[A-Za-z0-9_-]{1,128}$/.test(secret)) {
+        throw createError({ statusCode: 401, statusMessage: 'Invalid Vault API key', message: 'Invalid Vault API key' });
+      }
+      try {
+        return await this.options.vault.resolveRuntimeConfig(keyId, secret, this.options.obs);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Vault runtime request failed';
+        const statusCode = message === 'Invalid Vault API key' ? 401
+          : message.includes('not allowed to use') ? 403
+            : message.includes('No active config version') || message.includes('was not found') ? 409
+              : 500;
+        throw createError({ statusCode, statusMessage: message, message });
+      }
     }));
 
     app.use('/setup', defineEventHandler(async (event) => {
@@ -203,7 +256,7 @@ export class VaultHttpServer {
       if (!credential) throw new Error('Passkey credential is required');
       await this.options.vault.finishPasskeyRegistration(user.userId, credential);
       if (user.setupToken) {
-        this.options.vault.clearPasskeySetupToken(user.setupToken);
+        await this.options.vault.clearPasskeySetupToken(user.setupToken);
         deleteCookie(event, 'vault_passkey_setup', { path: '/' });
       }
       return { success: true, relogin: Boolean(user.setupToken), redirect: user.setupToken ? '/login' : '/' };
@@ -668,7 +721,7 @@ export class VaultHttpServer {
       });
     }
     const headerCsrf = getHeader(event, 'x-csrf-token');
-    if (getMethod(event) !== 'GET' && headerCsrf !== session.csrfToken) {
+    if (getMethod(event) !== 'GET' && hashToken(headerCsrf ?? '') !== session.csrfToken) {
       throw createError({
         statusCode: 403,
         statusMessage: 'Invalid CSRF token',
@@ -687,7 +740,7 @@ export class VaultHttpServer {
     const setupToken = getCookie(event, 'vault_passkey_setup');
     if (setupToken) {
       return {
-        userId: this.options.vault.consumePasskeySetupToken(setupToken),
+        userId: await this.options.vault.consumePasskeySetupToken(setupToken),
         setupToken,
       };
     }
@@ -702,6 +755,29 @@ export class VaultHttpServer {
       .replaceAll('<script>', `<script nonce="${nonce}">`)
       .replace('<style>', `<style nonce="${nonce}">`);
   }
+}
+
+function readBody<T>(event: Parameters<typeof validatedBody>[0]): Promise<T> {
+  return Promise.resolve(validatedBody(event) as T);
+}
+
+function vaultErrorStatus(message: string): number {
+  if (/authentication required|invalid login|invalid vault api key/i.test(message)) return 401;
+  if (/not authorized|not allowed to use|csrf/i.test(message)) return 403;
+  if (/too many authentication attempts/i.test(message)) return 429;
+  if (/not found/i.test(message)) return 404;
+  if (/already exists|cannot |no longer available|no active config|no draft|expired|replay/i.test(message)) return 409;
+  if (/audit log integrity|audit.*unavailable/i.test(message)) return 503;
+  if (/invalid|required|must |too short|too long|unsupported|expected/i.test(message)) return 400;
+  return 500;
+}
+
+function vaultErrorCode(statusCode: number): string {
+  return ({ 400: 'INVALID_REQUEST', 401: 'AUTHENTICATION_REQUIRED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 405: 'METHOD_NOT_ALLOWED', 409: 'CONFLICT', 413: 'PAYLOAD_TOO_LARGE', 429: 'RATE_LIMITED', 503: 'SERVICE_UNAVAILABLE' } as Record<number, string>)[statusCode] ?? 'INTERNAL_ERROR';
+}
+
+function hashToken(value: string): string {
+  return createHash('sha256').update(value).digest('base64url');
 }
 
 type NavItem = 'overview' | 'applications' | 'deployments' | 'runtime-keys' | 'plugins' | 'users' | 'audit' | 'profile';
@@ -2118,6 +2194,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   const vaultPluginCatalog = ${jsonForScript(catalog)};
   function setPath(target, path, value) {
     const parts = path.split('.');
+    if (parts.some((part) => ['__proto__', 'prototype', 'constructor'].includes(part))) throw new Error('Config path contains a forbidden segment');
     let current = target;
     for (let i = 0; i < parts.length - 1; i += 1) {
       current[parts[i]] = current[parts[i]] || {};
@@ -2141,7 +2218,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
         const key = row.querySelector('[data-record-key]')?.value?.trim();
         const valueField = row.querySelector('[data-record-value]');
         const value = valueField ? parseFieldValue(valueField) : undefined;
-        if (key && value !== undefined) record[key] = value;
+        if (key && !['__proto__', 'prototype', 'constructor'].includes(key) && value !== undefined) record[key] = value;
       });
       if (Object.keys(record).length > 0) setPath(config, group.dataset.recordPath, record);
     });

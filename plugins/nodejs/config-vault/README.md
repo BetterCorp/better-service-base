@@ -86,7 +86,7 @@ Vault stores profile config internally as the profile body:
 
 The admin UI builds that body from plugin catalog entries and generated config schemas. Add a plugin, enable or disable it, then fill out the schema-derived fields instead of editing JSON. Vault validates those fields server-side, applies defaults, strips unknown keys, and rejects invalid values before encrypting drafts. Vault wraps the body under the profile name internally. Container keys are generated from the deployment profile page and the UI shows the BSB container env vars once on creation or rotation.
 
-Fields carrying AnyVali `{ sensitive: true, writeonly: true }` metadata use write-only password controls. Runtime clients retry Vault for 15 seconds and can use an encrypted seven-day last-known-good cache; configure `staleAllowedHours=0` to disable that fallback. See the plugin docs for audit-database separation and recovery details.
+Fields carrying AnyVali `{ sensitive: true, writeonly: true }` metadata use write-only password controls. Runtime clients retry transient failures for 15 seconds and can use an encrypted 24-hour last-known-good cache; configure `staleAllowedHours=0` to disable that fallback. Authentication, authorization, redirect, server-error, and malformed-response failures never use stale config. See the plugin docs for audit-database separation and recovery details.
 
 ## Private Plugin CI Publishing
 

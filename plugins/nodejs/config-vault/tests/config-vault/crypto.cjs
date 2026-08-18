@@ -10,6 +10,9 @@ module.exports = async ({ pluginRoot }) => {
 
   assert.equal(encrypted.encryptedPayload.includes('service-api'), false);
   assert.deepStrictEqual(crypto.decryptJson(encrypted, key), payload);
+  const bound = crypto.encryptJson(payload, key, 'v2', 'vault:profile-version:profile-1:version-1');
+  assert.deepStrictEqual(crypto.decryptJson(bound, key, 'vault:profile-version:profile-1:version-1'), payload);
+  assert.throws(() => crypto.decryptJson(bound, key, 'vault:profile-version:profile-2:version-1'));
 
   const hash = await crypto.hashSecret('correct horse battery staple');
   assert.equal(await crypto.verifySecret('correct horse battery staple', hash), true);

@@ -3,6 +3,7 @@ const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const net = require('node:net');
 const http = require('node:http');
+const { createHash } = require('node:crypto');
 
 module.exports = async ({ pluginRoot }) => {
   const { VaultHttpServer } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/http-server.js')).href);
@@ -56,17 +57,18 @@ module.exports = async ({ pluginRoot }) => {
     obs: { log: { info() {}, debug() {}, warn() {}, error() {} } },
     vault: {
       async assertAuditWritable() {},
+      async auditMutationIntent() { return 'mutation-1'; },
       async setupRequired() {
         return false;
       },
       async requireSession(sessionId) {
         if (sessionId !== 'session') throw new Error('Authentication required');
-        return { userId: 'user-1', csrfToken: 'csrf-token' };
+        return { userId: 'user-1', csrfToken: createHash('sha256').update('csrf-token').digest('base64url') };
       },
       async login() {
         return { status: 'passkey_setup_required', setupToken: 'setup-token' };
       },
-      consumePasskeySetupToken(token) {
+      async consumePasskeySetupToken(token) {
         assert.equal(token, 'setup-token');
         return 'user-1';
       },
@@ -477,10 +479,27 @@ module.exports = async ({ pluginRoot }) => {
     const directPublish = await fetch(`http://127.0.0.1:${port}/api/plugins/publish`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer bv_p_test' },
-      body: JSON.stringify({ name: 'service-private', version: '1.1.0' }),
+      body: JSON.stringify({
+        org: 'example', name: 'service-private', version: '1.1.0', language: 'nodejs',
+        metadata: { category: 'service' }, package: { nodejs: '@example/service-private' },
+        eventSchema: { pluginName: 'service-private', version: '1.1.0', events: {} },
+      }),
     });
     assert.equal(directPublish.status, 200);
     assert.equal((await directPublish.json()).status, 'published');
+
+    const invalidRequest = await fetch(`http://127.0.0.1:${port}/api/groups`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ applicationId: '../outside', name: 'worker', unexpected: true }),
+    });
+    assert.equal(invalidRequest.status, 400);
+    assert.match(invalidRequest.headers.get('content-type') ?? '', /application\/json/);
+    assert.equal((await invalidRequest.json()).code, 'VALIDATION_ERROR');
+
+    const wrongMethod = await fetch(`http://127.0.0.1:${port}/api/groups`);
+    assert.equal(wrongMethod.status, 405);
+    assert.equal((await wrongMethod.json()).code, 'METHOD_NOT_ALLOWED');
 
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
     await postJson(port, '/api/plugins/sync', {});

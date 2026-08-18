@@ -14,6 +14,7 @@ service-bsb-registry-ui:
   uploadDir: ./.temp/registry-images
   # badgesFile is optional; defaults to ./BADGES.json in the built UI plugin dir
   maxImageUploadMb: 5
+  corsOrigins: []                # explicit browser origins; empty disables CORS
 ```
 
 | Option | Type | Default | Description |
@@ -24,6 +25,7 @@ service-bsb-registry-ui:
 | `uploadDir` | string | `./.temp/registry-images` | Runtime directory used to store plugin images |
 | `badgesFile` | string | `./BADGES.json` | Plugin-relative or absolute badge map file keyed by `org/name` |
 | `maxImageUploadMb` | number | `5` | Max image upload size in MB |
+| `corsOrigins` | string[] | `[]` | Explicit browser origins allowed to call the API |
 
 Absolute paths are used unchanged. A relative `uploadDir` resolves from the service process working directory because uploads are mutable runtime data. A relative `badgesFile` resolves from this UI plugin's `pluginCwd` because it is a bundled read-only default. Templates and static assets also load from the built UI plugin directory, so the standard registry requires no asset configuration and never writes into its versioned plugin directory.
 
@@ -65,6 +67,8 @@ This means the CLI, CI/CD tools, and the web browser all use the same URL paths.
 
 Authentication is via `Authorization: Bearer {token}` header.
 
+Write authorization is rechecked by the Registry core event handler. Publishing requires token-level `write` permission plus package ownership or organization `write` membership; creating a new organization also requires `create-org`. Image replacement is restricted to the original publisher. Images are limited to verified PNG, JPEG, GIF, or WebP data; SVG is not accepted.
+
 ### Query Parameters
 
 **Browse (`/plugins`)**:
@@ -102,6 +106,8 @@ Authentication is via `Authorization: Bearer {token}` header.
 - Event schema (collapsible list with name, type badge, description; expand for input/output schemas)
 - Tabbed documentation (each markdown file becomes a tab, title from first `# heading`)
 - Dependencies list
+
+Published Markdown is rendered with raw HTML escaped and active URL schemes rejected.
 
 ### Design
 

@@ -1,4 +1,6 @@
 import type { Observable } from '@bsb/base';
+import * as av from 'anyvali';
+import safeRegex from 'safe-regex2';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -9,7 +11,7 @@ import { isoBase64URL } from '@simplewebauthn/server/helpers';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { decryptJson, encryptJson, hashSecret, newId, newToken, createTotpSecret, createTotpUri, verifySecret, verifyTotp, matchingTotpStep } from './crypto.js';
-import { VaultStore } from './store.js';
+import { VaultStore, type EncryptedRecord } from './store.js';
 import type {
   ApplicationRecord,
   AuthMethodRecord,
@@ -25,12 +27,15 @@ import type {
   RuntimeKeyRecord,
   RuntimeConfigDefinition,
   RuntimePluginDefinition,
+  UserRecord,
   VaultRuntimeConfig,
 } from './types.js';
 
 export interface VaultServiceOptions {
   store: VaultStore;
   masterKey: Buffer;
+  masterKeyVersion?: string;
+  previousMasterKeys?: ReadonlyMap<string, Buffer>;
   setupCode: string;
   publicUrl: string;
 }
@@ -68,19 +73,18 @@ type PrivatePluginPublishInput = {
 export class VaultService {
   private readonly store: VaultStore;
   private readonly masterKey: Buffer;
+  private readonly masterKeyVersion: string;
+  private readonly previousMasterKeys: ReadonlyMap<string, Buffer>;
   private readonly setupCode: string;
   private readonly origin: string;
   private readonly rpId: string;
-  private readonly pendingPasskeySetups = new Map<string, { userId: string; expiresAt: number }>();
-  private readonly registrationChallenges = new Map<string, { userId: string; methodId: string; challenge: string; expiresAt: number }>();
-  private readonly authenticationChallenges = new Map<string, { userId: string; challenge: string; expiresAt: number }>();
-  private readonly pendingTotpLogins = new Map<string, { userId: string; methodId: string; expiresAt: number }>();
-  private readonly verifiedEnrollments = new Map<string, number>();
-  private readonly attempts = new Map<string, { count: number; resetAt: number }>();
 
   constructor(options: VaultServiceOptions) {
     this.store = options.store;
     this.masterKey = options.masterKey;
+    this.masterKeyVersion = options.masterKeyVersion ?? 'v2';
+    if (this.masterKeyVersion === 'v1') throw new Error('masterKeyVersion v1 is reserved for legacy unbound ciphertext');
+    this.previousMasterKeys = options.previousMasterKeys ?? new Map();
     this.setupCode = options.setupCode;
     const publicUrl = new URL(options.publicUrl);
     this.origin = publicUrl.origin;
@@ -95,18 +99,20 @@ export class VaultService {
     for (const user of await this.store.listUsers()) {
       if ((await this.store.listAuthMethods(user.id)).length > 0 || !user.totpSecret) continue;
       const passkeys = await this.store.listPasskeys(user.id);
-      const encrypted = encryptJson(user.totpSecret, this.masterKey);
+      const methodId = passkeys.length === 0 ? newId() : null;
+      const encrypted = this.encrypt(user.totpSecret, authMethodAad(user.id, methodId ?? passkeys[0]!.id));
       if (passkeys.length === 0) {
         await this.store.createAuthMethod({
-          id: newId(), userId: user.id, label: 'Migrated authenticator',
+          id: methodId!, userId: user.id, label: 'Migrated authenticator',
           encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
           credentialId: null, publicKey: null, signCount: 0, lastTotpStep: null, active: false, createdAt: new Date().toISOString(),
         });
       } else {
         for (const [index, passkey] of passkeys.entries()) {
+          const passkeyEncrypted = this.encrypt(user.totpSecret, authMethodAad(user.id, passkey.id));
           await this.store.createAuthMethod({
             id: passkey.id, userId: user.id, label: `Migrated passkey ${index + 1}`,
-            encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
+            encryptedTotp: passkeyEncrypted.encryptedPayload, iv: passkeyEncrypted.iv, authTag: passkeyEncrypted.authTag, keyVersion: passkeyEncrypted.keyVersion,
             credentialId: passkey.credentialId, publicKey: passkey.publicKey, signCount: passkey.signCount,
             lastTotpStep: null, active: true, createdAt: passkey.createdAt,
           });
@@ -115,6 +121,22 @@ export class VaultService {
       await this.store.clearLegacyTotp(user.id);
       await this.audit('system', 'authentication.legacy.migrated', user.id, { pairedMethods: Math.max(passkeys.length, 1) });
     }
+  }
+
+  async migrateEncryption(): Promise<number> {
+    const records = await this.store.listEncryptedRecordsExcept(this.masterKeyVersion);
+    for (const record of records) {
+      const associatedData = encryptedRecordAad(record);
+      const plaintext = this.decrypt<unknown>(record, associatedData);
+      const previousKeyVersion = record.keyVersion;
+      const previousPayload = record.encryptedPayload;
+      const encrypted = this.encrypt(plaintext, associatedData);
+      await this.store.updateEncryptedRecord({ ...record, ...encrypted }, previousKeyVersion, previousPayload);
+    }
+    if (records.length > 0) {
+      await this.audit('system', 'encryption.migrated', this.masterKeyVersion, { records: records.length });
+    }
+    return records.length;
   }
 
   async createFirstAdmin(input: FirstAdminInput): Promise<FirstAdminResult> {
@@ -137,7 +159,7 @@ export class VaultService {
     const totpSecret = createTotpSecret();
 
     const userId = newId();
-    await this.store.createUser({
+    const user: UserRecord = {
       id: userId,
       email,
       passwordHash: await hashSecret(input.password),
@@ -148,14 +170,15 @@ export class VaultService {
       setupExpiresAt: null,
       createdAt: now,
       updatedAt: now,
-    });
-    const encrypted = encryptJson(totpSecret, this.masterKey);
-    await this.store.createAuthMethod({
-      id: newId(), userId, label: 'Primary authenticator',
+    };
+    const methodId = newId();
+    const encrypted = this.encrypt(totpSecret, authMethodAad(userId, methodId));
+    const method: AuthMethodRecord = {
+      id: methodId, userId, label: 'Primary authenticator',
       encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
       credentialId: null, publicKey: null, signCount: 0, lastTotpStep: null, active: false, createdAt: now,
-    });
-    await this.store.clearLegacyTotp(userId);
+    };
+    if (!(await this.store.createFirstUser(user, method))) throw new Error('Admin already exists');
 
     await this.audit('setup', 'admin.created', userId, { email });
     return {
@@ -166,13 +189,16 @@ export class VaultService {
   }
 
   async login(email: string, password: string, totpCode: string): Promise<LoginStartResult> {
-    this.checkRateLimit(`login:${email.toLowerCase()}`);
-    const user = await this.store.getUserByEmail(email.trim().toLowerCase());
+    const normalizedEmail = email.trim().toLowerCase();
+    const attemptKey = `login:${normalizedEmail}`;
+    await this.checkRateLimit(attemptKey);
+    const user = await this.store.getUserByEmail(normalizedEmail);
     if (!user || user.status !== 'active' || !user.passwordHash || !(await verifySecret(password, user.passwordHash))) {
-      this.recordFailure(`login:${email.toLowerCase()}`);
+      await this.recordFailure(attemptKey);
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
     }
+    await this.clearFailures(attemptKey);
 
     const methods = await this.store.listAuthMethods(user.id);
     const activeMethods = methods.filter((method) => method.active && method.credentialId);
@@ -180,13 +206,13 @@ export class VaultService {
       const pending = methods.find((method) => !method.active);
       if (pending && !totpCode) return { status: 'totp_setup_verification_required' };
       if (!pending || !this.verifyMethodTotp(pending, totpCode)) {
-        this.recordFailure(`login:${email.toLowerCase()}`);
+        await this.recordFailure(attemptKey);
         await this.audit('anonymous', 'admin.login.failed', email, {});
         throw new Error('Invalid login');
       }
-      this.verifiedEnrollments.set(pending.id, Date.now() + 10 * 60 * 1000);
+      await this.store.saveAuthChallenge('verified-enrollment', tokenHash(pending.id), { userId: user.id }, expiresIn(10));
       const setupToken = newToken();
-      this.pendingPasskeySetups.set(setupToken, { userId: user.id, expiresAt: Date.now() + 10 * 60 * 1000 });
+      await this.store.saveAuthChallenge('passkey-setup', tokenHash(setupToken), { userId: user.id }, expiresIn(10));
       await this.audit(user.id, 'admin.passkey.setup.required', user.id, {});
       return { status: 'passkey_setup_required', setupToken };
     }
@@ -197,63 +223,64 @@ export class VaultService {
       userVerification: 'required',
     });
     const challengeId = newToken();
-    this.authenticationChallenges.set(challengeId, {
+    await this.store.saveAuthChallenge('authentication', tokenHash(challengeId), {
       userId: user.id,
       challenge: options.challenge,
-      expiresAt: Date.now() + 5 * 60 * 1000,
-    });
+    }, expiresIn(5));
     return { status: 'passkey_required', challengeId, options: options as unknown as Record<string, unknown> };
   }
 
   async finishLogin(challengeId: string, credential: Record<string, unknown>): Promise<{ totpToken: string; methodLabel: string }> {
-    const challenge = this.authenticationChallenges.get(challengeId);
-    this.authenticationChallenges.delete(challengeId);
-    if (!challenge || challenge.expiresAt < Date.now()) throw new Error('Passkey challenge expired');
+    const challenge = await this.store.consumeAuthChallenge('authentication', tokenHash(challengeId));
+    if (!challenge) throw new Error('Passkey challenge expired');
 
     const responseId = typeof credential.id === 'string' ? credential.id : '';
+    const challengeUserId = String(challenge.userId ?? '');
     const method = await this.store.getAuthMethodByCredential(responseId);
-    if (!method || method.userId !== challenge.userId) {
-      await this.audit(challenge.userId, 'admin.passkey.failed', challenge.userId, {});
+    if (!method || method.userId !== challengeUserId) {
+      await this.audit(challengeUserId, 'admin.passkey.failed', challengeUserId, {});
       throw new Error('Invalid passkey');
     }
 
     const verification = await verifyAuthenticationResponse({
       response: credential as never,
-      expectedChallenge: challenge.challenge,
+      expectedChallenge: String(challenge.challenge ?? ''),
       expectedOrigin: this.origin,
       expectedRPID: this.rpId,
       credential: toWebAuthnCredential(method),
       requireUserVerification: true,
     });
     if (!verification.verified) {
-      await this.audit(challenge.userId, 'admin.passkey.failed', challenge.userId, {});
+      await this.audit(challengeUserId, 'admin.passkey.failed', challengeUserId, {});
       throw new Error('Invalid passkey');
     }
     await this.store.updateAuthMethodCounter(method.id, verification.authenticationInfo.newCounter);
-    await this.audit(challenge.userId, 'admin.passkey.verified', method.id, {});
+    await this.audit(challengeUserId, 'admin.passkey.verified', method.id, {});
     const totpToken = newToken();
-    this.pendingTotpLogins.set(totpToken, { userId: challenge.userId, methodId: method.id, expiresAt: Date.now() + 5 * 60 * 1000 });
+    await this.store.saveAuthChallenge('totp-login', tokenHash(totpToken), { userId: challengeUserId, methodId: method.id }, expiresIn(5));
     return { totpToken, methodLabel: method.label };
   }
 
   async finishTotpLogin(totpToken: string, code: string): Promise<{ sessionId: string; csrfToken: string }> {
-    const pending = this.pendingTotpLogins.get(totpToken);
-    this.checkRateLimit(`totp:${pending?.userId ?? 'invalid'}`);
-    this.pendingTotpLogins.delete(totpToken);
-    if (!pending || pending.expiresAt < Date.now()) throw new Error('TOTP challenge expired');
-    const method = await this.store.getAuthMethod(pending.methodId);
+    const pending = await this.store.consumeAuthChallenge('totp-login', tokenHash(totpToken));
+    const pendingUserId = typeof pending?.userId === 'string' ? pending.userId : null;
+    const attemptKey = `totp:${pendingUserId ?? tokenHash(totpToken)}`;
+    await this.checkRateLimit(attemptKey);
+    if (!pending || !pendingUserId) throw new Error('TOTP challenge expired');
+    const method = await this.store.getAuthMethod(String(pending.methodId ?? ''));
     if (!method || !method.active) throw new Error('Invalid authentication method');
     const step = matchingTotpStep(this.decryptMethodTotp(method), code);
     if (step === null || !(await this.store.useTotpStep(method.id, step))) {
-      this.recordFailure(`totp:${pending.userId}`);
-      await this.audit(pending.userId, 'admin.totp.failed', method.id, {});
+      await this.recordFailure(attemptKey);
+      await this.audit(pendingUserId, 'admin.totp.failed', method.id, {});
       throw new Error('Invalid TOTP code');
     }
     const sessionId = newToken();
     const csrfToken = newToken();
     const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
-    await this.store.createSession({ id: sessionId, userId: pending.userId, csrfToken, expiresAt });
-    await this.audit(pending.userId, 'admin.login', pending.userId, { authMethodId: method.id });
+    await this.store.createSession({ id: tokenHash(sessionId), userId: pendingUserId, csrfToken: tokenHash(csrfToken), expiresAt });
+    await this.clearFailures(attemptKey);
+    await this.audit(pendingUserId, 'admin.login', pendingUserId, { authMethodId: method.id });
     return { sessionId, csrfToken };
   }
 
@@ -262,8 +289,8 @@ export class VaultService {
     if (!user) throw new Error('User not found');
     if (!label.trim()) throw new Error('Authentication method name is required');
     const secret = createTotpSecret();
-    const encrypted = encryptJson(secret, this.masterKey);
     const methodId = newId();
+    const encrypted = this.encrypt(secret, authMethodAad(userId, methodId));
     await this.store.createAuthMethod({
       id: methodId, userId, label: label.trim(),
       encryptedTotp: encrypted.encryptedPayload, iv: encrypted.iv, authTag: encrypted.authTag, keyVersion: encrypted.keyVersion,
@@ -278,7 +305,7 @@ export class VaultService {
     if (!method || method.userId !== userId || method.active || !this.verifyMethodTotp(method, code)) {
       throw new Error('Invalid TOTP code');
     }
-    this.verifiedEnrollments.set(method.id, Date.now() + 10 * 60 * 1000);
+    await this.store.saveAuthChallenge('verified-enrollment', tokenHash(method.id), { userId }, expiresIn(10));
     return this.startPasskeyRegistration(userId, method.id);
   }
 
@@ -287,7 +314,8 @@ export class VaultService {
     if (!user) throw new Error('User not found');
     const methods = await this.store.listAuthMethods(user.id);
     const method = methodId ? methods.find((item) => item.id === methodId) : methods.find((item) => !item.active);
-    if (!method || method.active || (this.verifiedEnrollments.get(method.id) ?? 0) < Date.now()) {
+    const verified = method ? await this.store.getAuthChallenge('verified-enrollment', tokenHash(method.id)) : null;
+    if (!method || method.active || verified?.userId !== userId) {
       throw new Error('Verify TOTP before registering the paired passkey');
     }
     const keys = methods.filter((item) => item.active && item.credentialId);
@@ -303,23 +331,21 @@ export class VaultService {
       },
       excludeCredentials: keys.map((key) => ({ id: key.credentialId! })),
     });
-    this.registrationChallenges.set(user.id, {
+    await this.store.saveAuthChallenge('registration', tokenHash(user.id), {
       userId: user.id,
       methodId: method.id,
       challenge: options.challenge,
-      expiresAt: Date.now() + 5 * 60 * 1000,
-    });
+    }, expiresIn(5));
     return options as unknown as Record<string, unknown>;
   }
 
   async finishPasskeyRegistration(userId: string, credential: Record<string, unknown>): Promise<void> {
-    const challenge = this.registrationChallenges.get(userId);
-    this.registrationChallenges.delete(userId);
-    if (!challenge || challenge.expiresAt < Date.now()) throw new Error('Passkey registration challenge expired');
+    const challenge = await this.store.consumeAuthChallenge('registration', tokenHash(userId));
+    if (!challenge || challenge.userId !== userId) throw new Error('Passkey registration challenge expired');
 
     const verification = await verifyRegistrationResponse({
       response: credential as never,
-      expectedChallenge: challenge.challenge,
+      expectedChallenge: String(challenge.challenge ?? ''),
       expectedOrigin: this.origin,
       expectedRPID: this.rpId,
       requireUserVerification: true,
@@ -327,8 +353,9 @@ export class VaultService {
     if (!verification.verified) throw new Error('Invalid passkey registration');
 
     const registered = verification.registrationInfo.credential;
-    await this.store.completeAuthMethod(
-      challenge.methodId,
+    const completed = await this.store.completeAuthMethodAndActivateUser(
+      userId,
+      String(challenge.methodId ?? ''),
       registered.id,
       {
         publicKey: isoBase64URL.fromBuffer(registered.publicKey),
@@ -336,48 +363,45 @@ export class VaultService {
       },
       registered.counter,
     );
-    this.verifiedEnrollments.delete(challenge.methodId);
-    await this.store.setUserPasskeyRequired(userId, true);
-    const user = await this.store.getUser(userId);
-    if (user?.status === 'pending' && user.passwordHash) await this.store.activateUser(userId);
-    await this.audit(userId, 'admin.auth-method.created', challenge.methodId, {});
+    if (!completed) throw new Error('Authentication method is no longer available');
+    await this.store.deleteAuthChallenge('verified-enrollment', tokenHash(String(challenge.methodId ?? '')));
+    await this.audit(userId, 'admin.auth-method.created', String(challenge.methodId ?? ''), {});
   }
 
-  consumePasskeySetupToken(token?: string): string {
+  async consumePasskeySetupToken(token?: string): Promise<string> {
     if (!token) throw new Error('Passkey setup token required');
-    const setup = this.pendingPasskeySetups.get(token);
-    if (!setup || setup.expiresAt < Date.now()) {
-      this.pendingPasskeySetups.delete(token);
-      throw new Error('Passkey setup token expired');
-    }
+    const setup = await this.store.getAuthChallenge('passkey-setup', tokenHash(token));
+    if (!setup || typeof setup.userId !== 'string') throw new Error('Passkey setup token expired');
     return setup.userId;
   }
 
-  clearPasskeySetupToken(token?: string): void {
-    if (token) this.pendingPasskeySetups.delete(token);
+  async clearPasskeySetupToken(token?: string): Promise<void> {
+    if (token) await this.store.deleteAuthChallenge('passkey-setup', tokenHash(token));
   }
 
   async logout(sessionId: string, userId: string): Promise<void> {
-    await this.store.deleteSession(sessionId);
+    await this.store.deleteSession(tokenHash(sessionId));
     await this.audit(userId, 'admin.logout', userId, {});
   }
 
   async requireSession(sessionId?: string): Promise<{ userId: string; csrfToken: string }> {
     if (!sessionId) throw new Error('Authentication required');
-    const session = await this.store.getSession(sessionId);
+    const session = await this.store.getSession(tokenHash(sessionId));
     if (!session) throw new Error('Authentication required');
     return { userId: session.userId, csrfToken: session.csrfToken };
   }
 
   async createApplication(userId: string, name: string, description?: string): Promise<ApplicationRecord> {
+    const now = new Date().toISOString();
     const record: ApplicationRecord = {
       id: newId(),
       name,
       description: description ?? null,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
     };
-    await this.store.createApplication(record);
-    await this.ensureApplicationProfile(record.id, 'default', userId);
+    await this.store.createApplicationWithProfile(record, {
+      id: newId(), applicationId: record.id, name: 'default', activeVersionId: null, createdAt: now,
+    });
     await this.audit(userId, 'application.create', record.id, { name });
     return record;
   }
@@ -405,8 +429,10 @@ export class VaultService {
   }
 
   async createDeployment(userId: string, applicationId: string, name: string): Promise<{ group: GroupRecord; profile: ProfileRecord }> {
-    const group = await this.createGroup(userId, applicationId, name);
-    const profile = await this.createProfile(userId, group.id, 'default');
+    const now = new Date().toISOString();
+    const group: GroupRecord = { id: newId(), applicationId, name, createdAt: now };
+    const profile: ProfileRecord = { id: newId(), groupId: group.id, name: 'default', activeVersionId: null, createdAt: now };
+    await this.store.createDeployment(group, profile);
     await this.audit(userId, 'deployment.create', group.id, { applicationId, name, defaultProfileId: profile.id });
     return { group, profile };
   }
@@ -446,6 +472,8 @@ export class VaultService {
 
   async createPlugin(userId: string, input: Omit<PluginCatalogRecord, 'id' | 'createdAt'>): Promise<PluginCatalogRecord> {
     const normalizedInput = normalizePluginCatalogInput(input);
+    assertSafeSchemaDocument(normalizedInput.configSchema);
+    assertSafeSchemaDocument(normalizedInput.eventSchema);
     if (!normalizedInput.name.trim()) throw new Error('Plugin name is required');
     if (!normalizedInput.pluginId.trim()) throw new Error('Plugin id is required');
     if (!normalizedInput.version.trim()) throw new Error('Plugin version is required');
@@ -477,6 +505,8 @@ export class VaultService {
 
   async createPrivatePlugin(userId: string, input: PrivatePluginUploadInput): Promise<{ plugin: PluginCatalogRecord; keyId: string; secret: string }> {
     const parsed = privatePluginFromSchema(input);
+    assertSafeSchemaDocument(parsed.configSchema);
+    assertSafeSchemaDocument(parsed.eventSchema);
     if ((await this.store.listPlugins()).some((plugin) => plugin.pluginId === parsed.pluginId)) {
       throw new Error(`Plugin ${parsed.pluginId} already exists`);
     }
@@ -527,12 +557,18 @@ export class VaultService {
 
   async publishPrivatePlugin(token: string, rawInput: Record<string, unknown>): Promise<{ status: 'published' | 'unchanged'; plugin: PluginCatalogRecord }> {
     const tokenId = publisherTokenId(token);
+    const attemptKey = `publisher:${tokenId ?? tokenHash(token)}`;
+    await this.checkRateLimit(attemptKey);
     const publisher = tokenId ? await this.store.getPluginPublisherByTokenId(tokenId) : null;
     if (!publisher || !(await verifySecret(token, publisher.secretHash))) {
+      await this.recordFailure(attemptKey);
       await this.audit(`publisher:${tokenId ?? 'unknown'}`, 'plugin.publish.auth.failed', 'plugin', {}).catch(() => undefined);
       throw new Error('Invalid plugin publish token');
     }
+    await this.clearFailures(attemptKey);
     const input = privatePluginPublishInput(rawInput);
+    assertSafeSchemaDocument(input.configSchema);
+    assertSafeSchemaDocument(input.eventSchema);
     if (input.pluginId !== publisher.pluginId || input.org !== publisher.org || input.packageName !== publisher.packageName || input.kind !== publisher.kind) {
       await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.identity.rejected', publisher.pluginId, {
         requestedPluginId: input.pluginId,
@@ -624,7 +660,7 @@ export class VaultService {
   }
 
   async saveDraft(userId: string, profileId: string, config: VaultRuntimeConfig): Promise<void> {
-    const encrypted = encryptJson(config, this.masterKey);
+    const encrypted = this.encrypt(config, profileDraftAad(profileId));
     await this.store.upsertDraft({
       id: newId(),
       profileId,
@@ -659,7 +695,7 @@ export class VaultService {
   async saveApplicationProfileDraft(userId: string, applicationProfileId: string, config: RuntimeConfigDefinition): Promise<void> {
     const profile = await this.store.getApplicationProfileById(applicationProfileId);
     if (!profile) throw new Error('Application profile not found');
-    const encrypted = encryptJson({ [profile.name]: config }, this.masterKey);
+    const encrypted = this.encrypt({ [profile.name]: config }, applicationDraftAad(applicationProfileId));
     await this.store.upsertApplicationDraft({
       id: newId(),
       applicationProfileId,
@@ -674,23 +710,21 @@ export class VaultService {
     if (!profile) throw new Error('Application profile not found');
     const draft = await this.store.getApplicationDraft(applicationProfileId);
     if (!draft) return null;
-    const config = decryptJson<VaultRuntimeConfig>(draft, this.masterKey);
+    const config = this.decrypt<VaultRuntimeConfig>(draft, applicationDraftAad(applicationProfileId));
     return config[profile.name] ?? null;
   }
 
   async publishApplicationProfileDraft(userId: string, applicationProfileId: string): Promise<{ versionId: string; version: number }> {
     const draft = await this.store.getApplicationDraft(applicationProfileId);
     if (!draft) throw new Error('No application profile draft found');
-    const version = await this.store.nextApplicationVersion(applicationProfileId);
     const versionId = newId();
-    await this.store.createApplicationVersion({
+    const plaintext = this.decrypt<VaultRuntimeConfig>(draft, applicationDraftAad(applicationProfileId));
+    const encrypted = this.encrypt(plaintext, applicationVersionAad(applicationProfileId, versionId));
+    const version = await this.store.createApplicationVersion({
       id: versionId,
       applicationProfileId,
-      version,
-      encryptedPayload: draft.encryptedPayload,
-      iv: draft.iv,
-      authTag: draft.authTag,
-      keyVersion: draft.keyVersion,
+      version: 0,
+      ...encrypted,
       publishedAt: new Date().toISOString(),
       publishedBy: userId,
     });
@@ -862,23 +896,21 @@ export class VaultService {
     if (!binding) throw new Error('Deployment profile not found');
     const draft = await this.store.getDraft(profileId);
     if (!draft) return null;
-    const config = decryptJson<VaultRuntimeConfig>(draft, this.masterKey);
+    const config = this.decrypt<VaultRuntimeConfig>(draft, profileDraftAad(profileId));
     return config[binding.profile.name] ?? null;
   }
 
   async publishDraft(userId: string, profileId: string): Promise<{ versionId: string; version: number }> {
     const draft = await this.store.getDraft(profileId);
     if (!draft) throw new Error('No draft found for profile');
-    const version = await this.store.nextVersion(profileId);
     const versionId = newId();
-    await this.store.createVersion({
+    const plaintext = this.decrypt<VaultRuntimeConfig>(draft, profileDraftAad(profileId));
+    const encrypted = this.encrypt(plaintext, profileVersionAad(profileId, versionId));
+    const version = await this.store.createVersion({
       id: versionId,
       profileId,
-      version,
-      encryptedPayload: draft.encryptedPayload,
-      iv: draft.iv,
-      authTag: draft.authTag,
-      keyVersion: draft.keyVersion,
+      version: 0,
+      ...encrypted,
       publishedAt: new Date().toISOString(),
       publishedBy: userId,
     });
@@ -957,22 +989,31 @@ export class VaultService {
   ): Promise<{ keyId: string; secret: string }> {
     const existing = await this.store.getRuntimeKey(input.keyId);
     if (!existing) throw new Error('Runtime key not found');
-    await this.store.revokeRuntimeKey(existing.id);
-    const created = await this.createProfileRuntimeKey(userId, {
-      profileId: existing.profileId,
+    const keyId = `vk_${newToken(18)}`;
+    const secret = `vs_${newToken(32)}`;
+    const rotated = await this.store.rotateRuntimeKey(existing.id, {
+      ...existing,
+      id: keyId,
       name: input.name || existing.name,
-      containerName: existing.containerName,
+      secretHash: await hashSecret(secret),
+      revokedAt: null,
+      createdAt: new Date().toISOString(),
     });
-    await this.audit(userId, 'runtime-key.rotate', existing.id, { replacementKeyId: created.keyId });
-    return created;
+    if (!rotated) throw new Error('Runtime key is already revoked');
+    await this.audit(userId, 'runtime-key.rotate', existing.id, { replacementKeyId: keyId });
+    return { keyId, secret };
   }
 
   async resolveRuntimeConfig(keyId: string, secret: string, obs?: Observable): Promise<ResolvedRuntimeConfig> {
+    const attemptKey = `runtime:${keyId}`;
+    await this.checkRateLimit(attemptKey);
     const binding = await this.store.resolveRuntimeBinding(keyId);
     if (!binding || !(await verifySecret(secret, binding.key.secretHash))) {
+      await this.recordFailure(attemptKey);
       await this.audit(keyId, 'runtime-config.auth.failed', keyId, {}).catch(() => undefined);
       throw new Error('Invalid Vault API key');
     }
+    await this.clearFailures(attemptKey);
 
     if (binding.key.configPluginId !== 'config-vault') {
       throw new Error(`Runtime key is not allowed to use config plugin ${binding.key.configPluginId}`);
@@ -986,12 +1027,12 @@ export class VaultService {
       throw new Error('Active config version was not found');
     }
 
-    const config = decryptJson<VaultRuntimeConfig>({
+    const config = this.decrypt<VaultRuntimeConfig>({
       encryptedPayload: version.encryptedPayload,
       iv: version.iv,
       authTag: version.authTag,
       keyVersion: version.keyVersion,
-    }, this.masterKey);
+    }, profileVersionAad(binding.profile.id, version.id));
     const shared = await this.getPublishedApplicationConfig(binding.application.id, binding.profile.name);
     const mergedProfile = mergeRuntimeConfig(
       shared?.[binding.profile.name] ?? {},
@@ -1022,12 +1063,12 @@ export class VaultService {
     if (!profile?.activeVersionId) return null;
     const version = await this.store.getApplicationVersion(profile.activeVersionId);
     if (!version) return null;
-    return decryptJson<VaultRuntimeConfig>({
+    return this.decrypt<VaultRuntimeConfig>({
       encryptedPayload: version.encryptedPayload,
       iv: version.iv,
       authTag: version.authTag,
       keyVersion: version.keyVersion,
-    }, this.masterKey);
+    }, applicationVersionAad(profile.id, version.id));
   }
 
   async dashboard(): Promise<{
@@ -1081,7 +1122,7 @@ export class VaultService {
       if (profile.activeVersionId) {
         const version = await this.store.getVersion(profile.activeVersionId);
         if (version) {
-          const decrypted = decryptJson<VaultRuntimeConfig>(version, this.masterKey);
+          const decrypted = this.decrypt<VaultRuntimeConfig>(version, profileVersionAad(profile.id, version.id));
           scan(decrypted[profile.name], {
             prefix: `deployment live ${profile.name}`,
             href: `/deployment?profileId=${encodeURIComponent(profile.id)}`,
@@ -1097,7 +1138,7 @@ export class VaultService {
       if (profile.activeVersionId) {
         const version = await this.store.getApplicationVersion(profile.activeVersionId);
         if (version) {
-          const decrypted = decryptJson<VaultRuntimeConfig>(version, this.masterKey);
+          const decrypted = this.decrypt<VaultRuntimeConfig>(version, applicationVersionAad(profile.id, version.id));
           scan(decrypted[profile.name], {
             prefix: `shared live ${profile.name}`,
             href: `/application-config?applicationId=${encodeURIComponent(profile.applicationId)}&profile=${encodeURIComponent(profile.name)}`,
@@ -1154,7 +1195,7 @@ export class VaultService {
       if (!profile.activeVersionId) continue;
       const version = await this.store.getVersion(profile.activeVersionId);
       if (!version) continue;
-      const live = decryptJson<VaultRuntimeConfig>(version, this.masterKey)[profile.name] ?? null;
+      const live = this.decrypt<VaultRuntimeConfig>(version, profileVersionAad(profile.id, version.id))[profile.name] ?? null;
       await visit(live, (next) => this.saveProfileDraft(userId, profile.id, next));
     }
 
@@ -1167,7 +1208,7 @@ export class VaultService {
       if (!profile.activeVersionId) continue;
       const version = await this.store.getApplicationVersion(profile.activeVersionId);
       if (!version) continue;
-      const live = decryptJson<VaultRuntimeConfig>(version, this.masterKey)[profile.name] ?? null;
+      const live = this.decrypt<VaultRuntimeConfig>(version, applicationVersionAad(profile.id, version.id))[profile.name] ?? null;
       await visit(live, (next) => this.saveApplicationProfileDraft(userId, profile.id, next));
     }
   }
@@ -1340,8 +1381,30 @@ export class VaultService {
     return { valid: await this.store.verifyAuditChain(), entries: await this.store.listAudit(100, before) };
   }
 
-  async assertAuditWritable(): Promise<void> {
+  async assertAuditWritable(full = false): Promise<void> {
+    await this.store.assertAuditWritable(full);
+  }
+
+  async health(): Promise<void> {
+    await this.store.health();
     await this.store.assertAuditWritable();
+  }
+
+  async auditMutationIntent(actor: string, target: string): Promise<string> {
+    const mutationId = newId();
+    const actorUser = await this.store.getUser(actor).catch(() => null);
+    await this.store.audit({
+      id: newId(),
+      actor,
+      actorEmail: actorUser?.email ?? null,
+      action: 'http.mutation',
+      target,
+      details: {},
+      mutationId,
+      outcome: 'intent',
+      createdAt: new Date().toISOString(),
+    });
+    return mutationId;
   }
 
   async userProfile(userId: string): Promise<{ user: { id: string; email: string; createdAt: string }; authMethods: AuthMethodRecord[] }> {
@@ -1374,35 +1437,48 @@ export class VaultService {
       action,
       target,
       details,
+      outcome: action.endsWith('.failed') ? 'failure' : 'success',
       createdAt: new Date().toISOString(),
     });
   }
 
   private decryptMethodTotp(method: AuthMethodRecord): string {
-    return decryptJson<string>({
+    return this.decrypt<string>({
       encryptedPayload: method.encryptedTotp,
       iv: method.iv,
       authTag: method.authTag,
       keyVersion: method.keyVersion,
-    }, this.masterKey);
+    }, authMethodAad(method.userId, method.id));
+  }
+
+  private encrypt(value: unknown, associatedData: string) {
+    return encryptJson(value, this.masterKey, this.masterKeyVersion, associatedData);
+  }
+
+  private decrypt<T>(payload: Parameters<typeof decryptJson>[0], associatedData: string): T {
+    const key = payload.keyVersion === this.masterKeyVersion
+      ? this.masterKey
+      : this.previousMasterKeys.get(payload.keyVersion) ?? (payload.keyVersion === 'v1' ? this.masterKey : undefined);
+    if (!key) throw new Error(`Vault encryption key version ${payload.keyVersion} is unavailable`);
+    return decryptJson<T>(payload, key, payload.keyVersion === 'v1' ? undefined : associatedData);
   }
 
   private verifyMethodTotp(method: AuthMethodRecord, code: string): boolean {
     return verifyTotp(this.decryptMethodTotp(method), code);
   }
 
-  private checkRateLimit(key: string): void {
-    const attempt = this.attempts.get(key);
-    if (attempt && attempt.resetAt > Date.now() && attempt.count >= 5) {
+  private async checkRateLimit(key: string): Promise<void> {
+    if (!(await this.store.authenticationAllowed(tokenHash(key)))) {
       throw new Error('Too many authentication attempts; try again later');
     }
   }
 
-  private recordFailure(key: string): void {
-    const current = this.attempts.get(key);
-    this.attempts.set(key, !current || current.resetAt <= Date.now()
-      ? { count: 1, resetAt: Date.now() + 5 * 60 * 1000 }
-      : { ...current, count: current.count + 1 });
+  private async recordFailure(key: string): Promise<void> {
+    await this.store.recordAuthenticationFailure(tokenHash(key));
+  }
+
+  private async clearFailures(key: string): Promise<void> {
+    await this.store.clearAuthenticationFailures(tokenHash(key));
   }
 
   private async validatePluginConfig(input: {
@@ -1415,7 +1491,7 @@ export class VaultService {
     if (!catalog?.configSchema) return input.config ?? {};
     const root = objectField(objectField(catalog.configSchema.root) ?? catalog.configSchema);
     if (!root) return input.config ?? {};
-    const value = validateSchemaNode(root, input.config ?? {}, 'config', true);
+    const value = validateAnyValiNode(root, input.config ?? {}, 'config', catalog.configSchema);
     if (!isPlainObject(value)) {
       throw new Error(`Invalid config for ${input.plugin}: config must be an object`);
     }
@@ -1441,8 +1517,8 @@ export class VaultService {
       const node = schemaNodeAtPath(root, path);
       const value = valueAtPath(input.config ?? {}, path);
       if (!node || value === undefined) continue;
-      const validated = validateSchemaNode(node, value, `config.${path}`, true);
-      if (validated !== omitted) setValueAtPath(output, path, validated);
+      const validated = validateAnyValiNode(node, value, `config.${path}`, catalog.configSchema);
+      setValueAtPath(output, path, validated);
     }
     return output;
   }
@@ -1472,6 +1548,40 @@ function tokenHash(token: string): string {
   return createHash('sha256').update(token).digest('base64url');
 }
 
+function expiresIn(minutes: number): string {
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+}
+
+function authMethodAad(userId: string, methodId: string): string {
+  return `vault:auth-method:${userId}:${methodId}`;
+}
+
+function profileDraftAad(profileId: string): string {
+  return `vault:profile-draft:${profileId}`;
+}
+
+function profileVersionAad(profileId: string, versionId: string): string {
+  return `vault:profile-version:${profileId}:${versionId}`;
+}
+
+function applicationDraftAad(profileId: string): string {
+  return `vault:application-draft:${profileId}`;
+}
+
+function applicationVersionAad(profileId: string, versionId: string): string {
+  return `vault:application-version:${profileId}:${versionId}`;
+}
+
+function encryptedRecordAad(record: Pick<EncryptedRecord, 'kind' | 'id' | 'ownerId'>): string {
+  switch (record.kind) {
+    case 'auth-method': return authMethodAad(record.ownerId, record.id);
+    case 'profile-draft': return profileDraftAad(record.ownerId);
+    case 'profile-version': return profileVersionAad(record.ownerId, record.id);
+    case 'application-draft': return applicationDraftAad(record.ownerId);
+    case 'application-version': return applicationVersionAad(record.ownerId, record.id);
+  }
+}
+
 function toWebAuthnCredential(passkey: AuthMethodRecord) {
   const stored = passkey.publicKey as { publicKey?: string; transports?: string[] } | null;
   if (!stored || typeof stored.publicKey !== 'string') throw new Error('Invalid stored passkey');
@@ -1483,156 +1593,49 @@ function toWebAuthnCredential(passkey: AuthMethodRecord) {
   };
 }
 
-const omitted = Symbol('omitted');
-
-type ValidationValue = unknown | typeof omitted;
-
-function validateSchemaNode(node: Record<string, unknown>, value: unknown, path: string, required: boolean): ValidationValue {
-  if (value === undefined) {
-    if ('default' in node) return cloneDefault(node.default);
-    if (!required || node.kind === 'optional') return omitted;
-    if (node.kind === 'object') return validateObjectNode(node, {}, path);
-  }
-
-  if (node.kind === 'optional') {
-    if (value === undefined) return omitted;
-    return validateSchemaNode(requireObject(node.inner, path), value, path, false);
-  }
-  if (node.kind === 'nullable') {
-    if (value === null) return null;
-    return validateSchemaNode(requireObject(node.inner, path), value, path, required);
-  }
-
-  switch (String(node.kind)) {
-    case 'object':
-      return validateObjectNode(node, value, path);
-    case 'string':
-      return validateStringNode(node, value, path);
-    case 'int':
-    case 'int32':
-    case 'int64':
-      return validateNumberNode(node, value, path, true);
-    case 'number':
-    case 'float':
-    case 'float32':
-    case 'float64':
-      return validateNumberNode(node, value, path, false);
-    case 'bool':
-    case 'boolean':
-      return validateBoolNode(value, path);
-    case 'enum':
-      return validateEnumNode(node, value, path);
-    case 'array':
-      return validateArrayNode(node, value, path);
-    case 'record':
-      return validateRecordNode(node, value, path);
-    case 'tuple':
-      return validateTupleNode(node, value, path);
-    case 'union':
-      return validateUnionNode(node, value, path);
-    case 'unknown':
-    case 'any':
-      return value;
-    default:
-      return value;
-  }
-}
-
-function validateObjectNode(node: Record<string, unknown>, value: unknown, path: string): Record<string, unknown> {
-  if (!isPlainObject(value)) throw new Error(`${path} must be an object`);
-  const properties = objectField(node.properties) ?? {};
-  const required = new Set(Array.isArray(node.required) ? node.required.map(String) : Object.keys(properties).filter((key) => !isOptional(properties[key])));
-  const output: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(properties)) {
-    const childNode = requireObject(child, `${path}.${key}`);
-    const childValue = validateSchemaNode(childNode, value[key], `${path}.${key}`, required.has(key));
-    if (childValue !== omitted) output[key] = childValue;
-  }
-  return output;
-}
-
-function validateStringNode(node: Record<string, unknown>, value: unknown, path: string): string {
-  if (typeof value !== 'string') throw new Error(`${path} must be a string`);
-  if (typeof node.minLength === 'number' && value.length < node.minLength) throw new Error(`${path} is too short`);
-  if (typeof node.maxLength === 'number' && value.length > node.maxLength) throw new Error(`${path} is too long`);
-  if (typeof node.pattern === 'string' && !(new RegExp(node.pattern).test(value))) throw new Error(`${path} is invalid`);
-  return value;
-}
-
-function validateNumberNode(node: Record<string, unknown>, value: unknown, path: string, integer: boolean): number {
-  const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
-  if (!Number.isFinite(number)) throw new Error(`${path} must be a number`);
-  if (integer && !Number.isInteger(number)) throw new Error(`${path} must be an integer`);
-  if (typeof node.min === 'number' && number < node.min) throw new Error(`${path} must be at least ${node.min}`);
-  if (typeof node.max === 'number' && number > node.max) throw new Error(`${path} must be at most ${node.max}`);
-  return number;
-}
-
-function validateBoolNode(value: unknown, path: string): boolean {
-  if (typeof value === 'boolean') return value;
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  throw new Error(`${path} must be true or false`);
-}
-
-function validateEnumNode(node: Record<string, unknown>, value: unknown, path: string): unknown {
-  const values = Array.isArray(node.values) ? node.values : [];
-  if (!values.some((item) => item === value || String(item) === String(value))) {
-    throw new Error(`${path} must be one of ${values.map(String).join(', ')}`);
-  }
-  return values.find((item) => item === value || String(item) === String(value)) ?? value;
-}
-
-function validateArrayNode(node: Record<string, unknown>, value: unknown, path: string): unknown[] {
-  const array = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',').map((item) => item.trim()).filter(Boolean) : null;
-  if (!array) throw new Error(`${path} must be an array`);
-  if (typeof node.minItems === 'number' && array.length < node.minItems) throw new Error(`${path} has too few items`);
-  if (typeof node.maxItems === 'number' && array.length > node.maxItems) throw new Error(`${path} has too many items`);
-  const itemNode = objectField(node.items) ?? objectField(node.item);
-  if (!itemNode) return array;
-  return array.map((item, index) => {
-    const validated = validateSchemaNode(itemNode, item, `${path}[${index}]`, true);
-    if (validated === omitted) throw new Error(`${path}[${index}] is required`);
-    return validated;
+function validateAnyValiNode(
+  node: Record<string, unknown>,
+  value: unknown,
+  path: string,
+  document?: Record<string, unknown>,
+): unknown {
+  const schema = av.importSchema({
+    anyvaliVersion: typeof document?.anyvaliVersion === 'string' ? document.anyvaliVersion : '1.0',
+    schemaVersion: typeof document?.schemaVersion === 'string' ? document.schemaVersion : '1.1',
+    root: node as never,
+    definitions: (objectField(document?.definitions) ?? {}) as never,
+    extensions: (objectField(document?.extensions) ?? {}) as never,
   });
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  const issue = result.issues[0];
+  const issuePath = [path, ...issue.path.map(String)].filter(Boolean).join('.').replace(/\.\[/g, '[');
+  throw new Error(`${issuePath}: ${issue.message}`);
 }
 
-function validateRecordNode(node: Record<string, unknown>, value: unknown, path: string): Record<string, unknown> {
-  if (!isPlainObject(value)) throw new Error(`${path} must be an object`);
-  const valueNode = objectField(node.valueSchema) ?? objectField(node.values) ?? objectField(node.value);
-  if (!valueNode) return value;
-  const output: Record<string, unknown> = {};
-  for (const [key, item] of Object.entries(value)) {
-    const validated = validateSchemaNode(valueNode, item, `${path}.${key}`, true);
-    if (validated !== omitted) output[key] = validated;
-  }
-  return output;
-}
-
-function validateTupleNode(node: Record<string, unknown>, value: unknown, path: string): unknown[] {
-  if (!Array.isArray(value)) throw new Error(`${path} must be an array`);
-  const items = (Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : []).map((item, index) => requireObject(item, `${path}[${index}]`));
-  if (items.length > 0 && value.length !== items.length) throw new Error(`${path} must have ${items.length} items`);
-  return items.length === 0 ? value : items.map((item, index) => {
-    const validated = validateSchemaNode(item, value[index], `${path}[${index}]`, true);
-    if (validated === omitted) throw new Error(`${path}[${index}] is required`);
-    return validated;
-  });
-}
-
-function validateUnionNode(node: Record<string, unknown>, value: unknown, path: string): unknown {
-  const variants = (Array.isArray(node.variants) ? node.variants : Array.isArray(node.anyOf) ? node.anyOf : Array.isArray(node.oneOf) ? node.oneOf : [])
-    .map((item, index) => requireObject(item, `${path}<${index}>`));
-  const errors: string[] = [];
-  for (const variant of variants) {
-    try {
-      const validated = validateSchemaNode(variant, value, path, true);
-      if (validated !== omitted) return validated;
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
+function assertSafeSchemaDocument(document: Record<string, unknown> | null): void {
+  if (!document) return;
+  const blocked = new Set(['__proto__', 'prototype', 'constructor']);
+  const stack: Array<{ value: unknown; depth: number }> = [{ value: document, depth: 0 }];
+  let nodes = 0;
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    nodes += 1;
+    if (nodes > 10_000) throw new Error('Schema exceeds the maximum node count');
+    if (current.depth > 64) throw new Error('Schema exceeds the maximum nesting depth');
+    if (Array.isArray(current.value)) {
+      for (const value of current.value) stack.push({ value, depth: current.depth + 1 });
+      continue;
+    }
+    if (!isPlainObject(current.value)) continue;
+    for (const [key, value] of Object.entries(current.value)) {
+      if (blocked.has(key)) throw new Error(`Schema contains forbidden key ${key}`);
+      if (key === 'pattern' && typeof value === 'string' && (value.length > 1024 || !safeRegex(value))) {
+        throw new Error('Schema contains an unsafe regular expression');
+      }
+      stack.push({ value, depth: current.depth + 1 });
     }
   }
-  throw new Error(errors[0] ?? `${path} does not match any allowed shape`);
 }
 
 function schemaNodeAtPath(root: Record<string, unknown>, path: string): Record<string, unknown> | null {
@@ -1658,10 +1661,6 @@ function unwrapSchemaNode(node: Record<string, unknown> | null): Record<string, 
   return current;
 }
 
-function isOptional(value: unknown): boolean {
-  return isPlainObject(value) && (value.kind === 'optional' || ('default' in value));
-}
-
 function requireObject(value: unknown, path: string): Record<string, unknown> {
   const object = objectField(value);
   if (!object) throw new Error(`${path} schema is invalid`);
@@ -1676,16 +1675,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function cloneDefault(value: unknown): unknown {
-  return isPlainObject(value) || Array.isArray(value) ? JSON.parse(JSON.stringify(value)) : value;
-}
-
 function cloneJson(value: unknown): unknown {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
 function validateConfigName(name: string): void {
-  if (!name.trim()) throw new Error('Config name is required');
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name) || isBlockedKey(name)) {
+    throw new Error('Config name must be a safe identifier');
+  }
 }
 
 function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCatalogRecord, 'id' | 'source' | 'createdAt'> {
@@ -1877,15 +1874,15 @@ function mergePluginSection(
 ): Record<string, RuntimePluginDefinition> {
   const output: Record<string, RuntimePluginDefinition> = {};
   for (const [name, plugin] of Object.entries(shared ?? {})) {
-    output[name] = cloneJson(plugin) as RuntimePluginDefinition;
+    defineSafeProperty(output, name, cloneJson(plugin) as RuntimePluginDefinition);
   }
   for (const [name, plugin] of Object.entries(local ?? {})) {
     const base = output[name];
-    output[name] = base ? {
+    defineSafeProperty(output, name, base ? {
       ...base,
       ...plugin,
       config: deepMergeObjects(base.config ?? {}, plugin.config ?? {}),
-    } : cloneJson(plugin) as RuntimePluginDefinition;
+    } : cloneJson(plugin) as RuntimePluginDefinition);
     if (output[name].override) delete output[name].override;
   }
   return output;
@@ -1911,9 +1908,9 @@ function deepMergeObjects(base: Record<string, unknown>, override: Record<string
   const output = cloneJson(base) as Record<string, unknown>;
   for (const [key, value] of Object.entries(override)) {
     const existing = output[key];
-    output[key] = isPlainObject(existing) && isPlainObject(value)
+    defineSafeProperty(output, key, isPlainObject(existing) && isPlainObject(value)
       ? deepMergeObjects(existing, value)
-      : cloneJson(value);
+      : cloneJson(value));
   }
   return output;
 }
@@ -1930,18 +1927,18 @@ function pickConfigPaths(source: Record<string, unknown>, paths: string[]): Reco
 }
 
 function valueAtPath(source: Record<string, unknown>, path: string): unknown {
-  return path.split('.').reduce<unknown>((acc, part) => isPlainObject(acc) ? acc[part] : undefined, source);
+  return safePathParts(path).reduce<unknown>((acc, part) => isPlainObject(acc) && Object.prototype.hasOwnProperty.call(acc, part) ? acc[part] : undefined, source);
 }
 
 function setValueAtPath(target: Record<string, unknown>, path: string, value: unknown): void {
-  const parts = path.split('.');
+  const parts = safePathParts(path);
   let current = target;
   for (const part of parts.slice(0, -1)) {
     const existing = current[part];
-    if (!isPlainObject(existing)) current[part] = {};
+    if (!isPlainObject(existing)) defineSafeProperty(current, part, {});
     current = current[part] as Record<string, unknown>;
   }
-  current[parts[parts.length - 1] ?? path] = cloneJson(value);
+  defineSafeProperty(current, parts[parts.length - 1] ?? path, cloneJson(value));
 }
 
 function mergeSensitiveConfig(
@@ -1979,10 +1976,25 @@ function sensitiveSchemaPaths(node: Record<string, unknown>, prefix = ''): strin
 }
 
 function deleteValueAtPath(target: Record<string, unknown>, path: string): void {
-  const parts = path.split('.');
+  const parts = safePathParts(path);
   let current: Record<string, unknown> | null = target;
   for (const part of parts.slice(0, -1)) current = objectField(current?.[part]);
   if (current) delete current[parts[parts.length - 1] ?? path];
+}
+
+function safePathParts(path: string): string[] {
+  const parts = path.split('.');
+  if (parts.some((part) => !part || isBlockedKey(part))) throw new Error('Config path contains a forbidden segment');
+  return parts;
+}
+
+function isBlockedKey(key: string): boolean {
+  return key === '__proto__' || key === 'prototype' || key === 'constructor';
+}
+
+function defineSafeProperty(target: Record<string, unknown>, key: string, value: unknown): void {
+  if (isBlockedKey(key)) throw new Error(`Forbidden object key ${key}`);
+  Object.defineProperty(target, key, { value, writable: true, enumerable: true, configurable: true });
 }
 
 function configState(draftUpdatedAt: string | null, publishedAt: string | null): ConfigState {

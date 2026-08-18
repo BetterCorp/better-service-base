@@ -9,15 +9,25 @@ module.exports = async ({ pluginRoot }) => {
   const users = [];
   const authMethods = [];
   const audits = [];
+  const challenges = new Map();
   const store = {
     async countAdmins() { return users.length; },
-    async createUser(user) { users.push(user); },
+    async createFirstUser(user, method) {
+      if (users.length > 0) return false;
+      users.push({ ...user, totpSecret: null });
+      authMethods.push(method);
+      return true;
+    },
     async getUser(id) { return users.find((user) => user.id === id) ?? null; },
     async getUserByEmail(email) { return users.find((user) => user.email === email) ?? null; },
     async listPasskeys() { return []; },
     async listAuthMethods(userId) { return authMethods.filter((method) => method.userId === userId); },
-    async createAuthMethod(method) { authMethods.push(method); },
-    async clearLegacyTotp(userId) { const user = users.find((item) => item.id === userId); if (user) user.totpSecret = null; },
+    async authenticationAllowed() { return true; },
+    async recordAuthenticationFailure() {},
+    async clearAuthenticationFailures() {},
+    async saveAuthChallenge(kind, key, payload) { challenges.set(`${kind}:${key}`, payload); },
+    async getAuthChallenge(kind, key) { return challenges.get(`${kind}:${key}`) ?? null; },
+    async deleteAuthChallenge(kind, key) { challenges.delete(`${kind}:${key}`); },
     async createPasskey() { throw new Error('passkeys should not be created during first setup'); },
     async setUserPasskeyRequired() { throw new Error('passkey should not be marked required during first setup'); },
     async updatePasskeyCounter() { throw new Error('passkey counter should not change during first setup'); },
@@ -65,7 +75,7 @@ module.exports = async ({ pluginRoot }) => {
   const login = await vault.login('admin@example.com', 'correct horse battery staple', crypto.generateTotp(result.totpSecret));
   assert.equal(login.status, 'passkey_setup_required');
   assert.equal(typeof login.setupToken, 'string');
-  assert.equal(vault.consumePasskeySetupToken(login.setupToken), users[0].id);
+  assert.equal(await vault.consumePasskeySetupToken(login.setupToken), users[0].id);
 
   assert.equal(audits.some((audit) => audit.action === 'admin.created'), true);
   assert.equal(audits.some((audit) => audit.action === 'admin.passkey.setup.required'), true);

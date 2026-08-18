@@ -19,21 +19,83 @@ import type {
   UserRecord,
 } from './types.js';
 
+export type EncryptedRecord = {
+  kind: 'auth-method' | 'profile-draft' | 'profile-version' | 'application-draft' | 'application-version';
+  id: string;
+  ownerId: string;
+  encryptedPayload: string;
+  iv: string;
+  authTag: string;
+  keyVersion: string;
+};
+
 export class VaultStore {
   private readonly pool: Pool;
   private readonly auditPool: Pool;
   private readonly auditKey: Buffer;
+  private readonly legacyAuditKeys: readonly Buffer[];
   private auditQueue: Promise<void> = Promise.resolve();
 
-  constructor(databaseUrl: string, auditKey: Buffer, auditDatabaseUrl?: string) {
+  constructor(databaseUrl: string, auditKey: Buffer, auditDatabaseUrl?: string, legacyAuditKeys: readonly Buffer[] = []) {
     this.pool = new Pool({ connectionString: databaseUrl });
     this.auditPool = auditDatabaseUrl ? new Pool({ connectionString: auditDatabaseUrl }) : this.pool;
     this.auditKey = auditKey;
+    this.legacyAuditKeys = legacyAuditKeys;
   }
 
   async close(): Promise<void> {
     if (this.auditPool !== this.pool) await this.auditPool.end();
     await this.pool.end();
+  }
+
+  async health(): Promise<void> {
+    await this.pool.query('select 1');
+    await this.auditPool.query('select 1');
+  }
+
+  async listEncryptedRecordsExcept(keyVersion: string): Promise<EncryptedRecord[]> {
+    const result = await this.pool.query(
+      `select 'auth-method' as kind, id, user_id as owner_id, encrypted_totp as encrypted_payload, iv, auth_tag, key_version
+         from vault_auth_methods where key_version <> $1
+       union all
+       select 'profile-draft', id, profile_id, encrypted_payload, iv, auth_tag, key_version
+         from vault_config_drafts where key_version <> $1
+       union all
+       select 'profile-version', id, profile_id, encrypted_payload, iv, auth_tag, key_version
+         from vault_config_versions where key_version <> $1
+       union all
+       select 'application-draft', id, application_profile_id, encrypted_payload, iv, auth_tag, key_version
+         from vault_application_config_drafts where key_version <> $1
+       union all
+       select 'application-version', id, application_profile_id, encrypted_payload, iv, auth_tag, key_version
+         from vault_application_config_versions where key_version <> $1`,
+      [keyVersion],
+    );
+    return result.rows.map((row) => ({
+      kind: String(row.kind) as EncryptedRecord['kind'],
+      id: String(row.id),
+      ownerId: String(row.owner_id),
+      encryptedPayload: String(row.encrypted_payload),
+      iv: String(row.iv),
+      authTag: String(row.auth_tag),
+      keyVersion: String(row.key_version),
+    }));
+  }
+
+  async updateEncryptedRecord(record: EncryptedRecord, previousKeyVersion: string, previousPayload: string): Promise<void> {
+    const targets = {
+      'auth-method': ['vault_auth_methods', 'encrypted_totp'],
+      'profile-draft': ['vault_config_drafts', 'encrypted_payload'],
+      'profile-version': ['vault_config_versions', 'encrypted_payload'],
+      'application-draft': ['vault_application_config_drafts', 'encrypted_payload'],
+      'application-version': ['vault_application_config_versions', 'encrypted_payload'],
+    } as const;
+    const [table, payloadColumn] = targets[record.kind];
+    await this.pool.query(
+      `update ${table} set ${payloadColumn} = $1, iv = $2, auth_tag = $3, key_version = $4
+       where id = $5 and key_version = $6 and ${payloadColumn} = $7`,
+      [record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.id, previousKeyVersion, previousPayload],
+    );
   }
 
   async init(): Promise<void> {
@@ -84,6 +146,20 @@ export class VaultStore {
         csrf_token text not null,
         expires_at timestamptz not null
       );
+      create table if not exists vault_auth_attempts (
+        subject_hash text primary key,
+        failure_count integer not null,
+        reset_at timestamptz not null
+      );
+      create index if not exists vault_auth_attempts_reset_idx on vault_auth_attempts (reset_at);
+      create table if not exists vault_auth_challenges (
+        kind text not null,
+        key_hash text not null,
+        payload jsonb not null,
+        expires_at timestamptz not null,
+        primary key (kind, key_hash)
+      );
+      create index if not exists vault_auth_challenges_expiry_idx on vault_auth_challenges (expires_at);
       create table if not exists vault_applications (
         id text primary key,
         name text not null unique,
@@ -269,6 +345,41 @@ export class VaultStore {
     );
   }
 
+  async createFirstUser(user: UserRecord, method: AuthMethodRecord): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query("select pg_advisory_xact_lock(hashtext('vault-first-admin'))");
+      const existing = await client.query('select 1 from vault_users limit 1');
+      if (existing.rows.length > 0) {
+        await client.query('rollback');
+        return false;
+      }
+      await client.query(
+        `insert into vault_users
+         (id, email, password_hash, totp_secret, passkey_required, status, setup_token_hash, setup_expires_at, created_at, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [user.id, user.email, user.passwordHash, user.totpSecret, user.passkeyRequired, user.status,
+          user.setupTokenHash, user.setupExpiresAt, user.createdAt, user.updatedAt],
+      );
+      await client.query(
+        `insert into vault_auth_methods
+         (id, user_id, label, encrypted_totp, iv, auth_tag, key_version, credential_id, public_key, sign_count, last_totp_step, active, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [method.id, method.userId, method.label, method.encryptedTotp, method.iv, method.authTag, method.keyVersion,
+          method.credentialId, method.publicKey, method.signCount, method.lastTotpStep, method.active, method.createdAt],
+      );
+      await client.query('update vault_users set totp_secret = null where id = $1', [user.id]);
+      await client.query('commit');
+      return true;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listUsers(): Promise<UserRecord[]> {
     const result = await this.pool.query('select * from vault_users order by email');
     return result.rows.map((row) => mapUser(row as DbRow));
@@ -294,13 +405,6 @@ export class VaultStore {
 
   async setPendingPassword(userId: string, passwordHash: string): Promise<void> {
     await this.pool.query('update vault_users set password_hash = $1, updated_at = now() where id = $2 and status = \'pending\'', [passwordHash, userId]);
-  }
-
-  async activateUser(userId: string): Promise<void> {
-    await this.pool.query(
-      "update vault_users set status = 'active', setup_token_hash = null, setup_expires_at = null, updated_at = now() where id = $1",
-      [userId],
-    );
   }
 
   async rotateUserSetupToken(userId: string, currentHash: string, replacementHash: string): Promise<boolean> {
@@ -343,11 +447,41 @@ export class VaultStore {
     return result.rows[0] ? mapAuthMethod(result.rows[0] as DbRow) : null;
   }
 
-  async completeAuthMethod(id: string, credentialId: string, publicKey: Record<string, unknown>, signCount: number): Promise<void> {
-    await this.pool.query(
-      'update vault_auth_methods set credential_id = $1, public_key = $2, sign_count = $3, active = true where id = $4',
-      [credentialId, publicKey, signCount, id],
-    );
+  async completeAuthMethodAndActivateUser(
+    userId: string,
+    id: string,
+    credentialId: string,
+    publicKey: Record<string, unknown>,
+    signCount: number,
+  ): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const completed = await client.query(
+        `update vault_auth_methods set credential_id = $1, public_key = $2, sign_count = $3, active = true
+         where id = $4 and user_id = $5 and active = false`,
+        [credentialId, publicKey, signCount, id, userId],
+      );
+      if (completed.rowCount !== 1) {
+        await client.query('rollback');
+        return false;
+      }
+      await client.query(
+        `update vault_users set passkey_required = true,
+         status = case when status = 'pending' and password_hash is not null then 'active' else status end,
+         setup_token_hash = case when status = 'pending' and password_hash is not null then null else setup_token_hash end,
+         setup_expires_at = case when status = 'pending' and password_hash is not null then null else setup_expires_at end,
+         updated_at = now() where id = $1`,
+        [userId],
+      );
+      await client.query('commit');
+      return true;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async updateAuthMethodCounter(id: string, signCount: number): Promise<void> {
@@ -425,28 +559,13 @@ export class VaultStore {
     }
   }
 
-  async createPasskey(passkey: PasskeyRecord): Promise<void> {
-    await this.pool.query(
-      `insert into vault_passkeys (id, user_id, credential_id, public_key, sign_count, created_at)
-       values ($1, $2, $3, $4, $5, $6)`,
-      [passkey.id, passkey.userId, passkey.credentialId, passkey.publicKey, passkey.signCount, passkey.createdAt],
-    );
-  }
-
-  async updatePasskeyCounter(id: string, signCount: number): Promise<void> {
-    await this.pool.query('update vault_passkeys set sign_count = $1 where id = $2', [signCount, id]);
-  }
-
-  async setUserPasskeyRequired(userId: string, required: boolean): Promise<void> {
-    await this.pool.query('update vault_users set passkey_required = $1, updated_at = now() where id = $2', [required, userId]);
-  }
-
   async listPasskeys(userId: string): Promise<PasskeyRecord[]> {
     const result = await this.pool.query('select * from vault_passkeys where user_id = $1 order by created_at', [userId]);
     return result.rows.map((row) => mapPasskey(row as DbRow));
   }
 
   async createSession(session: SessionRecord): Promise<void> {
+    await this.pool.query('delete from vault_sessions where expires_at <= now()');
     await this.pool.query(
       `insert into vault_sessions (id, user_id, csrf_token, expires_at) values ($1, $2, $3, $4)`,
       [session.id, session.userId, session.csrfToken, session.expiresAt],
@@ -454,7 +573,11 @@ export class VaultStore {
   }
 
   async getSession(id: string): Promise<SessionRecord | null> {
-    const result = await this.pool.query('select * from vault_sessions where id = $1 and expires_at > now()', [id]);
+    const result = await this.pool.query(
+      `select s.* from vault_sessions s join vault_users u on u.id = s.user_id
+       where s.id = $1 and s.expires_at > now() and u.status = 'active'`,
+      [id],
+    );
     return result.rows[0] ? mapSession(result.rows[0] as DbRow) : null;
   }
 
@@ -462,11 +585,79 @@ export class VaultStore {
     await this.pool.query('delete from vault_sessions where id = $1', [id]);
   }
 
-  async createApplication(record: ApplicationRecord): Promise<void> {
-    await this.pool.query(
-      'insert into vault_applications (id, name, description, created_at) values ($1, $2, $3, $4)',
-      [record.id, record.name, record.description, record.createdAt],
+  async authenticationAllowed(subjectHash: string, maximum = 5): Promise<boolean> {
+    const result = await this.pool.query<{ failure_count: number }>(
+      'select failure_count from vault_auth_attempts where subject_hash = $1 and reset_at > now()',
+      [subjectHash],
     );
+    return Number(result.rows[0]?.failure_count ?? 0) < maximum;
+  }
+
+  async recordAuthenticationFailure(subjectHash: string): Promise<void> {
+    await this.pool.query("delete from vault_auth_attempts where reset_at <= now() - interval '1 day'");
+    await this.pool.query(
+      `insert into vault_auth_attempts (subject_hash, failure_count, reset_at) values ($1, 1, now() + interval '5 minutes')
+       on conflict (subject_hash) do update set
+         failure_count = case when vault_auth_attempts.reset_at <= now() then 1 else vault_auth_attempts.failure_count + 1 end,
+         reset_at = case when vault_auth_attempts.reset_at <= now() then now() + interval '5 minutes' else vault_auth_attempts.reset_at end`,
+      [subjectHash],
+    );
+  }
+
+  async clearAuthenticationFailures(subjectHash: string): Promise<void> {
+    await this.pool.query('delete from vault_auth_attempts where subject_hash = $1', [subjectHash]);
+  }
+
+  async saveAuthChallenge(kind: string, keyHash: string, payload: Record<string, unknown>, expiresAt: string): Promise<void> {
+    await this.pool.query('delete from vault_auth_challenges where expires_at <= now()');
+    await this.pool.query(
+      `insert into vault_auth_challenges (kind, key_hash, payload, expires_at) values ($1, $2, $3, $4)
+       on conflict (kind, key_hash) do update set payload = excluded.payload, expires_at = excluded.expires_at`,
+      [kind, keyHash, payload, expiresAt],
+    );
+  }
+
+  async getAuthChallenge(kind: string, keyHash: string): Promise<Record<string, unknown> | null> {
+    const result = await this.pool.query<{ payload: Record<string, unknown> }>(
+      'select payload from vault_auth_challenges where kind = $1 and key_hash = $2 and expires_at > now()',
+      [kind, keyHash],
+    );
+    return result.rows[0]?.payload ?? null;
+  }
+
+  async consumeAuthChallenge(kind: string, keyHash: string): Promise<Record<string, unknown> | null> {
+    const result = await this.pool.query<{ payload: Record<string, unknown> }>(
+      `delete from vault_auth_challenges where kind = $1 and key_hash = $2 and expires_at > now()
+       returning payload`,
+      [kind, keyHash],
+    );
+    return result.rows[0]?.payload ?? null;
+  }
+
+  async deleteAuthChallenge(kind: string, keyHash: string): Promise<void> {
+    await this.pool.query('delete from vault_auth_challenges where kind = $1 and key_hash = $2', [kind, keyHash]);
+  }
+
+  async createApplicationWithProfile(application: ApplicationRecord, profile: ApplicationProfileRecord): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(
+        'insert into vault_applications (id, name, description, created_at) values ($1, $2, $3, $4)',
+        [application.id, application.name, application.description, application.createdAt],
+      );
+      await client.query(
+        `insert into vault_application_profiles (id, application_id, name, active_version_id, created_at)
+         values ($1, $2, $3, $4, $5)`,
+        [profile.id, profile.applicationId, profile.name, profile.activeVersionId, profile.createdAt],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async updateApplication(id: string, name: string, description: string | null): Promise<void> {
@@ -524,6 +715,27 @@ export class VaultStore {
       'insert into vault_groups (id, application_id, name, created_at) values ($1, $2, $3, $4)',
       [record.id, record.applicationId, record.name, record.createdAt],
     );
+  }
+
+  async createDeployment(group: GroupRecord, profile: ProfileRecord): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(
+        'insert into vault_groups (id, application_id, name, created_at) values ($1, $2, $3, $4)',
+        [group.id, group.applicationId, group.name, group.createdAt],
+      );
+      await client.query(
+        'insert into vault_profiles (id, group_id, name, active_version_id, created_at) values ($1, $2, $3, $4, $5)',
+        [profile.id, profile.groupId, profile.name, profile.activeVersionId, profile.createdAt],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async updateGroup(id: string, applicationId: string, name: string): Promise<void> {
@@ -720,32 +932,33 @@ export class VaultStore {
     return result.rows[0] ? mapDraft(result.rows[0] as DbRow) : null;
   }
 
-  async createVersion(record: ConfigVersionRecord): Promise<void> {
-    await this.pool.query(
-      `insert into vault_config_versions
-       (id, profile_id, version, encrypted_payload, iv, auth_tag, key_version, published_at, published_by)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        record.id,
-        record.profileId,
-        record.version,
-        record.encryptedPayload,
-        record.iv,
-        record.authTag,
-        record.keyVersion,
-        record.publishedAt,
-        record.publishedBy,
-      ],
-    );
-    await this.pool.query('update vault_profiles set active_version_id = $1 where id = $2', [record.id, record.profileId]);
-  }
-
-  async nextVersion(profileId: string): Promise<number> {
-    const result = await this.pool.query<{ next: string }>(
-      'select (coalesce(max(version), 0) + 1)::text as next from vault_config_versions where profile_id = $1',
-      [profileId],
-    );
-    return Number(result.rows[0]?.next ?? '1');
+  async createVersion(record: ConfigVersionRecord): Promise<number> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('select pg_advisory_xact_lock(hashtext($1))', [`vault-profile-publish:${record.profileId}`]);
+      const next = await client.query<{ version: number }>(
+        'select coalesce(max(version), 0) + 1 as version from vault_config_versions where profile_id = $1',
+        [record.profileId],
+      );
+      const version = Number(next.rows[0]?.version ?? 1);
+      await client.query(
+        `insert into vault_config_versions
+         (id, profile_id, version, encrypted_payload, iv, auth_tag, key_version, published_at, published_by)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [record.id, record.profileId, version, record.encryptedPayload, record.iv, record.authTag,
+          record.keyVersion, record.publishedAt, record.publishedBy],
+      );
+      const updated = await client.query('update vault_profiles set active_version_id = $1 where id = $2', [record.id, record.profileId]);
+      if (updated.rowCount !== 1) throw new Error('Deployment profile not found');
+      await client.query('commit');
+      return version;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async getVersion(id: string): Promise<ConfigVersionRecord | null> {
@@ -772,32 +985,36 @@ export class VaultStore {
     return result.rows[0] ? mapApplicationDraft(result.rows[0] as DbRow) : null;
   }
 
-  async createApplicationVersion(record: ApplicationConfigVersionRecord): Promise<void> {
-    await this.pool.query(
-      `insert into vault_application_config_versions
-       (id, application_profile_id, version, encrypted_payload, iv, auth_tag, key_version, published_at, published_by)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        record.id,
-        record.applicationProfileId,
-        record.version,
-        record.encryptedPayload,
-        record.iv,
-        record.authTag,
-        record.keyVersion,
-        record.publishedAt,
-        record.publishedBy,
-      ],
-    );
-    await this.pool.query('update vault_application_profiles set active_version_id = $1 where id = $2', [record.id, record.applicationProfileId]);
-  }
-
-  async nextApplicationVersion(applicationProfileId: string): Promise<number> {
-    const result = await this.pool.query<{ next: string }>(
-      'select (coalesce(max(version), 0) + 1)::text as next from vault_application_config_versions where application_profile_id = $1',
-      [applicationProfileId],
-    );
-    return Number(result.rows[0]?.next ?? '1');
+  async createApplicationVersion(record: ApplicationConfigVersionRecord): Promise<number> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('select pg_advisory_xact_lock(hashtext($1))', [`vault-application-publish:${record.applicationProfileId}`]);
+      const next = await client.query<{ version: number }>(
+        'select coalesce(max(version), 0) + 1 as version from vault_application_config_versions where application_profile_id = $1',
+        [record.applicationProfileId],
+      );
+      const version = Number(next.rows[0]?.version ?? 1);
+      await client.query(
+        `insert into vault_application_config_versions
+         (id, application_profile_id, version, encrypted_payload, iv, auth_tag, key_version, published_at, published_by)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [record.id, record.applicationProfileId, version, record.encryptedPayload, record.iv, record.authTag,
+          record.keyVersion, record.publishedAt, record.publishedBy],
+      );
+      const updated = await client.query(
+        'update vault_application_profiles set active_version_id = $1 where id = $2',
+        [record.id, record.applicationProfileId],
+      );
+      if (updated.rowCount !== 1) throw new Error('Application profile not found');
+      await client.query('commit');
+      return version;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async getApplicationVersion(id: string): Promise<ApplicationConfigVersionRecord | null> {
@@ -839,6 +1056,32 @@ export class VaultStore {
 
   async revokeRuntimeKey(id: string): Promise<void> {
     await this.pool.query('update vault_runtime_keys set revoked_at = now() where id = $1', [id]);
+  }
+
+  async rotateRuntimeKey(id: string, replacement: RuntimeKeyRecord): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const revoked = await client.query('update vault_runtime_keys set revoked_at = now() where id = $1 and revoked_at is null', [id]);
+      if (revoked.rowCount !== 1) {
+        await client.query('rollback');
+        return false;
+      }
+      await client.query(
+        `insert into vault_runtime_keys
+         (id, name, secret_hash, application_id, group_id, profile_id, container_name, config_plugin_id, revoked_at, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [replacement.id, replacement.name, replacement.secretHash, replacement.applicationId, replacement.groupId,
+          replacement.profileId, replacement.containerName, replacement.configPluginId, replacement.revokedAt, replacement.createdAt],
+      );
+      await client.query('commit');
+      return true;
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async resolveRuntimeBinding(keyId: string): Promise<{
@@ -937,9 +1180,21 @@ export class VaultStore {
     await operation;
   }
 
-  async assertAuditWritable(): Promise<void> {
+  async assertAuditWritable(full = false): Promise<void> {
     await this.auditPool.query('select 1');
-    if (!(await this.verifyAuditChain())) throw new Error('Audit log integrity verification failed');
+    if (full) {
+      if (!(await this.verifyAuditChain())) throw new Error('Audit log integrity verification failed');
+      return;
+    }
+    const result = await this.auditPool.query('select * from vault_audit_log where entry_hash is not null order by ordinal desc limit 2');
+    const latest = result.rows[0] as DbRow | undefined;
+    if (!latest) return;
+    const previous = result.rows[1] as DbRow | undefined;
+    const previousHash = previous ? String(previous.entry_hash) : null;
+    if ((latest.previous_hash === null ? null : String(latest.previous_hash)) !== previousHash ||
+        !this.verifySignedAuditRow(latest, previousHash)) {
+      throw new Error('Audit log integrity verification failed');
+    }
   }
 
   async listAudit(limit = 100, before?: number): Promise<AuditRecord[]> {
@@ -965,23 +1220,29 @@ export class VaultStore {
       const entryHash = row.entry_hash === null ? null : String(row.entry_hash);
       if (!entryHash) continue;
       if ((row.previous_hash === null ? null : String(row.previous_hash)) !== previousHash) return false;
-      const signed = {
-        id: String(row.id),
-        actor: String(row.actor),
-        actorEmail: row.actor_email === null ? null : String(row.actor_email),
-        action: String(row.action),
-        target: String(row.target),
-        details: row.details as Record<string, unknown>,
-        mutationId: row.mutation_id === null ? null : String(row.mutation_id),
-        outcome: row.outcome === null ? null : String(row.outcome),
-        previousHash,
-        createdAt: iso(row.created_at),
-      };
-      const expected: string = createHmac('sha256', this.auditKey).update(canonicalJson(signed)).digest('base64url');
-      if (expected !== entryHash) return false;
+      if (!this.verifySignedAuditRow(row, previousHash)) return false;
       previousHash = entryHash;
     }
     return true;
+  }
+
+  private verifySignedAuditRow(row: DbRow, previousHash: string | null): boolean {
+    const signed = {
+      id: String(row.id),
+      actor: String(row.actor),
+      actorEmail: row.actor_email === null ? null : String(row.actor_email),
+      action: String(row.action),
+      target: String(row.target),
+      details: row.details as Record<string, unknown>,
+      mutationId: row.mutation_id === null ? null : String(row.mutation_id),
+      outcome: row.outcome === null ? null : String(row.outcome),
+      previousHash,
+      createdAt: iso(row.created_at),
+    };
+    const canonical = canonicalJson(signed);
+    return [this.auditKey, ...this.legacyAuditKeys].some((key) =>
+      createHmac('sha256', key).update(canonical).digest('base64url') === String(row.entry_hash)
+    );
   }
 }
 

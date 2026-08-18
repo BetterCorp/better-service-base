@@ -18,7 +18,7 @@ type TestableRegistryServer = {
   createTrace: () => typeof trace;
   registryClient: {
     registryAuthVerify: () => Promise<{ valid: boolean; userId: string }>;
-    registryPluginGet: () => Promise<{ id: string }>;
+    registryPluginGet: () => Promise<{ id: string; publishedBy: string }>;
   };
   handleImageUpload(request: FastifyRequest, reply: FastifyReply): Promise<void>;
 };
@@ -40,12 +40,12 @@ for (const encodedOrg of ['..%2Foutside', '%2E%2E%2Foutside']) {
     const root = await mkdtemp(join(tmpdir(), 'bsb-registry-image-traversal-'));
     const uploadDir = join(root, 'uploads');
     const escapedFile = join(root, 'outside__plugin.png');
-    const server = new RegistryUIServer(0, '127.0.0.1', 10, uploadDir, undefined, 1);
+    const server = new RegistryUIServer(0, '127.0.0.1', 10, uploadDir, undefined, 1, []);
     const internals = server as unknown as TestableRegistryServer;
     internals.createTrace = () => trace;
     internals.registryClient = {
       registryAuthVerify: async () => ({ valid: true, userId: 'attacker' }),
-      registryPluginGet: async () => ({ id: '../outside/plugin' }),
+      registryPluginGet: async () => ({ id: '../outside/plugin', publishedBy: 'attacker' }),
     };
 
     const app = Fastify();

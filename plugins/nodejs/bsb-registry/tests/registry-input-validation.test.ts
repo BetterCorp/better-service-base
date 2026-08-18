@@ -9,6 +9,7 @@ import {
   registryPluginId,
   semanticVersion,
 } from '../src/plugins/service-bsb-registry/types.js';
+import { validateAnyValiDocument } from '../src/plugins/service-bsb-registry-ui/http-server.js';
 
 test('registry identifiers reject filesystem path components', () => {
   const schema = registryIdentifier('Registry identifier');
@@ -76,4 +77,10 @@ test('core publish and list requests enforce registry identifiers', () => {
   assert.equal(PublishRequestSchema.safeParse({ ...publishRequest, org: '..' }).success, false);
   assert.equal(PublishRequestSchema.safeParse({ ...publishRequest, name: '../outside' }).success, false);
   assert.equal(ListQuerySchema.safeParse({ org: '..' }).success, false);
+});
+
+test('uploaded AnyVali documents reject unsafe regex and prototype keys', () => {
+  assert.equal(validateAnyValiDocument({ root: { kind: 'string', pattern: '(a+)+$' } }, ['schema']).length > 0, true);
+  const polluted = JSON.parse('{"root":{"kind":"object","__proto__":{}}}');
+  assert.equal(validateAnyValiDocument(polluted, ['schema']).length > 0, true);
 });

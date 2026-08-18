@@ -45,6 +45,7 @@
     "fastify": "^5.2.0",
     "handlebars": "^4.7.8",
     "marked": "^17.0.2",
+    "safe-regex2": "^5.1.0",
     "sql.js": "^1.12.0",
     "@bsb/base": "^9.1.11"
   },

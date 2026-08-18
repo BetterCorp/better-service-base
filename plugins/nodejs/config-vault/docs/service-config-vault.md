@@ -102,11 +102,11 @@ Generate a master key with:
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-Keep the value stable. If it changes, Vault cannot decrypt configs already stored in Postgres.
+New ciphertext is bound to its database record with AES-GCM associated data. To rotate the master key, change `masterKeyVersion`, place old version-to-key values in `previousMasterKeys`, and keep them configured until startup migration has re-encrypted every record. Startup fails if a referenced key version is unavailable or ciphertext authentication fails. Use a dedicated, stable `auditSigningKey` so master-key rotation does not also rotate the audit chain key.
 
 The admin UI uses session-bound CSRF tokens, throttles authentication failures, sets no-store and browser hardening headers, and uses a per-response CSP nonce. Production mode requires an HTTPS `publicUrl`. Runtime key secrets and user setup links are displayed once in the response body and are never placed in URLs.
 
-Audit rows are HMAC signed and hash-chained. A database trigger rejects update, delete, and truncate operations; preflight integrity verification blocks state-changing requests if the chain is invalid or the audit database is unavailable. Older unsigned audit rows receive a signed digest anchor during migration. Runtime config reads remain available when a separately configured audit database is unavailable and emit a warning if their best-effort read event cannot be recorded.
+Audit rows are HMAC signed and hash-chained. A database trigger rejects update, delete, and truncate operations; a full chain check runs at startup and a constant-time tail check blocks state-changing requests if the chain is invalid or the audit database is unavailable. Authenticated HTTP mutations first append an intent record, and completed service operations append success or failure outcomes. Older unsigned audit rows receive a signed digest anchor during migration. Runtime config reads remain available when a separately configured audit database is unavailable and emit a warning if their best-effort read event cannot be recorded.
 
 For stronger separation, set `auditDatabaseUrl` to a dedicated Postgres database and give the configured account only connection, schema usage, sequence usage, table insert, and table select permissions after initial schema creation. Do not grant update, delete, truncate, or trigger-management permissions to the steady-state writer account.
 
@@ -124,9 +124,12 @@ service-config-vault:
     production: true
     databaseUrl: postgres://vault:secret@postgres:5432/vault
     masterKey: BASE64_32_BYTE_KEY
+    masterKeyVersion: v2
+    previousMasterKeys: {}
+    auditSigningKey: BASE64_32_BYTE_AUDIT_KEY
     registryUrl: https://io.bsbcode.dev
     registryToken: REGISTRY_READ_TOKEN
     auditDatabaseUrl: postgres://vault_audit_writer:secret@audit-postgres:5432/vault_audit
 ```
 
-`registryToken` and `auditDatabaseUrl` are optional. Supply all connection strings, tokens, and `masterKey` through deployment secrets rather than checked-in config.
+`registryToken`, `auditDatabaseUrl`, `auditSigningKey`, and `previousMasterKeys` are optional. Supply all connection strings, tokens, and keys through deployment secrets rather than checked-in config. `/health/live` checks the HTTP process; `/health/ready` (and the compatibility `/health`) checks the primary database, audit database, and audit-chain tail.

@@ -42,6 +42,7 @@
     "anyvali": "^1.0.6",
     "h3": "^1.15.4",
     "pg": "^8.16.3",
+    "safe-regex2": "^5.1.0",
     "@bsb/base": "^9.1.11"
   },
   "devDependencies": {

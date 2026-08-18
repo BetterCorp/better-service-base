@@ -307,7 +307,7 @@ export const PublishRequestSchema = bsb.object({
   package: optional(PackageInfo),
   runtime: optional(RuntimeRequirements),
   visibility: optional(bsb.enum(['public', 'private'], 'Visibility level (default: public)')),
-  publishedBy: optional(bsb.string({ max: 200, description: 'User ID of the publisher (set by HTTP layer)' })),
+  token: optional(ReadTokenSchema),
 }, 'Request body for publishing a plugin');
 
 export type PublishRequest = InferBSBType<typeof PublishRequestSchema>;

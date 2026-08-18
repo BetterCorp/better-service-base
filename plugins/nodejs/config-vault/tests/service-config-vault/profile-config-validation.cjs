@@ -132,6 +132,12 @@ module.exports = async ({ pluginRoot }) => {
     setupCode: 'setup',
     publicUrl: 'http://localhost:8080',
   });
+  const decryptDraft = (profileId) => decryptJson(draftRecords.get(profileId), key, `vault:profile-draft:${profileId}`);
+
+  await assert.rejects(() => vault.upsertProfilePlugin('user-1', {
+    profileId: 'profile-1', section: 'services', name: 'invalid-coercion', plugin: 'service-api',
+    packageName: '@bsb/service-api', version: '1.0.0', enabled: true, config: { port: '3210' },
+  }), /port/i);
 
   await vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',
@@ -141,10 +147,10 @@ module.exports = async ({ pluginRoot }) => {
     packageName: '@bsb/service-api',
     version: '1.0.0',
     enabled: true,
-    config: { port: '3210', enabled: 'false', mode: 'prod', password: 'vault-secret', ignored: 'strip-me' },
+    config: { port: 3210, enabled: false, mode: 'prod', password: 'vault-secret', ignored: 'strip-me' },
   });
 
-  const saved = decryptJson(draftRecords.get('profile-1'), key);
+  const saved = decryptDraft('profile-1');
   assert.deepEqual(saved.default.services.api.config, {
     host: '0.0.0.0',
     port: 3210,
@@ -152,7 +158,7 @@ module.exports = async ({ pluginRoot }) => {
     mode: 'prod',
     password: 'vault-secret',
   });
-  const synced = decryptJson(draftRecords.get('profile-2'), key);
+  const synced = decryptDraft('profile-2');
   assert.deepEqual(synced.prod.services.api, {
     plugin: 'service-api',
     package: '@bsb/service-api',
@@ -166,19 +172,19 @@ module.exports = async ({ pluginRoot }) => {
     profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', packageName: '@bsb/service-api',
     version: '1.0.0', enabled: true, config: { port: 3210, enabled: false, mode: 'prod' },
   });
-  assert.equal(decryptJson(draftRecords.get('profile-1'), key).default.services.api.config.password, 'vault-secret');
+  assert.equal(decryptDraft('profile-1').default.services.api.config.password, 'vault-secret');
 
   await vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', packageName: '@bsb/service-api',
     version: '1.0.0', enabled: true, config: { port: 3210, enabled: false, mode: 'prod', password: '' },
   });
-  assert.equal(decryptJson(draftRecords.get('profile-1'), key).default.services.api.config.password, '');
+  assert.equal(decryptDraft('profile-1').default.services.api.config.password, '');
 
   await vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', packageName: '@bsb/service-api',
     version: '1.0.0', enabled: true, config: { port: 3210, enabled: false, mode: 'prod' }, sensitiveClearPaths: ['password'],
   });
-  assert.equal(decryptJson(draftRecords.get('profile-1'), key).default.services.api.config.password, undefined);
+  assert.equal(decryptDraft('profile-1').default.services.api.config.password, undefined);
 
   await vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',
@@ -187,12 +193,12 @@ module.exports = async ({ pluginRoot }) => {
     plugin: 'service-api',
     packageName: '@bsb/service-api',
     version: '1.0.0',
-    config: { host: 'shared-host', port: '3211', enabled: 'true', mode: 'prod' },
+    config: { host: 'shared-host', port: 3211, enabled: true, mode: 'prod' },
     baseEnabled: true,
     baseConfig: { host: 'shared-host', port: 3200, enabled: true, mode: 'dev' },
     overridePaths: ['port'],
   });
-  const inheritedOverride = decryptJson(draftRecords.get('profile-1'), key);
+  const inheritedOverride = decryptDraft('profile-1');
   assert.deepEqual(inheritedOverride.default.services.inherited, {
     plugin: 'service-api',
     package: '@bsb/service-api',
@@ -213,7 +219,7 @@ module.exports = async ({ pluginRoot }) => {
     baseConfig: { axiom: { token: 'shared-token', dataset: 'logs' }, serviceName: 'shared' },
     overridePaths: ['serviceName'],
   });
-  const axiomOverride = decryptJson(draftRecords.get('profile-1'), key);
+  const axiomOverride = decryptDraft('profile-1');
   assert.deepEqual(axiomOverride.default.observable.axiom, {
     plugin: 'observable-axiom',
     package: '@bsb/observable-axiom',
@@ -230,9 +236,9 @@ module.exports = async ({ pluginRoot }) => {
     packageName: '@betterportal/config-manager',
     version: '10.0.5',
     enabled: true,
-    config: { port: '3300' },
+    config: { port: 3300 },
   });
-  const betterPortalConfig = decryptJson(draftRecords.get('profile-1'), key);
+  const betterPortalConfig = decryptDraft('profile-1');
   assert.deepEqual(betterPortalConfig.default.services['betterportal-config'], {
     plugin: 'service-betterportal-config-manager',
     package: '@betterportal/config-manager',
@@ -260,9 +266,9 @@ module.exports = async ({ pluginRoot }) => {
     plugin: 'service-api',
     packageName: '@bsb/service-api',
     enabled: true,
-    config: { port: '3301' },
+    config: { port: 3301 },
   });
-  const latest = decryptJson(draftRecords.get('profile-1'), key);
+  const latest = decryptDraft('profile-1');
   assert.equal(latest.default.services['latest-api'].version, undefined);
   assert.equal(latest.default.services['latest-api'].config.port, 3301);
 
@@ -285,7 +291,7 @@ module.exports = async ({ pluginRoot }) => {
     },
     eventSchema: null,
   });
-  const lockedAfterImport = decryptJson(draftRecords.get('profile-1'), key);
+  const lockedAfterImport = decryptDraft('profile-1');
   assert.equal(lockedAfterImport.default.services['latest-api'].version, '1.1.0');
 
   await assert.rejects(() => vault.upsertProfilePlugin('user-1', {
@@ -296,7 +302,7 @@ module.exports = async ({ pluginRoot }) => {
     packageName: '@bsb/service-api',
     enabled: true,
     config: {},
-  }), /Config name is required/i);
+  }), /safe identifier/i);
 
   await assert.rejects(() => vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',

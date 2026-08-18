@@ -22,7 +22,7 @@ const ConfigSchema = av.object({
   apiKeyId: av.string().minLength(1).describe('Vault runtime API key id'),
   apiSecret: av.string().minLength(1).describe('Vault runtime API secret', { sensitive: true, writeonly: true }),
   timeoutMs: av.int32().min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
-  staleAllowedHours: av.int32().min(0).default(168).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
+  staleAllowedHours: av.int32().min(0).default(24).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
   allowInsecureHttp: av.bool().default(false).describe('Allow http:// Vault URLs for local development only'),
 }).describe('Vault config plugin settings');
 
@@ -105,14 +105,17 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
       try {
         const response = await fetch(url, {
           method: 'GET',
+          redirect: 'manual',
           headers: {
             'x-vault-key-id': this.config.apiKeyId,
             'x-vault-secret': this.config.apiSecret,
           },
           signal: controller.signal,
         });
-        if (response.status >= 500) {
+        if ([429, 502, 503, 504].includes(response.status)) {
           lastError = new RetryableVaultError(`Vault config fetch failed with HTTP ${response.status}`);
+        } else if (response.status >= 300 && response.status < 400) {
+          throw new BSBError(obs.trace, 'Vault config fetch refused HTTP redirect {status}', { status: response.status });
         } else if (!response.ok) {
           throw new BSBError(obs.trace, 'Vault config fetch failed with HTTP {status}', { status: response.status });
         } else {
@@ -312,20 +315,24 @@ function parseRuntimeResolve(input: unknown, obs: Observable): RuntimeResolveRes
     throw new BSBError(obs.trace, 'Invalid Vault response: expected object');
   }
   const value = input as Record<string, unknown>;
-  if (typeof value.profile !== 'string' || typeof value.application !== 'string' || typeof value.group !== 'string') {
+  if (![value.profile, value.application, value.group].every((item) => typeof item === 'string' && item.length > 0 && item.length <= 100)) {
     throw new BSBError(obs.trace, 'Invalid Vault response: missing application, group, or profile');
   }
-  if (typeof value.version !== 'number') {
+  if (!Number.isSafeInteger(value.version) || (value.version as number) < 1) {
     throw new BSBError(obs.trace, 'Invalid Vault response: missing numeric version');
   }
   if (typeof value.config !== 'object' || value.config === null || Array.isArray(value.config)) {
     throw new BSBError(obs.trace, 'Invalid Vault response: missing config object');
   }
+  const application = value.application as string;
+  const group = value.group as string;
+  const profile = value.profile as string;
+  const version = value.version as number;
   return {
-    application: value.application,
-    group: value.group,
-    profile: value.profile,
-    version: value.version,
+    application,
+    group,
+    profile,
+    version,
     config: value.config as VaultRuntimeConfig,
   };
 }

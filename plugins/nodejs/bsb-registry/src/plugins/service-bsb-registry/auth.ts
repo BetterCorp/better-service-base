@@ -154,8 +154,9 @@ export class AuthManager {
     if (!token) return null;
 
     // Check expiration
-    if (token.expiresAt && new Date(token.expiresAt) < new Date()) {
-      return null;
+    if (token.expiresAt) {
+      const expiresAt = Date.parse(token.expiresAt);
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
     }
 
     const user = await this.db.getUser(obs, token.userId);
@@ -163,7 +164,7 @@ export class AuthManager {
 
     // Compute effective permissions: intersection of user and token
     let effectivePermissions: UserPermission[];
-    if (token.permissions && token.permissions.length > 0) {
+    if (token.permissions !== undefined) {
       // Token has explicit scope -- intersect with current user permissions
       effectivePermissions = token.permissions.filter((p: UserPermission) => user.permissions.includes(p));
     } else {

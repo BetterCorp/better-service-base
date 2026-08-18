@@ -69,6 +69,7 @@ export const EventSchemas = createEventSchemas({
         org: Types.registryIdentifier('Organization name'),
         name: Types.registryIdentifier('Plugin name'),
         version: optional(Types.semanticVersion('Version (or all if not provided)')),
+        token: optional(Types.ReadTokenSchema),
       }),
       bsb.object({
         success: bsb.boolean('Success status'),
@@ -304,9 +305,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
         version: data.version,
       });
 
-      // Auth is enforced at the HTTP layer (UI server authenticates
-      // the request and resolves the token to a userId before calling
-      // this event). The core plugin trusts the caller.
+      const publisher = await this.authorizePluginWrite(trace, data.org, data.name, data.token, true);
 
       // Check if version already exists (immutable versions)
       const pluginId = `${data.org}/${data.name}`;
@@ -389,7 +388,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
         onEventCount: counts.on,
         returnableEventCount: counts.returnable,
         broadcastEventCount: counts.broadcast,
-        publishedBy: data.publishedBy || 'system',
+        publishedBy: publisher,
         publishedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         downloads: 0,
@@ -554,7 +553,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     try {
       trace.log.debug('Deleting plugin {org}/{name}', { org: data.org, name: data.name });
 
-      // Auth is enforced at the HTTP layer.
+      await this.authorizePluginWrite(trace, data.org, data.name, data.token, false);
 
       // Get current versions count
       const countSpan = trace.startSpan('storage.getVersions');
@@ -585,6 +584,40 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     } finally {
       span.end();
     }
+  }
+
+  private async authorizePluginWrite(
+    trace: Observable,
+    org: string,
+    name: string,
+    token: string | undefined,
+    allowCreate: boolean,
+  ): Promise<string> {
+    if (!this.authManager.requireAuth) return 'system';
+    if (!token) throw new Error('Authentication required');
+    const auth = await this.authManager.resolveToken(trace, token);
+    if (!auth || !this.authManager.hasUserPermission(auth, 'write')) throw new Error('Write permission required');
+
+    const existing = await this.storage.get(trace, org, name);
+    if (existing) {
+      if (existing.publishedBy === auth.userId) return auth.userId;
+      const members = await this.storage.getOrgMembers(trace, org);
+      if (this.authManager.hasResourcePermission(auth.userId, 'write', existing.permissions, members)) return auth.userId;
+      throw new Error('Package write permission required');
+    }
+
+    const organization = await this.storage.getOrganization(trace, org);
+    if (organization) {
+      const members = await this.storage.getOrgMembers(trace, org);
+      if (this.authManager.hasResourcePermission(auth.userId, 'write', undefined, members)) return auth.userId;
+      throw new Error('Organization write permission required');
+    }
+    if (!allowCreate || !this.authManager.hasUserPermission(auth, 'create-org')) {
+      throw new Error('Organization creation permission required');
+    }
+    await this.storage.createOrganization(trace, org, org, 'public');
+    await this.storage.setOrgMember(trace, org, auth.userId, 'write');
+    return auth.userId;
   }
 
   /**

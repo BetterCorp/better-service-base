@@ -21,6 +21,9 @@ export const VaultServiceConfigSchema = av.object({
   production: av.bool().default(false).describe('Enable production cookie/security checks'),
   databaseUrl: av.string().minLength(1).describe('Postgres connection string', { sensitive: true, writeonly: true }),
   masterKey: av.string().minLength(1).describe('Base64 encoded 32-byte Vault master key', { sensitive: true, writeonly: true }),
+  masterKeyVersion: av.string().minLength(1).maxLength(32).pattern('^[A-Za-z0-9._-]+$').default('v2').describe('Version label written with newly encrypted Vault records'),
+  previousMasterKeys: av.record(av.string().minLength(1)).default({}).describe('Previous version-to-key map retained during key rotation', { sensitive: true, writeonly: true }),
+  auditSigningKey: av.optional(av.string().minLength(1).describe('Dedicated base64 encoded 32-byte audit signing key', { sensitive: true, writeonly: true })),
   registryUrl: av.string().default('https://io.bsbcode.dev').describe('BSB registry URL used for plugin catalog search/import'),
   registryToken: av.optional(av.string().minLength(1).describe('Bearer token used to read private registry plugins', { sensitive: true, writeonly: true })),
   auditDatabaseUrl: av.optional(av.string().minLength(1).describe('Optional append-only audit Postgres connection string', { sensitive: true, writeonly: true })),
@@ -82,11 +85,23 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
     this.setupCode = newToken(18);
     const masterKey = loadMasterKey(this.config.masterKey);
-    const auditKey = createHmac('sha256', masterKey).update('bsb-vault-audit-v1').digest();
-    this.store = new VaultStore(this.config.databaseUrl, auditKey, this.config.auditDatabaseUrl);
+    const previousMasterKeys = new Map(Object.entries(this.config.previousMasterKeys).map(([version, raw]) => [version, loadMasterKey(raw)]));
+    const legacyAuditKey = createHmac('sha256', masterKey).update('bsb-vault-audit-v1').digest();
+    const auditKey = this.config.auditSigningKey ? loadMasterKey(this.config.auditSigningKey) : legacyAuditKey;
+    const legacyAuditKeys = this.config.auditSigningKey
+      ? [legacyAuditKey, ...[...previousMasterKeys.values()].map((key) => createHmac('sha256', key).update('bsb-vault-audit-v1').digest())]
+      : [...previousMasterKeys.values()].map((key) => createHmac('sha256', key).update('bsb-vault-audit-v1').digest());
+    this.store = new VaultStore(
+      this.config.databaseUrl,
+      auditKey,
+      this.config.auditDatabaseUrl,
+      legacyAuditKeys,
+    );
     this.vault = new VaultService({
       store: this.store,
       masterKey,
+      masterKeyVersion: this.config.masterKeyVersion,
+      previousMasterKeys,
       setupCode: this.setupCode,
       publicUrl: this.config.publicUrl,
     });
@@ -95,13 +110,18 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   async init(obs: Observable): Promise<void> {
     obs.log.info('Initializing Vault service');
     await this.store.init();
+    let auditReady = true;
     try {
-      await this.vault.assertAuditWritable();
-      await this.vault.migrateLegacyAuthentication();
+      await this.vault.assertAuditWritable(true);
     } catch (error) {
+      auditReady = false;
       obs.log.warn('Vault audit is unavailable or invalid; authentication/admin mutations are blocked: {error}', {
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+    if (auditReady) {
+      await this.vault.migrateLegacyAuthentication();
+      await this.vault.migrateEncryption();
     }
     if (await this.vault.setupRequired()) {
       obs.log.warn('Vault first admin setup required. Setup code: {setupCode}', {

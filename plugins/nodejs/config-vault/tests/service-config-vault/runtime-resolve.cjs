@@ -24,6 +24,9 @@ module.exports = async ({ pluginRoot }) => {
   }, key);
 
   const store = {
+    async authenticationAllowed() { return true; },
+    async recordAuthenticationFailure() {},
+    async clearAuthenticationFailures() {},
     async resolveRuntimeBinding(keyId) {
       assert.equal(keyId, 'vk_test');
       return {

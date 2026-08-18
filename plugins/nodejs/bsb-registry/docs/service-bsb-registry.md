@@ -33,11 +33,11 @@ All operations are exposed as returnable events. The UI/API plugin (or any other
 
 | Event | Input | Output | Description |
 |-------|-------|--------|-------------|
-| `registry.plugin.publish` | PublishRequest | PublishResponse | Publish a new plugin version |
+| `registry.plugin.publish` | PublishRequest including `token?` | PublishResponse | Publish a new plugin version |
 | `registry.plugin.get` | `{ org, name, version? }` | RegistryEntry | Get plugin details (latest if no version) |
 | `registry.plugin.list` | ListQuery | ListResults | List plugins with filtering and pagination |
 | `registry.plugin.search` | SearchQuery | SearchResults | Full-text search across names, tags, descriptions |
-| `registry.plugin.delete` | `{ org, name, version? }` | `{ success, deleted }` | Delete a plugin or specific version |
+| `registry.plugin.delete` | `{ org, name, version?, token? }` | `{ success, deleted }` | Delete a plugin or specific version |
 | `registry.plugin.versions` | `{ org, name, majorMinor? }` | VersionList | Get all versions of a plugin |
 
 ### Stats and Auth
@@ -50,7 +50,7 @@ All operations are exposed as returnable events. The UI/API plugin (or any other
 
 ## Publish Request Schema
 
-The publish request is the primary write operation. The body is validated by the UI/API plugin at the HTTP boundary and passed as a structured object through events.
+The publish request is the primary write operation. The body is validated by the UI/API plugin at the HTTP boundary and again by the event schema. Direct event callers must provide the bearer `token` when authentication is enabled; caller-supplied publisher identities are not trusted.
 
 ```json
 {
@@ -133,22 +133,22 @@ Published versions are immutable. Attempting to publish the same org/name/versio
 
 Stores plugin data as JSON files in the configured directory. Suitable for development and single-instance deployments.
 
-### PostgreSQL (Production)
+### PostgreSQL
 
-For multi-instance or high-availability deployments. Set `database.type: postgres` and provide the connection URL. Migrations run automatically on first start.
+The configuration value is reserved, but this package currently rejects `database.type: postgres`; use file storage until a PostgreSQL backend is implemented.
 
 ## Authentication
 
-Authentication is enforced at the HTTP layer (by `service-bsb-registry-ui`). The core plugin trusts event callers -- if you are calling events directly from another BSB plugin, no token is needed.
+Authentication and ownership are enforced by the core plugin for publish and delete events, including calls originating outside the HTTP service. A token needs global `write` scope and package ownership or organization `write` access. Creating the first package in a new organization additionally needs `create-org`.
 
-API tokens are stored in a JSON file:
+API tokens are returned once and stored as SHA-256 hashes in the JSON database. Existing plaintext token records are upgraded to hashes when successfully used.
 
 ```json
 {
   "tokens": [
     {
       "name": "ci-deploy",
-      "token": "bsb_abc123...",
+      "token": "sha256:...",
       "createdAt": "2026-02-13T00:00:00Z",
       "permissions": ["read", "write"]
     }
@@ -159,7 +159,9 @@ API tokens are stored in a JSON file:
 Permissions:
 - `read` -- list, search, get plugin details
 - `write` -- publish and delete plugins
-- `admin` -- all operations
+- `create-org` -- create a new organization during first publish
+
+An explicitly empty token permission list grants no permissions; only an omitted permission list inherits the user's current permissions.
 
 ## See Also
 

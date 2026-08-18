@@ -41,9 +41,10 @@ export async function verifySecret(secret: string, hash: string): Promise<boolea
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function encryptJson(value: unknown, key: Buffer, keyVersion = 'v1'): EncryptedPayload {
+export function encryptJson(value: unknown, key: Buffer, keyVersion = 'v1', associatedData?: string): EncryptedPayload {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
+  if (associatedData !== undefined) cipher.setAAD(Buffer.from(associatedData, 'utf8'));
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(value), 'utf8'),
     cipher.final(),
@@ -56,8 +57,9 @@ export function encryptJson(value: unknown, key: Buffer, keyVersion = 'v1'): Enc
   };
 }
 
-export function decryptJson<T>(payload: EncryptedPayload, key: Buffer): T {
+export function decryptJson<T>(payload: EncryptedPayload, key: Buffer, associatedData?: string): T {
   const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(payload.iv, 'base64url'));
+  if (associatedData !== undefined) decipher.setAAD(Buffer.from(associatedData, 'utf8'));
   decipher.setAuthTag(Buffer.from(payload.authTag, 'base64url'));
   const decrypted = Buffer.concat([
     decipher.update(Buffer.from(payload.encryptedPayload, 'base64url')),

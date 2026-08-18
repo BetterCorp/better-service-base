@@ -17,6 +17,7 @@ import fastifyStatic from '@fastify/static';
 import fastifyView from '@fastify/view';
 import handlebars from 'handlebars';
 import { marked } from 'marked';
+import safeRegex from 'safe-regex2';
 import * as av from 'anyvali';
 import { Observable } from '@bsb/base';
 import type { Plugin } from './index.js';
@@ -35,8 +36,21 @@ interface InputValidator<T> {
   safeParse(input: unknown): av.ParseResult<T>;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]!);
+}
+
+function markdownHref(value: string): string | null {
+  const href = value.trim();
+  if (!href || /[\u0000-\u001f\u007f]/.test(href)) return null;
+  const scheme = href.match(/^([A-Za-z][A-Za-z0-9+.-]*):/)?.[1]?.toLowerCase();
+  return !scheme || ['http', 'https', 'mailto'].includes(scheme) ? href : null;
+}
+
 function objectSchema<T extends Record<string, av.BaseSchema<any, any>>>(shape: T) {
-  return av.object(shape);
+  return av.object(shape).unknownKeys('reject');
 }
 
 function createValidator<T>(
@@ -271,7 +285,7 @@ const PublishBodyObjectSchema = objectSchema({
 
 type PublishBodyData = av.Infer<typeof PublishBodyObjectSchema>;
 
-function validateAnyValiDocument(value: unknown, path: Array<string | number>): ValidationIssue[] {
+export function validateAnyValiDocument(value: unknown, path: Array<string | number>): ValidationIssue[] {
   if (!value || typeof value !== 'object') {
     return [{
       code: 'invalid_type',
@@ -283,6 +297,8 @@ function validateAnyValiDocument(value: unknown, path: Array<string | number>): 
   }
 
   try {
+    const unsafe = unsafeSchemaIssue(value, path);
+    if (unsafe) return [unsafe];
     av.importSchema(value as av.AnyValiDocument);
     return [];
   } catch (error: unknown) {
@@ -298,6 +314,32 @@ function validateAnyValiDocument(value: unknown, path: Array<string | number>): 
       path: [...path, ...issue.path],
     }));
   }
+}
+
+function unsafeSchemaIssue(value: unknown, path: Array<string | number>): ValidationIssue | null {
+  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
+  let nodes = 0;
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (++nodes > 10_000 || current.depth > 64) {
+      return { code: 'invalid_schema', message: 'Schema is too complex', path };
+    }
+    if (Array.isArray(current.value)) {
+      for (const item of current.value) stack.push({ value: item, depth: current.depth + 1 });
+      continue;
+    }
+    if (!current.value || typeof current.value !== 'object') continue;
+    for (const [key, item] of Object.entries(current.value as Record<string, unknown>)) {
+      if (['__proto__', 'prototype', 'constructor'].includes(key)) {
+        return { code: 'invalid_schema', message: `Schema contains forbidden key ${key}`, path };
+      }
+      if (key === 'pattern' && typeof item === 'string' && (item.length > 1024 || !safeRegex(item))) {
+        return { code: 'invalid_schema', message: 'Schema contains an unsafe regular expression', path };
+      }
+      stack.push({ value: item, depth: current.depth + 1 });
+    }
+  }
+  return null;
 }
 
 function validateEventSchemaExportDocuments(
@@ -332,6 +374,7 @@ export class RegistryUIServer {
   private readonly badgesFileInput: string | undefined;
   private badgesFile: string | undefined;
   private readonly maxImageUploadBytes: number;
+  private readonly corsOrigins: readonly string[];
   private readonly imageIndexPath: string;
   private imageIndex: Record<string, string> = {};
   private badgeMap: Record<string, string | string[]> = {};
@@ -346,7 +389,8 @@ export class RegistryUIServer {
     pageSize: number,
     uploadDir: string,
     badgesFile: string | undefined,
-    maxImageUploadMb: number
+    maxImageUploadMb: number,
+    corsOrigins: readonly string[],
   ) {
     this.port = port;
     this.host = host;
@@ -354,6 +398,7 @@ export class RegistryUIServer {
     this.uploadDir = path.resolve(uploadDir);
     this.badgesFileInput = badgesFile;
     this.maxImageUploadBytes = maxImageUploadMb * 1024 * 1024;
+    this.corsOrigins = corsOrigins;
     this.imageIndexPath = path.join(this.uploadDir, 'images.json');
 
     this.app = Fastify({
@@ -457,11 +502,19 @@ export class RegistryUIServer {
       // Register CORS
       const corsSpan = obs.startSpan('register.cors');
       await this.app.register(fastifyCors, {
-        origin: '*',
+        origin: this.corsOrigins.length > 0 ? [...this.corsOrigins] : false,
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
       });
       corsSpan.end();
+
+      this.app.addHook('onRequest', async (_request, reply) => {
+        reply.header('x-content-type-options', 'nosniff');
+        reply.header('x-frame-options', 'DENY');
+        reply.header('referrer-policy', 'no-referrer');
+        reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=()');
+        reply.header('content-security-policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+      });
 
       // Register multipart upload handling for plugin images
       const multipartSpan = obs.startSpan('register.multipart');
@@ -670,13 +723,13 @@ export class RegistryUIServer {
 
   /**
    * Authenticate request via Bearer token.
-   * Returns the userId on success, or null if not authenticated (also sends 401 reply).
+   * Returns the verified identity and scopes on success, or null after sending 401.
    */
   private async authenticateRequest(
     request: FastifyRequest,
     reply: FastifyReply,
     trace: Observable
-  ): Promise<string | null> {
+  ): Promise<{ userId: string; permissions: string[] } | null> {
     const authHeader = request.headers.authorization;
     if (!authHeader) {
       trace.log.warn('Missing Authorization header');
@@ -703,7 +756,11 @@ export class RegistryUIServer {
         return null;
       }
 
-      return result.userId || 'unknown';
+      if (!result.userId) {
+        reply.code(401).send({ error: 'Unauthorized', code: 'INVALID_TOKEN' });
+        return null;
+      }
+      return { userId: result.userId, permissions: (result.permissions ?? []).map(String) };
     } catch (error) {
       authSpan.end();
       trace.log.error('Auth verification error: {error}', { error: (error as Error).message });
@@ -776,8 +833,11 @@ export class RegistryUIServer {
     try {
       const raw = await fsp.readFile(this.imageIndexPath, 'utf-8');
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        this.imageIndex = parsed as Record<string, string>;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        this.imageIndex = Object.fromEntries(Object.entries(parsed as Record<string, unknown>).filter(([pluginId, filename]) =>
+          /^[A-Za-z0-9@._-]+\/[A-Za-z0-9@._-]+$/.test(pluginId) &&
+          typeof filename === 'string' && this.tryUploadPath(filename) !== null && /[.](png|jpe?g|webp|gif)$/i.test(filename)
+        )) as Record<string, string>;
       }
     } catch {
       this.imageIndex = {};
@@ -820,8 +880,8 @@ export class RegistryUIServer {
   private resolvePluginImageUrl(pluginId: string): string | null {
     const filename = this.imageIndex[pluginId];
     if (!filename) return null;
-    const filePath = path.join(this.uploadDir, filename);
-    if (!fs.existsSync(filePath)) {
+    const filePath = this.tryUploadPath(filename);
+    if (!filePath || !fs.existsSync(filePath)) {
       delete this.imageIndex[pluginId];
       return null;
     }
@@ -876,9 +936,35 @@ export class RegistryUIServer {
       'image/jpeg': '.jpg',
       'image/webp': '.webp',
       'image/gif': '.gif',
-      'image/svg+xml': '.svg',
     };
     return map[mimeType] || null;
+  }
+
+  private uploadPath(filename: string): string {
+    const resolved = path.resolve(this.uploadDir, filename);
+    if (path.basename(filename) !== filename || !resolved.startsWith(`${this.uploadDir}${path.sep}`)) {
+      throw new Error('Invalid upload path');
+    }
+    return resolved;
+  }
+
+  private tryUploadPath(filename: string): string | null {
+    try { return this.uploadPath(filename); } catch { return null; }
+  }
+
+  private async imageMatchesExtension(filename: string, extension: string): Promise<boolean> {
+    const handle = await fsp.open(filename, 'r');
+    try {
+      const header = Buffer.alloc(12);
+      const { bytesRead } = await handle.read(header, 0, header.length, 0);
+      const bytes = header.subarray(0, bytesRead);
+      if (extension === '.png') return bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+      if (extension === '.jpg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+      if (extension === '.gif') return ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString('ascii'));
+      return extension === '.webp' && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
+    } finally {
+      await handle.close();
+    }
   }
 
   /**
@@ -1227,10 +1313,19 @@ a.s:hover{background:#333;border-color:#FB8C00}
   private renderMarkdown(md: string): string {
     const renderer = new marked.Renderer();
 
-    // Open external links in new tab with noopener
+    renderer.html = ({ text }) => escapeHtml(text);
     renderer.link = ({ href, title, text }) => {
-      const titleAttr = title ? ` title="${title}"` : '';
-      return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+      const safeHref = markdownHref(href);
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+      return safeHref
+        ? `<a href="${escapeHtml(safeHref)}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`
+        : text;
+    };
+    renderer.image = ({ href, title, text }) => {
+      const safeHref = markdownHref(href);
+      if (!safeHref) return escapeHtml(text);
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+      return `<img src="${escapeHtml(safeHref)}" alt="${escapeHtml(text)}"${titleAttr}>`;
     };
 
     return marked.parse(md, {
@@ -1620,7 +1715,6 @@ a.s:hover{background:#333;border-color:#FB8C00}
         await this.renderError(request, reply, 404, 'Plugin Not Found', `Plugin "${pluginId}" could not be found in the registry.`);
         return;
       }
-
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
       const versions = await this.registryClient.registryPluginVersions(
         trace,
@@ -2008,8 +2102,8 @@ a.s:hover{background:#333;border-color:#FB8C00}
     });
 
     try {
-      const userId = await this.authenticateRequest(request, reply, trace);
-      if (!userId) return;
+      const auth = await this.authenticateRequest(request, reply, trace);
+      if (!auth) return;
 
       const getSpan = trace.startSpan('events.registry.plugin.get');
       let plugin: any;
@@ -2028,6 +2122,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
           error: `Plugin not found: ${params.org}/${params.name}`,
           code: 'PLUGIN_NOT_FOUND',
         });
+        return;
+      }
+      if (!auth.permissions.includes('write') || plugin.publishedBy !== auth.userId) {
+        reply.code(403).send({ error: 'Package write permission required', code: 'FORBIDDEN' });
         return;
       }
 
@@ -2061,7 +2159,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
 
       const pluginId = `${params.org}/${params.name}`;
       const safeFileName = `${params.org}__${params.name}${ext}`;
-      const outputPath = path.join(this.uploadDir, safeFileName);
+      const outputPath = this.uploadPath(safeFileName);
       await fsp.mkdir(this.uploadDir, { recursive: true });
 
       await pipeline(filePart.file, fs.createWriteStream(outputPath));
@@ -2073,16 +2171,22 @@ a.s:hover{background:#333;border-color:#FB8C00}
         });
         return;
       }
+      if (!(await this.imageMatchesExtension(outputPath, ext))) {
+        await fsp.unlink(outputPath).catch(() => {});
+        reply.code(400).send({ error: 'Image content does not match its declared type', code: 'INVALID_IMAGE' });
+        return;
+      }
 
       const previousFile = this.imageIndex[pluginId];
       this.imageIndex[pluginId] = safeFileName;
       await this.saveImageIndex();
 
       if (previousFile && previousFile !== safeFileName) {
-        await fsp.unlink(path.join(this.uploadDir, previousFile)).catch(() => {});
+        const previousPath = this.tryUploadPath(previousFile);
+        if (previousPath) await fsp.unlink(previousPath).catch(() => {});
       }
 
-      trace.log.info('Plugin image updated for {id} by {userId}', { id: pluginId, userId });
+      trace.log.info('Plugin image updated for {id} by {userId}', { id: pluginId, userId: auth.userId });
       reply.send({
         success: true,
         pluginId,
@@ -2107,8 +2211,8 @@ a.s:hover{background:#333;border-color:#FB8C00}
 
     try {
       // Authenticate (returns userId on success)
-      const userId = await this.authenticateRequest(request, reply, trace);
-      if (!userId) return;
+      const auth = await this.authenticateRequest(request, reply, trace);
+      if (!auth) return;
 
       // eventSchema is already a validated object parsed from the JSON body.
       // configSchema is also already validated if present.
@@ -2132,7 +2236,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
         package: body.package,
         runtime: body.runtime,
         visibility: body.visibility || 'public',
-        publishedBy: userId,
+        token: this.readAuth(request).token,
       });
       publishSpan.end();
 
@@ -2157,6 +2261,12 @@ a.s:hover{background:#333;border-color:#FB8C00}
       reply.send(result);
     } catch (error) {
       trace.log.error('Failed to publish plugin: {error}', { error: (error as Error).message });
+      const message = (error as Error).message;
+      if (/^(authentication|write permission|package write permission|organization write permission|organization creation permission) required$/i.test(message)) {
+        const status = message.toLowerCase().startsWith('authentication') ? 401 : 403;
+        reply.code(status).send({ error: message, code: status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN' });
+        return;
+      }
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }

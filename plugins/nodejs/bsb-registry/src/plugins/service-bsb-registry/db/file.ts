@@ -15,6 +15,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'node:crypto';
 import type { Observable } from '@bsb/base';
 import type { RegistryDB, RegistryEntryFilter } from './index.js';
 import type {
@@ -260,13 +261,13 @@ export class FileDB implements RegistryDB {
   async getOrganization(obs: Observable, orgId: string): Promise<Organization | null> {
     const span = obs.startSpan('FileDB.getOrganization', { orgId });
     try {
-      const orgPath = path.join(this.orgsDir, `${orgId}.json`);
+      const orgPath = this.orgPath(orgId);
       if (!fs.existsSync(orgPath)) return null;
 
       const org = this.readJson<Organization>(orgPath);
 
       // Count plugins for this org (live count)
-      const orgDir = path.join(this.pluginsDir, orgId);
+      const orgDir = safeChild(this.pluginsDir, orgId);
       let pluginCount = 0;
       if (fs.existsSync(orgDir)) {
         pluginCount = fs.readdirSync(orgDir, { withFileTypes: true })
@@ -288,7 +289,7 @@ export class FileDB implements RegistryDB {
   ): Promise<Organization> {
     const span = obs.startSpan('FileDB.createOrganization', { orgId });
     try {
-      const orgPath = path.join(this.orgsDir, `${orgId}.json`);
+      const orgPath = this.orgPath(orgId);
 
       // If already exists, return it
       if (fs.existsSync(orgPath)) {
@@ -314,7 +315,7 @@ export class FileDB implements RegistryDB {
   async setOrgMember(obs: Observable, orgId: string, userId: string, permission: ResourcePermission): Promise<void> {
     const span = obs.startSpan('FileDB.setOrgMember', { orgId, userId, permission });
     try {
-      const orgPath = path.join(this.orgsDir, `${orgId}.json`);
+      const orgPath = this.orgPath(orgId);
       if (!fs.existsSync(orgPath)) {
         throw new Error(`Organization not found: ${orgId}`);
       }
@@ -341,7 +342,7 @@ export class FileDB implements RegistryDB {
   async removeOrgMember(obs: Observable, orgId: string, userId: string): Promise<void> {
     const span = obs.startSpan('FileDB.removeOrgMember', { orgId, userId });
     try {
-      const orgPath = path.join(this.orgsDir, `${orgId}.json`);
+      const orgPath = this.orgPath(orgId);
       if (!fs.existsSync(orgPath)) return;
 
       const org = this.readJson<Organization>(orgPath);
@@ -356,7 +357,7 @@ export class FileDB implements RegistryDB {
   async getOrgMembers(obs: Observable, orgId: string): Promise<OrgMember[]> {
     const span = obs.startSpan('FileDB.getOrgMembers', { orgId });
     try {
-      const orgPath = path.join(this.orgsDir, `${orgId}.json`);
+      const orgPath = this.orgPath(orgId);
       if (!fs.existsSync(orgPath)) return [];
 
       const org = this.readJson<Organization>(orgPath);
@@ -451,7 +452,14 @@ export class FileDB implements RegistryDB {
     const span = obs.startSpan('FileDB.getToken');
     try {
       const tokens = this.readJson<AuthToken[]>(this.tokensFile);
-      return tokens.find(t => t.token === tokenString) ?? null;
+      const tokenHash = hashToken(tokenString);
+      const index = tokens.findIndex((token) => token.token === tokenHash || token.token === tokenString);
+      if (index < 0) return null;
+      if (tokens[index].token !== tokenHash) {
+        tokens[index] = { ...tokens[index], token: tokenHash };
+        this.writeJson(this.tokensFile, tokens);
+      }
+      return { ...tokens[index], token: tokenString };
     } finally {
       span.end();
     }
@@ -471,7 +479,7 @@ export class FileDB implements RegistryDB {
     const span = obs.startSpan('FileDB.createToken', { userId: token.userId });
     try {
       const tokens = this.readJson<AuthToken[]>(this.tokensFile);
-      tokens.push(token);
+      tokens.push({ ...token, token: hashToken(token.token) });
       this.writeJson(this.tokensFile, tokens);
       obs.log.debug('Created token for user: {userId}', { userId: token.userId });
     } finally {
@@ -483,7 +491,8 @@ export class FileDB implements RegistryDB {
     const span = obs.startSpan('FileDB.deleteToken');
     try {
       const tokens = this.readJson<AuthToken[]>(this.tokensFile);
-      const idx = tokens.findIndex(t => t.token === tokenString);
+      const tokenHash = hashToken(tokenString);
+      const idx = tokens.findIndex(t => t.token === tokenHash || t.token === tokenString);
       if (idx < 0) return false;
       tokens.splice(idx, 1);
       this.writeJson(this.tokensFile, tokens);
@@ -514,11 +523,15 @@ export class FileDB implements RegistryDB {
   // ============================================================================
 
   private pluginDir(org: string, name: string): string {
-    return path.join(this.pluginsDir, org, name);
+    return safeChild(this.pluginsDir, org, name);
   }
 
   private versionPath(org: string, name: string, version: string): string {
-    return path.join(this.pluginsDir, org, name, `${version}.json`);
+    return safeChild(this.pluginsDir, org, name, `${version}.json`);
+  }
+
+  private orgPath(org: string): string {
+    return safeChild(this.orgsDir, `${org}.json`);
   }
 
   /** List version JSON files in a plugin directory. Returns filenames (no path). */
@@ -611,6 +624,17 @@ export class FileDB implements RegistryDB {
   private writeJson(filePath: string, data: unknown): void {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
   }
+}
+
+function hashToken(token: string): string {
+  return `sha256:${createHash('sha256').update(token).digest('base64url')}`;
+}
+
+function safeChild(root: string, ...parts: string[]): string {
+  const base = path.resolve(root);
+  const resolved = path.resolve(base, ...parts);
+  if (!resolved.startsWith(`${base}${path.sep}`)) throw new Error('Invalid storage path');
+  return resolved;
 }
 
 /** Compare two ISO date strings. Returns positive if a > b. */
