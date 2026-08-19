@@ -163,6 +163,10 @@ jobs:
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
+      - name: Resolve BSB version
+        id: bsb-version
+        run: node -p '"version=" + require("./nodejs/package.json").version' >> "$GITHUB_OUTPUT"
+
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
@@ -170,7 +174,7 @@ jobs:
           file: ./nodejs/Dockerfile
           build-args: |
             NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
-            BSB_VERSION=0.0.0
+            BSB_VERSION=${{ steps.bsb-version.outputs.version }}
           load: true
           platforms: linux/amd64
           push: false
@@ -181,7 +185,7 @@ jobs:
           docker run --rm --entrypoint node service-base:node-ci --input-type=commonjs -e '
             const { existsSync, readFileSync } = require("node:fs");
             const manifest = JSON.parse(readFileSync("/home/bsb/package.json", "utf8"));
-            if (manifest.dependencies?.["@bsb/base"] !== "0.0.0") {
+            if (manifest.dependencies?.["@bsb/base"] !== "${{ steps.bsb-version.outputs.version }}") {
               throw new Error("@bsb/base must reference the image build version");
             }
             if (existsSync("/home/bsb/package-lock.json")) {
