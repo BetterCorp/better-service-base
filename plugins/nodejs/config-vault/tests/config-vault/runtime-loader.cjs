@@ -18,6 +18,27 @@ function obs() {
 
 module.exports = async ({ pluginRoot }) => {
   const mod = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/config-vault/index.js')).href);
+  const schema = new mod.Config('', '', '', 'config-vault').validationSchema;
+  const baseConfig = {
+    vaultUrl: 'https://vault.example.com',
+    apiKeyId: 'vk_test',
+    apiSecret: 'vs_test',
+  };
+  assert.deepStrictEqual(schema.parse({
+    ...baseConfig,
+    timeoutMs: '5000',
+    staleAllowedHours: '24',
+    allowInsecureHttp: 'false',
+  }), {
+    ...baseConfig,
+    timeoutMs: 5000,
+    staleAllowedHours: 24,
+    allowInsecureHttp: false,
+  });
+  assert.throws(() => schema.parse({ ...baseConfig, timeoutMs: '999' }));
+  assert.throws(() => schema.parse({ ...baseConfig, staleAllowedHours: '-1' }));
+  assert.throws(() => schema.parse({ ...baseConfig, allowInsecureHttp: 'yes' }));
+
   const originalFetch = globalThis.fetch;
   const originalNow = Date.now;
   const cwd = await mkdtemp(path.join(os.tmpdir(), 'bsb-vault-cache-'));

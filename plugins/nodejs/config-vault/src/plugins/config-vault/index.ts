@@ -21,9 +21,9 @@ const ConfigSchema = av.object({
   vaultUrl: av.string().minLength(1).describe('Vault service base URL'),
   apiKeyId: av.string().minLength(1).describe('Vault runtime API key id'),
   apiSecret: av.string().minLength(1).describe('Vault runtime API secret', { sensitive: true, writeonly: true }),
-  timeoutMs: av.int32().min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
-  staleAllowedHours: av.int32().min(0).default(24).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
-  allowInsecureHttp: av.bool().default(false).describe('Allow http:// Vault URLs for local development only'),
+  timeoutMs: av.int32().coerce({ from: 'string' }).min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
+  staleAllowedHours: av.int32().coerce({ from: 'string' }).min(0).default(24).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
+  allowInsecureHttp: av.bool().coerce({ from: 'string' }).default(false).describe('Allow http:// Vault URLs for local development only'),
 }).describe('Vault config plugin settings');
 
 export const Config = createConfigSchema(
