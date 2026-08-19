@@ -835,7 +835,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}.tabs a{padding:8px 10px;border:1px solid var(--line);border-radius:6px;text-decoration:none;color:#344054;background:#fff;font-weight:650}.tabs a.active{background:#eaf1ff;color:#155eef;border-color:#b8cdfd}
     .muted{color:var(--muted)}.danger{color:var(--danger)}.ok{color:var(--ok)}
     .auth{max-width:480px;margin:32px auto}.stack{display:flex;flex-direction:column;gap:12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .status{margin-top:12px;color:var(--muted);font-size:14px}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
+    .status{margin-top:12px;color:var(--muted);font-size:14px}.validation-errors{display:block;margin-top:6px}.validation-errors span{display:list-item;margin-left:20px;padding:2px 0}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
     .schema-box{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px}.schema-box legend{font-weight:750;color:#344054}
     .schema-help{display:block;color:var(--muted);font-size:12px;font-weight:500;margin:-6px 0 10px}.schema-meta{color:var(--muted);font-size:12px;font-weight:500}
     .schema-optional,.schema-override{border-left:3px solid #d0d5dd;margin:12px 0;padding-left:10px}.schema-override{border-left-color:#84c5a8}.schema-toggle{display:flex;gap:8px;align-items:center;margin:0 0 8px}.schema-toggle input{width:auto;margin:0}
@@ -849,6 +849,37 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
   </style>
 </head>
 <body>
+  <script>
+  function vaultApiError(result, fallback) {
+    const error = new Error(result && result.message || fallback);
+    error.issues = result && Array.isArray(result.issues) ? result.issues : [];
+    return error;
+  }
+  function showVaultError(status, error, fallback) {
+    if (!status) return;
+    status.replaceChildren();
+    status.className = 'status danger';
+    status.setAttribute('role', 'alert');
+    const issues = error && Array.isArray(error.issues) ? error.issues : [];
+    if (!issues.length) {
+      status.textContent = error instanceof Error ? error.message : fallback;
+      return;
+    }
+    const heading = document.createElement('strong');
+    heading.textContent = 'Please correct the following:';
+    const list = document.createElement('span');
+    list.className = 'validation-errors';
+    list.setAttribute('role', 'list');
+    for (const issue of issues) {
+      const item = document.createElement('span');
+      item.setAttribute('role', 'listitem');
+      const path = Array.isArray(issue.path) ? issue.path.reduce((value, part) => typeof part === 'number' ? value + '[' + part + ']' : value ? value + '.' + part : String(part), '') : '';
+      item.textContent = (path ? path + ': ' : '') + (issue.message || 'Invalid value');
+      list.appendChild(item);
+    }
+    status.append(heading, list);
+  }
+  </script>
   <header><strong>Vault</strong>${authenticated ? '<form data-logout><button class="ghost">Logout</button></form>' : ''}</header>
   ${authenticated ? `<div class="shell">${nav(active)}<main>${body}</main></div>` : `<main>${body}</main>`}
   ${authenticated ? `<script>document.querySelector('[data-logout]').addEventListener('submit',async(event)=>{event.preventDefault();const csrf=document.cookie.split('; ').find((item)=>item.startsWith('vault_csrf='))?.split('=')[1]||'';await fetch('/logout',{method:'POST',headers:{'x-csrf-token':csrf}});location.href='/login';});</script>` : ''}
@@ -941,13 +972,13 @@ function invitedUserSetupPage(): string {
     try {
       const response = await fetch('/user-setup/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(setupForm).entries())) });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message || 'Could not start setup');
+      if (!response.ok) throw vaultApiError(result, 'Could not start setup');
       methodId = result.methodId;
       document.getElementById('invited-secret').textContent = result.totpSecret;
       document.getElementById('invited-uri').textContent = result.totpUri;
       document.getElementById('invited-totp').hidden = false;
       setupForm.hidden = true;
-    } catch (error) { setupStatus.textContent = error instanceof Error ? error.message : 'Setup failed'; setupStatus.className = 'status danger'; }
+    } catch (error) { showVaultError(setupStatus, error, 'Setup failed'); }
   });
   totpForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -956,13 +987,13 @@ function invitedUserSetupPage(): string {
       const code = new FormData(totpForm).get('totpCode');
       const optionsRes = await fetch('/user-setup/totp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ methodId, totpCode: code }) });
       const options = await optionsRes.json();
-      if (!optionsRes.ok) throw new Error(options.message || 'Invalid TOTP code');
+      if (!optionsRes.ok) throw vaultApiError(options, 'Invalid TOTP code');
       const credential = await navigator.credentials.create({ publicKey: publicKeyCreationToBrowser(options) });
       const verifyRes = await fetch('/user-setup/passkey', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: credentialToJSON(credential) }) });
       const result = await verifyRes.json();
-      if (!verifyRes.ok) throw new Error(result.message || 'Passkey registration failed');
+      if (!verifyRes.ok) throw vaultApiError(result, 'Passkey registration failed');
       location.href = result.redirect || '/login';
-    } catch (error) { setupStatus.textContent = error instanceof Error ? error.message : 'Setup failed'; setupStatus.className = 'status danger'; }
+    } catch (error) { showVaultError(setupStatus, error, 'Setup failed'); }
   });
   </script>`;
 }
@@ -987,13 +1018,13 @@ function loginForm(): string {
       const data = Object.fromEntries(new FormData(loginFormEl).entries());
       const started = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
       const result = await started.json();
-      if (!started.ok) throw new Error(result.message || 'Login failed');
+      if (!started.ok) throw vaultApiError(result, 'Login failed');
       if (result.status === 'totp_setup_verification_required') {
         const totpCode = prompt('Enter the current TOTP code to finish initial passkey setup');
         if (!totpCode) throw new Error('TOTP code is required');
         const retry = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...data, totpCode }) });
         const setup = await retry.json();
-        if (!retry.ok) throw new Error(setup.message || 'Invalid TOTP code');
+        if (!retry.ok) throw vaultApiError(setup, 'Invalid TOTP code');
         if (setup.status !== 'passkey_setup_required') throw new Error('Could not start passkey setup');
         location.href = setup.redirect;
         return;
@@ -1011,7 +1042,7 @@ function loginForm(): string {
           body: JSON.stringify({ challengeId: result.challengeId, credential: credentialToJSON(credential) }),
         });
         const done = await finished.json();
-        if (!finished.ok) throw new Error(done.message || 'Passkey login failed');
+        if (!finished.ok) throw vaultApiError(done, 'Passkey login failed');
         const totpCode = prompt('Enter the TOTP code paired with ' + done.methodLabel);
         if (!totpCode) throw new Error('TOTP code is required');
         loginStatus.textContent = 'Checking the TOTP paired with ' + done.methodLabel + '...';
@@ -1021,13 +1052,12 @@ function loginForm(): string {
           body: JSON.stringify({ totpToken: done.totpToken, totpCode }),
         });
         const login = await completed.json();
-        if (!completed.ok) throw new Error(login.message || 'TOTP login failed');
+        if (!completed.ok) throw vaultApiError(login, 'TOTP login failed');
         location.href = login.redirect || '/';
         return;
       }
     } catch (error) {
-      loginStatus.textContent = error instanceof Error ? error.message : 'Login failed';
-      loginStatus.className = 'status danger';
+      showVaultError(loginStatus, error, 'Login failed');
       return;
     }
   });
@@ -1049,7 +1079,7 @@ function passkeySetupPage(): string {
       const optionsRes = await fetch('/api/passkeys/register/options', { method: 'POST', headers: { 'x-csrf-token': passkeyCsrf() } });
       if (optionsRes.status === 401) { location.href = '/login'; return; }
       const options = await optionsRes.json();
-      if (!optionsRes.ok) throw new Error(options.message || 'Could not start passkey registration');
+      if (!optionsRes.ok) throw vaultApiError(options, 'Could not start passkey registration');
       statusEl.textContent = 'Use your device passkey prompt...';
       const credential = await navigator.credentials.create({ publicKey: publicKeyCreationToBrowser(options) });
       const verifyRes = await fetch('/api/passkeys/register/verify', {
@@ -1058,13 +1088,12 @@ function passkeySetupPage(): string {
         body: JSON.stringify({ credential: credentialToJSON(credential) }),
       });
       const verified = await verifyRes.json();
-      if (!verifyRes.ok) throw new Error(verified.message || 'Passkey registration failed');
+      if (!verifyRes.ok) throw vaultApiError(verified, 'Passkey registration failed');
       statusEl.textContent = verified.relogin ? 'Passkey registered. Redirecting to login...' : 'Passkey registered.';
       statusEl.className = 'status ok';
       location.href = verified.redirect || '/login';
     } catch (error) {
-      statusEl.textContent = error instanceof Error ? error.message : 'Passkey registration failed';
-      statusEl.className = 'status danger';
+      showVaultError(statusEl, error, 'Passkey registration failed');
     }
   });
   </script>`;
@@ -1315,21 +1344,21 @@ function profilePage(data: UserProfileData): string {
     try {
       const form = event.currentTarget;
       const response = await fetch('/api/auth-methods/start', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf() }, body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
-      const result = await response.json(); if (!response.ok) throw new Error(result.message || 'Could not start enrollment');
+      const result = await response.json(); if (!response.ok) throw vaultApiError(result, 'Could not start enrollment');
       authMethodId = result.methodId; document.getElementById('auth-method-secret').textContent = result.totpSecret; document.getElementById('auth-method-uri').textContent = result.totpUri;
       document.getElementById('auth-method-totp').hidden = false; form.hidden = true;
-    } catch (error) { authStatus.textContent = error instanceof Error ? error.message : 'Enrollment failed'; authStatus.className = 'status danger'; }
+    } catch (error) { showVaultError(authStatus, error, 'Enrollment failed'); }
   });
   document.getElementById('auth-method-totp-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
       const code = new FormData(event.currentTarget).get('totpCode');
       const optionsRes = await fetch('/api/auth-methods/totp', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf() }, body: JSON.stringify({ methodId: authMethodId, totpCode: code }) });
-      const options = await optionsRes.json(); if (!optionsRes.ok) throw new Error(options.message || 'Invalid TOTP code');
+      const options = await optionsRes.json(); if (!optionsRes.ok) throw vaultApiError(options, 'Invalid TOTP code');
       const credential = await navigator.credentials.create({ publicKey: publicKeyCreationToBrowser(options) });
       const verifyRes = await fetch('/api/passkeys/register/verify', { method: 'POST', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf() }, body: JSON.stringify({ credential: credentialToJSON(credential) }) });
-      const result = await verifyRes.json(); if (!verifyRes.ok) throw new Error(result.message || 'Passkey registration failed'); location.reload();
-    } catch (error) { authStatus.textContent = error instanceof Error ? error.message : 'Enrollment failed'; authStatus.className = 'status danger'; }
+      const result = await verifyRes.json(); if (!verifyRes.ok) throw vaultApiError(result, 'Passkey registration failed'); location.reload();
+    } catch (error) { showVaultError(authStatus, error, 'Enrollment failed'); }
   });
   </script>`;
 }
@@ -1510,11 +1539,11 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
         <input type="hidden" name="config">
         <input type="hidden" name="sensitiveClearPaths">
       <div class="form-grid">
-        <label>Plugin<select name="catalogId" data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
-        <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock>Lock Version</label>
+        <label class="schema-toggle"><input type="checkbox" data-version-lock>Lock Version</label>
       </div>
       <div data-config-fields></div>
       <button class="success">Add Plugin</button><p class="status"></p>
@@ -1527,7 +1556,7 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
   if (configurablePlugins.length === 0) {
     return '<p class="muted">Import or create plugins in the Plugin Catalog before adding shared config.</p>';
   }
-  return `<section><h3>Add Shared Plugin</h3>
+  return `<details class="plugin-card"><summary><span>Add Shared Plugin</span><span class="chip">${configurablePlugins.length} available</span></summary><div class="plugin-card-body">
     <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
       <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
       <input type="hidden" name="plugin">
@@ -1537,16 +1566,16 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
         <input type="hidden" name="config">
         <input type="hidden" name="sensitiveClearPaths">
       <div class="form-grid">
-        <label>Plugin<select name="catalogId" data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
-        <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock>Lock Version</label>
+        <label class="schema-toggle"><input type="checkbox" data-version-lock>Lock Version</label>
       </div>
       <div data-config-fields></div>
       <button class="success">Add Shared Plugin</button><p class="status"></p>
     </form>
-  </section>`;
+  </div></details>`;
 }
 
 function configSectionEditor(
@@ -1579,7 +1608,7 @@ function configSectionEditor(
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
-            <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
+            <label class="schema-toggle"><input type="checkbox" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
           </div>
           ${updateCatalog ? `<div class="callout" data-version-update-note><strong>Update available:</strong> unlock this config to edit against ${escapeHtml(updateCatalog.version)} before saving.</div>` : ''}
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
@@ -1628,7 +1657,7 @@ function applicationConfigSectionEditor(
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
-            <label class="schema-toggle"><input type="checkbox" name="lockVersion" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
+            <label class="schema-toggle"><input type="checkbox" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
           </div>
           ${updateCatalog ? `<div class="callout" data-version-update-note><strong>Update available:</strong> unlock this shared config to edit against ${escapeHtml(updateCatalog.version)} before saving.</div>` : ''}
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
@@ -2146,7 +2175,7 @@ function formScript(): string {
           body: JSON.stringify(data),
         });
         const result = await res.json();
-        if (!res.ok) throw new Error(result.message || 'Save failed');
+        if (!res.ok) throw vaultApiError(result, 'Save failed');
         if (result.secret) {
           if (status) {
             if (result.publishCommand) {
@@ -2169,8 +2198,7 @@ function formScript(): string {
         location.href = form.dataset.redirect || location.pathname;
       } catch (error) {
         if (status) {
-          status.textContent = error instanceof Error ? error.message : 'Save failed';
-          status.className = 'status danger';
+          showVaultError(status, error, 'Save failed');
         }
       }
     });

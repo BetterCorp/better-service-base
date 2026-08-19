@@ -148,6 +148,22 @@ function extractPluginClassBody(sourceContent: string): string {
   return '';
 }
 
+function extractStaticSchemaBinding(classBody: string, propertyName: 'Config' | 'EventSchemas'): string | undefined {
+  const match = classBody.match(new RegExp(
+    `\\b(?:public\\s+|protected\\s+|private\\s+|override\\s+|readonly\\s+)*static\\s+` +
+    `(?:readonly\\s+)?${propertyName}\\s*(?::[^=;\\r\\n]+)?=\\s*([^;\\r\\n]+)`,
+  ));
+  if (!match) return undefined;
+
+  const expression = match[1].trim();
+  if (!/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(expression)) {
+    throw new Error(
+      `Plugin static ${propertyName} must reference an identifier or namespace member; received ${expression}`,
+    );
+  }
+  return expression;
+}
+
 function classHasMethod(classBody: string, methodName: string): boolean {
   const escaped = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const methodRegex = new RegExp(`\\b(?:public\\s+|protected\\s+|private\\s+|static\\s+|override\\s+|async\\s+)*(?:readonly\\s+)?${escaped}\\s*\\(`);
@@ -443,6 +459,10 @@ function extractSchemaSource(
   bsbBaseImportPath: string,
   packageVersion: string,
 ): string {
+  const classBody = extractPluginClassBody(sourceContent);
+  const configBinding = extractStaticSchemaBinding(classBody, 'Config');
+  const eventSchemasBinding = extractStaticSchemaBinding(classBody, 'EventSchemas');
+
   // Normalize multiline imports into single lines before processing
   const lines = normalizeMultilineImports(sourceContent.split('\n'));
 
@@ -506,10 +526,6 @@ function extractSchemaSource(
       // Local relative imports (./types, ./storage, etc.)
       // Defer decision — we'll check if identifiers are used in body text
       if (isLocalRelativeImport(parsed.source)) {
-        // Skip imports from parent plugin dirs (../service-*) — cross-plugin deps
-        if (parsed.source.startsWith('../')) {
-          continue;
-        }
         // Queue for usage check
         pendingLocalImports.push({ line, identifiers: parsed.identifiers, source: parsed.source });
         continue;
@@ -527,7 +543,7 @@ function extractSchemaSource(
   }
 
   // Pass 2: filter local imports — only keep those whose identifiers are referenced in body
-  const bodyText = bodyLines.join('\n');
+  const bodyText = [bodyLines.join('\n'), configBinding, eventSchemasBinding].filter(Boolean).join('\n');
   for (const pending of pendingLocalImports) {
     const isUsed = pending.identifiers.some(id => {
       // Use word boundary check to avoid false positives
@@ -568,8 +584,12 @@ function extractSchemaSource(
   outputLines.push('');
   outputLines.push(`let _Config: any;`);
   outputLines.push(`let _EventSchemas: any;`);
-  outputLines.push(`try { _Config = eval('Config'); } catch { _Config = undefined; }`);
-  outputLines.push(`try { _EventSchemas = eval('EventSchemas'); } catch { _EventSchemas = undefined; }`);
+  outputLines.push(configBinding
+    ? `_Config = ${configBinding};`
+    : `try { _Config = eval('Config'); } catch { _Config = undefined; }`);
+  outputLines.push(eventSchemasBinding
+    ? `_EventSchemas = ${eventSchemasBinding};`
+    : `try { _EventSchemas = eval('EventSchemas'); } catch { _EventSchemas = undefined; }`);
   outputLines.push('');
   outputLines.push(`const _pluginName = _Config && _Config.metadata`);
   outputLines.push(`  ? (_Config as any).metadata.name`);
@@ -582,19 +602,16 @@ function extractSchemaSource(
   outputLines.push('(_schemaResult as any).version = _pluginVersion;');
   outputLines.push('');
   outputLines.push('// Extract config schema if Config exposes an AnyVali validation schema');
-  outputLines.push('try {');
-  outputLines.push('  if (_Config) {');
-  outputLines.push('    const _configInstance = new (_Config as any)("", "", "", "");');
-  outputLines.push('    if (_configInstance.validationSchema && typeof _configInstance.validationSchema === "object") {');
-  outputLines.push('      const _schema = _configInstance.validationSchema;');
-  outputLines.push('      const _exportSchema = _schema?.export;');
-  outputLines.push('      if (typeof _exportSchema === "function") {');
-  outputLines.push('        (_schemaResult as any).configSchema = _exportSchema.call(_schema, "extended");');
-  outputLines.push('      }');
+  outputLines.push('if (_Config) {');
+  outputLines.push('  const _configInstance = new (_Config as any)("", "", "", "");');
+  outputLines.push('  if (_configInstance.validationSchema && typeof _configInstance.validationSchema === "object") {');
+  outputLines.push('    const _schema = _configInstance.validationSchema;');
+  outputLines.push('    const _exportSchema = _schema?.export;');
+  outputLines.push('    if (typeof _exportSchema !== "function") {');
+  outputLines.push('      throw new Error("Config validationSchema does not expose export()");');
   outputLines.push('    }');
+  outputLines.push('    (_schemaResult as any).configSchema = _exportSchema.call(_schema, "extended");');
   outputLines.push('  }');
-  outputLines.push('} catch (_e) {');
-  outputLines.push('  // Config schema extraction is optional - skip on error');
   outputLines.push('}');
   outputLines.push('');
   outputLines.push('export const __BSB_SCHEMA_RESULT = _schemaResult;');
@@ -777,4 +794,4 @@ if (isMainModule(import.meta.url)) {
   });
 }
 
-export { main as extractSchemasFromSource };
+export { extractSchemaSource, main as extractSchemasFromSource };

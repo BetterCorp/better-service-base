@@ -652,7 +652,8 @@ async function extractSchemasFromSource(): Promise<void> {
     success('Extracted schemas from TypeScript source');
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    log(`  Schema extraction failed: ${message}`, 'yellow');
+    log(`  Schema extraction failed: ${message}`, 'red');
+    throw err;
   }
 }
 

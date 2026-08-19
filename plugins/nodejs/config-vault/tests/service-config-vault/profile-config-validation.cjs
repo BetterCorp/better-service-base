@@ -323,5 +323,5 @@ module.exports = async ({ pluginRoot }) => {
     version: '1.0.0',
     enabled: true,
     config: { port: 'not-a-number' },
-  }), /config\.port must be a number/i);
+  }), /config\.port: Expected integer/i);
 };

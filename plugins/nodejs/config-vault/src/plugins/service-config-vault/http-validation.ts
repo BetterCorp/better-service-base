@@ -17,7 +17,7 @@ const packageName = av.string().maxLength(214).pattern(packagePattern);
 const semver = av.string().maxLength(128).pattern(semverPattern);
 const token = av.string().maxLength(512).pattern(tokenPattern);
 const totp = av.string().maxLength(6).pattern('^\\d{6}$');
-const checkbox = av.optional(av.enum_(['on', 'true', 'false', '1', '0'] as const));
+const checkbox = av.optional(av.union([av.bool(), av.enum_(['on', 'true', 'false', '1', '0'] as const)]));
 const jsonObject = av.record(av.unknown());
 const jsonObjectInput = av.union([jsonObject, av.string().maxLength(1024 * 1024)]);
 const stringArrayJson = av.string().maxLength(64 * 1024);
@@ -117,15 +117,52 @@ export async function readAndValidateBody(event: H3Event, pathname: string): Pro
   }
   const result = schema.safeParse(raw);
   if (!result.success) {
+    const issues = result.issues.map(sanitizeValidationIssue);
+    const first = issues[0];
+    const firstReason = first
+      ? `${formatIssuePath(first.path)}${first.path.length > 0 ? ': ' : ''}${first.message}`
+      : 'Invalid request';
     throw createError({
       statusCode: 400,
       statusMessage: 'Invalid request',
-      message: 'Request validation failed',
-      data: { code: 'VALIDATION_ERROR', issues: result.issues },
+      message: `Request validation failed: ${firstReason}`,
+      data: { code: 'VALIDATION_ERROR', issues },
     });
   }
   assertSafeJson(result.data);
   return result.data as Record<string, unknown>;
+}
+
+interface PublicValidationIssue {
+  code: string;
+  message: string;
+  path: Array<string | number>;
+}
+
+function sanitizeValidationIssue(issue: av.ValidationIssue): PublicValidationIssue {
+  const expected = issue.expected ? ` ${issue.expected}` : '';
+  const message = (() => {
+    switch (issue.code) {
+      case 'required': return 'This field is required';
+      case 'unknown_key': return 'This field is not allowed';
+      case 'invalid_type': return `Expected${expected || ' a different value type'}`;
+      case 'too_small': return `Value is below the minimum${expected}`;
+      case 'too_large': return `Value exceeds the maximum${expected}`;
+      case 'invalid_string': return issue.message;
+      case 'invalid_number': return `Invalid number${expected ? `; expected${expected}` : ''}`;
+      case 'invalid_literal': return `Expected${expected || ' the required value'}`;
+      case 'invalid_union': return 'Value does not match any allowed format';
+      case 'too_deep': return 'Value is nested too deeply';
+      default: return 'Invalid value';
+    }
+  })();
+  return { code: issue.code, message, path: [...issue.path] };
+}
+
+function formatIssuePath(path: Array<string | number>): string {
+  return path.reduce<string>((result, part) => typeof part === 'number'
+    ? `${result}[${part}]`
+    : result ? `${result}.${part}` : String(part), '');
 }
 
 export function validatedBody(event: H3Event): Record<string, unknown> {

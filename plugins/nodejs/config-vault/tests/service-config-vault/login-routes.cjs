@@ -359,7 +359,10 @@ module.exports = async ({ pluginRoot }) => {
     });
     assert.equal(unauthorizedPasskey.status, 401);
     assert.match(unauthorizedPasskey.headers.get('content-type') ?? '', /application\/json/);
-    assert.deepEqual(await unauthorizedPasskey.json(), { message: 'Authentication required' });
+    assert.deepEqual(await unauthorizedPasskey.json(), {
+      code: 'AUTHENTICATION_REQUIRED',
+      message: 'Authentication required',
+    });
 
     const profile = await fetch(`http://127.0.0.1:${port}/profile`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
@@ -416,6 +419,12 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(deploymentHtml, /Config JSON/);
     assert.doesNotMatch(deploymentHtml, /\{"default":/);
     assert.match(deploymentHtml, /Add Plugin/);
+    assert.match(deploymentHtml, /data-plugin-picker/);
+    assert.doesNotMatch(deploymentHtml, /name="catalogId"/);
+    assert.match(deploymentHtml, /data-version-lock/);
+    assert.doesNotMatch(deploymentHtml, /name="lockVersion"/);
+    assert.match(deploymentHtml, /Please correct the following/);
+    assert.match(deploymentHtml, /list\.className = 'validation-errors'/);
     assert.doesNotMatch(deploymentHtml, /<select name="section"/);
     assert.match(deploymentHtml, /<input type="hidden" name="section"/);
     assert.match(deploymentHtml, /name="typeDisplay" disabled/);
@@ -445,6 +454,10 @@ module.exports = async ({ pluginRoot }) => {
     const appConfigHtml = await appConfig.text();
     assert.equal(appConfig.status, 200);
     assert.match(appConfigHtml, /Shared Config/);
+    assert.match(appConfigHtml, /<details class="plugin-card"><summary><span>Add Shared Plugin/);
+    assert.doesNotMatch(appConfigHtml, /<section><h3>Add Shared Plugin/);
+    assert.doesNotMatch(appConfigHtml, /name="catalogId"/);
+    assert.doesNotMatch(appConfigHtml, /name="lockVersion"/);
     assert.match(appConfigHtml, /Unpublished changes/);
     assert.match(appConfigHtml, /\/api\/application-profile-plugins/);
     assert.match(appConfigHtml, /\/api\/application-profile-publish/);
@@ -495,7 +508,24 @@ module.exports = async ({ pluginRoot }) => {
     });
     assert.equal(invalidRequest.status, 400);
     assert.match(invalidRequest.headers.get('content-type') ?? '', /application\/json/);
-    assert.equal((await invalidRequest.json()).code, 'VALIDATION_ERROR');
+    const validationError = await invalidRequest.json();
+    assert.equal(validationError.code, 'VALIDATION_ERROR');
+    assert.match(validationError.message, /applicationId:/);
+    assert.equal(validationError.issues.length, 2);
+    assert.deepEqual(Object.keys(validationError.issues[0]).sort(), ['code', 'message', 'path']);
+    assert.deepEqual(validationError.issues[0].path, ['applicationId']);
+    assert.deepEqual(validationError.issues[1], {
+      code: 'unknown_key',
+      message: 'This field is not allowed',
+      path: ['unexpected'],
+    });
+    const serializedValidationError = JSON.stringify(validationError);
+    assert.doesNotMatch(serializedValidationError, /\.\.\/outside/);
+    for (const issue of validationError.issues) {
+      assert.equal(Object.hasOwn(issue, 'received'), false);
+      assert.equal(Object.hasOwn(issue, 'expected'), false);
+      assert.equal(Object.hasOwn(issue, 'meta'), false);
+    }
 
     const wrongMethod = await fetch(`http://127.0.0.1:${port}/api/groups`);
     assert.equal(wrongMethod.status, 405);
