@@ -55,6 +55,7 @@ RUN mkdir -p /tmp/bsb-pack && npm pack --pack-destination /tmp/bsb-pack
 # Stage 2: Install production dependencies
 FROM ${NODE_BASE_IMAGE} AS dependencies
 
+ARG BSB_VERSION=0.0.0
 ARG BSB_BUNDLED_PLUGINS=
 ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
@@ -70,6 +71,7 @@ COPY --from=builder /tmp/bsb-pack/*.tgz /tmp/bsb-base.tgz
 RUN printf '{"type":"module","private":true,"scripts":{"start":"node node_modules/@bsb/base/lib/cli.js","debug":"BSB_DEBUG=true node node_modules/@bsb/base/lib/cli.js","plugins":"node node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js"}}\n' > /home/bsb/package.json
 RUN npm install --omit=dev /tmp/bsb-base.tgz
 RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then echo "Installing bundled BSB plugins: $BSB_BUNDLED_PLUGINS"; npm install --omit=dev $BSB_BUNDLED_PLUGINS; fi
+RUN npm pkg set "dependencies.@bsb/base=${BSB_VERSION}" && rm -f /home/bsb/package-lock.json
 
 # Stage 3: Final image
 FROM ${NODE_BASE_IMAGE}
@@ -96,7 +98,6 @@ COPY nodejs/plugin-watcher.js /home/bsb/plugin-watcher.js
 COPY nodejs/LICENSE /home/bsb/LICENSE
 
 COPY --from=dependencies /home/bsb/package.json /home/bsb/package.json
-COPY --from=dependencies /home/bsb/package-lock.json /home/bsb/package-lock.json
 COPY --from=dependencies /home/bsb/node_modules /home/bsb/node_modules
 
 RUN chown -R node:node /home/bsb \

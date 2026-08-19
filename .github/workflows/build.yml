@@ -170,8 +170,25 @@ jobs:
           file: ./nodejs/Dockerfile
           build-args: |
             NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
+            BSB_VERSION=0.0.0
+          load: true
           platforms: linux/amd64
           push: false
+          tags: service-base:node-ci
+
+      - name: Verify image supports additional npm packages
+        run: |
+          docker run --rm --entrypoint node service-base:node-ci --input-type=commonjs -e '
+            const { existsSync, readFileSync } = require("node:fs");
+            const manifest = JSON.parse(readFileSync("/home/bsb/package.json", "utf8"));
+            if (manifest.dependencies?.["@bsb/base"] !== "0.0.0") {
+              throw new Error("@bsb/base must reference the image build version");
+            }
+            if (existsSync("/home/bsb/package-lock.json")) {
+              throw new Error("Runtime image must not contain the build-time lockfile");
+            }
+          '
+          docker run --rm --entrypoint npm service-base:node-ci install --omit=dev --no-save @bsb/syslog@9.1.3
 
   docker-nodejs-vault:
     name: Node.js Vault Docker image
