@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SBPlugins } from "../../serviceBase/plugins.js";
@@ -38,5 +38,36 @@ describe("SBPlugins", () => {
     new SBPlugins(cwd, "production");
 
     assert.strictEqual(existsSync(join(pluginRoot, "package.json")), false);
+  });
+
+  it("loads npm plugins from hoisted workspace node_modules", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "bsb-repo-"));
+    tempDirs.push(repo);
+    const app = join(repo, "packages", "app");
+    const packageRoot = join(repo, "node_modules", "@bsb", "events-rabbitmq");
+    const pluginRoot = join(packageRoot, "lib", "plugins", "events-rabbitmq");
+    mkdirSync(pluginRoot, { recursive: true });
+    mkdirSync(app, { recursive: true });
+    writeFileSync(join(app, "package.json"), JSON.stringify({ type: "module" }));
+    writeFileSync(join(packageRoot, "package.json"), JSON.stringify({
+      name: "@bsb/events-rabbitmq",
+      version: "2.3.4",
+      type: "module",
+    }));
+    writeFileSync(join(pluginRoot, "index.js"), "export class Plugin {}\n");
+
+    const result = await new SBPlugins(app, "production").loadPlugin(
+      { debug() {}, error() {}, info() {} } as any,
+      "@bsb/events-rabbitmq",
+      "events-rabbitmq",
+      "events-rabbitmq",
+    );
+
+    assert.strictEqual(result.success, true);
+    if (result.success) {
+      assert.strictEqual(result.data.packageCwd, packageRoot);
+      assert.strictEqual(result.data.pluginCwd, pluginRoot);
+      assert.strictEqual(result.data.version, "2.3.4");
+    }
   });
 });

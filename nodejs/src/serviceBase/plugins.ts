@@ -26,7 +26,8 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { BSBPluginConfig, BSBPluginConfigRef } from "../base/index.js";
 import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef, Result, Ok, Err, fromPromise, BSBRuntimeMode } from "../interfaces/index.js";
 import { toImportUrl } from "../base/module-runtime.js";
@@ -58,7 +59,6 @@ export class SBPlugins {
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/SBPlugins.html | API: SBPlugins}
    */
   protected cwd: string;
-  protected nodeModulesPluginDir: string;
   protected referencedPluginDirs: string[] = [];
   protected runtimeMode: BSBRuntimeMode;
 
@@ -69,7 +69,6 @@ export class SBPlugins {
   constructor(cwd: string, runtimeMode: BSBRuntimeMode) {
     this.cwd = cwd;
     this.runtimeMode = runtimeMode;
-    this.nodeModulesPluginDir = join(this.cwd, "./node_modules/");
     const pluginDirEnv = process.env.BSB_PLUGIN_DIRS
       ?? process.env.BSB_PLUGINS_DIR
       ?? process.env.BSB_PLUGIN_DIR;
@@ -233,11 +232,16 @@ export class SBPlugins {
 
       }
       if (pluginPath == "") {
-        const nodeModulesPluginPath = join(this.nodeModulesPluginDir, npmPackage, "./lib/plugins/" + plugin);
-        const nodeModulesPackageCwd = join(this.nodeModulesPluginDir, npmPackage);
-        if (existsSync(nodeModulesPluginPath)) {
-          pluginPath = nodeModulesPluginPath;
-          packageCwd = nodeModulesPackageCwd;
+        try {
+          const requireFromCwd = createRequire(join(this.cwd, "package.json"));
+          const nodeModulesPackageCwd = dirname(requireFromCwd.resolve(`${ npmPackage }/package.json`));
+          const nodeModulesPluginPath = join(nodeModulesPackageCwd, "./lib/plugins/" + plugin);
+          if (existsSync(nodeModulesPluginPath)) {
+            pluginPath = nodeModulesPluginPath;
+            packageCwd = nodeModulesPackageCwd;
+          }
+        } catch {
+          // Package not resolvable from this service.
         }
       }
 
