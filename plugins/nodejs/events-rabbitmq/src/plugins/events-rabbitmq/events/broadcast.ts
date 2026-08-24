@@ -10,7 +10,6 @@ import {
 
 export class broadcast {
   private plugin: Plugin;
-  private publishQueuesSetup: Array<string> = [];
   private publishChannel!: SetupChannel<string>;
   private receiveChannel!: SetupChannel<string>;
   private readonly channelKey = "91eb";
@@ -25,7 +24,8 @@ export class broadcast {
   };
   private readonly queueOpts: amqplib.Options.AssertQueue = {
     durable: false,
-    autoDelete: false,
+    exclusive: true,
+    autoDelete: true,
     messageTtl: 60 * 60 * 1000, // 60 min
     expires: 60 * 60 * 1000, // 60 min
   };
@@ -151,16 +151,6 @@ export class broadcast {
     obs.log.debug("Emit: [{thisQueueKey}]", {
       thisQueueKey,
     });
-
-    if (!this.publishQueuesSetup.includes(thisQueueKey)) {
-      this.publishQueuesSetup.push(thisQueueKey);
-      await this.publishChannel.channel.addSetup(
-          async (iChannel: amqplibCore.ConfirmChannel) => {
-            await iChannel.assertQueue(thisQueueKey, this.queueOpts);
-            obs.log.debug("emit rabbit: [{thisQueueKey}]", {thisQueueKey});
-          },
-      );
-    }
 
     if (
         !await this.publishChannel.channel.publish(

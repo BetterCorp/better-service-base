@@ -19,7 +19,7 @@ export class emitAndReturn
   private readonly channelKey = "91ar";
   private readonly myChannelKey = "91kr";
   private readonly queueOpts: amqplib.Options.AssertQueue = {
-    durable: false,
+    durable: true,
     autoDelete: false,
     messageTtl: 60 * 1000, // 60 seconds
     expires: 60 * 1000, // 60s
@@ -27,7 +27,7 @@ export class emitAndReturn
   private readonly myQueueOpts: amqplib.Options.AssertQueue = {
     exclusive: true,
     durable: false,
-    autoDelete: false,
+    autoDelete: true,
     messageTtl: 60 * 1000, // 60 seconds
     expires: 60 * 1000, // 60s
   };

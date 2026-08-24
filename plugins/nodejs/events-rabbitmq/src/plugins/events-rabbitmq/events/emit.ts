@@ -14,7 +14,7 @@ export class emit {
   private receiveChannel!: SetupChannel<null>;
   private readonly channelKey = "91eq";
   private readonly queueOpts: amqplib.Options.AssertQueue = {
-    durable: false,
+    durable: true,
     autoDelete: false,
     messageTtl: 60 * 60 * 1000, // 60 min
     expires: 60 * 60 * 1000, // 60 min

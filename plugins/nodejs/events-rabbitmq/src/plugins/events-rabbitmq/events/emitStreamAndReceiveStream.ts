@@ -18,6 +18,7 @@ export class emitStreamAndReceiveStream
   private readonly streamChannelKey = "91sd";
   private readonly queueOpts: amqplib.Options.AssertQueue = {
     durable: false,
+    exclusive: true,
     autoDelete: true,
     messageTtl: 60 * 1000, // 60 seconds
     expires: 60 * 1000, // 60s
