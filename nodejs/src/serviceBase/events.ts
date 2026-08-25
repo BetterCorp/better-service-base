@@ -549,7 +549,7 @@ export class SBEvents {
     const obs = this.createObservable(trace, "events");
     return await plugin.plugin.onEvent(
       obs,
-      plugin.pluginName,
+      pluginName,
       event,
       async (iObs: Observable, iargs: Array<any>) =>
         self.handleOnEvent.call(
@@ -926,7 +926,7 @@ export class SBEvents {
     const obs = this.createObservable(trace, "events");
     return await plugin.plugin.receiveStream(
       obs,
-      plugin.pluginName,
+      pluginName,
       event,
       async (iObs: Observable, error: Error | null, stream: Readable) =>
         self.handleOnReceiveStream.call(
@@ -963,7 +963,7 @@ export class SBEvents {
         plugin.plugin,
         plugin.plugin.sendStream,
         obs,
-        plugin.pluginName,
+        pluginName,
         event,
         streamId,
         stream,
