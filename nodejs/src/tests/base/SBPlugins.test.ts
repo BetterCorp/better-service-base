@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SBPlugins } from "../../serviceBase/plugins.js";
@@ -40,14 +40,17 @@ describe("SBPlugins", () => {
     assert.strictEqual(existsSync(join(pluginRoot, "package.json")), false);
   });
 
-  it("loads npm plugins from hoisted workspace node_modules", async () => {
+  it("loads npm plugins from hoisted workspace node_modules real path", async () => {
     const repo = mkdtempSync(join(tmpdir(), "bsb-repo-"));
     tempDirs.push(repo);
     const app = join(repo, "packages", "app");
-    const packageRoot = join(repo, "node_modules", "@bsb", "events-rabbitmq");
+    const packageRoot = join(repo, "packages", "events-rabbitmq");
+    const packageLink = join(repo, "node_modules", "@bsb", "events-rabbitmq");
     const pluginRoot = join(packageRoot, "lib", "plugins", "events-rabbitmq");
     mkdirSync(pluginRoot, { recursive: true });
     mkdirSync(app, { recursive: true });
+    mkdirSync(join(repo, "node_modules", "@bsb"), { recursive: true });
+    symlinkSync(packageRoot, packageLink, process.platform === "win32" ? "junction" : "dir");
     writeFileSync(join(app, "package.json"), JSON.stringify({ type: "module" }));
     writeFileSync(join(packageRoot, "package.json"), JSON.stringify({
       name: "@bsb/events-rabbitmq",
@@ -65,8 +68,8 @@ describe("SBPlugins", () => {
 
     assert.strictEqual(result.success, true);
     if (result.success) {
-      assert.strictEqual(result.data.packageCwd, packageRoot);
-      assert.strictEqual(result.data.pluginCwd, pluginRoot);
+      assert.strictEqual(result.data.packageCwd, realpathSync.native(packageRoot));
+      assert.strictEqual(result.data.pluginCwd, join(realpathSync.native(packageRoot), "lib", "plugins", "events-rabbitmq"));
       assert.strictEqual(result.data.version, "2.3.4");
     }
   });

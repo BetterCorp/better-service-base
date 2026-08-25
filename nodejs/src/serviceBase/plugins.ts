@@ -25,7 +25,7 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { BSBPluginConfig, BSBPluginConfigRef } from "../base/index.js";
@@ -234,7 +234,9 @@ export class SBPlugins {
       if (pluginPath == "") {
         try {
           const requireFromCwd = createRequire(join(this.cwd, "package.json"));
-          const nodeModulesPackageCwd = dirname(requireFromCwd.resolve(`${ npmPackage }/package.json`));
+          const nodeModulesPackageCwd = realpathSync.native(
+            dirname(requireFromCwd.resolve(`${ npmPackage }/package.json`))
+          );
           const nodeModulesPluginPath = join(nodeModulesPackageCwd, "./lib/plugins/" + plugin);
           if (existsSync(nodeModulesPluginPath)) {
             pluginPath = nodeModulesPluginPath;
