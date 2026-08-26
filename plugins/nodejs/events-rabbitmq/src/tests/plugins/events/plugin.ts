@@ -7,6 +7,7 @@ import { emitStreamAndReceiveStream } from "./events/emitStreamAndReceiveStream.
 import { getEventsConstructorConfig } from "../../mocks.js";
 import { createTestObservable } from "../../trace.js";
 import { LIB } from "../../../plugins/events-rabbitmq/events/lib.js";
+import { broadcast as RabbitBroadcast } from "../../../plugins/events-rabbitmq/events/broadcast.js";
 import * as assert from "assert";
 
 
@@ -82,5 +83,15 @@ describe("plugins/events-rabbitmq poison handling", () => {
     assert.deepStrictEqual(nacks.slice(0, -1).map((nack) => nack.requeue), Array(9).fill(true));
     assert.strictEqual(nacks[nacks.length - 1]?.requeue, false);
     assert.strictEqual(attempts.has("persistent-id"), false);
+  });
+});
+
+describe("plugins/events-rabbitmq broadcast routing", () => {
+  it("uses exact routing so one broadcast event does not reach another event queue", () => {
+    const backend = new RabbitBroadcast({} as any);
+    assert.deepStrictEqual((backend as any).exchange, {
+      type: "direct",
+      name: "better.service9.broadcast.direct",
+    });
   });
 });

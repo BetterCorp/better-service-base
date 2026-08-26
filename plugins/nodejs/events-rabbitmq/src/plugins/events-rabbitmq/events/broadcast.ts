@@ -15,8 +15,8 @@ export class broadcast {
   private readonly deliveryAttempts = new Map<string, number>();
   private readonly channelKey = "91eb";
   private readonly exchange = {
-    type: "fanout",
-    name: "better.service9.broadcast",
+    type: "direct",
+    name: "better.service9.broadcast.direct",
   };
   private readonly exchangeOpts: amqplib.Options.AssertExchange = {
     durable: false,
