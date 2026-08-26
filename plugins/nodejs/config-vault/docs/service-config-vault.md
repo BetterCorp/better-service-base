@@ -37,7 +37,7 @@ Every active user is an administrator. The Users page creates a 24-hour one-time
 Vault uses a structured admin UI:
 
 - **Overview**: inventory counts and recent runtime keys.
-- **Applications**: create, edit, delete, and list applications.
+- **Deployment Groups**: create, edit, delete, and list deployment groups.
 - **Deployments**: create deployments, open profiles, add/remove configured plugins, edit schema-derived plugin settings, publish drafts, and create or rotate container keys.
 - **Plugins**: create private/manual plugin catalog entries and attach schemas.
 - **Users**: invite, deactivate, and reset administrator access.
@@ -50,7 +50,7 @@ Existing installations are migrated automatically: legacy TOTP is encrypted into
 
 Vault uses this model:
 
-- **Application**: product/system, for example `BetterPortal`.
+- **Deployment Group**: product/system boundary that contains related deployments, for example `BetterPortal`.
 - **Deployment**: logical runtime group, for example `api`, `web`, or `worker`. A new deployment automatically gets a `default` profile.
 - **Deployment Profile**: BSB profile, defaulting to `default`.
 - **Config Draft**: editable runtime config.
@@ -86,7 +86,7 @@ Vault stores its own plugin catalog. Entries can be:
 - created manually for private plugins,
 - uploaded from generated plugin schema metadata.
 
-Application configs reference Vault catalog snapshots, not live registry records.
+Deployment group configs reference Vault catalog snapshots, not live registry records.
 
 If a schema exists, the UI guides config editing and Vault validates the saved shape. If no schema exists, Vault allows object config and cannot deeply validate plugin-specific fields.
 

@@ -385,7 +385,7 @@ module.exports = async ({ pluginRoot }) => {
     const applicationsHtml = await applications.text();
     assert.match(applicationsHtml, /\/api\/applications\/update/);
     assert.match(applicationsHtml, /\/api\/applications\/delete/);
-    assert.match(applicationsHtml, /Shared Config/);
+    assert.match(applicationsHtml, /Deployment Group Config/);
 
     const deployments = await fetch(`http://127.0.0.1:${port}/deployments`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
@@ -412,8 +412,8 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(deploymentHtml, /data-override-path="host"/);
     assert.match(deploymentHtml, /name="overridePaths"/);
     assert.match(deploymentHtml, /name="baseConfig"/);
-    assert.match(deploymentHtml, /These values come from the shared application config/);
-    assert.match(deploymentHtml, /Shared App Config/);
+    assert.match(deploymentHtml, /These values come from the shared deployment group config/);
+    assert.match(deploymentHtml, /Deployment Group Config/);
     assert.match(deploymentHtml, /Live/);
     assert.match(deploymentHtml, /\/api\/profile-plugins\/copy/);
     assert.doesNotMatch(deploymentHtml, /Config JSON/);
@@ -453,7 +453,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const appConfigHtml = await appConfig.text();
     assert.equal(appConfig.status, 200);
-    assert.match(appConfigHtml, /Shared Config/);
+    assert.match(appConfigHtml, /Deployment Group Config/);
     assert.match(appConfigHtml, /<details class="plugin-card"><summary><span>Add Shared Plugin/);
     assert.doesNotMatch(appConfigHtml, /<section><h3>Add Shared Plugin/);
     assert.doesNotMatch(appConfigHtml, /name="catalogId"/);

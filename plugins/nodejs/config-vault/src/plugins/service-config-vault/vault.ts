@@ -1038,6 +1038,10 @@ export class VaultService {
       shared?.[binding.profile.name] ?? {},
       config[binding.profile.name] ?? {},
     );
+    addMissingServiceReferences(
+      mergedProfile,
+      await this.collectDeploymentServiceReferences(binding.application.id, binding.profile.id, binding.profile.name),
+    );
     const mergedConfig = { [binding.profile.name]: normalizeRuntimeConfig(mergedProfile, await this.store.listPlugins()) };
     obs?.log.info('Vault runtime config resolved for {application}/{group}/{profile}', {
       application: binding.application.name,
@@ -1069,6 +1073,42 @@ export class VaultService {
       authTag: version.authTag,
       keyVersion: version.keyVersion,
     }, applicationVersionAad(profile.id, version.id));
+  }
+
+  private async collectDeploymentServiceReferences(
+    applicationId: string,
+    currentProfileId: string,
+    profileName: string,
+  ): Promise<Record<string, RuntimePluginDefinition>> {
+    const output: Record<string, RuntimePluginDefinition> = {};
+    const groups = await this.store.listGroups(applicationId);
+    for (const group of groups) {
+      for (const profile of await this.store.listProfiles(group.id)) {
+        if (profile.id === currentProfileId) continue;
+        if (profile.name !== profileName || !profile.activeVersionId) continue;
+        const version = await this.store.getVersion(profile.activeVersionId);
+        if (!version) continue;
+        const config = this.decrypt<VaultRuntimeConfig>({
+          encryptedPayload: version.encryptedPayload,
+          iv: version.iv,
+          authTag: version.authTag,
+          keyVersion: version.keyVersion,
+        }, profileVersionAad(profile.id, version.id));
+        for (const [name, service] of Object.entries(config[profile.name]?.services ?? {})) {
+          if (output[name]) continue;
+          output[name] = {
+            plugin: service.plugin,
+            package: service.package,
+            version: service.version,
+            enabled: false,
+            config: {},
+          };
+          if (!output[name].package) delete output[name].package;
+          if (!output[name].version) delete output[name].version;
+        }
+      }
+    }
+    return output;
   }
 
   async dashboard(): Promise<{
@@ -1866,6 +1906,18 @@ function mergeRuntimeConfig(shared: RuntimeConfigDefinition, local: RuntimeConfi
     events: mergePluginSection(shared.events, local.events),
     services: mergePluginSection(shared.services, local.services),
   };
+}
+
+function addMissingServiceReferences(
+  config: RuntimeConfigDefinition,
+  services: Record<string, RuntimePluginDefinition>,
+): void {
+  const section = config.services ?? {};
+  for (const [name, service] of Object.entries(services)) {
+    if (section[name]) continue;
+    defineSafeProperty(section, name, service);
+  }
+  config.services = section;
 }
 
 function mergePluginSection(

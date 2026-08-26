@@ -22,6 +22,27 @@ module.exports = async ({ pluginRoot }) => {
       },
     },
   }, key);
+  const siblingEncrypted = crypto.encryptJson({
+    default: {
+      services: {
+        auth: {
+          plugin: 'service-auth-local',
+          package: '@betterportal/auth-local',
+          version: '2.0.0',
+          enabled: true,
+          config: { secret: 'do-not-send' },
+        },
+      },
+      events: {
+        rabbit: {
+          plugin: 'events-rabbitmq',
+          package: '@bsb/events-rabbitmq',
+          enabled: true,
+          config: { endpoint: 'amqp://secret' },
+        },
+      },
+    },
+  }, key);
 
   const store = {
     async authenticationAllowed() { return true; },
@@ -41,6 +62,16 @@ module.exports = async ({ pluginRoot }) => {
       };
     },
     async getVersion(id) {
+      if (id === 'sibling-version-1') {
+        return {
+          id,
+          profileId: 'profile-2',
+          version: 4,
+          ...siblingEncrypted,
+          publishedAt: new Date().toISOString(),
+          publishedBy: 'admin',
+        };
+      }
       assert.equal(id, 'version-1');
       return {
         id,
@@ -50,6 +81,18 @@ module.exports = async ({ pluginRoot }) => {
         publishedAt: new Date().toISOString(),
         publishedBy: 'admin',
       };
+    },
+    async listGroups(applicationId) {
+      assert.equal(applicationId, 'app-1');
+      return [
+        { id: 'group-1', applicationId, name: 'api', createdAt: new Date().toISOString() },
+        { id: 'group-2', applicationId, name: 'auth', createdAt: new Date().toISOString() },
+      ];
+    },
+    async listProfiles(groupId) {
+      if (groupId === 'group-1') return [{ id: 'profile-1', groupId, name: 'default', activeVersionId: 'version-1' }];
+      if (groupId === 'group-2') return [{ id: 'profile-2', groupId, name: 'default', activeVersionId: 'sibling-version-1' }];
+      return [];
     },
     async getApplicationProfile(applicationId, profileName) {
       assert.equal(applicationId, 'app-1');
@@ -103,4 +146,12 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(resolved.config.default.services.api.config.serviceName, 'api');
   assert.equal(resolved.config.default.services.config.plugin, 'service-betterportal-config-manager');
   assert.equal(resolved.config.default.services.config.package, '@betterportal/config-manager');
+  assert.deepEqual(resolved.config.default.services.auth, {
+    plugin: 'service-auth-local',
+    package: '@betterportal/auth-local',
+    version: '2.0.0',
+    enabled: false,
+    config: {},
+  });
+  assert.equal(resolved.config.default.events.rabbit, undefined);
 };

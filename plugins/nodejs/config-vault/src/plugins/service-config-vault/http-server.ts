@@ -589,7 +589,7 @@ export class VaultHttpServer {
     app.use('/applications', defineEventHandler(async (event) => {
       await this.requireUser(event);
       const dashboard = await this.options.vault.dashboard();
-      return this.page(event, 'Applications', applicationsPage(dashboard), 'applications');
+      return this.page(event, 'Deployment Groups', applicationsPage(dashboard), 'applications');
     }));
 
     app.use('/users', defineEventHandler(async (event) => {
@@ -612,7 +612,7 @@ export class VaultHttpServer {
       const profile = String(query.profile ?? 'default');
       if (!applicationId) return sendRedirect(event, '/applications');
       const data = await this.options.vault.applicationProfile(applicationId, profile, user.userId);
-      return this.page(event, 'Application Config', applicationConfigPage(data), 'applications');
+      return this.page(event, 'Deployment Group Config', applicationConfigPage(data), 'applications');
     }));
 
     app.use('/deployments', defineEventHandler(async (event) => {
@@ -890,7 +890,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
 function nav(active: NavItem): string {
   const items: Array<[NavItem, string, string]> = [
     ['overview', 'Overview', '/'],
-    ['applications', 'Applications', '/applications'],
+    ['applications', 'Deployment Groups', '/applications'],
     ['deployments', 'Deployments', '/deployments'],
     ['plugins', 'Plugins', '/plugins'],
     ['users', 'Users', '/users'],
@@ -1102,7 +1102,7 @@ function passkeySetupPage(): string {
 function overviewPage(data: DashboardData): string {
   return `<div class="page-head"><div><h1>Overview</h1><p class="muted">Current Vault inventory and deployment configuration status.</p></div></div>
   <div class="grid">
-    ${metric('Applications', data.applications.length)}
+    ${metric('Deployment Groups', data.applications.length)}
     ${metric('Deployments', data.groups.length)}
     ${metric('Deployment Profiles', data.profiles.length)}
     ${metric('Container Keys', data.runtimeKeys.length)}
@@ -1111,17 +1111,17 @@ function overviewPage(data: DashboardData): string {
 }
 
 function applicationsPage(data: DashboardData): string {
-  return `<div class="page-head"><div><h1>Applications</h1><p class="muted">Create product or system boundaries for deployment profiles.</p></div></div>
-  <section><h2>Create Application</h2>
+  return `<div class="page-head"><div><h1>Deployment Groups</h1><p class="muted">Create boundaries that contain related deployments and profiles.</p></div></div>
+  <section><h2>Create Deployment Group</h2>
     <form data-api="/api/applications" data-redirect="/applications">
       <div class="form-grid">
         ${input('name', 'Name', true)}
         ${input('description', 'Description')}
       </div>
-      <button class="success">Create Application</button><p class="status"></p>
+      <button class="success">Create Deployment Group</button><p class="status"></p>
     </form>
   </section>
-  <section><h2>Applications</h2>${applicationsTable(data)}</section>
+  <section><h2>Deployment Groups</h2>${applicationsTable(data)}</section>
   ${formScript()}`;
 }
 
@@ -1129,7 +1129,7 @@ function deploymentsPage(data: DashboardData): string {
   return `<div class="page-head"><div><h1>Deployments</h1><p class="muted">A deployment represents the container group that will receive one selected profile.</p></div></div>
   <section><h2>Create Deployment</h2>
       <form data-api="/api/groups" data-redirect="/deployments">
-        ${select('applicationId', 'Application', data.applications.map((x) => [x.id, x.name]))}
+        ${select('applicationId', 'Deployment Group', data.applications.map((x) => [x.id, x.name]))}
         ${input('name', 'Deployment Name', true)}
         <button class="success">Create Deployment</button><p class="status"></p>
       </form>
@@ -1159,9 +1159,9 @@ function deploymentDetailPage(
   <div class="tabs">${data.profiles.map((profile) => `<a class="${profile.id === data.profile.id ? 'active' : ''}" href="/deployment?profileId=${encodeURIComponent(profile.id)}">${escapeHtml(profile.name)}</a>`).join('')}</div>
   ${credential.secret ? runtimeEnvBlock(credential) : ''}
   <div class="grid">
-    <section><h2>Shared App Config</h2>
+    <section><h2>Deployment Group Config</h2>
       <p>${configStateBadge(data.inheritedConfigState)} <span class="muted">Inherited from ${escapeHtml(data.application.name)} / ${escapeHtml(data.profile.name)}</span></p>
-      <p><a class="button secondary" href="/application-config?applicationId=${encodeURIComponent(data.application.id)}&profile=${encodeURIComponent(data.profile.name)}">Edit Shared Config</a></p>
+      <p><a class="button secondary" href="/application-config?applicationId=${encodeURIComponent(data.application.id)}&profile=${encodeURIComponent(data.profile.name)}">Edit Deployment Group Config</a></p>
     </section>
     <section><h2>Deployment Config</h2>
       <p>${configStateBadge(data.configState)} <span class="muted">Local overrides for this container group.</span></p>
@@ -1185,7 +1185,7 @@ function deploymentDetailPage(
     </section>
   </div>
   ${hasConfigEntries(inherited) ? `<section><h2>Inherited Config</h2>
-    <p class="muted">These values come from the shared application config. Save an override here to customize any field for this deployment profile.</p>
+    <p class="muted">These values come from the shared deployment group config. Save an override here to customize any field for this deployment profile.</p>
     ${inheritedOverrideEditor(data, inherited, draft, redirect)}
   </section>` : ''}
   <section><h2>Profile Config</h2>
@@ -1206,7 +1206,7 @@ function applicationConfigPage(data: ApplicationProfileData): string {
   const redirect = `/application-config?applicationId=${encodeURIComponent(data.application.id)}&profile=${encodeURIComponent(data.applicationProfile.name)}`;
   return `<div class="page-head"><div><h1>${escapeHtml(data.application.name)}</h1><p class="muted">Shared config for deployment profile ${escapeHtml(data.applicationProfile.name)}.</p></div><a class="button secondary" href="/applications">Back</a></div>
   <div class="tabs">${data.applicationProfiles.map((profile) => `<a class="${profile.id === data.applicationProfile.id ? 'active' : ''}" href="/application-config?applicationId=${encodeURIComponent(data.application.id)}&profile=${encodeURIComponent(profile.name)}">${escapeHtml(profile.name)}</a>`).join('')}</div>
-  <section><h2>Shared Config</h2>
+  <section><h2>Deployment Group Config</h2>
     <p>${configStateBadge(data.configState)} <span class="muted">Published values are inherited by deployments with the same profile name.</span></p>
     ${applicationProfileConfigEditor(data, draft, redirect)}
     <form data-api="/api/application-profile-publish" data-redirect="${escapeHtml(redirect)}">
@@ -1387,9 +1387,9 @@ function applicationsTable(data: DashboardData): string {
       <button>Save</button><p class="status"></p>
     </form>
   </td><td class="actions">
-    <a class="button secondary" href="/application-config?applicationId=${encodeURIComponent(app.id)}&profile=default">Shared Config</a>
+    <a class="button secondary" href="/application-config?applicationId=${encodeURIComponent(app.id)}&profile=default">Deployment Group Config</a>
     <a class="button secondary" href="/deployments">Deployments</a>
-    ${deleteForm('/api/applications/delete', app.id, '/applications', 'Delete application and related deployments, profiles, configs, and keys?')}
+    ${deleteForm('/api/applications/delete', app.id, '/applications', 'Delete deployment group and related deployments, profiles, configs, and keys?')}
   </td></tr>`).join('')}</table>`;
 }
 
@@ -1399,7 +1399,7 @@ function groupsTable(data: DashboardData): string {
   return `<table>${data.groups.map((group) => `<tr><td>
     <form data-api="/api/groups/update" data-redirect="/deployments" class="inline-form">
       <input type="hidden" name="id" value="${escapeHtml(group.id)}">
-      ${select('applicationId', 'Application', selectedOptions(data.applications.map((x) => [x.id, x.name]), group.applicationId))}
+      ${select('applicationId', 'Deployment Group', selectedOptions(data.applications.map((x) => [x.id, x.name]), group.applicationId))}
       ${input('name', 'Name', true, group.name)}
       <button>Save</button><p class="status"></p>
     </form>
@@ -1663,7 +1663,7 @@ function applicationConfigSectionEditor(
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
         </form>
-        <form data-api="/api/application-profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove this shared plugin from the application profile?">
+        <form data-api="/api/application-profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove this shared plugin from the deployment group profile?">
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
