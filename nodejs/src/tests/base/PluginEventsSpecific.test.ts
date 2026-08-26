@@ -263,6 +263,20 @@ describe("PluginEvents specific server methods", () => {
     });
 
     const self = service.self();
+    const services = new SBServices(
+      "test-app",
+      "development",
+      process.cwd(),
+      MockSBPlugins(),
+      MockSBObservable(),
+    );
+    await (services as any).setupPluginClient(
+      MockSBConfig(),
+      MockSBObservable(),
+      sbEvents,
+      service,
+      self,
+    );
 
     assert.strictEqual(service._clients.length, 1);
     await assert.rejects(

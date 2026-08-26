@@ -398,11 +398,13 @@ export abstract class BSBService<
    */
   protected createSelf() {
     const selfClient = new BSBSelfServiceClient<typeof this, TEventSchemas>(this);
+    const clientEventSchemas = createServiceClientEventSchemas(this._eventSchemas);
+    (selfClient as any).__clientEventSchemas = clientEventSchemas;
     (selfClient as any).events = new PluginEvents(
       this.mode,
       this._sbEvents,
       selfClient,
-      createServiceClientEventSchemas(this._eventSchemas),
+      clientEventSchemas,
       this.__internalObservable
     );
     return selfClient;
