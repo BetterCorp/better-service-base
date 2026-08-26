@@ -337,6 +337,7 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
   lines.push('');
   lines.push('class _PluginRef {');
   lines.push('  static PLUGIN_CLIENT = _PLUGIN_CLIENT;');
+  lines.push('  static EventSchemas = _EventSchemas;');
   lines.push('}');
   lines.push('');
 

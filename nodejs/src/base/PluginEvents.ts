@@ -172,7 +172,7 @@ export class PluginEvents<TEventSchemas extends BSBEventSchemas = BSBEventSchema
             trace,
             this.cachedPluginName,
             eventName as string,
-            [validatedInput]
+            validatedInput
         );
     }
 

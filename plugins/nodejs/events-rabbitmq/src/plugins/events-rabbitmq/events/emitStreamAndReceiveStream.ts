@@ -14,6 +14,7 @@ export class emitStreamAndReceiveStream
   private plugin: Plugin;
   private eventsChannel!: SetupChannel;
   private streamChannel!: SetupChannel;
+  private readonly deliveryAttempts = new Map<string, number>();
   private readonly eventsChannelKey = "91se";
   private readonly streamChannelKey = "91sd";
   private readonly queueOpts: amqplib.Options.AssertQueue = {
@@ -62,11 +63,11 @@ export class emitStreamAndReceiveStream
 
   async setupChannel(
       obs: Observable,
-      channel: any,
+      channel: SetupChannel | undefined,
       channelKey: string,
-      queueKeyMethod: Function,
+      queueKeyMethod: () => string,
       logMessage: string,
-  ) {
+  ): Promise<SetupChannel> {
     if (channel === undefined) {
       const queueKey = queueKeyMethod();
       channel = await LIB.setupChannel(
@@ -83,7 +84,8 @@ export class emitStreamAndReceiveStream
 
       await channel.channel.addSetup(
           async (iChannel: amqplibCore.ConfirmChannel) => {
-            await iChannel.assertQueue(queueKey, this.queueOpts);
+            await LIB.setupDeadLetterQueue(this.plugin, iChannel);
+            await iChannel.assertQueue(queueKey, LIB.withDeadLetter(this.plugin, this.queueOpts));
             obs.log.debug("LISTEN: [{queueKey}]", { queueKey });
 
             await iChannel.consume(
@@ -94,8 +96,10 @@ export class emitStreamAndReceiveStream
                       queueKey,
                     });
                   }
+                  const rawBody = msg.content.toString();
+                  const deliveryKey = LIB.deliveryKey(msg, rawBody);
                   try {
-                    const body = JSON.parse(msg.content.toString());
+                    const body = JSON.parse(rawBody);
                     obs.log.debug("[RECEIVED {logMessage} {queueKey}]", {
                       logMessage,
                       queueKey,
@@ -108,14 +112,23 @@ export class emitStreamAndReceiveStream
                         ) +
                         msg.properties.correlationId,
                         body,
-                        () => iChannel.ack(msg),
-                        () => iChannel.nack(msg),
+                        () => {
+                          LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
+                          iChannel.ack(msg);
+                        },
+                        () => LIB.nackOrDeadLetter(
+                            obs,
+                            iChannel,
+                            msg,
+                            this.deliveryAttempts,
+                            deliveryKey,
+                            new Error("stream message rejected"),
+                            "stream consume",
+                        ),
                     );
                   } catch (exc: any) {
-                    obs.log.error("AMQP Consumed exception: {eMsg}", {
-                      eMsg: exc.message || exc.toString(),
-                    });
-                    throw new Error(`AMQP consume exception: ${exc.message || exc}`);
+                    const errorObj = exc instanceof Error ? exc : new Error(exc?.message || String(exc));
+                    LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "stream consume");
                   }
                 },
                 {noAck: false},
@@ -129,21 +142,22 @@ export class emitStreamAndReceiveStream
           },
       );
     }
+    return channel;
   }
 
   async setupChannelsIfNotSetup(obs: Observable) {
-    await this.setupChannel(
+    this.eventsChannel = await this.setupChannel(
         obs,
         this.eventsChannel,
         this.eventsChannelKey,
-        this.myEventsQueueKey,
+        () => this.myEventsQueueKey(),
         "events",
     );
-    await this.setupChannel(
+    this.streamChannel = await this.setupChannel(
         obs,
         this.streamChannel,
         this.streamChannelKey,
-        this.myStreamQueueKey,
+        () => this.myStreamQueueKey(),
         "stream",
     );
   }
@@ -213,6 +227,8 @@ export class emitStreamAndReceiveStream
                     {
                       expiration: self.queueOpts.messageTtl,
                       correlationId: "s-" + streamId,
+                      messageId: randomUUID(),
+                      persistent: true,
                       appId: self.plugin.myId,
                       timestamp: new Date().getTime(),
                     },
@@ -250,6 +266,8 @@ export class emitStreamAndReceiveStream
                     {
                       expiration: self.queueOpts.messageTtl,
                       correlationId: "s-" + streamId,
+                      messageId: randomUUID(),
+                      persistent: true,
                       appId: self.plugin.myId,
                       timestamp: new Date().getTime(),
                     },
@@ -286,6 +304,8 @@ export class emitStreamAndReceiveStream
                     {
                       expiration: self.queueOpts.messageTtl,
                       correlationId: "s-" + streamId,
+                      messageId: randomUUID(),
+                      persistent: true,
                       appId: self.plugin.myId,
                       timestamp: new Date().getTime(),
                     },
@@ -306,6 +326,8 @@ export class emitStreamAndReceiveStream
                           {
                             expiration: self.queueOpts.messageTtl,
                             correlationId: "s-" + streamId,
+                            messageId: randomUUID(),
+                            persistent: true,
                             appId: self.plugin.myId,
                             timestamp: new Date().getTime(),
                           },
@@ -339,6 +361,8 @@ export class emitStreamAndReceiveStream
                           {
                             expiration: self.queueOpts.messageTtl,
                             correlationId: "s-" + streamId,
+                            messageId: randomUUID(),
+                            persistent: true,
                             appId: self.plugin.myId,
                             timestamp: new Date().getTime(),
                           },
@@ -373,6 +397,8 @@ export class emitStreamAndReceiveStream
                             {
                               expiration: self.queueOpts.messageTtl,
                               correlationId: "s-" + streamId,
+                              messageId: randomUUID(),
+                              persistent: true,
                               appId: self.plugin.myId,
                               timestamp: new Date().getTime(),
                             },
@@ -571,6 +597,8 @@ export class emitStreamAndReceiveStream
                         {
                           expiration: self.queueOpts.messageTtl,
                           correlationId: "r-" + streamId,
+                          messageId: randomUUID(),
+                          persistent: true,
                           appId: self.plugin.myId,
                           timestamp: new Date().getTime(),
                         },
@@ -603,6 +631,8 @@ export class emitStreamAndReceiveStream
                           {
                             expiration: self.queueOpts.messageTtl,
                             correlationId: /*"r-" + */ streamId,
+                            messageId: randomUUID(),
+                            persistent: true,
                             appId: self.plugin.myId,
                             timestamp: new Date().getTime(),
                           },
@@ -639,6 +669,8 @@ export class emitStreamAndReceiveStream
                       {
                         expiration: self.queueOpts.messageTtl,
                         correlationId: streamId,
+                        messageId: randomUUID(),
+                        persistent: true,
                         appId: self.plugin.myId,
                         timestamp: new Date().getTime(),
                       },
@@ -705,6 +737,8 @@ export class emitStreamAndReceiveStream
                           {
                             expiration: self.queueOpts.messageTtl,
                             correlationId: streamId,
+                            messageId: randomUUID(),
+                            persistent: true,
                             appId: self.plugin.myId,
                             timestamp: new Date().getTime(),
                           },
@@ -731,6 +765,8 @@ export class emitStreamAndReceiveStream
                   {
                     expiration: self.queueOpts.messageTtl,
                     correlationId: "r-" + streamId,
+                    messageId: randomUUID(),
+                    persistent: true,
                     appId: self.plugin.myId,
                     timestamp: new Date().getTime(),
                   },

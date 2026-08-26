@@ -241,7 +241,8 @@ export class SBServices {
       this.mode,
       sbEvents,
       clientContext,
-      {} // empty event schemas for client context
+      (clientContext as any).__clientEventSchemas ?? {},
+      clientObservableBackend
     );
 
     // v9: Add resource context and createObservable method for clients

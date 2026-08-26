@@ -2,6 +2,7 @@ import {Plugin} from "../index.js";
 import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
 import {LIB, SetupChannel} from "./lib.js";
+import {randomUUID} from "crypto";
 import {
   SmartFunctionCallAsync,
   Observable,
@@ -12,6 +13,7 @@ export class emit {
   private publishQueuesSetup: Array<string> = [];
   private publishChannel!: SetupChannel<null>;
   private receiveChannel!: SetupChannel<null>;
+  private readonly deliveryAttempts = new Map<string, number>();
   private readonly channelKey = "91eq";
   private readonly queueOpts: amqplib.Options.AssertQueue = {
     durable: true,
@@ -68,14 +70,20 @@ export class emit {
 
     await this.receiveChannel.channel.addSetup(
         async (iChannel: amqplibCore.ConfirmChannel) => {
-          await iChannel.assertQueue(thisQueueKey, this.queueOpts);
-          await this.receiveChannel.channel.consume(
+          await LIB.setupDeadLetterQueue(this.plugin, iChannel);
+          await iChannel.assertQueue(thisQueueKey, LIB.withDeadLetter(this.plugin, this.queueOpts));
+          await iChannel.consume(
               thisQueueKey,
-              async (msg: amqplibCore.ConsumeMessage) => {
+              async (msg: amqplibCore.ConsumeMessage | null) => {
+                if (msg === null) {
+                  obs.log.warn("Message received on event queue was null");
+                  return;
+                }
                 const body = msg.content.toString();
-                const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
+                const deliveryKey = LIB.deliveryKey(msg, body);
                 let listenerObs: Observable | null = null;
                 try {
+                  const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
                   const rootObs = this.plugin.createObservableFromTrace(bodyObj.trace, {
                     pluginName,
                     event,
@@ -85,14 +93,14 @@ export class emit {
                     event,
                   });
                   await SmartFunctionCallAsync(this.plugin, listener, listenerObs, bodyObj.args ?? []);
-                  this.receiveChannel.channel.ack(msg);
+                  LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
+                  iChannel.ack(msg);
                 } catch (err: any) {
                   const errorObj = err instanceof Error ? err : new Error(err?.message || String(err));
                   if (listenerObs) {
                     listenerObs.error(errorObj);
                   }
-                  this.receiveChannel.channel.nack(msg, true);
-                  obs.log.error("event listener error: {err}", { err: errorObj.message });
+                  LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "event listener");
                 } finally {
                   if (listenerObs) {
                     listenerObs.end();
@@ -127,7 +135,8 @@ export class emit {
       this.publishQueuesSetup.push(thisQueueKey);
       await this.publishChannel.channel.addSetup(
           async (iChannel: amqplibCore.ConfirmChannel) => {
-            await iChannel.assertQueue(thisQueueKey, this.queueOpts);
+            await LIB.setupDeadLetterQueue(this.plugin, iChannel);
+            await iChannel.assertQueue(thisQueueKey, LIB.withDeadLetter(this.plugin, this.queueOpts));
             obs.log.debug("emit rabbit: [{thisQueueKey}]", {thisQueueKey});
           },
       );
@@ -140,6 +149,8 @@ export class emit {
         }, {
           expiration: this.queueOpts.messageTtl,
           contentType: "string",
+          messageId: randomUUID(),
+          persistent: true,
           appId: this.plugin.myId,
           timestamp: Date.now(),
         })

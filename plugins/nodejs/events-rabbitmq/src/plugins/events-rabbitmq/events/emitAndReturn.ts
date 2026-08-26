@@ -16,6 +16,7 @@ export class emitAndReturn
   private privateQueuesSetup: Array<string> = [];
   private publishChannel!: SetupChannel;
   private receiveChannel!: SetupChannel;
+  private readonly deliveryAttempts = new Map<string, number>();
   private readonly channelKey = "91ar";
   private readonly myChannelKey = "91kr";
   private readonly queueOpts: amqplib.Options.AssertQueue = {
@@ -66,7 +67,8 @@ export class emitAndReturn
     );
     await this.receiveChannel.channel.addSetup(
         async (iChannel: amqplibCore.ConfirmChannel): Promise<void> => {
-          await iChannel.assertQueue(myEARQueueKey, this.myQueueOpts);
+          await LIB.setupDeadLetterQueue(this.plugin, iChannel);
+          await iChannel.assertQueue(myEARQueueKey, LIB.withDeadLetter(this.plugin, this.myQueueOpts));
           obs.log.debug("LISTEN: [{myEARQueueKey}]", {myEARQueueKey});
           await iChannel.consume(
               myEARQueueKey,
@@ -77,18 +79,18 @@ export class emitAndReturn
                   });
                   return;
                 }
+                const body = msg.content.toString();
+                const deliveryKey = LIB.deliveryKey(msg, body);
                 try {
-                  const body = msg.content.toString();
                   obs.log.debug("[RECEIVED {myEARQueueKey}]", {
                     myEARQueueKey,
                   });
                   this.emit(msg.properties.correlationId, JSON.parse(body));
+                  LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
                   iChannel.ack(msg);
                 } catch (exc: any) {
-                  obs.log.error("AMQP Consumed exception: {eMsg}", {
-                    eMsg: exc.message || exc.toString(),
-                  });
-                  throw new Error(`AMQP consume exception: ${exc.message || exc}`);
+                  const errorObj = exc instanceof Error ? exc : new Error(exc?.message || String(exc));
+                  LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "EAR response consume");
                 }
               },
               {noAck: false},
@@ -124,7 +126,8 @@ export class emitAndReturn
 
     await this.receiveChannel.channel.addSetup(
         async (iChannel: amqplibCore.ConfirmChannel) => {
-          await iChannel.assertQueue(queueKey, this.queueOpts);
+          await LIB.setupDeadLetterQueue(this.plugin, iChannel);
+          await iChannel.assertQueue(queueKey, LIB.withDeadLetter(this.plugin, this.queueOpts));
           await iChannel.consume(
               queueKey,
               async (msg: amqplibCore.ConsumeMessage | null): Promise<any> => {
@@ -143,9 +146,11 @@ export class emitAndReturn
                   returnQueue,
                 });
                 const body = msg.content.toString();
-                const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
+                const deliveryKey = LIB.deliveryKey(msg, body);
+                let bodyObj: { trace?: any; args?: Array<any> } | null = null;
                 let handlerObs: Observable | null = null;
                 try {
+                  bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
                   const rootObs = this.plugin.createObservableFromTrace(bodyObj.trace, {
                     pluginName,
                     event,
@@ -176,6 +181,8 @@ export class emitAndReturn
                             expiration: 5000,
                             correlationId: `${msg.properties.correlationId}-resolve`,
                             contentType: "string",
+                            messageId: randomUUID(),
+                            persistent: true,
                             appId: this.plugin.myId,
                             timestamp: Date.now(),
                           },
@@ -187,6 +194,10 @@ export class emitAndReturn
                   const errorObj = exc instanceof Error ? exc : new Error(String(exc));
                   if (handlerObs) {
                     handlerObs.error(errorObj);
+                  }
+                  if (!bodyObj) {
+                    LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "EAR request consume");
+                    return;
                   }
                   obs.log.error("EAR: ERROR: {queueKey} -> {returnQueue}", {
                     queueKey,
@@ -200,12 +211,15 @@ export class emitAndReturn
                         expiration: 5000,
                         correlationId: `${msg.properties.correlationId}-reject`,
                         contentType: "string",
+                        messageId: randomUUID(),
+                        persistent: true,
                         appId: this.plugin.myId,
                         timestamp: Date.now(),
                       })
                   ) {
                     throw new BSBError(obs.trace, "Cannot send msg to queue [{returnQueue}]", {returnQueue});
                   }
+                  LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
                   iChannel.ack(msg);
                 } finally {
                   if (handlerObs) {
@@ -289,6 +303,8 @@ export class emitAndReturn
             expiration: timeoutSeconds * 1000 + 5000,
             correlationId: resultKey,
             contentType: "string",
+            messageId: randomUUID(),
+            persistent: true,
             appId: this.plugin.myId,
             timestamp: Date.now(),
           })

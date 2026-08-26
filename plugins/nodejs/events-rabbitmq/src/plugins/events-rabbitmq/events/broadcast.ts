@@ -12,6 +12,7 @@ export class broadcast {
   private plugin: Plugin;
   private publishChannel!: SetupChannel<string>;
   private receiveChannel!: SetupChannel<string>;
+  private readonly deliveryAttempts = new Map<string, number>();
   private readonly channelKey = "91eb";
   private readonly exchange = {
     type: "fanout",
@@ -90,14 +91,20 @@ export class broadcast {
 
     await this.receiveChannel.channel.addSetup(
         async (iChannel: amqplibCore.ConfirmChannel) => {
-          await iChannel.assertQueue(thisQueueKey, this.queueOpts);
-          await this.receiveChannel.channel.consume(
+          await LIB.setupDeadLetterQueue(this.plugin, iChannel);
+          await iChannel.assertQueue(thisQueueKey, LIB.withDeadLetter(this.plugin, this.queueOpts));
+          await iChannel.consume(
               thisQueueKey,
-              async (msg: amqplibCore.ConsumeMessage) => {
+              async (msg: amqplibCore.ConsumeMessage | null) => {
+                if (msg === null) {
+                  obs.log.warn("Message received on broadcast queue was null");
+                  return;
+                }
                 const body = msg.content.toString();
-                const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
+                const deliveryKey = LIB.deliveryKey(msg, body);
                 let listenerObs: Observable | null = null;
                 try {
+                  const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
                   const rootObs = this.plugin.createObservableFromTrace(bodyObj.trace, {
                     pluginName,
                     event,
@@ -107,15 +114,15 @@ export class broadcast {
                     event,
                   });
                   await SmartFunctionCallAsync(this.plugin, listener, listenerObs, bodyObj.args ?? []);
-                  this.receiveChannel.channel.ack(msg);
+                  LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
+                  iChannel.ack(msg);
                 }
                 catch (err: any) {
                   const errorObj = err instanceof Error ? err : new Error(err?.message || String(err));
                   if (listenerObs) {
                     listenerObs.error(errorObj);
                   }
-                  this.receiveChannel.channel.nack(msg, true);
-                  obs.log.error("broadcast listener error: {err}", { err: errorObj.message });
+                  LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "broadcast listener");
                 } finally {
                   if (listenerObs) {
                     listenerObs.end();
@@ -163,6 +170,8 @@ export class broadcast {
             {
               expiration: this.queueOpts.messageTtl,
               contentType: "string",
+              messageId: randomUUID(),
+              persistent: true,
               appId: this.plugin.myId,
               timestamp: Date.now(),
             },

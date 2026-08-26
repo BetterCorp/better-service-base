@@ -10,6 +10,10 @@ export interface SetupChannel<T extends string | null = string | null> {
 
 const isNil = (value: unknown) => value === null || value === undefined;
 export class LIB {
+  public static readonly MAX_DELIVERY_ATTEMPTS = 10;
+  public static readonly deadLetterExchange = "better.service9.deadletter";
+  public static readonly deadLetterQueue = "better.service9.deadletter";
+
   public static getQueueKey(
     plugin: Plugin,
     channelKey: string,
@@ -91,6 +95,68 @@ export class LIB {
           exType: exType!,
         });
       obs?.log.debug("Ready ({queueKey})", { queueKey });
+    });
+  }
+
+  public static withDeadLetter(
+    plugin: Plugin,
+    opts: amqplib.Options.AssertQueue
+  ): amqplib.Options.AssertQueue {
+    return {
+      ...opts,
+      deadLetterExchange: plugin.getPlatformName(LIB.deadLetterExchange),
+    };
+  }
+
+  public static async setupDeadLetterQueue(
+    plugin: Plugin,
+    channel: amqplibCore.ConfirmChannel
+  ): Promise<void> {
+    const exchange = plugin.getPlatformName(LIB.deadLetterExchange);
+    const queue = plugin.getPlatformName(LIB.deadLetterQueue);
+    await channel.assertExchange(exchange, "topic", { durable: true });
+    await channel.assertQueue(queue, {
+      durable: true,
+      autoDelete: false,
+      messageTtl: 7 * 24 * 60 * 60 * 1000,
+    });
+    await channel.bindQueue(queue, exchange, "#");
+  }
+
+  public static deliveryKey(msg: amqplibCore.ConsumeMessage, body: string): string {
+    return msg.properties.messageId || `${msg.fields.routingKey}:${body}`;
+  }
+
+  public static clearDeliveryFailure(
+    attempts: Map<string, number>,
+    key: string
+  ): void {
+    attempts.delete(key);
+  }
+
+  public static nackOrDeadLetter(
+    obs: Observable,
+    channel: amqplibCore.ConfirmChannel,
+    msg: amqplibCore.ConsumeMessage,
+    attempts: Map<string, number>,
+    key: string,
+    err: Error,
+    label: string
+  ): void {
+    const attempt = (attempts.get(key) ?? 0) + 1;
+    const requeue = attempt < LIB.MAX_DELIVERY_ATTEMPTS;
+    if (requeue) {
+      attempts.set(key, attempt);
+    } else {
+      attempts.delete(key);
+    }
+    channel.nack(msg, false, requeue);
+    obs.log.error("{label} error ({attempt}/{maxAttempts}, requeue={requeue}): {err}", {
+      label,
+      attempt,
+      maxAttempts: LIB.MAX_DELIVERY_ATTEMPTS,
+      requeue,
+      err: err.message,
     });
   }
 }

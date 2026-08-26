@@ -80,6 +80,7 @@ describe('generate-client-types', () => {
     assert.ok(code.includes('this._requireClientEvents("emitEventAndReturnSpecific", "fixture.answer")'));
     assert.ok(code.includes('this._requireClientEvents("onBroadcast", "fixture.broadcast")'));
     assert.ok(code.includes('this._requireClientEvents("emitBroadcast", "fixture.listen")'));
+    assert.ok(code.includes('static EventSchemas = _EventSchemas;'));
   });
 
   it('generates clients for record schemas exported with valueSchema', () => {

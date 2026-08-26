@@ -31,6 +31,7 @@ import {
   BSBEventSchemas,
   Observable,
   ServiceClientEventSchemas,
+  createServiceClientEventSchemas,
 } from "../interfaces/index.js";
 import { BSBService, BSBServiceClientDefinition } from "./BSBService.js";
 import { BSBError } from "./errorMessages.js";
@@ -126,7 +127,7 @@ export abstract class BSBServiceClient<
 export class ServiceClient<
   Service extends BSBService<any, TEventSchemas>,
   TEventSchemas extends BSBEventSchemas = any,
-  ServiceT extends { PLUGIN_CLIENT: BSBServiceClientDefinition } = any
+  ServiceT extends { PLUGIN_CLIENT: BSBServiceClientDefinition; EventSchemas?: TEventSchemas } = any
 >
   extends BSBServiceClient<Service> {
   /**
@@ -151,6 +152,7 @@ export class ServiceClient<
   public run?(obs: Observable): Promise<void>;
 
   public declare events: PluginEvents<ServiceClientEventSchemas<TEventSchemas>>;
+  public readonly __clientEventSchemas: ServiceClientEventSchemas<TEventSchemas>;
 
   constructor(service: ServiceT, context: BSBService) {
     super(context);
@@ -165,6 +167,7 @@ export class ServiceClient<
     this.initAfterPlugins = service.PLUGIN_CLIENT.initAfterPlugins;
     this.runBeforePlugins = service.PLUGIN_CLIENT.runBeforePlugins;
     this.runAfterPlugins = service.PLUGIN_CLIENT.runAfterPlugins;
+    this.__clientEventSchemas = createServiceClientEventSchemas(service.EventSchemas);
   }
 }
 

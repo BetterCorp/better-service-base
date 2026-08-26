@@ -26,7 +26,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { DTrace, Trace, BSBEventSchemas, Observable, EventSchemaExport, exportEventSchemas, ServiceClientEventSchemas } from "../interfaces/index.js";
+import { DTrace, Trace, BSBEventSchemas, Observable, EventSchemaExport, exportEventSchemas, ServiceClientEventSchemas, createServiceClientEventSchemas } from "../interfaces/index.js";
 import { SBEvents, SBObservable } from "../serviceBase/index.js";
 import { BaseWithObservableAndConfig, BaseWithObservableAndConfigConfig } from "./base.js";
 import { BSBServiceClient } from "./BSBServiceClient.js";
@@ -250,13 +250,17 @@ export abstract class BSBService<
    * @hidden
    */
   private _resourceContext: ResourceContext;
+  private readonly _eventSchemas: TEventSchemas;
+  private readonly _sbEvents: SBEvents;
 
   constructor(config: BSBServiceConstructor<ReferencedConfig, TEventSchemas>) {
     super(validateServiceStartup(config));
 
     // Observable backend initialized
 
-    this.events = new PluginEvents(config.mode, config.sbEvents, this, config.eventSchemas || {} as TEventSchemas, this.__internalObservable);
+    this._eventSchemas = config.eventSchemas || {} as TEventSchemas;
+    this._sbEvents = config.sbEvents;
+    this.events = new PluginEvents(config.mode, config.sbEvents, this, this._eventSchemas, this.__internalObservable);
 
     // Build resource context at construction time
     this._resourceContext = ResourceContextBuilder.build(
@@ -394,7 +398,13 @@ export abstract class BSBService<
    */
   protected createSelf() {
     const selfClient = new BSBSelfServiceClient<typeof this, TEventSchemas>(this);
-    this._clients.push(selfClient);
+    (selfClient as any).events = new PluginEvents(
+      this.mode,
+      this._sbEvents,
+      selfClient,
+      createServiceClientEventSchemas(this._eventSchemas),
+      this.__internalObservable
+    );
     return selfClient;
   }
 }
@@ -428,8 +438,6 @@ class BSBSelfServiceClient<
     this.runBeforePlugins = undefined;
     this.runAfterPlugins = undefined;
 
-    // Share the same events instance as the parent service
-    this.events = context.events;
   }
 
   // Self-client has no lifecycle of its own - it just shares the parent service's events

@@ -390,6 +390,19 @@ export interface ServiceClientEventSchemas<T extends BSBEventSchemas> {
   emitBroadcast?: T['onBroadcast'];
 }
 
+export function createServiceClientEventSchemas<const T extends BSBEventSchemas>(
+  schemas: T | null | undefined
+): ServiceClientEventSchemas<T> {
+  return {
+    onEvents: schemas?.emitEvents,
+    emitEvents: schemas?.onEvents,
+    onReturnableEvents: schemas?.emitReturnableEvents,
+    emitReturnableEvents: schemas?.onReturnableEvents,
+    onBroadcast: schemas?.emitBroadcast,
+    emitBroadcast: schemas?.onBroadcast,
+  };
+}
+
 // ============================================================================
 // Schema Export for Cross-Language Client Generation
 // ============================================================================

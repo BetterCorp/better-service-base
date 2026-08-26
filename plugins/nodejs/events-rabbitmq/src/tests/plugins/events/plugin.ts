@@ -6,6 +6,8 @@ import { emitAndReturn } from "./events/emitAndReturn.js";
 import { emitStreamAndReceiveStream } from "./events/emitStreamAndReceiveStream.js";
 import { getEventsConstructorConfig } from "../../mocks.js";
 import { createTestObservable } from "../../trace.js";
+import { LIB } from "../../../plugins/events-rabbitmq/events/lib.js";
+import * as assert from "assert";
 
 
 export const RunEventsPluginTests = (
@@ -56,3 +58,29 @@ describe("plugins/events-rabbitmq", () =>
     },
   }),
 );
+
+describe("plugins/events-rabbitmq poison handling", () => {
+  it("requeues failed deliveries nine times then dead-letters", () => {
+    const attempts = new Map<string, number>();
+    const nacks: Array<{ allUpTo: boolean; requeue: boolean }> = [];
+    const channel = {
+      nack: (_msg: unknown, allUpTo: boolean, requeue: boolean) => {
+        nacks.push({ allUpTo, requeue });
+      },
+    };
+    const obs = createTestObservable();
+    const msg = {
+      fields: { routingKey: "route" },
+      properties: { messageId: "persistent-id" },
+    };
+
+    for (let i = 0; i < LIB.MAX_DELIVERY_ATTEMPTS; i++) {
+      LIB.nackOrDeadLetter(obs, channel as any, msg as any, attempts, "persistent-id", new Error("bad"), "test");
+    }
+
+    assert.strictEqual(nacks.length, LIB.MAX_DELIVERY_ATTEMPTS);
+    assert.deepStrictEqual(nacks.slice(0, -1).map((nack) => nack.requeue), Array(9).fill(true));
+    assert.strictEqual(nacks[nacks.length - 1]?.requeue, false);
+    assert.strictEqual(attempts.has("persistent-id"), false);
+  });
+});
