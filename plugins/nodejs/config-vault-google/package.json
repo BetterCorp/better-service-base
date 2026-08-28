@@ -1,0 +1,55 @@
+{
+  "name": "@bsb/config-vault-google",
+  "version": "0.0.1",
+  "description": "Google Cloud Run authenticated BSB Vault config loader",
+  "type": "module",
+  "main": "lib/plugins/config-vault-google/index.js",
+  "types": "lib/plugins/config-vault-google/index.d.ts",
+  "files": [
+    "lib/**/*",
+    "README.md",
+    "bsb-plugin.json"
+  ],
+  "scripts": {
+    "build": "bsb-plugin-cli build",
+    "clean": "bsb-plugin-cli clean",
+    "start": "bsb-plugin-cli start",
+    "dev": "bsb-plugin-cli dev",
+    "test": "bsb-plugin-cli test",
+    "publish:client": "bsb client publish"
+  },
+  "keywords": [
+    "bsb",
+    "vault",
+    "config",
+    "google",
+    "cloud-run"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BetterCorp/better-service-base.git",
+    "directory": "plugins/nodejs/config-vault-google"
+  },
+  "license": "(AGPL-3.0-only OR Commercial)",
+  "author": {
+    "name": "BetterCorp (PTY) Ltd",
+    "email": "ninja@bettercorp.dev",
+    "url": "https://bettercorp.dev/"
+  },
+  "dependencies": {
+    "@bsb/base": "^9.1.11",
+    "@bsb/config-vault": "^0.0.1",
+    "anyvali": "^1.0.6",
+    "google-auth-library": "^11.0.2"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^25.6.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^6.0.3"
+  },
+  "bsb": {
+    "orgId": "bsb"
+  },
+  "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/config-vault-google"
+}

@@ -106,12 +106,27 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
         const response = await fetch(url, {
           method: 'GET',
           redirect: 'manual',
-          headers: {
-            'x-vault-key-id': this.config.apiKeyId,
-            'x-vault-secret': this.config.apiSecret,
-          },
+          headers: await this.vaultHeaders(false),
           signal: controller.signal,
         });
+        if (this.shouldRefreshVaultAuth(response.status)) {
+          const retry = await fetch(url, {
+            method: 'GET',
+            redirect: 'manual',
+            headers: await this.vaultHeaders(true),
+            signal: controller.signal,
+          });
+          if (retry.ok) {
+            let parsed: unknown;
+            try {
+              parsed = await retry.json();
+            } catch {
+              throw new BSBError(obs.trace, 'Invalid Vault response: expected JSON');
+            }
+            return parseRuntimeResolve(parsed, obs);
+          }
+          throw new BSBError(obs.trace, 'Vault config fetch failed with HTTP {status}', { status: retry.status });
+        }
         if ([429, 502, 503, 504].includes(response.status)) {
           lastError = new RetryableVaultError(`Vault config fetch failed with HTTP ${response.status}`);
         } else if (response.status >= 300 && response.status < 400) {
@@ -137,6 +152,17 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
       if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
     throw lastError;
+  }
+
+  protected async vaultHeaders(_forceRefresh: boolean): Promise<HeadersInit> {
+    return {
+      'x-vault-key-id': this.config.apiKeyId,
+      'x-vault-secret': this.config.apiSecret,
+    };
+  }
+
+  protected shouldRefreshVaultAuth(_status: number): boolean {
+    return false;
   }
 
   private applyResolved(resolved: RuntimeResolveResponse, obs: Observable): void {

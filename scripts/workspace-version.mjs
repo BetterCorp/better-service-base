@@ -39,15 +39,22 @@ function syncVersions(baseVersion) {
   for (const packagePath of getPluginPackagePaths()) {
     const pkg = readJson(packagePath);
     let changed = false;
+    const packageUpdates = [];
     for (const section of ['peerDependencies', 'devDependencies']) {
       if (pkg[section] && pkg[section]['@bsb/base'] && pkg[section]['@bsb/base'] !== baseRange) {
         pkg[section]['@bsb/base'] = baseRange;
         changed = true;
+        packageUpdates.push(`@bsb/base ${baseRange}`);
       }
+    }
+    if (pkg.name === '@bsb/config-vault-google' && pkg.dependencies?.['@bsb/config-vault'] !== baseRange) {
+      pkg.dependencies['@bsb/config-vault'] = baseRange;
+      changed = true;
+      packageUpdates.push(`@bsb/config-vault ${baseRange}`);
     }
     if (changed) {
       writeJson(packagePath, pkg);
-      updates.push(`${pkg.name} -> @bsb/base ${baseRange}`);
+      updates.push(`${pkg.name} -> ${packageUpdates.join(', ')}`);
     }
   }
 

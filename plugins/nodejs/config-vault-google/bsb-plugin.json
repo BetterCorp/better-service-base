@@ -1,0 +1,26 @@
+{
+  "nodejs": [
+    {
+      "id": "config-vault-google",
+      "name": "config-vault-google",
+      "basePath": "./",
+      "description": "Managed BSB config plugin that loads Vault config with Google Cloud Run authentication",
+      "tags": [
+        "vault",
+        "config",
+        "managed",
+        "runtime",
+        "google",
+        "cloud-run"
+      ],
+      "documentation": [
+        "./README.md"
+      ],
+      "pluginPath": "src/plugins/config-vault-google/",
+      "image": "../../../docs/public/assets/images/bsb-logo.png",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
+    }
+  ]
+}

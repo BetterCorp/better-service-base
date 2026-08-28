@@ -1,0 +1,20 @@
+{
+  "nodejs": [
+    {
+      "id": "config-vault-google",
+      "skip": false,
+      "default": {
+        "config": {},
+        "setup": null,
+        "dispose": null
+      },
+      "tests": [
+        {
+          "name": "custom",
+          "skip": false,
+          "config": {}
+        }
+      ]
+    }
+  ]
+}
