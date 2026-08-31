@@ -267,7 +267,7 @@ jobs:
           done
 
       - name: Set plugin version
-        run: npm version ${{ needs.prepare.outputs.version }} --workspace "${{ matrix.workspace }}" --allow-same-version --no-git-tag-version
+        run: npm pkg set version=${{ needs.prepare.outputs.version }} --workspace "${{ matrix.workspace }}"
 
       - name: Build plugin
         run: npm run build --workspace "${{ matrix.workspace }}"
