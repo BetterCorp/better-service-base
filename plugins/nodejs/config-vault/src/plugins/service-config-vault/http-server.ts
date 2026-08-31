@@ -9,6 +9,7 @@ import {
   getHeader,
   getMethod,
   getQuery,
+  getResponseStatus,
   getRequestURL,
   send,
   sendRedirect,
@@ -16,6 +17,7 @@ import {
   setResponseHeader,
   setResponseStatus,
   toNodeListener,
+  type H3Event,
 } from 'h3';
 import type { Observable } from '@bsb/base';
 import type { VaultService } from './vault.js';
@@ -36,6 +38,7 @@ export interface VaultHttpOptions {
   registryToken?: string;
   production: boolean;
   obs: Observable;
+  createTrace: (name: string, attributes?: Record<string, string | number | boolean>) => Observable;
   vault: VaultService;
 }
 
@@ -55,6 +58,16 @@ export class VaultHttpServer {
       onError: async (error, event) => {
         const pathname = getRequestURL(event).pathname;
         const statusCode = error.statusCode || vaultErrorStatus(error.message);
+        if (statusCode >= 500) {
+          const requestObs = requestObservable(event) ?? this.options.obs;
+          const loggedError = errorForObservability(error);
+          requestObs.error(loggedError, { 'http.response.status_code': statusCode });
+          requestObs.log.error('Vault HTTP request failed {method} {path}: {error}', {
+            method: getMethod(event),
+            path: pathname,
+            error: errorText(loggedError),
+          });
+        }
         if (statusCode === 401) this.clearSessionCookies(event);
         if (pathname.startsWith('/api/') || pathname === '/runtime/config' || pathname.startsWith('/login/') ||
             pathname.startsWith('/user-setup/') || pathname === '/logout') {
@@ -75,6 +88,28 @@ export class VaultHttpServer {
     app.use(defineEventHandler(async (event) => {
       const pathname = getRequestURL(event).pathname;
       const method = getMethod(event);
+      const requestObs = this.options.createTrace('vault.http.request', {
+        'http.request.method': method,
+        'url.path': pathname,
+      });
+      event.context.vaultRequestObs = requestObs;
+      requestObs.log.info('Vault HTTP request started {method} {path}', { method, path: pathname });
+      let ended = false;
+      const endRequest = (aborted: boolean) => {
+        if (ended) return;
+        ended = true;
+        const statusCode = getResponseStatus(event);
+        const attrs = {
+          'http.response.status_code': statusCode,
+          'client.aborted': aborted,
+        };
+        requestObs.log.info('Vault HTTP request finished {method} {path} {statusCode}', { method, path: pathname, statusCode });
+        requestObs.end(attrs);
+      };
+      event.node.res.once('finish', () => endRequest(false));
+      event.node.res.once('close', () => {
+        if (!event.node.res.writableEnded) endRequest(true);
+      });
       setResponseHeader(event, 'cache-control', 'no-store');
       setResponseHeader(event, 'x-content-type-options', 'nosniff');
       setResponseHeader(event, 'referrer-policy', 'no-referrer');
@@ -124,14 +159,14 @@ export class VaultHttpServer {
         throw createError({ statusCode: 401, statusMessage: 'Invalid Vault API key', message: 'Invalid Vault API key' });
       }
       try {
-        return await this.options.vault.resolveRuntimeConfig(keyId, secret, this.options.obs);
+        return await this.options.vault.resolveRuntimeConfig(keyId, secret, requestObservable(event) ?? this.options.obs);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Vault runtime request failed';
         const statusCode = message === 'Invalid Vault API key' ? 401
           : message.includes('not allowed to use') ? 403
             : message.includes('No active config version') || message.includes('was not found') ? 409
               : 500;
-        throw createError({ statusCode, statusMessage: message, message });
+        throw createError({ statusCode, statusMessage: message, message, cause: error });
       }
     }));
 
@@ -774,6 +809,18 @@ function vaultErrorStatus(message: string): number {
 
 function vaultErrorCode(statusCode: number): string {
   return ({ 400: 'INVALID_REQUEST', 401: 'AUTHENTICATION_REQUIRED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 405: 'METHOD_NOT_ALLOWED', 409: 'CONFLICT', 413: 'PAYLOAD_TOO_LARGE', 429: 'RATE_LIMITED', 503: 'SERVICE_UNAVAILABLE' } as Record<number, string>)[statusCode] ?? 'INTERNAL_ERROR';
+}
+
+function requestObservable(event: H3Event): Observable | undefined {
+  return event.context.vaultRequestObs as Observable | undefined;
+}
+
+function errorForObservability(error: Error & { cause?: unknown }): Error {
+  return error.cause instanceof Error ? error.cause : error;
+}
+
+function errorText(error: Error): string {
+  return error.stack || error.message;
 }
 
 function hashToken(value: string): string {

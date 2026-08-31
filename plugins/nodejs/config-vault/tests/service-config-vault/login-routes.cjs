@@ -47,6 +47,42 @@ module.exports = async ({ pluginRoot }) => {
   });
   await new Promise((resolve) => registryServer.listen(registryPort, '127.0.0.1', resolve));
   const calls = [];
+  const runtimeTraceIds = [];
+  const spans = [];
+  const logs = [];
+  const createTrace = (name, attributes = {}) => {
+    const span = {
+      name,
+      attributes,
+      trace: { t: `trace-${spans.length + 1}`, s: `span-${spans.length + 1}` },
+      ended: false,
+      endAttributes: null,
+      errors: [],
+    };
+    spans.push(span);
+    return {
+      trace: span.trace,
+      traceId: span.trace.t,
+      spanId: span.trace.s,
+      attributes,
+      resource: {},
+      log: {
+        info(message, meta) { logs.push({ level: 'info', trace: span.trace, message, meta }); },
+        debug(message, meta) { logs.push({ level: 'debug', trace: span.trace, message, meta }); },
+        warn(message, meta) { logs.push({ level: 'warn', trace: span.trace, message, meta }); },
+        error(message, meta) { logs.push({ level: 'error', trace: span.trace, message, meta }); },
+      },
+      metrics: {},
+      startSpan(childName, childAttributes = {}) { return createTrace(childName, { ...attributes, ...childAttributes }); },
+      setAttribute(key, value) { return createTrace(name, { ...attributes, [key]: value }); },
+      setAttributes(nextAttributes) { return createTrace(name, { ...attributes, ...nextAttributes }); },
+      error(error, errorAttributes) { span.errors.push({ error, attributes: errorAttributes }); },
+      end(endAttributes) {
+        span.ended = true;
+        span.endAttributes = endAttributes;
+      },
+    };
+  };
   const server = new VaultHttpServer({
     host: '127.0.0.1',
     port,
@@ -54,7 +90,8 @@ module.exports = async ({ pluginRoot }) => {
     registryUrl: `http://127.0.0.1:${registryPort}`,
     registryToken: 'vault-registry-token',
     production: false,
-    obs: { log: { info() {}, debug() {}, warn() {}, error() {} } },
+    obs: createTrace('test-root'),
+    createTrace,
     vault: {
       async assertAuditWritable() {},
       async auditMutationIntent() { return 'mutation-1'; },
@@ -165,6 +202,10 @@ module.exports = async ({ pluginRoot }) => {
       async cleanupUnusedImportedPlugins(userId) {
         calls.push(['cleanupUnusedImportedPlugins', userId]);
         return 1;
+      },
+      async resolveRuntimeConfig(_keyId, _secret, obs) {
+        runtimeTraceIds.push(obs.trace.t);
+        throw new Error('database exploded');
       },
       async deploymentProfile(profileId) {
         assert.equal(profileId, 'profile-1');
@@ -531,6 +572,12 @@ module.exports = async ({ pluginRoot }) => {
     assert.equal(wrongMethod.status, 405);
     assert.equal((await wrongMethod.json()).code, 'METHOD_NOT_ALLOWED');
 
+    const runtimeFailure = await fetch(`http://127.0.0.1:${port}/runtime/config`, {
+      headers: { 'x-vault-key-id': 'vk_test', 'x-vault-secret': 'vs_test' },
+    });
+    assert.equal(runtimeFailure.status, 500);
+    assert.deepEqual(await runtimeFailure.json(), { code: 'INTERNAL_ERROR', message: 'Vault request failed' });
+
     await postJson(port, '/api/groups', { applicationId: 'app-1', name: 'worker' });
     await postJson(port, '/api/plugins/sync', {});
     await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
@@ -579,6 +626,14 @@ module.exports = async ({ pluginRoot }) => {
       ['updateProfile', 'user-1', 'profile-1', 'group-1', 'prod'],
       ['deleteProfile', 'user-1', 'profile-1'],
     ]);
+    assert.ok(spans.length > 1);
+    assert.equal(spans.filter((span) => span.name === 'vault.http.request').every((span) => span.ended), true);
+    assert.equal(spans.filter((span) => span.name === 'vault.http.request').every((span) => typeof span.endAttributes['http.response.status_code'] === 'number'), true);
+    const failedSpan = spans.find((span) => span.errors.some((entry) => entry.error.message === 'database exploded'));
+    assert.ok(failedSpan);
+    assert.deepEqual(runtimeTraceIds, [failedSpan.trace.t]);
+    assert.equal(failedSpan.endAttributes['http.response.status_code'], 500);
+    assert.ok(logs.some((entry) => entry.level === 'error' && entry.trace.t === failedSpan.trace.t && /database exploded/.test(entry.meta.error)));
   } finally {
     await server.stop();
     await new Promise((resolve) => registryServer.close(resolve));

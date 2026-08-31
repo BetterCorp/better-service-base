@@ -139,6 +139,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       registryToken: this.config.registryToken,
       production: this.config.production,
       obs,
+      createTrace: (name, attributes) => this.createTrace(name, attributes),
       vault: this.vault,
     });
   }
