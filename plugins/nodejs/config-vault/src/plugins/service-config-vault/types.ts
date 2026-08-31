@@ -11,6 +11,7 @@ export interface RuntimePluginDefinition {
   plugin: string;
   package?: string;
   version?: string;
+  autoPinned?: boolean;
   enabled?: boolean;
   override?: boolean;
   filter?: string[];

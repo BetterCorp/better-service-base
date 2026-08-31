@@ -41,6 +41,18 @@ module.exports = async ({ pluginRoot }) => {
     org: 'example', name: 'Polluting', pluginId: 'polluting', packageName: '@example/polluting', version: '1.0.0',
     kind: 'service', source: 'manual', configSchema: JSON.parse('{"root":{"kind":"object","__proto__":{}}}'), eventSchema: null,
   }), /forbidden key/i);
+  await assert.rejects(() => vault.createPrivatePlugin('admin', {
+    org: 'example',
+    packageName: '@example/private-api',
+    schemaFileName: 'service-private-api.plugin.json',
+    schema: { id: 'service-private-api', version: '1.0.0', category: 'service' },
+  }), /not \{plugin-id\}\.plugin\.json/);
+  await assert.rejects(() => vault.createPrivatePlugin('admin', {
+    org: 'example',
+    packageName: '@example/private-api',
+    schemaFileName: 'bsb-plugin.json',
+    schema: { nodejs: [{ id: 'service-private-api' }] },
+  }), /generated lib\/schemas\/\{plugin-id\}\.json/);
   const created = await vault.createPrivatePlugin('admin', {
     org: 'example',
     packageName: '@example/private-api',

@@ -508,7 +508,7 @@ export class VaultService {
     assertSafeSchemaDocument(parsed.configSchema);
     assertSafeSchemaDocument(parsed.eventSchema);
     if ((await this.store.listPlugins()).some((plugin) => plugin.pluginId === parsed.pluginId)) {
-      throw new Error(`Plugin ${parsed.pluginId} already exists`);
+      throw new Error(`Plugin ${parsed.pluginId} already exists and cannot be uploaded or replaced`);
     }
     const plugin: PluginCatalogRecord = {
       ...parsed,
@@ -1208,7 +1208,7 @@ export class VaultService {
       let changed = false;
       const section = config[sectionName] ?? {};
       for (const entry of Object.values(section)) {
-        if (entry.version) continue;
+        if (entry.version && !entry.autoPinned) continue;
         if (entry.plugin !== imported.pluginId) continue;
         if ((entry.package ?? null) !== imported.packageName) continue;
         try {
@@ -1218,8 +1218,14 @@ export class VaultService {
             packageName: entry.package ?? null,
             config: entry.config ?? {},
           }, imported);
+          if (entry.autoPinned) {
+            delete entry.version;
+            delete entry.autoPinned;
+            changed = true;
+          }
         } catch {
-          entry.version = previous.version;
+          if (!entry.version) entry.version = previous.version;
+          entry.autoPinned = true;
           changed = true;
         }
       }
@@ -1727,12 +1733,16 @@ function validateConfigName(name: string): void {
 
 function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCatalogRecord, 'id' | 'source' | 'createdAt'> {
   const fileName = input.schemaFileName.trim();
+  if (/\.plugin\.json$/i.test(fileName)) throw new Error('Upload lib/schemas/{plugin-id}.json, not {plugin-id}.plugin.json');
   if (!/^[a-z0-9][a-z0-9._-]*\.json$/i.test(fileName)) throw new Error('Schema file must be named {plugin-id}.json');
   const pluginId = fileName.slice(0, -5);
   const org = input.org.trim();
   const packageName = input.packageName.trim();
   if (!/^(_|@?[a-z0-9][a-z0-9._-]*)$/i.test(org)) throw new Error('Plugin org is invalid');
   if (!packageName || /\s/.test(packageName)) throw new Error('Plugin npm package is required');
+  if (Array.isArray(input.schema.nodejs) || input.schema.version === undefined || input.schema.pluginType === undefined || !objectField(input.schema.events)) {
+    throw new Error('Uploaded plugin schema must be the generated lib/schemas/{plugin-id}.json file');
+  }
   const version = requiredVersion(input.schema.version, 'Schema version');
   const rawKind = requiredString(input.schema.pluginType, 'Schema pluginType');
   if (rawKind !== 'service' && rawKind !== 'events' && rawKind !== 'observable') {
@@ -1895,6 +1905,7 @@ function normalizeRuntimeSection(
       package: entry.package ?? catalog?.packageName ?? undefined,
     };
     delete normalized.override;
+    delete normalized.autoPinned;
     if (!normalized.package) delete normalized.package;
     return [name, normalized];
   }));

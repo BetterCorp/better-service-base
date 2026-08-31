@@ -192,6 +192,10 @@ module.exports = async ({ pluginRoot }) => {
         calls.push(['createPlugin', userId, input.pluginId, input.version, input.packageName]);
         return { id: 'imported-plugin', createdAt: '2026-01-01T00:00:00.000Z', ...input };
       },
+      async createPrivatePlugin(userId, input) {
+        calls.push(['createPrivatePlugin', userId, input.schemaFileName]);
+        throw new Error('Schema version is required');
+      },
       async publishPrivatePlugin(token, input) {
         calls.push(['publishPrivatePlugin', token, input.name, input.version]);
         return { status: 'published', plugin: { version: input.version } };
@@ -542,6 +546,23 @@ module.exports = async ({ pluginRoot }) => {
     assert.equal(directPublish.status, 200);
     assert.equal((await directPublish.json()).status, 'published');
 
+    const invalidPluginSchema = await fetch(`http://127.0.0.1:${port}/api/plugins`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: 'vault_session=session; vault_csrf=csrf-token',
+        'x-csrf-token': 'csrf-token',
+      },
+      body: JSON.stringify({
+        org: 'example',
+        packageName: '@example/service-private',
+        schemaFileName: 'service-private.json',
+        schema: {},
+      }),
+    });
+    assert.equal(invalidPluginSchema.status, 400);
+    assert.match((await invalidPluginSchema.json()).message, /not a valid plugin schema: Schema version is required/);
+
     const invalidRequest = await fetch(`http://127.0.0.1:${port}/api/groups`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -603,6 +624,7 @@ module.exports = async ({ pluginRoot }) => {
     assert.ok(registryAuthorization.every((value) => value === 'Bearer vault-registry-token'));
     assert.deepEqual(calls, [
       ['publishPrivatePlugin', 'bv_p_test', 'service-private', '1.1.0'],
+      ['createPrivatePlugin', 'user-1', 'service-private.json'],
       ['createDeployment', 'user-1', 'app-1', 'worker'],
       ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
       ['cleanupUnusedImportedPlugins', 'user-1'],

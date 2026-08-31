@@ -293,6 +293,30 @@ module.exports = async ({ pluginRoot }) => {
   });
   const lockedAfterImport = decryptDraft('profile-1');
   assert.equal(lockedAfterImport.default.services['latest-api'].version, '1.1.0');
+  assert.equal(lockedAfterImport.default.services['latest-api'].autoPinned, true);
+
+  await vault.createPlugin('user-1', {
+    org: 'bsb',
+    name: 'Service API',
+    pluginId: 'service-api',
+    packageName: '@bsb/service-api',
+    version: '2.1.0',
+    kind: 'service',
+    source: 'manual',
+    configSchema: {
+      root: {
+        kind: 'object',
+        properties: {
+          port: { kind: 'int32', min: 1 },
+          url: { kind: 'optional', inner: { kind: 'string', minLength: 1 } },
+        },
+      },
+    },
+    eventSchema: null,
+  });
+  const retriedAfterImport = decryptDraft('profile-1');
+  assert.equal(retriedAfterImport.default.services['latest-api'].version, undefined);
+  assert.equal(retriedAfterImport.default.services['latest-api'].autoPinned, undefined);
 
   await assert.rejects(() => vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1',

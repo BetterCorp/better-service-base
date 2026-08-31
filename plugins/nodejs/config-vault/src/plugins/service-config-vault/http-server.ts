@@ -57,7 +57,7 @@ export class VaultHttpServer {
     const app = createApp({
       onError: async (error, event) => {
         const pathname = getRequestURL(event).pathname;
-        const statusCode = error.statusCode || vaultErrorStatus(error.message);
+        const statusCode = error.statusCode && error.statusCode !== 500 ? error.statusCode : vaultErrorStatus(error.message);
         if (statusCode >= 500) {
           const requestObs = requestObservable(event) ?? this.options.obs;
           const loggedError = errorForObservability(error);
@@ -458,12 +458,19 @@ export class VaultHttpServer {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       const schema = parseJsonObject(body.schema);
-      if (!schema) throw new Error('Select a generated plugin schema JSON file');
+      if (!schema) throw createError({ statusCode: 400, statusMessage: 'Invalid plugin schema', message: 'Uploaded file is not a valid plugin schema: select a generated lib/schemas/{plugin-id}.json file' });
       const created = await this.options.vault.createPrivatePlugin(user.userId, {
         org: String(body.org ?? '_'),
         packageName: String(body.packageName ?? ''),
         schemaFileName: String(body.schemaFileName ?? ''),
         schema,
+      }).catch((error) => {
+        const message = error instanceof Error ? error.message : 'schema validation failed';
+        const statusCode = vaultErrorStatus(message);
+        if (statusCode === 400) {
+          throw createError({ statusCode, statusMessage: 'Invalid plugin schema', message: `Uploaded file is not a valid plugin schema: ${message}`, cause: error });
+        }
+        throw createError({ statusCode, statusMessage: message, message, cause: error });
       });
       return {
         ...created,
@@ -803,7 +810,7 @@ function vaultErrorStatus(message: string): number {
   if (/not found/i.test(message)) return 404;
   if (/already exists|cannot |no longer available|no active config|no draft|expired|replay/i.test(message)) return 409;
   if (/audit log integrity|audit.*unavailable/i.test(message)) return 503;
-  if (/invalid|required|must |too short|too long|unsupported|expected/i.test(message)) return 400;
+  if (/invalid|required|must |too short|too long|unsupported|expected|schema contains|schema exceeds/i.test(message)) return 400;
   return 500;
 }
 
