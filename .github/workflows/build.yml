@@ -62,8 +62,12 @@ jobs:
 
       - name: Build plugin workspaces
         run: |
+          npm run build --workspace plugins/nodejs/config-vault --if-present
           for pkg in plugins/nodejs/*/package.json; do
             dir=$(dirname "$pkg")
+            if [ "$dir" = "plugins/nodejs/config-vault" ]; then
+              continue
+            fi
             npm run build --workspace "$dir" --if-present
           done
 
