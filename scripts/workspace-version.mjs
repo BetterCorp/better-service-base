@@ -25,7 +25,7 @@ function isSemver(value) {
   return /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(value);
 }
 
-function syncVersions(baseVersion) {
+function syncVersions(baseVersion, options = {}) {
   const updates = [];
   const docsPackagePath = path.join(repoRoot, 'docs', 'package.json');
   const docsPackage = readJson(docsPackagePath);
@@ -40,6 +40,11 @@ function syncVersions(baseVersion) {
     const pkg = readJson(packagePath);
     let changed = false;
     const packageUpdates = [];
+    if (options.setPluginVersions && pkg.version !== baseVersion) {
+      pkg.version = baseVersion;
+      changed = true;
+      packageUpdates.push(`version ${baseVersion}`);
+    }
     for (const section of ['peerDependencies', 'devDependencies']) {
       if (pkg[section] && pkg[section]['@bsb/base'] && pkg[section]['@bsb/base'] !== baseRange) {
         pkg[section]['@bsb/base'] = baseRange;
@@ -83,7 +88,7 @@ if (mode === 'set') {
 }
 
 const resolvedBaseVersion = readJson(basePackagePath).version;
-const updates = syncVersions(resolvedBaseVersion);
+const updates = syncVersions(resolvedBaseVersion, { setPluginVersions: mode === 'set' });
 
 console.log(`base version: ${resolvedBaseVersion}`);
 if (updates.length === 0) {

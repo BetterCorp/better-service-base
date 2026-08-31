@@ -269,6 +269,10 @@ jobs:
       - name: Set plugin version
         run: npm pkg set version=${{ needs.prepare.outputs.version }} --workspace "${{ matrix.workspace }}"
 
+      - name: Build plugin dependencies
+        if: ${{ matrix.name == '@bsb/config-vault-google' }}
+        run: npm run build --workspace plugins/nodejs/config-vault
+
       - name: Build plugin
         run: npm run build --workspace "${{ matrix.workspace }}"
 
