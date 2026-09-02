@@ -1419,7 +1419,7 @@ function pluginCatalogTable(
       ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
       : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
     const updateId = `plugin-update-${plugin.id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
-    const updateAction = plugin.source === 'registry' ? '<span class="muted">Registry</span>' : `<form data-api="/api/plugins" data-redirect="/plugins"><input id="${escapeHtml(updateId)}" name="manifestFile" type="file" accept="application/json,.json" required><button class="secondary">Update</button><p class="status"></p></form>`;
+    const updateAction = plugin.source === 'registry' ? '<span class="muted">Registry</span>' : `<form data-api="/api/plugins" data-redirect="/plugins"><button class="secondary" type="button" data-file-picker="${escapeHtml(updateId)}">Update</button><input id="${escapeHtml(updateId)}" name="manifestFile" type="file" accept="application/json,.json" required hidden data-submit-on-change><p class="status"></p></form>`;
     return `<tr>
       <td>${escapeHtml(pluginDisplayName(plugin))}</td>
       <td>${escapeHtml(plugin.version)}</td>
@@ -2379,6 +2379,16 @@ function formScript(): string {
           showVaultError(status, error, 'Save failed');
         }
       }
+    });
+  });
+  document.querySelectorAll('[data-file-picker]').forEach((button) => {
+    button.addEventListener('click', () => {
+      document.getElementById(button.dataset.filePicker)?.click();
+    });
+  });
+  document.querySelectorAll('input[type="file"][data-submit-on-change]').forEach((input) => {
+    input.addEventListener('change', () => {
+      if (input.files && input.files.length > 0) input.closest('form[data-api]')?.requestSubmit();
     });
   });
   </script>`;

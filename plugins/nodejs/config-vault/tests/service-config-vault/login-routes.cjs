@@ -565,7 +565,7 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /Sync Imported Plugins/);
     assert.match(pluginsHtml, /<th>Plugin<\/th>/);
     assert.match(pluginsHtml, /Plugin Manifest JSON/);
-    assert.doesNotMatch(pluginsHtml, /data-submit-on-change/);
+    assert.match(pluginsHtml, /data-submit-on-change/);
     const catalogRows = [...pluginsHtml.matchAll(/<tr>[\s\S]*?<\/tr>/g)].map((match) => match[0]);
     const oldPrivatePluginRow = catalogRows.find((row) => row.includes('service-api') && row.includes('<td>1.0.0</td>') && row.includes('<td>manual</td>'));
     const uploadedPrivatePluginRow = catalogRows.find((row) => row.includes('service-api') && row.includes('<td>1.1.0</td>') && row.includes('<td>upload</td>'));
@@ -573,7 +573,8 @@ module.exports = async ({ pluginRoot }) => {
     assert.ok(uploadedPrivatePluginRow);
     assert.doesNotMatch(oldPrivatePluginRow, /Rotate Publish Secret/);
     assert.match(uploadedPrivatePluginRow, /Rotate Publish Secret/);
-    assert.match(uploadedPrivatePluginRow, /<button class="secondary">Update<\/button>/);
+    assert.match(uploadedPrivatePluginRow, /<button class="secondary" type="button" data-file-picker="plugin-update-service-plugin-upload">Update<\/button>/);
+    assert.match(uploadedPrivatePluginRow, /hidden data-submit-on-change/);
     assert.match(pluginsHtml, /Vault v9\.9\.9/);
     assert.match(pluginsHtml, /BetterCorp \(PTY\) Ltd/);
     assert.match(pluginsHtml, /main\{width:100%;min-width:0;padding:24px\}/);
