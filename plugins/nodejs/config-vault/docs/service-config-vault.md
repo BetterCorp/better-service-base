@@ -39,7 +39,7 @@ Vault uses a structured admin UI:
 - **Overview**: inventory counts and recent runtime keys.
 - **Deployment Groups**: create, edit, delete, and list deployment groups.
 - **Deployments**: create deployments, open profiles, add/remove configured plugins, edit schema-derived plugin settings, publish drafts, and create or rotate container keys.
-- **Plugins**: create private/manual plugin catalog entries and attach schemas.
+- **Plugins**: create private/manual plugin catalog entries, attach schemas, and clear catalog versions that are not referenced by any config.
 - **Users**: invite, deactivate, and reset administrator access.
 - **Audit**: inspect and verify the signed append-only audit chain.
 - **Profile**: add, label, and remove paired TOTP/passkey methods.

@@ -98,7 +98,7 @@ Fields carrying AnyVali `{ sensitive: true, writeonly: true }` metadata use writ
 
 ## Private Plugin CI Publishing
 
-On the Plugins page, upload the generated `lib/schemas/{plugin-id}.json` file with its org and npm package name. Vault creates a plugin-specific `bv_p_` publish token and shows it once. Store that token as a CI secret.
+On the Plugins page, upload one or more generated `lib/schemas/{plugin-id}.plugin.json` manifests. Vault processes each file independently, lists its result, and creates a plugin-specific `bv_p_` publish token for each new plugin. Store each token as a CI secret.
 
 Publish the executable package to your private npm registry first, then append its generated schema to Vault:
 

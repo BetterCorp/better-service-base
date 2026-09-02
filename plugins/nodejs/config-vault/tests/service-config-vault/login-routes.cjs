@@ -227,6 +227,10 @@ module.exports = async ({ pluginRoot }) => {
         calls.push(['cleanupUnusedImportedPlugins', userId]);
         return 1;
       },
+      async cleanupUnusedPlugins(userId) {
+        calls.push(['cleanupUnusedPlugins', userId]);
+        return 2;
+      },
       async resolveRuntimeConfig(_keyId, _secret, obs) {
         runtimeTraceIds.push(obs.trace.t);
         throw new Error('database exploded');
@@ -553,6 +557,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const pluginsHtml = await pluginsPage.text();
     assert.equal(pluginsPage.status, 200);
+    for (const script of pluginsHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)) new Function(script[1]);
     assert.match(pluginsHtml, /syslog-client/);
     assert.doesNotMatch(pluginsHtml, /_\/syslog-client/);
     assert.doesNotMatch(pluginsHtml, /config-vault/);
@@ -564,8 +569,14 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /In use/);
     assert.match(pluginsHtml, /\/api\/plugins\/delete/);
     assert.match(pluginsHtml, /Sync Imported Plugins/);
+    assert.match(pluginsHtml, /Clear Unused Plugins/);
+    assert.match(pluginsHtml, /Publishing credentials are also removed when no versions remain/);
     assert.match(pluginsHtml, /<th>Plugin<\/th>/);
     assert.match(pluginsHtml, /Plugin Manifest JSON/);
+    assert.match(pluginsHtml, /data-plugin-batch/);
+    assert.match(pluginsHtml, /required multiple/);
+    assert.match(pluginsHtml, /for \(const file of files\)/);
+    assert.match(pluginsHtml, /file\.name \+ ': Not uploaded - '/);
     assert.match(pluginsHtml, /data-submit-on-change/);
     const catalogRows = [...pluginsHtml.matchAll(/<tr>[\s\S]*?<\/tr>/g)].map((match) => match[0]);
     const oldPrivatePluginRow = catalogRows.find((row) => row.includes('service-api') && row.includes('<td>1.0.0</td>') && row.includes('<td>manual</td>'));
@@ -669,6 +680,7 @@ module.exports = async ({ pluginRoot }) => {
     await postJson(port, '/api/plugins/import', { org: '@bsb', name: 'service-worker', pluginId: 'service-worker', packageName: '@bsb/service-worker', version: '1.0.0', kind: 'service', configSchema: {} });
     await postJson(port, '/api/plugins/import', { org: 'betterportal', name: 'service-betterportal-theme-bootstrap1', pluginId: 'service-betterportal-theme-bootstrap1', packageName: '@betterportal/theme-bootstrap1', version: '10.0.9', kind: 'service', configSchema: {} });
     await postJson(port, '/api/plugins/delete', { id: 'root-plugin' });
+    await postJson(port, '/api/plugins/cleanup', {});
     await postJson(port, '/api/drafts', { profileId: 'profile-1', config: { services: { api: { plugin: 'service-api', enabled: true } } } });
     await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'shared', plugin: 'service-api', enabled: true, config: { host: 'service-specific' } });
     await postJson(port, '/api/profile-plugins', { profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', enabled: true, config: { host: '0.0.0.0', port: 3200 } });
@@ -697,6 +709,7 @@ module.exports = async ({ pluginRoot }) => {
       ['createPlugin', 'user-1', 'service-worker', '1.0.0', '@bsb/service-worker'],
       ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
       ['deletePlugin', 'user-1', 'root-plugin'],
+      ['cleanupUnusedPlugins', 'user-1'],
       ['saveProfileDraft', 'user-1', 'profile-1', { services: { api: { plugin: 'service-api', enabled: true } } }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'shared', 'service-api', { host: 'service-specific' }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'api', 'service-api', { host: '0.0.0.0', port: 3200 }],

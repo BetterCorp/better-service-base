@@ -457,6 +457,11 @@ export class VaultHttpServer {
       return { success: true };
     }));
 
+    app.use('/api/plugins/cleanup', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      return { success: true, deleted: await this.options.vault.cleanupUnusedPlugins(user.userId) };
+    }));
+
     app.use('/api/plugins', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -1392,13 +1397,13 @@ function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: 
     ${visibleRegistry.length === 0 ? '<p class="muted">No configurable registry results loaded.</p>' : registryTable(visibleRegistry, visiblePlugins)}
   </section>
   <section><h2>Private Plugin</h2>
-    <p class="muted">Upload the generated <code>lib/schemas/{plugin-id}.plugin.json</code> manifest. Vault reads the plugin identity and config schema from the file.</p>
-    <form data-api="/api/plugins">
-      <label>Plugin Manifest JSON<input name="manifestFile" type="file" accept="application/json,.json" required></label>
-      <button class="success">Create Plugin</button><p class="status"></p>
+    <p class="muted">Upload one or more generated <code>lib/schemas/{plugin-id}.plugin.json</code> manifests. Vault reads each plugin identity and config schema from its file.</p>
+    <form data-api="/api/plugins" data-plugin-batch>
+      <label>Plugin Manifest JSON<input name="manifestFile" type="file" accept="application/json,.json" required multiple></label>
+      <button class="success">Upload Plugins</button><div class="status"></div>
     </form>
   </section>
-  <section><h2>Catalog</h2>${pluginCatalogTable(visiblePlugins, data.pluginUsage, data.pluginPublishers ?? [])}</section>
+  <section><div class="page-head"><h2>Catalog</h2><form data-api="/api/plugins/cleanup" data-redirect="/plugins" data-confirm="Delete every unused plugin version? Publishing credentials are also removed when no versions remain."><button class="danger">Clear Unused Plugins</button><p class="status"></p></form></div>${pluginCatalogTable(visiblePlugins, data.pluginUsage, data.pluginPublishers ?? [])}</section>
   ${formScript()}`;
 }
 
@@ -2369,6 +2374,66 @@ function shortId(value: string): string {
 
 function formScript(): string {
   return `<script>
+  async function uploadPluginFile(form, file, item, replace) {
+    item.className = '';
+    item.textContent = file.name + ': Checking...';
+    try {
+      if (file.size > 1024 * 1024) throw new Error('File must be 1 MB or smaller');
+      const data = { manifestFileName: file.name, manifest: JSON.parse(await file.text()) };
+      if (replace) data.replace = true;
+      const csrf = document.cookie.split('; ').find((x) => x.startsWith('vault_csrf='))?.split('=')[1] || '';
+      const res = await fetch(form.dataset.api, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) throw vaultApiError(result, 'Upload failed');
+      item.className = 'ok';
+      item.textContent = file.name + ': Uploaded';
+      if (result.publishCommand) {
+        const command = document.createElement('pre');
+        command.className = 'code';
+        command.textContent = 'Shown once - CI command: ' + result.publishCommand;
+        item.appendChild(command);
+      }
+      return;
+    } catch (error) {
+      item.className = 'danger';
+      item.textContent = file.name + ': Not uploaded - ' + (error instanceof Error ? error.message : 'Upload failed');
+      if (!error || !error.replaceable) return;
+      if (error.diff && error.diff.length) {
+        const diff = document.createElement('pre');
+        diff.className = 'code';
+        diff.textContent = error.diff.map((row) => '- ' + row.field + ': ' + row.existing + '\\n+ ' + row.field + ': ' + row.uploaded).join('\\n');
+        item.appendChild(diff);
+      }
+      const replaceButton = document.createElement('button');
+      replaceButton.type = 'button';
+      replaceButton.className = 'secondary';
+      replaceButton.textContent = 'Replace and migrate configs';
+      replaceButton.addEventListener('click', () => uploadPluginFile(form, file, item, true));
+      item.appendChild(replaceButton);
+    }
+  }
+  async function uploadPluginBatch(form, status) {
+    const input = form.querySelector('input[type="file"][multiple]');
+    const files = Array.from(input && input.files || []);
+    if (!files.length) throw new Error('Select at least one plugin manifest');
+    const list = document.createElement('ul');
+    status.replaceChildren(list);
+    const submit = form.querySelector('button[type="submit"],button:not([type])');
+    if (submit) submit.disabled = true;
+    try {
+      for (const file of files) {
+        const item = document.createElement('li');
+        list.appendChild(item);
+        await uploadPluginFile(form, file, item, false);
+      }
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  }
   document.querySelectorAll('form[data-api]').forEach((form) => {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -2376,6 +2441,10 @@ function formScript(): string {
       const status = form.querySelector('.status');
       if (status) { status.textContent = 'Saving...'; status.className = 'status'; }
       try {
+        if (form.hasAttribute('data-plugin-batch')) {
+          await uploadPluginBatch(form, status);
+          return;
+        }
         const data = {};
         for (const [key, value] of new FormData(form).entries()) {
           if (value instanceof File) {

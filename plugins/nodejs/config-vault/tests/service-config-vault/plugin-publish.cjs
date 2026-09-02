@@ -15,7 +15,7 @@ module.exports = async ({ pluginRoot }) => {
     async authenticationAllowed() { return true; },
     async recordAuthenticationFailure() {},
     async clearAuthenticationFailures() {},
-    async listPlugins() { return plugins; },
+    async listPlugins() { return [...plugins]; },
     async createPlugin(plugin) { plugins.push(plugin); },
     async createPrivatePlugin(plugin, createdPublisher) {
       plugins.push(plugin);
@@ -26,6 +26,12 @@ module.exports = async ({ pluginRoot }) => {
     async getPluginPublisherByTokenId(tokenId) { return publisher?.tokenId === tokenId ? publisher : null; },
     async createPluginPublisher(createdPublisher) { publisher = createdPublisher; },
     async updatePluginPublisherIdentity(record) { publisherUpdates += 1; publisher = { ...publisher, ...record }; },
+    async deletePlugin(id) {
+      const index = plugins.findIndex((plugin) => plugin.id === id);
+      if (index < 0) return false;
+      plugins.splice(index, 1);
+      return false;
+    },
     async rotatePluginPublisher(pluginId, tokenId, secretHash, rotatedAt) {
       assert.equal(pluginId, publisher.pluginId);
       publisher = { ...publisher, tokenId, secretHash, rotatedAt };
@@ -211,6 +217,13 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(migrated.services.api.config.host, 'api.local');
   assert.equal(publisher.packageName, '@example/renamed-replace-api');
   assert.equal(publisherUpdates, 2);
+
+  plugins.push({ ...replacement.plugin, id: 'config-plugin', pluginId: 'config-vault', name: 'config-vault', kind: 'config' });
+  const usage = await vault.pluginUsage(plugins);
+  const retainedPluginIds = plugins.filter((plugin) => plugin.kind === 'config' || usage[plugin.id]?.count).map((plugin) => plugin.id);
+  const unusedCount = plugins.length - retainedPluginIds.length;
+  assert.equal(await vault.cleanupUnusedPlugins('admin'), unusedCount);
+  assert.deepEqual(plugins.map((plugin) => plugin.id), retainedPluginIds);
 
   assert.ok(audits.some((entry) => entry.action === 'plugin.publisher.rotate'));
   assert.equal(JSON.stringify(audits).includes(created.secret), false);

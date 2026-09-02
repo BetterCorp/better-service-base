@@ -809,6 +809,24 @@ export class VaultService {
     return deleted;
   }
 
+  async cleanupUnusedPlugins(userId: string): Promise<number> {
+    const plugins = await this.store.listPlugins();
+    const usage = await this.pluginUsage(plugins);
+    let deleted = 0;
+    for (const plugin of plugins) {
+      if (plugin.kind === 'config') continue;
+      if (usage[plugin.id]?.count) continue;
+      const publisherRemoved = await this.store.deletePlugin(plugin.id);
+      deleted += 1;
+      await this.audit(userId, 'plugin.cleanup.unused', plugin.id, {
+        pluginId: plugin.pluginId,
+        version: plugin.version,
+        publisherRemoved,
+      });
+    }
+    return deleted;
+  }
+
   async saveDraft(userId: string, profileId: string, config: VaultRuntimeConfig): Promise<void> {
     const encrypted = this.encrypt(config, profileDraftAad(profileId));
     await this.store.upsertDraft({
