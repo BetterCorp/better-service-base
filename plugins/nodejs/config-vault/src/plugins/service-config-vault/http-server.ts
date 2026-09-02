@@ -878,8 +878,9 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     nav{background:#fff;border-right:1px solid var(--line);padding:14px}
     nav a{display:block;color:#344054;text-decoration:none;padding:9px 10px;border-radius:6px;margin:2px 0;font-weight:600;font-size:14px}
     nav a.active{background:#eaf1ff;color:#155eef}
-    main{max-width:1180px;width:100%;padding:24px}
-    section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;margin:0 0 16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+    main{width:100%;min-width:0;padding:24px}
+    section{padding:18px 0;margin:0;border-top:1px solid var(--line)}
+    section:first-child,.page-head+section{border-top:0;padding-top:0}
     h1,h2,h3{margin:0 0 12px} h1{font-size:26px} h2{font-size:18px} h3{font-size:15px;color:#344054}
     label{display:block;font-size:13px;font-weight:650;color:#344054;margin:12px 0 6px}
     input,textarea,select{display:block;width:100%;margin:0 0 12px;padding:10px 11px;border:1px solid #b9c0ca;border-radius:6px;font:inherit;background:#fff}

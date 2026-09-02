@@ -549,6 +549,9 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /data-submit-on-change/);
     assert.match(pluginsHtml, /Vault v9\.9\.9/);
     assert.match(pluginsHtml, /BetterCorp \(PTY\) Ltd/);
+    assert.match(pluginsHtml, /main\{width:100%;min-width:0;padding:24px\}/);
+    assert.doesNotMatch(pluginsHtml, /max-width:1180px/);
+    assert.doesNotMatch(pluginsHtml, /section\{background:var\(--panel\);border:1px solid var\(--line\)/);
 
     const directPublish = await fetch(`http://127.0.0.1:${port}/api/plugins/publish`, {
       method: 'POST',
