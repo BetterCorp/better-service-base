@@ -1673,6 +1673,10 @@ function enabledBadge(enabled: boolean | undefined): string {
   return `<span class="state-badge ${enabled ? 'live' : 'disabled'}">${enabled ? 'Enabled' : 'Disabled'}</span>`;
 }
 
+function lockedBadge(entry: RuntimePluginDefinition): string {
+  return entry.autoPinned ? '<span class="state-badge disabled">Locked</span>' : '';
+}
+
 function hasConfigEntries(config: RuntimeConfigDefinition): boolean {
   return ['services', 'events', 'observable'].some((section) =>
     Object.keys(config[section as keyof RuntimeConfigDefinition] ?? {}).length > 0
@@ -1766,7 +1770,7 @@ function configSectionEditor(
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
-        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}</span></summary>
+        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}${lockedBadge(entry)}</span></summary>
         <div class="plugin-card-body">
         <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
@@ -1815,7 +1819,7 @@ function applicationConfigSectionEditor(
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
-        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}</span></summary>
+        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}${lockedBadge(entry)}</span></summary>
         <div class="plugin-card-body">
         <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
@@ -1878,7 +1882,7 @@ function inheritedOverrideSection(
     const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
     const enabledOverridden = localEntry?.enabled !== undefined;
     return `<details class="plugin-card">
-      <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'}</span>${enabledBadge(effective.enabled)}</span></summary>
+      <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'}</span>${enabledBadge(effective.enabled)}${lockedBadge(effective)}</span></summary>
       <div class="plugin-card-body">
         <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-inherited-override-form>
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
