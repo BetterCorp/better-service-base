@@ -10,6 +10,7 @@ module.exports = async ({ pluginRoot }) => {
   const profiles = [];
   const drafts = new Map();
   let publisher = null;
+  let publisherUpdates = 0;
   const store = {
     async authenticationAllowed() { return true; },
     async recordAuthenticationFailure() {},
@@ -24,7 +25,7 @@ module.exports = async ({ pluginRoot }) => {
     async getPluginPublisher(pluginId) { return publisher?.pluginId === pluginId ? publisher : null; },
     async getPluginPublisherByTokenId(tokenId) { return publisher?.tokenId === tokenId ? publisher : null; },
     async createPluginPublisher(createdPublisher) { publisher = createdPublisher; },
-    async updatePluginPublisherIdentity(record) { publisher = { ...publisher, ...record }; },
+    async updatePluginPublisherIdentity(record) { publisherUpdates += 1; publisher = { ...publisher, ...record }; },
     async rotatePluginPublisher(pluginId, tokenId, secretHash, rotatedAt) {
       assert.equal(pluginId, publisher.pluginId);
       publisher = { ...publisher, tokenId, secretHash, rotatedAt };
@@ -84,6 +85,8 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(plugins[0].eventSchema.pluginId, 'service-private-api');
   assert.equal(plugins[0].eventSchema.pluginName, 'service-private-api');
   assert.equal(plugins[0].eventSchema.displayName, 'Private API');
+  const createdTokenId = publisher.tokenId;
+  const createdSecretHash = publisher.secretHash;
   await assert.rejects(() => vault.createPrivatePlugin('admin', {
     org: 'example',
     packageName: '@example/private-api',
@@ -125,6 +128,10 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(uploadedVersion.plugin.version, '1.0.1');
   assert.equal(uploadedVersion.plugin.source, 'upload');
   assert.equal(uploadedVersion.secret, undefined);
+  assert.equal(publisherUpdates, 1);
+  assert.equal(publisher.tokenId, createdTokenId);
+  assert.equal(publisher.secretHash, createdSecretHash);
+  assert.equal(publisher.packageName, '@example/private-api');
 
   const request = {
     org: 'example',
@@ -203,6 +210,7 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(migrated.services.api.version, '1.0.1');
   assert.equal(migrated.services.api.config.host, 'api.local');
   assert.equal(publisher.packageName, '@example/renamed-replace-api');
+  assert.equal(publisherUpdates, 2);
 
   assert.ok(audits.some((entry) => entry.action === 'plugin.publisher.rotate'));
   assert.equal(JSON.stringify(audits).includes(created.secret), false);

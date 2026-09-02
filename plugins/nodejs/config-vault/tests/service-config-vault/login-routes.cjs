@@ -130,6 +130,15 @@ module.exports = async ({ pluginRoot }) => {
             kind: 'service',
             source: 'manual',
           }, {
+            id: 'service-plugin-upload',
+            org: '@bsb',
+            name: 'service-api',
+            pluginId: 'service-api',
+            packageName: '@bsb/service-api',
+            version: '1.1.0',
+            kind: 'service',
+            source: 'upload',
+          }, {
             id: 'root-plugin',
             org: '_',
             name: 'syslog-client',
@@ -161,6 +170,16 @@ module.exports = async ({ pluginRoot }) => {
             'service-plugin': { count: 1, locations: ['draft:profile-1/services/api'] },
             'root-plugin': { count: 0, locations: [] },
           },
+          pluginPublishers: [{
+            pluginId: 'service-api',
+            org: '@bsb',
+            name: 'service-api',
+            packageName: '@bsb/service-api',
+            kind: 'service',
+            tokenId: 'pub-service-api',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            rotatedAt: '2026-01-01T00:00:00.000Z',
+          }],
           runtimeKeys: [],
         };
       },
@@ -546,7 +565,15 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /Sync Imported Plugins/);
     assert.match(pluginsHtml, /<th>Plugin<\/th>/);
     assert.match(pluginsHtml, /Plugin Manifest JSON/);
-    assert.match(pluginsHtml, /data-submit-on-change/);
+    assert.doesNotMatch(pluginsHtml, /data-submit-on-change/);
+    const catalogRows = [...pluginsHtml.matchAll(/<tr>[\s\S]*?<\/tr>/g)].map((match) => match[0]);
+    const oldPrivatePluginRow = catalogRows.find((row) => row.includes('service-api') && row.includes('<td>1.0.0</td>') && row.includes('<td>manual</td>'));
+    const uploadedPrivatePluginRow = catalogRows.find((row) => row.includes('service-api') && row.includes('<td>1.1.0</td>') && row.includes('<td>upload</td>'));
+    assert.ok(oldPrivatePluginRow);
+    assert.ok(uploadedPrivatePluginRow);
+    assert.doesNotMatch(oldPrivatePluginRow, /Rotate Publish Secret/);
+    assert.match(uploadedPrivatePluginRow, /Rotate Publish Secret/);
+    assert.match(uploadedPrivatePluginRow, /<button class="secondary">Update<\/button>/);
     assert.match(pluginsHtml, /Vault v9\.9\.9/);
     assert.match(pluginsHtml, /BetterCorp \(PTY\) Ltd/);
     assert.match(pluginsHtml, /main\{width:100%;min-width:0;padding:24px\}/);

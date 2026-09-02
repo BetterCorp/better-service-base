@@ -537,21 +537,7 @@ export class VaultService {
         if (!(await this.store.createPluginIfAbsent(plugin))) {
           throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} already exists and cannot be uploaded again`);
         }
-        const publisher = await this.store.getPluginPublisher(plugin.pluginId);
-        if (publisher) {
-          if (!plugin.packageName) throw new Error(`Replacement manifest for ${plugin.pluginId} must include a package because CI publishing is enabled`);
-          await this.store.updatePluginPublisherIdentity({
-            pluginId: plugin.pluginId,
-            org: plugin.org,
-            name: plugin.name,
-            packageName: plugin.packageName,
-            kind: plugin.kind as PluginPublisherRecord['kind'],
-            tokenId: publisher.tokenId,
-            secretHash: publisher.secretHash,
-            createdAt: publisher.createdAt,
-            rotatedAt: publisher.rotatedAt,
-          });
-        }
+        await this.movePublisherToPlugin(plugin);
         await this.lockIncompatibleUnlockedConfigs(userId, plugin, previousPlugins);
         await this.audit(userId, 'plugin.private.replace', plugin.id, {
           pluginId: plugin.pluginId,
@@ -573,6 +559,7 @@ export class VaultService {
       if (!(await this.store.createPluginIfAbsent(plugin))) {
         throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} already exists and cannot be uploaded again`);
       }
+      await this.movePublisherToPlugin(plugin);
       await this.lockIncompatibleUnlockedConfigs(userId, plugin, previousPlugins);
       await this.audit(userId, 'plugin.private.upload', plugin.id, {
         pluginId: plugin.pluginId,
@@ -605,6 +592,23 @@ export class VaultService {
       tokenId: credential.publisher.tokenId,
     });
     return { plugin, keyId: credential.publisher.tokenId, secret: credential.secret };
+  }
+
+  private async movePublisherToPlugin(plugin: PluginCatalogRecord): Promise<void> {
+    const publisher = await this.store.getPluginPublisher(plugin.pluginId);
+    if (!publisher) return;
+    if (!plugin.packageName) throw new Error(`Uploaded manifest for ${plugin.pluginId} must include a package because CI publishing is enabled`);
+    await this.store.updatePluginPublisherIdentity({
+      pluginId: plugin.pluginId,
+      org: plugin.org,
+      name: plugin.name,
+      packageName: plugin.packageName,
+      kind: plugin.kind as PluginPublisherRecord['kind'],
+      tokenId: publisher.tokenId,
+      secretHash: publisher.secretHash,
+      createdAt: publisher.createdAt,
+      rotatedAt: publisher.rotatedAt,
+    });
   }
 
   private async migratePrivatePluginReplacement(

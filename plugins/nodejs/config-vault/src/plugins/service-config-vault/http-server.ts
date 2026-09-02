@@ -1406,17 +1406,20 @@ function pluginCatalogTable(
 ): string {
   if (plugins.length === 0) return '<p class="muted">No plugins imported.</p>';
   const publisherByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisher]));
+  const publisherRowByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisherCatalogRow(plugins, publisher)?.id]));
   const renderedPublishers = new Set<string>();
   return `<table><thead><tr><th>Plugin</th><th>Version</th><th>Kind</th><th>Source</th><th>Package</th><th>Usage</th><th>Publishing</th><th>Update</th><th>Delete</th></tr></thead><tbody>${plugins.map((plugin) => {
     const used = usage[plugin.id]?.count ?? 0;
     const publisher = publisherByPlugin.get(plugin.pluginId);
-    const showPublisher = !renderedPublishers.has(plugin.pluginId) && (publisher || plugin.source !== 'registry');
-    renderedPublishers.add(plugin.pluginId);
+    const showPublisher = publisher
+      ? publisherRowByPlugin.get(plugin.pluginId) === plugin.id
+      : !renderedPublishers.has(plugin.pluginId) && plugin.source !== 'registry';
+    if (showPublisher) renderedPublishers.add(plugin.pluginId);
     const publisherAction = !showPublisher ? '' : publisher
       ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
       : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
     const updateId = `plugin-update-${plugin.id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
-    const updateAction = plugin.source === 'registry' ? '<span class="muted">Registry</span>' : `<form data-api="/api/plugins" data-redirect="/plugins"><label class="button secondary" for="${escapeHtml(updateId)}">Update</label><input id="${escapeHtml(updateId)}" name="manifestFile" type="file" accept="application/json,.json" required hidden data-submit-on-change><p class="status"></p></form>`;
+    const updateAction = plugin.source === 'registry' ? '<span class="muted">Registry</span>' : `<form data-api="/api/plugins" data-redirect="/plugins"><input id="${escapeHtml(updateId)}" name="manifestFile" type="file" accept="application/json,.json" required><button class="secondary">Update</button><p class="status"></p></form>`;
     return `<tr>
       <td>${escapeHtml(pluginDisplayName(plugin))}</td>
       <td>${escapeHtml(plugin.version)}</td>
@@ -1429,6 +1432,20 @@ function pluginCatalogTable(
       <td>${used === 0 ? `<form data-api="/api/plugins/delete" data-redirect="/plugins" data-confirm="Delete this unused plugin version?"><input type="hidden" name="id" value="${escapeHtml(plugin.id)}"><button class="danger">Delete</button><p class="status"></p></form>` : '<span class="muted">In use</span>'}</td>
     </tr>`;
   }).join('')}</tbody></table>`;
+}
+
+function publisherCatalogRow(
+  plugins: DashboardData['plugins'],
+  publisher: DashboardData['pluginPublishers'][number],
+): DashboardData['plugins'][number] | undefined {
+  const privatePlugins = plugins.filter((plugin) => plugin.pluginId === publisher.pluginId && plugin.source !== 'registry');
+  const matching = privatePlugins.filter((plugin) =>
+    plugin.org === publisher.org &&
+    plugin.name === publisher.name &&
+    plugin.packageName === publisher.packageName &&
+    plugin.kind === publisher.kind
+  );
+  return latestCatalogPlugin(matching) ?? latestCatalogPlugin(privatePlugins);
 }
 
 function pluginUsageDetails(usage: DashboardData['pluginUsage'][string] | undefined): string {
@@ -1947,7 +1964,7 @@ function findCatalogPlugin(
     : latestCatalogPlugin(matches);
 }
 
-function latestCatalogPlugin(plugins: DeploymentProfileData['plugins']): DeploymentProfileData['plugins'][number] | undefined {
+function latestCatalogPlugin<T extends { version: string }>(plugins: T[]): T | undefined {
   return [...plugins].sort((left, right) => compareVersionStrings(right.version, left.version))[0];
 }
 
@@ -2362,11 +2379,6 @@ function formScript(): string {
           showVaultError(status, error, 'Save failed');
         }
       }
-    });
-  });
-  document.querySelectorAll('input[type="file"][data-submit-on-change]').forEach((input) => {
-    input.addEventListener('change', () => {
-      if (input.files && input.files.length > 0) input.closest('form[data-api]')?.requestSubmit();
     });
   });
   </script>`;
