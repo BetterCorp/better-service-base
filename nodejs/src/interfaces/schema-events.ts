@@ -567,8 +567,12 @@ export interface EventExportDefinition {
  * This is the format consumed by cross-language code generators.
  */
 export interface EventSchemaExport {
-  /** Plugin identifier */
+  /** Canonical BSB plugin identifier */
+  pluginId?: string;
+  /** Legacy alias for pluginId */
   pluginName: string;
+  /** Human-readable plugin name */
+  displayName?: string;
   /** Plugin version, stamped by build/export tooling */
   version?: string;
   /** Map of event names to their definitions */
@@ -670,6 +674,7 @@ export function exportEventSchemas(
   processCategory('onBroadcast', schemas.onBroadcast as any);
 
   return {
+    pluginId: pluginName,
     pluginName,
     events,
   };

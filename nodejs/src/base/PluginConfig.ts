@@ -77,7 +77,9 @@ export type BSBConfigMigration<T extends BSBPluginConfigType> = (
  */
 export interface BSBPluginMetadata {
     // Required fields
-    /** Plugin identifier (e.g., "service-demo-todo") */
+    /** Canonical BSB plugin identifier (e.g., "service-demo-todo"). Defaults to the plugin directory id during build. */
+    id?: string;
+    /** Human-readable plugin name */
     name: string;
     /** Short description of what the plugin does */
     description: string;

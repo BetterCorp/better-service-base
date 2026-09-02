@@ -591,14 +591,20 @@ function extractSchemaSource(
     ? `_EventSchemas = ${eventSchemasBinding};`
     : `try { _EventSchemas = eval('EventSchemas'); } catch { _EventSchemas = undefined; }`);
   outputLines.push('');
-  outputLines.push(`const _pluginName = _Config && _Config.metadata`);
-  outputLines.push(`  ? (_Config as any).metadata.name`);
-  outputLines.push(`  : ${JSON.stringify(pluginDirName)};`);
+  outputLines.push(`const _pluginId = ${JSON.stringify(pluginDirName)};`);
+  outputLines.push(`const _metadata = _Config && _Config.metadata ? (_Config as any).metadata : {};`);
+  outputLines.push(`if (_metadata.id && _metadata.id !== _pluginId) {`);
+  outputLines.push(`  throw new Error(\`Plugin metadata id \${_metadata.id} does not match plugin directory \${_pluginId}\`);`);
+  outputLines.push(`}`);
+  outputLines.push(`const _displayName = typeof _metadata.name === 'string' && _metadata.name.trim() ? _metadata.name.trim() : _pluginId;`);
   outputLines.push(`const _pluginVersion = ${JSON.stringify(packageVersion)};`);
   outputLines.push('');
   outputLines.push('const _schemaResult = (_EventSchemas)');
-  outputLines.push('  ? exportEventSchemas(_pluginName, _EventSchemas as any)');
-  outputLines.push('  : { pluginName: _pluginName, events: {} };');
+  outputLines.push('  ? exportEventSchemas(_pluginId, _EventSchemas as any)');
+  outputLines.push('  : { pluginId: _pluginId, pluginName: _pluginId, events: {} };');
+  outputLines.push('(_schemaResult as any).pluginId = _pluginId;');
+  outputLines.push('(_schemaResult as any).pluginName = _pluginId;');
+  outputLines.push('if (_displayName !== _pluginId) (_schemaResult as any).displayName = _displayName;');
   outputLines.push('(_schemaResult as any).version = _pluginVersion;');
   outputLines.push('');
   outputLines.push('// Extract config schema if Config exposes an AnyVali validation schema');

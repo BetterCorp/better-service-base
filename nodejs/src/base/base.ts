@@ -95,6 +95,16 @@ export abstract class MainBase {
   public declare readonly pluginName: string;
 
   /**
+   * The loaded plugin package version.
+   */
+  public readonly pluginVersion: string;
+
+  /**
+   * Alias for pluginVersion.
+   */
+  public readonly version: string;
+
+  /**
    * The deployment region for resource context
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/MainBase.html#region | API: MainBase.region}
    */
@@ -109,6 +119,8 @@ export abstract class MainBase {
     this.cwd = config.cwd;
     this.packageCwd = config.packageCwd;
     this.pluginCwd = config.pluginCwd;
+    this.pluginVersion = config.pluginVersion;
+    this.version = config.pluginVersion;
     this.region = config.region;
   }
 

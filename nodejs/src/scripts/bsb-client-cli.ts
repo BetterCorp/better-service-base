@@ -566,15 +566,22 @@ async function publishPlugin(): Promise<void> {
 
         // Read event schema from lib/schemas/{pluginId}.json
         const schemaPath = path.join(schemasDir, `${pluginName}.json`);
-        let eventSchema: Record<string, any> = { pluginName, version: pkg.version, events: {} };
+        let eventSchema: Record<string, any> = { pluginId: pluginName, pluginName, version: pkg.version, events: {} };
         let configSchema: Record<string, any> | undefined;
         let schemaDeps: Array<{ id: string; version: string }> | undefined;
 
         if (fs.existsSync(schemaPath)) {
           try {
             const parsed = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+            const displayName = typeof parsed.displayName === 'string' && parsed.displayName.trim()
+              ? parsed.displayName.trim()
+              : typeof parsed.pluginName === 'string' && parsed.pluginName !== pluginName
+                ? parsed.pluginName
+                : undefined;
             eventSchema = {
-              pluginName: parsed.pluginName || pluginName,
+              pluginId: pluginName,
+              pluginName,
+              ...(displayName ? { displayName } : {}),
               version: parsed.version || pkg.version,
               events: parsed.events || {},
             };

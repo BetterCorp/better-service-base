@@ -7,7 +7,8 @@ import { createEventSchemas, createFireAndForgetEvent, createReturnableEvent } f
 describe('BSBService', () => {
   const Config = createConfigSchema(
     {
-      name: 'test-service',
+      id: 'test-service',
+      name: 'Test Service',
       description: 'Test service',
     },
     av.optional(av.object({}, { unknownKeys: 'strip' })).default({}),
@@ -54,7 +55,9 @@ describe('BSBService', () => {
     const exported = TestPlugin.exportSchemas();
     const event = exported.events['test.event'];
 
+    assert.strictEqual(exported.pluginId, 'test-service');
     assert.strictEqual(exported.pluginName, 'test-service');
+    assert.strictEqual(exported.displayName, 'Test Service');
     assert.strictEqual(exported.version, undefined);
     assert.strictEqual(event.type, 'fire-and-forget');
     assert.strictEqual(event.inputSchema.root.kind, 'object');

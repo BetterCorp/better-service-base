@@ -33,6 +33,7 @@ const getOnlyPaths = new Set([
 export interface VaultHttpOptions {
   host: string;
   port: number;
+  version: string;
   publicUrl: string;
   registryUrl: string;
   registryToken?: string;
@@ -78,6 +79,8 @@ export class VaultHttpServer {
             code: typeof data.code === 'string' ? data.code : vaultErrorCode(statusCode),
             message: statusCode >= 500 ? 'Vault request failed' : error.message,
             ...(Array.isArray(data.issues) ? { issues: data.issues } : {}),
+            ...(data.replaceable === true ? { replaceable: true } : {}),
+            ...(Array.isArray(data.diff) ? { diff: data.diff } : {}),
           }));
           return;
         }
@@ -458,19 +461,27 @@ export class VaultHttpServer {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       const schema = parseJsonObject(body.schema);
-      if (!schema) throw createError({ statusCode: 400, statusMessage: 'Invalid plugin schema', message: 'Uploaded file is not a valid plugin schema: select a generated lib/schemas/{plugin-id}.json file' });
+      const manifest = parseJsonObject(body.manifest);
+      if (!schema && !manifest) throw createError({ statusCode: 400, statusMessage: 'Invalid plugin upload', message: 'Uploaded file is not a valid plugin upload: select a generated lib/schemas/{plugin-id}.plugin.json file' });
       const created = await this.options.vault.createPrivatePlugin(user.userId, {
         org: String(body.org ?? '_'),
         packageName: String(body.packageName ?? ''),
-        schemaFileName: String(body.schemaFileName ?? ''),
+        schemaFileName: body.schemaFileName === undefined ? undefined : String(body.schemaFileName),
         schema,
+        manifestFileName: body.manifestFileName === undefined ? undefined : String(body.manifestFileName),
+        manifest,
+        replace: body.replace === true || body.replace === 'true' || body.replace === '1' || body.replace === 'on',
       }).catch((error) => {
         const message = error instanceof Error ? error.message : 'schema validation failed';
         const statusCode = vaultErrorStatus(message);
+        const data = {
+          ...((error as { replaceable?: boolean }).replaceable ? { code: 'PLUGIN_IDENTITY_MISMATCH', replaceable: true } : {}),
+          ...(Array.isArray((error as { diff?: unknown }).diff) ? { diff: (error as { diff: unknown }).diff } : {}),
+        };
         if (statusCode === 400) {
-          throw createError({ statusCode, statusMessage: 'Invalid plugin schema', message: `Uploaded file is not a valid plugin schema: ${message}`, cause: error });
+          throw createError({ statusCode, statusMessage: 'Invalid plugin upload', message: `Uploaded file is not a valid plugin upload: ${message}`, data, cause: error });
         }
-        throw createError({ statusCode, statusMessage: message, message, cause: error });
+        throw createError({ statusCode, statusMessage: message, message, data, cause: error });
       });
       return {
         ...created,
@@ -793,7 +804,7 @@ export class VaultHttpServer {
   private page(event: Parameters<typeof setResponseHeader>[0], title: string, body: string, active: NavItem = 'overview', authenticated = true): string {
     const nonce = randomBytes(18).toString('base64url');
     setResponseHeader(event, 'content-security-policy', `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'nonce-${nonce}'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`);
-    return html(title, body, active, authenticated)
+    return html(title, body, active, authenticated, this.options.version)
       .replaceAll('<script>', `<script nonce="${nonce}">`)
       .replace('<style>', `<style nonce="${nonce}">`);
   }
@@ -850,7 +861,7 @@ type RegistryCandidate = {
   eventSchema: Record<string, unknown> | null;
 };
 
-function html(title: string, body: string, active: NavItem, authenticated: boolean): string {
+function html(title: string, body: string, active: NavItem, authenticated: boolean, version: string): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -899,6 +910,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .callout{border:1px solid #fedf89;background:#fffaeb;color:#93370d;border-radius:6px;padding:10px 12px;margin:10px 0;font-size:13px}
     .usage-list{margin:8px 0 0;padding-left:18px}.usage-list a{color:var(--primary);text-decoration:none}.usage-list a:hover{text-decoration:underline}
     .state-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:750;border:1px solid #d0d5dd;background:#f9fafb;color:#344054}.state-badge.live{border-color:#abefc6;background:#ecfdf3;color:#067647}.state-badge.disabled{border-color:#fecdca;background:#fef3f2;color:#b42318}.state-badge.pending,.state-badge.draft{border-color:#fedf89;background:#fffaeb;color:#b54708}.state-badge.empty{border-color:#d0d5dd;background:#f9fafb;color:#637083}
+    footer{padding:14px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
     @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
 </head>
@@ -907,7 +919,36 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
   function vaultApiError(result, fallback) {
     const error = new Error(result && result.message || fallback);
     error.issues = result && Array.isArray(result.issues) ? result.issues : [];
+    error.replaceable = Boolean(result && result.replaceable);
+    error.diff = result && Array.isArray(result.diff) ? result.diff : [];
     return error;
+  }
+  function appendReplaceAction(status, error) {
+    if (!error || !error.replaceable) return;
+    const form = status.closest('form[data-api]');
+    if (!form) return;
+    if (error.diff && error.diff.length) {
+      const diff = document.createElement('pre');
+      diff.className = 'code';
+      diff.textContent = error.diff.map((row) => '- ' + row.field + ': ' + row.existing + '\\n+ ' + row.field + ': ' + row.uploaded).join('\\n');
+      status.appendChild(diff);
+    }
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'secondary';
+    button.textContent = 'Replace and migrate configs';
+    button.addEventListener('click', () => {
+      let replace = form.querySelector('input[name="replace"]');
+      if (!replace) {
+        replace = document.createElement('input');
+        replace.type = 'hidden';
+        replace.name = 'replace';
+        form.appendChild(replace);
+      }
+      replace.value = 'true';
+      form.requestSubmit();
+    });
+    status.appendChild(button);
   }
   function showVaultError(status, error, fallback) {
     if (!status) return;
@@ -917,6 +958,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     const issues = error && Array.isArray(error.issues) ? error.issues : [];
     if (!issues.length) {
       status.textContent = error instanceof Error ? error.message : fallback;
+      appendReplaceAction(status, error);
       return;
     }
     const heading = document.createElement('strong');
@@ -932,10 +974,12 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
       list.appendChild(item);
     }
     status.append(heading, list);
+    appendReplaceAction(status, error);
   }
   </script>
   <header><strong>Vault</strong>${authenticated ? '<form data-logout><button class="ghost">Logout</button></form>' : ''}</header>
   ${authenticated ? `<div class="shell">${nav(active)}<main>${body}</main></div>` : `<main>${body}</main>`}
+  <footer>Vault v${escapeHtml(version)} &copy; BetterCorp (PTY) Ltd</footer>
   ${authenticated ? `<script>document.querySelector('[data-logout]').addEventListener('submit',async(event)=>{event.preventDefault();const csrf=document.cookie.split('; ').find((item)=>item.startsWith('vault_csrf='))?.split('=')[1]||'';await fetch('/logout',{method:'POST',headers:{'x-csrf-token':csrf}});location.href='/login';});</script>` : ''}
 </body>
 </html>`;
@@ -1344,13 +1388,9 @@ function pluginsPage(data: DashboardData, registry: RegistryCandidate[], query: 
     ${visibleRegistry.length === 0 ? '<p class="muted">No configurable registry results loaded.</p>' : registryTable(visibleRegistry, visiblePlugins)}
   </section>
   <section><h2>Private Plugin</h2>
-    <p class="muted">Upload the generated <code>lib/schemas/{plugin-id}.json</code> file. Vault derives the plugin identity and creates its CI publish key.</p>
+    <p class="muted">Upload the generated <code>lib/schemas/{plugin-id}.plugin.json</code> manifest. Vault reads the plugin identity and config schema from the file.</p>
     <form data-api="/api/plugins">
-      <div class="form-grid">
-        ${input('org', 'Org', true, '_')}
-        ${input('packageName', 'NPM Package', true)}
-      </div>
-      <label>Generated Schema JSON<input name="schemaFile" type="file" accept="application/json,.json" required></label>
+      <label>Plugin Manifest JSON<input name="manifestFile" type="file" accept="application/json,.json" required></label>
       <button class="success">Create Plugin</button><p class="status"></p>
     </form>
   </section>
@@ -1366,7 +1406,7 @@ function pluginCatalogTable(
   if (plugins.length === 0) return '<p class="muted">No plugins imported.</p>';
   const publisherByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisher]));
   const renderedPublishers = new Set<string>();
-  return `<table>${plugins.map((plugin) => {
+  return `<table><thead><tr><th>Plugin</th><th>Version</th><th>Kind</th><th>Source</th><th>Package</th><th>Usage</th><th>Publishing</th><th>Update</th><th>Delete</th></tr></thead><tbody>${plugins.map((plugin) => {
     const used = usage[plugin.id]?.count ?? 0;
     const publisher = publisherByPlugin.get(plugin.pluginId);
     const showPublisher = !renderedPublishers.has(plugin.pluginId) && (publisher || plugin.source !== 'registry');
@@ -1374,6 +1414,8 @@ function pluginCatalogTable(
     const publisherAction = !showPublisher ? '' : publisher
       ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
       : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
+    const updateId = `plugin-update-${plugin.id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+    const updateAction = plugin.source === 'registry' ? '<span class="muted">Registry</span>' : `<form data-api="/api/plugins" data-redirect="/plugins"><label class="button secondary" for="${escapeHtml(updateId)}">Update</label><input id="${escapeHtml(updateId)}" name="manifestFile" type="file" accept="application/json,.json" required hidden data-submit-on-change><p class="status"></p></form>`;
     return `<tr>
       <td>${escapeHtml(pluginDisplayName(plugin))}</td>
       <td>${escapeHtml(plugin.version)}</td>
@@ -1382,9 +1424,10 @@ function pluginCatalogTable(
       <td>${escapeHtml(plugin.packageName ?? '')}</td>
       <td>${pluginUsageDetails(usage[plugin.id])}</td>
       <td>${publisherAction}</td>
+      <td>${updateAction}</td>
       <td>${used === 0 ? `<form data-api="/api/plugins/delete" data-redirect="/plugins" data-confirm="Delete this unused plugin version?"><input type="hidden" name="id" value="${escapeHtml(plugin.id)}"><button class="danger">Delete</button><p class="status"></p></form>` : '<span class="muted">In use</span>'}</td>
     </tr>`;
-  }).join('')}</table>`;
+  }).join('')}</tbody></table>`;
 }
 
 function pluginUsageDetails(usage: DashboardData['pluginUsage'][string] | undefined): string {
@@ -2273,8 +2316,13 @@ function formScript(): string {
           if (value instanceof File) {
             if (!value.size) continue;
             if (value.size > 1024 * 1024) throw new Error('Plugin schema file must be 1 MB or smaller');
-            data.schemaFileName = value.name;
-            data.schema = JSON.parse(await value.text());
+            if (key === 'manifestFile') {
+              data.manifestFileName = value.name;
+              data.manifest = JSON.parse(await value.text());
+            } else {
+              data.schemaFileName = value.name;
+              data.schema = JSON.parse(await value.text());
+            }
             continue;
           }
           if (value.trim() === '') continue;
@@ -2313,6 +2361,11 @@ function formScript(): string {
           showVaultError(status, error, 'Save failed');
         }
       }
+    });
+  });
+  document.querySelectorAll('input[type="file"][data-submit-on-change]').forEach((input) => {
+    input.addEventListener('change', () => {
+      if (input.files && input.files.length > 0) input.closest('form[data-api]')?.requestSubmit();
     });
   });
   </script>`;

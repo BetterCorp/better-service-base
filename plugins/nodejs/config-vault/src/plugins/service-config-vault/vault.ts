@@ -56,8 +56,11 @@ type PluginUsage = Record<string, { count: number; locations: PluginUsageLocatio
 type PrivatePluginUploadInput = {
   org: string;
   packageName: string;
-  schemaFileName: string;
-  schema: Record<string, unknown>;
+  schemaFileName?: string;
+  schema?: Record<string, unknown>;
+  manifestFileName?: string;
+  manifest?: Record<string, unknown>;
+  replace?: boolean;
 };
 
 type PrivatePluginPublishInput = {
@@ -516,7 +519,47 @@ export class VaultService {
     const latest = latestPlugin(versions);
     if (latest) {
       if (latest.org !== parsed.org || latest.packageName !== parsed.packageName || latest.kind !== parsed.kind) {
-        throw new Error(`Plugin ${parsed.pluginId} already exists with different identity and cannot be uploaded`);
+        const diff = pluginReplacementDiff(latest, parsed);
+        const mismatch = pluginIdentityMismatch(diff);
+        if (!input.replace) {
+          throw new PluginIdentityMismatchError(parsed.pluginId, mismatch, diff);
+        }
+        if (compareVersions(parsed.version, latest.version) <= 0) {
+          throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} must be newer than ${latest.version} when replacing identity: ${mismatch}`);
+        }
+        const plugin: PluginCatalogRecord = {
+          ...parsed,
+          id: newId(),
+          source: 'upload',
+          createdAt: new Date().toISOString(),
+        };
+        await this.migratePrivatePluginReplacement(userId, plugin, previousPlugins);
+        if (!(await this.store.createPluginIfAbsent(plugin))) {
+          throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} already exists and cannot be uploaded again`);
+        }
+        const publisher = await this.store.getPluginPublisher(plugin.pluginId);
+        if (publisher) {
+          if (!plugin.packageName) throw new Error(`Replacement manifest for ${plugin.pluginId} must include a package because CI publishing is enabled`);
+          await this.store.updatePluginPublisherIdentity({
+            pluginId: plugin.pluginId,
+            org: plugin.org,
+            name: plugin.name,
+            packageName: plugin.packageName,
+            kind: plugin.kind as PluginPublisherRecord['kind'],
+            tokenId: publisher.tokenId,
+            secretHash: publisher.secretHash,
+            createdAt: publisher.createdAt,
+            rotatedAt: publisher.rotatedAt,
+          });
+        }
+        await this.lockIncompatibleUnlockedConfigs(userId, plugin, previousPlugins);
+        await this.audit(userId, 'plugin.private.replace', plugin.id, {
+          pluginId: plugin.pluginId,
+          version: plugin.version,
+          packageName: plugin.packageName,
+          mismatch,
+        });
+        return { plugin };
       }
       if (compareVersions(parsed.version, latest.version) <= 0) {
         throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} must be newer than ${latest.version}`);
@@ -544,6 +587,15 @@ export class VaultService {
       source: 'manual',
       createdAt: new Date().toISOString(),
     };
+    if (!plugin.packageName) {
+      await this.store.createPlugin(plugin);
+      await this.audit(userId, 'plugin.private.create', plugin.id, {
+        pluginId: plugin.pluginId,
+        version: plugin.version,
+        packageName: plugin.packageName,
+      });
+      return { plugin };
+    }
     const credential = await createPublisherCredential(plugin);
     await this.store.createPrivatePlugin(plugin, credential.publisher);
     await this.audit(userId, 'plugin.private.create', plugin.id, {
@@ -553,6 +605,72 @@ export class VaultService {
       tokenId: credential.publisher.tokenId,
     });
     return { plugin, keyId: credential.publisher.tokenId, secret: credential.secret };
+  }
+
+  private async migratePrivatePluginReplacement(
+    userId: string,
+    replacement: PluginCatalogRecord,
+    previousPlugins: PluginCatalogRecord[],
+  ): Promise<void> {
+    const sectionName = sectionForKind(replacement.kind);
+    if (!sectionName) return;
+    const oldPackages = new Set(previousPlugins
+      .filter((plugin) => plugin.pluginId === replacement.pluginId && plugin.kind === replacement.kind)
+      .map((plugin) => plugin.packageName ?? null));
+    const visit = async (
+      config: RuntimeConfigDefinition | null,
+      context: string,
+      save: (next: RuntimeConfigDefinition) => Promise<void>,
+    ) => {
+      if (!config) return;
+      let changed = false;
+      const section = config[sectionName] ?? {};
+      for (const [name, entry] of Object.entries(section)) {
+        if (entry.plugin !== replacement.pluginId) continue;
+        if (!oldPackages.has(entry.package ?? null)) continue;
+        try {
+          entry.config = await this.validatePluginConfig({
+            section: sectionName,
+            plugin: replacement.pluginId,
+            packageName: replacement.packageName,
+            config: entry.config ?? {},
+          }, replacement);
+        } catch (error) {
+          throw new Error(`Replacement would invalidate ${context} / ${sectionName} / ${name}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        entry.package = replacement.packageName ?? undefined;
+        entry.version = replacement.version;
+        delete entry.autoPinned;
+        changed = true;
+      }
+      if (changed) await save(config);
+    };
+
+    for (const profile of await this.store.listAllProfiles()) {
+      const draft = await this.getProfileDraft(profile.id);
+      if (draft) {
+        await visit(draft, `deployment draft ${profile.name}`, (next) => this.saveProfileDraft(userId, profile.id, next));
+        continue;
+      }
+      if (!profile.activeVersionId) continue;
+      const version = await this.store.getVersion(profile.activeVersionId);
+      if (!version) continue;
+      const live = this.decrypt<VaultRuntimeConfig>(version, profileVersionAad(profile.id, version.id))[profile.name] ?? null;
+      await visit(live, `deployment live ${profile.name}`, (next) => this.saveProfileDraft(userId, profile.id, next));
+    }
+
+    for (const profile of await this.store.listAllApplicationProfiles()) {
+      const draft = await this.getApplicationProfileDraft(profile.id);
+      if (draft) {
+        await visit(draft, `shared draft ${profile.name}`, (next) => this.saveApplicationProfileDraft(userId, profile.id, next));
+        continue;
+      }
+      if (!profile.activeVersionId) continue;
+      const version = await this.store.getApplicationVersion(profile.activeVersionId);
+      if (!version) continue;
+      const live = this.decrypt<VaultRuntimeConfig>(version, applicationVersionAad(profile.id, version.id))[profile.name] ?? null;
+      await visit(live, `shared live ${profile.name}`, (next) => this.saveApplicationProfileDraft(userId, profile.id, next));
+    }
   }
 
   async enablePluginPublisher(userId: string, pluginId: string): Promise<{ keyId: string; secret: string }> {
@@ -1760,30 +1878,41 @@ function validateConfigName(name: string): void {
 }
 
 function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCatalogRecord, 'id' | 'source' | 'createdAt'> {
-  const fileName = input.schemaFileName.trim();
-  if (/\.plugin\.json$/i.test(fileName)) throw new Error('Upload lib/schemas/{plugin-id}.json, not {plugin-id}.plugin.json');
-  if (!/^[a-z0-9][a-z0-9._-]*\.json$/i.test(fileName)) throw new Error('Schema file must be named {plugin-id}.json');
-  const pluginId = fileName.slice(0, -5);
-  const org = input.org.trim();
-  const packageName = input.packageName.trim();
+  const manifest = input.manifest ? requireObject(input.manifest, 'Plugin manifest') : null;
+  const schema = input.schema ? requireObject(input.schema, 'Plugin schema') : null;
+  if (!manifest && !schema) throw new Error('Upload a generated {plugin-id}.plugin.json manifest');
+  const manifestPluginId = manifest ? pluginIdFromManifestFile(input.manifestFileName) : undefined;
+  const pluginId = manifest
+    ? requiredString(manifest.id ?? manifestPluginId, 'Plugin id')
+    : pluginIdFromSchemaFile(requiredString(input.schemaFileName, 'Schema file name'));
+  validatePluginId(pluginId);
+  if (manifestPluginId && manifestPluginId !== pluginId) throw new Error(`Manifest file ${input.manifestFileName} does not match plugin id ${pluginId}`);
+  if (schema && typeof schema.pluginId === 'string' && schema.pluginId.trim() && schema.pluginId.trim() !== pluginId) {
+    throw new Error(`Uploaded schema pluginId ${schema.pluginId.trim()} does not match plugin id ${pluginId}`);
+  }
+  if (schema && typeof schema.pluginName === 'string' && looksLikePluginId(schema.pluginName.trim()) && schema.pluginName.trim() !== pluginId) {
+    throw new Error(`Uploaded schema pluginName ${schema.pluginName.trim()} does not match plugin id ${pluginId}`);
+  }
+  if (schema && input.schemaFileName) {
+    const schemaPluginId = pluginIdFromSchemaFile(input.schemaFileName.trim());
+    if (schemaPluginId !== pluginId) throw new Error(`Schema file ${input.schemaFileName.trim()} does not match plugin id ${pluginId}`);
+  }
+  const org = (optionalString(manifest?.org) ?? input.org.trim()) || '_';
+  const packageName = optionalString(input.packageName) ?? manifestPackageName(manifest);
   if (!/^(_|@?[a-z0-9][a-z0-9._-]*)$/i.test(org)) throw new Error('Plugin org is invalid');
-  if (!packageName || /\s/.test(packageName)) throw new Error('Plugin npm package is required');
-  if (Array.isArray(input.schema.nodejs) || input.schema.version === undefined || input.schema.pluginType === undefined || !objectField(input.schema.events)) {
+  if (packageName && /\s/.test(packageName)) throw new Error('Plugin package is invalid');
+  if (!manifest && (!schema || Array.isArray(schema.nodejs) || schema.version === undefined || schema.pluginType === undefined || !objectField(schema.events))) {
     throw new Error('Uploaded plugin schema must be the generated lib/schemas/{plugin-id}.json file');
   }
-  const version = requiredVersion(input.schema.version, 'Schema version');
-  const rawKind = requiredString(input.schema.pluginType, 'Schema pluginType');
+  const version = requiredVersion(manifest?.version ?? schema?.version, 'Plugin version');
+  const rawKind = requiredString(manifest?.category ?? schema?.pluginType, 'Plugin type');
   if (rawKind !== 'service' && rawKind !== 'events' && rawKind !== 'observable') {
     throw new Error('Private plugin type must be service, events, or observable');
   }
-  const events = objectField(input.schema.events);
-  if (!events) throw new Error('Schema events must be an object');
-  const name = typeof input.schema.pluginName === 'string' && input.schema.pluginName.trim()
-    ? input.schema.pluginName.trim()
-    : pluginId;
-  const eventSchema: Record<string, unknown> = { pluginName: name, version, events };
-  if (objectField(input.schema.capabilities)) eventSchema.capabilities = input.schema.capabilities;
-  if (Array.isArray(input.schema.dependencies)) eventSchema.dependencies = input.schema.dependencies;
+  const name = optionalString(manifest?.name)
+    ?? (schema && typeof schema.pluginName === 'string' && !looksLikePluginId(schema.pluginName.trim()) ? schema.pluginName.trim() : undefined)
+    ?? pluginId;
+  const eventSchema = privateEventSchema(pluginId, name, version, schema, manifest);
   return {
     org,
     name,
@@ -1791,9 +1920,127 @@ function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCa
     packageName,
     version,
     kind: rawKind,
-    configSchema: objectField(input.schema.configSchema),
+    configSchema: objectField(manifest?.configSchema) ?? objectField(schema?.configSchema),
     eventSchema,
   };
+}
+
+function pluginIdFromManifestFile(fileName: unknown): string | undefined {
+  if (typeof fileName !== 'string' || !fileName.trim()) return undefined;
+  const name = fileName.trim();
+  if (!/^[a-z0-9][a-z0-9._-]*\.plugin\.json$/i.test(name)) throw new Error('Manifest file must be named {plugin-id}.plugin.json');
+  return name.slice(0, -12);
+}
+
+function pluginIdFromSchemaFile(fileName: string): string {
+  if (/\.plugin\.json$/i.test(fileName)) throw new Error('Upload lib/schemas/{plugin-id}.plugin.json as the manifest file');
+  if (!/^[a-z0-9][a-z0-9._-]*\.json$/i.test(fileName)) throw new Error('Schema file must be named {plugin-id}.json');
+  return fileName.slice(0, -5);
+}
+
+function validatePluginId(value: string): void {
+  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(value)) throw new Error('Plugin id is invalid');
+}
+
+function looksLikePluginId(value: string): boolean {
+  return /^(service|events|observable|config)-[a-z0-9._-]+$/i.test(value);
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function manifestPackageName(manifest: Record<string, unknown> | null): string | null {
+  if (!manifest) return null;
+  const direct = optionalString(manifest.packageName);
+  if (direct) return direct;
+  const packages = objectField(manifest.package) ?? objectField(manifest.packages);
+  if (!packages) return null;
+  const nodejs = optionalString(packages.nodejs);
+  if (nodejs) return nodejs;
+  for (const value of Object.values(packages)) {
+    const packageName = optionalString(value);
+    if (packageName) return packageName;
+  }
+  return null;
+}
+
+function privateEventSchema(
+  pluginId: string,
+  displayName: string,
+  version: string,
+  schema: Record<string, unknown> | null,
+  manifest: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const events = objectField(schema?.events) ?? {};
+  const eventSchema: Record<string, unknown> = { pluginId, pluginName: pluginId, version, events };
+  if (displayName !== pluginId) eventSchema.displayName = displayName;
+  if (objectField(schema?.capabilities)) eventSchema.capabilities = schema!.capabilities;
+  if (Array.isArray(schema?.dependencies)) eventSchema.dependencies = schema!.dependencies;
+  else if (Array.isArray(manifest?.dependencies)) eventSchema.dependencies = manifest!.dependencies;
+  return eventSchema;
+}
+
+type ReplacementDiffRow = { field: string; existing: string; uploaded: string };
+
+class PluginIdentityMismatchError extends Error {
+  readonly diff: ReplacementDiffRow[];
+  readonly replaceable = true;
+
+  constructor(pluginId: string, mismatch: string, diff: ReplacementDiffRow[]) {
+    super(`Plugin ${pluginId} already exists with different identity and cannot be uploaded: ${mismatch}`);
+    this.diff = diff;
+  }
+}
+
+function pluginReplacementDiff(
+  existing: Pick<PluginCatalogRecord, 'org' | 'name' | 'packageName' | 'kind' | 'version' | 'configSchema' | 'eventSchema'>,
+  uploaded: Pick<PluginCatalogRecord, 'org' | 'name' | 'packageName' | 'kind' | 'version' | 'configSchema' | 'eventSchema'>,
+): ReplacementDiffRow[] {
+  const rows: ReplacementDiffRow[] = [];
+  for (const field of ['org', 'name', 'packageName', 'kind', 'version'] as const) {
+    const before = String(existing[field] ?? '');
+    const after = String(uploaded[field] ?? '');
+    if (before !== after) rows.push({ field, existing: before || '(empty)', uploaded: after || '(empty)' });
+  }
+  for (const row of schemaPropertyDiff('config', existing.configSchema, uploaded.configSchema)) rows.push(row);
+  for (const row of eventNameDiff(existing.eventSchema, uploaded.eventSchema)) rows.push(row);
+  return rows;
+}
+
+function pluginIdentityMismatch(diff: ReplacementDiffRow[]): string {
+  return diff
+    .filter((row) => row.field === 'org' || row.field === 'packageName' || row.field === 'kind')
+    .map((row) => `${row.field} ${row.existing} -> ${row.uploaded}`)
+    .join('; ') || 'identity fields differ';
+}
+
+function schemaPropertyDiff(
+  prefix: string,
+  existing: Record<string, unknown> | null,
+  uploaded: Record<string, unknown> | null,
+): ReplacementDiffRow[] {
+  const before = objectField(objectField(existing?.root)?.properties);
+  const after = objectField(objectField(uploaded?.root)?.properties);
+  if (!before && !after) return [];
+  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  return [...keys].sort().flatMap((key) => {
+    if (!before || !(key in before)) return [{ field: `${prefix}.${key}`, existing: '(missing)', uploaded: 'present' }];
+    if (!after || !(key in after)) return [{ field: `${prefix}.${key}`, existing: 'present', uploaded: '(missing)' }];
+    return isDeepStrictEqual(before[key], after[key]) ? [] : [{ field: `${prefix}.${key}`, existing: 'changed', uploaded: 'changed' }];
+  });
+}
+
+function eventNameDiff(existing: Record<string, unknown> | null, uploaded: Record<string, unknown> | null): ReplacementDiffRow[] {
+  const before = objectField(existing?.events);
+  const after = objectField(uploaded?.events);
+  if (!before && !after) return [];
+  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  return [...keys].sort().flatMap((key) => {
+    if (!before || !(key in before)) return [{ field: `event.${key}`, existing: '(missing)', uploaded: 'present' }];
+    if (!after || !(key in after)) return [{ field: `event.${key}`, existing: 'present', uploaded: '(missing)' }];
+    return isDeepStrictEqual(before[key], after[key]) ? [] : [{ field: `event.${key}`, existing: 'changed', uploaded: 'changed' }];
+  });
 }
 
 function privatePluginPublishInput(input: Record<string, unknown>): PrivatePluginPublishInput {
@@ -1811,14 +2058,29 @@ function privatePluginPublishInput(input: Record<string, unknown>): PrivatePlugi
     throw new Error('Plugin kind must be service, events, or observable');
   }
   if (input.language !== undefined && input.language !== 'nodejs') throw new Error('Only Node.js plugins can be published to Vault');
+  const pluginId = requiredString(input.pluginId ?? input.name, 'Plugin id');
+  if (typeof eventSchema.pluginId === 'string' && eventSchema.pluginId.trim() && eventSchema.pluginId.trim() !== pluginId) {
+    throw new Error(`eventSchema.pluginId ${eventSchema.pluginId.trim()} does not match plugin id ${pluginId}`);
+  }
+  if (typeof eventSchema.pluginName === 'string' && looksLikePluginId(eventSchema.pluginName.trim()) && eventSchema.pluginName.trim() !== pluginId) {
+    throw new Error(`eventSchema.pluginName ${eventSchema.pluginName.trim()} does not match plugin id ${pluginId}`);
+  }
+  const displayName = optionalString(eventSchema.displayName)
+    ?? (typeof eventSchema.pluginName === 'string' && !looksLikePluginId(eventSchema.pluginName.trim()) ? eventSchema.pluginName.trim() : undefined);
+  const normalizedEventSchema = {
+    ...eventSchema,
+    pluginId,
+    pluginName: pluginId,
+    ...(displayName && displayName !== pluginId ? { displayName } : {}),
+  };
   return {
     org: requiredString(input.org, 'Plugin org'),
-    pluginId: requiredString(input.pluginId ?? input.name, 'Plugin id'),
-    packageName: requiredString(input.packageName ?? packages.nodejs, 'Plugin npm package'),
+    pluginId,
+    packageName: requiredString(input.packageName ?? packages.nodejs, 'Plugin package'),
     version,
     kind: rawKind,
     configSchema: input.configSchema === undefined || input.configSchema === null ? null : requireObject(input.configSchema, 'configSchema'),
-    eventSchema,
+    eventSchema: normalizedEventSchema,
   };
 }
 

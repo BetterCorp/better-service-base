@@ -17,7 +17,7 @@ export const validationSchema = {
       fs.writeFileSync(path.join(sourceDir, 'config.ts'), `
 import { validationSchema } from './schema-value.js';
 export class Config {
-  static metadata = { name: 'service-cross-file-schema' };
+  static metadata = { id: 'service-cross-file-schema', name: 'Cross File Schema' };
   validationSchema = validationSchema;
 }
 export const EventSchemas = {};
@@ -54,7 +54,9 @@ export class Plugin extends BSBService {
       assert.deepStrictEqual(loaded.__BSB_SCHEMA_RESULT.configSchema, {
         root: { kind: 'object', properties: { enabled: { kind: 'bool' } } },
       });
+      assert.equal(loaded.__BSB_SCHEMA_RESULT.pluginId, 'service-cross-file-schema');
       assert.equal(loaded.__BSB_SCHEMA_RESULT.pluginName, 'service-cross-file-schema');
+      assert.equal(loaded.__BSB_SCHEMA_RESULT.displayName, 'Cross File Schema');
       assert.equal(loaded.__BSB_SCHEMA_RESULT.version, '1.2.3');
     } finally {
       fs.rmSync(sourceDir, { recursive: true, force: true });

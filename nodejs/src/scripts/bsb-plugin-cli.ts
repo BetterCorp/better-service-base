@@ -717,6 +717,7 @@ async function generatePluginJson(plugin: PluginInfo): Promise<void> {
       category,
       tags: metadata.tags || [],
       documentation: metadata.documentation || [],
+      packages: packageJson.name ? { nodejs: packageJson.name } : {},
       dependencies: [] as Array<{ id: string; version: string }>,
     };
 

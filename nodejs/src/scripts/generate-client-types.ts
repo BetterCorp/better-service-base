@@ -221,9 +221,10 @@ const FLIP_MAP: Record<string, string> = {
 function generateVirtualClient(schemaExport: EventSchemaExport, importBase: string, pluginId: string): string {
   const lines: string[] = [];
   const className = pluginNameToClassName(pluginId);
+  const schemaName = schemaExport.displayName ?? schemaExport.pluginId ?? schemaExport.pluginName;
 
   lines.push('/**');
-  lines.push(` * Auto-generated BSB virtual client for ${schemaExport.pluginName}`);
+  lines.push(` * Auto-generated BSB virtual client for ${schemaName}`);
   lines.push(' * DO NOT EDIT - Regenerated on every build');
   lines.push(` * @version ${schemaExport.version}`);
   lines.push(' */');

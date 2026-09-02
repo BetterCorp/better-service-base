@@ -7,6 +7,8 @@ module.exports = async ({ pluginRoot }) => {
   const key = Buffer.alloc(32, 1);
   const plugins = [];
   const audits = [];
+  const profiles = [];
+  const drafts = new Map();
   let publisher = null;
   const store = {
     async authenticationAllowed() { return true; },
@@ -22,12 +24,19 @@ module.exports = async ({ pluginRoot }) => {
     async getPluginPublisher(pluginId) { return publisher?.pluginId === pluginId ? publisher : null; },
     async getPluginPublisherByTokenId(tokenId) { return publisher?.tokenId === tokenId ? publisher : null; },
     async createPluginPublisher(createdPublisher) { publisher = createdPublisher; },
+    async updatePluginPublisherIdentity(record) { publisher = { ...publisher, ...record }; },
     async rotatePluginPublisher(pluginId, tokenId, secretHash, rotatedAt) {
       assert.equal(pluginId, publisher.pluginId);
       publisher = { ...publisher, tokenId, secretHash, rotatedAt };
     },
-    async listAllProfiles() { return []; },
+    async listAllProfiles() { return profiles; },
     async listAllApplicationProfiles() { return []; },
+    async resolveProfileBinding(profileId) {
+      const profile = profiles.find((item) => item.id === profileId);
+      return profile ? { profile, group: { id: profile.groupId, applicationId: 'app-1', name: 'api' }, application: { id: 'app-1', name: 'App', description: '' } } : null;
+    },
+    async getDraft(profileId) { return drafts.get(profileId) ?? null; },
+    async upsertDraft(record) { drafts.set(record.profileId, record); },
     async getUser() { return null; },
     async audit(entry) { audits.push(entry); },
   };
@@ -46,7 +55,7 @@ module.exports = async ({ pluginRoot }) => {
     packageName: '@example/private-api',
     schemaFileName: 'service-private-api.plugin.json',
     schema: { id: 'service-private-api', version: '1.0.0', category: 'service' },
-  }), /not \{plugin-id\}\.plugin\.json/);
+  }), /as the manifest file/);
   await assert.rejects(() => vault.createPrivatePlugin('admin', {
     org: 'example',
     packageName: '@example/private-api',
@@ -54,14 +63,16 @@ module.exports = async ({ pluginRoot }) => {
     schema: { nodejs: [{ id: 'service-private-api' }] },
   }), /generated lib\/schemas\/\{plugin-id\}\.json/);
   const created = await vault.createPrivatePlugin('admin', {
-    org: 'example',
-    packageName: '@example/private-api',
-    schemaFileName: 'service-private-api.json',
-    schema: {
-      pluginName: 'Private API',
-      pluginType: 'service',
+    org: '_',
+    packageName: '',
+    manifestFileName: 'service-private-api.plugin.json',
+    manifest: {
+      id: 'service-private-api',
+      org: 'example',
+      name: 'Private API',
+      category: 'service',
       version: '1.0.0',
-      events: {},
+      packages: { nodejs: '@example/private-api' },
       configSchema: { root: { kind: 'object', properties: {} } },
     },
   });
@@ -69,6 +80,10 @@ module.exports = async ({ pluginRoot }) => {
   assert.match(created.secret, /^bv_p_service-private-api_[A-Za-z0-9_-]{12}_[A-Za-z0-9_-]{43}$/);
   assert.equal(publisher.secretHash.includes(created.secret), false);
   assert.equal(plugins[0].pluginId, 'service-private-api');
+  assert.equal(plugins[0].name, 'Private API');
+  assert.equal(plugins[0].eventSchema.pluginId, 'service-private-api');
+  assert.equal(plugins[0].eventSchema.pluginName, 'service-private-api');
+  assert.equal(plugins[0].eventSchema.displayName, 'Private API');
   await assert.rejects(() => vault.createPrivatePlugin('admin', {
     org: 'example',
     packageName: '@example/private-api',
@@ -81,6 +96,20 @@ module.exports = async ({ pluginRoot }) => {
       configSchema: { root: { kind: 'object', properties: {} } },
     },
   }), /Plugin service-private-api version 1\.0\.0 already exists/);
+  await assert.rejects(() => vault.createPrivatePlugin('admin', {
+    org: '_',
+    packageName: '',
+    manifestFileName: 'service-private-api.plugin.json',
+    manifest: {
+      id: 'service-private-api',
+      org: 'example',
+      name: 'Private API',
+      category: 'service',
+      version: '1.0.1',
+      packages: { nodejs: '@example/renamed-private-api' },
+      configSchema: { root: { kind: 'object', properties: {} } },
+    },
+  }), /different identity.*packageName @example\/private-api -> @example\/renamed-private-api/);
   const uploadedVersion = await vault.createPrivatePlugin('admin', {
     org: 'example',
     packageName: '@example/private-api',
@@ -110,6 +139,8 @@ module.exports = async ({ pluginRoot }) => {
   const published = await vault.publishPrivatePlugin(created.secret, request);
   assert.equal(published.status, 'published');
   assert.equal(published.plugin.source, 'upload');
+  assert.equal(published.plugin.eventSchema.pluginName, 'service-private-api');
+  assert.equal(published.plugin.eventSchema.displayName, 'Private API');
   assert.equal((await vault.publishPrivatePlugin(created.secret, request)).status, 'unchanged');
 
   await assert.rejects(
@@ -128,6 +159,51 @@ module.exports = async ({ pluginRoot }) => {
     version: '1.2.0',
     eventSchema: { pluginName: 'Private API', version: '1.2.0', events: {} },
   })).status, 'published');
+
+  await vault.createPrivatePlugin('admin', {
+    org: '_',
+    packageName: '',
+    manifestFileName: 'service-replace-api.plugin.json',
+    manifest: {
+      id: 'service-replace-api',
+      org: 'example',
+      name: 'Replace API',
+      category: 'service',
+      version: '1.0.0',
+      packages: { nodejs: '@example/replace-api' },
+      configSchema: { root: { kind: 'object', properties: { host: { kind: 'string' } } } },
+    },
+  });
+  profiles.push({ id: 'profile-1', groupId: 'group-1', name: 'prod', activeVersionId: null, createdAt: '2026-01-01T00:00:00.000Z' });
+  await vault.saveProfileDraft('admin', 'profile-1', {
+    services: {
+      api: { plugin: 'service-replace-api', package: '@example/replace-api', enabled: true, config: { host: 'api.local' } },
+    },
+    events: {},
+    observable: {},
+  });
+  const replacement = await vault.createPrivatePlugin('admin', {
+    org: '_',
+    packageName: '',
+    replace: true,
+    manifestFileName: 'service-replace-api.plugin.json',
+    manifest: {
+      id: 'service-replace-api',
+      org: 'example',
+      name: 'Replace API',
+      category: 'service',
+      version: '1.0.1',
+      packages: { nodejs: '@example/renamed-replace-api' },
+      configSchema: { root: { kind: 'object', properties: { host: { kind: 'string' } } } },
+    },
+  });
+  const migrated = await vault.getProfileDraft('profile-1');
+  assert.equal(replacement.plugin.packageName, '@example/renamed-replace-api');
+  assert.equal(migrated.services.api.package, '@example/renamed-replace-api');
+  assert.equal(migrated.services.api.version, '1.0.1');
+  assert.equal(migrated.services.api.config.host, 'api.local');
+  assert.equal(publisher.packageName, '@example/renamed-replace-api');
+
   assert.ok(audits.some((entry) => entry.action === 'plugin.publisher.rotate'));
   assert.equal(JSON.stringify(audits).includes(created.secret), false);
 };

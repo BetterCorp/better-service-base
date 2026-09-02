@@ -50,6 +50,13 @@ describe('Vault plugin publishing', () => {
       assert.equal(request.url, '/api/plugins/publish');
       assert.equal(request.authorization, `Bearer ${token}`);
       assert.equal(request.body?.name, 'service-private-api');
+      assert.deepEqual(request.body?.eventSchema, {
+        pluginId: 'service-private-api',
+        pluginName: 'service-private-api',
+        displayName: 'Private API',
+        version: '1.2.3',
+        events: {},
+      });
       assert.deepEqual(request.body?.package, { nodejs: '@example/private-api' });
       assert.equal('documentation' in (request.body ?? {}), false);
       assert.equal(result.stdout.includes(token), false);

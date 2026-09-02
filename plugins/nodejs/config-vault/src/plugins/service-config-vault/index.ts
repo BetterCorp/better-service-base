@@ -134,6 +134,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     this.httpServer = new VaultHttpServer({
       host: this.config.host,
       port: this.config.port,
+      version: this.pluginVersion,
       publicUrl: this.config.publicUrl,
       registryUrl: this.config.registryUrl,
       registryToken: this.config.registryToken,

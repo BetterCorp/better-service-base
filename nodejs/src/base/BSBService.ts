@@ -173,7 +173,7 @@ export abstract class BSBService<
     const meta = ConfigClass.metadata;
 
     return {
-      name: meta.name,
+      name: meta.id ?? meta.name,
     };
   }
 
@@ -228,11 +228,11 @@ export abstract class BSBService<
     }
 
     const meta = ConfigClass.metadata;
+    const pluginId = meta.id ?? meta.name;
 
-    return exportEventSchemas(
-      meta.name,
-      eventSchemas
-    );
+    const exported = exportEventSchemas(pluginId, eventSchemas);
+    if (meta.name !== pluginId) exported.displayName = meta.name;
+    return exported;
   }
 
   public abstract readonly initBeforePlugins?: Array<string>;

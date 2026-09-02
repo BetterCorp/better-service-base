@@ -168,17 +168,25 @@ async function main() {
       const Plugin = pluginModule.Plugin;
 
       const pluginType = inferPluginType(pluginId, Plugin);
-      const pluginName = Plugin.Config?.metadata?.name || pluginId;
+      const metadata = Plugin.Config?.metadata;
+      if (metadata?.id && metadata.id !== pluginId) {
+        throw new Error(`Plugin metadata id ${metadata.id} does not match plugin directory ${pluginId}`);
+      }
+      const displayName = metadata?.name || pluginId;
 
       let schemas: Record<string, any>;
       if (typeof Plugin.exportSchemas === 'function' && Plugin.Config && Plugin.EventSchemas) {
         schemas = Plugin.exportSchemas();
       } else {
         schemas = {
-          pluginName,
+          pluginId,
+          pluginName: pluginId,
           events: {},
         };
       }
+      schemas.pluginId = pluginId;
+      schemas.pluginName = pluginId;
+      if (displayName !== pluginId) schemas.displayName = displayName;
 
       schemas.version = packageVersion;
 

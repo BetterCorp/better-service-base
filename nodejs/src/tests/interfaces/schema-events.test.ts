@@ -159,6 +159,7 @@ describe('schema-events v9', () => {
 
       const exported = exportEventSchemas('test-plugin', schemas);
 
+      assert.strictEqual(exported.pluginId, 'test-plugin');
       assert.strictEqual(exported.pluginName, 'test-plugin');
       assert.strictEqual(exported.version, undefined);
       assert.ok(exported.events['test.event']);

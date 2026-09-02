@@ -884,6 +884,14 @@ export class VaultStore {
     if (result.rowCount !== 1) throw new Error('Plugin publisher not found');
   }
 
+  async updatePluginPublisherIdentity(record: PluginPublisherRecord): Promise<void> {
+    const result = await this.pool.query(
+      'update vault_plugin_publishers set org = $1, name = $2, package_name = $3, kind = $4 where plugin_id = $5',
+      [record.org, record.name, record.packageName, record.kind, record.pluginId],
+    );
+    if (result.rowCount !== 1) throw new Error('Plugin publisher not found');
+  }
+
   async listPlugins(): Promise<PluginCatalogRecord[]> {
     const result = await this.pool.query('select * from vault_plugin_catalog order by org, name, version');
     return result.rows.map((row) => mapPlugin(row as DbRow));

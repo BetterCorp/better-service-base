@@ -86,6 +86,7 @@ module.exports = async ({ pluginRoot }) => {
   const server = new VaultHttpServer({
     host: '127.0.0.1',
     port,
+    version: '9.9.9',
     publicUrl: `http://127.0.0.1:${port}`,
     registryUrl: `http://127.0.0.1:${registryPort}`,
     registryToken: 'vault-registry-token',
@@ -193,7 +194,7 @@ module.exports = async ({ pluginRoot }) => {
         return { id: 'imported-plugin', createdAt: '2026-01-01T00:00:00.000Z', ...input };
       },
       async createPrivatePlugin(userId, input) {
-        calls.push(['createPrivatePlugin', userId, input.schemaFileName]);
+        calls.push(['createPrivatePlugin', userId, input.schemaFileName ?? input.manifestFileName]);
         throw new Error('Schema version is required');
       },
       async publishPrivatePlugin(token, input) {
@@ -543,6 +544,11 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(pluginsHtml, /In use/);
     assert.match(pluginsHtml, /\/api\/plugins\/delete/);
     assert.match(pluginsHtml, /Sync Imported Plugins/);
+    assert.match(pluginsHtml, /<th>Plugin<\/th>/);
+    assert.match(pluginsHtml, /Plugin Manifest JSON/);
+    assert.match(pluginsHtml, /data-submit-on-change/);
+    assert.match(pluginsHtml, /Vault v9\.9\.9/);
+    assert.match(pluginsHtml, /BetterCorp \(PTY\) Ltd/);
 
     const directPublish = await fetch(`http://127.0.0.1:${port}/api/plugins/publish`, {
       method: 'POST',
@@ -571,7 +577,7 @@ module.exports = async ({ pluginRoot }) => {
       }),
     });
     assert.equal(invalidPluginSchema.status, 400);
-    assert.match((await invalidPluginSchema.json()).message, /not a valid plugin schema: Schema version is required/);
+    assert.match((await invalidPluginSchema.json()).message, /not a valid plugin upload: Schema version is required/);
 
     const invalidRequest = await fetch(`http://127.0.0.1:${port}/api/groups`, {
       method: 'POST',
