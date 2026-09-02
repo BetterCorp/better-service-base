@@ -70,7 +70,7 @@ Profile config is stored internally as the body of that profile:
 
 Admins should not hand-author this JSON in normal use. The profile page uses the plugin catalog and each plugin's generated config schema so an admin can add a service/events/observable plugin, enable or disable it, and fill out structured fields. Strings, numbers, booleans, enums, nested objects, arrays, records, and tuples are rendered as form controls where possible. Vault wraps the resulting profile body internally under the deployment profile name before publishing, for example `{ "default": { ... } }`. Containers do not choose a profile; the key already binds them to exactly one profile.
 
-Schema validation is enforced server-side when saving a profile plugin. Vault applies schema defaults, coerces primitive HTML form values where safe, strips unknown object keys, and rejects invalid values before encrypting the draft. The browser form is only a convenience layer; API callers cannot bypass schema validation.
+The browser runs the plugin's portable AnyVali schema before submitting and attaches validation errors to the relevant fields. Vault repeats schema validation server-side when saving a profile plugin, applies defaults, coerces primitive HTML form values where safe, strips unknown object keys, and rejects invalid values before encrypting the draft. API callers cannot bypass schema validation.
 
 Plugin schemas may declare type-checked `envOverridePaths`. The deployment profile UI permits environment overrides only for plugins with declared paths, and requires an explicit per-plugin opt-in. The profile page lists the effective paths by plugin; the runtime client rejects all other override data.
 

@@ -1829,9 +1829,11 @@ function validateAnyValiNode(
   });
   const result = schema.safeParse(value);
   if (result.success) return result.data;
-  const issue = result.issues[0];
-  const issuePath = [path, ...issue.path.map(String)].filter(Boolean).join('.').replace(/\.\[/g, '[');
-  throw new Error(`${issuePath}: ${issue.message}`);
+  const prefix = path.split('.').filter(Boolean);
+  throw new av.ValidationError(result.issues.map((issue) => ({
+    ...issue,
+    path: [...prefix, ...issue.path],
+  })));
 }
 
 function assertSafeSchemaDocument(document: Record<string, unknown> | null): void {

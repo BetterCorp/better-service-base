@@ -247,6 +247,7 @@ module.exports = async ({ pluginRoot }) => {
           kind: 'service',
           source: 'manual',
           configSchema: {
+            extensions: { bsb: { envOverridePaths: ['host'] } },
             root: {
               kind: 'object',
               properties: {
@@ -320,7 +321,7 @@ module.exports = async ({ pluginRoot }) => {
           applications: [{ id: 'app-1', name: 'App', description: 'Main app' }],
           applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
           plugins: pluginCatalog,
-          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true, autoPinned: true }, worker: { plugin: 'service-api', enabled: false } } },
+          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true, autoPinned: true, allowEnvOverrides: true }, worker: { plugin: 'service-api', enabled: false } } },
           inheritedDraft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
           configState: { state: 'draft-only', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: null },
           inheritedConfigState: { state: 'published', draftUpdatedAt: '2026-01-02T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
@@ -358,6 +359,16 @@ module.exports = async ({ pluginRoot }) => {
         return { keyId: 'vk_new', secret: 'vs_new' };
       },
       async upsertProfilePlugin(userId, input) {
+        if (input.config?.databaseUrl === 'invalid') {
+          const { ValidationError } = await import('anyvali');
+          throw new ValidationError([{
+            code: 'invalid_string',
+            path: ['config', 'databaseUrl'],
+            message: 'String does not match pattern: ^postgres(?:ql)?://[^\\s]+$',
+            expected: '^postgres(?:ql)?://[^\\s]+$',
+            received: input.config.databaseUrl,
+          }]);
+        }
         calls.push(['upsertProfilePlugin', userId, input.profileId, input.section, input.name, input.plugin, input.config]);
       },
       async removeProfilePlugin(userId, input) {
@@ -456,6 +467,15 @@ module.exports = async ({ pluginRoot }) => {
     assert.equal(overview.status, 200);
     assert.doesNotMatch(overviewHtml, /Use the JSON API/);
 
+    const anyValiModule = await fetch(`http://127.0.0.1:${port}/assets/anyvali/index.js`);
+    assert.equal(anyValiModule.status, 200);
+    assert.match(anyValiModule.headers.get('content-type') ?? '', /text\/javascript/);
+    assert.match(await anyValiModule.text(), /function importSchema/);
+    const anyValiFormsModule = await fetch(`http://127.0.0.1:${port}/assets/anyvali/forms/index.js`);
+    assert.equal(anyValiFormsModule.status, 200);
+    assert.match(await anyValiFormsModule.text(), /function createFormBindings/);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/assets/anyvali/package.json`)).status, 404);
+
     const applications = await fetch(`http://127.0.0.1:${port}/applications`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
     });
@@ -480,10 +500,12 @@ module.exports = async ({ pluginRoot }) => {
     });
     const deploymentHtml = await deployment.text();
     assert.equal(deployment.status, 200);
+    for (const script of deploymentHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)) new Function(script[1]);
     assert.match(deploymentHtml, /Profile Config/);
     assert.match(deploymentHtml, /state-badge live">Enabled/);
     assert.match(deploymentHtml, /state-badge disabled">Disabled/);
     assert.match(deploymentHtml, /state-badge disabled">Locked/);
+    assert.match(deploymentHtml, /state-badge pending">ENV Overrides/);
     assert.match(deploymentHtml, /Draft only/);
     assert.match(deploymentHtml, /Inherited Config/);
     assert.match(deploymentHtml, /Create Override/);
@@ -512,6 +534,13 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(deploymentHtml, /_\/syslog-client/);
     assert.doesNotMatch(deploymentHtml, />config-vault 1\.0\.0</);
     assert.match(deploymentHtml, /data-config-path="host"/);
+    assert.match(deploymentHtml, /schema-meta overrideable">overrideable/);
+    assert.doesNotMatch(deploymentHtml, /declared path/);
+    assert.match(deploymentHtml, /import\('\/assets\/anyvali\/index\.js'\)/);
+    assert.match(deploymentHtml, /createFormBindings/);
+    assert.match(deploymentHtml, /schema\.safeParse\(readConfigForm\(form\)\)/);
+    assert.match(deploymentHtml, /setAttribute\('aria-invalid', 'true'\)/);
+    assert.match(deploymentHtml, /addEventListener\('invalid'/);
     assert.match(deploymentHtml, /HTTP port/);
     assert.match(deploymentHtml, /required/);
     assert.match(deploymentHtml, /default: 3200/);
@@ -668,6 +697,30 @@ module.exports = async ({ pluginRoot }) => {
     const wrongMethod = await fetch(`http://127.0.0.1:${port}/api/groups`);
     assert.equal(wrongMethod.status, 405);
     assert.equal((await wrongMethod.json()).code, 'METHOD_NOT_ALLOWED');
+
+    const errorLogsBeforeValidation = logs.filter((entry) => entry.level === 'error').length;
+    const invalidConfig = await fetch(`http://127.0.0.1:${port}/api/profile-plugins`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: 'vault_session=session; vault_csrf=csrf-token',
+        'x-csrf-token': 'csrf-token',
+      },
+      body: JSON.stringify({
+        profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', enabled: true,
+        config: { databaseUrl: 'invalid' },
+      }),
+    });
+    assert.equal(invalidConfig.status, 400);
+    const invalidConfigError = await invalidConfig.json();
+    assert.equal(invalidConfigError.code, 'VALIDATION_ERROR');
+    assert.deepEqual(invalidConfigError.issues[0], {
+      code: 'invalid_string',
+      message: 'String does not match pattern: ^postgres(?:ql)?://[^\\s]+$',
+      path: ['config', 'databaseUrl'],
+    });
+    assert.match(invalidConfigError.message, /config\.databaseUrl: String does not match pattern/);
+    assert.equal(logs.filter((entry) => entry.level === 'error').length, errorLogsBeforeValidation);
 
     const runtimeFailure = await fetch(`http://127.0.0.1:${port}/runtime/config`, {
       headers: { 'x-vault-key-id': 'vk_test', 'x-vault-secret': 'vs_test' },

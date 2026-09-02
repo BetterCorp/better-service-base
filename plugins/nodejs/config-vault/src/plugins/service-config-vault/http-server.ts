@@ -1,5 +1,9 @@
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as av from 'anyvali';
 import {
   createApp,
   createError,
@@ -22,7 +26,9 @@ import {
 import type { Observable } from '@bsb/base';
 import { envOverridePathsFromSchema, type VaultService } from './vault.js';
 import type { RuntimeConfigDefinition, RuntimePluginDefinition } from './types.js';
-import { readAndValidateBody, validatedBody } from './http-validation.js';
+import { readAndValidateBody, sanitizeValidationIssue, validatedBody } from './http-validation.js';
+
+const anyValiBrowserRoot = dirname(fileURLToPath(import.meta.resolve('anyvali')));
 
 const getOnlyPaths = new Set([
   '/health', '/health/live', '/health/ready', '/login', '/user-setup', '/passkeys/setup', '/',
@@ -58,7 +64,10 @@ export class VaultHttpServer {
     const app = createApp({
       onError: async (error, event) => {
         const pathname = getRequestURL(event).pathname;
-        const statusCode = error.statusCode && error.statusCode !== 500 ? error.statusCode : vaultErrorStatus(error.message);
+        const validationIssues = anyValiValidationIssues(error);
+        const statusCode = validationIssues ? 400
+          : error.statusCode && error.statusCode !== 500 ? error.statusCode
+            : vaultErrorStatus(error.message);
         if (statusCode >= 500) {
           const requestObs = requestObservable(event) ?? this.options.obs;
           const loggedError = errorForObservability(error);
@@ -75,10 +84,11 @@ export class VaultHttpServer {
           setResponseStatus(event, statusCode);
           setResponseHeader(event, 'content-type', 'application/json; charset=utf-8');
           const data = objectField(error.data) ?? {};
+          const issues = Array.isArray(data.issues) ? data.issues : validationIssues;
           await send(event, JSON.stringify({
-            code: typeof data.code === 'string' ? data.code : vaultErrorCode(statusCode),
-            message: statusCode >= 500 ? 'Vault request failed' : error.message,
-            ...(Array.isArray(data.issues) ? { issues: data.issues } : {}),
+            code: typeof data.code === 'string' ? data.code : validationIssues ? 'VALIDATION_ERROR' : vaultErrorCode(statusCode),
+            message: statusCode >= 500 ? 'Vault request failed' : validationIssues ? validationMessage(validationIssues) : error.message,
+            ...(issues ? { issues } : {}),
             ...(data.replaceable === true ? { replaceable: true } : {}),
             ...(Array.isArray(data.diff) ? { diff: data.diff } : {}),
           }));
@@ -153,6 +163,20 @@ export class VaultHttpServer {
     app.use('/health', defineEventHandler(async () => {
       await this.options.vault.health();
       return { status: 'ok' };
+    }));
+
+    app.use('/assets/anyvali', defineEventHandler(async (event) => {
+      const pathname = getRequestURL(event).pathname;
+      const asset = pathname.slice('/assets/anyvali/'.length);
+      if (!/^(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.js$/.test(asset)) {
+        throw createError({ statusCode: 404, message: 'Asset not found' });
+      }
+      const path = resolve(anyValiBrowserRoot, asset);
+      const source = await readFile(path, 'utf8').catch(() => {
+        throw createError({ statusCode: 404, message: 'Asset not found' });
+      });
+      setResponseHeader(event, 'content-type', 'text/javascript; charset=utf-8');
+      return send(event, source);
     }));
 
     app.use('/runtime/config', defineEventHandler(async (event) => {
@@ -820,6 +844,22 @@ function readBody<T>(event: Parameters<typeof validatedBody>[0]): Promise<T> {
   return Promise.resolve(validatedBody(event) as T);
 }
 
+function anyValiValidationIssues(error: Error & { cause?: unknown }): ReturnType<typeof sanitizeValidationIssue>[] | undefined {
+  const validationError = error instanceof av.ValidationError ? error
+    : error.cause instanceof av.ValidationError ? error.cause
+      : undefined;
+  return validationError?.issues.map(sanitizeValidationIssue);
+}
+
+function validationMessage(issues: ReturnType<typeof sanitizeValidationIssue>[]): string {
+  const issue = issues[0];
+  if (!issue) return 'Request validation failed';
+  const path = issue.path.reduce<string>((value, part) => typeof part === 'number'
+    ? `${value}[${part}]`
+    : value ? `${value}.${part}` : String(part), '');
+  return `Request validation failed: ${path}${path ? ': ' : ''}${issue.message}`;
+}
+
 function vaultErrorStatus(message: string): number {
   if (/authentication required|invalid login|invalid vault api key/i.test(message)) return 401;
   if (/not authorized|not allowed to use|csrf/i.test(message)) return 403;
@@ -910,7 +950,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .auth{max-width:480px;margin:32px auto}.stack{display:flex;flex-direction:column;gap:12px}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .status{margin-top:12px;color:var(--muted);font-size:14px}.validation-errors{display:block;margin-top:6px}.validation-errors span{display:list-item;margin-left:20px;padding:2px 0}.code{word-break:break-all;background:#f2f4f7;border:1px solid var(--line);border-radius:6px;padding:10px}
     .schema-box{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px}.schema-box legend{font-weight:750;color:#344054}
-    .schema-help{display:block;color:var(--muted);font-size:12px;font-weight:500;margin:-6px 0 10px}.schema-meta{color:var(--muted);font-size:12px;font-weight:500}
+    .schema-help{display:block;color:var(--muted);font-size:12px;font-weight:500;margin:-6px 0 10px}.schema-help.danger{color:var(--danger)}.schema-meta{color:var(--muted);font-size:12px;font-weight:500}.schema-meta.overrideable{display:inline-block;border:1px solid #fedf89;border-radius:999px;background:#fffaeb;color:#b54708;padding:1px 6px}
     .schema-optional,.schema-override{border-left:3px solid #d0d5dd;margin:12px 0;padding-left:10px}.schema-override{border-left-color:#84c5a8}.schema-toggle{display:flex;gap:8px;align-items:center;margin:0 0 8px}.schema-toggle input{width:auto;margin:0}
     .schema-repeat{border:1px solid #edf0f5;border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.repeat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:start}.schema-repeat[data-array-path] .repeat-row{grid-template-columns:minmax(0,1fr) auto}
     .schema-union{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.schema-union-panel[hidden]{display:none}
@@ -1685,6 +1725,10 @@ function lockedBadge(entry: RuntimePluginDefinition): string {
   return entry.autoPinned ? '<span class="state-badge disabled">Locked</span>' : '';
 }
 
+function envOverridesBadge(entry: RuntimePluginDefinition): string {
+  return entry.allowEnvOverrides ? '<span class="state-badge pending">ENV Overrides</span>' : '';
+}
+
 function hasConfigEntries(config: RuntimeConfigDefinition): boolean {
   return ['services', 'events', 'observable'].some((section) =>
     Object.keys(config[section as keyof RuntimeConfigDefinition] ?? {}).length > 0
@@ -1780,7 +1824,7 @@ function configSectionEditor(
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
-        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}${lockedBadge(entry)}</span></summary>
+        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}${lockedBadge(entry)}${envOverridesBadge(entry)}</span></summary>
         <div class="plugin-card-body">
         <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
@@ -1894,7 +1938,7 @@ function inheritedOverrideSection(
     const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
     const enabledOverridden = localEntry?.enabled !== undefined;
     return `<details class="plugin-card">
-      <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'}</span>${enabledBadge(effective.enabled)}${lockedBadge(effective)}</span></summary>
+      <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'}</span>${enabledBadge(effective.enabled)}${lockedBadge(effective)}${envOverridesBadge(effective)}</span></summary>
       <div class="plugin-card-body">
         <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-inherited-override-form>
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
@@ -1945,7 +1989,7 @@ function envOverrideControl(schema: Record<string, unknown> | null | undefined, 
   const supported = paths.length > 0;
   return `<div data-env-override-control>
     <label class="schema-toggle"><input type="checkbox" name="allowEnvOverrides" value="true" data-env-override-toggle ${checked && supported ? 'checked' : ''} ${supported ? '' : 'disabled'}>Allow environment overrides</label>
-    <span class="muted" data-env-override-status>${supported ? `${paths.length} declared path${paths.length === 1 ? '' : 's'}.` : 'Plugin does not declare overrideable paths.'}</span>
+    <span class="muted" data-env-override-status ${supported ? 'hidden' : ''}>${supported ? '' : 'Plugin does not declare overrideable paths.'}</span>
   </div>`;
 }
 
@@ -2083,6 +2127,7 @@ function pluginKindLabel(kind: string): string {
 type RenderSchemaOptions = {
   overrideMode?: boolean;
   overrideConfig?: Record<string, unknown>;
+  envOverridePaths?: Set<string>;
 };
 
 function renderSchemaFields(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>, options: RenderSchemaOptions = {}): string {
@@ -2090,7 +2135,10 @@ function renderSchemaFields(schema: Record<string, unknown> | null | undefined, 
   if (!root || root.kind !== 'object' || !objectField(root.properties)) {
     return '<p class="muted">No config schema available for this plugin.</p>';
   }
-  return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root), false, options);
+  return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root), false, {
+    ...options,
+    envOverridePaths: new Set(envOverridePathsFromSchema(schema)),
+  });
 }
 
 function renderProperties(
@@ -2123,31 +2171,31 @@ function renderSchemaControl(
   const help = schemaHelp(rawNode, node, required);
   let control = '';
   if (node.kind === 'object' && objectField(node.properties)) {
-    control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required)}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node), false, options)}</fieldset>`;
+    control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node), false, options)}</fieldset>`;
   } else if (node.kind === 'bool' || node.kind === 'boolean') {
-    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="bool" ${required ? 'required' : ''}><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
+    control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<select data-config-path="${escapeHtml(path)}" data-kind="bool" ${required ? 'required' : ''}><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
   } else if (node.kind === 'enum' && Array.isArray(node.values)) {
-    control = `<label>${fieldLabel(key, rawNode, node, required)}<select data-config-path="${escapeHtml(path)}" data-kind="string" ${required ? 'required' : ''}>${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select>${help}</label>`;
+    control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<select data-config-path="${escapeHtml(path)}" data-kind="string" ${required ? 'required' : ''}>${node.values.map((item) => `<option value="${escapeHtml(String(item))}" ${String(value) === String(item) ? 'selected' : ''}>${escapeHtml(String(item))}</option>`).join('')}</select>${help}</label>`;
   } else if (node.kind === 'literal') {
     control = hideLiteralField
       ? `<input type="hidden" data-config-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(node.value ?? ''))}">`
-      : `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(node.value ?? ''))}" readonly ${required ? 'required' : ''}>${help}</label>`;
+      : `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input data-config-path="${escapeHtml(path)}" data-kind="string" value="${escapeHtml(String(node.value ?? ''))}" readonly ${required ? 'required' : ''}>${help}</label>`;
   } else if (node.kind === 'array') {
     const itemNode = unwrapSchema(objectField(node.items) ?? objectField(node.item));
     const kind = inputKind(itemNode);
     const values = Array.isArray(value) ? value : [];
     const rows = (values.length ? values : ['']).map((item) => `<div class="repeat-row"><input data-array-item data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(item ?? ''))}"><button type="button" class="secondary" data-remove-row>Remove</button></div>`).join('');
-    control = `<div class="schema-repeat" data-array-path="${escapeHtml(path)}" data-item-kind="${escapeHtml(kind)}"><label>${fieldLabel(key, rawNode, node, required)}</label>${help}<div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>`;
+    control = `<div class="schema-repeat" data-array-path="${escapeHtml(path)}" data-item-kind="${escapeHtml(kind)}"><label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</label>${help}<div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>`;
   } else if (node.kind === 'record') {
     const valueNode = unwrapSchema(objectField(node.valueSchema) ?? objectField(node.values) ?? objectField(node.value));
     const kind = inputKind(valueNode);
     const entries = isRecord(value) ? Object.entries(value) : [];
     const rows = (entries.length ? entries : [['', '']]).map(([recordKey, recordValue]) => `<div class="repeat-row"><input data-record-key placeholder="Key" value="${escapeHtml(String(recordKey))}"><input data-record-value data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} placeholder="Value" value="${escapeHtml(String(recordValue ?? ''))}"><button type="button" class="secondary" data-remove-row>Remove</button></div>`).join('');
-    control = `<div class="schema-repeat" data-record-path="${escapeHtml(path)}" data-value-kind="${escapeHtml(kind)}"><label>${fieldLabel(key, rawNode, node, required)}</label>${help}<div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>`;
+    control = `<div class="schema-repeat" data-record-path="${escapeHtml(path)}" data-value-kind="${escapeHtml(kind)}"><label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</label>${help}<div data-repeat-rows>${rows}</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>`;
   } else if (node.kind === 'tuple') {
     const items = (Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : []).map((item) => objectField(item));
     const values = Array.isArray(value) ? value : [];
-    control = `<fieldset class="schema-box" data-tuple-path="${escapeHtml(path)}"><legend>${fieldLabel(key, rawNode, node, required)}</legend>${help}${items.map((item, index) => {
+    control = `<fieldset class="schema-box" data-tuple-path="${escapeHtml(path)}"><legend>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</legend>${help}${items.map((item, index) => {
       const child = unwrapSchema(item);
       const kind = inputKind(child);
       return `<label>Item ${index + 1}<input data-tuple-index="${index}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(values[index] ?? child?.default ?? ''))}"></label>`;
@@ -2158,9 +2206,9 @@ function renderSchemaControl(
     const kind = inputKind(node);
     if (isSensitiveSchema(rawNode, node)) {
       const isSet = rawValue !== undefined;
-      control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${fieldLabel(key, rawNode, node, required)}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="string" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${help}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
+      control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="string" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${help}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
     } else {
-      control = `<label>${fieldLabel(key, rawNode, node, required)}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
+      control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
     }
   }
   if (rawNode?.kind === 'optional') control = optionalShell(key, path, control, rawValue !== undefined);
@@ -2198,7 +2246,7 @@ function renderUnionControl(
     return `<div class="schema-union-panel" data-union-variant="${index}" ${index === selectedIndex ? '' : 'hidden'}>${fields}</div>`;
   }).join('');
   return `<div class="schema-union" data-union-path="${escapeHtml(path)}">
-    <label>${fieldLabel(key, rawNode, node, required)}<select data-union-picker ${required ? 'required' : ''}>${optionHtml}</select>${help}</label>
+    <label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<select data-union-picker ${required ? 'required' : ''}>${optionHtml}</select>${help}</label>
     ${panels}
   </div>`;
 }
@@ -2236,9 +2284,9 @@ function inputAttrs(node: Record<string, unknown>, required: boolean, kind: 'num
   return attrs.join(' ');
 }
 
-function fieldLabel(key: string, rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean): string {
+function fieldLabel(key: string, rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean, overrideable = false): string {
   const meta = fieldMeta(rawNode, node, required);
-  return `${escapeHtml(key)}${meta ? ` <span class="schema-meta">${escapeHtml(meta)}</span>` : ''}`;
+  return `${escapeHtml(key)}${meta ? ` <span class="schema-meta">${escapeHtml(meta)}</span>` : ''}${overrideable ? ' <span class="schema-meta overrideable">overrideable</span>' : ''}`;
 }
 
 function schemaHelp(rawNode: Record<string, unknown> | null, node: Record<string, unknown>, required: boolean): string {
@@ -2438,6 +2486,7 @@ function formScript(): string {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (form.dataset.confirm && !confirm(form.dataset.confirm)) return;
+      if (window.validateVaultConfig && !await window.validateVaultConfig(form)) return;
       const status = form.querySelector('.status');
       if (status) { status.textContent = 'Saving...'; status.className = 'status'; }
       try {
@@ -2513,6 +2562,7 @@ function formScript(): string {
 function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   const catalog = plugins.reduce((acc, plugin) => {
     acc[plugin.id] = {
+      id: plugin.id,
       plugin: plugin.pluginId,
       packageName: plugin.packageName ?? '',
       version: plugin.version,
@@ -2525,6 +2575,147 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   }, {} as Record<string, unknown>);
   return `<script>
   const vaultPluginCatalog = ${jsonForScript(catalog)};
+  const anyValiSchemas = new Map();
+  let anyValiForms;
+  let anyValiLoadError;
+  let anyValiFormSequence = 0;
+  const anyValiReady = Promise.all([
+    import('/assets/anyvali/index.js'),
+    import('/assets/anyvali/forms/index.js'),
+  ]).then(([anyVali, forms]) => {
+    anyValiForms = forms;
+    for (const [id, item] of Object.entries(vaultPluginCatalog)) {
+      if (item.schema) anyValiSchemas.set(id, anyVali.importSchema(item.schema));
+    }
+    document.querySelectorAll('form[data-config-form]').forEach(applyAnyValiBindings);
+  }).catch((error) => {
+    anyValiLoadError = error;
+  });
+  function activeCatalogId(form) {
+    return form.dataset.validationCatalogId || form.dataset.currentCatalogId || form.querySelector('[data-plugin-picker]')?.value || '';
+  }
+  function anyValiPath(path) {
+    return path.map((part, index) => typeof part === 'number' ? '[' + part + ']' : index ? '.' + part : String(part)).join('');
+  }
+  function anyValiSlot(form, path) {
+    return Array.from(form.querySelectorAll('[data-anyvali-error-for]')).find((slot) => slot.dataset.anyvaliErrorFor === path);
+  }
+  function applyAnyValiBindings(form) {
+    const item = vaultPluginCatalog[activeCatalogId(form)];
+    if (!item?.schema || !anyValiForms) return;
+    form.dataset.anyvaliPrefix ||= 'vault-config-' + (++anyValiFormSequence);
+    if (!form.dataset.anyvaliEvents) {
+      form.dataset.anyvaliEvents = 'true';
+      form.addEventListener('invalid', (event) => {
+        const field = event.target;
+        if (!field?.dataset?.anyvaliPath) return;
+        field.setAttribute('aria-invalid', 'true');
+        field.setAttribute('data-anyvali-invalid', 'true');
+        const slot = anyValiSlot(form, field.dataset.anyvaliPath);
+        if (slot) {
+          slot.textContent = field.validationMessage || 'Invalid value';
+          slot.hidden = false;
+        }
+      }, true);
+      form.addEventListener('input', (event) => {
+        const field = event.target;
+        if (!field?.dataset?.anyvaliPath) return;
+        field.setCustomValidity('');
+        field.removeAttribute('aria-invalid');
+        field.removeAttribute('data-anyvali-invalid');
+        const slot = anyValiSlot(form, field.dataset.anyvaliPath);
+        if (slot) {
+          slot.textContent = '';
+          slot.hidden = true;
+        }
+      });
+    }
+    const bindings = anyValiForms.createFormBindings({ schema: item.schema, errorIdPrefix: form.dataset.anyvaliPrefix });
+    form.querySelectorAll('[data-config-path]').forEach((field) => {
+      const path = field.dataset.configPath;
+      if (!path) return;
+      const attrs = bindings.field(path);
+      for (const [name, value] of Object.entries(attrs)) {
+        if (name === 'name' || value === undefined || value === null || field.hasAttribute(name)) continue;
+        if (typeof value === 'boolean') {
+          if (value) field.setAttribute(name, '');
+        } else {
+          field.setAttribute(name, String(value));
+        }
+      }
+      if (anyValiSlot(form, field.dataset.anyvaliPath || path)) return;
+      const slot = document.createElement('span');
+      for (const [name, value] of Object.entries(bindings.errorSlot(path))) slot.setAttribute(name, String(value));
+      slot.className = 'schema-help danger';
+      slot.hidden = true;
+      field.insertAdjacentElement('afterend', slot);
+    });
+  }
+  function clearAnyValiErrors(form) {
+    form.querySelectorAll('[data-anyvali-invalid]').forEach((field) => {
+      field.setCustomValidity('');
+      field.removeAttribute('aria-invalid');
+      field.removeAttribute('data-anyvali-invalid');
+    });
+    form.querySelectorAll('[data-anyvali-error-for]').forEach((slot) => {
+      slot.textContent = '';
+      slot.hidden = true;
+    });
+  }
+  function fieldForAnyValiIssue(form, issue) {
+    const path = anyValiPath(issue.path || []);
+    const exact = Array.from(form.querySelectorAll('[data-config-path]')).find((field) => field.dataset.configPath === path);
+    if (exact) return exact;
+    const group = Array.from(form.querySelectorAll('[data-array-path],[data-record-path],[data-tuple-path]')).find((item) => {
+      const groupPath = item.dataset.arrayPath || item.dataset.recordPath || item.dataset.tuplePath;
+      return path === groupPath || path.startsWith(groupPath + '.') || path.startsWith(groupPath + '[');
+    });
+    return group?.querySelector('input:not(:disabled),select:not(:disabled),textarea:not(:disabled)') || null;
+  }
+  function storedSensitiveIssue(form, issue) {
+    const path = anyValiPath(issue.path || []);
+    return Array.from(form.querySelectorAll('[data-sensitive="true"][data-secret-set="true"]'))
+      .some((field) => field.disabled && field.dataset.configPath === path);
+  }
+  function showAnyValiIssues(form, issues) {
+    let first;
+    for (const issue of issues) {
+      const field = fieldForAnyValiIssue(form, issue);
+      if (!field || field.disabled) continue;
+      first ||= field;
+      field.setCustomValidity(issue.message || 'Invalid value');
+      field.setAttribute('aria-invalid', 'true');
+      field.setAttribute('data-anyvali-invalid', 'true');
+      const path = field.dataset.anyvaliPath || field.dataset.configPath || anyValiPath(issue.path || []);
+      const slot = anyValiSlot(form, path);
+      if (slot) {
+        slot.textContent = issue.message || 'Invalid value';
+        slot.hidden = false;
+      }
+    }
+    const status = form.querySelector('.status');
+    if (status) showVaultError(status, { issues }, 'Config validation failed');
+    first?.reportValidity();
+  }
+  window.validateVaultConfig = async (form) => {
+    if (!form.matches('[data-config-form]')) return true;
+    await anyValiReady;
+    if (anyValiLoadError) {
+      const status = form.querySelector('.status');
+      if (status) showVaultError(status, new Error('Config validation could not load'), 'Config validation could not load');
+      return false;
+    }
+    applyAnyValiBindings(form);
+    clearAnyValiErrors(form);
+    const schema = anyValiSchemas.get(activeCatalogId(form));
+    if (!schema) return true;
+    const result = schema.safeParse(readConfigForm(form));
+    if (result.success) return true;
+    const issues = result.issues.filter((issue) => !storedSensitiveIssue(form, issue));
+    if (!issues.length) return true;
+    showAnyValiIssues(form, issues);
+    return false;
+  };
   function setPath(target, path, value) {
     const parts = path.split('.');
     if (parts.some((part) => ['__proto__', 'prototype', 'constructor'].includes(part))) throw new Error('Config path contains a forbidden segment');
@@ -2618,9 +2809,11 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     if (Object.prototype.hasOwnProperty.call(node, 'default')) return 'default: ' + formatDefaultClient(node.default);
     return required ? 'required' : 'optional';
   }
-  function fieldLabelClient(key, rawNode, node, required) {
+  function fieldLabelClient(key, rawNode, node, required, overrideable) {
     const meta = fieldMetaClient(rawNode, node, required);
-    return escapeClient(key) + (meta ? ' <span class="schema-meta">' + escapeClient(meta) + '</span>' : '');
+    return escapeClient(key)
+      + (meta ? ' <span class="schema-meta">' + escapeClient(meta) + '</span>' : '')
+      + (overrideable ? ' <span class="schema-meta overrideable">overrideable</span>' : '');
   }
   function schemaHelpClient(rawNode, node, required) {
     const description = node && node.metadata && node.metadata.description ? String(node.metadata.description) : '';
@@ -2665,41 +2858,43 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       + primitiveInput(key === null ? 'data-array-item' : 'data-record-value', kind, value)
       + '<button type="button" class="secondary" data-remove-row>Remove</button></div>';
   }
-  function renderFields(properties, prefix, requiredKeys, hideLiteralFields) {
+  function renderFields(properties, prefix, requiredKeys, hideLiteralFields, envOverridePaths) {
     const requiredSet = new Set(requiredKeys || []);
+    envOverridePaths ||= [];
     return Object.entries(properties || {}).map(([key, rawNode]) => {
       let node = unwrapNode(rawNode);
       if (!node) return '';
       const path = prefix ? prefix + '.' + key : key;
       const required = requiredSet.has(key) && !(rawNode && rawNode.kind === 'optional') && !Object.prototype.hasOwnProperty.call(node, 'default');
+      const overrideable = envOverridePaths.includes(path);
       const help = schemaHelpClient(rawNode, node, required);
       let control = '';
       if (node.kind === 'object' && node.properties) {
-        control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties), hideLiteralFields) + '</fieldset>';
+        control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties), hideLiteralFields, envOverridePaths) + '</fieldset>';
       } else if (node.kind === 'bool' || node.kind === 'boolean') {
-        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"' + (required ? ' required' : '') + '><option value="true"' + (node.default === true ? ' selected' : '') + '>true</option><option value="false"' + (node.default === false ? ' selected' : '') + '>false</option></select>' + help + '</label>';
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"' + (required ? ' required' : '') + '><option value="true"' + (node.default === true ? ' selected' : '') + '>true</option><option value="false"' + (node.default === false ? ' selected' : '') + '>false</option></select>' + help + '</label>';
       } else if (node.kind === 'enum' && Array.isArray(node.values)) {
-        control = '<label>' + fieldLabelClient(key, rawNode, node, required) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string"' + (required ? ' required' : '') + '>' + node.values.map((item) => '<option value="' + escapeClient(item) + '"' + (String(node.default) === String(item) ? ' selected' : '') + '>' + escapeClient(item) + '</option>').join('') + '</select>' + help + '</label>';
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<select data-config-path="' + escapeClient(path) + '" data-kind="string"' + (required ? ' required' : '') + '>' + node.values.map((item) => '<option value="' + escapeClient(item) + '"' + (String(node.default) === String(item) ? ' selected' : '') + '>' + escapeClient(item) + '</option>').join('') + '</select>' + help + '</label>';
       } else if (node.kind === 'literal') {
         control = hideLiteralFields
           ? '<input type="hidden" data-config-path="' + escapeClient(path) + '" data-kind="string" value="' + escapeClient(node.value || '') + '">'
-          : '<label>' + fieldLabelClient(key, rawNode, node, required) + '<input data-config-path="' + escapeClient(path) + '" data-kind="string" value="' + escapeClient(node.value || '') + '" readonly' + (required ? ' required' : '') + '>' + help + '</label>';
+          : '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<input data-config-path="' + escapeClient(path) + '" data-kind="string" value="' + escapeClient(node.value || '') + '" readonly' + (required ? ' required' : '') + '>' + help + '</label>';
       } else if (node.kind === 'array') {
         const kind = inputKind(node.items || node.item);
-        control = '<div class="schema-repeat" data-array-path="' + escapeClient(path) + '" data-item-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, null, '') + '</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>';
+        control = '<div class="schema-repeat" data-array-path="' + escapeClient(path) + '" data-item-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, null, '') + '</div><button type="button" class="secondary" data-add-array-item>Add Item</button></div>';
       } else if (node.kind === 'record') {
         const kind = inputKind(node.valueSchema || node.values || node.value);
-        control = '<div class="schema-repeat" data-record-path="' + escapeClient(path) + '" data-value-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, '', '') + '</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>';
+        control = '<div class="schema-repeat" data-record-path="' + escapeClient(path) + '" data-value-kind="' + kind + '"><label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</label>' + help + '<div data-repeat-rows>' + repeatRow(kind, '', '') + '</div><button type="button" class="secondary" data-add-record-row>Add Entry</button></div>';
       } else if (node.kind === 'tuple') {
         const items = Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : [];
-        control = '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + fieldLabelClient(key, rawNode, node, required) + '</legend>' + help + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
+        control = '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
       } else if (node.kind === 'union' && Array.isArray(node.variants) && node.variants[0]) {
-        control = renderUnionClient(key, rawNode, node, path, required, help);
+        control = renderUnionClient(key, rawNode, node, path, required, help, envOverridePaths);
       } else {
         const kind = inputKind(node);
         control = isSensitiveClient(rawNode, node)
-          ? '<div class="schema-sensitive" data-sensitive-field="' + escapeClient(path) + '"><label>' + fieldLabelClient(key, rawNode, node, required) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="string" data-sensitive="true" ' + inputAttrsClient(node, required, 'string') + '>' + help + '</label></div>'
-          : '<label>' + fieldLabelClient(key, rawNode, node, required) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
+          ? '<div class="schema-sensitive" data-sensitive-field="' + escapeClient(path) + '"><label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="string" data-sensitive="true" ' + inputAttrsClient(node, required, 'string') + '>' + help + '</label></div>'
+          : '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
       }
       return rawNode && rawNode.kind === 'optional' ? optionalShellClient(key, path, control) : control;
     }).join('');
@@ -2714,17 +2909,17 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     }
     return 'Option ' + (index + 1);
   }
-  function renderUnionClient(key, rawNode, node, path, required, help) {
+  function renderUnionClient(key, rawNode, node, path, required, help, envOverridePaths) {
     const variants = (node.variants || []).map(unwrapNode).filter(Boolean);
     const options = variants.map((variant, index) => '<option value="' + index + '">' + escapeClient(unionVariantLabelClient(variant, index)) + '</option>').join('');
     const panels = variants.map((variant, index) => {
       const fields = variant.kind === 'object' && variant.properties
-        ? renderFields(variant.properties, path, requiredKeysClient(variant, variant.properties), true)
-        : renderFields({ [key]: variant }, '', [key]);
+        ? renderFields(variant.properties, path, requiredKeysClient(variant, variant.properties), true, envOverridePaths)
+        : renderFields({ [key]: variant }, '', [key], false, envOverridePaths);
       return '<div class="schema-union-panel" data-union-variant="' + index + '"' + (index === 0 ? '' : ' hidden') + '>' + fields + '</div>';
     }).join('');
     return '<div class="schema-union" data-union-path="' + escapeClient(path) + '"><label>'
-      + fieldLabelClient(key, rawNode, node, required)
+      + fieldLabelClient(key, rawNode, node, required, envOverridePaths.includes(path))
       + '<select data-union-picker' + (required ? ' required' : '') + '>' + options + '</select>'
       + help + '</label>' + panels + '</div>';
   }
@@ -2771,6 +2966,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
   }
   function renderCatalogFieldsInto(form, item, config) {
     if (!item || !form) return;
+    form.dataset.validationCatalogId = item.id || '';
     form.elements.plugin.value = item.plugin || '';
     form.elements.packageName.value = item.packageName || '';
     if (form.elements.version) {
@@ -2785,15 +2981,17 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       envToggle.disabled = envPaths.length === 0;
       if (envToggle.disabled) envToggle.checked = false;
     }
-    if (envStatus) envStatus.textContent = envPaths.length > 0
-      ? envPaths.length + ' declared path' + (envPaths.length === 1 ? '.' : 's.')
-      : 'Plugin does not declare overrideable paths.';
+    if (envStatus) {
+      envStatus.hidden = envPaths.length > 0;
+      envStatus.textContent = envPaths.length > 0 ? '' : 'Plugin does not declare overrideable paths.';
+    }
     const fields = form.querySelector('[data-config-fields]');
     const root = schemaRoot(item.schema);
     if (!fields) return;
-    fields.innerHTML = root ? renderFields(root.properties, '', requiredKeysClient(root, root.properties)) : '<p class="muted">No config schema available for this plugin.</p>';
+    fields.innerHTML = root ? renderFields(root.properties, '', requiredKeysClient(root, root.properties), false, envPaths) : '<p class="muted">No config schema available for this plugin.</p>';
     setFieldsFromConfig(fields, config || {});
     syncDynamicFields(fields);
+    anyValiReady.then(() => applyAnyValiBindings(form));
   }
   document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-add-array-item],[data-add-record-row],[data-remove-row]');
@@ -2821,6 +3019,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     sync();
   });
   document.querySelectorAll('form[data-config-form][data-update-catalog-id]').forEach((form) => {
+    form.dataset.validationCatalogId = form.dataset.currentCatalogId || '';
     const lock = form.querySelector('[data-version-lock]');
     if (!lock || !form.dataset.updateCatalogId) return;
     lock.addEventListener('change', () => {

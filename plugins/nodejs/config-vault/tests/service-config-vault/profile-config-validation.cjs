@@ -347,5 +347,10 @@ module.exports = async ({ pluginRoot }) => {
     version: '1.0.0',
     enabled: true,
     config: { port: 'not-a-number' },
-  }), /config\.port: Expected integer/i);
+  }), (error) => {
+    assert.equal(error.name, 'ValidationError');
+    assert.deepEqual(error.issues[0].path, ['config', 'port']);
+    assert.match(error.issues[0].message, /Expected integer/i);
+    return true;
+  });
 };

@@ -137,13 +137,13 @@ export async function readAndValidateBody(event: H3Event, pathname: string): Pro
   return result.data as Record<string, unknown>;
 }
 
-interface PublicValidationIssue {
+export interface PublicValidationIssue {
   code: string;
   message: string;
   path: Array<string | number>;
 }
 
-function sanitizeValidationIssue(issue: av.ValidationIssue): PublicValidationIssue {
+export function sanitizeValidationIssue(issue: av.ValidationIssue): PublicValidationIssue {
   const expected = issue.expected ? ` ${issue.expected}` : '';
   const message = (() => {
     switch (issue.code) {
