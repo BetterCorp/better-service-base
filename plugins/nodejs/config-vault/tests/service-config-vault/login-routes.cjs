@@ -296,7 +296,7 @@ module.exports = async ({ pluginRoot }) => {
           applications: [{ id: 'app-1', name: 'App', description: 'Main app' }],
           applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
           plugins: pluginCatalog,
-          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true } } },
+          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true }, worker: { plugin: 'service-api', enabled: false } } },
           inheritedDraft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
           configState: { state: 'draft-only', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: null },
           inheritedConfigState: { state: 'published', draftUpdatedAt: '2026-01-02T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
@@ -449,6 +449,8 @@ module.exports = async ({ pluginRoot }) => {
     const deploymentHtml = await deployment.text();
     assert.equal(deployment.status, 200);
     assert.match(deploymentHtml, /Profile Config/);
+    assert.match(deploymentHtml, /state-badge live">Enabled/);
+    assert.match(deploymentHtml, /state-badge disabled">Disabled/);
     assert.match(deploymentHtml, /Draft only/);
     assert.match(deploymentHtml, /Inherited Config/);
     assert.match(deploymentHtml, /Create Override/);

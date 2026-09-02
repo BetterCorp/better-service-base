@@ -69,6 +69,33 @@ module.exports = async ({ pluginRoot }) => {
   assert.match(created.secret, /^bv_p_service-private-api_[A-Za-z0-9_-]{12}_[A-Za-z0-9_-]{43}$/);
   assert.equal(publisher.secretHash.includes(created.secret), false);
   assert.equal(plugins[0].pluginId, 'service-private-api');
+  await assert.rejects(() => vault.createPrivatePlugin('admin', {
+    org: 'example',
+    packageName: '@example/private-api',
+    schemaFileName: 'service-private-api.json',
+    schema: {
+      pluginName: 'Private API',
+      pluginType: 'service',
+      version: '1.0.0',
+      events: {},
+      configSchema: { root: { kind: 'object', properties: {} } },
+    },
+  }), /Plugin service-private-api version 1\.0\.0 already exists/);
+  const uploadedVersion = await vault.createPrivatePlugin('admin', {
+    org: 'example',
+    packageName: '@example/private-api',
+    schemaFileName: 'service-private-api.json',
+    schema: {
+      pluginName: 'Private API',
+      pluginType: 'service',
+      version: '1.0.1',
+      events: {},
+      configSchema: { root: { kind: 'object', properties: { host: { kind: 'string' } } } },
+    },
+  });
+  assert.equal(uploadedVersion.plugin.version, '1.0.1');
+  assert.equal(uploadedVersion.plugin.source, 'upload');
+  assert.equal(uploadedVersion.secret, undefined);
 
   const request = {
     org: 'example',

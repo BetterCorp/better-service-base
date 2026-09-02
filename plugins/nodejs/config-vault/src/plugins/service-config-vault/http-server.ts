@@ -474,7 +474,7 @@ export class VaultHttpServer {
       });
       return {
         ...created,
-        publishCommand: vaultPublishCommand(this.options.publicUrl, created.plugin.pluginId, created.secret),
+        publishCommand: created.secret ? vaultPublishCommand(this.options.publicUrl, created.plugin.pluginId, created.secret) : undefined,
       };
     }));
 
@@ -898,7 +898,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     details.plugin-card{border:1px solid var(--line);border-radius:6px;margin:10px 0;background:#fff}details.plugin-card>summary{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer;padding:12px 14px;font-weight:750;color:#344054}.plugin-card-body{border-top:1px solid var(--line);padding:14px}.chip{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:650;color:#344054;background:#f9fafb}
     .callout{border:1px solid #fedf89;background:#fffaeb;color:#93370d;border-radius:6px;padding:10px 12px;margin:10px 0;font-size:13px}
     .usage-list{margin:8px 0 0;padding-left:18px}.usage-list a{color:var(--primary);text-decoration:none}.usage-list a:hover{text-decoration:underline}
-    .state-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:750;border:1px solid #d0d5dd;background:#f9fafb;color:#344054}.state-badge.live{border-color:#abefc6;background:#ecfdf3;color:#067647}.state-badge.pending,.state-badge.draft{border-color:#fedf89;background:#fffaeb;color:#b54708}.state-badge.empty{border-color:#d0d5dd;background:#f9fafb;color:#637083}
+    .state-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:750;border:1px solid #d0d5dd;background:#f9fafb;color:#344054}.state-badge.live{border-color:#abefc6;background:#ecfdf3;color:#067647}.state-badge.disabled{border-color:#fecdca;background:#fef3f2;color:#b42318}.state-badge.pending,.state-badge.draft{border-color:#fedf89;background:#fffaeb;color:#b54708}.state-badge.empty{border-color:#d0d5dd;background:#f9fafb;color:#637083}
     @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
 </head>
@@ -1554,6 +1554,10 @@ function configStateBadge(configState?: { state: string; draftUpdatedAt: string 
   return `<span class="state-badge ${css}" title="${escapeHtml(detail)}">${escapeHtml(labels[configState.state] ?? configState.state)}</span>`;
 }
 
+function enabledBadge(enabled: boolean | undefined): string {
+  return `<span class="state-badge ${enabled ? 'live' : 'disabled'}">${enabled ? 'Enabled' : 'Disabled'}</span>`;
+}
+
 function hasConfigEntries(config: RuntimeConfigDefinition): boolean {
   return ['services', 'events', 'observable'].some((section) =>
     Object.keys(config[section as keyof RuntimeConfigDefinition] ?? {}).length > 0
@@ -1647,7 +1651,7 @@ function configSectionEditor(
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
-        <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')} / ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
+        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}</span></summary>
         <div class="plugin-card-body">
         <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
@@ -1696,7 +1700,7 @@ function applicationConfigSectionEditor(
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
-        <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')} / ${entry.enabled ? 'enabled' : 'disabled'}</span></summary>
+        <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} ${escapeHtml(entry.version ?? catalog?.version ?? '')}</span>${enabledBadge(entry.enabled)}</span></summary>
         <div class="plugin-card-body">
         <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-current-catalog-id="${escapeHtml(catalog?.id ?? '')}" data-update-catalog-id="${escapeHtml(updateCatalog?.id ?? '')}" data-current-config="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
@@ -1759,7 +1763,7 @@ function inheritedOverrideSection(
     const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
     const enabledOverridden = localEntry?.enabled !== undefined;
     return `<details class="plugin-card">
-      <summary><span>${escapeHtml(name)}</span><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'} ${effective.enabled ? 'enabled' : 'disabled'}</span></summary>
+      <summary><span>${escapeHtml(name)}</span><span class="actions"><span class="chip">${escapeHtml(pluginLabel)} / ${localEntry ? 'overridden' : 'inherited'}</span>${enabledBadge(effective.enabled)}</span></summary>
       <div class="plugin-card-body">
         <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form data-inherited-override-form>
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">

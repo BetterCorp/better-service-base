@@ -503,12 +503,40 @@ export class VaultService {
     return record;
   }
 
-  async createPrivatePlugin(userId: string, input: PrivatePluginUploadInput): Promise<{ plugin: PluginCatalogRecord; keyId: string; secret: string }> {
+  async createPrivatePlugin(userId: string, input: PrivatePluginUploadInput): Promise<{ plugin: PluginCatalogRecord; keyId?: string; secret?: string }> {
     const parsed = privatePluginFromSchema(input);
     assertSafeSchemaDocument(parsed.configSchema);
     assertSafeSchemaDocument(parsed.eventSchema);
-    if ((await this.store.listPlugins()).some((plugin) => plugin.pluginId === parsed.pluginId)) {
-      throw new Error(`Plugin ${parsed.pluginId} already exists and cannot be uploaded or replaced`);
+    const previousPlugins = await this.store.listPlugins();
+    const versions = previousPlugins.filter((plugin) => plugin.pluginId === parsed.pluginId);
+    const existing = versions.find((plugin) => plugin.version === parsed.version);
+    if (existing) {
+      throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} already exists and cannot be uploaded again`);
+    }
+    const latest = latestPlugin(versions);
+    if (latest) {
+      if (latest.org !== parsed.org || latest.packageName !== parsed.packageName || latest.kind !== parsed.kind) {
+        throw new Error(`Plugin ${parsed.pluginId} already exists with different identity and cannot be uploaded`);
+      }
+      if (compareVersions(parsed.version, latest.version) <= 0) {
+        throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} must be newer than ${latest.version}`);
+      }
+      const plugin: PluginCatalogRecord = {
+        ...parsed,
+        id: newId(),
+        source: 'upload',
+        createdAt: new Date().toISOString(),
+      };
+      if (!(await this.store.createPluginIfAbsent(plugin))) {
+        throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} already exists and cannot be uploaded again`);
+      }
+      await this.lockIncompatibleUnlockedConfigs(userId, plugin, previousPlugins);
+      await this.audit(userId, 'plugin.private.upload', plugin.id, {
+        pluginId: plugin.pluginId,
+        version: plugin.version,
+        packageName: plugin.packageName,
+      });
+      return { plugin };
     }
     const plugin: PluginCatalogRecord = {
       ...parsed,
