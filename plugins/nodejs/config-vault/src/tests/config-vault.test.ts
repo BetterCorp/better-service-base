@@ -15,7 +15,7 @@ function obs(): Observable {
   } as unknown as Observable;
 }
 
-function createPlugin(vaultUrl = 'https://vault.example.com') {
+function createPlugin(vaultUrl = 'https://vault.example.com', overrides?: Record<string, unknown>) {
   return new VaultConfigPlugin({
     appId: 'test',
     mode: 'development',
@@ -30,6 +30,7 @@ function createPlugin(vaultUrl = 'https://vault.example.com') {
       apiSecret: 'vs_test',
       timeoutMs: 1000,
       allowInsecureHttp: false,
+      BSB_CONFIG_OVERRIDES: overrides ? JSON.stringify(overrides) : undefined,
     },
     sbObservable: {},
   } as ConstructorParameters<typeof VaultConfigPlugin>[0]);
@@ -166,5 +167,76 @@ describe('config-vault plugin', () => {
     }), { status: 200 });
 
     await assert.rejects(() => createPlugin().init(obs()), /at least one service/i);
+  });
+
+  it('applies only declared environment overrides and replaces arrays atomically', async () => {
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      application: 'App',
+      group: 'api',
+      profile: 'preview',
+      version: 1,
+      config: {
+        preview: {
+          services: {
+            api: {
+              plugin: 'service-api',
+              enabled: true,
+              envOverridePaths: ['database.instance', 'replicas', 'password'],
+              config: {
+                database: { instance: 'shared', name: 'base', options: { ssl: true } },
+                replicas: ['shared'],
+                password: 'vault-secret',
+              },
+            },
+          },
+        },
+      },
+    }), { status: 200 });
+
+    const plugin = createPlugin('https://vault.example.com', {
+      services: {
+        api: {
+          database: { instance: 'preview-instance' },
+          replicas: ['preview'],
+          password: 'runtime-secret',
+        },
+      },
+    });
+    const testObs = obs();
+    await plugin.init(testObs);
+
+    assert.deepStrictEqual(await plugin.getPluginConfig(testObs, 'service', 'api'), {
+      database: { instance: 'preview-instance', name: 'base', options: { ssl: true } },
+      replicas: ['preview'],
+      password: 'runtime-secret',
+    });
+  });
+
+  it('rejects environment overrides for undeclared paths', async () => {
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      application: 'App',
+      group: 'api',
+      profile: 'preview',
+      version: 1,
+      config: {
+        preview: {
+          services: {
+            api: {
+              plugin: 'service-api',
+              enabled: true,
+              envOverridePaths: ['database.instance'],
+              config: { database: { instance: 'shared', name: 'base' } },
+            },
+          },
+        },
+      },
+    }), { status: 200 });
+
+    await assert.rejects(
+      () => createPlugin('https://vault.example.com', {
+        services: { api: { database: { name: 'not-allowed' } } },
+      }).init(obs()),
+      /services\.api\.database\.name is not declared as overrideable/i,
+    );
   });
 });

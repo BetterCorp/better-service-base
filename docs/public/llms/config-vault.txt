@@ -8,7 +8,7 @@
 - BSB can have multiple config plugins installed, but exactly one is active at runtime through `BSB_CONFIG_PLUGIN`.
 - `config-vault` is not a fallback. If it cannot load valid config, startup must fail.
 - Runtime client containers do not define `config-vault` in YAML. Show env vars instead: `BSB_CONFIG_PLUGIN=config-vault`, `BSB_CONFIG_PLUGIN_PACKAGE=@bsb/config-vault`, `vaultUrl=...`, `apiKeyId=...`, `apiSecret=...`.
-- Config plugin env keys come directly from the schema and are case-sensitive. For Vault the keys are `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs`, and `allowInsecureHttp`.
+- Config plugin env keys come directly from the schema and are case-sensitive. For Vault the keys include `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs`, `allowInsecureHttp`, and `BSB_CONFIG_OVERRIDES`.
 - Runtime containers do not request app/group/profile/version. The Vault API key is bound server-side to application, service group, deployment profile, optional container identity, and config plugin id.
 - In the UI, call service groups "deployments". Creating a deployment must also create a `default` deployment profile.
 - Deployment profiles own config editing, publish, and container key create/rotate flows. Do not make standalone Configs or Runtime Keys pages the primary workflow.
@@ -16,6 +16,8 @@
 - Config plugins are not selectable profile config entries. Hide them from profile add-plugin/catalog authoring UI. The selected plugin determines service/events/observable type; do not expose type as a user-editable choice.
 - Root-org plugins use org `_` internally only. Do not render user-facing labels as `_/plugin-name`; show `plugin-name`.
 - Profile config saves must be schema-validated on the server. Apply defaults, safely coerce primitive form values, strip unknown object keys, and reject invalid values before encrypting drafts.
+- Plugins declare type-checked runtime override paths with `envOverridePaths` in `createConfigSchema` metadata. A deployment profile must explicitly enable overrides for each plugin; disable the control when its schema declares no paths.
+- `BSB_CONFIG_OVERRIDES` is one JSON object grouped by `services`, `events`, and `observable`, then configured plugin alias. Apply only declared paths in memory after the Vault fetch; reject unknown sections, plugins, and paths. Objects merge recursively; arrays and scalars replace. Never send overrides to Vault or write them to the last-known-good cache.
 - Vault wraps the profile body internally under the profile name such as `{ "default": { ... } }`.
 - Container keys are generated from the selected deployment profile. The container must not select or send a deployment profile.
 - Containers restart to pull the latest active published config for their API key's deployment profile.

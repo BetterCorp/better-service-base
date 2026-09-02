@@ -23,6 +23,14 @@ apiSecret=vs_xxx
 
 When a container restarts, it pulls the active published version for the API key's bound deployment profile.
 
+Plugins may declare type-checked `envOverridePaths` in their `createConfigSchema` metadata. A deployment profile must explicitly enable environment overrides for that plugin before the runtime client accepts them. PVE infrastructure can then inject one Secret Manager-backed JSON value:
+
+```bash
+BSB_CONFIG_OVERRIDES='{"services":{"core":{"database":{"instance":"project:region:instance","name":"preview-core-123"}}}}'
+```
+
+The keys under `services`, `events`, and `observable` are configured plugin aliases. Objects merge recursively; arrays and scalar values replace the published value. Unknown plugins and undeclared paths fail startup. Override values are applied only in memory and are not sent to Vault or written to the last-known-good cache.
+
 ## Service
 
 The dedicated Vault image includes `@bsb/config-vault`, all BSB observable integrations, and `@bsb/syslog`; event transport plugins remain deployment-specific:

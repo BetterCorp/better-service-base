@@ -6,6 +6,10 @@ describe('PluginConfig', () => {
   it('creates a config class with metadata and schema', () => {
     const schema = av.object({
       setting: av.string(),
+      database: av.object({
+        host: av.string(),
+        replicas: av.array(av.string()),
+      }),
     }, { unknownKeys: 'strip' });
 
     const Config = createConfigSchema(
@@ -13,6 +17,7 @@ describe('PluginConfig', () => {
         name: 'test-plugin',
         description: 'Test plugin description',
         tags: ['test', 'example'],
+        envOverridePaths: ['setting', 'database.host', 'database.replicas'],
       },
       schema,
     );
@@ -21,7 +26,18 @@ describe('PluginConfig', () => {
     assert.ok(instance instanceof BSBPluginConfig);
     assert.strictEqual(Config.metadata.name, 'test-plugin');
     assert.deepStrictEqual(Config.metadata.tags, ['test', 'example']);
+    assert.deepStrictEqual(Config.metadata.envOverridePaths, ['setting', 'database.host', 'database.replicas']);
     assert.strictEqual(instance.validationSchema, schema);
+
+    createConfigSchema(
+      {
+        name: 'invalid-override-path',
+        description: 'Compile-time path validation',
+        // @ts-expect-error env override paths must exist in the config schema
+        envOverridePaths: ['database.missing'],
+      },
+      schema,
+    );
   });
 
   it('supports config classes without a validation schema', () => {

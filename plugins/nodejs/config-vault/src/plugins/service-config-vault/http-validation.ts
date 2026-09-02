@@ -86,7 +86,7 @@ export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
   '/api/application-profile-publish': strict({ applicationProfileId: uuid }),
   '/api/profile-plugins/delete': strict({ profileId: uuid, section: pluginConfig.section, name: slug }),
   '/api/profile-plugins/copy': strict({ sourceProfileId: uuid, targetProfileId: uuid, section: pluginConfig.section, name: slug, overwrite: checkbox }),
-  '/api/profile-plugins': strict({ profileId: uuid, ...pluginConfig, baseEnabled: checkbox, baseConfig: optionalJsonObjectInput, overridePaths: av.optional(stringArrayJson) }),
+  '/api/profile-plugins': strict({ profileId: uuid, ...pluginConfig, allowEnvOverrides: checkbox, baseEnabled: checkbox, baseConfig: optionalJsonObjectInput, overridePaths: av.optional(stringArrayJson) }),
   '/api/runtime-keys/rotate': strict({ keyId: av.string().maxLength(64).pattern('^vk_[A-Za-z0-9_-]+$'), name: optionalText(100) }),
   '/api/runtime-keys': strict({ name: requiredText(100), profileId: uuid, containerName: optionalText(255) }),
   '/api/users/deactivate': strict({ userId: uuid }),

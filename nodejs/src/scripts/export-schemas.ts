@@ -201,6 +201,13 @@ async function main() {
           const configInstance = new Plugin.Config('', '', '', '');
           if (configInstance.validationSchema && typeof configInstance.validationSchema === 'object') {
             schemas.configSchema = (configInstance.validationSchema as { export: (mode?: 'portable' | 'extended') => unknown }).export('extended');
+            if (Array.isArray(metadata?.envOverridePaths) && metadata.envOverridePaths.length > 0) {
+              const extensions = schemas.configSchema.extensions ?? {};
+              schemas.configSchema.extensions = {
+                ...extensions,
+                bsb: { ...(extensions.bsb ?? {}), envOverridePaths: metadata.envOverridePaths },
+              };
+            }
           }
         } catch {
           // Optional: if config schema extraction fails, keep going

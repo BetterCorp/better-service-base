@@ -75,7 +75,23 @@ export type BSBConfigMigration<T extends BSBPluginConfigType> = (
  * Package-level fields such as version, author, and license are sourced from
  * package.json during build and publish steps.
  */
-export interface BSBPluginMetadata {
+export type ConfigEnvOverridePath<T> = T extends readonly unknown[]
+  ? never
+  : T extends object
+    ? string extends keyof T
+      ? never
+      : {
+          [K in Extract<keyof T, string>]: NonNullable<T[K]> extends readonly unknown[]
+            ? K
+            : NonNullable<T[K]> extends object
+              ? string extends keyof NonNullable<T[K]>
+                ? K
+                : `${K}.${ConfigEnvOverridePath<NonNullable<T[K]>>}`
+              : K
+        }[Extract<keyof T, string>]
+    : never;
+
+export interface BSBPluginMetadata<TConfig = unknown> {
     // Required fields
     /** Canonical BSB plugin identifier (e.g., "service-demo-todo"). Defaults to the plugin directory id during build. */
     id?: string;
@@ -97,6 +113,8 @@ export interface BSBPluginMetadata {
     documentation?: string[];
     /** Relative path to plugin image file (PNG recommended) */
     image?: string;
+    /** Config paths that a deployment profile may explicitly allow runtime environment overrides for. */
+    envOverridePaths?: readonly ConfigEnvOverridePath<TConfig>[];
 }
 
 export type BSBConfigDefintionReference<
@@ -141,14 +159,14 @@ export abstract class BSBPluginConfig<
    * Static plugin metadata for v9 auto-generation features.
    * Set by createConfigSchema() helper.
    */
-  static readonly metadata: BSBPluginMetadata;
+  static readonly metadata: BSBPluginMetadata<any>;
 
   /**
    * Optional plugin metadata for enhanced discoverability and documentation.
    * Provides information about the plugin's purpose.
    * @see {@link https://bsbcode.dev/languages/nodejs/types/classes/BSBPluginConfig.html#metadata | API: BSBPluginConfig#metadata}
    */
-  public metadata?: BSBPluginMetadata;
+  public metadata?: BSBPluginMetadata<any>;
 }
 
 /**
@@ -194,6 +212,7 @@ export class BSBPluginConfigRef
  *     name: 'service-demo-todo',
  *     description: 'Demo Todo Service',
  *     tags: ['demo', 'todo', 'example'],
+ *     envOverridePaths: ['database.host'],
  *   },
  *   TodoConfigSchema
  * );
@@ -207,7 +226,7 @@ export class BSBPluginConfigRef
  * @see {@link https://bsbcode.dev/languages/nodejs/types/functions/createConfigSchema.html | API: createConfigSchema}
  */
 export function createConfigSchema<const TSchema extends BaseSchema<any, any>>(
-  metadata: BSBPluginMetadata,
+  metadata: BSBPluginMetadata<Infer<TSchema>>,
   schema: TSchema
 ): BSBPluginConfigClass<TSchema>;
 
@@ -216,7 +235,7 @@ export function createConfigSchema(
 ): BSBPluginConfigClass<undefined>;
 
 export function createConfigSchema<const TSchema extends BSBPluginConfigType>(
-  metadata: BSBPluginMetadata,
+  metadata: BSBPluginMetadata<any>,
   schema?: TSchema
 ): BSBPluginConfigClass<TSchema> {
   const ConfigClass = class extends BSBPluginConfig<TSchema> {

@@ -17,7 +17,7 @@ export const validationSchema = {
       fs.writeFileSync(path.join(sourceDir, 'config.ts'), `
 import { validationSchema } from './schema-value.js';
 export class Config {
-  static metadata = { id: 'service-cross-file-schema', name: 'Cross File Schema' };
+  static metadata = { id: 'service-cross-file-schema', name: 'Cross File Schema', envOverridePaths: ['enabled'] };
   validationSchema = validationSchema;
 }
 export const EventSchemas = {};
@@ -53,6 +53,7 @@ export class Plugin extends BSBService {
       };
       assert.deepStrictEqual(loaded.__BSB_SCHEMA_RESULT.configSchema, {
         root: { kind: 'object', properties: { enabled: { kind: 'bool' } } },
+        extensions: { bsb: { envOverridePaths: ['enabled'] } },
       });
       assert.equal(loaded.__BSB_SCHEMA_RESULT.pluginId, 'service-cross-file-schema');
       assert.equal(loaded.__BSB_SCHEMA_RESULT.pluginName, 'service-cross-file-schema');

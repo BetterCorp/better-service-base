@@ -14,6 +14,8 @@ export interface RuntimePluginDefinition {
   autoPinned?: boolean;
   enabled?: boolean;
   override?: boolean;
+  allowEnvOverrides?: boolean;
+  envOverridePaths?: string[];
   filter?: string[];
   config?: Record<string, unknown>;
 }

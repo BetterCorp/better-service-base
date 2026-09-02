@@ -20,7 +20,7 @@ import {
   type H3Event,
 } from 'h3';
 import type { Observable } from '@bsb/base';
-import type { VaultService } from './vault.js';
+import { envOverridePathsFromSchema, type VaultService } from './vault.js';
 import type { RuntimeConfigDefinition, RuntimePluginDefinition } from './types.js';
 import { readAndValidateBody, validatedBody } from './http-validation.js';
 
@@ -578,6 +578,7 @@ export class VaultHttpServer {
         baseConfig: parseJsonObject(body.baseConfig),
         overridePaths: parseStringArray(body.overridePaths),
         sensitiveClearPaths: parseStringArray(body.sensitiveClearPaths),
+        allowEnvOverrides: parseOptionalBoolean(body.allowEnvOverrides),
       });
       return { success: true };
     }));
@@ -1349,6 +1350,7 @@ function deploymentDetailPage(
       <button class="secondary">Publish Draft</button><p class="status"></p>
     </form>
   </section>
+  ${environmentOverridesSummary(data, inherited, draft)}
   <section><h2>Container Keys</h2>${profileRuntimeKeyTable(data.runtimeKeys, data)}</section>
   ${pluginEditorScript(data.plugins)}
   ${formScript()}`;
@@ -1713,14 +1715,16 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
       <input type="hidden" name="section">
-        <input type="hidden" name="config">
-        <input type="hidden" name="sensitiveClearPaths">
+      <input type="hidden" name="config">
+      <input type="hidden" name="sensitiveClearPaths">
+      <input type="hidden" name="allowEnvOverrides" value="false">
       <div class="form-grid">
         <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
         <label class="schema-toggle"><input type="checkbox" data-version-lock>Lock Version</label>
+        <div data-env-override-control><label class="schema-toggle"><input type="checkbox" name="allowEnvOverrides" value="true" data-env-override-toggle disabled>Allow environment overrides</label><span class="muted" data-env-override-status>Plugin does not declare overrideable paths.</span></div>
       </div>
       <div data-config-fields></div>
       <button class="success">Add Plugin</button><p class="status"></p>
@@ -1781,11 +1785,13 @@ function configSectionEditor(
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
           <input type="hidden" name="sensitiveClearPaths">
+          <input type="hidden" name="allowEnvOverrides" value="false">
           <div class="form-grid">
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
             <label>Enabled<select name="enabled">${entry.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
             <label class="schema-toggle"><input type="checkbox" data-version-lock ${entry.version ? 'checked' : ''}>Lock Version ${escapeHtml(entry.version ?? catalog?.version ?? 'latest')}</label>
+            ${envOverrideControl(catalog?.configSchema, entry.allowEnvOverrides === true)}
           </div>
           ${updateCatalog ? `<div class="callout" data-version-update-note><strong>Update available:</strong> unlock this config to edit against ${escapeHtml(updateCatalog.version)} before saving.</div>` : ''}
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
@@ -1896,6 +1902,7 @@ function inheritedOverrideSection(
           <input type="hidden" name="baseConfig" value="${escapeHtml(JSON.stringify(redactSensitiveConfig(catalog?.configSchema, entry.config ?? {})))}">
           <input type="hidden" name="baseEnabled" value="${entry.enabled ? 'true' : 'false'}">
           <input type="hidden" name="overridePaths">
+          <input type="hidden" name="allowEnvOverrides" value="false">
           <div class="form-grid">
             ${input('displayName', 'Config Name', false, name).replace('name="displayName"', 'name="displayName" disabled')}
             ${input('pluginDisplay', 'Plugin', false, pluginLabel).replace('name="pluginDisplay"', 'name="pluginDisplay" disabled')}
@@ -1903,6 +1910,7 @@ function inheritedOverrideSection(
               <label class="schema-toggle"><input type="checkbox" data-enabled-override-toggle ${enabledOverridden ? 'checked' : ''}>Override enabled</label>
               <label>Enabled<select name="enabled">${effective.enabled ? '<option value="true" selected>Enabled</option><option value="false">Disabled</option>' : '<option value="true">Enabled</option><option value="false" selected>Disabled</option>'}</select></label>
             </div>
+            ${envOverrideControl(catalog?.configSchema, localEntry?.allowEnvOverrides === true)}
           </div>
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, effective.config ?? {}, { overrideMode: true, overrideConfig: localEntry?.config ?? {} })}</div>
           <button class="${localEntry ? '' : 'success'}">${localEntry ? 'Save Override' : 'Create Override'}</button><p class="status"></p>
@@ -1924,6 +1932,40 @@ function mergePluginEntry(base: RuntimePluginDefinition, override: RuntimePlugin
     ...override,
     config: mergeConfigObjects(base.config ?? {}, override.config ?? {}),
   };
+}
+
+function envOverrideControl(schema: Record<string, unknown> | null | undefined, checked: boolean): string {
+  const paths = envOverridePathsFromSchema(schema);
+  const supported = paths.length > 0;
+  return `<div data-env-override-control>
+    <label class="schema-toggle"><input type="checkbox" name="allowEnvOverrides" value="true" data-env-override-toggle ${checked && supported ? 'checked' : ''} ${supported ? '' : 'disabled'}>Allow environment overrides</label>
+    <span class="muted" data-env-override-status>${supported ? `${paths.length} declared path${paths.length === 1 ? '' : 's'}.` : 'Plugin does not declare overrideable paths.'}</span>
+  </div>`;
+}
+
+function environmentOverridesSummary(
+  data: DeploymentProfileData,
+  inherited: RuntimeConfigDefinition,
+  local: RuntimeConfigDefinition,
+): string {
+  const labels = { services: 'Service', events: 'Events', observable: 'Observable' } as const;
+  const rows: string[] = [];
+  for (const section of ['services', 'events', 'observable'] as const) {
+    const names = new Set([...Object.keys(inherited[section] ?? {}), ...Object.keys(local[section] ?? {})]);
+    for (const name of names) {
+      const base = inherited[section]?.[name];
+      const override = local[section]?.[name];
+      const entry = base && override ? mergePluginEntry(base, override) : override ?? base;
+      if (!entry?.allowEnvOverrides) continue;
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+      const paths = envOverridePathsFromSchema(catalog?.configSchema);
+      if (paths.length === 0) continue;
+      rows.push(`<tr><td>${escapeHtml(labels[section])}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(catalog ? pluginDisplayName(catalog) : entry.plugin)}</td><td>${paths.map((path) => `<code>${escapeHtml(path)}</code>`).join('<br>')}</td></tr>`);
+    }
+  }
+  return `<section><h2>Environment Overrides</h2>${rows.length > 0
+    ? `<table><thead><tr><th>Type</th><th>Config</th><th>Plugin</th><th>Allowed paths</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+    : '<p class="muted">No plugins allow environment overrides.</p>'}</section>`;
 }
 
 function mergeConfigObjects(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
@@ -2407,6 +2449,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       kind: plugin.kind,
       kindLabel: pluginKindLabel(plugin.kind),
       schema: plugin.configSchema ?? null,
+      envOverridePaths: envOverridePathsFromSchema(plugin.configSchema),
     };
     return acc;
   }, {} as Record<string, unknown>);
@@ -2665,6 +2708,16 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     }
     if (form.elements.section && item.kind) form.elements.section.value = item.kind === 'service' ? 'services' : item.kind;
     if (form.elements.typeDisplay && item.kindLabel) form.elements.typeDisplay.value = item.kindLabel;
+    const envToggle = form.querySelector('[data-env-override-toggle]');
+    const envStatus = form.querySelector('[data-env-override-status]');
+    const envPaths = item.envOverridePaths || [];
+    if (envToggle) {
+      envToggle.disabled = envPaths.length === 0;
+      if (envToggle.disabled) envToggle.checked = false;
+    }
+    if (envStatus) envStatus.textContent = envPaths.length > 0
+      ? envPaths.length + ' declared path' + (envPaths.length === 1 ? '.' : 's.')
+      : 'Plugin does not declare overrideable paths.';
     const fields = form.querySelector('[data-config-fields]');
     const root = schemaRoot(item.schema);
     if (!fields) return;

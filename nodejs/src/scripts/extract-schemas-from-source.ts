@@ -617,6 +617,10 @@ function extractSchemaSource(
   outputLines.push('      throw new Error("Config validationSchema does not expose export()");');
   outputLines.push('    }');
   outputLines.push('    (_schemaResult as any).configSchema = _exportSchema.call(_schema, "extended");');
+  outputLines.push('    if (Array.isArray(_metadata.envOverridePaths) && _metadata.envOverridePaths.length > 0) {');
+  outputLines.push('      const _extensions = (_schemaResult as any).configSchema.extensions ?? {};');
+  outputLines.push('      (_schemaResult as any).configSchema.extensions = { ..._extensions, bsb: { ...(_extensions.bsb ?? {}), envOverridePaths: _metadata.envOverridePaths } };');
+  outputLines.push('    }');
   outputLines.push('  }');
   outputLines.push('}');
   outputLines.push('');

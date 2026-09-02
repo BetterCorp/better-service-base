@@ -24,6 +24,7 @@ const ConfigSchema = av.object({
   timeoutMs: av.int32().coerce({ from: 'string' }).min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
   staleAllowedHours: av.int32().coerce({ from: 'string' }).min(0).default(24).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
   allowInsecureHttp: av.bool().coerce({ from: 'string' }).default(false).describe('Allow http:// Vault URLs for local development only'),
+  BSB_CONFIG_OVERRIDES: av.optional(av.string().maxLength(128 * 1024).describe('JSON runtime overrides permitted by the active Vault deployment profile', { sensitive: true, writeonly: true })),
 }).describe('Vault config plugin settings');
 
 export const Config = createConfigSchema(
@@ -167,7 +168,7 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
 
   private applyResolved(resolved: RuntimeResolveResponse, obs: Observable): void {
     this.deploymentProfile = resolved.profile;
-    this.appConfig = resolved.config;
+    this.appConfig = applyEnvironmentOverrides(resolved.config, resolved.profile, this.config.BSB_CONFIG_OVERRIDES, obs);
 
     if (Tools.isNullOrUndefined(this.appConfig[this.deploymentProfile])) {
       throw new BSBError(obs.trace, 'Vault returned no config for deployment profile ({deploymentProfile})', {
@@ -361,4 +362,119 @@ function parseRuntimeResolve(input: unknown, obs: Observable): RuntimeResolveRes
     version,
     config: value.config as VaultRuntimeConfig,
   };
+}
+
+function applyEnvironmentOverrides(
+  config: VaultRuntimeConfig,
+  profile: string,
+  raw: string | undefined,
+  obs: Observable,
+): VaultRuntimeConfig {
+  if (!raw) return config;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw overrideError(obs, 'expected valid JSON');
+  }
+  assertSafeOverrideValue(parsed, obs);
+  if (!isPlainObject(parsed)) throw overrideError(obs, 'expected an object');
+  const unknownSection = Object.keys(parsed).find((key) => !['services', 'events', 'observable'].includes(key));
+  if (unknownSection) throw overrideError(obs, `unknown section ${unknownSection}`);
+
+  const output = structuredClone(config);
+  const deployment = output[profile];
+  if (!deployment) throw overrideError(obs, `profile ${profile} was not returned by Vault`);
+  let applied = 0;
+  for (const sectionName of ['services', 'events', 'observable'] as const) {
+    const sectionOverrides = parsed[sectionName];
+    if (sectionOverrides === undefined) continue;
+    if (!isPlainObject(sectionOverrides)) throw overrideError(obs, `${sectionName} must be an object`);
+    const section = deployment[sectionName] ?? {};
+    for (const [name, values] of Object.entries(sectionOverrides)) {
+      const plugin = section[name];
+      if (!plugin) throw overrideError(obs, `${sectionName}.${name} is not configured`);
+      if (!isPlainObject(values)) throw overrideError(obs, `${sectionName}.${name} must be an object`);
+      if (!Array.isArray(plugin.envOverridePaths) || plugin.envOverridePaths.some((path) => typeof path !== 'string' || !path)) {
+        throw overrideError(obs, `${sectionName}.${name} does not allow environment overrides`);
+      }
+      const patch: Record<string, unknown> = {};
+      applied += collectOverrideValues(values, new Set(plugin.envOverridePaths), '', patch, obs, `${sectionName}.${name}`);
+      plugin.config = mergeConfig(plugin.config ?? {}, patch);
+    }
+  }
+  obs.log.info('Applied {count} environment config override(s) from BSB_CONFIG_OVERRIDES', { count: applied });
+  return output;
+}
+
+function collectOverrideValues(
+  source: Record<string, unknown>,
+  allowed: Set<string>,
+  prefix: string,
+  output: Record<string, unknown>,
+  obs: Observable,
+  pluginPath: string,
+): number {
+  let count = 0;
+  for (const [key, value] of Object.entries(source)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (allowed.has(path)) {
+      setOverrideValue(output, path, structuredClone(value));
+      count += 1;
+    } else if (isPlainObject(value)) {
+      count += collectOverrideValues(value, allowed, path, output, obs, pluginPath);
+    } else {
+      throw overrideError(obs, `${pluginPath}.${path} is not declared as overrideable`);
+    }
+  }
+  return count;
+}
+
+function setOverrideValue(target: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let current = target;
+  for (const part of parts.slice(0, -1)) {
+    if (!isPlainObject(current[part])) current[part] = {};
+    current = current[part] as Record<string, unknown>;
+  }
+  current[parts[parts.length - 1]!] = value;
+}
+
+function mergeConfig(base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+  const output = structuredClone(base);
+  for (const [key, value] of Object.entries(patch)) {
+    output[key] = isPlainObject(output[key]) && isPlainObject(value)
+      ? mergeConfig(output[key] as Record<string, unknown>, value)
+      : structuredClone(value);
+  }
+  return output;
+}
+
+function assertSafeOverrideValue(value: unknown, obs: Observable): void {
+  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
+  let nodes = 0;
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    nodes += 1;
+    if (nodes > 10_000 || current.depth > 64) throw overrideError(obs, 'payload is too complex');
+    if (Array.isArray(current.value)) {
+      for (const item of current.value) stack.push({ value: item, depth: current.depth + 1 });
+      continue;
+    }
+    if (!isPlainObject(current.value)) continue;
+    for (const [key, item] of Object.entries(current.value)) {
+      if (key === '__proto__' || key === 'prototype' || key === 'constructor') {
+        throw overrideError(obs, 'payload contains a forbidden key');
+      }
+      stack.push({ value: item, depth: current.depth + 1 });
+    }
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function overrideError(obs: Observable, reason: string): Error {
+  return new BSBError(obs.trace, 'Invalid BSB_CONFIG_OVERRIDES: {reason}', { reason });
 }

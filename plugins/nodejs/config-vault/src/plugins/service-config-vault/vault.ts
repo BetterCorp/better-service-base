@@ -951,6 +951,7 @@ export class VaultService {
       baseConfig?: Record<string, unknown>;
       overridePaths?: string[];
       sensitiveClearPaths?: string[];
+      allowEnvOverrides?: boolean;
     },
   ): Promise<void> {
     validateConfigName(input.name);
@@ -973,6 +974,12 @@ export class VaultService {
       package: catalog.packageName ?? undefined,
       version: input.version ? catalog.version : undefined,
     };
+    if (input.allowEnvOverrides) {
+      if (envOverridePathsFromSchema(catalog.configSchema).length === 0) {
+        throw new Error(`Plugin ${catalog.pluginId} does not declare environment override paths`);
+      }
+      entry.allowEnvOverrides = true;
+    }
     if (input.overridePaths) entry.override = true;
     if (input.baseEnabled === undefined || input.enabled !== undefined) {
       entry.enabled = input.enabled ?? false;
@@ -1832,6 +1839,30 @@ function assertSafeSchemaDocument(document: Record<string, unknown> | null): voi
       stack.push({ value, depth: current.depth + 1 });
     }
   }
+  const root = objectField(objectField(document.root) ?? document);
+  const paths = envOverridePathsFromSchema(document);
+  if (paths.length > 256) throw new Error('Config schema declares too many environment override paths');
+  const seen = new Set<string>();
+  for (const path of paths) {
+    if (path.length > 512) throw new Error('Config schema environment override path is too long');
+    safePathParts(path);
+    if (seen.has(path)) throw new Error(`Config schema declares duplicate environment override path ${path}`);
+    seen.add(path);
+    const node = root ? schemaNodeAtPath(root, path) : null;
+    if (!node) throw new Error(`Config schema environment override path ${path} does not exist`);
+    if (node.kind === 'object') throw new Error(`Config schema environment override path ${path} must reference a value, array, or record`);
+  }
+}
+
+export function envOverridePathsFromSchema(document: Record<string, unknown> | null | undefined): string[] {
+  const extensions = objectField(document?.extensions);
+  const bsb = objectField(extensions?.bsb);
+  const paths = bsb?.envOverridePaths;
+  if (paths === undefined) return [];
+  if (!Array.isArray(paths) || paths.some((path) => typeof path !== 'string' || !path)) {
+    throw new Error('Config schema environment override paths must be a non-empty string array');
+  }
+  return paths as string[];
 }
 
 function schemaNodeAtPath(root: Record<string, unknown>, path: string): Record<string, unknown> | null {
@@ -2198,6 +2229,10 @@ function normalizeRuntimeSection(
       plugin: catalog?.pluginId ?? entry.plugin,
       package: entry.package ?? catalog?.packageName ?? undefined,
     };
+    const envOverridePaths = envOverridePathsFromSchema(catalog?.configSchema);
+    if (entry.allowEnvOverrides && envOverridePaths.length > 0) normalized.envOverridePaths = envOverridePaths;
+    else delete normalized.envOverridePaths;
+    delete normalized.allowEnvOverrides;
     delete normalized.override;
     delete normalized.autoPinned;
     if (!normalized.package) delete normalized.package;

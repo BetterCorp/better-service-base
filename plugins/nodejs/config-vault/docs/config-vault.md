@@ -30,6 +30,27 @@ The API key is bound in Vault to:
 
 The container cannot ask for another profile. Vault derives the target from the API key and returns the latest active published version.
 
+## Runtime Overrides
+
+A plugin must declare every field that may be overridden in its type-checked `createConfigSchema` metadata:
+
+```typescript
+export const Config = createConfigSchema(
+  schema,
+  { envOverridePaths: ['database.instance', 'database.name'] },
+);
+```
+
+An administrator must also enable environment overrides for that plugin in the deployment profile. The control is unavailable when the selected plugin version declares no overrideable paths.
+
+PVE infrastructure can then inject one Secret Manager-backed JSON value:
+
+```bash
+BSB_CONFIG_OVERRIDES='{"services":{"core":{"database":{"instance":"project:region:instance","name":"preview-core-123"}}}}'
+```
+
+The top-level sections are `services`, `events`, and `observable`; their keys are the configured plugin aliases. Objects merge recursively, while arrays and scalar values replace the published value. Unknown plugins, sections, and undeclared paths fail startup. Overrides are applied in memory after loading Vault config, are validated by the normal plugin schemas, and are never sent to Vault or written to the last-known-good cache.
+
 ## Failures
 
 At startup, the client retries network errors, timeouts, HTTP 429, and HTTP 502/503/504 responses for up to 15 seconds. After any successful fetch it writes an AES-256-GCM encrypted last-known-good response under `.bsb/config-vault` in the service working directory. The cache key is derived from the runtime secret and is bound to the Vault origin and key id. Mount that directory on persistent storage if the fallback must survive container replacement.

@@ -37,7 +37,10 @@ describe('Vault plugin publishing', () => {
       }));
       await writeFile(path.join(project, 'lib', 'schemas', 'service-private-api.json'), JSON.stringify({
         pluginName: 'Private API', version: '1.2.3', events: {}, pluginType: 'service',
-        configSchema: { root: { kind: 'object', properties: {} } },
+        configSchema: {
+          root: { kind: 'object', properties: { database: { kind: 'string' } } },
+          extensions: { bsb: { envOverridePaths: ['database'] } },
+        },
       }));
       await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
       const address = server.address();
@@ -58,6 +61,10 @@ describe('Vault plugin publishing', () => {
         events: {},
       });
       assert.deepEqual(request.body?.package, { nodejs: '@example/private-api' });
+      assert.deepEqual(request.body?.configSchema, {
+        root: { kind: 'object', properties: { database: { kind: 'string' } } },
+        extensions: { bsb: { envOverridePaths: ['database'] } },
+      });
       assert.equal('documentation' in (request.body ?? {}), false);
       assert.equal(result.stdout.includes(token), false);
       assert.match(result.stdout, /Published: example\/service-private-api @ 1\.2\.3/);

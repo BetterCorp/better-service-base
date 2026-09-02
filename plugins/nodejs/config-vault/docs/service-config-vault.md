@@ -72,6 +72,8 @@ Admins should not hand-author this JSON in normal use. The profile page uses the
 
 Schema validation is enforced server-side when saving a profile plugin. Vault applies schema defaults, coerces primitive HTML form values where safe, strips unknown object keys, and rejects invalid values before encrypting the draft. The browser form is only a convenience layer; API callers cannot bypass schema validation.
 
+Plugin schemas may declare type-checked `envOverridePaths`. The deployment profile UI permits environment overrides only for plugins with declared paths, and requires an explicit per-plugin opt-in. The profile page lists the effective paths by plugin; the runtime client rejects all other override data.
+
 AnyVali fields described with `{ sensitive: true, writeonly: true }` render as password controls and are never returned into editable page data. An unchanged blank control preserves the encrypted value; Replace permits a new value (including a schema-valid empty string), and disabling an optional sensitive field explicitly clears it.
 
 Containers are not locked to versions. On restart, `config-vault` pulls the active published version for its key's profile.

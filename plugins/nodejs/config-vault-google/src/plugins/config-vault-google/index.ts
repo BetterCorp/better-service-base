@@ -11,6 +11,7 @@ const ConfigSchema = av.object({
   timeoutMs: av.int32().coerce({ from: 'string' }).min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
   staleAllowedHours: av.int32().coerce({ from: 'string' }).min(0).default(24).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
   allowInsecureHttp: av.bool().coerce({ from: 'string' }).default(false).describe('Allow http:// Vault URLs for local development only'),
+  BSB_CONFIG_OVERRIDES: av.optional(av.string().maxLength(128 * 1024).describe('JSON runtime overrides permitted by the active Vault deployment profile', { sensitive: true, writeonly: true })),
 }).describe('Google authenticated Vault config plugin settings');
 
 export const Config = createConfigSchema(
