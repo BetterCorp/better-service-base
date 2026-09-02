@@ -1055,32 +1055,60 @@ function invitedUserSetupPage(): string {
 function loginForm(): string {
   return `<section class="auth"><h1>Login</h1>
     <p class="muted">Vault verifies your password, then passkey, then the TOTP paired with that passkey.</p>
-    <form id="login-form">
-      <label>Email</label><input name="email" type="email" autocomplete="username" required>
-      <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
+    <form id="login-form" aria-describedby="login-status">
+      <label for="login-email">Email</label><input id="login-email" name="email" type="email" autocomplete="username" required>
+      <label for="login-password">Password</label><input id="login-password" name="password" type="password" autocomplete="current-password" required>
       <div class="actions"><button>Continue</button></div>
-      <p id="login-status" class="status"></p>
+      <p id="login-status" class="status" aria-live="polite"></p>
     </form>
+    <div id="setup-totp-panel" hidden>
+      <h2 id="setup-totp-heading">Verify authenticator</h2>
+      <p id="setup-totp-help" class="muted">Enter the current code from your authenticator to finish initial passkey setup.</p>
+      <form id="setup-totp-form" aria-labelledby="setup-totp-heading" aria-describedby="setup-totp-help login-status">
+        <label for="setup-totp-code">One-time code</label><input id="setup-totp-code" name="totpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,}" required>
+        <div class="actions"><button>Continue to passkey setup</button></div>
+      </form>
+    </div>
+    <div id="login-totp-panel" hidden>
+      <h2 id="login-totp-heading">Verify authenticator</h2>
+      <p id="login-totp-help" class="muted">Enter the current code paired with <strong id="login-totp-method"></strong>.</p>
+      <form id="login-totp-form" aria-labelledby="login-totp-heading" aria-describedby="login-totp-help login-status">
+        <label for="login-totp-code">One-time code</label><input id="login-totp-code" name="totpCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,}" required>
+        <div class="actions"><button>Finish login</button></div>
+      </form>
+    </div>
   </section>
   <script>${webauthnClientScript()}
   const loginFormEl = document.getElementById('login-form');
   const loginStatus = document.getElementById('login-status');
+  const setupTotpPanel = document.getElementById('setup-totp-panel');
+  const setupTotpForm = document.getElementById('setup-totp-form');
+  const setupTotpCode = document.getElementById('setup-totp-code');
+  const loginTotpPanel = document.getElementById('login-totp-panel');
+  const loginTotpForm = document.getElementById('login-totp-form');
+  const loginTotpCode = document.getElementById('login-totp-code');
+  const loginTotpMethod = document.getElementById('login-totp-method');
+  let pendingLoginData = null;
+  let pendingTotpToken = null;
+  function showTotp(panel, input) {
+    panel.hidden = false;
+    input.value = '';
+    input.focus();
+  }
   loginFormEl.addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
       loginStatus.textContent = 'Checking credentials...';
+      setupTotpPanel.hidden = true;
+      loginTotpPanel.hidden = true;
       const data = Object.fromEntries(new FormData(loginFormEl).entries());
       const started = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
       const result = await started.json();
       if (!started.ok) throw vaultApiError(result, 'Login failed');
       if (result.status === 'totp_setup_verification_required') {
-        const totpCode = prompt('Enter the current TOTP code to finish initial passkey setup');
-        if (!totpCode) throw new Error('TOTP code is required');
-        const retry = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...data, totpCode }) });
-        const setup = await retry.json();
-        if (!retry.ok) throw vaultApiError(setup, 'Invalid TOTP code');
-        if (setup.status !== 'passkey_setup_required') throw new Error('Could not start passkey setup');
-        location.href = setup.redirect;
+        pendingLoginData = data;
+        loginStatus.textContent = 'Enter your authenticator code to finish initial passkey setup.';
+        showTotp(setupTotpPanel, setupTotpCode);
         return;
       }
       if (result.status === 'passkey_setup_required') {
@@ -1097,22 +1125,48 @@ function loginForm(): string {
         });
         const done = await finished.json();
         if (!finished.ok) throw vaultApiError(done, 'Passkey login failed');
-        const totpCode = prompt('Enter the TOTP code paired with ' + done.methodLabel);
-        if (!totpCode) throw new Error('TOTP code is required');
-        loginStatus.textContent = 'Checking the TOTP paired with ' + done.methodLabel + '...';
-        const completed = await fetch('/login/totp', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ totpToken: done.totpToken, totpCode }),
-        });
-        const login = await completed.json();
-        if (!completed.ok) throw vaultApiError(login, 'TOTP login failed');
-        location.href = login.redirect || '/';
+        pendingTotpToken = done.totpToken;
+        loginTotpMethod.textContent = done.methodLabel || 'this passkey';
+        loginStatus.textContent = 'Enter the authenticator code paired with ' + loginTotpMethod.textContent + '.';
+        showTotp(loginTotpPanel, loginTotpCode);
         return;
       }
     } catch (error) {
       showVaultError(loginStatus, error, 'Login failed');
       return;
+    }
+  });
+  setupTotpForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      if (!pendingLoginData) throw new Error('Start login again');
+      loginStatus.textContent = 'Checking authenticator code...';
+      const totpCode = new FormData(setupTotpForm).get('totpCode');
+      const retry = await fetch('/login/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...pendingLoginData, totpCode }) });
+      const setup = await retry.json();
+      if (!retry.ok) throw vaultApiError(setup, 'Invalid TOTP code');
+      if (setup.status !== 'passkey_setup_required') throw new Error('Could not start passkey setup');
+      location.href = setup.redirect;
+    } catch (error) {
+      showVaultError(loginStatus, error, 'TOTP verification failed');
+    }
+  });
+  loginTotpForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      if (!pendingTotpToken) throw new Error('Use your passkey again');
+      loginStatus.textContent = 'Checking authenticator code...';
+      const totpCode = new FormData(loginTotpForm).get('totpCode');
+      const completed = await fetch('/login/totp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ totpToken: pendingTotpToken, totpCode }),
+      });
+      const login = await completed.json();
+      if (!completed.ok) throw vaultApiError(login, 'TOTP login failed');
+      location.href = login.redirect || '/';
+    } catch (error) {
+      showVaultError(loginStatus, error, 'TOTP login failed');
     }
   });
   </script>`;

@@ -367,6 +367,14 @@ module.exports = async ({ pluginRoot }) => {
 
   try {
     await server.start();
+    const loginPage = await fetch(`http://127.0.0.1:${port}/login`);
+    const loginHtml = await loginPage.text();
+    assert.equal(loginPage.status, 200);
+    assert.match(loginHtml, /id="setup-totp-form" aria-labelledby="setup-totp-heading" aria-describedby="setup-totp-help login-status"/);
+    assert.match(loginHtml, /id="login-totp-form" aria-labelledby="login-totp-heading" aria-describedby="login-totp-help login-status"/);
+    assert.match(loginHtml, /id="login-status" class="status" aria-live="polite"/);
+    assert.doesNotMatch(loginHtml, /prompt\(/);
+
     const response = await fetch(`http://127.0.0.1:${port}/login/start`, {
       method: 'POST',
       redirect: 'manual',
