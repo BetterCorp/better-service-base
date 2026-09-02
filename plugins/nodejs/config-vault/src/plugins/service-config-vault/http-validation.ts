@@ -27,6 +27,10 @@ const optionalSlug = av.optional(slug);
 const optionalJsonObject = av.optional(jsonObject);
 const optionalJsonObjectInput = av.optional(jsonObjectInput);
 const strict = <T extends Record<string, av.SchemaAny>>(shape: T) => av.object(shape).unknownKeys('reject');
+const privatePluginUpload = av.union([
+  strict({ org, packageName, schemaFileName: requiredText(105), schema: jsonObject, replace: checkbox }),
+  strict({ org: av.optional(org), packageName: av.optional(packageName), manifestFileName: requiredText(105), manifest: jsonObject, replace: checkbox }),
+]);
 
 const pluginConfig = {
   section: av.enum_(['services', 'events', 'observable'] as const),
@@ -74,7 +78,7 @@ export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
   '/api/plugins/publish-key/enable': strict({ pluginId: slug }),
   '/api/plugins/import': strict({ org, name: slug, pluginId: requiredText(201), packageName: optionalText(214), version: semver, kind: av.enum_(['service', 'events', 'observable', 'config'] as const), configSchema: optionalJsonObjectInput, eventSchema: optionalJsonObjectInput }),
   '/api/plugins/delete': strict({ id: uuid }),
-  '/api/plugins': strict({ org, packageName, schemaFileName: requiredText(105), schema: jsonObject }),
+  '/api/plugins': privatePluginUpload,
   '/api/drafts': strict({ profileId: uuid, config: jsonObjectInput }),
   '/api/publish': strict({ profileId: uuid }),
   '/api/application-profile-plugins/delete': strict({ applicationProfileId: uuid, section: pluginConfig.section, name: slug }),

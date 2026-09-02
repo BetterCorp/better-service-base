@@ -582,6 +582,22 @@ module.exports = async ({ pluginRoot }) => {
     assert.equal(invalidPluginSchema.status, 400);
     assert.match((await invalidPluginSchema.json()).message, /not a valid plugin upload: Schema version is required/);
 
+    const manifestPluginUpload = await fetch(`http://127.0.0.1:${port}/api/plugins`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: 'vault_session=session; vault_csrf=csrf-token',
+        'x-csrf-token': 'csrf-token',
+      },
+      body: JSON.stringify({
+        manifestFileName: 'service-private.plugin.json',
+        manifest: { id: 'service-private', version: '1.0.1', category: 'service' },
+      }),
+    });
+    assert.equal(manifestPluginUpload.status, 400);
+    assert.match((await manifestPluginUpload.json()).message, /not a valid plugin upload: Schema version is required/);
+    assert.deepEqual(calls.at(-1), ['createPrivatePlugin', 'user-1', 'service-private.plugin.json']);
+
     const invalidRequest = await fetch(`http://127.0.0.1:${port}/api/groups`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -644,6 +660,7 @@ module.exports = async ({ pluginRoot }) => {
     assert.deepEqual(calls, [
       ['publishPrivatePlugin', 'bv_p_test', 'service-private', '1.1.0'],
       ['createPrivatePlugin', 'user-1', 'service-private.json'],
+      ['createPrivatePlugin', 'user-1', 'service-private.plugin.json'],
       ['createDeployment', 'user-1', 'app-1', 'worker'],
       ['createPlugin', 'user-1', 'service-betterportal-theme-bootstrap1', '10.0.9', '@betterportal/theme-bootstrap1'],
       ['cleanupUnusedImportedPlugins', 'user-1'],
