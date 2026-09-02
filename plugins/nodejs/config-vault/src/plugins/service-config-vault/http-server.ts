@@ -885,6 +885,7 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     h1,h2,h3{margin:0 0 12px} h1{font-size:26px} h2{font-size:18px} h3{font-size:15px;color:#344054}
     label{display:block;font-size:13px;font-weight:650;color:#344054;margin:12px 0 6px}
     input,textarea,select{display:block;width:100%;margin:0 0 12px;padding:10px 11px;border:1px solid #b9c0ca;border-radius:6px;font:inherit;background:#fff}
+    [hidden]{display:none!important}
     textarea{min-height:140px;font-family:ui-monospace,Consolas,monospace}
     button,.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--primary);color:#fff;border:1px solid transparent;border-radius:6px;padding:10px 13px;font:inherit;font-weight:650;cursor:pointer;text-decoration:none;min-height:38px}
     button:hover,.button:hover{filter:brightness(.97)}
