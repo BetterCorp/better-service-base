@@ -66,4 +66,61 @@ describe('Vault plugin publishing', () => {
       await rm(project, { recursive: true, force: true });
     }
   });
+
+  it('publishes registry schemas without Vault-only identity fields', async () => {
+    const project = await mkdtemp(path.join(tmpdir(), 'bsb-registry-publish-'));
+    let request: { url?: string; authorization?: string; body?: Record<string, any> } = {};
+    const server = createServer((incoming, response) => {
+      let raw = '';
+      incoming.on('data', (chunk) => { raw += chunk; });
+      incoming.on('end', () => {
+        request = {
+          url: incoming.url,
+          authorization: incoming.headers.authorization,
+          body: JSON.parse(raw) as Record<string, any>,
+        };
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ status: 'published', plugin: { version: '1.2.3' } }));
+      });
+    });
+
+    try {
+      await mkdir(path.join(project, 'lib', 'schemas'), { recursive: true });
+      await writeFile(path.join(project, 'package.json'), JSON.stringify({
+        name: '@example/private-api', version: '1.2.3', bsb: { orgId: 'example' },
+      }));
+      await writeFile(path.join(project, 'README.md'), 'Private API docs');
+      await writeFile(path.join(project, 'bsb-plugin.json'), JSON.stringify({
+        nodejs: [{ id: 'service-private-api', name: 'Private API' }],
+      }));
+      await writeFile(path.join(project, 'lib', 'schemas', 'service-private-api.json'), JSON.stringify({
+        pluginId: 'service-private-api', pluginName: 'Private API', displayName: 'Private API',
+        version: '1.2.3', events: {}, pluginType: 'service',
+      }));
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const address = server.address();
+      assert.ok(address && typeof address === 'object');
+      const cli = path.resolve('lib/scripts/bsb-client-cli.js');
+      await execFileAsync(process.execPath, [cli, 'publish'], {
+        cwd: project,
+        env: {
+          ...process.env,
+          BSB_REGISTRY_URL: `http://127.0.0.1:${address.port}`,
+          BSB_REGISTRY_TOKEN: 'registry-token',
+        },
+      });
+
+      assert.equal(request.url, '/plugins');
+      assert.equal(request.authorization, 'Bearer registry-token');
+      assert.deepEqual(request.body?.eventSchema, {
+        pluginName: 'service-private-api',
+        version: '1.2.3',
+        events: {},
+      });
+      assert.equal(request.body?.metadata.displayName, 'Private API');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await rm(project, { recursive: true, force: true });
+    }
+  });
 });

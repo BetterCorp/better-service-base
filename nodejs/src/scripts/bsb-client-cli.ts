@@ -650,6 +650,8 @@ async function publishPlugin(): Promise<void> {
         };
 
         if (!vaultTarget) {
+          delete publishRequest.eventSchema.pluginId;
+          delete publishRequest.eventSchema.displayName;
           publishRequest.documentation = documentation;
           publishRequest.visibility = 'public';
         }
