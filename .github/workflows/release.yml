@@ -476,7 +476,9 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: nodejs/Dockerfile
 
       - name: Compute tags
         id: tags
@@ -607,7 +609,9 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: plugins/nodejs/config-vault/Dockerfile
 
       - name: Compute tags
         id: tags
@@ -726,7 +730,9 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: go/Dockerfile
 
       - name: Compute tags
         id: tags
@@ -822,7 +828,9 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: python/Dockerfile
 
       - name: Compute tags
         id: tags
@@ -918,7 +926,9 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: dotnet/BetterServiceBase/Dockerfile
 
       - name: Compute tags
         id: tags
