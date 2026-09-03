@@ -36,14 +36,14 @@ jobs:
 
       - name: Set up Go
         if: matrix.language == 'go'
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: "1.26.1"
           cache-dependency-path: go/go.sum
 
       - name: Set up .NET
         if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 

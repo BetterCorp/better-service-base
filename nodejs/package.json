@@ -50,9 +50,9 @@
     "list-plugin-search-paths": "node lib/scripts/list-plugin-search-paths.js",
     "publish:client": "node lib/cli.js client publish",
     "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx",
-    "test": "cross-env NODE_OPTIONS= node --import tsx ./node_modules/mocha/bin/mocha.js --reporter json --reporter-options output=junit.json",
-    "testDev": "cross-env NODE_OPTIONS= node --import tsx ./node_modules/mocha/bin/mocha.js",
-    "test:watch": "node --import tsx ./node_modules/mocha/bin/mocha.js --watch --watch-files src"
+    "test": "cross-env NODE_OPTIONS= mocha --import=tsx --reporter json --reporter-options output=junit.json",
+    "testDev": "cross-env NODE_OPTIONS= mocha --import=tsx",
+    "test:watch": "mocha --import=tsx --watch --watch-files src"
   },
   "bin": {
     "bsb": "lib/cli.js",
@@ -97,7 +97,7 @@
     "chai": "^4.3.10",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.2",
-    "mocha": "^11.7.6",
+    "mocha": "^12.0.0",
     "rimraf": "^6.1.2",
     "ts-morph": "^28.0.0",
     "ts-node": "^10.9.2",

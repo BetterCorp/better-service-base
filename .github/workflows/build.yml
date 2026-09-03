@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -87,7 +87,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -113,7 +113,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: "1.26.1"
           cache-dependency-path: go/go.sum
@@ -137,7 +137,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 
@@ -163,7 +163,7 @@ jobs:
           cache-key: nodejs/Dockerfile
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -216,7 +216,7 @@ jobs:
           cache-key: plugins/nodejs/config-vault/Dockerfile
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -275,7 +275,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -312,7 +312,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -349,7 +349,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}

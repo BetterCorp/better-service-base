@@ -1,5 +1,5 @@
 {
-  "extensions": ["ts"],
+  "extension": ["ts"],
   "spec": ["src/tests/**/*.ts"],
   "ignore": ["src/tests/plugins/logging-default/**/*.ts"],
   "timeout": 10000,

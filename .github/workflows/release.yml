@@ -55,7 +55,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -97,7 +97,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -128,7 +128,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -169,7 +169,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -243,7 +243,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -303,7 +303,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -357,7 +357,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -390,7 +390,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -420,7 +420,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: "1.26.1"
           cache-dependency-path: go/go.sum
@@ -445,7 +445,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 
@@ -493,7 +493,7 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -534,7 +534,7 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: all
 
@@ -554,7 +554,7 @@ jobs:
           echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -562,7 +562,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -576,7 +576,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           build-args: |
             NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
@@ -626,7 +626,7 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -666,7 +666,7 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: all
 
@@ -686,7 +686,7 @@ jobs:
           echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -694,7 +694,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -708,7 +708,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           build-args: |
             BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-${{ needs.prepare.outputs.version }}
@@ -747,7 +747,7 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -774,7 +774,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: all
 
@@ -795,7 +795,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -809,7 +809,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./go
           file: ./go/Dockerfile
@@ -845,7 +845,7 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -872,7 +872,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: all
 
@@ -893,7 +893,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -907,7 +907,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./python
           file: ./python/Dockerfile
@@ -943,7 +943,7 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -970,7 +970,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: all
 
@@ -991,14 +991,14 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./dotnet
           file: ./dotnet/BetterServiceBase/Dockerfile
