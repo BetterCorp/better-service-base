@@ -16,6 +16,7 @@ apiKeyId=vk_xxx
 apiSecret=vs_xxx
 timeoutMs=5000
 staleAllowedHours=24
+# cacheDir=/mounted/config-vault
 ```
 
 The lower camel case keys are intentional. BSB reads config plugin env vars from the plugin schema, so these are the exact schema keys. `staleAllowedHours` defaults to 24 hours; set it to `0` to disable cached startup.
@@ -53,7 +54,7 @@ The top-level sections are `services`, `events`, and `observable`; their keys ar
 
 ## Failures
 
-At startup, the client retries network errors, timeouts, HTTP 429, and HTTP 502/503/504 responses for up to 15 seconds. After any successful fetch it writes an AES-256-GCM encrypted last-known-good response under `.bsb/config-vault` in the service working directory. The cache key is derived from the runtime secret and is bound to the Vault origin and key id. Mount that directory on persistent storage if the fallback must survive container replacement.
+At startup, the client retries network errors, timeouts, HTTP 429, and HTTP 502/503/504 responses for up to 15 seconds. After any successful fetch it writes an AES-256-GCM encrypted last-known-good response under `cacheDir`, defaulting to `.bsb/config-vault` in the service working directory. The directory is created when needed. The cache key is derived from the runtime secret and is bound to the Vault origin and key id. Point `cacheDir` at persistent storage if the fallback must survive container replacement.
 
 If the retry window expires, a cache no older than `staleAllowedHours` is loaded and a warning names its version and fetch time. Authentication/authorization failures, redirects, non-transient server errors, malformed responses, expired/tampered caches, and configs without an enabled service always fail closed. There is no fallback to `config-env` or `config-default`.
 

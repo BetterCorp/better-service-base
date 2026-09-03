@@ -9,8 +9,9 @@ vaultUrl=https://vault-run-url.a.run.app
 googleAudience=https://vault-run-url.a.run.app
 apiKeyId=vk_xxx
 apiSecret=vs_xxx
+# cacheDir=/mounted/config-vault
 ```
 
 `googleAudience` must be the Cloud Run service URL. The existing Vault API key and secret still decide which runtime profile can be loaded.
 
-`config-vault-google` also accepts the same profile-authorized `BSB_CONFIG_OVERRIDES` JSON payload as `config-vault`; the override is applied locally after the Vault response is loaded.
+`config-vault-google` also accepts the same optional `cacheDir` and profile-authorized `BSB_CONFIG_OVERRIDES` settings as `config-vault`; overrides are applied locally after the Vault response is loaded.

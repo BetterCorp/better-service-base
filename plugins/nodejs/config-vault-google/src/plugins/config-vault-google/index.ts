@@ -8,6 +8,7 @@ const ConfigSchema = av.object({
   googleAudience: av.string().minLength(1).describe('Cloud Run service URL used as Google ID token audience'),
   apiKeyId: av.string().minLength(1).describe('Vault runtime API key id'),
   apiSecret: av.string().minLength(1).describe('Vault runtime API secret', { sensitive: true, writeonly: true }),
+  cacheDir: av.optional(av.string().minLength(1).describe('Directory for the encrypted last-known-good config cache')),
   timeoutMs: av.int32().coerce({ from: 'string' }).min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
   staleAllowedHours: av.int32().coerce({ from: 'string' }).min(0).default(24).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
   allowInsecureHttp: av.bool().coerce({ from: 'string' }).default(false).describe('Allow http:// Vault URLs for local development only'),

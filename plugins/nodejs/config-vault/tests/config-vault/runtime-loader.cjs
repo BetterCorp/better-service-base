@@ -2,7 +2,7 @@ const assert = require('node:assert');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const os = require('node:os');
-const { mkdtemp, rm } = require('node:fs/promises');
+const { mkdtemp, readdir, rm } = require('node:fs/promises');
 
 function obs() {
   return {
@@ -26,11 +26,13 @@ module.exports = async ({ pluginRoot }) => {
   };
   assert.deepStrictEqual(schema.parse({
     ...baseConfig,
+    cacheDir: '/cache',
     timeoutMs: '5000',
     staleAllowedHours: '24',
     allowInsecureHttp: 'false',
   }), {
     ...baseConfig,
+    cacheDir: '/cache',
     timeoutMs: 5000,
     staleAllowedHours: 24,
     allowInsecureHttp: false,
@@ -42,6 +44,7 @@ module.exports = async ({ pluginRoot }) => {
   const originalFetch = globalThis.fetch;
   const originalNow = Date.now;
   const cwd = await mkdtemp(path.join(os.tmpdir(), 'bsb-vault-cache-'));
+  const cacheDir = path.join(cwd, 'custom', 'cache');
   try {
     globalThis.fetch = async () => new Response(JSON.stringify({
       application: 'BetterPortal',
@@ -99,6 +102,7 @@ module.exports = async ({ pluginRoot }) => {
         vaultUrl: 'https://vault.example.com',
         apiKeyId: 'vk_test',
         apiSecret: 'vs_test',
+        cacheDir,
         timeoutMs: 1000,
         staleAllowedHours: 168,
         allowInsecureHttp: false,
@@ -108,6 +112,7 @@ module.exports = async ({ pluginRoot }) => {
 
     const testObs = obs();
     await plugin.init(testObs);
+    assert.strictEqual((await readdir(cacheDir)).filter((name) => name.endsWith('.json')).length, 1);
     assert.deepStrictEqual(await plugin.getObservablePlugins(testObs), {
       logs: {
         enabled: true,
@@ -156,7 +161,7 @@ module.exports = async ({ pluginRoot }) => {
     const cachedPlugin = new mod.Plugin({
       appId: 'test', mode: 'development', cwd, packageCwd: cwd, pluginCwd: cwd,
       pluginName: 'config-vault', pluginVersion: '0.0.0', sbObservable: {},
-      config: { vaultUrl: 'https://vault.example.com', apiKeyId: 'vk_test', apiSecret: 'vs_test', timeoutMs: 1000, staleAllowedHours: 168, allowInsecureHttp: false },
+      config: { vaultUrl: 'https://vault.example.com', apiKeyId: 'vk_test', apiSecret: 'vs_test', cacheDir, timeoutMs: 1000, staleAllowedHours: 168, allowInsecureHttp: false },
     });
     await cachedPlugin.init(testObs);
     assert.deepStrictEqual(await cachedPlugin.getPluginConfig(testObs, 'service', 'api'), { port: 3000 });

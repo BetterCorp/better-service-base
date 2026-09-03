@@ -21,6 +21,7 @@ const ConfigSchema = av.object({
   vaultUrl: av.string().minLength(1).describe('Vault service base URL'),
   apiKeyId: av.string().minLength(1).describe('Vault runtime API key id'),
   apiSecret: av.string().minLength(1).describe('Vault runtime API secret', { sensitive: true, writeonly: true }),
+  cacheDir: av.optional(av.string().minLength(1).describe('Directory for the encrypted last-known-good config cache')),
   timeoutMs: av.int32().coerce({ from: 'string' }).min(1000).default(5000).describe('Vault HTTP request timeout in milliseconds'),
   staleAllowedHours: av.int32().coerce({ from: 'string' }).min(0).default(24).describe('Maximum age in hours for encrypted last-known-good config; 0 disables fallback'),
   allowInsecureHttp: av.bool().coerce({ from: 'string' }).default(false).describe('Allow http:// Vault URLs for local development only'),
@@ -192,7 +193,7 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
   }
 
   private async writeCache(url: URL, response: RuntimeResolveResponse): Promise<void> {
-    const directory = join(this.cwd, '.bsb', 'config-vault');
+    const directory = this.cacheDirectory;
     const path = this.cachePath(directory, url);
     const temp = `${path}.${process.pid}.tmp`;
     const payload: CachedRuntimeConfig = {
@@ -216,7 +217,7 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
 
   private async readCache(url: URL, obs: Observable): Promise<CachedRuntimeConfig> {
     try {
-      const raw = JSON.parse(await readFile(this.cachePath(join(this.cwd, '.bsb', 'config-vault'), url), 'utf8')) as Record<string, unknown>;
+      const raw = JSON.parse(await readFile(this.cachePath(this.cacheDirectory, url), 'utf8')) as Record<string, unknown>;
       const decipher = createDecipheriv('aes-256-gcm', this.cacheKey(url), Buffer.from(String(raw.iv), 'base64url'));
       decipher.setAuthTag(Buffer.from(String(raw.authTag), 'base64url'));
       const decrypted = Buffer.concat([
@@ -240,6 +241,10 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
 
   private cacheKey(url: URL): Buffer {
     return scryptSync(this.config.apiSecret, `${url.origin}\0${this.config.apiKeyId}`, 32);
+  }
+
+  private get cacheDirectory(): string {
+    return this.config.cacheDir ?? join(this.cwd, '.bsb', 'config-vault');
   }
 
   private cachePath(directory: string, url: URL): string {

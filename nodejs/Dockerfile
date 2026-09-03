@@ -76,7 +76,7 @@ RUN npm pkg set "dependencies.@bsb/base=${BSB_VERSION}" && rm -f /home/bsb/packa
 # Stage 3: Final image
 FROM ${NODE_BASE_IMAGE}
 
-RUN mkdir -p /mnt /mnt/plugins /mnt/temp /home/bsb
+RUN mkdir -p /mnt /mnt/plugins /mnt/temp /home/bsb/.bsb
 
 VOLUME /mnt/plugins
 VOLUME /mnt/temp
@@ -105,6 +105,7 @@ RUN chown -R node:node /home/bsb \
     && chown -R node:node /mnt/plugins \
     && find /home/bsb -type d -exec chmod 550 {} + \
     && find /home/bsb -type f -exec chmod 440 {} + \
+    && chmod 770 /home/bsb/.bsb \
     && chmod 550 /home/bsb/entrypoint.sh
 
 ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]

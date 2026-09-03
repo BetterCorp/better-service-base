@@ -26,7 +26,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 RAW_PLUGIN_DIRS="${BSB_PLUGIN_DIRS:-${BSB_PLUGINS_DIR:-${BSB_PLUGIN_DIR:-}}}"
-RAW_WRITABLE_PATHS="${BSB_WRITABLE_PATHS:-}"
+RAW_WRITABLE_PATHS="/home/bsb/.bsb${BSB_WRITABLE_PATHS:+,$BSB_WRITABLE_PATHS}"
 
 is_writable_dir() {
   DIR="$1"
