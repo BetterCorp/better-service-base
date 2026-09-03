@@ -103,8 +103,8 @@ COPY --from=dependencies /home/bsb/node_modules /home/bsb/node_modules
 RUN chown -R node:node /home/bsb \
     && chown -R node:node /mnt/temp \
     && chown -R node:node /mnt/plugins \
-    && find /home/bsb -type d -exec chmod 550 {} \; \
-    && find /home/bsb -type f -exec chmod 440 {} \; \
+    && find /home/bsb -type d -exec chmod 550 {} + \
+    && find /home/bsb -type f -exec chmod 440 {} + \
     && chmod 550 /home/bsb/entrypoint.sh
 
 ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]

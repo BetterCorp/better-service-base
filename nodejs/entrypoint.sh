@@ -99,23 +99,23 @@ if [ -n "$RAW_WRITABLE_PATHS" ]; then
 fi
 chown -R node:node /mnt/temp || true
 
-find /home/bsb -type d -exec chmod 550 {} \; 2>/dev/null || true
-find /home/bsb -type f -exec chmod 440 {} \; 2>/dev/null || true
+find /home/bsb -type d -exec chmod 550 {} + 2>/dev/null || true
+find /home/bsb -type f -exec chmod 440 {} + 2>/dev/null || true
 chmod 550 /home/bsb/entrypoint.sh || true
 if [ -f /home/bsb/sec-config.yaml ]; then
   chmod 400 /home/bsb/sec-config.yaml || true
 fi
 
-find /mnt/temp -type d -exec chmod 770 {} \; 2>/dev/null || true
-find /mnt/temp -type f -exec chmod 660 {} \; 2>/dev/null || true
+find /mnt/temp -type d -exec chmod 770 {} + 2>/dev/null || true
+find /mnt/temp -type f -exec chmod 660 {} + 2>/dev/null || true
 if [ -n "$RAW_WRITABLE_PATHS" ]; then
   OLDIFS="$IFS"
   IFS=","
   for DIR in $RAW_WRITABLE_PATHS; do
     DIR=$(echo "$DIR" | xargs)
     [ -z "$DIR" ] && continue
-    find "$DIR" -type d -exec chmod 770 {} \; 2>/dev/null || true
-    find "$DIR" -type f -exec chmod 660 {} \; 2>/dev/null || true
+    find "$DIR" -type d -exec chmod 770 {} + 2>/dev/null || true
+    find "$DIR" -type f -exec chmod 660 {} + 2>/dev/null || true
   done
   IFS="$OLDIFS"
 fi
@@ -127,8 +127,8 @@ if [ -n "$RAW_PLUGIN_DIRS" ]; then
     DIR=$(echo "$DIR" | xargs)
     [ -z "$DIR" ] && continue
     if is_writable_dir "$DIR"; then
-      find "$DIR" -type d -exec chmod 550 {} \; 2>/dev/null || true
-      find "$DIR" -type f -exec chmod 440 {} \; 2>/dev/null || true
+      find "$DIR" -type d -exec chmod 550 {} + 2>/dev/null || true
+      find "$DIR" -type f -exec chmod 440 {} + 2>/dev/null || true
     else
       echo "BSB plugin dir is read-only; skipping permission fix: $DIR"
     fi
