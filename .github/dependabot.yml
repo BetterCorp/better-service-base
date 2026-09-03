@@ -2,14 +2,14 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "04:00"
 
   - package-ecosystem: npm
     directory: /
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "03:00"
@@ -17,7 +17,7 @@ updates:
 
   - package-ecosystem: pip
     directory: /python
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "03:15"
@@ -25,7 +25,7 @@ updates:
 
   - package-ecosystem: gomod
     directory: /go
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "03:30"
@@ -33,7 +33,7 @@ updates:
 
   - package-ecosystem: nuget
     directory: /dotnet
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "03:45"
@@ -41,7 +41,7 @@ updates:
 
   - package-ecosystem: docker
     directory: /nodejs
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "04:15"
@@ -49,7 +49,7 @@ updates:
 
   - package-ecosystem: docker
     directory: /go
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "04:30"
@@ -57,7 +57,7 @@ updates:
 
   - package-ecosystem: docker
     directory: /python
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "04:40"
@@ -65,7 +65,7 @@ updates:
 
   - package-ecosystem: docker
     directory: /dotnet/BetterServiceBase
-    target-branch: develop
+    target-branch: master
     schedule:
       interval: weekly
       time: "04:45"
