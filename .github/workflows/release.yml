@@ -74,7 +74,7 @@ jobs:
         run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: nodejs-package
           path: |
@@ -147,7 +147,7 @@ jobs:
         run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: nodejs-tests-package
           path: |
@@ -277,7 +277,7 @@ jobs:
         run: npm run build --workspace "${{ matrix.workspace }}"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: |
