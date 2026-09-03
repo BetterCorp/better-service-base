@@ -103,7 +103,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Download package artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: nodejs-package
           path: nodejs
@@ -175,7 +175,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Download package artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: nodejs-tests-package
           path: tests/nodejs
@@ -312,13 +312,13 @@ jobs:
         run: npm ci
 
       - name: Download base package artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: nodejs-package
           path: nodejs
 
       - name: Download plugin package artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.workspace }}
@@ -365,7 +365,7 @@ jobs:
         run: npm ci
 
       - name: Download package artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: nodejs-package
           path: nodejs
