@@ -86,7 +86,7 @@ export class LIB {
           queueKey,
           err: err.message || err,
         });
-        throw new Error(`AMQP channel (${queueKey}) error: ${err.message || err}`);
+        // ChannelWrapper reconnects and reruns setup; throwing here crashes the host.
       });
       if (exName !== null)
         obs?.log.debug("Assert exchange ({queueKey}) {exName} {exType}", {
@@ -150,7 +150,16 @@ export class LIB {
     } else {
       attempts.delete(key);
     }
-    channel.nack(msg, false, requeue);
+    try {
+      channel.nack(msg, false, requeue);
+    } catch (error) {
+      // A disconnected channel cannot nack; RabbitMQ requeues its unacked deliveries.
+      attempts.delete(key);
+      obs.log.warn("{label}: could not nack delivery on closed channel: {error}", {
+        label, error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
     obs.log.error("{label} error ({attempt}/{maxAttempts}, requeue={requeue}): {err}", {
       label,
       attempt,

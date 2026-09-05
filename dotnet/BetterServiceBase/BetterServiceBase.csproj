@@ -10,6 +10,16 @@
 
     <ItemGroup>
         <ProjectReference Include="..\BSB\BSB.csproj" />
+        <ProjectReference Include="../plugins/config-default/config-default.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../plugins/observable-default/observable-default.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../plugins/events-default/events-default.csproj" ReferenceOutputAssembly="false" />
+        <Content Include="../bsb-config.json" Link="bsb-config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
+    <Target Name="PublishDefaultPlugins" AfterTargets="Publish">
+        <ItemGroup>
+            <BundledPlugin Include="$(TargetDir)plugins/**/*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(BundledPlugin)" DestinationFiles="@(BundledPlugin->'$(PublishDir)plugins/%(RecursiveDir)%(Filename)%(Extension)')" />
+    </Target>
 
 </Project>

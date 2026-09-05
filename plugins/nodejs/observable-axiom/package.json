@@ -31,9 +31,9 @@
     "url": "https://bettercorp.dev/"
   },
   "dependencies": {
-    "@axiomhq/js": "^1.4.0",
+    "@axiomhq/js": "^2.0.0",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
     "@opentelemetry/resources": "^2.8.0",
     "@opentelemetry/sdk-node": "^0.222.0",
     "@opentelemetry/sdk-trace-base": "^2.8.0",
@@ -43,7 +43,7 @@
     "@bsb/base": "^9.1.11"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.4.1",
     "rimraf": "^6.1.2",
     "typescript": "^6.0.3"
   },

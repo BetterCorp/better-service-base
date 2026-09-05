@@ -44,7 +44,7 @@ betterweb/service-base:node-vault-latest
 It uses the normal BSB entrypoint and configuration variables. Build it locally with:
 
 ```bash
-docker build -f plugins/nodejs/config-vault/Dockerfile --build-arg BSB_BASE_IMAGE=betterweb/service-base:node-latest --build-arg BSB_PLUGIN_VERSION=latest -t betterweb/service-base:node-vault-local plugins/nodejs/config-vault
+docker build -f plugins/nodejs/config-vault/Dockerfile --build-arg BSB_BASE_IMAGE=betterweb/service-base:node-9.1.11 --build-arg BSB_PLUGIN_VERSION=9.1.11 -t betterweb/service-base:node-vault-local plugins/nodejs/config-vault
 ```
 
 ```yaml

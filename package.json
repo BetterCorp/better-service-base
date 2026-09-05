@@ -8,6 +8,7 @@
     "tests/nodejs"
   ],
   "scripts": {
+    "ws:test:plugins": "node --import tsx --test scripts/test-plugin-regressions.mjs scripts/test-plugin-regressions.test.mjs",
     "ws:check-lockfiles": "node ./scripts/check-workspace-lockfiles.mjs",
     "ws:sync-versions": "node ./scripts/workspace-version.mjs sync",
     "ws:version": "node ./scripts/workspace-version.mjs set",

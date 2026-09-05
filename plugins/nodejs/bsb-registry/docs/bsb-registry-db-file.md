@@ -230,7 +230,7 @@ node --input-type=module -e "import { randomBytes } from 'node:crypto'; console.
 ## Limitations
 
 - Single-writer only -- no concurrent process safety
-- All queries scan files on disk (no indexing)
+- The in-memory version index is rebuilt after plugin writes
 - Not suitable for large registries (1000+ plugins)
 - No automatic backups -- back up the data directory yourself
 
@@ -240,3 +240,11 @@ For production or multi-instance deployments, use PostgreSQL (`database.type: po
 
 - [service-bsb-registry](service-bsb-registry.md) -- Core registry plugin
 - [service-bsb-registry-ui](service-bsb-registry-ui.md) -- Web UI and REST API
+
+## Runtime storage guarantees
+
+Run one Registry process per data directory. Writes replace JSON files atomically using a flushed temporary file in the same directory. This prevents partially written JSON from replacing the previous record; it is not a transaction across multiple files or a substitute for backups.
+
+Legacy nonempty plaintext bearer tokens migrate to hashes on successful lookup, including manually seeded values. The `sha256:` prefix is reserved for stored digests and cannot authenticate as a bearer token.
+
+List, search and statistics share an in-memory version index, rebuilt after plugin insert/delete operations. Authorization is evaluated on every request, including cached entries. Restart the Registry after manually editing plugin files. Use transactional storage before sharing the directory between multiple writers.

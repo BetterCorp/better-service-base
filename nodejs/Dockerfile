@@ -36,23 +36,23 @@ ENV NPM_CONFIG_PROGRESS=false
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NPM_CONFIG_YES=true
 
-RUN set -eux && mkdir /home/bsb && npm i -g typescript ts-node
+WORKDIR /build
 
-WORKDIR /home/bsb
+# Keep workspace manifests at their lockfile paths. Installing the root lockfile
+# beside nodejs/package.json changes the dependency graph.
+COPY package.json package-lock.json ./
+COPY nodejs/ ./nodejs/
+COPY plugins/nodejs/ ./plugins/nodejs/
+COPY docs/package.json ./docs/package.json
+COPY tests/nodejs/package.json ./tests/nodejs/package.json
+RUN npm ci --workspace nodejs --include-workspace-root=false
 
-ADD nodejs/package.json /home/bsb/package.json
-ADD nodejs/tsconfig.json /home/bsb/tsconfig.json
-ADD nodejs/tsconfig-release.json /home/bsb/tsconfig-release.json
-ADD package-lock.json /home/bsb/package-lock.json
-ADD nodejs/src/ /home/bsb/src/
-
-# Install all dependencies (including devDependencies)
-RUN npm install
-RUN npm version $BSB_VERSION --allow-same-version --no-git-tag-version
+WORKDIR /build/nodejs
+RUN npm version $BSB_VERSION --allow-same-version --no-git-tag-version --workspaces=false
 RUN npm run build-release
 RUN mkdir -p /tmp/bsb-pack && npm pack --pack-destination /tmp/bsb-pack
 
-# Stage 2: Install production dependencies
+# Stage 2: Install the production graph from the same workspace lockfile.
 FROM ${NODE_BASE_IMAGE} AS dependencies
 
 ARG BSB_VERSION=0.0.0
@@ -63,15 +63,24 @@ ENV NPM_CONFIG_PROGRESS=false
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NPM_CONFIG_YES=true
 
-WORKDIR /home/bsb
-
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY nodejs/package.json ./nodejs/package.json
+COPY --from=builder /build/plugins/nodejs/ ./plugins/nodejs/
+COPY docs/package.json ./docs/package.json
+COPY tests/nodejs/package.json ./tests/nodejs/package.json
 COPY --from=builder /tmp/bsb-pack/*.tgz /tmp/bsb-base.tgz
-
-# Install BSB as a normal package so plugins resolve through @bsb/* packages.
-RUN printf '{"type":"module","private":true,"scripts":{"start":"node node_modules/@bsb/base/lib/cli.js","debug":"BSB_DEBUG=true node node_modules/@bsb/base/lib/cli.js","plugins":"node node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js"}}\n' > /home/bsb/package.json
-RUN npm install --omit=dev /tmp/bsb-base.tgz
-RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then echo "Installing bundled BSB plugins: $BSB_BUNDLED_PLUGINS"; npm install --omit=dev $BSB_BUNDLED_PLUGINS; fi
-RUN npm pkg set "dependencies.@bsb/base=${BSB_VERSION}" && rm -f /home/bsb/package-lock.json
+RUN npm ci --omit=dev --workspace nodejs --include-workspace-root=false
+# Replace the build workspace link with the package BSB actually runs.
+RUN rm node_modules/@bsb/base && mkdir node_modules/@bsb/base \
+    && tar -xzf /tmp/bsb-base.tgz -C node_modules/@bsb/base --strip-components=1
+RUN mkdir -p /home/bsb && mv node_modules /home/bsb/node_modules
+WORKDIR /home/bsb
+RUN printf '{"type":"module","private":true,"scripts":{"start":"node node_modules/@bsb/base/lib/cli.js","debug":"BSB_DEBUG=true node node_modules/@bsb/base/lib/cli.js","plugins":"node node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js"}}\n' > package.json
+RUN npm pkg set "dependencies.@bsb/base=${BSB_VERSION}"
+# Explicit extra packages remain an opt-in extension of the locked base image.
+RUN if [ -n "$BSB_BUNDLED_PLUGINS" ]; then npm install --omit=dev --save-exact $BSB_BUNDLED_PLUGINS; fi
+RUN rm -f package-lock.json
 
 # Stage 3: Final image
 FROM ${NODE_BASE_IMAGE}

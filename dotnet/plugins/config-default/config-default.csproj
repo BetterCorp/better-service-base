@@ -3,6 +3,7 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
         <AssemblyName>config-default</AssemblyName>
         <OutputPath>..\..\BetterServiceBase\bin\$(Configuration)\net10.0\plugins\config-default\</OutputPath>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>

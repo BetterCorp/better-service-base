@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import cmp_to_key
+from graphlib import TopologicalSorter
 from typing import Any
 
 from .base import BSBService, PluginCtor, validate_plugin_config
@@ -127,27 +127,21 @@ class SBServices:
             )
         return out
 
-    def _sort_by_deps(self, phase: str):
-        def cmp(a: _SortedService, b: _SortedService) -> int:
-            a_before = a.init_before_plugins if phase == "init" else a.run_before_plugins
-            b_before = b.init_before_plugins if phase == "init" else b.run_before_plugins
-            a_after = a.init_after_plugins if phase == "init" else a.run_after_plugins
-            b_after = b.init_after_plugins if phase == "init" else b.run_after_plugins
-            if b.plugin_name in a_before:
-                return -1
-            if a.plugin_name in b_before:
-                return 1
-            if b.plugin_name in a_after:
-                return 1
-            if a.plugin_name in b_after:
-                return -1
-            return 0
-
-        return cmp_to_key(cmp)
+    def _sort_by_deps(self, phase: str, plugins: list[_SortedService]) -> list[_SortedService]:
+        by_name = {plugin.plugin_name: plugin for plugin in plugins}
+        dependencies: dict[str, set[str]] = {name: set() for name in by_name}
+        for plugin in plugins:
+            before = plugin.init_before_plugins if phase == "init" else plugin.run_before_plugins
+            after = plugin.init_after_plugins if phase == "init" else plugin.run_after_plugins
+            dependencies[plugin.plugin_name].update(name for name in after if name in by_name)
+            for name in before:
+                if name in dependencies:
+                    dependencies[name].add(plugin.plugin_name)
+        return [by_name[name] for name in TopologicalSorter(dependencies).static_order()]
 
     async def _sort_and_run_or_init(self, phase: str) -> None:
         trace = self.obs.create_trace(f"services:{phase}", "SBServices")
-        plugins = sorted(self._gather_list(), key=self._sort_by_deps(phase))
+        plugins = self._sort_by_deps(phase, self._gather_list())
         self.obs.info(trace, "{phase} plugins in order: {plugins}", {"phase": phase, "plugins": ",".join(x.plugin_name for x in plugins)})
         for plugin in plugins:
             fn = getattr(plugin.reference, phase)

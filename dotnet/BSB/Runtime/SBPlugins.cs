@@ -96,9 +96,9 @@ public class SBPlugins
     /// <summary>
     /// Get metadata for a loaded plugin. Returns null if not loaded.
     /// </summary>
-    internal BSBPluginMetadata? GetMetadata(string name)
+    internal BSBPluginMetadata? GetMetadata(PluginDefinition definition)
     {
-        return _cache.GetValueOrDefault(name)?.Metadata;
+        return _cache.GetValueOrDefault(CacheKey(definition, typeof(BSBService<>)))?.Metadata;
     }
 
     // -----------------------------------------------------------------
@@ -113,7 +113,7 @@ public class SBPlugins
     private LoadedPlugin LoadPlugin(PluginDefinition def, Type expectedBaseType)
     {
         var pluginName = def.ResolvedPluginName;
-        var cacheKey = $"{def.Package ?? "local"}:{pluginName}";
+        var cacheKey = CacheKey(def, expectedBaseType);
 
         if (_cache.TryGetValue(cacheKey, out var cached))
             return cached;
@@ -132,22 +132,8 @@ public class SBPlugins
         }
 
         // Load the assembly in an isolated context
-        var context = new AssemblyLoadContext(pluginName, isCollectible: false);
+        var context = new PluginLoadContext(assemblyPath);
         _loadContexts[cacheKey] = context;
-
-        // Set up dependency resolution so the plugin can find BSB.dll and other deps
-        context.Resolving += (ctx, assemblyName) =>
-        {
-            // Try to find the dependency next to the plugin assembly
-            var dir = Path.GetDirectoryName(assemblyPath)!;
-            var depPath = Path.Combine(dir, assemblyName.Name + ".dll");
-            if (File.Exists(depPath))
-                return ctx.LoadFromAssemblyPath(depPath);
-
-            // Fall back to default context (BSB framework assemblies)
-            try { return AssemblyLoadContext.Default.LoadFromAssemblyName(assemblyName); }
-            catch { return null; }
-        };
 
         var assembly = context.LoadFromAssemblyPath(assemblyPath);
 
@@ -180,6 +166,31 @@ public class SBPlugins
         return loaded;
     }
 
+    private static string CacheKey(PluginDefinition def, Type expectedBaseType)
+        => $"{def.Package ?? "local"}:{def.ResolvedPluginName}:{def.Version}:{expectedBaseType}";
+
+    private sealed class PluginLoadContext(string assemblyPath) : AssemblyLoadContext()
+    {
+        private readonly AssemblyDependencyResolver _resolver = new(assemblyPath);
+
+        protected override Assembly? Load(AssemblyName name)
+        {
+            // Plugins compile against BSB but must share the host's contract identity.
+            var framework = typeof(MainBase).Assembly;
+            if (name.Name == framework.GetName().Name) return framework;
+            var resolved = _resolver.ResolveAssemblyToPath(name);
+            if (resolved is not null) return LoadFromAssemblyPath(resolved);
+            var adjacent = Path.Combine(Path.GetDirectoryName(assemblyPath)!, name.Name + ".dll");
+            return File.Exists(adjacent) ? LoadFromAssemblyPath(adjacent) : null;
+        }
+
+        protected override nint LoadUnmanagedDll(string name)
+        {
+            var resolved = _resolver.ResolveUnmanagedDllToPath(name);
+            return resolved is null ? nint.Zero : LoadUnmanagedDllFromPath(resolved);
+        }
+    }
+
     // -----------------------------------------------------------------
     // Assembly path resolution - mirrors Node.js search order
     // -----------------------------------------------------------------
@@ -209,21 +220,16 @@ public class SBPlugins
             if (path is not null) return path;
         }
 
-        // 3. Local plugins directory: {cwd}/plugins/{pluginName}/{pluginName}.dll
-        var localDir = Path.Combine(_cwd, "plugins", pluginName);
-        if (Directory.Exists(localDir))
+        if (def.Package is not null && !string.IsNullOrEmpty(def.Version)) return null;
+
+        // Application plugins override the defaults shipped alongside the BSB host.
+        foreach (var root in new[] { Path.Combine(_cwd, "plugins"), Path.Combine(AppContext.BaseDirectory, "plugins") })
         {
-            var localDll = Path.Combine(localDir, pluginName + ".dll");
+            var localDll = Path.Combine(root, pluginName, pluginName + ".dll");
             if (File.Exists(localDll)) return Path.GetFullPath(localDll);
-
-            // Also check for any .dll in the directory
-            var dlls = Directory.GetFiles(localDir, "*.dll");
-            if (dlls.Length > 0) return Path.GetFullPath(dlls[0]);
+            var flatDll = Path.Combine(root, pluginName + ".dll");
+            if (File.Exists(flatDll)) return Path.GetFullPath(flatDll);
         }
-
-        // 4. Flat: {cwd}/plugins/{pluginName}.dll
-        var flatDll = Path.Combine(_cwd, "plugins", pluginName + ".dll");
-        if (File.Exists(flatDll)) return Path.GetFullPath(flatDll);
 
         return null;
     }
@@ -235,7 +241,7 @@ public class SBPlugins
     /// </summary>
     private string? ResolveFromPluginDir(string package_, string pluginName, string? requestedVersion)
     {
-        var packageDir = Path.Combine(_pluginDir!, package_);
+        var packageDir = Path.GetFullPath(Path.Combine(_pluginDir!, package_));
         if (!Directory.Exists(packageDir)) return null;
 
         // Try versioned layout: {package}/{M}/{m}/{p}/
@@ -256,6 +262,8 @@ public class SBPlugins
                     if (File.Exists(dll)) return Path.GetFullPath(dll);
                 }
             }
+            // A versioned package must never fall back to an unrelated flat DLL.
+            return null;
         }
 
         // Flat layout: {package}/{plugin}.dll
@@ -325,7 +333,7 @@ public class SBPlugins
                 .FirstOrDefault();
         }
 
-        return versions[0].Path; // Fall back to latest
+        throw new ArgumentException($"Invalid plugin version selector: {selector}");
     }
 
     /// <summary>
@@ -345,6 +353,7 @@ public class SBPlugins
 
         paths.Add(Path.Combine(_cwd, "plugins", pluginName));
         paths.Add(Path.Combine(_cwd, "plugins", pluginName + ".dll"));
+        paths.Add(Path.Combine(AppContext.BaseDirectory, "plugins", pluginName));
         return paths;
     }
 

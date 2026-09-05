@@ -107,3 +107,7 @@ logs/
   application-2026-02-01.log.gz
   ...
 ```
+
+### Slow storage
+
+The synchronous logging API stops writing after the file stream signals backpressure. New records are dropped until the stream drains, and their count is reported to stderr on recovery or shutdown. This bounds buffering during sustained disk congestion; use a durable logging pipeline where every record must be retained.

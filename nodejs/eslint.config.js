@@ -1,8 +1,8 @@
-const tsPlugin = require('@typescript-eslint/eslint-plugin');
-const tsParser = require('@typescript-eslint/parser');
-const js = require('@eslint/js');
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import js from '@eslint/js';
 
-module.exports = [
+export default [
   js.configs.recommended,
   {
     files: ['src/**/*.ts', 'src/**/*.tsx'],
@@ -23,6 +23,8 @@ module.exports = [
         clearImmediate: 'readonly',
         console: 'readonly',
         performance: 'readonly',
+        crypto: 'readonly',
+        URL: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
         module: 'readonly',
@@ -37,6 +39,8 @@ module.exports = [
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
+      'no-redeclare': 'off',
+      '@typescript-eslint/no-redeclare': 'error',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-this-alias': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
@@ -72,6 +76,7 @@ module.exports = [
       'src/plugins/*-test/**/*',
       'src/tests/**',
       'src/tests.ts',
+      'src/.bsb/**',
     ],
   },
 ];

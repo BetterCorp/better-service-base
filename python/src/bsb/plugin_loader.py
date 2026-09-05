@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -56,7 +57,9 @@ class SBPlugins:
         for module_name in candidates:
             try:
                 return importlib.import_module(module_name)
-            except Exception as ex:  # pragma: no cover - fallback path
+            except ModuleNotFoundError as ex:
+                if ex.name != module_name and not module_name.startswith(f"{ex.name}."):
+                    raise
                 last_error = ex
 
         if self.referenced_plugin_dir:
@@ -67,13 +70,25 @@ class SBPlugins:
                 if file_path.exists():
                     return self._import_file(file_path)
 
+        local_file = Path(self.cwd) / "plugins" / plugin / "index.py"
+        if local_file.exists():
+            return self._import_file(local_file)
+
         raise RuntimeError(f"Failed to resolve plugin {plugin}: {last_error}")
 
     def _import_file(self, file_path: Path) -> ModuleType:
+        file_path = file_path.resolve()
         module_name = f"bsb_ext_{file_path.stem}_{abs(hash(file_path.as_posix()))}"
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        if module_name in sys.modules:
+            return sys.modules[module_name]
+        spec = importlib.util.spec_from_file_location(module_name, file_path, submodule_search_locations=[str(file_path.parent)])
         if spec is None or spec.loader is None:
             raise RuntimeError(f"Could not load plugin file: {file_path}")
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(module_name, None)
+            raise
         return module

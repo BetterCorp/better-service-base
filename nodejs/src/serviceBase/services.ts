@@ -379,12 +379,11 @@ export class SBServices {
       name: plugin.name,
     });
 
-    let pluginConfig: object | null | undefined = undefined;
     const rawPluginConfig = await sbConfig.getPluginConfig(tTrace, "service", plugin.name);
     if (!Tools.isNullOrUndefined(newPlugin.data.serviceConfig?.validationSchema)) {
       this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
     }
-    pluginConfig = parsePluginConfig(newPlugin.data.serviceConfig, rawPluginConfig);
+    const pluginConfig = parsePluginConfig(newPlugin.data.serviceConfig, rawPluginConfig);
 
     await this.addPlugin(
       sbConfig,
@@ -396,61 +395,31 @@ export class SBServices {
     );
   }
 
-  private sortByInitDependencies(type: "init" | "run") {
-    return (a: SortedPlugin, b: SortedPlugin): number => {
-      // If a's initBeforePlugins include b's pluginName, a should come before b
-      if (
-        (
-          type == "init" ? a.initBeforePlugins : a.runBeforePlugins
-        ).includes(
-          b.pluginName,
-        )
-      ) {
-        return -1;
+  private sortByDependencies(plugins: SortedPlugin[], type: "init" | "run"): SortedPlugin[] {
+    const dependencies = new Map(plugins.map(plugin => [plugin.pluginName, new Set<string>()]));
+    for (const plugin of plugins) {
+      const before = type === "init" ? plugin.initBeforePlugins : plugin.runBeforePlugins;
+      const after = type === "init" ? plugin.initAfterPlugins : plugin.runAfterPlugins;
+      for (const name of before) dependencies.get(name)?.add(plugin.pluginName);
+      for (const name of after) {
+        if (dependencies.has(name)) dependencies.get(plugin.pluginName)!.add(name);
       }
-      // If b's initBeforePlugins include a's pluginName, a should come after b
-      else if (
-        (
-          type == "init" ? b.initBeforePlugins : b.runBeforePlugins
-        ).includes(
-          a.pluginName,
-        )
-      ) {
-        return 1;
-      }
-      // If a's initAfterPlugins include b's pluginName, a should come after b
-      else if (
-        (
-          type == "init" ? a.initAfterPlugins : a.runAfterPlugins
-        ).includes(
-          b.pluginName,
-        )
-      ) {
-        return 1;
-      }
-      // If b's initAfterPlugins include a's pluginName, a should come before b
-      else if (
-        (
-          type == "init" ? b.initAfterPlugins : b.runAfterPlugins
-        ).includes(
-          a.pluginName,
-        )
-      ) {
-        return -1;
-      }
-      // Otherwise, maintain the order
-      else {
-        return 0;
-      }
-    };
+    }
+    const result: SortedPlugin[] = [];
+    // ponytail: quadratic in plugin count; use an indegree queue for thousands of services.
+    while (dependencies.size > 0) {
+      const next = plugins.find(plugin => dependencies.get(plugin.pluginName)?.size === 0);
+      if (!next) throw new Error(`Service ${type} dependency cycle: ${[...dependencies.keys()].join(", ")}`);
+      result.push(next);
+      dependencies.delete(next.pluginName);
+      for (const remaining of dependencies.values()) remaining.delete(next.pluginName);
+    }
+    return result;
   }
 
   public async sortAndRunOrInitPlugins(type: "init" | "run"): Promise<void> {
     const tTrace = internalTrace(`sortAndRunOrInitPlugins:${ type }`);
-    const plugins = this.gatherListOfPlugins(type)
-      .sort(
-        this.sortByInitDependencies(type),
-      );
+    const plugins = this.sortByDependencies(this.gatherListOfPlugins(type), type);
 
     this.observableBackend.debug(tTrace, "{key} plugins in order: {plugins}", {
       key: type,

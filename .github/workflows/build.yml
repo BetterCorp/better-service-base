@@ -29,6 +29,17 @@ jobs:
   nodejs:
     name: Node.js workspaces
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    services:
+      rabbitmq:
+        image: rabbitmq:4.2-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: bsb-ci
+          RABBITMQ_DEFAULT_PASS: bsb-ci-tests
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s --health-timeout 5s --health-retries 12
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -73,6 +84,26 @@ jobs:
 
       - name: Test Node.js core
         run: npm run test --workspace nodejs
+
+      - name: Test plugin security and runtime regressions
+        env:
+          BSB_RABBITMQ_URL: amqp://bsb-ci:bsb-ci-tests@127.0.0.1:5672
+        run: npm run ws:test:plugins
+
+  nodejs-windows:
+    name: Node.js Windows runtime
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run tsc --workspace nodejs
+      - run: npm run testDev --workspace nodejs
 
   python:
     name: Python
@@ -146,6 +177,11 @@ jobs:
 
       - name: Build
         run: dotnet build BSB.sln --configuration Release --no-restore
+
+      - name: Publish host and verify external plugin loading
+        run: |
+          dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /tmp/bsb-dotnet
+          dotnet run --project tests/SmokeTests -c Release -- /tmp/bsb-dotnet tests/TestPlugin/bin/Release/net10.0
 
   docker-nodejs:
     name: Node.js Docker image
@@ -222,12 +258,23 @@ jobs:
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
+      - name: Resolve published BSB image and plugin version
+        id: bsb-version
+        run: |
+          # PR versions may not be released. Test the Vault layer against a published
+          # base, pinning its digest so the version and image cannot drift mid-build.
+          docker pull "${FORGEJO_SERVICE_BASE_IMAGE}:node"
+          BASE_IMAGE=$(docker image inspect "${FORGEJO_SERVICE_BASE_IMAGE}:node" --format '{{index .RepoDigests 0}}')
+          VERSION=$(docker run --rm --entrypoint node "$BASE_IMAGE" -p 'require("/home/bsb/node_modules/@bsb/base/package.json").version')
+          echo "image=${BASE_IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
           build-args: |
-            BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-latest
-            BSB_PLUGIN_VERSION=latest
+            BSB_BASE_IMAGE=${{ steps.bsb-version.outputs.image }}
+            BSB_PLUGIN_VERSION=${{ steps.bsb-version.outputs.version }}
           context: ./plugins/nodejs/config-vault
           file: ./plugins/nodejs/config-vault/Dockerfile
           load: true

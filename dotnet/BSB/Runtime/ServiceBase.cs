@@ -109,6 +109,8 @@ public class ServiceBase : IAsyncDisposable
             var instance = _plugins.CreateEventsInstance(def, MakeArgs(appId, name));
             _events.AddPlugin(instance);
         }
+        if (!_events.HasPlugins)
+            throw new InvalidOperationException("No events plugin configured; service initialization requires an events backend");
         await _events.Init(bootObs);
         bootObs.Log.Info("Events plugins initialized");
 
@@ -119,7 +121,7 @@ public class ServiceBase : IAsyncDisposable
             if (!def.Enabled) continue;
             var svcConfig = await _config.GetPluginConfig(bootObs, PluginType.Service, name);
             var instance = _plugins.CreateServiceInstance(def, MakeArgs(appId, name), svcConfig);
-            var metadata = _plugins.GetMetadata(def.ResolvedPluginName);
+            var metadata = _plugins.GetMetadata(def);
             _services.AddService(name, instance, metadata);
         }
 
@@ -148,12 +150,8 @@ public class ServiceBase : IAsyncDisposable
         obs.Log.Info("All services running");
         obs.End();
 
-        Console.CancelKeyPress += (_, e) =>
-        {
-            e.Cancel = true;
-            _shutdownCts.Cancel();
-        };
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => _shutdownCts.Cancel();
+        Console.CancelKeyPress += OnCancelKeyPress;
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
     }
 
     /// <summary>
@@ -179,6 +177,8 @@ public class ServiceBase : IAsyncDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        Console.CancelKeyPress -= OnCancelKeyPress;
+        AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
         GC.SuppressFinalize(this);
 
         await _services.DisposeAsync();
@@ -187,6 +187,14 @@ public class ServiceBase : IAsyncDisposable
         await _config.DisposeAsync();
         _shutdownCts.Dispose();
     }
+
+    private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs args)
+    {
+        args.Cancel = true;
+        _shutdownCts.Cancel();
+    }
+
+    private void OnProcessExit(object? sender, EventArgs args) => _shutdownCts.Cancel();
 
     private PluginConstructorArgs MakeArgs(string appId, string pluginName) => new()
     {

@@ -1,8 +1,10 @@
-ARG BSB_BASE_IMAGE=betterweb/service-base:node-latest
+ARG BSB_BASE_IMAGE
 
 FROM ${BSB_BASE_IMAGE}
 
-ARG BSB_PLUGIN_VERSION=latest
+ARG BSB_PLUGIN_VERSION
+
+RUN node -e 'if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.BSB_PLUGIN_VERSION || "")) throw new Error("Set BSB_PLUGIN_VERSION to an exact release version")'
 
 RUN npm install --omit=dev --save-exact \
     "@bsb/config-vault@${BSB_PLUGIN_VERSION}" \
