@@ -70,6 +70,13 @@ static void CheckVersionResolution(string directory, string pluginDir)
         File.Copy(flatDll, versionDll);
         if (Resolve("smoke", "1.0.0") != versionDll || Resolve("smoke", "2.0.0") is not null)
             throw new Exception("Versioned package resolution fell back to the wrong plugin");
+        var packageLessDir = Directory.CreateDirectory(Path.Combine(directory, "packages", "service-smoke")).FullName;
+        var packageLessDll = Path.Combine(packageLessDir, "service-smoke.dll");
+        File.Copy(flatDll, packageLessDll);
+        if (Resolve(null, "2.0.0") != packageLessDll)
+            throw new Exception("Package-less external plugin discovery failed");
+        if (Resolve("smoke", "2.0.0") is not null)
+            throw new Exception("Missing package version resolved an unrelated package-less DLL");
     }
     finally { Environment.SetEnvironmentVariable("BSB_PLUGIN_DIR", previous); }
 }
