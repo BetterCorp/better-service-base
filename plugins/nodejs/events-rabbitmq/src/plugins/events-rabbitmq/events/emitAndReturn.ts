@@ -5,7 +5,6 @@ import {EventEmitter} from "events";
 import {randomUUID} from "crypto";
 import {LIB, SetupChannel} from "./lib.js";
 import {
-  BSBError,
   SmartFunctionCallAsync,
   Observable,
 } from "@bsb/base";
@@ -172,7 +171,7 @@ export class emitAndReturn
                     outcome = "reject";
                   }
 
-                  const sent = await this.publishChannel.channel.sendToQueue(returnQueue, reply, {
+                  await this.publishChannel.channel.sendToQueue(returnQueue, reply, {
                     expiration: 5000,
                     timeout: 5000,
                     correlationId: `${msg.properties.correlationId}-${outcome}`,
@@ -182,7 +181,6 @@ export class emitAndReturn
                     appId: this.plugin.myId,
                     timestamp: Date.now(),
                   });
-                  if (!sent) throw new Error(`Cannot send msg to queue [${returnQueue}]`);
                   // Leave the request unacked until its reply is confirmed. A crashed
                   // consumer is redelivered; handlers must tolerate duplicate requests.
                   LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
@@ -254,7 +252,8 @@ export class emitAndReturn
           return;
         }
         cleanup();
-        resolve(Object.prototype.hasOwnProperty.call(reply, "result") ? reply.result : reply);
+        // JSON omits an undefined result; a missing result still means undefined.
+        resolve(reply.result);
       });
       this.once(`${resultKey}-reject`, (reply: { error?: string }) => {
         fail(new Error(reply?.error || "Unknown error"));
@@ -272,7 +271,7 @@ export class emitAndReturn
         }
         await setup;
         if (settled) return;
-        const sent = await this.publishChannel.channel.sendToQueue(queueKey, {
+        await this.publishChannel.channel.sendToQueue(queueKey, {
           trace: requestObs.trace, args,
         }, {
           expiration: timeoutSeconds * 1000 + 5000,
@@ -284,7 +283,6 @@ export class emitAndReturn
           appId: this.plugin.myId,
           timestamp: Date.now(),
         });
-        if (!sent) throw new BSBError(requestObs.trace, "Cannot send msg to queue [{queueKey}]", {queueKey});
       };
       void publish().catch((error) => fail(error instanceof Error ? error : new Error(String(error))));
     });

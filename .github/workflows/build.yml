@@ -32,6 +32,9 @@ jobs:
     services:
       rabbitmq:
         image: rabbitmq:4.2-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: bsb-ci
+          RABBITMQ_DEFAULT_PASS: bsb-ci-tests
         ports:
           - 5672:5672
         options: >-
@@ -84,7 +87,7 @@ jobs:
 
       - name: Test plugin security and runtime regressions
         env:
-          BSB_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
+          BSB_RABBITMQ_URL: amqp://bsb-ci:bsb-ci-tests@127.0.0.1:5672
         run: npm run ws:test:plugins
 
   nodejs-windows:
@@ -255,15 +258,22 @@ jobs:
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
-      - name: Resolve BSB version
+      - name: Resolve published BSB image and plugin version
         id: bsb-version
-        run: node -p '"version=" + require("./nodejs/package.json").version' >> "$GITHUB_OUTPUT"
+        run: |
+          # PR versions may not be released. Test the Vault layer against a published
+          # base, pinning its digest so the version and image cannot drift mid-build.
+          docker pull "${FORGEJO_SERVICE_BASE_IMAGE}:node"
+          BASE_IMAGE=$(docker image inspect "${FORGEJO_SERVICE_BASE_IMAGE}:node" --format '{{index .RepoDigests 0}}')
+          VERSION=$(docker run --rm --entrypoint node "$BASE_IMAGE" -p 'require("/home/bsb/node_modules/@bsb/base/package.json").version')
+          echo "image=${BASE_IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
           build-args: |
-            BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-${{ steps.bsb-version.outputs.version }}
+            BSB_BASE_IMAGE=${{ steps.bsb-version.outputs.image }}
             BSB_PLUGIN_VERSION=${{ steps.bsb-version.outputs.version }}
           context: ./plugins/nodejs/config-vault
           file: ./plugins/nodejs/config-vault/Dockerfile

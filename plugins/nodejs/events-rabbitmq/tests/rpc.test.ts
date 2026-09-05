@@ -24,8 +24,33 @@ function setup() {
     sendToQueue: async () => { actions.push('reply'); return true; } } };
   const message = { content: Buffer.from(JSON.stringify({ trace: obs.trace, args: [] })),
     properties: { appId: 'sender', correlationId: 'request', messageId: 'message' }, fields: { routingKey: 'test' } };
-  return { rpc, transport, actions, queues, deliver: () => consumer(message) };
+  return { rpc, transport, actions, queues, deliver: (request = message) => consumer(request) };
 }
+
+test('RPC preserves JSON results and accepts confirmed publishes under backpressure', async () => {
+  for (const result of [undefined, null, false, 0, '', { value: 42 }, 'missing listener']) {
+    const { rpc, transport, actions, deliver } = setup();
+    await transport.onReturnableEvent(obs, 'service', 'event',
+      result === 'missing listener' ? undefined as any : async () => result);
+    let delivery: Promise<void>;
+    rpc.publishChannel.channel.sendToQueue = async (_queue: string, body: any, properties: any) => {
+      // Exercise the wire format: JSON drops undefined object properties.
+      const content = Buffer.from(JSON.stringify(body));
+      if (properties.correlationId.endsWith('-resolve')) {
+        transport.emit(properties.correlationId, JSON.parse(content.toString()));
+      } else {
+        // The request publish resolves false before the response arrives.
+        setImmediate(() => { delivery = deliver({ content, properties, fields: { routingKey: 'test' } }); });
+      }
+      return false;
+    };
+    assert.deepEqual(await transport.emitEventAndReturn(obs, 'service', 'event', 1, []),
+      result === 'missing listener' ? undefined : result);
+    await delivery!;
+    assert.deepEqual(actions, ['ack']);
+    assert.equal(transport.eventNames().length, 0);
+  }
+});
 
 test('RPC confirms success/error replies before one ack and requeues failed reply delivery', async () => {
   for (const handlerFails of [false, true]) {

@@ -220,7 +220,7 @@ public class SBPlugins
             if (path is not null) return path;
         }
 
-        if (!string.IsNullOrEmpty(def.Version)) return null;
+        if (def.Package is not null && !string.IsNullOrEmpty(def.Version)) return null;
 
         // Application plugins override the defaults shipped alongside the BSB host.
         foreach (var root in new[] { Path.Combine(_cwd, "plugins"), Path.Combine(AppContext.BaseDirectory, "plugins") })
@@ -262,9 +262,9 @@ public class SBPlugins
                     if (File.Exists(dll)) return Path.GetFullPath(dll);
                 }
             }
+            // A versioned package must never fall back to an unrelated flat DLL.
+            return null;
         }
-
-        if (!string.IsNullOrEmpty(requestedVersion)) return null;
 
         // Flat layout: {package}/{plugin}.dll
         var flatDll = Path.Combine(packageDir, pluginName + ".dll");

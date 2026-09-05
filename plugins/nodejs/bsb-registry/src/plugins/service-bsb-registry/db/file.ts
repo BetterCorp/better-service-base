@@ -453,7 +453,7 @@ export class FileDB implements RegistryDB {
 
   async getToken(obs: Observable, tokenString: string): Promise<AuthToken | null> {
     // Stored digests are never bearer credentials, including during legacy migration.
-    if (!/^bsb_[a-f0-9]{64}$/.test(tokenString)) return null;
+    if (typeof tokenString !== 'string' || !tokenString || tokenString.startsWith('sha256:')) return null;
     const span = obs.startSpan('FileDB.getToken');
     try {
       const tokens = this.readJson<AuthToken[]>(this.tokensFile);
@@ -588,15 +588,19 @@ export class FileDB implements RegistryDB {
   }
 
   private async readPluginIndex(): Promise<RegistryEntry[][]> {
+    const ignoreRemovedDirectory = (error: NodeJS.ErrnoException): never[] => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    };
     const entries: RegistryEntry[][] = [];
-    const orgs = await fs.promises.readdir(this.pluginsDir, { withFileTypes: true });
+    const orgs = await fs.promises.readdir(this.pluginsDir, { withFileTypes: true }).catch(ignoreRemovedDirectory);
     for (const org of orgs.filter(item => item.isDirectory())) {
       const orgPath = path.join(this.pluginsDir, org.name);
-      const plugins = await fs.promises.readdir(orgPath, { withFileTypes: true });
+      const plugins = await fs.promises.readdir(orgPath, { withFileTypes: true }).catch(ignoreRemovedDirectory);
       for (const plugin of plugins.filter(item => item.isDirectory())) {
         const directory = path.join(orgPath, plugin.name);
         const versions: RegistryEntry[] = [];
-        for (const file of await fs.promises.readdir(directory)) {
+        for (const file of await fs.promises.readdir(directory).catch(ignoreRemovedDirectory)) {
           if (!file.endsWith('.json')) continue;
           try {
             versions.push(JSON.parse(await fs.promises.readFile(path.join(directory, file), 'utf-8')));
