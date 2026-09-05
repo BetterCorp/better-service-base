@@ -222,6 +222,21 @@ jobs:
           push: false
           tags: service-base:node-ci
 
+      - name: Verify entrypoint startup markers
+        run: |
+          docker run --rm --entrypoint sh service-base:node-ci -n /home/bsb/entrypoint.sh
+          CONTAINER=$(docker create service-base:node-ci)
+          trap 'docker rm -f "$CONTAINER" >/dev/null' EXIT
+          printf 'console.log("BSB CLI reached");\n' > /tmp/bsb-cli-smoke.js
+          docker cp /tmp/bsb-cli-smoke.js "$CONTAINER":/home/bsb/node_modules/@bsb/base/lib/cli.js
+          timeout 60s docker start --attach "$CONTAINER" | tee /tmp/bsb-entrypoint.log
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER")" = 0
+          grep -Fx 'BSB entrypoint: chown /home/bsb' /tmp/bsb-entrypoint.log
+          grep -Fx 'BSB entrypoint: chmod d /home/bsb' /tmp/bsb-entrypoint.log
+          grep -Fx 'BSB entrypoint: chmod f /home/bsb' /tmp/bsb-entrypoint.log
+          grep -Fx 'BSB startup' /tmp/bsb-entrypoint.log
+          grep -Fx 'BSB CLI reached' /tmp/bsb-entrypoint.log
+
       - name: Verify image supports additional npm packages
         run: |
           docker run --rm --entrypoint node service-base:node-ci --input-type=commonjs -e '
