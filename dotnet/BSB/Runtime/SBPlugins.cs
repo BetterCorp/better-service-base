@@ -214,7 +214,7 @@ public class SBPlugins
         }
 
         // 2. External plugin directory without package (search by plugin name)
-        if (_pluginDir is not null)
+        if (_pluginDir is not null && def.Package is null)
         {
             var path = ResolveFromPluginDir(pluginName, pluginName, def.Version);
             if (path is not null) return path;
