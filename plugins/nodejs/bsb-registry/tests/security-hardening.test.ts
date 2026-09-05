@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -26,6 +26,13 @@ test('registry tokens are hashed at rest and an empty scope grants nothing', asy
     assert.ok(token);
     assert.equal((await readFile(join(dataDir, 'tokens.json'), 'utf8')).includes(token.token), false);
     assert.deepEqual((await auth.resolveToken(obs, token.token))?.effectivePermissions, []);
+    const stored = JSON.parse(await readFile(join(dataDir, 'tokens.json'), 'utf8'));
+    assert.equal(await auth.resolveToken(obs, stored[0].token), null);
+    assert.deepEqual((await auth.resolveToken(obs, token.token))?.effectivePermissions, []);
+    // A real legacy bearer token still migrates, without accepting a stored digest.
+    await writeFile(join(dataDir, 'tokens.json'), JSON.stringify([token]));
+    assert.ok(await auth.resolveToken(obs, token.token));
+    assert.equal((await readFile(join(dataDir, 'tokens.json'), 'utf8')).includes(token.token), false);
   } finally {
     await rm(dataDir, { recursive: true, force: true });
   }
@@ -40,6 +47,27 @@ test('file storage rejects paths outside its data directory', async () => {
   } finally {
     await rm(dataDir, { recursive: true, force: true });
   }
+});
+
+test('registry index is reused, invalidated by writes, and applies permissions on every read', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-index-'));
+  try {
+    const db = new FileDB(dataDir);
+    await db.init(obs);
+    let scans = 0;
+    const scan = (db as any).readPluginIndex.bind(db);
+    (db as any).readPluginIndex = () => { scans++; return scan(); };
+    const entry = { id: 'org/plugin', org: 'org', name: 'plugin', version: '1.0.0', publishedAt: '2026-01-01T00:00:00Z' } as any;
+    await db.insert(obs, entry);
+    assert.equal((await db.list(obs, {})).total, 1);
+    assert.equal((await db.list(obs, {}, async () => false)).total, 0);
+    assert.equal(scans, 1);
+    await db.insert(obs, { ...entry, name: 'second', id: 'org/second' });
+    assert.equal((await db.list(obs, {})).total, 2);
+    await db.delete(obs, 'org', 'plugin');
+    assert.equal((await db.list(obs, {})).total, 1);
+    assert.equal(scans, 3);
+  } finally { await rm(dataDir, { recursive: true, force: true }); }
 });
 
 test('registry markdown escapes raw HTML and rejects active URLs', () => {

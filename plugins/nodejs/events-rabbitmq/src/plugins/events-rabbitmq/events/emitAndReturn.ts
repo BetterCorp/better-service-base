@@ -13,7 +13,8 @@ import {
 export class emitAndReturn
     extends EventEmitter {
   private plugin: Plugin;
-  private privateQueuesSetup: Array<string> = [];
+  private readonly privateQueuesSetup = new Map<string, Promise<void>>();
+  private readonly pendingRequests = new Set<(error: Error) => void>();
   private publishChannel!: SetupChannel;
   private receiveChannel!: SetupChannel;
   private readonly deliveryAttempts = new Map<string, number>();
@@ -104,8 +105,9 @@ export class emitAndReturn
   }
 
   public dispose() {
-    this.publishChannel.channel.close();
-    this.receiveChannel.channel.close();
+    for (const reject of this.pendingRequests) reject(new Error("Events transport disposed"));
+    this.removeAllListeners();
+    return Promise.all([this.publishChannel.channel.close(), this.receiveChannel.channel.close()]);
   }
 
   async onReturnableEvent(
@@ -147,84 +149,50 @@ export class emitAndReturn
                 });
                 const body = msg.content.toString();
                 const deliveryKey = LIB.deliveryKey(msg, body);
-                let bodyObj: { trace?: any; args?: Array<any> } | null = null;
                 let handlerObs: Observable | null = null;
                 try {
-                  bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
-                  const rootObs = this.plugin.createObservableFromTrace(bodyObj.trace, {
-                    pluginName,
-                    event,
-                  });
-                  handlerObs = rootObs.startSpan("emitAndReturn.handler", {
-                    pluginName,
-                    event,
-                  });
-                  const response = await SmartFunctionCallAsync(
-                      this.plugin,
-                      listener,
-                      handlerObs,
-                      bodyObj.args ?? [],
-                  );
-                  iChannel.ack(msg);
-                  obs.log.debug("EAR: OKAY: {queueKey} -> {returnQueue}", {
-                    queueKey,
-                    returnQueue,
-                  });
-                  if (
-                      !await this.publishChannel.channel.sendToQueue(
-                          returnQueue,
-                          {
-                            trace: handlerObs.trace,
-                            result: response,
-                          },
-                          {
-                            expiration: 5000,
-                            correlationId: `${msg.properties.correlationId}-resolve`,
-                            contentType: "string",
-                            messageId: randomUUID(),
-                            persistent: true,
-                            appId: this.plugin.myId,
-                            timestamp: Date.now(),
-                          },
-                      )
-                  ) {
-                    throw new BSBError(handlerObs.trace, "Cannot send msg to queue [{returnQueue}]", {returnQueue});
+                  const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
+                  if (!bodyObj || typeof bodyObj !== "object" || Array.isArray(bodyObj) ||
+                      (bodyObj.args !== undefined && !Array.isArray(bodyObj.args))) {
+                    throw new Error("Invalid RPC request");
                   }
-                } catch (exc) {
-                  const errorObj = exc instanceof Error ? exc : new Error(String(exc));
-                  if (handlerObs) {
-                    handlerObs.error(errorObj);
+                  handlerObs = this.plugin.createObservableFromTrace(bodyObj.trace, {
+                    pluginName, event,
+                  }).startSpan("emitAndReturn.handler", { pluginName, event });
+
+                  let reply: { trace: any; result?: any; error?: string };
+                  let outcome = "resolve";
+                  try {
+                    const result = await SmartFunctionCallAsync(this.plugin, listener, handlerObs, bodyObj.args ?? []);
+                    reply = { trace: handlerObs.trace, result };
+                  } catch (error) {
+                    const failure = error instanceof Error ? error : new Error(String(error));
+                    handlerObs.error(failure);
+                    reply = { trace: handlerObs.trace, error: failure.message };
+                    outcome = "reject";
                   }
-                  if (!bodyObj) {
-                    LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "EAR request consume");
-                    return;
-                  }
-                  obs.log.error("EAR: ERROR: {queueKey} -> {returnQueue}", {
-                    queueKey,
-                    returnQueue,
+
+                  const sent = await this.publishChannel.channel.sendToQueue(returnQueue, reply, {
+                    expiration: 5000,
+                    timeout: 5000,
+                    correlationId: `${msg.properties.correlationId}-${outcome}`,
+                    contentType: "string",
+                    messageId: randomUUID(),
+                    persistent: true,
+                    appId: this.plugin.myId,
+                    timestamp: Date.now(),
                   });
-                  if (
-                      !await this.publishChannel.channel.sendToQueue(returnQueue, {
-                        trace: bodyObj.trace,
-                        error: errorObj.message,
-                      }, {
-                        expiration: 5000,
-                        correlationId: `${msg.properties.correlationId}-reject`,
-                        contentType: "string",
-                        messageId: randomUUID(),
-                        persistent: true,
-                        appId: this.plugin.myId,
-                        timestamp: Date.now(),
-                      })
-                  ) {
-                    throw new BSBError(obs.trace, "Cannot send msg to queue [{returnQueue}]", {returnQueue});
-                  }
+                  if (!sent) throw new Error(`Cannot send msg to queue [${returnQueue}]`);
+                  // Leave the request unacked until its reply is confirmed. A crashed
+                  // consumer is redelivered; handlers must tolerate duplicate requests.
                   LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
                   iChannel.ack(msg);
+                } catch (error) {
+                  const failure = error instanceof Error ? error : new Error(String(error));
+                  handlerObs?.error(failure);
+                  LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, failure, "EAR request consume");
                 } finally {
-                  if (handlerObs) {
-                    handlerObs.end();
-                  }
+                  handlerObs?.end();
                 }
               },
               {noAck: false},
@@ -261,60 +229,64 @@ export class emitAndReturn
       resultKey,
     });
 
-    if (!this.privateQueuesSetup.includes(queueKey)) {
-      this.privateQueuesSetup.push(queueKey);
-      await this.publishChannel.channel.addSetup(
-          async (iChannel: amqplibCore.ConfirmChannel) => {
-            await iChannel.assertQueue(queueKey, this.queueOpts);
-          },
-      );
-    }
-
-    // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async (resolve, reject) => {
-      const timeoutHandler = setTimeout(() => {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        settled = true;
+        clearTimeout(timeoutHandler);
         this.removeAllListeners(`${resultKey}-resolve`);
         this.removeAllListeners(`${resultKey}-reject`);
-        const err = new Error("Timeout");
-        requestObs.error(err);
+        this.pendingRequests.delete(fail);
         requestObs.end();
-        reject(err);
-      }, timeoutSeconds * 1000);
-
-      this.once(`${resultKey}-resolve`, async (rargs: { result?: any }) => {
-        clearTimeout(timeoutHandler);
-        requestObs.end();
-        resolve(rargs?.result ?? rargs);
+      };
+      const fail = (error: Error) => {
+        if (settled) return;
+        requestObs.error(error);
+        cleanup();
+        reject(error);
+      };
+      const timeoutHandler = setTimeout(() => fail(new Error("Timeout")), timeoutSeconds * 1000);
+      this.pendingRequests.add(fail);
+      this.once(`${resultKey}-resolve`, (reply: { result?: any }) => {
+        if (settled) return;
+        if (!reply || typeof reply !== 'object' || Array.isArray(reply)) {
+          fail(new Error('Invalid RPC response'));
+          return;
+        }
+        cleanup();
+        resolve(Object.prototype.hasOwnProperty.call(reply, "result") ? reply.result : reply);
+      });
+      this.once(`${resultKey}-reject`, (reply: { error?: string }) => {
+        fail(new Error(reply?.error || "Unknown error"));
       });
 
-      this.once(`${resultKey}-reject`, async (rargs: { error?: string }) => {
-        clearTimeout(timeoutHandler);
-        const err = new Error(rargs?.error || "Unknown error");
-        requestObs.error(err);
-        requestObs.end();
-        reject(err);
-      });
-
-      if (
-          !await this.publishChannel.channel.sendToQueue(queueKey, {
-            trace: requestObs.trace,
-            args,
-          }, {
-            expiration: timeoutSeconds * 1000 + 5000,
-            correlationId: resultKey,
-            contentType: "string",
-            messageId: randomUUID(),
-            persistent: true,
-            appId: this.plugin.myId,
-            timestamp: Date.now(),
-          })
-      ) {
-        throw new BSBError(requestObs.trace, "Cannot send msg to queue [{queueKey}]", {queueKey});
-      }
-      requestObs.log.debug("EAR: emitted {queueKey} ({resultKey})", {
-        queueKey,
-        resultKey,
-      });
+      const publish = async () => {
+        let setup = this.privateQueuesSetup.get(queueKey);
+        if (!setup) {
+          setup = this.publishChannel.channel.addSetup(async (channel: amqplibCore.ConfirmChannel) => {
+            await LIB.setupDeadLetterQueue(this.plugin, channel);
+            await channel.assertQueue(queueKey, LIB.withDeadLetter(this.plugin, this.queueOpts));
+          });
+          this.privateQueuesSetup.set(queueKey, setup);
+          setup.catch(() => this.privateQueuesSetup.delete(queueKey));
+        }
+        await setup;
+        if (settled) return;
+        const sent = await this.publishChannel.channel.sendToQueue(queueKey, {
+          trace: requestObs.trace, args,
+        }, {
+          expiration: timeoutSeconds * 1000 + 5000,
+          timeout: timeoutSeconds * 1000,
+          correlationId: resultKey,
+          contentType: "string",
+          messageId: randomUUID(),
+          persistent: true,
+          appId: this.plugin.myId,
+          timestamp: Date.now(),
+        });
+        if (!sent) throw new BSBError(requestObs.trace, "Cannot send msg to queue [{queueKey}]", {queueKey});
+      };
+      void publish().catch((error) => fail(error instanceof Error ? error : new Error(String(error))));
     });
   }
 }

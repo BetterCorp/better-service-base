@@ -24,6 +24,7 @@ type Plugin struct {
 	broadcastListeners  map[string][]bsb.BroadcastListener
 	returnableListeners map[string]bsb.ReturnableListener
 	streamListeners     map[string]bsb.StreamListener
+	streamTimeouts      map[string]*time.Timer
 
 	dedupeMu       sync.Mutex
 	lastMessageIDs []string
@@ -36,6 +37,7 @@ func New(_ map[string]any) (bsb.EventsPlugin, error) {
 		broadcastListeners:  make(map[string][]bsb.BroadcastListener),
 		returnableListeners: make(map[string]bsb.ReturnableListener),
 		streamListeners:     make(map[string]bsb.StreamListener),
+		streamTimeouts:      make(map[string]*time.Timer),
 		lastMessageIDs:      make([]string, 0, maxDedupeIDs),
 	}, nil
 }
@@ -54,6 +56,10 @@ func (p *Plugin) Dispose() error {
 	p.broadcastListeners = make(map[string][]bsb.BroadcastListener)
 	p.returnableListeners = make(map[string]bsb.ReturnableListener)
 	p.streamListeners = make(map[string]bsb.StreamListener)
+	for _, timer := range p.streamTimeouts {
+		timer.Stop()
+	}
+	p.streamTimeouts = make(map[string]*time.Timer)
 
 	p.dedupeMu.Lock()
 	p.lastMessageIDs = make([]string, 0, maxDedupeIDs)
@@ -272,6 +278,8 @@ func (p *Plugin) EmitEventAndReturn(ctx context.Context, obs bsb.Observable, plu
 	}
 
 	// Execute with timeout
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	type result struct {
 		value any
 		err   error
@@ -289,10 +297,6 @@ func (p *Plugin) EmitEventAndReturn(ctx context.Context, obs bsb.Observable, plu
 			span.Error(r.err)
 		}
 		return r.value, r.err
-	case <-time.After(timeout):
-		err := fmt.Errorf("returnable event %q timed out after %v", key, timeout)
-		span.Error(err)
-		return nil, err
 	case <-ctx.Done():
 		span.Error(ctx.Err())
 		return nil, ctx.Err()
@@ -300,7 +304,7 @@ func (p *Plugin) EmitEventAndReturn(ctx context.Context, obs bsb.Observable, plu
 }
 
 // ReceiveStream registers a stream listener and returns a stream ID.
-func (p *Plugin) ReceiveStream(_ context.Context, obs bsb.Observable, pluginName, event string, listener bsb.StreamListener, _ time.Duration) (string, error) {
+func (p *Plugin) ReceiveStream(_ context.Context, obs bsb.Observable, pluginName, event string, listener bsb.StreamListener, timeout time.Duration) (string, error) {
 	key := eventKey(pluginName, event)
 	streamID := bsb.NewDTrace().SpanID // use a span ID as stream identifier
 
@@ -324,6 +328,12 @@ func (p *Plugin) ReceiveStream(_ context.Context, obs bsb.Observable, pluginName
 	}
 
 	p.streamListeners[streamKey] = wrapped
+	p.streamTimeouts[streamKey] = time.AfterFunc(timeout, func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		delete(p.streamListeners, streamKey)
+		delete(p.streamTimeouts, streamKey)
+	})
 
 	return streamID, nil
 }
@@ -340,9 +350,14 @@ func (p *Plugin) SendStream(ctx context.Context, obs bsb.Observable, pluginName,
 	key := eventKey(pluginName, event)
 	streamKey := key + ":" + streamID
 
-	p.mu.RLock()
+	p.mu.Lock()
 	listener, ok := p.streamListeners[streamKey]
-	p.mu.RUnlock()
+	delete(p.streamListeners, streamKey)
+	if timer := p.streamTimeouts[streamKey]; timer != nil {
+		timer.Stop()
+		delete(p.streamTimeouts, streamKey)
+	}
+	p.mu.Unlock()
 
 	if !ok {
 		err := fmt.Errorf("no stream listener for %q", streamKey)

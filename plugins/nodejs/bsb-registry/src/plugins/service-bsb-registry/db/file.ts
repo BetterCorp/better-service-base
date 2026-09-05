@@ -15,7 +15,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Observable } from '@bsb/base';
 import type { RegistryDB, RegistryEntryFilter } from './index.js';
 import type {
@@ -37,6 +37,7 @@ export class FileDB implements RegistryDB {
   private readonly orgsDir: string;
   private readonly usersFile: string;
   private readonly tokensFile: string;
+  private pluginIndex?: Promise<RegistryEntry[][]>;
 
   constructor(dataDir: string) {
     this.dataDir = dataDir;
@@ -99,6 +100,7 @@ export class FileDB implements RegistryDB {
 
       // Write version entry
       this.writeJson(vPath, entry);
+      this.pluginIndex = undefined;
 
       obs.log.debug('Plugin inserted: {id}@{version}', { id: entry.id, version: entry.version });
     } catch (error) {
@@ -127,6 +129,7 @@ export class FileDB implements RegistryDB {
 
   async delete(obs: Observable, org: string, name: string, version?: string): Promise<void> {
     const span = obs.startSpan('FileDB.delete', { org, name, ...(version ? { version } : {}) });
+    this.pluginIndex = undefined;
     try {
       if (version) {
         const vPath = this.versionPath(org, name, version);
@@ -449,6 +452,8 @@ export class FileDB implements RegistryDB {
   // ============================================================================
 
   async getToken(obs: Observable, tokenString: string): Promise<AuthToken | null> {
+    // Stored digests are never bearer credentials, including during legacy migration.
+    if (!/^bsb_[a-f0-9]{64}$/.test(tokenString)) return null;
     const span = obs.startSpan('FileDB.getToken');
     try {
       const tokens = this.readJson<AuthToken[]>(this.tokensFile);
@@ -563,29 +568,47 @@ export class FileDB implements RegistryDB {
     return entries;
   }
 
-  /** Walk every org/plugin directory and return the latest entry of each plugin. */
+  /** Index immutable plugin versions once between writes; always recheck read permissions. */
   private async allLatestEntries(filter?: RegistryEntryFilter): Promise<RegistryEntry[]> {
+    // ponytail: one process owns this file database; use transactional storage for multiple writers.
+    if (!this.pluginIndex) {
+      const index = this.readPluginIndex();
+      this.pluginIndex = index;
+      void index.catch(() => {
+        if (this.pluginIndex === index) this.pluginIndex = undefined;
+      });
+    }
     const results: RegistryEntry[] = [];
+    for (const versions of await this.pluginIndex) {
+      const entries = await this.filterEntries(versions, filter);
+      const latest = this.latestEntry(entries);
+      if (latest) results.push(structuredClone(latest));
+    }
+    return results;
+  }
 
-    if (!fs.existsSync(this.pluginsDir)) return results;
-
-    const orgs = fs.readdirSync(this.pluginsDir, { withFileTypes: true })
-      .filter(d => d.isDirectory());
-
-    for (const orgDir of orgs) {
-      const orgPath = path.join(this.pluginsDir, orgDir.name);
-      const plugins = fs.readdirSync(orgPath, { withFileTypes: true })
-        .filter(d => d.isDirectory());
-
-      for (const pluginDir of plugins) {
-        const entries = await this.filterEntries(this.readAllVersions(orgDir.name, pluginDir.name), filter);
-        if (entries.length === 0) continue;
-        const latest = this.latestEntry(entries);
-        if (latest) results.push(latest);
+  private async readPluginIndex(): Promise<RegistryEntry[][]> {
+    const entries: RegistryEntry[][] = [];
+    const orgs = await fs.promises.readdir(this.pluginsDir, { withFileTypes: true });
+    for (const org of orgs.filter(item => item.isDirectory())) {
+      const orgPath = path.join(this.pluginsDir, org.name);
+      const plugins = await fs.promises.readdir(orgPath, { withFileTypes: true });
+      for (const plugin of plugins.filter(item => item.isDirectory())) {
+        const directory = path.join(orgPath, plugin.name);
+        const versions: RegistryEntry[] = [];
+        for (const file of await fs.promises.readdir(directory)) {
+          if (!file.endsWith('.json')) continue;
+          try {
+            versions.push(JSON.parse(await fs.promises.readFile(path.join(directory, file), 'utf-8')));
+          } catch (error) {
+            // Match readAllVersions: skip corrupt or concurrently removed version files.
+            if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          }
+        }
+        entries.push(versions);
       }
     }
-
-    return results;
+    return entries;
   }
 
   private async filterEntries(entries: RegistryEntry[], filter?: RegistryEntryFilter): Promise<RegistryEntry[]> {
@@ -622,7 +645,15 @@ export class FileDB implements RegistryDB {
   }
 
   private writeJson(filePath: string, data: unknown): void {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    const temporary = `${filePath}.${randomUUID()}.tmp`;
+    try {
+      fs.writeFileSync(temporary, JSON.stringify(data, null, 2), {
+        encoding: 'utf-8', flag: 'wx', mode: 0o600, flush: true,
+      });
+      fs.renameSync(temporary, filePath);
+    } finally {
+      fs.rmSync(temporary, { force: true });
+    }
   }
 }
 

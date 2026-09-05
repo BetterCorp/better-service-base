@@ -391,3 +391,11 @@ The RabbitMQ events plugin provides the same API as `events-default` but with th
 5. **Use unique event names**: Prefix events with service name (e.g., "order.created" not just "created")
 6. **Handle timeouts**: Always set reasonable timeouts for request-response patterns
 7. **Log connection events**: Monitor reconnection patterns to detect infrastructure issues
+
+### RPC delivery and upgrades
+
+Both callers and listeners declare the same durable request queue, including its dead-letter exchange. Calls may arrive before a listener and are bounded by the caller timeout and message TTL. Consumer failure before acknowledgement allows RabbitMQ to redeliver the request. A caught handler error is returned as an error reply, then acknowledged once after confirmation. Reply publication failures use bounded requeue/dead-letter handling.
+
+Delivery is at least once: handlers that change state must tolerate redelivery if a consumer fails after performing work but before acknowledgement. A vanished caller's temporary reply queue does not require replaying business operations indefinitely.
+
+Before upgrading queues created by an older publisher without dead-letter arguments, drain them and recreate them with the matching declaration during maintenance. RabbitMQ rejects redeclaration with incompatible arguments; the application does not delete queues automatically.

@@ -20,7 +20,7 @@ public abstract class BSBServiceClient<TConfig> : MainBase
     /// Event API for emitting and listening to cross-plugin events.
     /// Set by the framework after construction.
     /// </summary>
-    public PluginEvents Events { get; internal set; } = null!;
+    public PluginEvents Events { get; internal set; }
 
     /// <summary>
     /// Internal observable backend for creating traces.
@@ -35,6 +35,7 @@ public abstract class BSBServiceClient<TConfig> : MainBase
     protected BSBServiceClient(ServiceConstructorArgs<TConfig> args) : base(args)
     {
         Config = args.Config;
+        Events = new PluginEvents(args.PluginName);
     }
 
     /// <summary>

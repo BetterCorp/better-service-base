@@ -2,12 +2,49 @@ package tests
 
 import (
 	"context"
+	"errors"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/bettercorp/service-base/go/bsb"
 	"github.com/bettercorp/service-base/go/plugins/eventsdefault"
 )
+
+func TestTimeoutCancelsHandlerAndStreamsAreOneShot(t *testing.T) {
+	plugin, _ := eventsdefault.New(nil)
+	defer plugin.Dispose()
+	ctx, obs := context.Background(), newTestObs()
+	cancelled := make(chan struct{})
+	_ = plugin.OnReturnableEvent(ctx, obs, "svc", "cancel", func(ctx context.Context, _ bsb.Observable, _ any) (any, error) {
+		<-ctx.Done()
+		close(cancelled)
+		return nil, ctx.Err()
+	})
+	_, err := plugin.EmitEventAndReturn(ctx, obs, "svc", "cancel", 10*time.Millisecond, nil)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline, got %v", err)
+	}
+	select {
+	case <-cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("handler did not receive cancellation")
+	}
+	listener := func(context.Context, bsb.Observable, io.Reader) error { return nil }
+	id, _ := plugin.ReceiveStream(ctx, obs, "svc", "stream", listener, time.Second)
+	if err := plugin.SendStream(ctx, obs, "svc", "stream", id, strings.NewReader("ok")); err != nil {
+		t.Fatal(err)
+	}
+	if err := plugin.SendStream(ctx, obs, "svc", "stream", id, strings.NewReader("again")); err == nil {
+		t.Fatal("stream consumed twice")
+	}
+	id, _ = plugin.ReceiveStream(ctx, obs, "svc", "stream", listener, time.Millisecond)
+	time.Sleep(20 * time.Millisecond)
+	if err := plugin.SendStream(ctx, obs, "svc", "stream", id, strings.NewReader("late")); err == nil {
+		t.Fatal("expired stream accepted")
+	}
+}
 
 func newTestObs() bsb.Observable {
 	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test", "test")

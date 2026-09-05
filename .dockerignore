@@ -1,0 +1,12 @@
+.git
+.tmp
+**/node_modules
+**/lib
+dotnet/**/bin
+dotnet/**/obj
+**/__pycache__
+**/.pytest*
+**/.tmp*
+**/.bsb
+repomix-output.xml
+nul

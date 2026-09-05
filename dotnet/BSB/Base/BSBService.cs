@@ -20,7 +20,7 @@ public abstract class BSBService<TConfig> : MainBase
     /// Event API for emitting and listening to cross-plugin events.
     /// Set by the framework after construction.
     /// </summary>
-    public PluginEvents Events { get; internal set; } = null!;
+    public PluginEvents Events { get; internal set; }
 
     /// <summary>
     /// Plugin metadata (name, description, dependencies, etc).
@@ -47,6 +47,7 @@ public abstract class BSBService<TConfig> : MainBase
     protected BSBService(ServiceConstructorArgs<TConfig> args) : base(args)
     {
         Config = args.Config;
+        Events = new PluginEvents(args.PluginName);
     }
 
     /// <summary>

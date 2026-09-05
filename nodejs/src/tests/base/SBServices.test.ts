@@ -10,6 +10,18 @@ import { MockSBEvents, MockSBObservable } from "../mocks.js";
 import { createTestObservable } from "../trace.js";
 
 describe("SBServices", () => {
+  it("orders dependencies across unrelated services and rejects cycles before startup", () => {
+    const services = Object.create(SBServices.prototype) as any;
+    for (const phase of ['init', 'run']) {
+      const make = (pluginName: string, after: string[] = []) => ({ pluginName,
+        initBeforePlugins: [], initAfterPlugins: after, runBeforePlugins: [], runAfterPlugins: after });
+      const plugins = [make('A', ['C']), make('B'), make('C', ['D']), make('D')];
+      const sorted = services.sortByDependencies(plugins, phase).map((item: any) => item.pluginName);
+      assert.ok(sorted.indexOf('D') < sorted.indexOf('C'));
+      assert.ok(sorted.indexOf('C') < sorted.indexOf('A'));
+      assert.throws(() => services.sortByDependencies([make('A', ['C']), make('C', ['A'])], phase), /dependency cycle/);
+    }
+  });
   const tempDirs: string[] = [];
   const originalProfile = process.env.BSB_PROFILE;
   const originalConfigFile = process.env.BSB_CONFIG_FILE;

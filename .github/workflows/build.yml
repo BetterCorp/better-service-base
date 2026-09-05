@@ -29,6 +29,14 @@ jobs:
   nodejs:
     name: Node.js workspaces
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    services:
+      rabbitmq:
+        image: rabbitmq:4.2-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s --health-timeout 5s --health-retries 12
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -73,6 +81,26 @@ jobs:
 
       - name: Test Node.js core
         run: npm run test --workspace nodejs
+
+      - name: Test plugin security and runtime regressions
+        env:
+          BSB_RABBITMQ_URL: amqp://guest:guest@127.0.0.1:5672
+        run: npm run ws:test:plugins
+
+  nodejs-windows:
+    name: Node.js Windows runtime
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run tsc --workspace nodejs
+      - run: npm run testDev --workspace nodejs
 
   python:
     name: Python
@@ -146,6 +174,11 @@ jobs:
 
       - name: Build
         run: dotnet build BSB.sln --configuration Release --no-restore
+
+      - name: Publish host and verify external plugin loading
+        run: |
+          dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /tmp/bsb-dotnet
+          dotnet run --project tests/SmokeTests -c Release -- /tmp/bsb-dotnet tests/TestPlugin/bin/Release/net10.0
 
   docker-nodejs:
     name: Node.js Docker image
@@ -222,12 +255,16 @@ jobs:
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
+      - name: Resolve BSB version
+        id: bsb-version
+        run: node -p '"version=" + require("./nodejs/package.json").version' >> "$GITHUB_OUTPUT"
+
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
           build-args: |
-            BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-latest
-            BSB_PLUGIN_VERSION=latest
+            BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-${{ steps.bsb-version.outputs.version }}
+            BSB_PLUGIN_VERSION=${{ steps.bsb-version.outputs.version }}
           context: ./plugins/nodejs/config-vault
           file: ./plugins/nodejs/config-vault/Dockerfile
           load: true

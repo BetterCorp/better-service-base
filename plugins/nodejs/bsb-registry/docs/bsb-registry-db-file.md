@@ -240,3 +240,9 @@ For production or multi-instance deployments, use PostgreSQL (`database.type: po
 
 - [service-bsb-registry](service-bsb-registry.md) -- Core registry plugin
 - [service-bsb-registry-ui](service-bsb-registry-ui.md) -- Web UI and REST API
+
+## Runtime storage guarantees
+
+Run one Registry process per data directory. Writes replace JSON files atomically using a flushed temporary file in the same directory. This prevents partially written JSON from replacing the previous record; it is not a transaction across multiple files or a substitute for backups.
+
+List, search and statistics share an in-memory version index, rebuilt after plugin insert/delete operations. Authorization is evaluated on every request, including cached entries. Restart the Registry after manually editing plugin files. Use transactional storage before sharing the directory between multiple writers.

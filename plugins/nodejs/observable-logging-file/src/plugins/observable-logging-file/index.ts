@@ -90,6 +90,8 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   private logFormatter = new LogFormatter();
   private logStream: RotatingFileStream | null = null;
   private isDisposed = false;
+  private backpressured = false;
+  private droppedLogs = 0;
 
   constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
@@ -140,6 +142,10 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     this.logStream.on("error", (err) => {
       console.error(`[observable-logging-file] Stream error: ${err.message}`);
     });
+    this.logStream.on("drain", () => {
+      this.backpressured = false;
+      this.reportDroppedLogs();
+    });
   }
 
   /**
@@ -155,6 +161,12 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     if (this.isDisposed || !this.logStream) {
       return;
     }
+    // The logging API is synchronous: drop new records until drain rather than
+    // growing an unbounded queue when the disk cannot keep up.
+    if (this.backpressured) {
+      this.droppedLogs++;
+      return;
+    }
 
     const formattedMessage = this.logFormatter.formatLog(trace, message, meta);
     const logEntry = this.config.format.prettyPrint
@@ -162,7 +174,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       : this.formatJSON(level, pluginName, trace, formattedMessage, meta);
 
     try {
-      this.logStream.write(logEntry + "\n");
+      this.backpressured = !this.logStream.write(logEntry + "\n");
     } catch (err) {
       console.error(`[observable-logging-file] Write error: ${(err as Error).message}`);
     }
@@ -265,9 +277,17 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
   public dispose(): void {
     this.isDisposed = true;
+    this.reportDroppedLogs();
     if (this.logStream) {
       this.logStream.end();
       this.logStream = null;
+    }
+  }
+
+  private reportDroppedLogs(): void {
+    if (this.droppedLogs > 0) {
+      console.error(`[observable-logging-file] Dropped ${this.droppedLogs} log records while storage was backpressured`);
+      this.droppedLogs = 0;
     }
   }
 }
