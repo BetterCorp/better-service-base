@@ -26,25 +26,17 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 RAW_PLUGIN_DIRS="${BSB_PLUGIN_DIRS:-${BSB_PLUGINS_DIR:-${BSB_PLUGIN_DIR:-}}}"
-RAW_WRITABLE_PATHS="/home/bsb/.bsb${BSB_WRITABLE_PATHS:+,$BSB_WRITABLE_PATHS}"
 
-is_writable_dir() {
-  DIR="$1"
-  TEST_FILE="$DIR/.bsb-write-test-$$"
-  if ( : > "$TEST_FILE" ) 2>/dev/null; then
-    rm -f "$TEST_FILE" 2>/dev/null || true
-    return 0
-  fi
-  return 1
-}
-
+printf '%s\n' 'BSB entrypoint: read runtime version'
 BSB_RUNTIME_VERSION="$(node -p "require('/home/bsb/node_modules/@bsb/base/package.json').version" 2>/dev/null || echo unknown)"
 echo "BSB runtime version: ${BSB_RUNTIME_VERSION}"
 
+printf '%s\n' 'BSB entrypoint: mkdir /mnt/temp'
 mkdir -p /mnt/temp || true
 
 if [ "${BSB_PLUGIN_WATCHER:-}" = "1" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "true" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "TRUE" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "yes" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "YES" ]; then
   echo "BSB plugin watcher mode enabled"
+  printf '%s\n' 'BSB entrypoint: start plugin watcher'
   exec node /home/bsb/plugin-watcher.js
 fi
 
@@ -55,7 +47,9 @@ if [ -n "$RAW_PLUGIN_DIRS" ]; then
   for DIR in $RAW_PLUGIN_DIRS; do
     DIR=$(echo "$DIR" | xargs)
     [ -z "$DIR" ] && continue
+    printf 'BSB entrypoint: check plugin directory %s\n' "$DIR"
     if [ ! -d "$DIR" ]; then
+      printf 'BSB entrypoint: mkdir %s\n' "$DIR"
       mkdir -p "$DIR"
       NEED_INSTALL=1
     fi
@@ -69,74 +63,22 @@ if [ -n "$RAW_PLUGIN_DIRS" ] && { [ "$NEED_INSTALL" -eq 1 ] || [ -n "$BSB_PLUGIN
     echo "BSB plugin bootstrap failed; refusing to start BSB"
     exit 1
   fi
+  printf '%s\n' 'BSB entrypoint: plugin bootstrap complete'
 fi
 
-chown -R node:node /home/bsb
-if [ -n "$RAW_PLUGIN_DIRS" ]; then
-  OLDIFS="$IFS"
-  IFS=","
-  for DIR in $RAW_PLUGIN_DIRS; do
-    DIR=$(echo "$DIR" | xargs)
-    [ -z "$DIR" ] && continue
-    if is_writable_dir "$DIR"; then
-      chown -R node:node "$DIR" || true
-    else
-      echo "BSB plugin dir is read-only; skipping ownership fix: $DIR"
+case "${BSB_SYNC_PERMISSIONS:-false}" in
+  1|[Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy])
+    printf '%s\n' 'BSB entrypoint: sync permissions'
+    if ! /home/bsb/sync-permissions.sh; then
+      printf '%s\n' 'BSB permission sync failed; refusing to start BSB' >&2
+      exit 1
     fi
-  done
-  IFS="$OLDIFS"
-fi
-if [ -n "$RAW_WRITABLE_PATHS" ]; then
-  OLDIFS="$IFS"
-  IFS=","
-  for DIR in $RAW_WRITABLE_PATHS; do
-    DIR=$(echo "$DIR" | xargs)
-    [ -z "$DIR" ] && continue
-    mkdir -p "$DIR" || true
-    chown -R node:node "$DIR" || true
-  done
-  IFS="$OLDIFS"
-fi
-chown -R node:node /mnt/temp || true
-
-find /home/bsb -type d -exec chmod 550 {} + 2>/dev/null || true
-find /home/bsb -type f -exec chmod 440 {} + 2>/dev/null || true
-chmod 550 /home/bsb/entrypoint.sh || true
-if [ -f /home/bsb/sec-config.yaml ]; then
-  chmod 400 /home/bsb/sec-config.yaml || true
-fi
-
-find /mnt/temp -type d -exec chmod 770 {} + 2>/dev/null || true
-find /mnt/temp -type f -exec chmod 660 {} + 2>/dev/null || true
-if [ -n "$RAW_WRITABLE_PATHS" ]; then
-  OLDIFS="$IFS"
-  IFS=","
-  for DIR in $RAW_WRITABLE_PATHS; do
-    DIR=$(echo "$DIR" | xargs)
-    [ -z "$DIR" ] && continue
-    find "$DIR" -type d -exec chmod 770 {} + 2>/dev/null || true
-    find "$DIR" -type f -exec chmod 660 {} + 2>/dev/null || true
-  done
-  IFS="$OLDIFS"
-fi
-
-if [ -n "$RAW_PLUGIN_DIRS" ]; then
-  OLDIFS="$IFS"
-  IFS=","
-  for DIR in $RAW_PLUGIN_DIRS; do
-    DIR=$(echo "$DIR" | xargs)
-    [ -z "$DIR" ] && continue
-    if is_writable_dir "$DIR"; then
-      find "$DIR" -type d -exec chmod 550 {} + 2>/dev/null || true
-      find "$DIR" -type f -exec chmod 440 {} + 2>/dev/null || true
-    else
-      echo "BSB plugin dir is read-only; skipping permission fix: $DIR"
-    fi
-  done
-  IFS="$OLDIFS"
-fi
+    ;;
+  *) printf '%s\n' 'BSB entrypoint: permission sync skipped (BSB_SYNC_PERMISSIONS=false)' ;;
+esac
 
 if [ "${BSB_SHOW_PACKAGES:-}" = "1" ] || [ "${BSB_SHOW_PACKAGES:-}" = "true" ] || [ "${BSB_SHOW_PACKAGES:-}" = "TRUE" ] || [ "${BSB_SHOW_PACKAGES:-}" = "yes" ] || [ "${BSB_SHOW_PACKAGES:-}" = "YES" ] || [ "${BSB_SHOW_PACKAGES:-}" = "y" ] || [ "${BSB_SHOW_PACKAGES:-}" = "Y" ]; then
+  printf '%s\n' 'BSB entrypoint: list plugin search paths'
   gosu node:node node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js
 fi
 
@@ -150,7 +92,9 @@ if [ "$1" = "BSBDEBUG" ]; then
   echo " - THERE WILL BE A 15s DELAY NOW"
   sleep 15s
   echo " - RUNNING YOUR COMMAND [$@]"
+  printf '%s\n' 'BSB entrypoint: start debug command'
   exec gosu node:node "$@"
 else
+  printf '%s\n' 'BSB startup'
   exec gosu node:node node /home/bsb/node_modules/@bsb/base/lib/cli.js
 fi

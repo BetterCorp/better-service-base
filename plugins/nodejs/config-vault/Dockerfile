@@ -17,4 +17,6 @@ RUN npm install --omit=dev --save-exact \
     "@bsb/observable-zipkin@${BSB_PLUGIN_VERSION}" \
     "@bsb/syslog@${BSB_PLUGIN_VERSION}"
 
+RUN if [ -x /home/bsb/sync-permissions.sh ]; then /home/bsb/sync-permissions.sh; fi
+
 EXPOSE 8080

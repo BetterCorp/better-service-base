@@ -48,6 +48,15 @@ Secrets:
 - Do not bake npm tokens, registry tokens, Vault API keys, API secrets, or deployment config into the image.
 - Runtime config belongs in production deployment env, mounted config files, or Vault.
 
+Final permission sync:
+- Runtime recursive permission syncing is off by default (`BSB_SYNC_PERMISSIONS=false`).
+- The base image runs `/home/bsb/sync-permissions.sh` during its build. Derived Dockerfiles should explicitly call `RUN /home/bsb/sync-permissions.sh` as root after all copy/install/build steps. There is no automatic end-of-derived-build callback; ONBUILD runs too early for this purpose.
+- The helper always runs when called, independently of the runtime flag.
+- Targets: `/home/bsb`, `/mnt/temp`, `BSB_PLUGIN_DIRS` (legacy aliases supported), and writable directories from `BSB_WRITABLE_PATHS` plus `/home/bsb/.bsb`. Read-only plugin mounts are skipped.
+- For this guide's `/app` layout, use `RUN BSB_PLUGIN_DIRS=/app /home/bsb/sync-permissions.sh` as the final build step so application files are included.
+- Ownership is `node:node`; code/plugin directories/files become `550`/`440`, writable directories/files `770`/`660`. Entrypoint/helper stay executable and `sec-config.yaml` is `400`. Finish commands requiring executable package binaries or writable sources before syncing.
+- For mounts or startup-installed plugins requiring repair, set `BSB_SYNC_PERMISSIONS=true` at deployment. It also controls watcher sync permissions. See deployment docs; do not bake deployment settings into the Dockerfile.
+
 Useful build check:
 - Add the plugin search report near the end of a derived build when diagnosing plugin visibility:
   `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js`

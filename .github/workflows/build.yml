@@ -222,6 +222,11 @@ jobs:
           push: false
           tags: service-base:node-ci
 
+      - name: Verify entrypoint permissions and startup markers
+        run: |
+          docker run --rm --entrypoint sh service-base:node-ci -n /home/bsb/entrypoint.sh
+          bash scripts/test-container-permissions.sh
+
       - name: Verify image supports additional npm packages
         run: |
           docker run --rm --entrypoint node service-base:node-ci --input-type=commonjs -e '

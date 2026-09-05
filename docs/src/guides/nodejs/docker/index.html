@@ -58,6 +58,14 @@ RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.j
 
         <div class="code-block" data-title="Dockerfile"><pre><code class="language-dockerfile">RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js</code></pre></div>
 
+        <h2>Finalize Permissions</h2>
+        <p>Recursive startup permission repair is off by default (<code>BSB_SYNC_PERMISSIONS=false</code>). The base image runs the shared helper during its build. Run it again as root after the final copy/install/build step in a derived image; Docker has no inherited hook that runs after all child build steps.</p>
+        <div class="code-block" data-title="final Dockerfile step"><pre><code class="language-dockerfile">RUN /home/bsb/sync-permissions.sh
+# Include /app if your application lives outside the standard BSB paths:
+# RUN BSB_PLUGIN_DIRS=/app /home/bsb/sync-permissions.sh</code></pre></div>
+        <p>The helper processes <code>/home/bsb</code>, <code>/mnt/temp</code>, configured <code>BSB_PLUGIN_DIRS</code> (or legacy aliases), and writable directories from <code>BSB_WRITABLE_PATHS</code> plus <code>/home/bsb/.bsb</code>. Read-only plugin mounts are skipped. It sets ownership to <code>node:node</code>, code/plugin directories to <code>550</code>, files to <code>440</code>, writable directories to <code>770</code> and files to <code>660</code>. The entrypoint/helper remain executable; <code>sec-config.yaml</code> is <code>400</code>. Run this after tools that need writable build files or executable package binaries.</p>
+        <p>Build-time permissions cannot prepare volumes mounted later. At deployment, opt into <code>BSB_SYNC_PERMISSIONS=true</code> only when those mounts or startup-installed plugins need repair. Watcher mode uses the same flag. See <a href="/deploy/production/">Production Deployment</a>.</p>
+
         <h2>Do Not Restate Runtime Defaults</h2>
         <p>The official BSB Node image already sets the standard runtime defaults. Only override these when you intentionally need different behavior.</p>
 
