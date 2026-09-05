@@ -84,12 +84,13 @@
         <p>Vault config plugin keys are case-sensitive: <code>vaultUrl</code>, <code>apiKeyId</code>, <code>apiSecret</code>, <code>timeoutMs</code>, and <code>allowInsecureHttp</code>.</p>
 
         <h2>Writable Runtime State</h2>
-        <p>Use <code>BSB_WRITABLE_PATHS</code> for paths the entrypoint should create and make writable before dropping privileges. This is the correct way to prepare directories such as <code>/data</code>.</p>
+        <p>Recursive startup permission sync is off by default. Set <code>BSB_SYNC_PERMISSIONS=true</code> when writable mounts need ownership/permission repair, and list their directories in <code>BSB_WRITABLE_PATHS</code>. Without the flag, these paths are not prepared at startup. Images without mounts should finalize permissions at build time using <code>RUN /home/bsb/sync-permissions.sh</code> as root after their final copy/install step. Read-only plugin mounts are skipped.</p>
 
         <div class="code-block" data-title="docker-compose.yaml"><pre><code class="language-yaml">services:
   bsb:
     image: code.bettercorp.dev/bettercorp/service-base:node
     environment:
+      BSB_SYNC_PERMISSIONS: "true"
       BSB_WRITABLE_PATHS: /data,/cache
     volumes:
       - bsb-data:/data

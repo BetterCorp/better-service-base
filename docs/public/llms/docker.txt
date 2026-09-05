@@ -33,9 +33,9 @@ Default environment:
 
 Entrypoint flow:
 - Print the BSB runtime version.
-- Prepare writable paths from `BSB_WRITABLE_PATHS`.
 - Ensure plugin storage exists.
 - Install packages listed in `BSB_PLUGINS`, if any.
+- Run recursive ownership/permission sync only when `BSB_SYNC_PERMISSIONS=true`; default is off. The base image prepares permissions at build time.
 - Optionally print package/plugin discovery when `BSB_SHOW_PACKAGES=true`.
 - Start BSB.
 - If requested plugin installation fails, the container must exit instead of starting without the requested plugins.
@@ -68,9 +68,19 @@ Common config plugin schema values:
 - `BSB_PROFILE`: selects the deployment profile in config sources that expose profiles, default `default`.
 
 Other runtime environment:
-- `BSB_WRITABLE_PATHS`: comma-separated files/directories that the Node entrypoint creates if needed and makes writable for runtime state, for example `/data`.
+- `BSB_SYNC_PERMISSIONS`: default `false`; enable with `1|true|yes|y` (case-insensitive) for writable mounts or startup-installed plugins needing permission repair. Also controls permission sync after each watcher update. Read-only plugin mounts are skipped.
+- `BSB_WRITABLE_PATHS`: comma-separated directories created and made writable when permission sync runs, for example `/data`. This variable alone does not trigger startup sync.
 - `BSB_DEBUG=true`: enable production debug logging.
 - `BSB_SHOW_PACKAGES=true`: print a startup package/plugin discovery report, including package names, versions, plugin types, paths, and config-reference snippets.
+
+Permission sync:
+- Derived Dockerfiles must explicitly call `RUN /home/bsb/sync-permissions.sh` as root after their final copy/install/build step. Do not use ONBUILD as an end-of-child-build hook: it runs before later child instructions.
+- Targets: `/home/bsb`, `/mnt/temp`, `BSB_PLUGIN_DIRS` (legacy aliases supported), and `/home/bsb/.bsb` plus `BSB_WRITABLE_PATHS`.
+- For application files outside these targets, pass their root for the build call, e.g. `RUN BSB_PLUGIN_DIRS=/app /home/bsb/sync-permissions.sh`.
+- Modes: owner `node:node`; code/plugin directories `550`, files `440`; writable directories `770`, files `660`; entrypoint and sync helper `550`; `sec-config.yaml` `400`.
+- The helper runs regardless of `BSB_SYNC_PERMISSIONS`; the flag controls automatic runtime invocation only.
+- Build-time sync cannot prepare volumes mounted afterward. Opt in at runtime only if those mounts need repair; slow/large filesystems can make a full sync expensive.
+- Unconditional stdout markers identify each filesystem operation, sync skipped/completed, and `BSB startup` before the Node CLI. Do not require `BSB_DEBUG` for these markers.
 
 Plugin search report:
 - Runtime: set `BSB_SHOW_PACKAGES=true`.

@@ -157,6 +157,11 @@ Multi-stage build produces a minimal runtime image:
   - `BSB_PLUGINS="@scope/plugin-a:1.2.3,@scope/plugin-b@10"` -> installs listed packages
   - `BSB_PLUGIN_UPDATE=yes` -> refreshes packages listed in `BSB_PLUGINS`
 - `BSB_SHOW_PACKAGES=true` -> prints the package/plugin discovery report before BSB starts
+- `BSB_SYNC_PERMISSIONS=false` is the default: startup does not recursively change ownership or permissions. Set it to `true` when writable mounts or startup-installed plugins need permission repair. Watcher mode uses the same flag after each sync.
+- The base image prepares permissions at build time. Derived Dockerfiles should run `RUN /home/bsb/sync-permissions.sh` as root after their final copy/install step. There is no automatic end-of-build hook.
+- The helper processes `/home/bsb`, `/mnt/temp`, `BSB_PLUGIN_DIRS` (including legacy aliases), and `/home/bsb/.bsb` plus `BSB_WRITABLE_PATHS`. Read-only plugin mounts are skipped. For application files outside these paths, include their root for the build call, for example `RUN BSB_PLUGIN_DIRS=/app /home/bsb/sync-permissions.sh`.
+- Permission sync sets ownership to `node:node`, code/plugin directories to `550` and files to `440`, writable directories to `770` and files to `660`. The entrypoint/helper remain executable and `sec-config.yaml` is `400`. Run the helper after commands that require writable build files or executable package binaries.
+- Entrypoint progress logs are always enabled, including the permission-sync skip/completion marker and `BSB startup` immediately before launching Node.
 - `BSB_PLUGIN_WATCHER=true` runs plugin sync mode instead of BSB. It checks `BSB_PLUGINS` on an interval, installs missing/new matching versions into the shared plugin directory, and skips complete versions that already exist.
 - Derived Dockerfiles can log visible plugins after copying/installing them with `RUN node /home/bsb/node_modules/@bsb/base/lib/scripts/list-plugin-search-paths.js`
 
@@ -164,6 +169,7 @@ Example run (with mounted plugins directory):
 ```bash
 docker run --rm \
   -e BSB_PLUGINS="@bettercorp/your-plugin@1.2.3" \
+  -e BSB_SYNC_PERMISSIONS=true \
   -v $(pwd)/plugins:/mnt/plugins \
   code.bettercorp.dev/bettercorp/service-base:node
 ```
@@ -197,6 +203,8 @@ Notes
 - `BSB_PLUGIN_DIR`: Single external plugin directory (legacy, still supported). Accepts comma-separated paths.
 - `BSB_PLUGINS`: Comma-separated list of npm packages to install at container start (entrypoint.js). Supports no selector, major, minor, and exact selectors. If installation fails, the container exits before BSB starts. Shared plugin storage uses package-scoped install locks so unrelated packages do not block each other.
 - `BSB_PLUGIN_UPDATE`: `yes|true` to refresh packages explicitly listed in `BSB_PLUGINS`
+- `BSB_SYNC_PERMISSIONS`: opt into recursive permission sync before BSB starts or after a watcher sync; default `false`, accepts `1|true|yes|y` (case-insensitive).
+- `BSB_WRITABLE_PATHS`: comma-separated directories to create and make writable when permission sync runs. For runtime mounts, also enable `BSB_SYNC_PERMISSIONS=true`; this variable alone does not trigger a sync.
 - `BSB_PLUGIN_WATCHER`: `yes|y|true` to run plugin watcher mode instead of BSB
 - `BSB_PLUGIN_WATCH_INTERVAL_SECONDS`: Seconds between `node-watcher` sync runs. Default: 3600.
 - `BSB_PLUGIN_WATCH_ONCE`: `yes|y|true` to run one watcher sync and exit.

@@ -95,6 +95,7 @@ ENV NODE_ENV=production
 ENV BSB_LIVE=true
 ENV BSB_CONTAINER=true
 ENV BSB_PLUGIN_DIRS=/mnt/plugins
+ENV BSB_SYNC_PERMISSIONS=false
 ENV NPM_CONFIG_AUDIT=false
 ENV NPM_CONFIG_FUND=false
 ENV NPM_CONFIG_PROGRESS=false
@@ -102,6 +103,7 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NPM_CONFIG_YES=true
 
 COPY nodejs/entrypoint.sh /home/bsb/entrypoint.sh
+COPY nodejs/sync-permissions.sh /home/bsb/sync-permissions.sh
 COPY nodejs/entrypoint.js /home/bsb/entrypoint.js
 COPY nodejs/plugin-watcher.js /home/bsb/plugin-watcher.js
 COPY nodejs/LICENSE /home/bsb/LICENSE
@@ -109,13 +111,7 @@ COPY nodejs/LICENSE /home/bsb/LICENSE
 COPY --from=dependencies /home/bsb/package.json /home/bsb/package.json
 COPY --from=dependencies /home/bsb/node_modules /home/bsb/node_modules
 
-RUN chown -R node:node /home/bsb \
-    && chown -R node:node /mnt/temp \
-    && chown -R node:node /mnt/plugins \
-    && find /home/bsb -type d -exec chmod 550 {} + \
-    && find /home/bsb -type f -exec chmod 440 {} + \
-    && chmod 770 /home/bsb/.bsb \
-    && chmod 550 /home/bsb/entrypoint.sh
+RUN sh /home/bsb/sync-permissions.sh
 
 ENTRYPOINT [ "/home/bsb/entrypoint.sh" ]
 CMD -

@@ -58,8 +58,9 @@ BSB_PLUGIN_DIRS=/mnt/plugins</code></pre></div>
         <h2>Entrypoint Flow</h2>
         <p>The Node entrypoint does a small amount of container preparation before BSB starts:</p>
         <ol>
-          <li>Create and fix ownership/permissions for <code>BSB_WRITABLE_PATHS</code>.</li>
+          <li>Print startup markers and ensure plugin storage exists.</li>
           <li>Install packages listed in <code>BSB_PLUGINS</code>, if any.</li>
+          <li>Sync ownership/permissions only when <code>BSB_SYNC_PERMISSIONS=true</code>. This is off by default; image permissions are prepared during the build.</li>
           <li>Print package/plugin discovery when <code>BSB_SHOW_PACKAGES=true</code>.</li>
           <li>Start BSB through <code>@bsb/base</code>.</li>
         </ol>
@@ -97,9 +98,12 @@ BSB_PLUGIN_DIRS=/mnt/plugins</code></pre></div>
 
         <h3>Runtime State</h3>
         <ul>
-          <li><code>BSB_WRITABLE_PATHS</code>: comma-separated files/directories to create and make writable for runtime state, for example <code>/data</code>.</li>
+          <li><code>BSB_SYNC_PERMISSIONS</code>: default <code>false</code>; accepts <code>1|true|yes|y</code> (case-insensitive). Enable for writable mounts or startup-installed plugins requiring recursive permission repair. Watcher mode uses the same flag after each sync.</li>
+          <li><code>BSB_WRITABLE_PATHS</code>: comma-separated directories to create and make writable when permission sync runs, for example <code>/data</code>. Also enable <code>BSB_SYNC_PERMISSIONS=true</code> for startup preparation.</li>
           <li><code>BSB_DEBUG=true</code>: enable production debug logging.</li>
         </ul>
+
+        <p>Derived images can run <code>RUN /home/bsb/sync-permissions.sh</code> as root after their final copy/install step. See <a href="/guides/nodejs/docker/">Node.js Docker Builds</a> for paths and permission modes. Startup logs identify each operation, whether permission sync was skipped, and <code>BSB startup</code> immediately before Node launches.</p>
 
         <h2>Plugin Search Report</h2>
         <p>Inside an image or running container, print what BSB can discover with:</p>

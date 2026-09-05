@@ -72,11 +72,13 @@ Vault rules:
 Writable paths:
 ```yaml
 environment:
-  BSB_WRITABLE_PATHS: /data,/var/lib/my-service/state.json
+  BSB_SYNC_PERMISSIONS: "true"
+  BSB_WRITABLE_PATHS: /data,/var/lib/my-service
 volumes:
   - app-data:/data
 ```
-- BSB creates missing files/directories and fixes ownership/permissions before dropping to the runtime user.
+- Recursive startup permission sync defaults to off. With `BSB_SYNC_PERMISSIONS=true`, BSB creates the listed directories and repairs ownership/permissions before dropping to the runtime user. List directories, not nonexistent file paths.
+- Without the flag, `BSB_WRITABLE_PATHS` alone does not prepare runtime paths. Images without mounts should call `RUN /home/bsb/sync-permissions.sh` as root at the end of their build; mounted volumes may still need runtime opt-in. Read-only plugin mounts are skipped. The same flag controls permission syncing in watcher mode.
 - Use this for plugin state, uploads, SQLite/file DBs, caches, and generated key stores.
 
 Startup plugin install:
@@ -127,6 +129,7 @@ services:
     environment:
       BSB_CONFIG_PLUGIN: config-env
       BSB_CONFIG_PLUGIN_PACKAGE: "@bsb/base"
+      BSB_SYNC_PERMISSIONS: "true"
       BSB_WRITABLE_PATHS: /data
       BSB_CONFIG_JSON: >
         {"default":{"observable":{},"events":{},"services":{"service-config-vault":{"package":"@bsb/config-vault","plugin":"service-config-vault","enabled":true,"config":{"host":"0.0.0.0","port":3300,"publicUrl":"https://vault.example.com","production":true,"databaseUrl":"postgres://bsb:bsb@postgres:5432/bsb_vault","masterKey":"BASE64_32_BYTE_KEY"}}}}}

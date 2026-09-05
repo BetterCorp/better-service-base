@@ -76,3 +76,4 @@ COPY --from=builder /workspace/BADGES.json /home/bsb/BADGES.json
 COPY plugins/nodejs/bsb-registry/healthcheck.cjs /home/bsb/healthcheck.cjs
 
 ENV BSB_PLUGIN_DIRS=/mnt/plugins
+RUN if [ -x /home/bsb/sync-permissions.sh ]; then /home/bsb/sync-permissions.sh; fi
