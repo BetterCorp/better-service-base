@@ -38,7 +38,7 @@
     "url": "https://bettercorp.dev/"
   },
   "dependencies": {
-    "@simplewebauthn/server": "^13.3.2",
+    "@simplewebauthn/server": "^14.0.1",
     "anyvali": "^1.0.6",
     "h3": "^1.15.4",
     "pg": "^8.23.0",
@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.4.1",
     "@types/pg": "^8.23.1",
     "rimraf": "^6.0.1",
     "typescript": "^6.0.3"

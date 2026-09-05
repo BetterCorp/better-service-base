@@ -191,7 +191,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     if (this.config.enabled.logs) {
       this.loggerProvider = new LoggerProvider({
         resource,
-        processors: [new BatchLogRecordProcessor(logExporter)],
+        processors: [new BatchLogRecordProcessor({ exporter: logExporter })],
       });
       this.logger = this.loggerProvider.getLogger(this.config.serviceName, this.config.serviceVersion);
     }

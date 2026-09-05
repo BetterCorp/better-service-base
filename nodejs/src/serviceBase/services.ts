@@ -379,12 +379,11 @@ export class SBServices {
       name: plugin.name,
     });
 
-    let pluginConfig: object | null | undefined = undefined;
     const rawPluginConfig = await sbConfig.getPluginConfig(tTrace, "service", plugin.name);
     if (!Tools.isNullOrUndefined(newPlugin.data.serviceConfig?.validationSchema)) {
       this.observableBackend.debug(tTrace, "Validate plugin config: {name}", { name: plugin.name });
     }
-    pluginConfig = parsePluginConfig(newPlugin.data.serviceConfig, rawPluginConfig);
+    const pluginConfig = parsePluginConfig(newPlugin.data.serviceConfig, rawPluginConfig);
 
     await this.addPlugin(
       sbConfig,
