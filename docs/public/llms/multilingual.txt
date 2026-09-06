@@ -1,0 +1,26 @@
+BSB multilingual implementation rules
+
+BSB is the executable host. Applications are plugins loaded by BSB. Referencing BSB as a dependency does not start an application.
+
+Registry identity is org/name + implementation language + version. The same version can exist independently in nodejs, csharp, python, go, java and rust. Normalize dotnet to csharp. Language metadata support does not imply that every native runtime is implemented.
+
+GET /plugins/:org/:name/implementations discovers accessible variants. Pass ?language=csharp (or another source language) on details, versions, schema and documentation reads. /types/:language selects the output type language; its query language selects the source implementation. Unqualified legacy reads prefer Node when present. Clients must ask for --source-language when more than one accessible implementation exists.
+
+Node: bsb client install org/service-name --source-language csharp --version 1.2.3
+The generated client remains TypeScript. Schemas save source identity/version separately from the wire plugin target. Regeneration must preserve complete AnyVali documents, including definitions, defaults, wrappers and sensitive metadata. Do not replace shared services with handwritten native clients.
+
+Vault chooses the host language on each deployment profile. An application can contain profiles for different languages. Existing profiles/catalog records default to nodejs. Native catalog entries and publishing credentials are scoped by language. Enabled plugins must match the host language; disabled service references may point at a remote implementation. A published deployment profile cannot change its host language. Create another profile for a different host.
+
+.NET contracts use AnyVali 1.1.1. BSB shares both BSB and AnyVali assemblies with dynamically loaded plugins. Declare static Metadata, ConfigSchema and EventSchemas on plugins. Use native AnyVali schemas or BSBTypes. Create generated clients in service constructors with the service Events context; BSB wires their backend before Init.
+
+.NET config selection: BSB_CONFIG_PLUGIN=config-default|config-env|config-vault|config-vault-google. Optional BSB_CONFIG_PLUGIN_PACKAGE selects an external package. Config providers use the same lower camel case Vault settings as Node: vaultUrl, apiKeyId, apiSecret, timeoutMs, staleAllowedHours, cacheDir, allowInsecureHttp, googleAudience. Never log credentials.
+
+Native Vault startup must reject wrong-language responses, auth failures, redirects and invalid schemas. Cache only validated responses, encrypted and bound to origin/key/language. Apply BSB_CONFIG_OVERRIDES in memory only, restricted to envOverridePaths returned by Vault. Cache formats are runtime-specific; do not share cache files between languages.
+
+See dotnet/README.md for current implemented native features and CLI commands. Do not claim Go/Rust host support from registry enum values alone.
+
+.NET generated optional properties use OptionalValue<T>. Unset means omitted; OptionalValue<string?>(null) means present null. Do not collapse these states when generating clients. Specific(serverId, ...) methods append Node's event-serverId suffix while validating the unsuffixed contract.
+
+.NET RabbitMQ uses Node BSB 9 queue names and {trace:{t,s},args:[payload]} envelopes. Keep durable fire/RPC queues for missing listeners. Confirm replies before acknowledging requests; failed publishes must redeliver. Handlers must tolerate duplicate execution. Ten poison attempts dead-letter. Stream receivers register a callback and return an opaque ID; pass that ID to the sender. The old ReceiveStream/SendStream overloads without an ID only work locally.
+
+.NET file/Pino/Winston logging uses native options documented in dotnet/README.md. Do not copy JavaScript transport modules into native configs. Optional file logging supports size/time rotation, gzip, retention and dotted/wildcard redaction. Pino/Winston are native equivalents. Remaining remote exporters and Python ports are not yet complete.

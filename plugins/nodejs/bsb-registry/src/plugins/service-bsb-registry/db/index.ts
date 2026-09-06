@@ -5,7 +5,7 @@
  * Use createStorage() to get the right implementation for a given config.
  */
 
-import type { Observable } from '@bsb/base';
+import type { Observable, PluginLanguage } from '@bsb/base';
 import type {
   RegistryEntry,
   ListQuery,
@@ -32,16 +32,16 @@ export interface RegistryDB {
   // ---- Plugin CRUD ----
 
   /** Check whether a specific version of a plugin exists */
-  versionExists(obs: Observable, org: string, name: string, version: string): Promise<boolean>;
+  versionExists(obs: Observable, org: string, name: string, version: string, language?: PluginLanguage): Promise<boolean>;
 
   /** Insert a new plugin version. Must reject if version already exists. */
   insert(obs: Observable, entry: RegistryEntry): Promise<void>;
 
   /** Get a single plugin. Returns latest version when version is omitted. */
-  get(obs: Observable, org: string, name: string, version?: string, filter?: RegistryEntryFilter): Promise<RegistryEntry | null>;
+  get(obs: Observable, org: string, name: string, version?: string, filter?: RegistryEntryFilter, language?: PluginLanguage): Promise<RegistryEntry | null>;
 
   /** Delete a plugin -- a single version when specified, otherwise all versions. */
-  delete(obs: Observable, org: string, name: string, version?: string): Promise<void>;
+  delete(obs: Observable, org: string, name: string, version?: string, language?: PluginLanguage): Promise<void>;
 
   // ---- Queries ----
 
@@ -52,7 +52,7 @@ export interface RegistryDB {
   search(obs: Observable, query: SearchQuery, filter?: RegistryEntryFilter): Promise<{ results: RegistryEntry[]; total: number }>;
 
   /** Get all versions of a plugin, optionally filtered to a major.minor. Sorted newest-first. */
-  getVersions(obs: Observable, org: string, name: string, majorMinor?: string, filter?: RegistryEntryFilter): Promise<VersionInfo[]>;
+  getVersions(obs: Observable, org: string, name: string, majorMinor?: string, filter?: RegistryEntryFilter, language?: PluginLanguage): Promise<VersionInfo[]>;
 
   /** Aggregate registry statistics. */
   getStats(obs: Observable, filter?: RegistryEntryFilter): Promise<RegistryStats>;

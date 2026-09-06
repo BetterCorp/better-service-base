@@ -20,13 +20,14 @@
  *   BSB_REGISTRY_TOKEN  - API token for authentication
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as https from 'node:https';
 import * as http from 'node:http';
 import { getModuleDir } from '../base/module-runtime.js';
 import { retryRegistryPublish } from './registry-retry.js';
+import { normalizePluginLanguage } from '../interfaces/plugin-language.js';
 
 type ColorName = 'reset' | 'bright' | 'red' | 'green' | 'yellow' | 'blue' | 'cyan';
 
@@ -78,6 +79,9 @@ const MODULE_DIR = getModuleDir(import.meta.url);
  * When no org is provided, defaults to "_" (unaffiliated).
  */
 function parsePluginId(pluginId: string): { org: string; name: string } {
+  if (!/^(?:[A-Za-z0-9_-]+\/)?[A-Za-z0-9_-]+$/.test(pluginId)) {
+    throw new Error('Plugin ID must be name or org/name using letters, digits, underscores or hyphens');
+  }
   if (pluginId.includes('/')) {
     const [org, ...rest] = pluginId.split('/');
     return { org, name: rest.join('/') };
@@ -765,12 +769,30 @@ async function installPlugin(pluginId: string): Promise<void> {
   info(`Installing plugin ${display}...`);
 
   try {
-    // Get plugin metadata
-    const detailResult = await registryRequest('GET', `/plugins/${org}/${name}`);
+    const options: Record<string, string> = {};
+    for (let i = 1; i < ARGS.length; i += 2) {
+      if (!['--source-language', '--version'].includes(ARGS[i]) || !ARGS[i + 1] || ARGS[i + 1].startsWith('--')) {
+        throw new Error('Usage: install <org/name> [--source-language LANGUAGE] [--version VERSION]');
+      }
+      options[ARGS[i]] = ARGS[i + 1];
+    }
+    let language = options['--source-language'] ? normalizePluginLanguage(options['--source-language']) : undefined;
+    if (!language) {
+      const result = await registryRequest('GET', `/plugins/${org}/${name}/implementations`);
+      const variants = result.implementations;
+      if (!Array.isArray(variants) || variants.length === 0) throw new Error(`No accessible implementations of ${display}`);
+      if (variants.length !== 1) throw new Error(`Multiple implementations of ${display}: ${variants.map(v => v.language).join(', ')}. Specify --source-language.`);
+      language = normalizePluginLanguage(variants[0].language);
+    }
+    const query = `?language=${language}`;
+    const detailResult = await registryRequest('GET', `/plugins/${org}/${name}${query}`);
     const plugin = detailResult.plugin || detailResult;
+    const version = options['--version'] || plugin.version;
 
     // Get plugin schema
-    const schema = await registryRequest('GET', `/plugins/${org}/${name}/${plugin.version}/schema`);
+    const schema = await registryRequest('GET', `/plugins/${org}/${name}/${encodeURIComponent(version)}/schema${query}`);
+    schema.pluginId = name;
+    schema.source = { org, name, language, version, registry: REGISTRY_URL };
 
     // Create directories for remote schemas and virtual clients
     const schemasDir = path.join(process.cwd(), 'src', '.bsb', 'schemas');
@@ -787,28 +809,20 @@ async function installPlugin(pluginId: string): Promise<void> {
     ensureGitignore();
 
     // Save schema
-    const schemaFile = path.join(schemasDir, `${name}.json`);
+    const localName = `${org}~${name}~${language}`;
+    const schemaFile = path.join(schemasDir, `${localName}.json`);
     fs.writeFileSync(schemaFile, JSON.stringify(schema, null, 2), 'utf-8');
     success(`Downloaded schema for ${display}`);
 
     // Generate virtual client by calling the generator
     const generatorPath = path.join(MODULE_DIR, 'generate-client-types.js');
-    if (fs.existsSync(generatorPath)) {
-      try {
-        execSync(`node "${generatorPath}"`, {
-          cwd: process.cwd(),
-          stdio: 'pipe',
-        });
-        success(`Generated virtual client for ${display}`);
-      } catch (err) {
-        warn('Failed to generate virtual client automatically. Run your build to regenerate.');
-      }
-    }
+    execFileSync(process.execPath, [generatorPath], { cwd: process.cwd(), stdio: 'pipe' });
+    success(`Generated virtual client for ${display}`);
 
     log('');
-    success(`Plugin ${display} @ ${plugin.version} installed`);
+    success(`Plugin ${display} (${language}) @ ${version} installed`);
     log(`  Schema: ${schemaFile}`, 'reset');
-    log(`  Import: import ${pluginNameToClassName(name)} from './.bsb/clients/${name}.js'`, 'reset');
+    log(`  Import: import ${pluginNameToClassName(localName)} from './.bsb/clients/${localName}.js'`, 'reset');
   } catch (err: any) {
     error(`Failed to install plugin: ${err.message}`);
   }
@@ -824,12 +838,12 @@ function pluginNameToClassName(pluginId: string): string {
     name = name.substring('service-'.length);
   }
   const pascal = name
-    .replace(/[^a-zA-Z0-9-]/g, '')
+    .replace(/[^a-zA-Z0-9-]+/g, '-')
     .split('-')
     .filter(part => part.length > 0)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
-  return pascal + 'Client';
+  return (/^\d/.test(pascal) ? '_' : '') + pascal + 'Client';
 }
 
 /**
@@ -852,7 +866,7 @@ async function main(): Promise<void> {
     log('  bsb-client search <query>        - Search plugins');
     log('  bsb-client info <name>           - Get plugin details');
     log('  bsb-client schema <name>         - Get plugin event schema');
-    log('  bsb-client install <name>        - Download schema and generate types');
+    log('  bsb-client install <name> [--source-language LANGUAGE] [--version VERSION]');
     log('  bsb-client publish               - Publish current plugin(s) to registry');
     log('  bsb-client publish --target URL --plugin ID --token TOKEN - Publish one plugin directly to Vault');
     log('  bsb-client token generate        - Generate a new API token');

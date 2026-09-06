@@ -1,3 +1,4 @@
+import { PLUGIN_LANGUAGES, normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -377,13 +378,13 @@ export class VaultHttpServer {
     app.use('/api/groups', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      return this.options.vault.createDeployment(user.userId, String(body.applicationId ?? ''), String(body.name ?? ''));
+      return this.options.vault.createDeployment(user.userId, String(body.applicationId ?? ''), String(body.name ?? ''), normalizePluginLanguage(body.language ?? 'nodejs'));
     }));
 
     app.use('/api/profiles/update', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      await this.options.vault.updateProfile(user.userId, String(body.id ?? ''), String(body.groupId ?? ''), String(body.name ?? ''));
+      await this.options.vault.updateProfile(user.userId, String(body.id ?? ''), String(body.groupId ?? ''), String(body.name ?? ''), body.language === undefined ? undefined : normalizePluginLanguage(body.language));
       return { success: true };
     }));
 
@@ -397,7 +398,7 @@ export class VaultHttpServer {
     app.use('/api/profiles', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      return this.options.vault.createProfile(user.userId, String(body.groupId ?? ''), String(body.name ?? 'default'));
+      return this.options.vault.createProfile(user.userId, String(body.groupId ?? ''), String(body.name ?? 'default'), normalizePluginLanguage(body.language ?? 'nodejs'));
     }));
 
     app.use('/api/plugins/publish', defineEventHandler(async (event) => {
@@ -419,7 +420,7 @@ export class VaultHttpServer {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       const pluginId = String(body.pluginId ?? '');
-      const credential = await this.options.vault.rotatePluginPublisher(user.userId, pluginId);
+      const credential = await this.options.vault.rotatePluginPublisher(user.userId, pluginId, normalizePluginLanguage(body.language ?? 'nodejs'));
       return { ...credential, publishCommand: vaultPublishCommand(this.options.publicUrl, pluginId, credential.secret) };
     }));
 
@@ -427,7 +428,7 @@ export class VaultHttpServer {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       const pluginId = String(body.pluginId ?? '');
-      const credential = await this.options.vault.enablePluginPublisher(user.userId, pluginId);
+      const credential = await this.options.vault.enablePluginPublisher(user.userId, pluginId, normalizePluginLanguage(body.language ?? 'nodejs'));
       return { ...credential, publishCommand: vaultPublishCommand(this.options.publicUrl, pluginId, credential.secret) };
     }));
 
@@ -436,6 +437,7 @@ export class VaultHttpServer {
       const body = await readBody<Record<string, unknown>>(event);
       return this.options.vault.createPlugin(user.userId, {
         org: String(body.org ?? '_'),
+        language: normalizePluginLanguage(body.language ?? 'nodejs'),
         name: String(body.name ?? ''),
         pluginId: String(body.pluginId ?? body.name ?? ''),
         packageName: body.packageName === undefined || body.packageName === '' ? null : String(body.packageName),
@@ -462,6 +464,7 @@ export class VaultHttpServer {
           name: candidate.name,
           pluginId: candidate.pluginId,
           packageName: candidate.packageName,
+          language: candidate.language,
           version: candidate.version,
           kind: candidate.kind,
           source: 'registry',
@@ -494,6 +497,7 @@ export class VaultHttpServer {
       if (!schema && !manifest) throw createError({ statusCode: 400, statusMessage: 'Invalid plugin upload', message: 'Uploaded file is not a valid plugin upload: select a generated lib/schemas/{plugin-id}.plugin.json file' });
       const created = await this.options.vault.createPrivatePlugin(user.userId, {
         org: String(body.org ?? '_'),
+        language: body.language === undefined ? undefined : normalizePluginLanguage(body.language),
         packageName: String(body.packageName ?? ''),
         schemaFileName: body.schemaFileName === undefined ? undefined : String(body.schemaFileName),
         schema,
@@ -549,6 +553,7 @@ export class VaultHttpServer {
       const body = await readBody<Record<string, unknown>>(event);
       await this.options.vault.upsertApplicationProfilePlugin(user.userId, {
         applicationProfileId: String(body.applicationProfileId ?? ''),
+        language: normalizePluginLanguage(body.language ?? 'nodejs'),
         section: parseConfigSection(body.section),
         name: String(body.name ?? ''),
         plugin: String(body.plugin ?? ''),
@@ -897,6 +902,7 @@ type UserProfileData = Awaited<ReturnType<VaultService['userProfile']>>;
 type DeploymentProfileData = Awaited<ReturnType<VaultService['deploymentProfile']>>;
 type ApplicationProfileData = Awaited<ReturnType<VaultService['applicationProfile']>>;
 type RegistryCandidate = {
+  language: PluginLanguage;
   org: string;
   name: string;
   pluginId: string;
@@ -1331,6 +1337,7 @@ function deploymentsPage(data: DashboardData): string {
       <form data-api="/api/groups" data-redirect="/deployments">
         ${select('applicationId', 'Deployment Group', data.applications.map((x) => [x.id, x.name]))}
         ${input('name', 'Deployment Name', true)}
+        ${select('language', 'Host Language', PLUGIN_LANGUAGES.map(language => [language, language]))}
         <button class="success">Create Deployment</button><p class="status"></p>
       </form>
     </section>
@@ -1371,7 +1378,7 @@ function deploymentDetailPage(
     <section><h2>Create Profile</h2>
       <form data-api="/api/profiles" data-redirect="${escapeHtml(redirect)}">
         <input type="hidden" name="groupId" value="${escapeHtml(data.group.id)}">
-        ${input('name', 'Profile Name', true)}
+        ${input('name', 'Profile Name', true)}${select('language', 'Host Language', PLUGIN_LANGUAGES.map(language => [language, language]))}
         <button class="success">Create Profile</button><p class="status"></p>
       </form>
     </section>
@@ -1453,25 +1460,26 @@ function pluginCatalogTable(
   publishers: DashboardData['pluginPublishers'],
 ): string {
   if (plugins.length === 0) return '<p class="muted">No plugins imported.</p>';
-  const publisherByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisher]));
-  const publisherRowByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisherCatalogRow(plugins, publisher)?.id]));
+  const publisherByPlugin = new Map(publishers.map((publisher) => [`${publisher.pluginId}:${publisher.language ?? 'nodejs'}`, publisher]));
+  const publisherRowByPlugin = new Map(publishers.map((publisher) => [`${publisher.pluginId}:${publisher.language ?? 'nodejs'}`, publisherCatalogRow(plugins, publisher)?.id]));
   const renderedPublishers = new Set<string>();
   return `<table><thead><tr><th>Plugin</th><th>Version</th><th>Kind</th><th>Source</th><th>Package</th><th>Usage</th><th>Publishing</th><th>Update</th><th>Delete</th></tr></thead><tbody>${plugins.map((plugin) => {
+    const variantId = `${plugin.pluginId}:${plugin.language ?? 'nodejs'}`;
     const used = usage[plugin.id]?.count ?? 0;
-    const publisher = publisherByPlugin.get(plugin.pluginId);
+    const publisher = publisherByPlugin.get(variantId);
     const showPublisher = publisher
-      ? publisherRowByPlugin.get(plugin.pluginId) === plugin.id
-      : !renderedPublishers.has(plugin.pluginId) && plugin.source !== 'registry';
-    if (showPublisher) renderedPublishers.add(plugin.pluginId);
+      ? publisherRowByPlugin.get(variantId) === plugin.id
+      : !renderedPublishers.has(variantId) && plugin.source !== 'registry';
+    if (showPublisher) renderedPublishers.add(variantId);
     const publisherAction = !showPublisher ? '' : publisher
-      ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
-      : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
+      ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><input type="hidden" name="language" value="${escapeHtml(plugin.language ?? 'nodejs')}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
+      : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><input type="hidden" name="language" value="${escapeHtml(plugin.language ?? 'nodejs')}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
     const updateId = `plugin-update-${plugin.id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
     const updateAction = plugin.source === 'registry' ? '<span class="muted">Registry</span>' : `<form data-api="/api/plugins" data-redirect="/plugins"><button class="secondary" type="button" data-file-picker="${escapeHtml(updateId)}">Update</button><input id="${escapeHtml(updateId)}" name="manifestFile" type="file" accept="application/json,.json" required hidden data-submit-on-change><p class="status"></p></form>`;
     return `<tr>
       <td>${escapeHtml(pluginDisplayName(plugin))}</td>
       <td>${escapeHtml(plugin.version)}</td>
-      <td>${escapeHtml(plugin.kind)}</td>
+      <td>${escapeHtml(plugin.kind)} (${escapeHtml(plugin.language ?? 'nodejs')})</td>
       <td>${escapeHtml(plugin.source)}</td>
       <td>${escapeHtml(plugin.packageName ?? '')}</td>
       <td>${pluginUsageDetails(usage[plugin.id])}</td>
@@ -1491,6 +1499,7 @@ function publisherCatalogRow(
     plugin.org === publisher.org &&
     plugin.name === publisher.name &&
     plugin.packageName === publisher.packageName &&
+    (plugin.language ?? 'nodejs') === (publisher.language ?? 'nodejs') &&
     plugin.kind === publisher.kind
   );
   return latestCatalogPlugin(matching) ?? latestCatalogPlugin(privatePlugins);
@@ -1511,12 +1520,13 @@ function registryTable(items: RegistryCandidate[], importedPlugins: DashboardDat
     return `<tr>
     <td>${escapeHtml(pluginDisplayName(item))}</td>
     <td>${escapeHtml(item.version)}</td>
-    <td>${escapeHtml(item.kind)}</td>
+    <td>${escapeHtml(item.kind)} (${escapeHtml(item.language)})</td>
     <td>${escapeHtml(item.packageName ?? '')}</td>
     <td>${imported ? '<span class="state-badge live">Imported</span>' : '<span class="muted">Not imported</span>'}</td>
     <td>
       ${imported ? '<button class="secondary" disabled>Imported</button>' : `<form data-api="/api/plugins/import" data-redirect="/plugins">
         <input type="hidden" name="org" value="${escapeHtml(item.org)}">
+        <input type="hidden" name="language" value="${escapeHtml(item.language)}">
         <input type="hidden" name="name" value="${escapeHtml(item.name)}">
         <input type="hidden" name="pluginId" value="${escapeHtml(item.pluginId)}">
         <input type="hidden" name="packageName" value="${escapeHtml(item.packageName ?? '')}">
@@ -1534,6 +1544,7 @@ function registryTable(items: RegistryCandidate[], importedPlugins: DashboardDat
 function registryPluginImported(item: RegistryCandidate, importedPlugins: DashboardData['plugins']): boolean {
   return importedPlugins.some((plugin) =>
     plugin.pluginId === item.pluginId &&
+    (plugin.language ?? 'nodejs') === item.language &&
     plugin.version === item.version &&
     (item.packageName ? plugin.packageName === item.packageName : true)
   );
@@ -1633,6 +1644,7 @@ function profilesTable(data: DashboardData): string {
       <input type="hidden" name="id" value="${escapeHtml(profile.id)}">
       ${select('groupId', 'Deployment', selectedOptions(data.groups.map((x) => [x.id, groupLabel(x, data)]), profile.groupId))}
       ${input('name', 'Name', true, profile.name)}
+      ${select('language', 'Host Language', selectedOptions(PLUGIN_LANGUAGES.map(language => [language, language]), profile.language ?? 'nodejs'))}
       <span class="muted">${profile.activeVersionId ? 'published' : 'no published config'}</span>
       <button>Save</button><p class="status"></p>
     </form>
@@ -1761,7 +1773,7 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
   return `<details class="plugin-card"><summary><span>Add Plugin</span><span class="chip">${configurablePlugins.length} available</span></summary><div class="plugin-card-body">
     <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
       <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
-      <input type="hidden" name="plugin">
+      <input type="hidden" name="plugin"><input type="hidden" name="language">
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
       <input type="hidden" name="section">
@@ -1769,7 +1781,7 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
       <input type="hidden" name="sensitiveClearPaths">
       <input type="hidden" name="allowEnvOverrides" value="false">
       <div class="form-grid">
-        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)} (${escapeHtml(plugin.language ?? 'nodejs')})</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
@@ -1790,14 +1802,14 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
   return `<details class="plugin-card"><summary><span>Add Shared Plugin</span><span class="chip">${configurablePlugins.length} available</span></summary><div class="plugin-card-body">
     <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
       <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
-      <input type="hidden" name="plugin">
+      <input type="hidden" name="plugin"><input type="hidden" name="language">
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
       <input type="hidden" name="section">
         <input type="hidden" name="config">
         <input type="hidden" name="sensitiveClearPaths">
       <div class="form-grid">
-        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)} (${escapeHtml(plugin.language ?? 'nodejs')})</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
@@ -1830,7 +1842,7 @@ function configSectionEditor(
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -1881,7 +1893,7 @@ function applicationConfigSectionEditor(
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -1944,7 +1956,7 @@ function inheritedOverrideSection(
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -2075,7 +2087,7 @@ function lockedUpdateCatalog(
 function latestImportedPluginGroups(plugins: DashboardData['plugins']): DashboardData['plugins'] {
   const byKey = new Map<string, DashboardData['plugins'][number]>();
   for (const plugin of plugins) {
-    const key = `${plugin.kind}:${plugin.org}:${plugin.pluginId}:${plugin.packageName ?? ''}`;
+    const key = `${plugin.kind}:${plugin.org}:${plugin.pluginId}:${plugin.language ?? 'nodejs'}:${plugin.packageName ?? ''}`;
     const existing = byKey.get(key);
     if (!existing || compareVersionStrings(plugin.version, existing.version) > 0) byKey.set(key, plugin);
   }
@@ -2089,6 +2101,7 @@ function latestRegistryCandidate(plugins: RegistryCandidate[]): RegistryCandidat
 function registryCandidateMatchesPlugin(candidate: RegistryCandidate, plugin: DashboardData['plugins'][number]): boolean {
   return candidate.kind === plugin.kind &&
     candidate.pluginId === plugin.pluginId &&
+    candidate.language === (plugin.language ?? 'nodejs') &&
     candidate.org === plugin.org &&
     (plugin.packageName ? candidate.packageName === plugin.packageName : true);
 }
@@ -2564,6 +2577,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     acc[plugin.id] = {
       id: plugin.id,
       plugin: plugin.pluginId,
+      language: plugin.language ?? 'nodejs',
       packageName: plugin.packageName ?? '',
       version: plugin.version,
       kind: plugin.kind,
@@ -2968,6 +2982,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     if (!item || !form) return;
     form.dataset.validationCatalogId = item.id || '';
     form.elements.plugin.value = item.plugin || '';
+    if (form.elements.language) form.elements.language.value = item.language || 'nodejs';
     form.elements.packageName.value = item.packageName || '';
     if (form.elements.version) {
       form.elements.version.value = form.querySelector('[data-version-lock]')?.checked ? item.version || '' : '';
@@ -3168,7 +3183,6 @@ function table(rows: string[][]): string {
 
 async function registrySearch(registryUrl: string, query: string, registryToken?: string): Promise<RegistryCandidate[]> {
   const url = new URL('/plugins', registryUrl);
-  url.searchParams.set('language', 'nodejs');
   url.searchParams.set('limit', '20');
   if (query.trim()) url.searchParams.set('query', query.trim());
   try {
@@ -3197,10 +3211,13 @@ function normalizeRegistryCandidate(input: unknown): RegistryCandidate | null {
   const pluginId = split.pluginId ?? rawPluginId;
   const name = stringField(value.name) ?? pluginId;
   if (!name || !pluginId) return null;
-  const packageName = stringField(value.packageName) ?? packageNameFromRegistry(value.package, 'nodejs') ?? null;
+  let language: PluginLanguage;
+  try { language = normalizePluginLanguage(value.language ?? 'nodejs'); } catch { return null; }
+  const packageName = stringField(value.packageName) ?? packageNameFromRegistry(value.package, language) ?? null;
   return {
     org,
     name,
+    language,
     pluginId,
     packageName,
     version: stringField(value.version) ?? '0.0.0',

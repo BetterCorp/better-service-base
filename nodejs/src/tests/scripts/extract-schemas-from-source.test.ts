@@ -6,6 +6,25 @@ import { pathToFileURL } from 'node:url';
 import { extractSchemaSource } from '../../scripts/extract-schemas-from-source.js';
 
 describe('source schema extraction', () => {
+  it('evaluates schemas using shared language identifiers', async () => {
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-language-'));
+    try {
+      fs.writeFileSync(path.join(sourceDir, 'base.ts'), `
+export const PLUGIN_LANGUAGES = ['nodejs', 'csharp', 'python'];
+export const exportEventSchemas = (_name: string, events: unknown) => ({ events });
+`);
+      const generated = extractSchemaSource(`
+import { PLUGIN_LANGUAGES } from '@bsb/base';
+export const EventSchemas = { languages: [...PLUGIN_LANGUAGES] };
+export class Plugin { static EventSchemas = EventSchemas; }
+`, 'service-languages', 'external', sourceDir, pathToFileURL(path.join(sourceDir, 'base.ts')).href, '1.0.0');
+      const target = path.join(sourceDir, 'extract.ts');
+      fs.writeFileSync(target, generated);
+      const loaded = await import(pathToFileURL(target).href);
+      assert.deepStrictEqual(loaded.__BSB_SCHEMA_RESULT.events.languages, ['nodejs', 'csharp', 'python']);
+    } finally { fs.rmSync(sourceDir, { recursive: true, force: true }); }
+  });
+
   it('loads static schema roots from another file and its transitive imports', async () => {
     const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-source-'));
     try {

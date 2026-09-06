@@ -1,0 +1,87 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
+using BSB.Interfaces;
+
+namespace BSB.Tooling;
+
+public sealed class RegistryClient : IDisposable
+{
+    private readonly HttpClient _http;
+    private readonly Uri _url;
+    public RegistryClient(string? url = null, string? token = null, bool allowInsecure = false)
+    {
+        _url = new Uri(url ?? Environment.GetEnvironmentVariable("BSB_REGISTRY_URL") ?? "https://io.bsbcode.dev");
+        if (_url.Scheme != "https" && !(_url.Scheme == "http" && allowInsecure)) throw new ArgumentException("Registry requires HTTPS; use --allow-insecure only for local development");
+        if (!string.IsNullOrEmpty(_url.UserInfo)) throw new ArgumentException("Registry URL must not contain credentials");
+        _http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30), MaxResponseContentBufferSize = 16 * 1024 * 1024 };
+        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        token ??= Environment.GetEnvironmentVariable("BSB_REGISTRY_TOKEN");
+        if (!string.IsNullOrEmpty(token)) _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+    public static (string Org, string Name) ParsePluginId(string id)
+    {
+        if (!Regex.IsMatch(id, "^(?:[A-Za-z0-9_-]+/)?[A-Za-z0-9_-]+$")) throw new ArgumentException("Plugin ID must be name or org/name");
+        var parts = id.Split('/'); return parts.Length == 1 ? ("_", parts[0]) : (parts[0], parts[1]);
+    }
+    public static string Language(string language) => language switch {
+        "dotnet" => "csharp", "nodejs" or "csharp" or "python" or "go" or "java" or "rust" => language,
+        _ => throw new ArgumentException($"Unsupported language: {language}"),
+    };
+    public async Task<JsonNode> Request(HttpMethod method, string path, JsonNode? body = null)
+    {
+        using var request = new HttpRequestMessage(method, new Uri(_url, path));
+        if (body is not null) request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+        using var response = await _http.SendAsync(request);
+        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Registry returned HTTP {(int)response.StatusCode}", null, response.StatusCode);
+        return JsonNode.Parse(await response.Content.ReadAsStringAsync()) ?? throw new JsonException("Empty registry response");
+    }
+    public async Task<string> Install(string cwd, string id, string? sourceLanguage = null, string? version = null)
+    {
+        var (org, name) = ParsePluginId(id);
+        var path = $"/plugins/{org}/{name}";
+        if (sourceLanguage is null)
+        {
+            var variants = (await Request(HttpMethod.Get, path + "/implementations"))["implementations"]?.AsArray()
+                ?? throw new JsonException("Registry did not return implementations");
+            if (variants.Count != 1) throw new InvalidOperationException("Specify --source-language; accessible implementations: " + string.Join(", ", variants.Select(v => v!["language"]!.GetValue<string>())));
+            sourceLanguage = variants[0]!["language"]!.GetValue<string>();
+        }
+        sourceLanguage = Language(sourceLanguage);
+        var query = "?language=" + sourceLanguage;
+        if (version is null)
+        {
+            var detail = await Request(HttpMethod.Get, path + query);
+            version = (detail["plugin"] ?? detail)["version"]!.GetValue<string>();
+        }
+        if (!Regex.IsMatch(version, "^[0-9]+\\.[0-9]+\\.[0-9]+$")) throw new ArgumentException("Version must be an exact major.minor.patch");
+        var document = (await Request(HttpMethod.Get, path + $"/{version}/schema" + query)).AsObject();
+        document["pluginId"] = name;
+        document["source"] = new JsonObject { ["org"] = org, ["name"] = name, ["language"] = sourceLanguage, ["version"] = version, ["registry"] = _url.ToString() };
+        var local = $"{org}~{name}~{sourceLanguage}";
+        var code = ClientGenerator.Generate(EventSchemaExport.FromJson(document.ToJsonString()), local);
+        var schemas = Path.Combine(cwd, ".bsb", "schemas"); var clients = Path.Combine(cwd, "BsbClients");
+        Directory.CreateDirectory(schemas); Directory.CreateDirectory(clients);
+        await File.WriteAllTextAsync(Path.Combine(schemas, local + ".json"), document.ToJsonString(EventSchemaExport.JsonOptions));
+        var output = Path.Combine(clients, local + ".cs");
+        await File.WriteAllTextAsync(output, code);
+        return output;
+    }
+    public static async Task Regenerate(string cwd)
+    {
+        var schemas = Path.Combine(cwd, ".bsb", "schemas");
+        if (!Directory.Exists(schemas)) return;
+        var clients = Path.Combine(cwd, "BsbClients"); Directory.CreateDirectory(clients);
+        var names = new HashSet<string>();
+        foreach (var file in Directory.EnumerateFiles(schemas, "*.json"))
+        {
+            var name = Path.GetFileNameWithoutExtension(file);
+            if (!names.Add(ClientGenerator.Identifier(name))) throw new InvalidOperationException("Installed client names collide");
+            var code = ClientGenerator.Generate(EventSchemaExport.FromJson(await File.ReadAllTextAsync(file)), name);
+            await File.WriteAllTextAsync(Path.Combine(clients, name + ".cs"), code);
+        }
+    }
+    public void Dispose() => _http.Dispose();
+}

@@ -18,6 +18,9 @@
 
       <h1 class="detail-title">{{plugin.displayName}}</h1>
       <div class="detail-id"><code>{{pluginDisplayId plugin.id}}</code></div>
+      <nav aria-label="Plugin implementations">
+        {{#each implementations}}<a href="{{url}}">{{language}}</a> {{/each}}
+      </nav>
       <p class="detail-description">{{plugin.description}}</p>
 
       {{#if plugin.tags}}

@@ -10,6 +10,8 @@ using BSB.Interfaces;
 /// </summary>
 public interface IObservablePlugin
 {
+    Task Run(IObservable obs) => Task.CompletedTask;
+    void SpanEnded(CompletedSpan span) { }
     /// <summary>Log a debug-level message.</summary>
     /// <param name="trace">Active distributed trace.</param>
     /// <param name="pluginName">Name of the originating plugin.</param>

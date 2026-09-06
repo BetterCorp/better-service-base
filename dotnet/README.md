@@ -12,8 +12,53 @@ The `version` field selects among versions in mounted package directories. Local
 
 Plugin projects should use `<EnableDynamicLoading>true</EnableDynamicLoading>`. Reference BSB with `Private="false"` and `ExcludeAssets="runtime"`; the loader shares the running host's BSB assembly so plugin contracts retain the same type identity. Private managed/native dependencies resolve through `AssemblyDependencyResolver`.
 
+Plugins share the host's AnyVali 1.1.1 assembly as well as BSB. Declare a static `ConfigSchema` using `AnyVali.V` and a static `EventSchemas` using `BSBEventSchemas`. BSB validates config before construction and validates declared event inputs and outputs at runtime. `BSBTypes` remains available as a compatibility facade over AnyVali. Exported schemas preserve definitions, defaults and sensitive metadata.
+
+Choose the configuration provider with `BSB_CONFIG_PLUGIN`. Bundled providers include `config-default` (JSON or YAML), `config-env` (`BSB_CONFIG_JSON`), `config-vault`, and `config-vault-google`. The file provider falls back to `sec-config.yaml` when `bsb-config.json` is absent. The file and environment providers accept Node's `default`/named-profile format as well as the original .NET root sections with optional `profiles`. `BSB_PROFILE` selects the profile; nested configuration merges recursively. At least one enabled service is required.
+
+Vault uses the same environment names as Node: `vaultUrl`, `apiKeyId`, `apiSecret`, optional `timeoutMs`, `staleAllowedHours`, `cacheDir`, and `allowInsecureHttp`. Google authentication additionally requires `googleAudience`. Select `csharp` on the Vault deployment profile. Wrong-language responses fail startup. Transient failures are retried for up to 15 seconds, with an encrypted last-known-good fallback when enabled. Authentication failures, redirects, malformed responses and tampered/expired caches fail startup. Native cache files are separate from Node cache files. `BSB_CONFIG_OVERRIDES` only permits paths explicitly allowed by Vault and never changes the cached response.
+
+The executable also provides native tooling:
+
+```sh
+dotnet /path/to/BetterServiceBase.dll plugin build ./MyPlugin.csproj
+dotnet /path/to/BetterServiceBase.dll plugin export ./lib/MyPlugin.dll
+dotnet /path/to/BetterServiceBase.dll client install acme/service-orders --source-language nodejs --version 1.0.0
+dotnet /path/to/BetterServiceBase.dll client generate
+dotnet /path/to/BetterServiceBase.dll client publish --org acme
+```
+
+`plugin build` regenerates installed clients, publishes the class library, and exports static contracts without constructing the service. It writes `bsb-plugin.json` and `lib/schemas/`. Deploy the `lib` directory with its manifest and dependencies. Manifests allow plugin IDs to differ from assembly names. Multiple plugins in one assembly must each declare a unique `Metadata.Name`.
+
+Installed schemas live in `.bsb/schemas`; C# clients live in `BsbClients`. Create a generated client in your service constructor with `new GeneratedClient(Events)`. Its methods accept `IObservable` and typed request values. Objects, enums, arrays, records and numeric types get native C# types; structural unions, intersections and tuples use `JsonElement`, validated against the full AnyVali schema. No handwritten shared-service client packages are required. Set `BSB_REGISTRY_URL` and `BSB_REGISTRY_TOKEN` for another registry. Publishing directly to Vault uses `--target URL --plugin ID --token TOKEN`.
+
+Generated optional properties use `OptionalValue<T>`: leaving a property unset omits it from JSON; assigning a value marks it present. Use `new OptionalValue<string?>(null)` for an explicit nullable value. Read `IsSet` before `Value`. Generated event and RPC clients also expose `Specific(serverId, ...)` variants; the wire suffix matches Node's server-specific routing.
+
+`events-default` routes within the process, scoped by plugin alias and event name. `events-rabbitmq` uses the existing Node BSB 9 queue names, envelopes, trace context and RPC correlations. Configure `platformKey`, `endpoints`, `credentials`, `prefetch`, `uniqueId`, and `fatalOnDisconnect`. Producers declare durable fire/RPC queues even without listeners. RPC handlers must tolerate duplicate requests: a reply is confirmed before the request is acknowledged, and transport failures cause redelivery. Poison deliveries move to the shared dead-letter queue after ten attempts. `fatalOnDisconnect=false` enables native connection/topology recovery; otherwise a disconnect faults the host so its supervisor can restart it.
+
+Distributed streams use receiver registration, not the legacy local-only stream pair:
+
+```csharp
+var id = await Events.ReceiveStream("download", obs, async (span, error, stream) => {
+    if (error is not null) throw error;
+    using var output = File.Create("download.bin");
+    await stream!.CopyToAsync(output);
+});
+// Pass id to the producer through a typed event or RPC, then on the producer:
+await Events.SendStream("download", obs, id, inputStream);
+```
+
+The receiver ID is opaque and single-use. The sender retains ownership of its input stream. Consume the receiver stream through EOF; early completion aborts the transfer. Registration waits up to 30 seconds for the sender; the optional timeout controls inactivity after connection. Native streams transfer bytes and support Node Buffer JSON envelopes.
+
+Native logging includes `observable-default`, `observable-logging-file`, `observable-pino`, and `observable-winston`. Pino/Winston identities select native equivalents; JavaScript transport modules and Node-specific option objects do not run in .NET. Both equivalents support `level`, `prettyPrint`, `base`, dotted `redact` paths (including `*` across objects/arrays), and an optional `filePath`. Pino uses numeric log levels; Winston uses named levels. Redaction applies to console and file output.
+
+The file plugin uses `path` (default `logs/application.log`), `level`, `redact`, and `prettyPrint`. Its rotation options, also available for console plugins' optional files, are `maxBytes` (10485760), `maxFiles` (7 archives; 0 means unlimited), `interval` (`daily`, `hourly`, or `none`), and `compress` (true). Rotation preserves whole entries, so a single entry may exceed the byte threshold. Archives use a `.bsb-` suffix and optional gzip compression. Human-readable file output can span multiple lines; the default is one JSON object per line.
+
+Completed spans include parent IDs, duration, attributes and errors. Transport listeners continue incoming Node traces. Linux SIGTERM and console cancellation initiate host shutdown; plugins dispose in reverse order even when another plugin's cleanup fails.
+
 The runtime remains an incomplete port, not full Node.js feature parity. The host smoke test verifies external discovery, aliases, configuration, shared contract identity, event wiring, metadata and lifecycle:
 
 ```sh
 dotnet run --project tests/SmokeTests -c Release -- output tests/TestPlugin/bin/Release/net10.0
+dotnet run --project tests/RuntimeTests
 ```

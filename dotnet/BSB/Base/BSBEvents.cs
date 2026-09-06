@@ -23,6 +23,7 @@ public delegate Task<object?> ReturnableEventHandler(IObservable obs, object? da
 /// <param name="obs">Observable for tracing and logging within the handler.</param>
 /// <param name="data">Broadcast payload data.</param>
 public delegate Task BroadcastHandler(IObservable obs, object? data);
+public delegate Task StreamHandler(IObservable obs, Exception? error, Stream? stream);
 
 /// <summary>
 /// Abstract base for event routing plugins. Routes events between service plugins
@@ -31,6 +32,9 @@ public delegate Task BroadcastHandler(IObservable obs, object? data);
 /// </summary>
 public abstract class BSBEvents : MainBase
 {
+    private static readonly Task NeverCompleted = Task.Delay(Timeout.Infinite);
+    /// <summary>Faults on a fatal transport failure so the host can shut down.</summary>
+    public virtual Task Completion => NeverCompleted;
     /// <summary>
     /// Construct a new events plugin.
     /// </summary>
@@ -131,4 +135,26 @@ public abstract class BSBEvents : MainBase
     /// <param name="obs">Observable for tracing.</param>
     /// <param name="data">The stream of data to send.</param>
     public abstract Task SendStream(string pluginName, string eventName, IObservable obs, Stream data);
+
+    /// <summary>Register a receiver and return an opaque ID to pass to the sender, as in Node.</summary>
+    public virtual Task<string> ReceiveStream(string pluginName, string eventName, IObservable obs, StreamHandler handler, int timeoutSeconds = 5)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
+        var id = Guid.NewGuid().ToString();
+        _ = Deliver();
+        return Task.FromResult(id);
+        async Task Deliver()
+        {
+            Stream? stream;
+            try { stream = await ReceiveStream(pluginName, eventName + "-" + id, obs); }
+            catch (Exception error)
+            {
+                try { await handler(obs, error, null); } catch (Exception failure) { obs.Error(failure); }
+                return;
+            }
+            try { await handler(obs, null, stream); } catch (Exception error) { obs.Error(error); }
+        }
+    }
+    public virtual Task SendStream(string pluginName, string eventName, IObservable obs, string streamId, Stream data) =>
+        SendStream(pluginName, eventName + "-" + streamId, obs, data);
 }

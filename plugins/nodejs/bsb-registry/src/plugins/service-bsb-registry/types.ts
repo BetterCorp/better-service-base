@@ -1,5 +1,5 @@
-import { bsb, optional, nullable } from '@bsb/base';
-import type { InferBSBType } from '@bsb/base';
+import { bsb, optional, nullable, PLUGIN_LANGUAGES } from '@bsb/base';
+import type { InferBSBType, PluginLanguage } from '@bsb/base';
 
 export const REGISTRY_IDENTIFIER_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*)$';
 export const REGISTRY_PLUGIN_ID_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*)(?:/(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*))?$';
@@ -46,12 +46,15 @@ export const majorMinorVersion = (description: string) => bsb.string({
 // Registry Entry Schema (Main Data Model)
 // ========================================
 
+export const LanguageSchema = bsb.enum([...PLUGIN_LANGUAGES], 'Plugin implementation language');
+
 const PackageInfo = bsb.object({
   nodejs: optional(bsb.string({ description: 'NPM package name' })),
   csharp: optional(bsb.string({ description: 'NuGet package name' })),
   go: optional(bsb.string({ description: 'Go module path' })),
   java: optional(bsb.string({ description: 'Maven coordinates' })),
   python: optional(bsb.string({ description: 'PyPI package name' })),
+  rust: optional(bsb.string({ description: 'Cargo crate name' })),
 }, 'Language-specific package information');
 
 const AuthorObject = bsb.object({
@@ -74,6 +77,7 @@ const RuntimeRequirements = bsb.object({
   go: optional(bsb.string({ description: 'Go version requirement' })),
   java: optional(bsb.string({ description: 'Java version requirement' })),
   python: optional(bsb.string({ description: 'Python version requirement' })),
+  rust: optional(bsb.string({ description: 'Rust version requirement' })),
 }, 'Runtime version requirements');
 
 const TypeDefinitions = bsb.object({
@@ -81,6 +85,8 @@ const TypeDefinitions = bsb.object({
   csharp: optional(bsb.string({ description: 'C# interface definitions' })),
   go: optional(bsb.string({ description: 'Go type definitions' })),
   java: optional(bsb.string({ description: 'Java interface definitions' })),
+  python: optional(bsb.string({ description: 'Python type definitions' })),
+  rust: optional(bsb.string({ description: 'Rust type definitions' })),
 }, 'Language-specific type definitions');
 
 const Documentation = bsb.array(
@@ -201,7 +207,7 @@ export const RegistryEntrySchema = bsb.object({
   // Version & Language
   version: semanticVersion('Semantic version (1.0.0)'),
   majorMinor: majorMinorVersion('Major.minor only (1.0)'),
-  language: bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Programming language'),
+  language: bsb.enum([...PLUGIN_LANGUAGES], 'Programming language'),
 
   // Language-specific package info
   package: optional(PackageInfo),
@@ -253,7 +259,7 @@ export const RegistryEntrySchema = bsb.object({
   runtime: optional(RuntimeRequirements),
 }, 'Registry entry for a plugin');
 
-export type RegistryEntry = InferBSBType<typeof RegistryEntrySchema>;
+export type RegistryEntry = Omit<InferBSBType<typeof RegistryEntrySchema>, 'language'> & { language: PluginLanguage };
 
 // ========================================
 // API Request/Response Schemas
@@ -263,7 +269,7 @@ export const ReadTokenSchema = bsb.string({ min: 1, max: 500, description: 'Opti
 
 export const ListQuerySchema = bsb.object({
   org: optional(registryIdentifier('Filter by organization')),
-  language: optional(bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Filter by language')),
+  language: optional(bsb.enum([...PLUGIN_LANGUAGES], 'Filter by language')),
   category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 50)' })),
   offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
@@ -274,7 +280,7 @@ export type ListQuery = InferBSBType<typeof ListQuerySchema>;
 
 export const SearchQuerySchema = bsb.object({
   query: bsb.string({ min: 1, max: 200, description: 'Search query string' }),
-  language: optional(bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Filter by language')),
+  language: optional(bsb.enum([...PLUGIN_LANGUAGES], 'Filter by language')),
   category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 20)' })),
   offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
@@ -287,7 +293,7 @@ export const PublishRequestSchema = bsb.object({
   org: registryIdentifier('Organization name'),
   name: registryIdentifier('Plugin name'),
   version: semanticVersion('Semantic version'),
-  language: bsb.enum(['nodejs', 'csharp', 'go', 'java', 'python'], 'Programming language'),
+  language: bsb.enum([...PLUGIN_LANGUAGES], 'Programming language'),
   metadata: bsb.object({
     displayName: bsb.string({ min: 1, max: 200, description: 'Human-readable name' }),
     description: bsb.string({ min: 1, max: 1000, description: 'Short description' }),
@@ -310,7 +316,7 @@ export const PublishRequestSchema = bsb.object({
   token: optional(ReadTokenSchema),
 }, 'Request body for publishing a plugin');
 
-export type PublishRequest = InferBSBType<typeof PublishRequestSchema>;
+export type PublishRequest = Omit<InferBSBType<typeof PublishRequestSchema>, 'language'> & { language: PluginLanguage };
 
 export const SearchResultsSchema = bsb.object({
   results: bsb.array(RegistryEntrySchema, { description: 'Matching plugins' }),
@@ -338,6 +344,7 @@ export const PublishResponseSchema = bsb.object({
 export type PublishResponse = InferBSBType<typeof PublishResponseSchema>;
 
 export const VersionInfo = bsb.object({
+  language: optional(LanguageSchema),
   version: bsb.string({ description: 'Full semantic version' }),
   majorMinor: bsb.string({ description: 'Major.minor version' }),
   publishedAt: bsb.datetime('Publication timestamp'),

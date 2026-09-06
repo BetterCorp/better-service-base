@@ -37,6 +37,9 @@ internal class SBServices : IAsyncDisposable
             e => e.Metadata?.InitAfterPlugins,
             e => e.Metadata?.InitBeforePlugins);
 
+        _services.Clear();
+        _services.AddRange(ordered);
+
         foreach (var entry in ordered)
         {
             var obs = observable.CreateObservable(entry.Name, "init");
@@ -89,8 +92,10 @@ internal class SBServices : IAsyncDisposable
     {
         GC.SuppressFinalize(this);
         // Dispose in reverse order of registration
+        List<Exception> errors = new();
         for (int i = _services.Count - 1; i >= 0; i--)
-            await _services[i].Instance.DisposeAsync();
+            try { await _services[i].Instance.DisposeAsync(); } catch (Exception error) { errors.Add(error); }
+        if (errors.Count > 0) throw new AggregateException(errors);
     }
 
     /// <summary>
@@ -208,12 +213,8 @@ internal class SBServices : IAsyncDisposable
             }
         }
 
-        // Append any remaining entries (cycle or unresolved) in original order
-        foreach (var entry in entries)
-        {
-            if (!visited.Contains(entry.Name))
-                result.Add(entry);
-        }
+        if (result.Count != entries.Count)
+            throw new InvalidOperationException("Plugin lifecycle dependency cycle: " + string.Join(", ", entries.Where(e => !visited.Contains(e.Name)).Select(e => e.Name)));
 
         return result;
     }

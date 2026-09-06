@@ -530,7 +530,7 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(deploymentHtml, /<select name="section"/);
     assert.match(deploymentHtml, /<input type="hidden" name="section"/);
     assert.match(deploymentHtml, /name="typeDisplay" disabled/);
-    assert.match(deploymentHtml, />syslog-client 1\.0\.0</);
+    assert.match(deploymentHtml, />syslog-client 1\.0\.0 \(nodejs\)</);
     assert.doesNotMatch(deploymentHtml, /_\/syslog-client/);
     assert.doesNotMatch(deploymentHtml, />config-vault 1\.0\.0</);
     assert.match(deploymentHtml, /data-config-path="host"/);

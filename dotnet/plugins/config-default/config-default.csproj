@@ -9,6 +9,7 @@
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     </PropertyGroup>
     <ItemGroup>
+        <PackageReference Include="YamlDotNet" Version="18.1.0" />
         <ProjectReference Include="..\..\BSB\BSB.csproj" Private="false" ExcludeAssets="runtime" />
     </ItemGroup>
 </Project>

@@ -35,6 +35,8 @@ const SCHEMA_IDENTIFIERS: Set<string> = new Set([
   'optional',
   'nullable',
   'InferBSBType',
+  'PLUGIN_LANGUAGES',
+  'normalizePluginLanguage',
 ]);
 
 interface PluginSource {
@@ -313,6 +315,8 @@ function rewriteBsbImport(
       target = '../../base/PluginConfig.js';
     } else if (['createEventSchemas', 'createReturnableEvent', 'createFireAndForgetEvent', 'createBroadcastEvent'].includes(id)) {
       target = '../../interfaces/schema-events.js';
+    } else if (['PLUGIN_LANGUAGES', 'normalizePluginLanguage'].includes(id)) {
+      target = '../../interfaces/plugin-language.js';
     } else {
       target = '../../interfaces/schema-types.js';
     }

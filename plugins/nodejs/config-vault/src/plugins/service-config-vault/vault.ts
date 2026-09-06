@@ -1,4 +1,4 @@
-import type { Observable } from '@bsb/base';
+import { normalizePluginLanguage, type PluginLanguage, type Observable } from '@bsb/base';
 import * as av from 'anyvali';
 import safeRegex from 'safe-regex2';
 import {
@@ -54,6 +54,7 @@ type PluginUsageLocation = {
 type PluginUsage = Record<string, { count: number; locations: PluginUsageLocation[] }>;
 
 type PrivatePluginUploadInput = {
+  language?: PluginLanguage;
   org: string;
   packageName: string;
   schemaFileName?: string;
@@ -64,6 +65,7 @@ type PrivatePluginUploadInput = {
 };
 
 type PrivatePluginPublishInput = {
+  language: PluginLanguage;
   org: string;
   pluginId: string;
   packageName: string;
@@ -431,10 +433,10 @@ export class VaultService {
     return record;
   }
 
-  async createDeployment(userId: string, applicationId: string, name: string): Promise<{ group: GroupRecord; profile: ProfileRecord }> {
+  async createDeployment(userId: string, applicationId: string, name: string, language: PluginLanguage = 'nodejs'): Promise<{ group: GroupRecord; profile: ProfileRecord }> {
     const now = new Date().toISOString();
     const group: GroupRecord = { id: newId(), applicationId, name, createdAt: now };
-    const profile: ProfileRecord = { id: newId(), groupId: group.id, name: 'default', activeVersionId: null, createdAt: now };
+    const profile: ProfileRecord = { language: normalizePluginLanguage(language), id: newId(), groupId: group.id, name: 'default', activeVersionId: null, createdAt: now };
     await this.store.createDeployment(group, profile);
     await this.audit(userId, 'deployment.create', group.id, { applicationId, name, defaultProfileId: profile.id });
     return { group, profile };
@@ -450,8 +452,9 @@ export class VaultService {
     await this.audit(userId, 'group.delete', id, {});
   }
 
-  async createProfile(userId: string, groupId: string, name: string): Promise<ProfileRecord> {
+  async createProfile(userId: string, groupId: string, name: string, language: PluginLanguage = 'nodejs'): Promise<ProfileRecord> {
     const record: ProfileRecord = {
+      language: normalizePluginLanguage(language),
       id: newId(),
       groupId,
       name,
@@ -463,8 +466,8 @@ export class VaultService {
     return record;
   }
 
-  async updateProfile(userId: string, id: string, groupId: string, name: string): Promise<void> {
-    await this.store.updateProfile(id, groupId, name);
+  async updateProfile(userId: string, id: string, groupId: string, name: string, language?: PluginLanguage): Promise<void> {
+    await this.store.updateProfile(id, groupId, name, language === undefined ? undefined : normalizePluginLanguage(language));
     await this.audit(userId, 'profile.update', id, { groupId, name });
   }
 
@@ -482,6 +485,7 @@ export class VaultService {
     if (!normalizedInput.version.trim()) throw new Error('Plugin version is required');
     const existing = (await this.store.listPlugins()).find((plugin) =>
       plugin.pluginId === normalizedInput.pluginId &&
+      (plugin.language ?? 'nodejs') === normalizedInput.language &&
       plugin.version === normalizedInput.version &&
       plugin.packageName === normalizedInput.packageName &&
       plugin.kind === normalizedInput.kind
@@ -511,7 +515,7 @@ export class VaultService {
     assertSafeSchemaDocument(parsed.configSchema);
     assertSafeSchemaDocument(parsed.eventSchema);
     const previousPlugins = await this.store.listPlugins();
-    const versions = previousPlugins.filter((plugin) => plugin.pluginId === parsed.pluginId);
+    const versions = previousPlugins.filter((plugin) => plugin.pluginId === parsed.pluginId && (plugin.language ?? 'nodejs') === parsed.language);
     const existing = versions.find((plugin) => plugin.version === parsed.version);
     if (existing) {
       throw new Error(`Plugin ${parsed.pluginId} version ${parsed.version} already exists and cannot be uploaded again`);
@@ -595,10 +599,11 @@ export class VaultService {
   }
 
   private async movePublisherToPlugin(plugin: PluginCatalogRecord): Promise<void> {
-    const publisher = await this.store.getPluginPublisher(plugin.pluginId);
+    const publisher = await this.store.getPluginPublisher(plugin.pluginId, plugin.language);
     if (!publisher) return;
     if (!plugin.packageName) throw new Error(`Uploaded manifest for ${plugin.pluginId} must include a package because CI publishing is enabled`);
     await this.store.updatePluginPublisherIdentity({
+      language: plugin.language,
       pluginId: plugin.pluginId,
       org: plugin.org,
       name: plugin.name,
@@ -651,6 +656,7 @@ export class VaultService {
     };
 
     for (const profile of await this.store.listAllProfiles()) {
+      if ((profile.language ?? 'nodejs') !== replacement.language) continue;
       const draft = await this.getProfileDraft(profile.id);
       if (draft) {
         await visit(draft, `deployment draft ${profile.name}`, (next) => this.saveProfileDraft(userId, profile.id, next));
@@ -677,11 +683,11 @@ export class VaultService {
     }
   }
 
-  async enablePluginPublisher(userId: string, pluginId: string): Promise<{ keyId: string; secret: string }> {
-    if (await this.store.getPluginPublisher(pluginId)) throw new Error('Plugin publishing is already enabled');
-    const versions = (await this.store.listPlugins()).filter((plugin) => plugin.pluginId === pluginId);
+  async enablePluginPublisher(userId: string, pluginId: string, language: PluginLanguage = 'nodejs'): Promise<{ keyId: string; secret: string }> {
+    if (await this.store.getPluginPublisher(pluginId, language)) throw new Error('Plugin publishing is already enabled');
+    const versions = (await this.store.listPlugins()).filter((plugin) => plugin.pluginId === pluginId && (plugin.language ?? 'nodejs') === language);
     if (versions.length === 0 || versions.some((plugin) => plugin.source === 'registry' || !plugin.packageName)) {
-      throw new Error('Only private plugins with an npm package can enable publishing');
+      throw new Error('Only private plugins with a native package can enable publishing');
     }
     const latest = latestPlugin(versions)!;
     if (versions.some((plugin) => plugin.org !== latest.org || plugin.packageName !== latest.packageName || plugin.kind !== latest.kind)) {
@@ -693,11 +699,11 @@ export class VaultService {
     return { keyId: credential.publisher.tokenId, secret: credential.secret };
   }
 
-  async rotatePluginPublisher(userId: string, pluginId: string): Promise<{ keyId: string; secret: string }> {
-    const existing = await this.store.getPluginPublisher(pluginId);
+  async rotatePluginPublisher(userId: string, pluginId: string, language: PluginLanguage = 'nodejs'): Promise<{ keyId: string; secret: string }> {
+    const existing = await this.store.getPluginPublisher(pluginId, language);
     if (!existing) throw new Error('Plugin publisher not found');
     const credential = await createPublisherCredential(existing);
-    await this.store.rotatePluginPublisher(pluginId, credential.publisher.tokenId, credential.publisher.secretHash, credential.publisher.rotatedAt);
+    await this.store.rotatePluginPublisher(pluginId, credential.publisher.tokenId, credential.publisher.secretHash, credential.publisher.rotatedAt, language);
     await this.audit(userId, 'plugin.publisher.rotate', pluginId, {
       previousTokenId: existing.tokenId,
       tokenId: credential.publisher.tokenId,
@@ -719,7 +725,7 @@ export class VaultService {
     const input = privatePluginPublishInput(rawInput);
     assertSafeSchemaDocument(input.configSchema);
     assertSafeSchemaDocument(input.eventSchema);
-    if (input.pluginId !== publisher.pluginId || input.org !== publisher.org || input.packageName !== publisher.packageName || input.kind !== publisher.kind) {
+    if (input.language !== (publisher.language ?? 'nodejs') || input.pluginId !== publisher.pluginId || input.org !== publisher.org || input.packageName !== publisher.packageName || input.kind !== publisher.kind) {
       await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.identity.rejected', publisher.pluginId, {
         requestedPluginId: input.pluginId,
       });
@@ -727,7 +733,7 @@ export class VaultService {
     }
 
     const previousPlugins = await this.store.listPlugins();
-    const versions = previousPlugins.filter((plugin) => plugin.pluginId === publisher.pluginId);
+    const versions = previousPlugins.filter((plugin) => plugin.pluginId === publisher.pluginId && (plugin.language ?? 'nodejs') === (publisher.language ?? 'nodejs'));
     const existing = versions.find((plugin) => plugin.version === input.version);
     if (existing) {
       if (isDeepStrictEqual(existing.configSchema, input.configSchema) && isDeepStrictEqual(existing.eventSchema, input.eventSchema)) {
@@ -751,6 +757,7 @@ export class VaultService {
       org: publisher.org,
       name: publisher.name,
       pluginId: publisher.pluginId,
+      language: publisher.language ?? 'nodejs',
       packageName: publisher.packageName,
       version: input.version,
       kind: publisher.kind,
@@ -761,7 +768,7 @@ export class VaultService {
     };
     if (!(await this.store.createPluginIfAbsent(record))) {
       const concurrent = (await this.store.listPlugins()).find((plugin) =>
-        plugin.pluginId === record.pluginId && plugin.version === record.version
+        plugin.pluginId === record.pluginId && (plugin.language ?? 'nodejs') === record.language && plugin.version === record.version
       );
       if (concurrent && isDeepStrictEqual(concurrent.configSchema, record.configSchema) && isDeepStrictEqual(concurrent.eventSchema, record.eventSchema)) {
         await this.audit(`publisher:${publisher.tokenId}`, 'plugin.publish.unchanged', concurrent.id, { version: concurrent.version });
@@ -904,6 +911,7 @@ export class VaultService {
     userId: string,
     input: {
       applicationProfileId: string;
+      language?: PluginLanguage;
       section: 'services' | 'events' | 'observable';
       name: string;
       plugin: string;
@@ -926,6 +934,7 @@ export class VaultService {
     );
     const config = await this.validatePluginConfig(input, catalog);
     section[input.name] = {
+      language: catalog.language,
       plugin: catalog.pluginId,
       package: catalog.packageName ?? undefined,
       version: input.version ? catalog.version : undefined,
@@ -977,7 +986,7 @@ export class VaultService {
     if (!binding) throw new Error('Deployment profile not found');
     const draft = await this.getProfileDraft(input.profileId) ?? { observable: {}, events: {}, services: {} };
     const section = draft[input.section] ?? {};
-    const catalog = await this.resolveCatalogPlugin(input);
+    const catalog = await this.resolveCatalogPlugin({ ...input, language: binding.profile.language ?? 'nodejs' });
     input.config = mergeSensitiveConfig(
       catalog.configSchema,
       input.config ?? {},
@@ -988,6 +997,7 @@ export class VaultService {
       ? await this.validatePluginConfigPaths(input, catalog, input.overridePaths)
       : await this.validatePluginConfig(input, catalog) ?? {};
     const entry: RuntimePluginDefinition = {
+      language: catalog.language,
       plugin: catalog.pluginId,
       package: catalog.packageName ?? undefined,
       version: input.version ? catalog.version : undefined,
@@ -1080,6 +1090,14 @@ export class VaultService {
     if (!draft) throw new Error('No draft found for profile');
     const versionId = newId();
     const plaintext = this.decrypt<VaultRuntimeConfig>(draft, profileDraftAad(profileId));
+    const binding = await this.store.resolveProfileBinding(profileId);
+    if (!binding) throw new Error('Deployment profile not found');
+    const shared = await this.getPublishedApplicationConfig(binding.application.id, binding.profile.name);
+    normalizeRuntimeConfig(
+      mergeRuntimeConfig(shared?.[binding.profile.name] ?? {}, plaintext[binding.profile.name] ?? {}),
+      await this.store.listPlugins(),
+      binding.profile.language ?? 'nodejs',
+    );
     const encrypted = this.encrypt(plaintext, profileVersionAad(profileId, versionId));
     const version = await this.store.createVersion({
       id: versionId,
@@ -1217,7 +1235,7 @@ export class VaultService {
       mergedProfile,
       await this.collectDeploymentServiceReferences(binding.application.id, binding.profile.id, binding.profile.name),
     );
-    const mergedConfig = { [binding.profile.name]: normalizeRuntimeConfig(mergedProfile, await this.store.listPlugins()) };
+    const mergedConfig = { [binding.profile.name]: normalizeRuntimeConfig(mergedProfile, await this.store.listPlugins(), binding.profile.language ?? 'nodejs') };
     obs?.log.info('Vault runtime config resolved for {application}/{group}/{profile}', {
       application: binding.application.name,
       group: binding.group.name,
@@ -1229,6 +1247,7 @@ export class VaultService {
       });
     });
     return {
+      language: binding.profile.language ?? 'nodejs',
       application: binding.application.name,
       group: binding.group.name,
       profile: binding.profile.name,
@@ -1317,12 +1336,14 @@ export class VaultService {
       usage[plugin.id].count += 1;
       usage[plugin.id].locations.push(location);
     };
-    const scan = (config: RuntimeConfigDefinition | null | undefined, context: { prefix: string; href: string }) => {
+    const scan = (config: RuntimeConfigDefinition | null | undefined, context: { prefix: string; href: string; language?: PluginLanguage }) => {
       if (!config) return;
       for (const sectionName of ['services', 'events', 'observable'] as const) {
         const section = config[sectionName] ?? {};
         for (const [name, entry] of Object.entries(section)) {
-          add(resolveCatalogForEntry(plugins, sectionName, entry), {
+          const languages = context.language && entry.enabled !== false
+            ? [context.language] : [...new Set(plugins.map(plugin => plugin.language ?? 'nodejs'))];
+          for (const language of languages) add(resolveCatalogForEntry(plugins.filter(plugin => (plugin.language ?? 'nodejs') === language), sectionName, entry), {
             label: `${context.prefix} / ${sectionName} / ${name}`,
             href: context.href,
           });
@@ -1332,6 +1353,7 @@ export class VaultService {
     for (const profile of await this.store.listAllProfiles()) {
       scan(await this.getProfileDraft(profile.id), {
         prefix: `deployment draft ${profile.name}`,
+        language: profile.language ?? 'nodejs',
         href: `/deployment?profileId=${encodeURIComponent(profile.id)}`,
       });
       if (profile.activeVersionId) {
@@ -1340,6 +1362,7 @@ export class VaultService {
           const decrypted = this.decrypt<VaultRuntimeConfig>(version, profileVersionAad(profile.id, version.id));
           scan(decrypted[profile.name], {
             prefix: `deployment live ${profile.name}`,
+            language: profile.language ?? 'nodejs',
             href: `/deployment?profileId=${encodeURIComponent(profile.id)}`,
           });
         }
@@ -1373,6 +1396,7 @@ export class VaultService {
     if (!sectionName) return;
     const previous = latestPlugin(previousPlugins.filter((plugin) =>
       plugin.pluginId === imported.pluginId &&
+      (plugin.language ?? 'nodejs') === imported.language &&
       plugin.kind === imported.kind &&
       plugin.packageName === imported.packageName
     ));
@@ -1408,6 +1432,7 @@ export class VaultService {
     };
 
     for (const profile of await this.store.listAllProfiles()) {
+      if ((profile.language ?? 'nodejs') !== imported.language) continue;
       const draft = await this.getProfileDraft(profile.id);
       if (draft) {
         await visit(draft, (next) => this.saveProfileDraft(userId, profile.id, next));
@@ -1462,7 +1487,7 @@ export class VaultService {
       groups: await this.store.listAllGroups(),
       applications: await this.store.listApplications(),
       applicationProfiles: await this.store.listApplicationProfiles(binding.application.id),
-      plugins: await this.store.listPlugins(),
+      plugins: (await this.store.listPlugins()).filter(plugin => (plugin.language ?? 'nodejs') === (binding.profile.language ?? 'nodejs')),
       draft: await this.getProfileDraft(profileId),
       inheritedDraft: await this.getApplicationProfileDraft(applicationProfile.id),
       configState: await this.profileConfigState(binding.profile),
@@ -1745,6 +1770,7 @@ export class VaultService {
   }
 
   private async resolveCatalogPlugin(input: {
+    language?: PluginLanguage;
     section: 'services' | 'events' | 'observable';
     plugin: string;
     packageName?: string | null;
@@ -1754,6 +1780,7 @@ export class VaultService {
     const plugins = (await this.store.listPlugins()).filter((plugin) =>
       (plugin.pluginId === input.plugin || `${plugin.org}/${plugin.pluginId}` === input.plugin) &&
       plugin.kind === expectedKind &&
+      (plugin.language ?? 'nodejs') === (input.language ?? 'nodejs') &&
       (input.packageName ? plugin.packageName === input.packageName : true)
     );
     if (plugins.length === 0) throw new Error(`Plugin ${input.plugin} (${expectedKind}) is not imported`);
@@ -1953,7 +1980,8 @@ function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCa
     if (schemaPluginId !== pluginId) throw new Error(`Schema file ${input.schemaFileName.trim()} does not match plugin id ${pluginId}`);
   }
   const org = (optionalString(manifest?.org) ?? input.org.trim()) || '_';
-  const packageName = optionalString(input.packageName) ?? manifestPackageName(manifest);
+  const language = normalizePluginLanguage(input.language ?? manifest?.language ?? schema?.language ?? 'nodejs');
+  const packageName = optionalString(input.packageName) ?? manifestPackageName(manifest, language);
   if (!/^(_|@?[a-z0-9][a-z0-9._-]*)$/i.test(org)) throw new Error('Plugin org is invalid');
   if (packageName && /\s/.test(packageName)) throw new Error('Plugin package is invalid');
   if (!manifest && (!schema || Array.isArray(schema.nodejs) || schema.version === undefined || schema.pluginType === undefined || !objectField(schema.events))) {
@@ -1971,6 +1999,7 @@ function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCa
   return {
     org,
     name,
+    language,
     pluginId,
     packageName,
     version,
@@ -2005,19 +2034,13 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
-function manifestPackageName(manifest: Record<string, unknown> | null): string | null {
+function manifestPackageName(manifest: Record<string, unknown> | null, language: PluginLanguage): string | null {
   if (!manifest) return null;
   const direct = optionalString(manifest.packageName);
   if (direct) return direct;
   const packages = objectField(manifest.package) ?? objectField(manifest.packages);
   if (!packages) return null;
-  const nodejs = optionalString(packages.nodejs);
-  if (nodejs) return nodejs;
-  for (const value of Object.values(packages)) {
-    const packageName = optionalString(value);
-    if (packageName) return packageName;
-  }
-  return null;
+  return optionalString(packages[language]) ?? null;
 }
 
 function privateEventSchema(
@@ -2112,7 +2135,7 @@ function privatePluginPublishInput(input: Record<string, unknown>): PrivatePlugi
   if (rawKind !== 'service' && rawKind !== 'events' && rawKind !== 'observable') {
     throw new Error('Plugin kind must be service, events, or observable');
   }
-  if (input.language !== undefined && input.language !== 'nodejs') throw new Error('Only Node.js plugins can be published to Vault');
+  const language = normalizePluginLanguage(input.language ?? 'nodejs');
   const pluginId = requiredString(input.pluginId ?? input.name, 'Plugin id');
   if (typeof eventSchema.pluginId === 'string' && eventSchema.pluginId.trim() && eventSchema.pluginId.trim() !== pluginId) {
     throw new Error(`eventSchema.pluginId ${eventSchema.pluginId.trim()} does not match plugin id ${pluginId}`);
@@ -2131,7 +2154,8 @@ function privatePluginPublishInput(input: Record<string, unknown>): PrivatePlugi
   return {
     org: requiredString(input.org, 'Plugin org'),
     pluginId,
-    packageName: requiredString(input.packageName ?? packages.nodejs, 'Plugin package'),
+    language,
+    packageName: requiredString(input.packageName ?? packages[language], 'Plugin package'),
     version,
     kind: rawKind,
     configSchema: input.configSchema === undefined || input.configSchema === null ? null : requireObject(input.configSchema, 'configSchema'),
@@ -2153,9 +2177,9 @@ function requiredVersion(value: unknown, label: string): string {
 }
 
 async function createPublisherCredential(
-  plugin: Pick<PluginCatalogRecord, 'pluginId' | 'org' | 'name' | 'packageName' | 'kind'> | PluginPublisherRecord,
+  plugin: Pick<PluginCatalogRecord, 'pluginId' | 'org' | 'name' | 'packageName' | 'kind' | 'language'> | PluginPublisherRecord,
 ): Promise<{ publisher: PluginPublisherRecord; secret: string }> {
-  if (!plugin.packageName || plugin.kind === 'config') throw new Error('Private plugin requires a configurable Node.js package');
+  if (!plugin.packageName || plugin.kind === 'config') throw new Error('Private plugin requires a configurable native package');
   const tokenId = newToken(9);
   const slug = plugin.pluginId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'plugin';
   const secret = `bv_p_${slug}_${tokenId}_${newToken(32)}`;
@@ -2163,6 +2187,7 @@ async function createPublisherCredential(
   return {
     secret,
     publisher: {
+      language: plugin.language ?? 'nodejs',
       pluginId: plugin.pluginId,
       org: plugin.org,
       name: plugin.name,
@@ -2223,16 +2248,17 @@ function normalizePluginCatalogInput(input: Omit<PluginCatalogRecord, 'id' | 'cr
   }
   return {
     ...input,
+    language: normalizePluginLanguage(input.language ?? 'nodejs'),
     org,
     pluginId,
   };
 }
 
-function normalizeRuntimeConfig(config: RuntimeConfigDefinition, plugins: PluginCatalogRecord[]): RuntimeConfigDefinition {
+function normalizeRuntimeConfig(config: RuntimeConfigDefinition, plugins: PluginCatalogRecord[], language: PluginLanguage): RuntimeConfigDefinition {
   return {
-    observable: normalizeRuntimeSection(config.observable, 'observable', plugins),
-    events: normalizeRuntimeSection(config.events, 'events', plugins),
-    services: normalizeRuntimeSection(config.services, 'services', plugins),
+    observable: normalizeRuntimeSection(config.observable, 'observable', plugins, language),
+    events: normalizeRuntimeSection(config.events, 'events', plugins, language),
+    services: normalizeRuntimeSection(config.services, 'services', plugins, language),
   };
 }
 
@@ -2240,15 +2266,25 @@ function normalizeRuntimeSection(
   section: Record<string, RuntimePluginDefinition> | undefined,
   sectionName: 'services' | 'events' | 'observable',
   plugins: PluginCatalogRecord[],
+  language: PluginLanguage,
 ): Record<string, RuntimePluginDefinition> | undefined {
   if (!section) return undefined;
   return Object.fromEntries(Object.entries(section).map(([name, entry]) => {
-    const catalog = resolveCatalogForEntry(plugins, sectionName, entry);
+    const nativePlugins = entry.enabled === false ? plugins : plugins.filter(plugin => (plugin.language ?? 'nodejs') === language);
+    const catalog = resolveCatalogForEntry(nativePlugins, sectionName, entry);
+    if (!catalog && entry.enabled !== false && plugins.some(plugin =>
+      plugin.pluginId === entry.plugin || `${plugin.org}/${plugin.pluginId}` === entry.plugin)) {
+      throw new Error(`Plugin ${entry.plugin} package/version is not available for ${language}`);
+    }
     const normalized: RuntimePluginDefinition = {
       ...entry,
       plugin: catalog?.pluginId ?? entry.plugin,
       package: entry.package ?? catalog?.packageName ?? undefined,
     };
+    if (catalog?.configSchema && entry.enabled !== false) {
+      const root = objectField(catalog.configSchema.root) ?? catalog.configSchema;
+      normalized.config = validateAnyValiNode(root, entry.config ?? {}, `${sectionName}.${name}.config`, catalog.configSchema) as Record<string, unknown>;
+    }
     const envOverridePaths = envOverridePathsFromSchema(catalog?.configSchema);
     if (entry.allowEnvOverrides && envOverridePaths.length > 0) normalized.envOverridePaths = envOverridePaths;
     else delete normalized.envOverridePaths;
@@ -2309,6 +2345,7 @@ function resolveCatalogForEntry(
   const matches = plugins.filter((plugin) =>
     (plugin.pluginId === entry.plugin || `${plugin.org}/${plugin.pluginId}` === entry.plugin) &&
     plugin.kind === expectedKind &&
+    (entry.language ? (plugin.language ?? 'nodejs') === entry.language : true) &&
     (entry.package ? plugin.packageName === entry.package : true)
   );
   return entry.version

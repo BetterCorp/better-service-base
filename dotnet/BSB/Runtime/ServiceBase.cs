@@ -2,6 +2,7 @@ namespace BSB.Runtime;
 
 using BSB.Base;
 using BSB.Interfaces;
+using System.Runtime.InteropServices;
 
 /// <summary>
 /// Main BSB service runner. This is the container that loads and runs plugins.
@@ -26,16 +27,24 @@ public class ServiceBase : IAsyncDisposable
     private readonly SBPlugins _plugins;
     private readonly SBConfig _config = new();
     private readonly SBObservable _observable = new();
-    private readonly SBEvents _events = new();
+    private readonly SBEvents _events;
+    private readonly string _appId;
     private readonly SBServices _services = new();
     private readonly CancellationTokenSource _shutdownCts = new();
     private readonly ServiceBaseOptions _options;
     private bool _disposed;
+    private readonly PosixSignalRegistration? _sigterm;
 
     private ServiceBase(ServiceBaseOptions options)
     {
         _options = options;
         _plugins = new SBPlugins(options.Cwd);
+        _appId = options.AppId ?? Guid.NewGuid().ToString("N")[..12];
+        _events = new SBEvents(MakeArgs(_appId, "events-router"));
+        Console.CancelKeyPress += OnCancelKeyPress;
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+        if (!OperatingSystem.IsWindows())
+            _sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context => { context.Cancel = true; _shutdownCts.Cancel(); });
     }
 
     /// <summary>
@@ -64,12 +73,14 @@ public class ServiceBase : IAsyncDisposable
     /// </summary>
     public async Task Init()
     {
-        var appId = _options.AppId ?? Guid.NewGuid().ToString("N")[..12];
+        var appId = _appId;
+        var version = typeof(ServiceBase).Assembly.GetName().Version?.ToString() ?? "unknown";
+        Console.Error.WriteLine($"BSB startup: runtime {version}, loading configuration");
 
         _observable.SetResource(new ResourceContext
         {
             ServiceName = "service-base",
-            ServiceVersion = "9.0.0",
+            ServiceVersion = version,
             ServiceInstanceId = appId,
             DeploymentEnvironment = _options.Mode.ToString().ToLowerInvariant(),
             DeploymentRegion = _options.Region,
@@ -77,8 +88,10 @@ public class ServiceBase : IAsyncDisposable
 
         // --- 1. Load config plugin from disk ---
         // Config is always loaded first (bootstrap). It tells us what else to load.
-        var configDef = new PluginDefinition { Name = "config-default", Enabled = true };
-        var configArgs = MakeArgs(appId, "config-default");
+        var configDef = _options.ConfigPlugin ?? new PluginDefinition {
+            Name = Environment.GetEnvironmentVariable("BSB_CONFIG_PLUGIN") ?? "config-default",
+            Package = Environment.GetEnvironmentVariable("BSB_CONFIG_PLUGIN_PACKAGE"), Enabled = true };
+        var configArgs = MakeArgs(appId, configDef.Name, _options.Config);
         var configPlugin = _plugins.CreateConfigInstance(configDef, configArgs);
         var bootObs = _observable.CreateObservable("service-base", "boot");
         await _config.Init(configPlugin, bootObs);
@@ -97,8 +110,8 @@ public class ServiceBase : IAsyncDisposable
         await _observable.Init(bootObs);
 
         // Now that we have an observable, re-log the boot message
-        bootObs.Log.Info("BSB Service Base v9.0.0 initializing");
-        bootObs.Log.Info("Config plugin loaded: config-default");
+        bootObs.Log.Info("BSB Service Base {version} initializing", new LogMeta { ["version"] = version });
+        bootObs.Log.Info("Config plugin loaded: {plugin}", new LogMeta { ["plugin"] = configDef.Name });
         bootObs.Log.Info("Observable plugins initialized");
 
         // --- 3. Load events plugins from config ---
@@ -106,8 +119,9 @@ public class ServiceBase : IAsyncDisposable
         foreach (var (name, def) in eventsPlugins)
         {
             if (!def.Enabled) continue;
-            var instance = _plugins.CreateEventsInstance(def, MakeArgs(appId, name));
-            _events.AddPlugin(instance);
+            var eventConfig = await _config.GetPluginConfig(bootObs, PluginType.Events, name);
+            var instance = _plugins.CreateEventsInstance(def, MakeArgs(appId, name, eventConfig));
+            _events.AddPlugin(instance, def.Filter);
         }
         if (!_events.HasPlugins)
             throw new InvalidOperationException("No events plugin configured; service initialization requires an events backend");
@@ -116,6 +130,7 @@ public class ServiceBase : IAsyncDisposable
 
         // --- 4. Load service plugins from config ---
         var servicePlugins = await _config.GetServicePlugins(bootObs);
+        _events.SetServices(servicePlugins);
         foreach (var (name, def) in servicePlugins)
         {
             if (!def.Enabled) continue;
@@ -128,7 +143,7 @@ public class ServiceBase : IAsyncDisposable
         // --- 5. Init services in dependency order ---
         if (_events.HasPlugins)
         {
-            await _services.Init(_observable, _events.Primary);
+            await _services.Init(_observable, _events);
         }
         bootObs.Log.Info("All services initialized");
         bootObs.End();
@@ -143,6 +158,8 @@ public class ServiceBase : IAsyncDisposable
         var obs = _observable.CreateObservable("service-base", "run");
         obs.Log.Info("BSB Service Base running");
 
+        await _observable.Run(obs);
+
         if (_events.HasPlugins)
             await _events.Run(obs);
         await _services.Run(_observable);
@@ -150,8 +167,6 @@ public class ServiceBase : IAsyncDisposable
         obs.Log.Info("All services running");
         obs.End();
 
-        Console.CancelKeyPress += OnCancelKeyPress;
-        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
     }
 
     /// <summary>
@@ -162,30 +177,30 @@ public class ServiceBase : IAsyncDisposable
     {
         try
         {
-            await Task.Delay(Timeout.Infinite, _shutdownCts.Token);
+            await await Task.WhenAny(Task.Delay(Timeout.Infinite, _shutdownCts.Token), _events.Completion);
         }
         catch (OperationCanceledException) { }
 
         var obs = _observable.CreateObservable("service-base", "shutdown");
         obs.Log.Info("Shutdown signal received, disposing services");
         await DisposeAsync();
-        obs.Log.Info("BSB Service Base shut down");
-        obs.End();
     }
 
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
+        _sigterm?.Dispose();
+        _shutdownCts.Cancel();
         Console.CancelKeyPress -= OnCancelKeyPress;
         AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
         GC.SuppressFinalize(this);
 
-        await _services.DisposeAsync();
-        await _events.DisposeAsync();
-        await _observable.DisposeAsync();
-        await _config.DisposeAsync();
+        List<Exception> errors = new();
+        foreach (var subsystem in new IAsyncDisposable[] { _services, _events, _observable, _config })
+            try { await subsystem.DisposeAsync(); } catch (Exception error) { errors.Add(error); }
         _shutdownCts.Dispose();
+        if (errors.Count > 0) throw new AggregateException(errors);
     }
 
     private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs args)
@@ -196,13 +211,14 @@ public class ServiceBase : IAsyncDisposable
 
     private void OnProcessExit(object? sender, EventArgs args) => _shutdownCts.Cancel();
 
-    private PluginConstructorArgs MakeArgs(string appId, string pluginName) => new()
+    private PluginConstructorArgs MakeArgs(string appId, string pluginName, object? config = null) => new()
     {
         AppId = appId,
         Mode = _options.Mode,
         PluginName = pluginName,
         Cwd = _options.Cwd,
         Region = _options.Region,
+        RawConfig = config,
     };
 }
 
@@ -211,6 +227,8 @@ public class ServiceBase : IAsyncDisposable
 /// </summary>
 public class ServiceBaseOptions
 {
+    public PluginDefinition? ConfigPlugin { get; init; }
+    public object? Config { get; init; }
     public required string Cwd { get; init; }
     public DebugMode Mode { get; init; } = DebugMode.Development;
     public string? AppId { get; init; }

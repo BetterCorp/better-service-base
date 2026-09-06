@@ -180,6 +180,7 @@ jobs:
 
       - name: Publish host and verify external plugin loading
         run: |
+          dotnet run --project tests/RuntimeTests -c Release
           dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /tmp/bsb-dotnet
           dotnet run --project tests/SmokeTests -c Release -- /tmp/bsb-dotnet tests/TestPlugin/bin/Release/net10.0
 

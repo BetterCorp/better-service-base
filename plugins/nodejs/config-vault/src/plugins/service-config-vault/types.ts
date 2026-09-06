@@ -1,3 +1,5 @@
+import type { PluginLanguage } from '@bsb/base';
+
 export type PluginKind = 'service' | 'events' | 'observable' | 'config';
 export type PluginSource = 'registry' | 'manual' | 'upload';
 
@@ -8,6 +10,7 @@ export interface RuntimeConfigDefinition {
 }
 
 export interface RuntimePluginDefinition {
+  language?: PluginLanguage;
   plugin: string;
   package?: string;
   version?: string;
@@ -82,6 +85,7 @@ export interface GroupRecord {
 }
 
 export interface ProfileRecord {
+  language: PluginLanguage;
   id: string;
   groupId: string;
   name: string;
@@ -98,6 +102,7 @@ export interface ApplicationProfileRecord {
 }
 
 export interface PluginCatalogRecord {
+  language: PluginLanguage;
   id: string;
   org: string;
   name: string;
@@ -112,6 +117,7 @@ export interface PluginCatalogRecord {
 }
 
 export interface PluginPublisherRecord {
+  language: PluginLanguage;
   pluginId: string;
   org: string;
   name: string;
@@ -196,6 +202,7 @@ export interface AuditRecord {
 }
 
 export interface ResolvedRuntimeConfig {
+  language: PluginLanguage;
   application: string;
   group: string;
   profile: string;

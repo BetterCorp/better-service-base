@@ -49,6 +49,12 @@ module.exports = async ({ pluginRoot }) => {
     }), { status: 200 });
 
     await assert.rejects(() => plugin(mod.Plugin).init(obs()), /at least one service/i);
+
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      language: 'csharp', application: 'App', group: 'api', profile: 'default', version: 1,
+      config: { default: { services: { api: { plugin: 'service-api', enabled: true } } } },
+    }), { status: 200 });
+    await assert.rejects(() => plugin(mod.Plugin).init(obs()), /language does not match/i);
   } finally {
     globalThis.fetch = originalFetch;
   }

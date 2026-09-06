@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../BSB/BSB.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/config-vault/config-vault.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/config-vault-google/config-vault-google.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/config-default/config-default.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/events-default/events-default.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/events-rabbitmq/events-rabbitmq.csproj" /></ItemGroup>
+</Project>

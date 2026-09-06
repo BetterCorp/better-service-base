@@ -207,6 +207,6 @@ export function exportPortableSchema(type: BSBType): AnyValiDocument {
   return type.export('extended');
 }
 
-export function importPortableSchema(document: AnyValiDocument): BSBType {
-  return av.importSchema(document);
+export function importPortableSchema<T = unknown>(document: AnyValiDocument): av.BaseSchema<T, T> {
+  return av.importSchema(document) as av.BaseSchema<T, T>;
 }

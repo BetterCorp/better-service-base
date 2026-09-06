@@ -12,8 +12,20 @@ import {
 } from '../../interfaces/schema-events.js';
 import { bsb } from '../../interfaces/schema-types.js';
 import { generateVirtualClient } from '../../scripts/generate-client-types.js';
+import { clientSchemaCode } from '../../scripts/anyvali-client-schema.js';
+import { importPortableSchema } from '../../interfaces/schema-types.js';
+import * as ts from 'typescript';
 
 describe('generate-client-types', () => {
+  it('keeps the wire target independent of the installed implementation filename', () => {
+    const schema = exportEventSchemas('service-orders', createEventSchemas({
+      onEvents: { save: createFireAndForgetEvent(bsb.string()) },
+    }));
+    schema.pluginId = 'service-orders';
+    const code = generateVirtualClient(schema, '@bsb/base', 'example--service-orders--csharp');
+    assert.ok(code.includes('name: "service-orders"'));
+    assert.ok(code.includes('class ExampleServiceOrdersCsharpClient'));
+  });
   it('generates a clear client wiring error for listener methods', () => {
     const schemaExport = exportEventSchemas(
       'service-betterportal-config-manager',
@@ -99,7 +111,31 @@ describe('generate-client-types', () => {
 
     const code = generateVirtualClient(schemaExport, '@bsb/base', 'service-client-records');
 
-    assert.ok(code.includes('bsb.record(bsb.string(), bsb.string())'));
+    assert.ok(code.includes('Record<string, string>'));
+    assert.ok(code.includes('importPortableSchema<'));
     assert.ok(code.includes('this._requireClientEvents("emitEventAndReturn", "fixture.headers")'));
+  });
+
+  it('preserves the full imported schema while generating static types', () => {
+    const document: any = {
+      anyvaliVersion: '1.0', schemaVersion: '1.1', extensions: {},
+      root: { kind: 'object', required: ['secret'], properties: {
+        secret: { kind: 'string', minLength: 3, metadata: { sensitive: true } },
+        next: { kind: 'optional', inner: { kind: 'ref', ref: 'Node' } },
+      } },
+      definitions: { Node: { kind: 'object', required: ['value'], properties: { value: { kind: 'int32', min: 1 } } } },
+    };
+    const generated = clientSchemaCode(document, '_Fixture');
+    assert.ok(generated.declarations[0].includes('_FixtureDefinition0'));
+    const javascript = ts.transpileModule(`${generated.declarations.join('\n')}\nmodule.exports = ${generated.expression};`, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS },
+    }).outputText;
+    const module = { exports: undefined as any };
+    new Function('module', 'importPortableSchema', javascript)(module, importPortableSchema);
+    assert.deepEqual(module.exports.export().definitions, document.definitions);
+    assert.equal(module.exports.export().root.properties.secret.metadata.sensitive, true);
+    assert.equal(module.exports.safeParse({ secret: 'ok' }).success, false);
+    assert.equal(module.exports.safeParse({ secret: 'valid', next: { value: 0 } }).success, false);
+    assert.equal(module.exports.safeParse({ secret: 'valid', next: { value: 1 } }).success, true);
   });
 });

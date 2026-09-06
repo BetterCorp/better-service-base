@@ -3,6 +3,9 @@ BSB (Better-Service-Base) - LLM Index
 Purpose:
 Use this index to keep context minimal. Each link is a focused guide. Only load what you need.
 
+Multilingual registry, Vault profiles and native hosts:
+  https://bsbcode.dev/llms/multilingual.txt
+
 Bootstrap (start here for a new project):
 - Explains the minimal project skeleton, config files, and entry points so code you generate compiles and runs.
   https://bsbcode.dev/llms/nodejs-bootstrap.txt

@@ -8,6 +8,9 @@ import {
   createReturnableEvent,
   bsb,
   optional,
+  normalizePluginLanguage,
+  PLUGIN_LANGUAGES,
+  type PluginLanguage,
 } from '@bsb/base';
 import { type RegistryDB, createStorage } from './db/index.js';
 import { AuthManager } from './auth.js';
@@ -49,10 +52,20 @@ export const EventSchemas = createEventSchemas({
         org: Types.registryIdentifier('Organization name'),
         name: Types.registryIdentifier('Plugin name'),
         version: optional(Types.semanticVersion('Version (defaults to latest)')),
+        language: optional(Types.LanguageSchema),
         token: optional(Types.ReadTokenSchema),
       }),
       Types.RegistryEntrySchema,
       'Get plugin details by org/name'
+    ),
+    'registry.plugin.implementations': createReturnableEvent(
+      bsb.object({
+        org: Types.registryIdentifier('Organization name'),
+        name: Types.registryIdentifier('Plugin name'),
+        token: optional(Types.ReadTokenSchema),
+      }),
+      bsb.object({ implementations: bsb.array(Types.RegistryEntrySchema) }),
+      'Get the latest accessible version of each implementation'
     ),
     'registry.plugin.list': createReturnableEvent(
       Types.ListQuerySchema,
@@ -69,6 +82,7 @@ export const EventSchemas = createEventSchemas({
         org: Types.registryIdentifier('Organization name'),
         name: Types.registryIdentifier('Plugin name'),
         version: optional(Types.semanticVersion('Version (or all if not provided)')),
+        language: optional(Types.LanguageSchema),
         token: optional(Types.ReadTokenSchema),
       }),
       bsb.object({
@@ -82,6 +96,7 @@ export const EventSchemas = createEventSchemas({
         org: Types.registryIdentifier('Organization name'),
         name: Types.registryIdentifier('Plugin name'),
         majorMinor: optional(Types.majorMinorVersion('Filter by major.minor')),
+        language: optional(Types.LanguageSchema),
         token: optional(Types.ReadTokenSchema),
       }),
       Types.VersionListSchema,
@@ -243,11 +258,18 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   private async registerEventHandlers(obs: Observable): Promise<void> {
     // Plugin Operations
     await this.events.onReturnableEvent('registry.plugin.publish', obs, async (trace, data) => {
-      return await this.handlePluginPublish(trace, data);
+      return await this.handlePluginPublish(trace, { ...data, language: normalizePluginLanguage(data.language) });
     });
 
     await this.events.onReturnableEvent('registry.plugin.get', obs, async (trace, data) => {
       return await this.handlePluginGet(trace, data);
+    });
+
+    await this.events.onReturnableEvent('registry.plugin.implementations', obs, async (trace, data) => {
+      const filter = await this.authManager.createPluginReadFilter(trace, data.token);
+      const entries = await Promise.all(PLUGIN_LANGUAGES.map(language =>
+        this.storage.get(trace, data.org, data.name, undefined, filter, language)));
+      return { implementations: entries.filter((entry): entry is Types.RegistryEntry => entry !== null) };
     });
 
     await this.events.onReturnableEvent('registry.plugin.list', obs, async (trace, data) => {
@@ -291,6 +313,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
    * Handle plugin publish request
    */
   private async handlePluginPublish(trace: Observable, data: Types.PublishRequest): Promise<Types.PublishResponse> {
+    data = { ...data, language: normalizePluginLanguage(data.language) };
     const span = trace.startSpan('registry.plugin.publish', {
       org: data.org,
       name: data.name,
@@ -305,12 +328,12 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
         version: data.version,
       });
 
-      const publisher = await this.authorizePluginWrite(trace, data.org, data.name, data.token, true);
+      const publisher = await this.authorizePluginWrite(trace, data.org, data.name, data.token, true, data.language);
 
       // Check if version already exists (immutable versions)
       const pluginId = `${data.org}/${data.name}`;
       const existsSpan = trace.startSpan('storage.versionExists');
-      const exists = await this.storage.versionExists(trace, data.org, data.name, data.version);
+      const exists = await this.storage.versionExists(trace, data.org, data.name, data.version, data.language);
       existsSpan.end();
 
       if (exists) {
@@ -430,7 +453,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
       const readFilter = await this.authManager.createPluginReadFilter(trace, data.token);
       const getSpan = trace.startSpan('storage.get');
-      const plugin = await this.storage.get(trace, data.org, data.name, data.version, readFilter);
+      const plugin = await this.storage.get(trace, data.org, data.name, data.version, readFilter, data.language);
       getSpan.end();
 
       if (!plugin) {
@@ -553,11 +576,11 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     try {
       trace.log.debug('Deleting plugin {org}/{name}', { org: data.org, name: data.name });
 
-      await this.authorizePluginWrite(trace, data.org, data.name, data.token, false);
+      await this.authorizePluginWrite(trace, data.org, data.name, data.token, false, data.language);
 
       // Get current versions count
       const countSpan = trace.startSpan('storage.getVersions');
-      const versions = await this.storage.getVersions(trace, data.org, data.name);
+      const versions = await this.storage.getVersions(trace, data.org, data.name, undefined, undefined, data.language);
       const versionCount = data.version
         ? versions.filter((v: Types.VersionInfo) => v.version === data.version).length
         : versions.length;
@@ -565,7 +588,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
       // Perform deletion
       const deleteSpan = trace.startSpan('storage.delete');
-      await this.storage.delete(trace, data.org, data.name, data.version);
+      await this.storage.delete(trace, data.org, data.name, data.version, data.language);
       deleteSpan.end();
 
       trace.log.info('Deleted {count} version(s) of {org}/{name}', {
@@ -592,13 +615,14 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     name: string,
     token: string | undefined,
     allowCreate: boolean,
+    language?: PluginLanguage,
   ): Promise<string> {
     if (!this.authManager.requireAuth) return 'system';
     if (!token) throw new Error('Authentication required');
     const auth = await this.authManager.resolveToken(trace, token);
     if (!auth || !this.authManager.hasUserPermission(auth, 'write')) throw new Error('Write permission required');
 
-    const existing = await this.storage.get(trace, org, name);
+    const existing = await this.storage.get(trace, org, name, undefined, undefined, language);
     if (existing) {
       if (existing.publishedBy === auth.userId) return auth.userId;
       const members = await this.storage.getOrgMembers(trace, org);
@@ -631,7 +655,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
       const readFilter = await this.authManager.createPluginReadFilter(trace, data.token);
       const versionsSpan = trace.startSpan('storage.getVersions');
-      const versions = await this.storage.getVersions(trace, data.org, data.name, data.majorMinor, readFilter);
+      const versions = await this.storage.getVersions(trace, data.org, data.name, data.majorMinor, readFilter, data.language);
       versionsSpan.end();
 
       const latest = versions.length > 0 ? versions[0].version : '0.0.0';

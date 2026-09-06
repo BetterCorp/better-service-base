@@ -1,4 +1,12 @@
 using BSB.Runtime;
+using BSB.Tooling;
+
+if (args.Length > 0 && args[0] != "start")
+{
+    try { await BsbCli.Run(args, Directory.GetCurrentDirectory()); }
+    catch (Exception error) { Console.Error.WriteLine(error.Message); Environment.ExitCode = 1; }
+    return;
+}
 
 // BSB Service Base -- the plugin container.
 // Plugins are loaded dynamically from config (bsb-config.json).

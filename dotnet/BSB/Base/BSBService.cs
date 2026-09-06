@@ -48,6 +48,8 @@ public abstract class BSBService<TConfig> : MainBase
     {
         Config = args.Config;
         Events = new PluginEvents(args.PluginName);
+        Events.SetSchemas(GetType().GetProperty("EventSchemas", System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.FlattenHierarchy)?.GetValue(null) as BSBEventSchemas);
     }
 
     /// <summary>

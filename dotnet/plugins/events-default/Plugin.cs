@@ -1,6 +1,9 @@
 using BSB.Base;
 using BSB.Interfaces;
 using System.Collections.Concurrent;
+using System.Threading.Channels;
+
+namespace BSB.Plugins.EventsDefault;
 
 /// <summary>
 /// Default in-process event routing plugin. Maintains handler registrations
@@ -8,10 +11,12 @@ using System.Collections.Concurrent;
 /// </summary>
 public class Plugin : BSBEvents
 {
-    private readonly ConcurrentDictionary<string, List<BSB.Base.EventHandler>> _eventHandlers = new();
-    private readonly ConcurrentDictionary<string, BSB.Base.ReturnableEventHandler> _returnableHandlers = new();
-    private readonly ConcurrentDictionary<string, List<BroadcastHandler>> _broadcastHandlers = new();
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<Stream>> _streamSources = new();
+    private readonly ConcurrentDictionary<(string Plugin, string Event), List<BSB.Base.EventHandler>> _eventHandlers = new();
+    private readonly ConcurrentDictionary<(string Plugin, string Event), BSB.Base.ReturnableEventHandler> _returnableHandlers = new();
+    private readonly ConcurrentDictionary<(string Plugin, string Event), List<BroadcastHandler>> _broadcastHandlers = new();
+    private readonly ConcurrentDictionary<(string Plugin, string Event), Channel<Stream>> _streamSources = new();
+    private readonly CancellationTokenSource _shutdown = new();
+    private int _disposed;
 
     public Plugin(PluginConstructorArgs args) : base(args) { }
 
@@ -19,8 +24,9 @@ public class Plugin : BSBEvents
 
     public override Task OnEvent(string pluginName, string eventName, IObservable obs, BSB.Base.EventHandler handler)
     {
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
         _eventHandlers.AddOrUpdate(
-            eventName,
+            (pluginName, eventName),
             _ => new List<BSB.Base.EventHandler> { handler },
             (_, list) => { lock (list) { list.Add(handler); } return list; });
         return Task.CompletedTask;
@@ -28,7 +34,8 @@ public class Plugin : BSBEvents
 
     public override async Task EmitEvent(string pluginName, string eventName, IObservable obs, object? data)
     {
-        if (_eventHandlers.TryGetValue(eventName, out var handlers))
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        if (_eventHandlers.TryGetValue((pluginName, eventName), out var handlers))
         {
             BSB.Base.EventHandler? handler;
             lock (handlers) { handler = handlers.Count > 0 ? handlers[0] : null; }
@@ -41,31 +48,29 @@ public class Plugin : BSBEvents
 
     public override Task OnReturnableEvent(string pluginName, string eventName, IObservable obs, BSB.Base.ReturnableEventHandler handler)
     {
-        _returnableHandlers[eventName] = handler;
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        if (!_returnableHandlers.TryAdd((pluginName, eventName), handler))
+            throw new InvalidOperationException($"Returnable handler already registered: {pluginName}.{eventName}");
         return Task.CompletedTask;
     }
 
     public override async Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, int timeoutSeconds = 30)
     {
-        if (!_returnableHandlers.TryGetValue(eventName, out var handler))
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
+        if (!_returnableHandlers.TryGetValue((pluginName, eventName), out var handler))
             throw new BSBError($"No handler registered for returnable event '{eventName}'", obs.Trace, pluginName);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-        var handlerTask = handler(obs, data);
-        var completedTask = await Task.WhenAny(handlerTask, Task.Delay(Timeout.Infinite, cts.Token));
-
-        if (completedTask != handlerTask)
-            throw new TimeoutException($"Returnable event '{eventName}' timed out after {timeoutSeconds}s");
-
-        return await handlerTask;
+        return await handler(obs, data).WaitAsync(TimeSpan.FromSeconds(timeoutSeconds), _shutdown.Token);
     }
 
     // --- Broadcast ---
 
     public override Task OnBroadcast(string pluginName, string eventName, IObservable obs, BroadcastHandler handler)
     {
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
         _broadcastHandlers.AddOrUpdate(
-            eventName,
+            (pluginName, eventName),
             _ => new List<BroadcastHandler> { handler },
             (_, list) => { lock (list) { list.Add(handler); } return list; });
         return Task.CompletedTask;
@@ -73,7 +78,8 @@ public class Plugin : BSBEvents
 
     public override async Task EmitBroadcast(string pluginName, string eventName, IObservable obs, object? data)
     {
-        if (_broadcastHandlers.TryGetValue(eventName, out var handlers))
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        if (_broadcastHandlers.TryGetValue((pluginName, eventName), out var handlers))
         {
             BroadcastHandler[] snapshot;
             lock (handlers) { snapshot = handlers.ToArray(); }
@@ -83,17 +89,36 @@ public class Plugin : BSBEvents
 
     // --- Streams ---
 
-    public override Task<Stream> ReceiveStream(string pluginName, string eventName, IObservable obs)
+    public override async Task<Stream> ReceiveStream(string pluginName, string eventName, IObservable obs)
     {
-        var tcs = new TaskCompletionSource<Stream>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _streamSources[eventName] = tcs;
-        return tcs.Task;
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        return await StreamChannel(pluginName, eventName).Reader.ReadAsync(timeout.Token);
     }
 
-    public override Task SendStream(string pluginName, string eventName, IObservable obs, Stream data)
+    public override async Task SendStream(string pluginName, string eventName, IObservable obs, Stream data)
     {
-        if (_streamSources.TryRemove(eventName, out var tcs))
-            tcs.SetResult(data);
-        return Task.CompletedTask;
+        ObjectDisposedException.ThrowIf(_disposed != 0, this);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        await StreamChannel(pluginName, eventName).Writer.WriteAsync(data, timeout.Token);
+    }
+
+    private Channel<Stream> StreamChannel(string plugin, string name) => _streamSources.GetOrAdd((plugin, name),
+        _ => Channel.CreateBounded<Stream>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.Wait }));
+
+    public override ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return ValueTask.CompletedTask;
+        _shutdown.Cancel();
+        foreach (var channel in _streamSources.Values)
+        {
+            channel.Writer.TryComplete();
+            while (channel.Reader.TryRead(out var stream)) stream.Dispose();
+        }
+        _eventHandlers.Clear(); _returnableHandlers.Clear(); _broadcastHandlers.Clear(); _streamSources.Clear();
+        _shutdown.Dispose();
+        return ValueTask.CompletedTask;
     }
 }

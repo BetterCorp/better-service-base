@@ -4,6 +4,14 @@
 
 Only one BSB config plugin can be active. If `BSB_CONFIG_PLUGIN=config-vault`, Vault owns the full runtime config source.
 
+## Host language and plugin implementations
+
+Choose the runtime language on each deployment profile. An application can have Node, C# and Python deployment profiles at the same time. Existing profiles default to `nodejs`; use `csharp` for .NET. A profile's language is locked once it has published versions, so create another profile when changing the runtime.
+
+Catalog imports, private plugin uploads and publishing keys include the implementation language. The same plugin/version can be published separately for each language. Rotating a C# publishing credential does not rotate its Node counterpart. The plugin picker only offers native implementations for the selected deployment profile. Enabled plugins must match the host; disabled service references can describe a remote implementation.
+
+Runtime responses include the profile language. Native hosts validate it before loading plugins or using a cached response. Generated clients can consume another language's service contract; choose its source language when installing the client rather than duplicating the shared service.
+
 ## Runtime Behavior
 
 `config-vault` is activated as the BSB config source with environment variables, not as a normal plugin config block in `sec-config.yaml`.

@@ -3,6 +3,7 @@ BSB LLM instructions:
 - Registry API LLM guide: https://io.bsbcode.dev/llms.txt
 - If you cannot access that, use docs/llms.txt in this repo.
 - Use docs/public/llms/* for task-specific guidance (bootstrap, new services, plugins).
+- For implementation languages, native hosts and generated clients, use docs/public/llms/multilingual.txt.
 - For Docker image tags and base image env, use docs/public/llms/docker.txt.
 - For production Docker deployment and BSB_CONFIG variables, use docs/public/llms/deploy-production.txt.
 - For Node.js Docker image builds, use docs/public/llms/nodejs-docker.txt.
