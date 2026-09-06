@@ -123,8 +123,8 @@ public class ServiceBase : IAsyncDisposable
             var instance = _plugins.CreateEventsInstance(def, MakeArgs(appId, name, eventConfig));
             _events.AddPlugin(instance, def.Filter);
         }
-        if (!_events.HasPlugins)
-            throw new InvalidOperationException("No events plugin configured; service initialization requires an events backend");
+        if (!_events.HasUnfilteredPlugin)
+            _events.AddPlugin(_plugins.CreateEventsInstance(new PluginDefinition { Name = "_local_fallback", Plugin = "events-default" }, MakeArgs(appId, "_local_fallback")));
         await _events.Init(bootObs);
         bootObs.Log.Info("Events plugins initialized");
 

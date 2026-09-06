@@ -260,6 +260,14 @@ export const RegistryEntrySchema = bsb.object({
 
 export type RegistryEntry = Omit<InferBSBType<typeof RegistryEntrySchema>, 'language'> & { language: PluginLanguage };
 
+export const ImplementationSummarySchema = bsb.object({
+  org: registryIdentifier('Organization name'), name: registryIdentifier('Plugin name'),
+  language: LanguageSchema, version: semanticVersion('Latest accessible version'),
+});
+export function implementationSummary(entry: RegistryEntry) {
+  return { org: entry.org, name: entry.name, language: entry.language, version: entry.version };
+}
+
 // ========================================
 // API Request/Response Schemas
 // ========================================

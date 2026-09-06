@@ -233,13 +233,13 @@ func (p *Plugin) ReceiveStream(ctx context.Context, obs bsb.Observable, plugin, 
 		p.mu.Unlock()
 		span := obs
 		if err == nil {
-			if trace, ok := start["trace"].(map[string]any); ok {
-				if id, ok := trace["t"].(string); ok && len(id) == 32 {
-					wire := bsb.NewDTrace()
-					wire.TraceID = id
-					span = p.obs.WithTrace(wire, plugin)
-				}
+			var wire bsb.DTrace
+			wire, err = wireTrace(start["trace"])
+			if err == nil {
+				span = p.obs.WithTrace(wire, plugin)
 			}
+		}
+		if err == nil {
 			span = span.StartSpan("stream.receive")
 			defer span.End()
 			err = p.control(streamCtx, peer, "s-"+id, map[string]any{"type": "receipt", "timeout": timeout.Milliseconds(), "trace": span.Trace()})

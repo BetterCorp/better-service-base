@@ -32,7 +32,7 @@ public abstract class BSBType
             JsonValueKind.Object => element.EnumerateObject().ToDictionary(p => p.Name, p => ToWireValue(p.Value)),
             JsonValueKind.Array => element.EnumerateArray().Select(x => ToWireValue(x)).ToList(),
             JsonValueKind.String => element.GetString(),
-            JsonValueKind.Number => element.TryGetInt64(out var integer) ? (object)integer : element.GetDouble(),
+            JsonValueKind.Number => element.TryGetInt64(out var integer) ? (object)integer : element.TryGetUInt64(out var unsigned) ? (object)unsigned : element.GetDouble(),
             JsonValueKind.True => true,
             JsonValueKind.False => false,
             JsonValueKind.Null => null,

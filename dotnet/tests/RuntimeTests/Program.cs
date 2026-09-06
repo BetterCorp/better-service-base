@@ -20,11 +20,27 @@ foreach (var id in new[] { "../worker", "a/b/c", "worker\n" })
     catch (ArgumentException) { }
 }
 
+var registryTemp=Directory.CreateTempSubdirectory("bsb-registry-prerelease-").FullName;
+try {
+    var listener=new System.Net.Sockets.TcpListener(IPAddress.Loopback,0);listener.Start();
+    var server=Task.Run(async()=>{
+        foreach(var (path,body) in new[] { ("/plugins/acme/worker?language=rust","{\"plugin\":{\"version\":\"1.2.3-beta.1\"}}"), ("/plugins/acme/worker/1.2.3-beta.1/schema?language=rust","{\"pluginName\":\"worker\",\"version\":\"1.2.3-beta.1\",\"events\":{}}") }) {
+            using var connection=await listener.AcceptTcpClientAsync();await using var stream=connection.GetStream();using var reader=new StreamReader(stream,leaveOpen:true);
+            Check((await reader.ReadLineAsync())!.StartsWith("GET "+path+" "),"Registry exact-version route mismatch");while(!string.IsNullOrEmpty(await reader.ReadLineAsync())){}
+            await stream.WriteAsync(System.Text.Encoding.UTF8.GetBytes($"HTTP/1.1 200 OK\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n{body}"));
+        }
+    });
+    try {using var registry=new RegistryClient($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}",allowInsecure:true);
+        Check(File.Exists(await registry.Install(registryTemp,"acme/worker","rust")),"Prerelease client not installed");await server.WaitAsync(TimeSpan.FromSeconds(5));
+    } finally {listener.Stop();}
+}finally{Directory.Delete(registryTemp,true);}
+
 var schema = BSBTypes.Object(new() {
     ["items"] = BSBTypes.Array(BSBTypes.Int32(min: 1), minLength: 1),
     ["email"] = BSBTypes.Email(),
 });
 Check(JsonSerializer.Serialize(new OptionalFixture()) == "{}", "Unset optional property was serialized");
+Check(BSBType.ToWireValue(JsonSerializer.SerializeToElement(ulong.MaxValue)) is ulong maximum && maximum == ulong.MaxValue, "UInt64 wire precision lost");
 Check(JsonSerializer.Serialize(new OptionalFixture { Value = new OptionalValue<string?>(null) }) == "{\"Value\":null}", "Explicit optional null was omitted");
 Check(JsonSerializer.Deserialize<OptionalFixture>("{\"Value\":null}")!.Value.IsSet && !JsonSerializer.Deserialize<OptionalFixture>("{}")!.Value.IsSet,
     "Deserialization lost optional property presence");
@@ -114,6 +130,11 @@ Check((await configFixture.GetServicePlugins(null!))["worker"].Package == "Examp
 try { configFixture.Load(JsonNode.Parse("""{"services":{"bad":{"enabled":true,"language":"python"}}}""")!.AsObject(), "default"); throw new Exception("Wrong native plugin accepted"); }
 catch (JsonException) { }
 Console.WriteLine("PASS: profile merging and native implementation validation");
+try { configFixture.Load(JsonNode.Parse("""{"language":"python","services":{"worker":{}}}""")!.AsObject(), "default"); throw new Exception("Wrong host profile accepted"); }
+catch (JsonException) { }
+var overrideFixture = JsonNode.Parse("""{"default":{"services":{"worker":{"config":{"optional":null},"envOverridePaths":["allowed"]}}}}""")!.AsObject();
+try { TestConfig.Overrides(overrideFixture,"""{"services":{"worker":{"optional":{}}}}"""); throw new Exception("Non-allowlisted empty object accepted"); }
+catch (JsonException) { }
 
 await using (var bus = new BSB.Plugins.EventsDefault.Plugin(ctor))
 {
@@ -200,6 +221,11 @@ try
     var file = Directory.GetFiles(cacheDirectory).Single();
     Check(!(await File.ReadAllTextAsync(file)).Contains("plaintext-marker"), "Vault cache leaked plaintext");
     var before = await File.ReadAllBytesAsync(file);
+    await using (var rejectedTls = new TlsVault(vaultArgs)) {
+        try { await rejectedTls.Init(observable); throw new Exception("TLS failure fell back to cache"); }
+        catch (HttpRequestException error) when (error.HttpRequestError == HttpRequestError.SecureConnectionError) { }
+        Check(rejectedTls.Requests == 1, "TLS failure retried");
+    }
     foreach (var (status, body) in new[] {
         (HttpStatusCode.Unauthorized, validVault), (HttpStatusCode.Redirect, validVault),
         (HttpStatusCode.OK, validVault.Replace("csharp", "nodejs")), (HttpStatusCode.OK, "not-json") })
@@ -321,6 +347,17 @@ finally { Directory.Delete(pluginDirectory, recursive: true); }
 sealed class TestConfig(PluginConstructorArgs args) : JsonConfigProvider(args)
 {
     public void Load(JsonObject document, string profile) => LoadConfig(document, profile);
+    public static void Overrides(JsonObject document,string value) => ApplyOverrides(document,"default",value);
+}
+sealed class TlsVault(PluginConstructorArgs args) : BSB.Plugins.ConfigVault.Plugin(args) {
+    public int Requests;
+    protected override HttpMessageHandler CreateHandler() => new Handler(this);
+    private sealed class Handler(TlsVault owner) : HttpMessageHandler {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token) {
+            owner.Requests++;
+            throw new HttpRequestException(HttpRequestError.SecureConnectionError,"TLS rejected",new System.Security.Authentication.AuthenticationException());
+        }
+    }
 }
 sealed class TestObserver() : BSBObservable<object>(new ServiceConstructorArgs<object> {
     AppId = "test", Cwd = ".", PluginName = "observer", Mode = DebugMode.Development, Config = new() })

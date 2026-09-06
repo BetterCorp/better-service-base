@@ -149,6 +149,16 @@ func (r *Registry) Install(ctx context.Context, cwd, id, source, version string)
 		return nil, err
 	}
 	directory := filepath.Join(cwd, ".bsb", "schemas")
+	files, err := filepath.Glob(filepath.Join(directory, "*.json"))
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		existing := strings.TrimSuffix(filepath.Base(file), ".json")
+		if existing != local && identifier(existing) == identifier(local) {
+			return nil, fmt.Errorf("installed client names collide")
+		}
+	}
 	if err = os.MkdirAll(directory, 0755); err != nil {
 		return nil, err
 	}

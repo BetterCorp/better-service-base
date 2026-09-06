@@ -30,7 +30,14 @@ def json_request(method: str, url: str, *, body=None, headers=None, timeout: flo
     try:
         response = build_opener(NoRedirect()).open(request, timeout=timeout)
     except HTTPError as error:
-        error.close()
+        try:
+            payload = error.read(min(limit, 65536) + 1)
+            error.bsb_body = payload.decode("utf-8", errors="replace") if len(payload) <= min(limit, 65536) else ""
+        except Exception:
+            # A failed error-body read must not turn a 401/403 into a retryable network error.
+            error.bsb_body = ""
+        finally:
+            error.close()
         raise
     with response:
         payload = response.read(limit + 1)

@@ -1,7 +1,10 @@
 package tooling
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -70,5 +73,37 @@ func TestRegistryIdentifiersAndGeneratorCollisions(t *testing.T) {
 	data, _ := json.Marshal(bsb.ExportSchemas("test", "1.0.0", schemas))
 	if _, err := GenerateClient(data, "test"); err == nil {
 		t.Fatal("accepted generated method collision")
+	}
+}
+
+func TestInstallCollisionPreservesSnapshots(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"pluginName":"worker","events":{}}`))
+	}))
+	defer server.Close()
+	registry, err := NewRegistry(server.URL, "", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cwd := t.TempDir()
+	directory := filepath.Join(cwd, ".bsb", "schemas")
+	if err := os.MkdirAll(directory, 0755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "org-worker-nodejs.json")
+	if err := os.WriteFile(path, []byte("existing"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Install(context.Background(), cwd, "org/worker", "nodejs", "1.2.3"); err == nil || !strings.Contains(err.Error(), "collide") {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != "existing" {
+		t.Fatal(string(data), err)
+	}
+	files, err := os.ReadDir(directory)
+	if err != nil || len(files) != 1 {
+		t.Fatal(files, err)
 	}
 }

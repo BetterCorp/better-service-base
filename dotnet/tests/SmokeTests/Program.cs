@@ -20,7 +20,7 @@ try
     var pluginDir = Directory.CreateDirectory(Path.Combine(directory, "plugins", "service-smoke")).FullName;
     foreach (var file in Directory.GetFiles(fixture)) File.Copy(file, Path.Combine(pluginDir, Path.GetFileName(file)));
     await File.WriteAllTextAsync(Path.Combine(directory, "bsb-config.json"), """
-        {"observable":{"observable-default":{}},"events":{"events-default":{}},
+        {"observable":{"observable-default":{}},"events":{"events-default":{"filter":[]}},
          "services":{"alias":{"plugin":"service-smoke","version":"1.0.0","config":{"value":"loaded"}}}}
         """);
     CheckVersionResolution(directory, pluginDir);

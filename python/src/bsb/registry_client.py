@@ -8,7 +8,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, quote
 
-from .client_generator import generate_clients, generate_client_code
+from .client_generator import generate_clients, generate_client_code, validate_client_names
 from .http import json_request, origin
 from .schema_export import build_project, read_project_metadata
 
@@ -52,7 +52,7 @@ def _format_registry_error(raw_body: str, status_code: int | None = None) -> str
     details = parsed.get("details")
     if isinstance(details, list) and details:
         detail_text = "; ".join(
-            f"{detail.get('path', '<root>')}: {detail.get('message', 'Invalid value')}" for detail in details
+            f"{detail.get('path', '<root>')}: {detail.get('message', 'Invalid value')}" for detail in details if isinstance(detail, dict)
         )
         return f"{base}{code} - {detail_text}"
     if isinstance(parsed.get("message"), str) and parsed["message"].strip():
@@ -77,7 +77,7 @@ def registry_request(method: str, path: str, body: Any | None = None, require_au
     try:
         return json_request(method, endpoint + path, body=body, headers=headers)
     except HTTPError as error:
-        raise RuntimeError(f"Registry request failed: HTTP {error.code}") from error
+        raise RuntimeError("Registry request failed: " + _format_registry_error(getattr(error, "bsb_body", ""), error.code)) from error
     except URLError as error:
         raise RuntimeError(str(error.reason)) from error
 
@@ -148,9 +148,11 @@ def install_plugin(plugin_id: str, project_root: str | Path, source_language: st
 
     project_root = Path(project_root)
     schemas_dir = project_root / ".bsb" / "schemas"
+    schema_path = schemas_dir / f"{local_name}.json"
+    snapshots = [*schemas_dir.glob("*.json"), *(project_root / "src" / ".bsb" / "schemas").glob("*.json")]
+    validate_client_names([file.stem for file in snapshots if file != schema_path] + [local_name])
     schemas_dir.mkdir(parents=True, exist_ok=True)
     ensure_gitignore(project_root)
-    schema_path = schemas_dir / f"{local_name}.json"
     schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
     generate_clients(project_root)
     return schema_path

@@ -156,20 +156,26 @@ def ensure_generated_layout(project_root: str | Path) -> tuple[Path, Path]:
     return schemas, clients
 
 
+def validate_client_names(values) -> None:
+    names, classes = set(), set()
+    for value in values:
+        name, cls = event_name_to_method_name(value), plugin_name_to_class_name(value)
+        if name in names or cls in classes:
+            raise ValueError("Installed client names collide after Python normalization")
+        names.add(name)
+        classes.add(cls)
+
+
 def generate_clients(project_root: str | Path) -> list[Path]:
     schemas_dir, clients_dir = ensure_generated_layout(project_root)
     files = sorted(schemas_dir.glob("*.json"))
     legacy = Path(project_root) / "src" / ".bsb" / "schemas"
     files += sorted(legacy.glob("*.json"))
+    validate_client_names([file.stem for file in files])
     generated = []
-    names, classes = set(), set()
     for file in files:
         name = event_name_to_method_name(file.stem)
         cls = plugin_name_to_class_name(file.stem)
-        if name in names or cls in classes:
-            raise ValueError("Installed client names collide after Python normalization")
-        names.add(name)
-        classes.add(cls)
         code = generate_client_code(json.loads(file.read_text(encoding="utf-8")), file.stem)
         generated.append((clients_dir / (name + ".py"), cls, code))
     for path, _, code in generated:

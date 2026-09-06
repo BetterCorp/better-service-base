@@ -2284,7 +2284,8 @@ function normalizeRuntimeSection(
     if (entry.enabled !== false && entry.language && entry.language !== language) {
       throw new Error(`Plugin ${entry.plugin} requires ${entry.language}; deployment targets ${language}`);
     }
-    const nativePlugins = entry.enabled === false ? plugins : plugins.filter(plugin => (plugin.language ?? 'nodejs') === language);
+    const entryLanguage = entry.enabled === false ? entry.language ?? 'nodejs' : language;
+    const nativePlugins = plugins.filter(plugin => (plugin.language ?? 'nodejs') === entryLanguage);
     const catalog = resolveCatalogForEntry(nativePlugins, sectionName, entry);
     if (!catalog && entry.enabled !== false && plugins.some(plugin =>
       plugin.pluginId === entry.plugin || `${plugin.org}/${plugin.pluginId}` === entry.plugin)) {
@@ -2292,7 +2293,7 @@ function normalizeRuntimeSection(
     }
     const normalized: RuntimePluginDefinition = {
       ...entry,
-      language: entry.language ?? catalog?.language ?? language,
+      language: entryLanguage,
       plugin: catalog?.pluginId ?? entry.plugin,
       package: entry.package ?? catalog?.packageName ?? undefined,
     };

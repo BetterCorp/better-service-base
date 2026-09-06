@@ -11,6 +11,7 @@ internal class SBEvents(PluginConstructorArgs args) : BSBEvents(args)
     private readonly List<(BSBEvents Plugin, JsonElement? Filter)> _plugins = new();
     private Dictionary<string, PluginDefinition> _services = new();
     public bool HasPlugins => _plugins.Count > 0;
+    public bool HasUnfilteredPlugin => _plugins.Any(x => x.Filter is null || x.Filter.Value.ValueKind == JsonValueKind.Null);
     public override Task Completion => HasPlugins ? Task.WhenAny(_plugins.Select(x => x.Plugin.Completion)).Unwrap() : base.Completion;
     public void AddPlugin(BSBEvents plugin, JsonElement? filter = null) => _plugins.Add((plugin, filter));
     public void SetServices(Dictionary<string, PluginDefinition> services) => _services = services;

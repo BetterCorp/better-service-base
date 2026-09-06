@@ -16,6 +16,8 @@ public abstract class JsonConfigProvider(PluginConstructorArgs args) : BSBConfig
         var selected = legacy ? document["profiles"]?[profileName] as JsonObject : document[profileName] as JsonObject;
         if (!legacy && selected is null && profileName != "default") throw new JsonException($"Missing configuration profile: {profileName}");
         _profile = Merge(defaults, selected);
+        if (_profile["language"]?.GetValue<string>() is string hostLanguage && hostLanguage is not ("csharp" or "dotnet"))
+            throw new JsonException($"Profile requires {hostLanguage}; this host is csharp");
         foreach (var section in new[] { "observable", "events", "services" })
         {
             if (_profile[section] is null) _profile[section] = new JsonObject();
@@ -71,7 +73,7 @@ public abstract class JsonConfigProvider(PluginConstructorArgs args) : BSBConfig
                     {
                         var path = prefix.Length == 0 ? key : $"{prefix}.{key}";
                         if (paths.Contains(path)) continue;
-                        if (child is JsonObject nested) ValidatePaths(nested, path);
+                        if (child is JsonObject { Count: > 0 } nested) ValidatePaths(nested, path);
                         else throw new JsonException($"Override path is not permitted: {name}.{path}");
                     }
                 }

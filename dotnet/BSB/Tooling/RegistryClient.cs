@@ -56,7 +56,7 @@ public sealed class RegistryClient : IDisposable
             var detail = await Request(HttpMethod.Get, path + query);
             version = (detail["plugin"] ?? detail)["version"]!.GetValue<string>();
         }
-        if (!Regex.IsMatch(version, "^[0-9]+\\.[0-9]+\\.[0-9]+$")) throw new ArgumentException("Version must be an exact major.minor.patch");
+        if (!Regex.IsMatch(version, "\\A[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?(?:\\+[A-Za-z0-9.-]+)?\\z")) throw new ArgumentException("Version must be an exact semantic version");
         var document = (await Request(HttpMethod.Get, path + $"/{version}/schema" + query)).AsObject();
         document["pluginId"] = name;
         document["source"] = new JsonObject { ["org"] = org, ["name"] = name, ["language"] = sourceLanguage, ["version"] = version, ["registry"] = _url.ToString() };

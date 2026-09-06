@@ -41,7 +41,11 @@ public partial class Plugin
                     receiver.Touch();
                     receiver.Start.TrySetResult(body);
                 }
-                else if (body["type"]?.GetValue<string>() == "timeout") receiver.Timeout.Cancel();
+                else if (body["type"]?.GetValue<string>() == "timeout")
+                {
+                    if (receiver.Sender is null || message.BasicProperties.AppId != receiver.Sender) throw new JsonException("Unexpected stream timeout sender");
+                    receiver.Timeout.Cancel();
+                }
                 else throw new JsonException("Invalid stream control message");
             }
             await Task.CompletedTask; // Late messages for expired registrations are acknowledged.

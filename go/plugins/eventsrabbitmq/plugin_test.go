@@ -24,6 +24,13 @@ func TestWireTraceQueuesAndBinaryChunks(t *testing.T) {
 	data, _ := json.Marshal(map[string]any{"trace": trace, "args": []any{map[string]any{"value": 1}}})
 	var wire map[string]any
 	json.Unmarshal(data, &wire)
+	decoded, err := wireTrace(wire["trace"])
+	if err != nil || decoded != trace {
+		t.Fatalf("wire trace/span identifiers changed: %v %v", decoded, err)
+	}
+	if _, err := wireTrace(map[string]any{"t": trace.TraceID, "s": "xxxxxxxxxxxxxxxx"}); err == nil {
+		t.Fatal("invalid span accepted")
+	}
 	_, span, payload, err := p.incoming(wire, "service", "echo")
 	if err != nil || span.TraceID() != trace.TraceID || payload.(map[string]any)["value"] != float64(1) {
 		t.Fatalf("wire trace/payload: %v", err)

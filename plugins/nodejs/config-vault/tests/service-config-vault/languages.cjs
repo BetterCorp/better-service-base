@@ -70,6 +70,18 @@ module.exports = async ({ pluginRoot }) => {
   await assert.rejects(vault.resolveRuntimeConfig('key', 'runtime-secret'), /not available for csharp/);
   runtimeConfig.default.services.api.enabled = false;
   assert.equal((await vault.resolveRuntimeConfig('key', 'runtime-secret')).config.default.services.api.package, '@acme/shared');
+  delete runtimeConfig.default.services.api.package;
+  const legacyReference = (await vault.resolveRuntimeConfig('key', 'runtime-secret')).config.default.services.api;
+  assert.equal(legacyReference.language, 'nodejs');
+  assert.equal(legacyReference.package, '@acme/shared');
   const deployment = await vault.createDeployment('admin', 'app', 'Python', 'python');
   assert.equal(deployment.profile.language, 'python');
+  for (const [language, packageName] of [['go', 'example.com/acme/shared'], ['rust', 'acme_shared']]) {
+    const native = await vault.createPrivatePlugin('admin', upload(language, packageName));
+    const payload = { ...publication, language, package: { [language]: packageName } };
+    await assert.rejects(vault.publishPrivatePlugin(csharp.secret, payload), /not authorized/);
+    assert.equal((await vault.publishPrivatePlugin(native.secret, payload)).status, 'published');
+    assert.equal((await vault.publishPrivatePlugin(native.secret, payload)).status, 'unchanged');
+    assert.equal((await vault.createDeployment('admin', 'app', language, language)).profile.language, language);
+  }
 };

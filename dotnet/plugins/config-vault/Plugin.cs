@@ -89,12 +89,18 @@ public class Plugin(PluginConstructorArgs args) : JsonConfigProvider(args)
                         ?? throw new JsonException("Vault response must be an object");
                 }
             }
-            catch (HttpRequestException) { }
+            catch (HttpRequestException error) when (IsTransient(error)) { }
             catch (OperationCanceledException) when (timeout.IsCancellationRequested) { }
             var delay = Math.Min(250, 15000 - timer.ElapsedMilliseconds);
             if (delay > 0) await Task.Delay((int)delay);
         }
         throw new RetryableVaultException();
+    }
+    internal static bool IsTransient(HttpRequestException error)
+    {
+        for (Exception? cause = error; cause is not null; cause = cause.InnerException)
+            if (cause is System.Security.Authentication.AuthenticationException) return false;
+        return error.HttpRequestError is HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError or HttpRequestError.ResponseEnded;
     }
 
     private static void ValidateResponse(JsonObject response)

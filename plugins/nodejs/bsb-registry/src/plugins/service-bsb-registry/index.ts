@@ -64,7 +64,7 @@ export const EventSchemas = createEventSchemas({
         name: Types.registryIdentifier('Plugin name'),
         token: optional(Types.ReadTokenSchema),
       }),
-      bsb.object({ implementations: bsb.array(Types.RegistryEntrySchema) }),
+      bsb.object({ implementations: bsb.array(Types.ImplementationSummarySchema) }),
       'Get the latest accessible version of each implementation'
     ),
     'registry.plugin.list': createReturnableEvent(
@@ -269,7 +269,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       const filter = await this.authManager.createPluginReadFilter(trace, data.token);
       const entries = await Promise.all(PLUGIN_LANGUAGES.map(language =>
         this.storage.get(trace, data.org, data.name, undefined, filter, language)));
-      return { implementations: entries.filter((entry): entry is Types.RegistryEntry => entry !== null) };
+      return { implementations: entries.filter((entry): entry is Types.RegistryEntry => entry !== null).map(Types.implementationSummary) };
     });
 
     await this.events.onReturnableEvent('registry.plugin.list', obs, async (trace, data) => {

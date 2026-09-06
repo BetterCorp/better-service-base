@@ -4,6 +4,7 @@ package eventsrabbitmq
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -404,11 +405,9 @@ func (p *Plugin) incoming(body map[string]any, plugin, event string) (context.Co
 	if !ok || len(args) > 1 {
 		return nil, nil, nil, fmt.Errorf("typed events require one payload")
 	}
-	trace := bsb.NewDTrace()
-	if raw, ok := body["trace"].(map[string]any); ok {
-		if id, ok := raw["t"].(string); ok && len(id) == 32 {
-			trace.TraceID = id
-		}
+	trace, err := wireTrace(body["trace"])
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	obs := p.obs.WithTrace(trace, plugin).StartSpan("events.receive", map[string]any{"event": event})
 	var payload any
@@ -416,6 +415,27 @@ func (p *Plugin) incoming(body map[string]any, plugin, event string) (context.Co
 		payload = args[0]
 	}
 	return bsb.WithObservable(p.ctx, obs), obs, payload, nil
+}
+func wireTrace(value any) (bsb.DTrace, error) {
+	trace := bsb.NewDTrace()
+	if value == nil {
+		return trace, nil
+	}
+	raw, ok := value.(map[string]any)
+	if !ok {
+		return trace, fmt.Errorf("invalid wire trace")
+	}
+	id, _ := raw["t"].(string)
+	span, _ := raw["s"].(string)
+	if len(id) != 32 || len(span) != 16 {
+		return trace, fmt.Errorf("invalid wire trace identifiers")
+	}
+	if _, err := hex.DecodeString(id + span); err != nil {
+		return trace, fmt.Errorf("invalid wire trace identifiers")
+	}
+	trace.TraceID = id
+	trace.SpanID = span
+	return trace, nil
 }
 func (p *Plugin) reply(message amqp.Delivery, body map[string]any) error {
 	correlation := message.CorrelationId

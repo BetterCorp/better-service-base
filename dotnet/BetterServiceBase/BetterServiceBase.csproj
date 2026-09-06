@@ -31,11 +31,11 @@
         <ProjectReference Include="../plugins/observable-syslog/observable-syslog.csproj" ReferenceOutputAssembly="false" />
         <Content Include="../bsb-config.json" Link="bsb-config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
-    <Target Name="PublishDefaultPlugins" AfterTargets="Publish">
+    <Target Name="IncludeDefaultPlugins" AfterTargets="ComputeFilesToPublish">
         <ItemGroup>
             <BundledPlugin Include="$(TargetDir)plugins/**/*" />
+            <ResolvedFileToPublish Include="@(BundledPlugin)" RelativePath="plugins/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
         </ItemGroup>
-        <Copy SourceFiles="@(BundledPlugin)" DestinationFiles="@(BundledPlugin->'$(PublishDir)plugins/%(RecursiveDir)%(Filename)%(Extension)')" />
     </Target>
 
 </Project>

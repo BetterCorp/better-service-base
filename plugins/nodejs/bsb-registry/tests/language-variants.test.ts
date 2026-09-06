@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import { normalizePluginLanguage, type Observable, type PluginLanguage } from '@bsb/base';
 import { FileDB } from '../src/plugins/service-bsb-registry/db/file.js';
 import type { RegistryEntry } from '../src/plugins/service-bsb-registry/types.js';
+import { implementationSummary } from '../src/plugins/service-bsb-registry/types.js';
 import { RegistryUIServer } from '../src/plugins/service-bsb-registry-ui/http-server.js';
 
 const noop = () => undefined;
@@ -17,6 +18,13 @@ const entry = (language: PluginLanguage, version = '1.0.0'): RegistryEntry => ({
   visibility: 'public', eventSchema: {}, eventCount: 0, emitEventCount: 0, onEventCount: 0,
   returnableEventCount: 0, broadcastEventCount: 0, publishedBy: 'owner',
   publishedAt: version === '1.0.0' ? '2026-01-01T00:00:00Z' : '2026-02-01T00:00:00Z', updatedAt: '2026-02-01T00:00:00Z',
+});
+
+test('implementation discovery omits large documents and type definitions', () => {
+  const large = { ...entry('rust'), documentation: ['x'.repeat(4 * 1024 * 1024)], typeDefinitions: { rust: 'x'.repeat(4 * 1024 * 1024) } };
+  const summary = implementationSummary(large);
+  assert.deepEqual(summary, { org: 'acme', name: 'service-demo', language: 'rust', version: '1.0.0' });
+  assert.ok(JSON.stringify(summary).length < 200);
 });
 
 test('Registry limits requests before authorization without trusting forwarded IPs', async () => {
@@ -92,6 +100,7 @@ test('language variants coexist with legacy files, filter independently and dele
     await mkdir(legacyDir, { recursive: true });
     await writeFile(join(legacyDir, '1.0.0.json'), JSON.stringify(entry('nodejs')));
     await db.insert(obs, entry('csharp'));
+    await db.insert(obs, entry('go'));
     await db.insert(obs, entry('python'));
     await db.insert(obs, entry('python', '2.0.0'));
     await assert.rejects(db.insert(obs, entry('nodejs')), /immutable/);
@@ -100,7 +109,8 @@ test('language variants coexist with legacy files, filter independently and dele
     assert.equal((await db.get(obs, 'acme', 'service-demo'))?.language, 'nodejs');
     assert.equal((await db.get(obs, 'acme', 'service-demo', undefined, undefined, 'python'))?.version, '2.0.0');
     assert.equal(await db.get(obs, 'acme', 'service-demo', '2.0.0', undefined, 'csharp'), null);
-    assert.equal((await db.list(obs, {})).total, 4);
+    assert.equal((await db.list(obs, {})).total, 5);
+    assert.equal((await db.get(obs, 'acme', 'service-demo', '1.0.0', undefined, 'go'))?.language, 'go');
     assert.deepEqual((await db.list(obs, { language: 'nodejs' })).results.map(item => item.version), ['1.0.0']);
     assert.equal((await db.search(obs, { query: 'demo', language: 'csharp' })).total, 1);
     assert.deepEqual((await db.getVersions(obs, 'acme', 'service-demo', undefined, undefined, 'python')).map(item => item.version), ['2.0.0', '1.0.0']);
@@ -114,7 +124,7 @@ test('language variants coexist with legacy files, filter independently and dele
     assert.equal((await db.get(obs, 'acme', 'service-demo', undefined, pythonOnly))?.language, 'python');
     const reopened = new FileDB(dir);
     await reopened.init(obs);
-    assert.equal((await reopened.list(obs, {})).total, 2);
+    assert.equal((await reopened.list(obs, {})).total, 3);
     assert.equal(normalizePluginLanguage('dotnet'), 'csharp');
     assert.throws(() => normalizePluginLanguage('../nodejs'), /Unsupported/);
   } finally { await rm(dir, { recursive: true, force: true }); }
