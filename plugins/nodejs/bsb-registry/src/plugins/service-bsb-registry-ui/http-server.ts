@@ -15,6 +15,7 @@ import fastifyCors from '@fastify/cors';
 import fastifyMultipart, { MultipartFile } from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import fastifyView from '@fastify/view';
+import fastifyRateLimit from '@fastify/rate-limit';
 import handlebars from 'handlebars';
 import { marked } from 'marked';
 import safeRegex from 'safe-regex2';
@@ -398,6 +399,7 @@ export class RegistryUIServer {
     badgesFile: string | undefined,
     maxImageUploadMb: number,
     corsOrigins: readonly string[],
+    private readonly rateLimitMax = 300,
   ) {
     this.port = port;
     this.host = host;
@@ -505,6 +507,8 @@ export class RegistryUIServer {
         const packageJson = JSON.parse(await fsp.readFile(packageJsonPath, 'utf-8')) as { version?: string };
         this.appVersion = packageJson.version ?? '';
       }
+
+      await this.registerRateLimit();
 
       // Register CORS
       const corsSpan = obs.startSpan('register.cors');
@@ -735,7 +739,7 @@ export class RegistryUIServer {
     });
 
     // Health check
-    this.app.get('/health', async (_request, _reply) => {
+    this.app.get('/health', { config: { rateLimit: false } }, async (_request, _reply) => {
       return { status: 'ok' };
     });
   }
@@ -2345,6 +2349,11 @@ a.s:hover{background:#333;border-color:#FB8C00}
     } finally {
       span.end();
     }
+  }
+
+  private async registerRateLimit(): Promise<void> {
+    // Per-instance bounded storage; use gateway limits for a shared replica budget.
+    await this.app.register(fastifyRateLimit, { max: this.rateLimitMax, timeWindow: 60000, cache: 10000 });
   }
 
   close(): void {

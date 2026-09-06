@@ -69,7 +69,7 @@ public static class BsbCli
                         if (body["configSchema"] is null) body.Remove("configSchema");
                         if (!vault)
                         {
-                            body["documentation"] = new JsonArray();
+                            body["documentation"] = await ReadDocumentation(cwd, entry.AsObject());
                             body["eventSchema"]!.AsObject().Remove("pluginId");
                         }
                         Console.WriteLine(await registry.Request(HttpMethod.Post, vault ? "/api/plugins/publish" : "/plugins", body));
@@ -78,6 +78,23 @@ public static class BsbCli
                 return;
             default: throw new ArgumentException($"Unknown command: {args[0]} {args[1]}");
         }
+    }
+
+    internal static async Task<JsonArray> ReadDocumentation(string cwd, JsonObject entry)
+    {
+        var paths = entry["documentation"]?.AsArray().Select(value => value!.GetValue<string>()).ToArray() ?? [];
+        if (paths.Length == 0) paths = ["README.md"];
+        if (paths.Length > 20) throw new ArgumentException("Registry accepts at most 20 documentation files");
+        var docs = new JsonArray();
+        foreach (var path in paths)
+        {
+            var fullPath = Path.GetFullPath(path, cwd);
+            if (!File.Exists(fullPath)) throw new ArgumentException($"Public Registry publishing requires documentation; missing {path}. Set Metadata.Documentation or add README.md");
+            var content = await File.ReadAllTextAsync(fullPath);
+            if (string.IsNullOrWhiteSpace(content) || content.Length > 1_000_000) throw new ArgumentException($"Documentation must contain 1 to 1,000,000 characters: {path}");
+            docs.Add(content);
+        }
+        return docs;
     }
 
     private static async Task SaveExports(string cwd, JsonArray exports)

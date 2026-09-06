@@ -37,8 +37,10 @@
     "url": "https://bettercorp.dev/"
   },
   "dependencies": {
+    "@bsb/base": "^9.1.11",
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^10.1.1",
+    "@fastify/rate-limit": "^11.2.0",
     "@fastify/static": "^10.1.3",
     "@fastify/view": "^12.0.0",
     "anyvali": "^1.1.1",
@@ -46,8 +48,7 @@
     "handlebars": "^4.7.8",
     "marked": "^18.0.11",
     "safe-regex2": "^5.1.0",
-    "sql.js": "^1.12.0",
-    "@bsb/base": "^9.1.11"
+    "sql.js": "^1.12.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

@@ -26,6 +26,9 @@ service-bsb-registry-ui:
 | `badgesFile` | string | `./BADGES.json` | Plugin-relative or absolute badge map file keyed by `org/name` |
 | `maxImageUploadMb` | number | `5` | Max image upload size in MB |
 | `corsOrigins` | string[] | `[]` | Explicit browser origins allowed to call the API |
+| `rateLimitMax` | number | `300` | Maximum requests per peer IP per minute per instance |
+
+The request limit runs before authentication and returns HTTP 429 with `Retry-After`; `/health` is exempt. Forwarded IP headers are not trusted. A reverse proxy shares its peer-IP budget, so size `rateLimitMax` for that traffic and enforce per-client limits at the trusted gateway. Multiple Registry replicas need gateway limits for a shared budget.
 
 Absolute paths are used unchanged. A relative `uploadDir` resolves from the service process working directory because uploads are mutable runtime data. A relative `badgesFile` resolves from this UI plugin's `pluginCwd` because it is a bundled read-only default. Templates and static assets also load from the built UI plugin directory, so the standard registry requires no asset configuration and never writes into its versioned plugin directory.
 

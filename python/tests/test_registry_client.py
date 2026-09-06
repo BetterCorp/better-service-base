@@ -1,6 +1,14 @@
 from __future__ import annotations
 
 import bsb.registry_client as registry_client
+import pytest
+
+
+def test_scoped_dotted_identifiers_and_traversal():
+    assert registry_client.parse_plugin_id('@acme/service.worker') == ('@acme', 'service.worker')
+    for value in ('../worker', 'a/b/c', '/worker', 'worker\n'):
+        with pytest.raises(ValueError):
+            registry_client.parse_plugin_id(value)
 
 
 class _Response:

@@ -23,6 +23,7 @@ const UIConfigSchema = av.object({
   badgesFile: av.optional(av.string().minLength(1)).describe('Plugin-relative or absolute path to the badge definition JSON file'),
   maxImageUploadMb: av.int32().min(1).max(20).default(5).describe('Maximum uploaded image size in megabytes'),
   corsOrigins: av.array(av.string().format('url')).maxItems(20).default([]).describe('Browser origins allowed to call the Registry API; empty disables cross-origin access'),
+  rateLimitMax: av.int32().min(1).max(100000).default(300).describe('Maximum HTTP requests per peer IP per minute, per Registry instance'),
 }).describe('Registry UI and API plugin configuration');
 
 export type UIConfig = av.Infer<typeof UIConfigSchema>;
@@ -77,6 +78,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       this.config.badgesFile,
       this.config.maxImageUploadMb,
       this.config.corsOrigins,
+      this.config.rateLimitMax,
     );
   }
 

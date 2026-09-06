@@ -1,8 +1,7 @@
-import { bsb, optional, nullable, PLUGIN_LANGUAGES } from '@bsb/base';
+import { bsb, optional, nullable, PLUGIN_LANGUAGES, REGISTRY_IDENTIFIER_PATTERN, REGISTRY_PLUGIN_ID_PATTERN } from '@bsb/base';
 import type { InferBSBType, PluginLanguage } from '@bsb/base';
 
-export const REGISTRY_IDENTIFIER_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*)$';
-export const REGISTRY_PLUGIN_ID_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*)(?:/(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*))?$';
+export { REGISTRY_IDENTIFIER_PATTERN, REGISTRY_PLUGIN_ID_PATTERN } from '@bsb/base';
 export const PACKAGE_LOOKUP_ID_PATTERN = '^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9@._:-]+(?:/[A-Za-z0-9@._:-]+)*$';
 export const SEMANTIC_VERSION_PATTERN = '^\\d{1,5}\\.\\d{1,5}\\.\\d{1,5}(?:-[a-zA-Z0-9.]+)?$';
 export const MAJOR_MINOR_PATTERN = '^\\d{1,5}\\.\\d{1,5}$';

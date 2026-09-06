@@ -23,7 +23,7 @@ public sealed class RegistryClient : IDisposable
     }
     public static (string Org, string Name) ParsePluginId(string id)
     {
-        if (!Regex.IsMatch(id, "^(?:[A-Za-z0-9_-]+/)?[A-Za-z0-9_-]+$")) throw new ArgumentException("Plugin ID must be name or org/name");
+        if (id.Length > 200 || !Regex.IsMatch(id, "\\A@?[A-Za-z0-9_][A-Za-z0-9._-]*(?:/@?[A-Za-z0-9_][A-Za-z0-9._-]*)?\\z")) throw new ArgumentException("Plugin ID must be name or org/name");
         var parts = id.Split('/'); return parts.Length == 1 ? ("_", parts[0]) : (parts[0], parts[1]);
     }
     public static string Language(string language) => language switch {

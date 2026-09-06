@@ -86,7 +86,8 @@ def _import_module(source_root: Path, file_path: Path) -> ModuleType:
     source_root_str = str(source_root)
     if source_root_str not in sys.path:
         sys.path.insert(0, source_root_str)
-    module_name = ".".join(file_path.relative_to(source_root).with_suffix("").parts)
+    parts = file_path.relative_to(source_root).with_suffix("").parts
+    module_name = ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
     existing = sys.modules.get(module_name)
     existing_path = Path(getattr(existing, "__file__", "")) if existing is not None else None
     if existing_path and existing_path.resolve() != file_path.resolve():
@@ -165,7 +166,11 @@ def discover_plugins(project_root: str | Path) -> list[DiscoveredPlugin]:
             if not separator or not class_name.isidentifier():
                 raise ValueError("bsb.plugins entry points must target module:Class")
             file_path = source_root.joinpath(*module_name.split(".")).with_suffix(".py")
+            if not file_path.is_file():
+                file_path = source_root.joinpath(*module_name.split("."), "__init__.py")
             module = _import_module(source_root, file_path)
+            file_path = Path(module.__file__).resolve()
+            file_path.relative_to(source_root.resolve())
             candidates.append((file_path, module, getattr(module, class_name), plugin_id))
     else:
         for file_path in sorted(source_root.rglob("*.py")):
@@ -177,7 +182,7 @@ def discover_plugins(project_root: str | Path) -> list[DiscoveredPlugin]:
                 candidates.append((file_path, module, plugin_cls, None))
     seen = set()
     for file_path, module, plugin_cls, explicit_id in candidates:
-        if file_path.name == "__init__.py":
+        if file_path.name == "__init__.py" and explicit_id is None:
             continue
         if "__pycache__" in file_path.parts:
             continue

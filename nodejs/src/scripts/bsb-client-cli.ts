@@ -28,6 +28,7 @@ import * as http from 'node:http';
 import { getModuleDir } from '../base/module-runtime.js';
 import { retryRegistryPublish } from './registry-retry.js';
 import { normalizePluginLanguage } from '../interfaces/plugin-language.js';
+import { parseRegistryPluginId as parsePluginId } from '../interfaces/registry-identifiers.js';
 
 type ColorName = 'reset' | 'bright' | 'red' | 'green' | 'yellow' | 'blue' | 'cyan';
 
@@ -78,17 +79,6 @@ const MODULE_DIR = getModuleDir(import.meta.url);
  * Accepts both "org/name" and plain "name" formats.
  * When no org is provided, defaults to "_" (unaffiliated).
  */
-function parsePluginId(pluginId: string): { org: string; name: string } {
-  if (!/^(?:[A-Za-z0-9_-]+\/)?[A-Za-z0-9_-]+$/.test(pluginId)) {
-    throw new Error('Plugin ID must be name or org/name using letters, digits, underscores or hyphens');
-  }
-  if (pluginId.includes('/')) {
-    const [org, ...rest] = pluginId.split('/');
-    return { org, name: rest.join('/') };
-  }
-  return { org: '_', name: pluginId };
-}
-
 /**
  * Format a plugin ID for display.
  * Hides the "_" sentinel org for unaffiliated plugins.

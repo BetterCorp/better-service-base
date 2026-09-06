@@ -74,6 +74,22 @@ def test_build_project_exports_schemas_and_manifest(tmp_path: Path) -> None:
     assert manifest["python"][0]["category"] == "service"
 
 
+def test_package_entry_point_manifest_loads(tmp_path: Path) -> None:
+    import asyncio
+    from bsb.plugin_loader import SBPlugins
+    _write_demo_project(tmp_path)
+    package = tmp_path / 'src' / 'package_entry_fixture'
+    package.mkdir()
+    package.joinpath('__init__.py').write_text((tmp_path / 'src/demo_pkg/service_demo.py').read_text())
+    with (tmp_path / 'pyproject.toml').open('a') as project:
+        project.write('\n[project.entry-points."bsb.plugins"]\nservice-demo = "package_entry_fixture:Plugin"\n')
+    result = build_project(tmp_path)
+    entry = json.loads(result['manifest'].read_text())['python'][0]
+    assert entry['path'] == 'src/package_entry_fixture/__init__.py'
+    loaded = asyncio.run(SBPlugins(str(tmp_path), False).load_plugin('service', None, 'service-demo', 'alias'))
+    assert loaded.plugin.__name__ == 'Plugin'
+
+
 def test_generate_clients_creates_service_client_module(tmp_path: Path) -> None:
     schemas_dir = tmp_path / "src" / ".bsb" / "schemas"
     schemas_dir.mkdir(parents=True, exist_ok=True)

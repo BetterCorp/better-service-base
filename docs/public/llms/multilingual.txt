@@ -33,6 +33,8 @@ Lifecycle ordering resolves explicit profile aliases before logical metadata nam
 
 The native-integration CI job runs tests/integration/rabbit_languages.py against RabbitMQ and vault-postgres.mjs against PostgreSQL. These require real services; adding the job does not mean it has run. Local fast suites remain separate.
 
+Registry HTTP uses rateLimitMax (default 300 requests per peer IP per minute per instance) before authentication. Health checks are exempt; forwarded IP headers are not trusted. Configure gateway limits for individual clients behind a reverse proxy and a shared budget across replicas.
+
 Vault shared application-profile publication validates each active deployment's effective configuration and host language. Disabled remote references retain their implementation language. Native AnyVali wrappers may use schema/inner and unions schemas/variants. Keep secret detection shared between server and browser. Sensitive collections and referenced schemas use write-only whole-value JSON replacement; omission preserves the existing value. Do not restore secrets by array index after a reorder.
 
 Python: BSB is the host (`bsb run`), applications are standard wheels with [project.entry-points."bsb.plugins"] mapping logical IDs to module:Class. Export Config.metadata, Config.validation_schema and Plugin.EventSchemas. No application constructors during plugin build/export. Create generated clients in constructors; register listeners in init. Use async dispose for cleanup. One installed distribution version per virtual environment; separate hosts for conflicting dependency versions. bsb plugin pack builds a wheel; bsb plugin install accepts a wheel or distribution --version. BSB_PLUGIN_DIR and safe local manifests support development sources.

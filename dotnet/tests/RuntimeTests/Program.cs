@@ -13,6 +13,13 @@ static void Check(bool condition, string message)
     if (!condition) throw new Exception(message);
 }
 
+Check(RegistryClient.ParsePluginId("@acme/service.worker") == ("@acme", "service.worker"), "Valid scoped/dotted Registry ID rejected");
+foreach (var id in new[] { "../worker", "a/b/c", "worker\n" })
+{
+    try { RegistryClient.ParsePluginId(id); throw new Exception("Unsafe Registry ID accepted"); }
+    catch (ArgumentException) { }
+}
+
 var schema = BSBTypes.Object(new() {
     ["items"] = BSBTypes.Array(BSBTypes.Int32(min: 1), minLength: 1),
     ["email"] = BSBTypes.Email(),
@@ -221,6 +228,12 @@ finally { Directory.Delete(cacheDirectory, recursive: true); }
 var clientDirectory = Directory.CreateTempSubdirectory("bsb-client-compile-").FullName;
 try
 {
+    try { await BsbCli.ReadDocumentation(clientDirectory, new()); throw new Exception("Missing publish docs accepted"); }
+    catch (ArgumentException error) when (error.Message.Contains("requires documentation")) { }
+    await File.WriteAllTextAsync(Path.Combine(clientDirectory, "README.md"), "# Public plugin\nUsage instructions");
+    Check((await BsbCli.ReadDocumentation(clientDirectory, new()))[0]!.GetValue<string>().Contains("Usage instructions"), "README fallback missing from publish docs");
+    await File.WriteAllTextAsync(Path.Combine(clientDirectory, "plugin.md"), "# Plugin-specific docs");
+    Check((await BsbCli.ReadDocumentation(clientDirectory, new() { ["documentation"] = new JsonArray("plugin.md") }))[0]!.GetValue<string>() == "# Plugin-specific docs", "Explicit publish docs ignored");
     var contract = new BSBEventSchemas { OnReturnableEvents = new() {
         ["orders.get"] = new(BSBTypes.Object(new() { ["id"] = BSBTypes.Int32(), ["status"] = BSBTypes.Enum(["open", "closed"]) }), schema, 5) } };
     var portableContract = contract.Export("service-orders", "1.0.0");

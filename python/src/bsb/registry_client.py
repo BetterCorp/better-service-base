@@ -21,7 +21,7 @@ VALID_CATEGORIES = {"service", "observable", "events", "config"}
 def parse_plugin_id(plugin_id: str) -> tuple[str, str]:
     parts = plugin_id.split("/")
     org, name = ("_", parts[0]) if len(parts) == 1 else parts if len(parts) == 2 else ("", "")
-    if not all(re.fullmatch(r"[A-Za-z0-9_-]+", value) for value in (org, name)):
+    if len(plugin_id) > 200 or not all(re.fullmatch(r"@?[A-Za-z0-9_][A-Za-z0-9._-]*", value) for value in (org, name)):
         raise ValueError("Invalid registry plugin identifier; expected org/name or name")
     return org, name
 

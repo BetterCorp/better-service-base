@@ -19,6 +19,32 @@ const entry = (language: PluginLanguage, version = '1.0.0'): RegistryEntry => ({
   publishedAt: version === '1.0.0' ? '2026-01-01T00:00:00Z' : '2026-02-01T00:00:00Z', updatedAt: '2026-02-01T00:00:00Z',
 });
 
+test('Registry limits requests before authorization without trusting forwarded IPs', async () => {
+  const server = new RegistryUIServer(0, '127.0.0.1', 10, '.', undefined, 1, [], 2);
+  const app = Fastify();
+  const internals = server as any;
+  internals.app = app;
+  internals.createTrace = () => obs;
+  let calls = 0;
+  internals.registryClient = { registryPluginImplementations: async () => {
+    calls++;
+    return { implementations: [] };
+  } };
+  await internals.registerRateLimit();
+  internals.registerRoutes();
+  try {
+    for (let i = 0; i < 3; i++) {
+      const response = await app.inject({ url: '/plugins/acme/demo/implementations',
+        headers: { authorization: `Bearer token-${i}`, 'x-forwarded-for': `192.0.2.${i}` } });
+      assert.equal(response.statusCode, i < 2 ? 200 : 429, response.body);
+      if (i === 2) assert.ok(Number(response.headers['retry-after']) > 0);
+    }
+    assert.equal(calls, 2);
+    assert.equal((await app.inject('/health')).statusCode, 200);
+    assert.equal((await app.inject({ url: '/plugins/acme/demo/implementations', remoteAddress: '192.0.2.10' })).statusCode, 200);
+  } finally { await app.close(); }
+});
+
 test('HTTP implementation language is independent from generated type language', async () => {
   const server = new RegistryUIServer(0, '127.0.0.1', 10, '.', undefined, 1, []);
   const app = Fastify();

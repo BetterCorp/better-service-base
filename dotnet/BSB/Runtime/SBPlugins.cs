@@ -452,6 +452,7 @@ public class SBPlugins
             result.Add(new JsonObject { ["id"] = id, ["language"] = "csharp", ["version"] = pluginVersion,
                 ["assembly"] = Path.GetFileName(path), ["type"] = type.FullName, ["category"] = category,
                 ["package"] = package ?? assembly.GetName().Name,
+                ["documentation"] = new JsonArray((metadata?.Documentation ?? []).Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
                 ["description"] = metadata?.Description ?? id, ["schema"] = schema });
         }
         if (result.Count == 0) throw new InvalidOperationException("Assembly contains no BSB plugins");
