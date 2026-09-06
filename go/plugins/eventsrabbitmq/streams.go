@@ -2,6 +2,7 @@ package eventsrabbitmq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -141,6 +142,11 @@ func decodeChunk(value any) ([]byte, error) {
 	data := make([]byte, len(values))
 	for index, value := range values {
 		number, ok := value.(float64)
+		if raw, valid := value.(json.Number); valid {
+			var err error
+			number, err = raw.Float64()
+			ok = err == nil
+		}
 		if !ok || number < 0 || number > 255 || number != float64(byte(number)) {
 			return nil, fmt.Errorf("invalid stream byte")
 		}

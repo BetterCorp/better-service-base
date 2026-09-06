@@ -1,6 +1,9 @@
 package bsb
 
-import "sync/atomic"
+import (
+	"math"
+	"sync/atomic"
+)
 
 // Counter is a monotonically increasing metric.
 type Counter struct {
@@ -8,6 +11,7 @@ type Counter struct {
 	description string
 	help        string
 	value       atomic.Int64
+	onChange    func(int64)
 }
 
 // NewCounter creates a new counter metric.
@@ -25,7 +29,13 @@ func (c *Counter) Increment(delta ...int64) {
 	if len(delta) > 0 {
 		d = delta[0]
 	}
-	c.value.Add(d)
+	if d < 0 {
+		panic("counter increments must be nonnegative")
+	}
+	value := c.value.Add(d)
+	if c.onChange != nil {
+		c.onChange(value)
+	}
 }
 
 // Value returns the current counter value.
@@ -41,7 +51,8 @@ type Gauge struct {
 	name        string
 	description string
 	help        string
-	value       atomic.Int64 // stored as fixed-point * 1000 for float precision
+	value       atomic.Uint64 // IEEE 754 bits
+	onChange    func(float64)
 }
 
 // NewGauge creates a new gauge metric.
@@ -55,30 +66,42 @@ func NewGauge(name, description, help string) *Gauge {
 
 // Set sets the gauge value.
 func (g *Gauge) Set(value float64) {
-	g.value.Store(int64(value * 1000))
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		panic("gauge value must be finite")
+	}
+	g.value.Store(math.Float64bits(value))
+	if g.onChange != nil {
+		g.onChange(value)
+	}
 }
 
 // Increment adds to the gauge (default 1).
 func (g *Gauge) Increment(delta ...float64) {
-	d := 1000.0
+	d := 1.0
 	if len(delta) > 0 {
-		d = delta[0] * 1000
+		d = delta[0]
 	}
-	g.value.Add(int64(d))
+	value := addFloat(&g.value, d)
+	if g.onChange != nil {
+		g.onChange(value)
+	}
 }
 
 // Decrement subtracts from the gauge (default 1).
 func (g *Gauge) Decrement(delta ...float64) {
-	d := 1000.0
+	d := 1.0
 	if len(delta) > 0 {
-		d = delta[0] * 1000
+		d = delta[0]
 	}
-	g.value.Add(-int64(d))
+	value := addFloat(&g.value, -d)
+	if g.onChange != nil {
+		g.onChange(value)
+	}
 }
 
 // Value returns the current gauge value.
 func (g *Gauge) Value() float64 {
-	return float64(g.value.Load()) / 1000
+	return math.Float64frombits(g.value.Load())
 }
 
 // Name returns the gauge name.
@@ -92,7 +115,8 @@ type Histogram struct {
 	boundaries  []float64
 	buckets     []atomic.Int64
 	count       atomic.Int64
-	sum         atomic.Int64 // stored as fixed-point * 1000
+	sum         atomic.Uint64
+	onChange    func(int64, float64)
 }
 
 // NewHistogram creates a new histogram metric.
@@ -111,8 +135,16 @@ func NewHistogram(name, description, help string, boundaries []float64) *Histogr
 
 // Record observes a value in the histogram.
 func (h *Histogram) Record(value float64) {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		panic("histogram value must be finite")
+	}
 	h.count.Add(1)
-	h.sum.Add(int64(value * 1000))
+	addFloat(&h.sum, value)
+	defer func() {
+		if h.onChange != nil {
+			h.onChange(h.Count(), h.Sum())
+		}
+	}()
 	for i, boundary := range h.boundaries {
 		if value <= boundary {
 			h.buckets[i].Add(1)
@@ -129,8 +161,24 @@ func (h *Histogram) Count() int64 {
 
 // Sum returns the sum of all observed values.
 func (h *Histogram) Sum() float64 {
-	return float64(h.sum.Load()) / 1000
+	return math.Float64frombits(h.sum.Load())
 }
 
 // Name returns the histogram name.
 func (h *Histogram) Name() string { return h.name }
+
+func addFloat(target *atomic.Uint64, delta float64) float64 {
+	if math.IsNaN(delta) || math.IsInf(delta, 0) {
+		panic("metric delta must be finite")
+	}
+	for {
+		old := target.Load()
+		next := math.Float64frombits(old) + delta
+		if math.IsInf(next, 0) {
+			panic("metric overflow")
+		}
+		if target.CompareAndSwap(old, math.Float64bits(next)) {
+			return next
+		}
+	}
+}

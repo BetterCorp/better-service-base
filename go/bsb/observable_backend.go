@@ -52,45 +52,49 @@ func (b *ObservableBackend) Debug(trace DTrace, pluginName, message string, meta
 	if b.mode == ModeProduction {
 		return
 	}
-	formatted := formatMessage(message, meta)
-	b.logger.Debug(formatted, "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
+	if len(b.plugins) == 0 {
+		b.logger.Debug(formatMessage(message, meta), "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
+	}
 	for _, p := range b.plugins {
-		p.OnDebug(trace, pluginName, formatted, meta)
+		p.OnDebug(trace, pluginName, message, meta)
 	}
 }
 
 // Info logs at info level.
 func (b *ObservableBackend) Info(trace DTrace, pluginName, message string, meta map[string]any) {
-	formatted := formatMessage(message, meta)
-	b.logger.Info(formatted, "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
+	if len(b.plugins) == 0 {
+		b.logger.Info(formatMessage(message, meta), "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
+	}
 	for _, p := range b.plugins {
-		p.OnInfo(trace, pluginName, formatted, meta)
+		p.OnInfo(trace, pluginName, message, meta)
 	}
 }
 
 // Warn logs at warning level.
 func (b *ObservableBackend) Warn(trace DTrace, pluginName, message string, meta map[string]any) {
-	formatted := formatMessage(message, meta)
-	b.logger.Warn(formatted, "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
+	if len(b.plugins) == 0 {
+		b.logger.Warn(formatMessage(message, meta), "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
+	}
 	for _, p := range b.plugins {
-		p.OnWarn(trace, pluginName, formatted, meta)
+		p.OnWarn(trace, pluginName, message, meta)
 	}
 }
 
 // LogError logs at error level.
 func (b *ObservableBackend) LogError(trace DTrace, pluginName, message string, meta map[string]any) {
-	formatted := formatMessage(message, meta)
-	b.logger.Error(formatted, "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
+	if len(b.plugins) == 0 {
+		b.logger.Error(formatMessage(message, meta), "plugin", pluginName, "trace", trace.TraceID, "span", trace.SpanID)
+	}
 	for _, p := range b.plugins {
-		p.OnError(trace, pluginName, formatted, meta)
+		p.OnError(trace, pluginName, message, meta)
 	}
 }
 
@@ -103,6 +107,10 @@ func (b *ObservableBackend) CreateCounter(pluginName, name, description, help st
 		return c
 	}
 	c := NewCounter(name, description, help)
+	started := fmt.Sprint(time.Now().UnixNano())
+	c.onChange = func(value int64) {
+		b.metric(pluginName, map[string]any{"kind": "counter", "name": name, "description": description, "unit": help, "value": value, "startedNs": started, "timestampNs": fmt.Sprint(time.Now().UnixNano())})
+	}
 	b.counters[key] = c
 	return c
 }
@@ -116,13 +124,32 @@ func (b *ObservableBackend) CreateGauge(pluginName, name, description, help stri
 		return g
 	}
 	g := NewGauge(name, description, help)
+	started := fmt.Sprint(time.Now().UnixNano())
+	g.onChange = func(value float64) {
+		b.metric(pluginName, map[string]any{"kind": "gauge", "name": name, "description": description, "unit": help, "value": value, "startedNs": started, "timestampNs": fmt.Sprint(time.Now().UnixNano())})
+	}
 	b.gauges[key] = g
 	return g
 }
 
 // CreateHistogram creates a new histogram.
 func (b *ObservableBackend) CreateHistogram(pluginName, name, description, help string, boundaries []float64) *Histogram {
-	return NewHistogram(name, description, help, boundaries)
+	h := NewHistogram(name, description, help, boundaries)
+	started := fmt.Sprint(time.Now().UnixNano())
+	h.onChange = func(count int64, sum float64) {
+		b.metric(pluginName, map[string]any{"kind": "histogram", "name": name, "description": description, "unit": help, "count": count, "sum": sum, "startedNs": started, "timestampNs": fmt.Sprint(time.Now().UnixNano())})
+	}
+	return h
+}
+
+func (b *ObservableBackend) metric(plugin string, entry map[string]any) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	for _, backend := range b.plugins {
+		if exporter, ok := backend.(interface{ OnMetric(string, map[string]any) }); ok {
+			exporter.OnMetric(plugin, entry)
+		}
+	}
 }
 
 // CreateTimer creates a new timer.
@@ -163,7 +190,7 @@ func (b *ObservableBackend) ErrorSpan(trace DTrace, pluginName, spanID string, e
 // CreateTrace creates a new root trace and returns an Observable.
 func (b *ObservableBackend) CreateTrace(name string, pluginName string, resource ResourceContext, attributes map[string]any) Observable {
 	trace := NewDTrace()
-	_, spanID := b.StartSpan(trace, pluginName, name, attributes)
+	trace, spanID := b.StartSpan(trace, pluginName, name, attributes)
 	return &pluginObservable{
 		trace:      trace,
 		resource:   resource,

@@ -36,6 +36,10 @@ func EndpointOrigin(raw string, allowHTTP bool) (string, error) {
 
 // JSONRequest bounds reads and never forwards credentials through redirects.
 func JSONRequest(ctx context.Context, method, endpoint string, body any, headers map[string]string, timeout time.Duration, output any) error {
+	return JSONRequestLimit(ctx, method, endpoint, body, headers, timeout, output, MaxJSONBytes)
+}
+
+func JSONRequestLimit(ctx context.Context, method, endpoint string, body any, headers map[string]string, timeout time.Duration, output any, requestLimit int) error {
 	var data []byte
 	var err error
 	if body != nil {
@@ -43,7 +47,7 @@ func JSONRequest(ctx context.Context, method, endpoint string, body any, headers
 		if err != nil {
 			return err
 		}
-		if len(data) > MaxJSONBytes {
+		if len(data) > requestLimit {
 			return fmt.Errorf("request exceeds size limit")
 		}
 	}
@@ -75,5 +79,5 @@ func JSONRequest(ctx context.Context, method, endpoint string, body any, headers
 	if len(data) == 0 {
 		return nil
 	}
-	return json.Unmarshal(data, output)
+	return DecodeJSON(data, output)
 }

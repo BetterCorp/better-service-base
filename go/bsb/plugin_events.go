@@ -2,19 +2,23 @@ package bsb
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
 // PluginEvents provides a service plugin with a scoped facade to the event bus.
 // All calls are automatically scoped to the owning plugin's name.
 type PluginEvents struct {
-	pluginName string
-	bus        EventsPlugin
-	backend    *ObservableBackend
-	resource   ResourceContext
-	schemas    BSBEventSchemas
-	validator  *EventValidator
+	pluginName  string
+	bus         EventsPlugin
+	backend     *ObservableBackend
+	resource    ResourceContext
+	schemas     BSBEventSchemas
+	validator   *EventValidator
+	suffix      string
+	definitions map[string]PluginDefinition
 }
 
 // NewPluginEvents creates a new event facade for a service plugin.
@@ -57,7 +61,7 @@ func (pe *PluginEvents) OnEvent(ctx context.Context, eventName string, listener 
 		}
 	}
 
-	return pe.bus.OnEvent(ctx, obs, pe.pluginName, eventName, listener)
+	return pe.bus.OnEvent(ctx, obs, pe.pluginName, eventName+pe.suffix, listener)
 }
 
 // EmitEvent fires a fire-and-forget event.
@@ -73,7 +77,7 @@ func (pe *PluginEvents) EmitEvent(ctx context.Context, eventName string, payload
 		payload = vr.Data
 	}
 
-	return pe.bus.EmitEvent(ctx, obs, pe.pluginName, eventName, payload)
+	return pe.bus.EmitEvent(ctx, obs, pe.pluginName, eventName+pe.suffix, payload)
 }
 
 // OnReturnableEvent registers a listener for a returnable event.
@@ -111,7 +115,7 @@ func (pe *PluginEvents) OnReturnableEvent(ctx context.Context, eventName string,
 		}
 	}
 
-	return pe.bus.OnReturnableEvent(ctx, obs, pe.pluginName, eventName, listener)
+	return pe.bus.OnReturnableEvent(ctx, obs, pe.pluginName, eventName+pe.suffix, listener)
 }
 
 // EmitEventAndReturn fires a returnable event and waits for a response.
@@ -133,7 +137,7 @@ func (pe *PluginEvents) EmitEventAndReturn(ctx context.Context, eventName string
 		payload = vr.Data
 	}
 
-	result, err := pe.bus.EmitEventAndReturn(ctx, obs, pe.pluginName, eventName, t, payload)
+	result, err := pe.bus.EmitEventAndReturn(ctx, obs, pe.pluginName, eventName+pe.suffix, t, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -192,13 +196,13 @@ func (pe *PluginEvents) ReceiveStream(ctx context.Context, eventName string, lis
 	if len(timeout) > 0 {
 		t = timeout[0]
 	}
-	return pe.bus.ReceiveStream(ctx, obs, pe.pluginName, eventName, listener, t)
+	return pe.bus.ReceiveStream(ctx, obs, pe.pluginName, eventName+pe.suffix, listener, t)
 }
 
 // SendStream sends data through a stream.
 func (pe *PluginEvents) SendStream(ctx context.Context, eventName string, streamID string, stream io.Reader) error {
 	obs := pe.createObs(ctx)
-	return pe.bus.SendStream(ctx, obs, pe.pluginName, eventName, streamID, stream)
+	return pe.bus.SendStream(ctx, obs, pe.pluginName, eventName+pe.suffix, streamID, stream)
 }
 
 // createObs creates a bootstrap Observable for event operations.
@@ -219,5 +223,40 @@ func WithObservable(ctx context.Context, obs Observable) context.Context {
 
 // ForTarget binds a generated client to the host transport and target service alias.
 func (pe *PluginEvents) ForTarget(target string, schemas BSBEventSchemas) *PluginEvents {
-	return NewPluginEvents(target, pe.bus, pe.backend, pe.resource, schemas)
+	next := NewPluginEvents(target, pe.bus, pe.backend, pe.resource, schemas)
+	next.definitions = pe.definitions
+	return next
+}
+
+// Specific keeps validation on the unsuffixed contract while targeting an instance.
+func (pe *PluginEvents) Specific(serverID string) (*PluginEvents, error) {
+	if serverID == "" || len(serverID) > 200 || strings.ContainsAny(serverID, "\x00\r\n") {
+		return nil, fmt.Errorf("invalid server ID")
+	}
+	copy := *pe
+	copy.suffix = "-" + serverID
+	return &copy, nil
+}
+
+// ClientTarget resolves a wire plugin ID to its deployment alias, including remote references.
+func (pe *PluginEvents) ClientTarget(target string, schemas BSBEventSchemas) (*PluginEvents, error) {
+	if target == "" {
+		return nil, fmt.Errorf("empty client target")
+	}
+	if _, exact := pe.definitions[target]; !exact {
+		found := ""
+		for alias, entry := range pe.definitions {
+			if entry.Plugin != target {
+				continue
+			}
+			if found != "" {
+				return nil, fmt.Errorf("ambiguous service %s; specify its alias", target)
+			}
+			found = alias
+		}
+		if found != "" {
+			target = found
+		}
+	}
+	return pe.ForTarget(target, schemas), nil
 }

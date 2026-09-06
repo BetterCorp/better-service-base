@@ -46,3 +46,12 @@ Python clients: bsb client install org/service --source-language nodejs --versio
 Python config-default/env/Vault/VaultGoogle, events-default/Rabbit, and native observability plugins are implemented; see python/README.md for options. AnyVali 1.1.1 uses schema/inner and elements/items aliases across SDKs. Keep full definitions, constraints, metadata and optional-vs-null semantics. Python Rabbit uses the same durable queues, confirmed replies, redelivery and opaque stream IDs as Node/.NET. Stream timeout IDs use whole seconds. Poison counts are local to a consumer process. Recovery restores topology on the selected endpoint; streams do not resume across failures.
 
 Python observability: file/Pino/Winston are native equivalents, not JS adapters. OTLP HTTP JSON/Axiom/Zipkin and GELF/syslog share bounded asynchronous exporting, TLS verification, redaction and shutdown draining. Metrics are cumulative and namespaced per plugin. Buffers are non-durable. Native examples live in python/examples/native_plugins; generic generated clients share Node contracts. The todo HTTP server and JSON storage are examples, not a production multi-writer persistence layer.
+
+GO HOST / CLIENT TOOLING (2026-09-06)
+- Go packages export Register(*bsb.PluginRegistry); static PluginContract plus factories. BSB owns main and lifecycle.
+- bsb-plugin.json go entries: {id, package: Go import path}. bsb plugin build generates .bsb/host/main.go, lib/bsb, lib/schemas. No runtime dependency downloads.
+- bsb client install ID --source-language LANG [--version VERSION] stores exact .bsb/schemas snapshot and emits bsbclients Go package. sync is offline. publish builds and exports without constructors; --target uses private Vault.
+- Source identities include Registry, org, name, language, version. Never infer a language for ambiguous implementations. Registry/Vault services remain shared Node services.
+- Generated client Events() handles streams; Specific(id) suffixes instance operations. Use bsb.WithObservable for nested traces. Optional[T] + omitzero preserves omitted/null; json.Number preserves untyped integer precision.
+- Nine observable implementations are linked. Native Pino/Winston formats, rotating files, OTLP, Axiom, Zipkin, GELF/syslog; bounded queues/flush, redaction before interpolation. Go README documents options and histogram ceiling.
+- Node/.NET/Python/Go 12 directed RPC/trace/stream integration pairs passed. Rust and Go example parity remain in progress; do not describe the full Go/Rust plan as complete yet.

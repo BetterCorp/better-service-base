@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/bettercorp/service-base/go/bsb"
 	"testing"
@@ -14,7 +15,7 @@ func TestGoProfileLanguageAndOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := config.GetPluginConfig(context.Background(), nil, bsb.PluginTypeService, "local")
-	if err != nil || got["a"] != float64(1) || got["b"] != float64(3) {
+	if err != nil || got["a"] != json.Number("1") || got["b"] != json.Number("3") {
 		t.Fatalf("merge: %v %v", got, err)
 	}
 	for _, invalid := range []string{`null`, `{"default":{"language":"python"}}`, `{"default":{"services":{"bad":{"enabled":"false"}}}}`, `{"default":{"services":{"bad":{"language":"rust"}}}}`} {

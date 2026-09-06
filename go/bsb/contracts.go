@@ -32,6 +32,14 @@ func (r *PluginRegistry) ExportContracts() ([]map[string]any, error) {
 		item["category"] = meta.Category
 		item["documentation"] = contract.Documentation
 		item["description"] = meta.Description
+		item["author"] = meta.Author
+		item["license"] = meta.License
+		item["homepage"] = meta.Homepage
+		item["repository"] = meta.Repository
+		item["tags"] = meta.Tags
+		if contract.Capabilities != nil {
+			item["capabilities"] = contract.Capabilities
+		}
 		if contract.Config != nil {
 			schema, err := ExportSchema(contract.Config, ExportExtended)
 			if err != nil {
@@ -50,6 +58,7 @@ type PluginContract struct {
 	Config        BSBSchema
 	Events        BSBEventSchemas
 	Documentation []string
+	Capabilities  map[string]any
 }
 
 func (r *PluginRegistry) RegisterContract(contract PluginContract) {

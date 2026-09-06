@@ -1,6 +1,25 @@
 package bsb
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+)
+
+// DecodeJSON preserves integers when decoding untyped configuration and wire data.
+func DecodeJSON(data []byte, target any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return fmt.Errorf("unexpected trailing JSON data")
+	}
+	return nil
+}
 
 // Optional preserves omitted versus explicitly null JSON properties.
 // Generated fields use json:",omitzero" so unset values are omitted.
@@ -13,7 +32,7 @@ func Some[T any](value T) Optional[T]                  { return Optional[T]{Valu
 func (value Optional[T]) IsZero() bool                 { return !value.Present }
 func (value Optional[T]) MarshalJSON() ([]byte, error) { return json.Marshal(value.Value) }
 func (value *Optional[T]) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &value.Value); err != nil {
+	if err := DecodeJSON(data, &value.Value); err != nil {
 		return err
 	}
 	value.Present = true
@@ -25,7 +44,7 @@ func DecodeValue[T any](value any) (T, error) {
 	if err != nil {
 		return result, err
 	}
-	err = json.Unmarshal(data, &result)
+	err = DecodeJSON(data, &result)
 	return result, err
 }
 func JSONValue(value any) (any, error) { return DecodeValue[any](value) }

@@ -30,7 +30,7 @@ func MergeConfig(base, overlay map[string]any) map[string]any {
 
 func (p *JSONConfig) LoadDocument(data []byte, profile string) error {
 	var document map[string]any
-	if err := json.Unmarshal(data, &document); err != nil {
+	if err := DecodeJSON(data, &document); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 	if document == nil {
@@ -152,7 +152,7 @@ func (p *JSONConfig) GetPluginConfig(_ context.Context, _ Observable, kind Plugi
 		return nil, err
 	}
 	var result map[string]any
-	err = json.Unmarshal(data, &result)
+	err = DecodeJSON(data, &result)
 	return result, err
 }
 func (p *JSONConfig) GetServicePluginDefinition(_ context.Context, _ Observable, name string) (*ServicePluginDefinition, error) {

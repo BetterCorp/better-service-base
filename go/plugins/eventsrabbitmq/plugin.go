@@ -264,7 +264,7 @@ func (p *Plugin) consume(name string, ttl int, exclusive bool, routing string, o
 			if len(message.Body) > 16*1024*1024 {
 				err = fmt.Errorf("AMQP payload exceeds 16 MiB")
 			} else {
-				err = json.Unmarshal(message.Body, &body)
+				err = bsb.DecodeJSON(message.Body, &body)
 				if err == nil && body == nil {
 					err = fmt.Errorf("AMQP payload must be an object")
 				}

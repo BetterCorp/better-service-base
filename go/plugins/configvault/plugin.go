@@ -194,7 +194,7 @@ func (p *Plugin) apply(result response) error {
 		return err
 	}
 	var config map[string]any
-	if err = json.Unmarshal(data, &config); err != nil {
+	if err = bsb.DecodeJSON(data, &config); err != nil {
 		return err
 	}
 	if err = applyOverrides(config, result.Profile, os.Getenv("BSB_CONFIG_OVERRIDES")); err != nil {
@@ -287,7 +287,7 @@ func (p *Plugin) readCache() (response, error) {
 		return response{}, fmt.Errorf("cache exceeds size limit")
 	}
 	var payload sealed
-	if err = json.Unmarshal(data, &payload); err != nil {
+	if err = bsb.DecodeJSON(data, &payload); err != nil {
 		return response{}, err
 	}
 	encryption, err := p.encryption()
@@ -302,7 +302,7 @@ func (p *Plugin) readCache() (response, error) {
 		return response{}, err
 	}
 	var saved cached
-	if err = json.Unmarshal(plaintext, &saved); err != nil {
+	if err = bsb.DecodeJSON(plaintext, &saved); err != nil {
 		return response{}, err
 	}
 	age := time.Since(saved.FetchedAt)
@@ -320,7 +320,7 @@ func applyOverrides(document map[string]any, profile, raw string) error {
 		return fmt.Errorf("overrides exceed size limit")
 	}
 	var patch map[string]any
-	if err := json.Unmarshal([]byte(raw), &patch); err != nil || patch == nil {
+	if err := bsb.DecodeJSON([]byte(raw), &patch); err != nil || patch == nil {
 		return fmt.Errorf("overrides must be an object")
 	}
 	nodes := 0

@@ -64,6 +64,7 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 		meta := plugin.Metadata()
 		resource := BuildResourceContext(meta.Name, meta.Version, sc.opts.AppID, sc.opts.Mode, sc.opts.Region)
 		pe := NewPluginEvents(name, events.Primary(), backend, resource, sc.registry.EventSchemas(PluginTypeService, pluginName))
+		pe.definitions = pluginDefs
 		plugin.SetEvents(pe)
 		plugin.SetObservableBackend(backend)
 
