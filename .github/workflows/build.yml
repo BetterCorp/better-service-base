@@ -59,6 +59,10 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
       - name: Build native integration peers
         id: build-peers
         run: |
@@ -68,6 +72,7 @@ jobs:
           node node_modules/typescript/bin/tsc -p plugins/nodejs/config-vault/tsconfig.json
           python -m pip install -e ./python
           dotnet build dotnet/tests/RabbitPeer -c Release
+          cd go && go build -o bin/rabbit-peer ./tests/rabbitpeer
       - name: Verify all native language pairs over RabbitMQ
         timeout-minutes: 5
         env:

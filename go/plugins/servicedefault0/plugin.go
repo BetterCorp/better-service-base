@@ -12,8 +12,8 @@ import (
 
 // Config holds the plugin configuration.
 type Config struct {
-	TestA int
-	TestB int
+	TestA int `json:"testa"`
+	TestB int `json:"testb"`
 }
 
 // CalculateRequest is the payload for the "calculate" returnable event.
@@ -38,6 +38,8 @@ func New(config map[string]any) (bsb.ServicePlugin, error) {
 			p.config.TestA = int(n)
 		case int:
 			p.config.TestA = n
+		case int64:
+			p.config.TestA = int(n)
 		}
 	}
 	if v, ok := config["testb"]; ok {
@@ -46,6 +48,8 @@ func New(config map[string]any) (bsb.ServicePlugin, error) {
 			p.config.TestB = int(n)
 		case int:
 			p.config.TestB = n
+		case int64:
+			p.config.TestB = int(n)
 		}
 	}
 	return p, nil
@@ -113,6 +117,8 @@ func (p *Plugin) Init(ctx context.Context, obs bsb.Observable) error {
 				a = int(n)
 			case int:
 				a = n
+			case int64:
+				a = int(n)
 			}
 		}
 		if v, ok := req["b"]; ok {
@@ -121,6 +127,8 @@ func (p *Plugin) Init(ctx context.Context, obs bsb.Observable) error {
 				b = int(n)
 			case int:
 				b = n
+			case int64:
+				b = int(n)
 			}
 		}
 
@@ -178,6 +186,7 @@ func (p *Plugin) Dispose() error {
 
 // Register registers the service-default0 plugin with the given registry.
 func Register(registry *bsb.PluginRegistry) {
+	registry.RegisterContract(bsb.PluginContract{Metadata: (&Plugin{}).Metadata(), Events: EventSchemas(), Config: bsb.ObjectSchema(map[string]av.Schema{"testa": av.Int32().Default(0), "testb": av.Int32().Default(0)})})
 	registry.RegisterService("service-default0", func(config map[string]any) (bsb.ServicePlugin, error) {
 		return New(config)
 	})

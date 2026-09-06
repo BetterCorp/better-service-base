@@ -19,6 +19,8 @@ Native Vault startup must reject wrong-language responses, auth failures, redire
 
 See dotnet/README.md for current implemented native features and CLI commands. Do not claim Go/Rust host support from registry enum values alone.
 
+Go/Rust completion is in progress; see docs/native-go-rust-plan.md and go/README.md. Go plugins register factories and static PluginContract schemas. The host validates registered config schemas before construction and wires event schemas into service facades. Go file/env/Vault providers share profile validation; only enabled plugins must match go, while disabled references may target remote languages. The Go Rabbit implementation uses the same durable queues and stream envelopes, with producer/consumer declarations and confirmed replies before ack. Go/Rust packages are linked into a BSB-owned executable at build time; remote profiles never install or execute unapproved packages. Do not claim full parity until tooling, native observability and real integration gates pass.
+
 .NET generated optional properties use OptionalValue<T>. Unset means omitted; OptionalValue<string?>(null) means present null. Do not collapse these states when generating clients. Specific(serverId, ...) methods append Node's event-serverId suffix while validating the unsuffixed contract.
 
 .NET RabbitMQ uses Node BSB 9 queue names and {trace:{t,s},args:[payload]} envelopes. Keep durable fire/RPC queues for missing listeners. Confirm replies before acknowledging requests; failed publishes must redeliver. Handlers must tolerate duplicate execution. Ten poison attempts dead-letter. Stream receivers register a callback and return an opaque ID; pass that ID to the sender. The old ReceiveStream/SendStream overloads without an ID only work locally.

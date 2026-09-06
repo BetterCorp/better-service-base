@@ -1,6 +1,7 @@
 package bsb
 
 import (
+	"encoding/json"
 	"fmt"
 
 	av "github.com/BetterCorp/AnyVali/sdk/go"
@@ -159,6 +160,46 @@ type EventExportDef struct {
 	Input       av.Schema `json:"input,omitempty"`
 	Output      av.Schema `json:"output,omitempty"`
 	Timeout     float64   `json:"timeout,omitempty"`
+}
+
+// MarshalJSON uses the same portable event envelope as Node, .NET and Python.
+func (e EventExportDef) MarshalJSON() ([]byte, error) {
+	category := map[string]string{"emitEvent": "emitEvents", "onEvent": "onEvents", "emitReturnableEvent": "emitReturnableEvents", "onReturnableEvent": "onReturnableEvents", "emitBroadcast": "emitBroadcast", "onBroadcast": "onBroadcast"}[e.Category]
+	if category == "" {
+		return nil, fmt.Errorf("invalid event category %q", e.Category)
+	}
+	kind := "fire-and-forget"
+	if e.Category == "emitBroadcast" || e.Category == "onBroadcast" {
+		kind = "broadcast"
+	}
+	if e.Category == "emitReturnableEvent" || e.Category == "onReturnableEvent" {
+		kind = "returnable"
+	}
+	if e.Input == nil {
+		return nil, fmt.Errorf("event input schema is required")
+	}
+	input, err := av.Export(e.Input, av.Extended)
+	if err != nil {
+		return nil, err
+	}
+	var output *av.Document
+	if kind == "returnable" {
+		if e.Output == nil {
+			return nil, fmt.Errorf("returnable output schema is required")
+		}
+		output, err = av.Export(e.Output, av.Extended)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return json.Marshal(struct {
+		Category    string       `json:"category"`
+		Type        string       `json:"type"`
+		Input       *av.Document `json:"inputSchema"`
+		Output      *av.Document `json:"outputSchema"`
+		Description string       `json:"description,omitempty"`
+		Timeout     float64      `json:"defaultTimeout,omitempty"`
+	}{category, kind, input, output, e.Description, e.Timeout})
 }
 
 // ExportSchemas exports event schemas as a portable structure for code generation.

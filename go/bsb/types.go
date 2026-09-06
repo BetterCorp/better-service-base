@@ -30,8 +30,8 @@ const (
 
 // DTrace carries distributed trace context (W3C compatible).
 type DTrace struct {
-	TraceID string // 32-char hex (128-bit)
-	SpanID  string // 16-char hex (64-bit)
+	TraceID string `json:"t"` // 32-char hex (128-bit)
+	SpanID  string `json:"s"` // 16-char hex (64-bit)
 }
 
 // NewDTrace creates a new root trace with fresh IDs.

@@ -1,0 +1,15 @@
+# Go BSB host
+
+Go applications are BSB plugins. The BSB executable owns configuration, observability, transport startup, service ordering and shutdown. Plugin packages register factories and static `bsb.PluginContract` metadata; export never invokes application constructors. Selected packages are linked into a BSB host at build time.
+
+This implementation is in progress: file/environment/Vault configuration, native Rabbit transport and runtime validation are implemented. Package/client tooling, additional observability backends, examples and complete broker verification are tracked in [the implementation plan](../docs/native-go-rust-plan.md). Do not treat this as completed runtime parity yet.
+
+`go run ./cmd/bsb` starts the host. Set `BSB_CONFIG_PLUGIN` to `config-default` (default), `config-env`, `config-vault` or `config-vault-google`. File configuration reads `sec-config.json`; `BSB_CONFIG_FILE` overrides its path. Environment configuration reads `BSB_CONFIG_JSON`. `BSB_PROFILE` selects a profile (default `default`). Profiles merge recursively with defaults, enabled native entries must use language `go`, and disabled remote service references may use another language. An enabled package absent from the linked host fails startup.
+
+Vault uses `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs` (5000), `staleAllowedHours` (24), optional `cacheDir`, and `allowInsecureHttp` (false). Google authentication also requires `googleAudience` and uses Application Default Credentials. HTTP redirects never receive credentials. Authentication, invalid responses and wrong-language profiles fail startup. Transient failures retry for up to 15 seconds; a validated encrypted cache may then be used within its permitted age. Cache contents are authenticated and bound to the endpoint, key ID and Go language. `BSB_CONFIG_OVERRIDES` only accepts paths allowed by the Vault profile and does not alter the cached response.
+
+`events-rabbitmq` uses `platformKey`, `endpoints`, `credentials.username/password`, `uniqueId`, `prefetch` (10), and `fatalOnDisconnect` (true). Producers and consumers declare matching durable event/RPC queues. Replies are confirmed before request acknowledgement. Failed deliveries are requeued up to ten attempts; poison counts are process-local. With `fatalOnDisconnect=false`, consumers restore their topology and future publications reconnect; active streams do not resume. Stream IDs are opaque and timeout values are whole seconds. Binary chunks use the existing Node Buffer envelope with bounded receive buffering. Supply finite, responsive `io.Reader` sources; the standard interface cannot interrupt a reader blocked inside its own `Read` method.
+
+`bsb.WithObservable(ctx, obs)` preserves the caller trace through nested client calls. Generated optional fields use `bsb.Optional[T]` and `json:",omitzero"` to distinguish omitted values from explicit nulls.
+
+Run `go test ./...`. Real multi-language Rabbit tests run in the repository integration CI with a RabbitMQ service.

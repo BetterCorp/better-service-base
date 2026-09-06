@@ -43,7 +43,7 @@ func NewPluginEventsWithValidator(pluginName string, bus EventsPlugin, backend *
 
 // OnEvent registers a listener for a fire-and-forget event.
 func (pe *PluginEvents) OnEvent(ctx context.Context, eventName string, listener EventListener) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Wrap the listener with input validation if a schema exists.
 	if schema, ok := pe.schemas.OnEvents[eventName]; ok && schema.Input != nil {
@@ -62,7 +62,7 @@ func (pe *PluginEvents) OnEvent(ctx context.Context, eventName string, listener 
 
 // EmitEvent fires a fire-and-forget event.
 func (pe *PluginEvents) EmitEvent(ctx context.Context, eventName string, payload any) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Validate outgoing payload if a schema exists.
 	if schema, ok := pe.schemas.EmitEvents[eventName]; ok && schema.Input != nil {
@@ -78,7 +78,7 @@ func (pe *PluginEvents) EmitEvent(ctx context.Context, eventName string, payload
 
 // OnReturnableEvent registers a listener for a returnable event.
 func (pe *PluginEvents) OnReturnableEvent(ctx context.Context, eventName string, listener ReturnableListener) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Wrap the listener with input and output validation if a schema exists.
 	if schema, ok := pe.schemas.OnReturnableEvents[eventName]; ok {
@@ -116,7 +116,7 @@ func (pe *PluginEvents) OnReturnableEvent(ctx context.Context, eventName string,
 
 // EmitEventAndReturn fires a returnable event and waits for a response.
 func (pe *PluginEvents) EmitEventAndReturn(ctx context.Context, eventName string, payload any, timeout ...time.Duration) (any, error) {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 	t := 5 * time.Second
 	if len(timeout) > 0 {
 		t = timeout[0]
@@ -152,7 +152,7 @@ func (pe *PluginEvents) EmitEventAndReturn(ctx context.Context, eventName string
 
 // OnBroadcast registers a listener for a broadcast event.
 func (pe *PluginEvents) OnBroadcast(ctx context.Context, eventName string, listener BroadcastListener) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Wrap the listener with input validation if a schema exists.
 	if schema, ok := pe.schemas.OnBroadcast[eventName]; ok && schema.Input != nil {
@@ -171,7 +171,7 @@ func (pe *PluginEvents) OnBroadcast(ctx context.Context, eventName string, liste
 
 // EmitBroadcast fires a broadcast event to all listeners.
 func (pe *PluginEvents) EmitBroadcast(ctx context.Context, eventName string, payload any) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Validate outgoing payload if a schema exists.
 	if schema, ok := pe.schemas.EmitBroadcast[eventName]; ok && schema.Input != nil {
@@ -187,7 +187,7 @@ func (pe *PluginEvents) EmitBroadcast(ctx context.Context, eventName string, pay
 
 // ReceiveStream registers a stream listener and returns a stream ID.
 func (pe *PluginEvents) ReceiveStream(ctx context.Context, eventName string, listener StreamListener, timeout ...time.Duration) (string, error) {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 	t := 30 * time.Second
 	if len(timeout) > 0 {
 		t = timeout[0]
@@ -197,12 +197,27 @@ func (pe *PluginEvents) ReceiveStream(ctx context.Context, eventName string, lis
 
 // SendStream sends data through a stream.
 func (pe *PluginEvents) SendStream(ctx context.Context, eventName string, streamID string, stream io.Reader) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 	return pe.bus.SendStream(ctx, obs, pe.pluginName, eventName, streamID, stream)
 }
 
 // createObs creates a bootstrap Observable for event operations.
-func (pe *PluginEvents) createObs() Observable {
+func (pe *PluginEvents) createObs(ctx context.Context) Observable {
+	if obs, ok := ctx.Value(observableContextKey{}).(Observable); ok {
+		return obs
+	}
 	trace := NewDTrace()
 	return NewObservable(trace, pe.resource, pe.backend, pe.pluginName)
+}
+
+// WithObservable preserves the caller trace through generated clients and nested calls.
+type observableContextKey struct{}
+
+func WithObservable(ctx context.Context, obs Observable) context.Context {
+	return context.WithValue(ctx, observableContextKey{}, obs)
+}
+
+// ForTarget binds a generated client to the host transport and target service alias.
+func (pe *PluginEvents) ForTarget(target string, schemas BSBEventSchemas) *PluginEvents {
+	return NewPluginEvents(target, pe.bus, pe.backend, pe.resource, schemas)
 }

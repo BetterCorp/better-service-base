@@ -235,6 +235,7 @@ func (sb *ServiceBase) Dispose() error {
 func (sb *ServiceBase) WaitForShutdown() error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	sig := <-sigChan
 	slog.Info("shutdown signal received", "signal", sig)
@@ -244,6 +245,7 @@ func (sb *ServiceBase) WaitForShutdown() error {
 
 // RunAndWait is a convenience method that calls Init, Run, and WaitForShutdown.
 func (sb *ServiceBase) RunAndWait(ctx context.Context) error {
+	defer sb.Dispose()
 	if err := sb.Init(ctx); err != nil {
 		return err
 	}
@@ -251,7 +253,18 @@ func (sb *ServiceBase) RunAndWait(ctx context.Context) error {
 		_ = sb.Dispose()
 		return err
 	}
-	return sb.WaitForShutdown()
+	shutdown, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	var failed <-chan error
+	if plugin, ok := sb.eventsCtrl.Primary().(interface{ Failure() <-chan error }); ok {
+		failed = plugin.Failure()
+	}
+	select {
+	case <-shutdown.Done():
+	case err := <-failed:
+		return err
+	}
+	return sb.Dispose()
 }
 
 // Options returns the resolved options.

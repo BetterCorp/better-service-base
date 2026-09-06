@@ -1,4 +1,4 @@
-"""Real Node/.NET/Python RPC/stream matrix plus absent/crashed consumer recovery."""
+"""Real native RPC/stream matrix plus absent/crashed consumer recovery."""
 import asyncio
 import hashlib
 import os
@@ -23,7 +23,9 @@ async def main():
     rabbit = Plugin(PluginCtor("interop", "test", "rabbit", str(root), "", "", {"platformKey": platform, "endpoints": [url],
         "credentials": {"username": unquote(endpoint.username or "guest"), "password": unquote(endpoint.password or "guest")}}, "1.0.0", backend))
     commands = {"nodejs": ["node", str(root / "tests/integration/node-rabbit-peer.mjs")],
-        "csharp": ["dotnet", str(root / "dotnet/tests/RabbitPeer/bin/Release/net10.0/RabbitPeer.dll")]}
+        "csharp": ["dotnet", str(root / "dotnet/tests/RabbitPeer/bin/Release/net10.0/RabbitPeer.dll")],
+        "go": [str(root / "go/bin/rabbit-peer") + (".exe" if os.name == "nt" else "")]}
+    languages = ("python", *commands)
     peers = {}
     async def line(process, expected):
         async with asyncio.timeout(30):
@@ -56,14 +58,15 @@ async def main():
         assert queued["value"] == {"late": True}, queued
         print("PASS: request queued before listener startup", flush=True)
         await start("csharp", True)
-        for caller in ("python", "nodejs", "csharp"):
-            for target in ("python", "nodejs", "csharp"):
+        await start("go", True)
+        for caller in languages:
+            for target in languages:
                 if caller == target: continue
                 value = {"from": caller, "to": target, "optional": None}
                 result = await rpc(target, "echo", value) if caller == "python" else await rpc(caller, "call", {"target": target, "value": value})
                 assert result == {"value": value, "trace": trace.trace_id}, result
                 print(f"PASS: RPC {caller} -> {target}", flush=True)
-        for language in ("nodejs", "csharp"):
+        for language in commands:
             pending = asyncio.create_task(rpc(language, "crash", "redelivered"))
             process = peers[language]
             await line(process, "CRASH_READY")
@@ -73,8 +76,8 @@ async def main():
             assert await pending == "redelivered"
             print(f"PASS: {language} consumer crash redelivery", flush=True)
         # Every directed language pair transfers the same binary data.
-        for sender in ("python", "nodejs", "csharp"):
-            for receiver in ("python", "nodejs", "csharp"):
+        for sender in languages:
+            for receiver in languages:
                 if sender == receiver: continue
                 incoming = asyncio.get_running_loop().create_future()
                 stream_id = await rabbit.receive_stream(trace, "python", "file", receive, 5) if receiver == "python" else await rpc(receiver, "receive", {})
@@ -86,7 +89,7 @@ async def main():
                         while (digest := await rpc(receiver, "digest", {})) is None: await asyncio.sleep(.01)
                 assert digest == expected, (sender, receiver, digest)
                 print(f"PASS: binary stream {sender} -> {receiver}", flush=True)
-        print("PASS: six-direction RPC/trace/1 MiB stream matrix, absent listeners and crashed native consumers")
+        print(f"PASS: {len(languages) * (len(languages) - 1)}-direction RPC/trace/1 MiB stream matrix, absent listeners and crashed native consumers")
     finally:
         for process in peers.values():
             if process.returncode is None:

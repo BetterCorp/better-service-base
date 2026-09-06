@@ -23,9 +23,13 @@ func NewObservable(trace DTrace, resource ResourceContext, backend ObservableBac
 }
 
 func (o *pluginObservable) Trace() DTrace             { return o.trace }
-func (o *pluginObservable) TraceID() string            { return o.trace.TraceID }
-func (o *pluginObservable) SpanID() string             { return o.trace.SpanID }
-func (o *pluginObservable) Resource() ResourceContext   { return o.resource }
+func (o *pluginObservable) TraceID() string           { return o.trace.TraceID }
+func (o *pluginObservable) SpanID() string            { return o.trace.SpanID }
+func (o *pluginObservable) Resource() ResourceContext { return o.resource }
+
+func (o *pluginObservable) WithTrace(trace DTrace, pluginName string) Observable {
+	return NewObservable(trace, o.resource, o.backend, pluginName)
+}
 
 func (o *pluginObservable) Attributes() map[string]any {
 	cp := make(map[string]any, len(o.attrs))

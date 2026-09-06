@@ -20,14 +20,13 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 
 	pluginDefs, err := config.GetEventsPlugins(ctx, obs)
 	if err != nil {
-		obs.Log().Warn("no events plugins in config, using defaults", map[string]any{
-			"error": err.Error(),
-		})
+		return fmt.Errorf("load events configuration: %w", err)
 	}
 
 	// Always ensure events-default is loaded as fallback
 	defaultLoaded := false
-	for name, def := range pluginDefs {
+	for _, name := range sortedPluginNames(pluginDefs) {
+		def := pluginDefs[name]
 		if !def.Enabled {
 			continue
 		}
@@ -38,13 +37,12 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 		}
 
 		if !ec.registry.HasPlugin(PluginTypeEvents, pluginName) {
-			obs.Log().Warn("events plugin not registered, skipping", map[string]any{"plugin": pluginName})
-			continue
+			return fmt.Errorf("enabled events plugin %q is not linked into this BSB host", pluginName)
 		}
 
 		pluginConfig, err := config.GetPluginConfig(ctx, obs, PluginTypeEvents, name)
 		if err != nil {
-			pluginConfig = def.Config
+			return fmt.Errorf("events %q configuration: %w", pluginName, err)
 		}
 
 		plugin, err := ec.registry.CreateEvents(pluginName, pluginConfig)
@@ -52,11 +50,11 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 			return fmt.Errorf("failed to create events plugin %q: %w", pluginName, err)
 		}
 
+		ec.plugins = append(ec.plugins, plugin)
 		if err := plugin.Init(ctx, obs); err != nil {
 			return fmt.Errorf("failed to init events plugin %q: %w", pluginName, err)
 		}
 
-		ec.plugins = append(ec.plugins, plugin)
 		if ec.primary == nil {
 			ec.primary = plugin
 		}
@@ -74,10 +72,10 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 			if err != nil {
 				return fmt.Errorf("failed to create default events plugin: %w", err)
 			}
+			ec.plugins = append(ec.plugins, plugin)
 			if err := plugin.Init(ctx, obs); err != nil {
 				return fmt.Errorf("failed to init default events plugin: %w", err)
 			}
-			ec.plugins = append(ec.plugins, plugin)
 			ec.primary = plugin
 			obs.Log().Info("loaded fallback events-default plugin")
 		}

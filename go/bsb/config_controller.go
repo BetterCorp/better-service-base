@@ -37,11 +37,11 @@ func (cc *ConfigController) Init(ctx context.Context, obs Observable) error {
 		return fmt.Errorf("failed to create config plugin %q: %w", pluginName, err)
 	}
 
+	cc.plugin = plugin
 	if err := plugin.Init(ctx, obs); err != nil {
 		return fmt.Errorf("failed to init config plugin %q: %w", pluginName, err)
 	}
 
-	cc.plugin = plugin
 	obs.Log().Info("config plugin initialized", map[string]any{"plugin": pluginName})
 	return nil
 }

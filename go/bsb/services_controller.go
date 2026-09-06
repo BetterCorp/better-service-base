@@ -30,14 +30,12 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 
 	pluginDefs, err := config.GetServicePlugins(ctx, obs)
 	if err != nil {
-		obs.Log().Warn("no service plugins in config", map[string]any{
-			"error": err.Error(),
-		})
-		return nil
+		return fmt.Errorf("load services configuration: %w", err)
 	}
 
 	// Load all service plugins
-	for name, def := range pluginDefs {
+	for _, name := range sortedPluginNames(pluginDefs) {
+		def := pluginDefs[name]
 		if !def.Enabled {
 			obs.Log().Debug("skipping disabled service", map[string]any{"plugin": name})
 			continue
@@ -49,17 +47,12 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 		}
 
 		if !sc.registry.HasPlugin(PluginTypeService, pluginName) {
-			obs.Log().Warn("service plugin not registered, skipping", map[string]any{"plugin": pluginName})
-			continue
+			return fmt.Errorf("enabled service plugin %q is not linked into this BSB host", pluginName)
 		}
 
 		pluginConfig, err := config.GetPluginConfig(ctx, obs, PluginTypeService, name)
 		if err != nil {
-			obs.Log().Warn("failed to get service plugin config, using definition config", map[string]any{
-				"plugin": pluginName,
-				"error":  err.Error(),
-			})
-			pluginConfig = def.Config
+			return fmt.Errorf("service %q configuration: %w", pluginName, err)
 		}
 
 		plugin, err := sc.registry.CreateService(pluginName, pluginConfig)
@@ -70,7 +63,7 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 		// Wire up the events facade
 		meta := plugin.Metadata()
 		resource := BuildResourceContext(meta.Name, meta.Version, sc.opts.AppID, sc.opts.Mode, sc.opts.Region)
-		pe := NewPluginEvents(name, events.Primary(), backend, resource, NewEventSchemas())
+		pe := NewPluginEvents(name, events.Primary(), backend, resource, sc.registry.EventSchemas(PluginTypeService, pluginName))
 		plugin.SetEvents(pe)
 		plugin.SetObservableBackend(backend)
 

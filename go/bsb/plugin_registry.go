@@ -1,7 +1,7 @@
 package bsb
 
 import (
-	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -18,8 +18,9 @@ type registeredPlugin struct {
 // PluginRegistry holds all registered plugin factories.
 // Plugins are registered at startup before ServiceBase.Init().
 type PluginRegistry struct {
-	mu      sync.RWMutex
-	plugins map[string]*registeredPlugin // key: "type:name"
+	mu        sync.RWMutex
+	plugins   map[string]*registeredPlugin // key: "type:name"
+	contracts map[string]PluginContract
 }
 
 // NewPluginRegistry creates a new empty plugin registry.
@@ -53,6 +54,9 @@ func (r *PluginRegistry) register(pluginType PluginType, name string, factory an
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	key := string(pluginType) + ":" + name
+	if _, exists := r.plugins[key]; exists {
+		panic("duplicate plugin factory: " + key)
+	}
 	r.plugins[key] = &registeredPlugin{
 		pluginType: pluginType,
 		name:       name,
@@ -62,54 +66,22 @@ func (r *PluginRegistry) register(pluginType PluginType, name string, factory an
 
 // CreateConfig creates a config plugin instance by name.
 func (r *PluginRegistry) CreateConfig(name string, config map[string]any) (ConfigPlugin, error) {
-	factory, err := r.getFactory(PluginTypeConfig, name)
-	if err != nil {
-		return nil, err
-	}
-	f, ok := factory.(PluginFactory[ConfigPlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for config plugin %q", name)
-	}
-	return f(config)
+	return createPlugin[ConfigPlugin](r, PluginTypeConfig, name, config)
 }
 
 // CreateObservable creates an observable plugin instance by name.
 func (r *PluginRegistry) CreateObservable(name string, config map[string]any) (ObservablePlugin, error) {
-	factory, err := r.getFactory(PluginTypeObservable, name)
-	if err != nil {
-		return nil, err
-	}
-	f, ok := factory.(PluginFactory[ObservablePlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for observable plugin %q", name)
-	}
-	return f(config)
+	return createPlugin[ObservablePlugin](r, PluginTypeObservable, name, config)
 }
 
 // CreateEvents creates an events plugin instance by name.
 func (r *PluginRegistry) CreateEvents(name string, config map[string]any) (EventsPlugin, error) {
-	factory, err := r.getFactory(PluginTypeEvents, name)
-	if err != nil {
-		return nil, err
-	}
-	f, ok := factory.(PluginFactory[EventsPlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for events plugin %q", name)
-	}
-	return f(config)
+	return createPlugin[EventsPlugin](r, PluginTypeEvents, name, config)
 }
 
 // CreateService creates a service plugin instance by name.
 func (r *PluginRegistry) CreateService(name string, config map[string]any) (ServicePlugin, error) {
-	factory, err := r.getFactory(PluginTypeService, name)
-	if err != nil {
-		return nil, err
-	}
-	f, ok := factory.(PluginFactory[ServicePlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for service plugin %q", name)
-	}
-	return f(config)
+	return createPlugin[ServicePlugin](r, PluginTypeService, name, config)
 }
 
 // HasPlugin checks whether a plugin is registered.
@@ -132,6 +104,7 @@ func (r *PluginRegistry) ListPlugins(pluginType PluginType) []string {
 			names = append(names, p.name)
 		}
 	}
+	sort.Strings(names)
 	return names
 }
 
