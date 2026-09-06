@@ -16,15 +16,15 @@ export function clientSchemaCode(document: AnyValiDocument, name: string): { dec
       case 'uint8': case 'uint16': case 'uint32': case 'uint64': case 'float32': case 'float64': return 'number';
       case 'literal': return JSON.stringify(node.value);
       case 'enum': return node.values.map((value: unknown) => JSON.stringify(value)).join(' | ') || 'never';
-      case 'optional': return `(${type(node.inner)}) | undefined`;
-      case 'nullable': return `(${type(node.inner)}) | null`;
+      case 'optional': return `(${type(node.schema ?? node.inner)}) | undefined`;
+      case 'nullable': return `(${type(node.schema ?? node.inner)}) | null`;
       case 'array': return `Array<${type(node.items)}>`;
-      case 'tuple': return `[${node.items.map(type).join(', ')}]`;
+      case 'tuple': return `[${(node.elements ?? node.items).map(type).join(', ')}]`;
       case 'record': return `Record<string, ${type(node.valueSchema ?? node.values)}>`;
-      case 'union': return node.variants.map((item: any) => `(${type(item)})`).join(' | ');
-      case 'intersection': return node.allOf.map((item: any) => `(${type(item)})`).join(' & ');
+      case 'union': return (node.variants ?? node.schemas).map((item: any) => `(${type(item)})`).join(' | ');
+      case 'intersection': return (node.allOf ?? node.schemas).map((item: any) => `(${type(item)})`).join(' & ');
       case 'ref': {
-        const resolved = names.get(node.ref);
+        const resolved = names.get(node.ref.replace(/^#\/definitions\//, ''));
         if (!resolved) throw new Error(`Missing AnyVali definition: ${node.ref}`);
         return resolved;
       }
@@ -33,7 +33,7 @@ export function clientSchemaCode(document: AnyValiDocument, name: string): { dec
           const optional = !(node.required ?? []).includes(key) || value.kind === 'optional';
           return `${JSON.stringify(key)}${optional ? '?' : ''}: ${type(value)}`;
         });
-        if (node.unknownKeys === 'passthrough') properties.push('[key: string]: unknown');
+        if (node.unknownKeys === 'passthrough' || node.unknownKeys === 'allow') properties.push('[key: string]: unknown');
         return `{ ${properties.join('; ')} }`;
       }
       default: throw new Error(`Unsupported AnyVali kind: ${node.kind}`);

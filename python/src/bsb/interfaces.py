@@ -15,6 +15,7 @@ class PluginDefinition:
     version: str | None = None
     config: dict[str, Any] | None = None
     filter: Any = None
+    language: str | None = None
 
 
 @dataclass(slots=True)

@@ -51,12 +51,13 @@ public static class ClientGenerator
                     case "null": case "any": case "unknown": case "never": return "JsonElement";
                     case "literal": return node["value"]?.GetValueKind() switch { JsonValueKind.String => "string", JsonValueKind.True or JsonValueKind.False => "bool", JsonValueKind.Number => "double", _ => "JsonElement" };
                     case "nullable": case "optional":
-                        var inner = Type(node["inner"]!, suggested);
+                        var inner = Type((node["schema"] ?? node["inner"])!, suggested);
                         return inner.EndsWith('?') ? inner : inner + "?";
                     case "array": return $"List<{Type(node["items"]!, suggested + "Item")}>";
                     case "record": return $"Dictionary<string, {Type(node["valueSchema"] ?? node["values"]!, suggested + "Value")}>";
                     case "ref":
                         var referenceKey = node["ref"]!.GetValue<string>();
+                        if (referenceKey.StartsWith("#/definitions/")) referenceKey = referenceKey[14..];
                         if (!references.TryGetValue(referenceKey, out var reference)) throw new JsonException($"Unknown schema definition: {referenceKey}");
                         if (emitted.Add(referenceKey))
                         {
@@ -83,20 +84,20 @@ public static class ClientGenerator
                         var properties = new StringBuilder();
                         var propertyNames = new HashSet<string> { suggested };
                         var required = node["required"]?.AsArray().Select(x => x!.GetValue<string>()).ToHashSet() ?? new();
-                        foreach (var (key, value) in node["properties"]!.AsObject())
+                        foreach (var (key, value) in node["properties"]?.AsObject() ?? new JsonObject())
                         {
                             var property = Identifier(key);
                             if (!propertyNames.Add(property)) throw new JsonException($"Generated property collision: {key}");
                             var optional = !required.Contains(key) || value!["kind"]!.GetValue<string>() == "optional";
                             var propertyNode = value!;
-                            while (propertyNode["kind"]?.GetValue<string>() == "optional") propertyNode = propertyNode["inner"]!;
+                            while (propertyNode["kind"]?.GetValue<string>() == "optional") propertyNode = (propertyNode["schema"] ?? propertyNode["inner"])!;
                             var propertyType = Type(propertyNode, suggested + property);
                             if (optional) propertyType = $"OptionalValue<{propertyType}>";
                             properties.AppendLine($"    [JsonPropertyName({Quote(key)})]");
                             if (optional) properties.AppendLine("    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]");
                             properties.AppendLine($"    public {(optional ? "" : "required ")}{propertyType} {property} {{ get; init; }}");
                         }
-                        if (node["unknownKeys"]?.GetValue<string>() == "passthrough")
+                        if (node["unknownKeys"]?.GetValue<string>() is "passthrough" or "allow")
                             properties.AppendLine("    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }");
                         declarations.AppendLine($"public sealed record {suggested}\n{{\n{properties}}}");
                         return suggested;

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin
-from urllib.request import Request, urlopen
+from urllib.parse import urlencode, quote
 
-from .client_generator import generate_clients
+from .client_generator import generate_clients, generate_client_code
+from .http import json_request, origin
 from .schema_export import build_project, read_project_metadata
 
 
@@ -18,10 +19,18 @@ VALID_CATEGORIES = {"service", "observable", "events", "config"}
 
 
 def parse_plugin_id(plugin_id: str) -> tuple[str, str]:
-    if "/" in plugin_id:
-        org, name = plugin_id.split("/", 1)
-        return org, name
-    return "_", plugin_id
+    parts = plugin_id.split("/")
+    org, name = ("_", parts[0]) if len(parts) == 1 else parts if len(parts) == 2 else ("", "")
+    if not all(re.fullmatch(r"[A-Za-z0-9_-]+", value) for value in (org, name)):
+        raise ValueError("Invalid registry plugin identifier; expected org/name or name")
+    return org, name
+
+
+def language_name(language: str) -> str:
+    language = "csharp" if language == "dotnet" else language
+    if language not in ("nodejs", "csharp", "python", "go", "java", "rust"):
+        raise ValueError("Unsupported implementation language")
+    return language
 
 
 def display_plugin_id(org: str, name: str) -> str:
@@ -51,31 +60,24 @@ def _format_registry_error(raw_body: str, status_code: int | None = None) -> str
     return f"{base}{code}"
 
 
-def registry_request(method: str, path: str, body: Any | None = None, require_auth: bool = False) -> Any:
+def registry_request(method: str, path: str, body: Any | None = None, require_auth: bool = False, *, target=None, token=None, allow_insecure=False) -> Any:
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
-    if require_auth and not REGISTRY_TOKEN:
+    token = REGISTRY_TOKEN if token is None else token
+    if require_auth and not token:
         raise RuntimeError("BSB_REGISTRY_TOKEN environment variable not set")
-    if REGISTRY_TOKEN:
-        headers["Authorization"] = f"Bearer {REGISTRY_TOKEN}"
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
-    data = json.dumps(body).encode("utf-8") if body is not None else None
-    request = Request(urljoin(REGISTRY_URL, path), data=data, headers=headers, method=method)
-
+    if not path.startswith("/") or path.startswith("//"):
+        raise ValueError("Registry request must use a relative API path")
+    endpoint = origin(target or REGISTRY_URL, allow_http=allow_insecure or os.environ.get("BSB_REGISTRY_ALLOW_INSECURE_HTTP") == "true")
     try:
-        with urlopen(request) as response:
-            raw = response.read().decode("utf-8")
-            if not raw:
-                return {}
-            try:
-                return json.loads(raw)
-            except json.JSONDecodeError:
-                return raw
+        return json_request(method, endpoint + path, body=body, headers=headers)
     except HTTPError as error:
-        payload = error.read().decode("utf-8", errors="replace")
-        raise RuntimeError(_format_registry_error(payload, error.code)) from error
+        raise RuntimeError(f"Registry request failed: HTTP {error.code}") from error
     except URLError as error:
         raise RuntimeError(str(error.reason)) from error
 
@@ -83,16 +85,17 @@ def registry_request(method: str, path: str, body: Any | None = None, require_au
 def ensure_gitignore(project_root: str | Path) -> Path:
     project_root = Path(project_root)
     gitignore_path = project_root / ".gitignore"
-    entry = "src/.bsb/"
+    entries = [".bsb/", "src/bsb_clients/" if (project_root / "src").is_dir() else "bsb_clients/"]
     if gitignore_path.exists():
         lines = gitignore_path.read_text(encoding="utf-8").splitlines()
         normalized = {line.strip().rstrip("/") for line in lines}
-        if "src/.bsb" not in normalized and ".bsb" not in normalized:
+        missing = [entry for entry in entries if entry.rstrip("/") not in normalized]
+        if missing:
             content = gitignore_path.read_text(encoding="utf-8")
             newline = "" if content.endswith("\n") or content == "" else "\n"
-            gitignore_path.write_text(f"{content}{newline}{entry}\n", encoding="utf-8")
+            gitignore_path.write_text(content + newline + "\n".join(missing) + "\n", encoding="utf-8")
     else:
-        gitignore_path.write_text(f"{entry}\n", encoding="utf-8")
+        gitignore_path.write_text("\n".join(entries) + "\n", encoding="utf-8")
     return gitignore_path
 
 
@@ -104,30 +107,50 @@ def search_plugins(query: str, limit: int = 100) -> Any:
     return registry_request("GET", f"/plugins?{urlencode({'query': query, 'limit': limit})}")
 
 
-def get_plugin_info(plugin_id: str) -> Any:
+def resolve_language(plugin_id: str, source_language: str | None) -> str:
+    if source_language is not None:
+        return language_name(source_language)
     org, name = parse_plugin_id(plugin_id)
-    return registry_request("GET", f"/plugins/{org}/{name}")
+    result = registry_request("GET", f"/plugins/{org}/{name}/implementations")
+    variants = result.get("implementations")
+    if not isinstance(variants, list) or not variants:
+        raise ValueError("No accessible plugin implementations")
+    if len(variants) != 1:
+        raise ValueError("Multiple implementations available; specify --source-language")
+    return language_name(variants[0]["language"])
 
 
-def get_plugin_schema(plugin_id: str) -> Any:
+def get_plugin_info(plugin_id: str, source_language: str | None = None) -> Any:
     org, name = parse_plugin_id(plugin_id)
-    detail = get_plugin_info(plugin_id)
-    plugin = detail.get("plugin", detail)
-    version = plugin["version"]
-    return registry_request("GET", f"/plugins/{org}/{name}/{version}/schema")
+    language = resolve_language(plugin_id, source_language)
+    return registry_request("GET", f"/plugins/{org}/{name}?{urlencode({'language': language})}")
 
 
-def install_plugin(plugin_id: str, project_root: str | Path) -> Path:
+def get_plugin_schema(plugin_id: str, source_language: str | None = None, version: str | None = None) -> Any:
     org, name = parse_plugin_id(plugin_id)
-    detail = get_plugin_info(plugin_id)
-    plugin = detail.get("plugin", detail)
-    schema = registry_request("GET", f"/plugins/{org}/{name}/{plugin['version']}/schema")
+    language = resolve_language(plugin_id, source_language)
+    if version is None:
+        detail = get_plugin_info(plugin_id, language)
+        version = detail.get("plugin", detail)["version"]
+    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?", version):
+        raise ValueError("An exact semantic version is required")
+    schema = registry_request("GET", f"/plugins/{org}/{name}/{quote(version, safe='')}/schema?{urlencode({'language': language})}")
+    if not isinstance(schema, dict):
+        raise ValueError("Registry schema must be an object")
+    return {**schema, "pluginId": name, "source": {"org": org, "name": name, "language": language, "version": version, "registry": REGISTRY_URL}}
+
+
+def install_plugin(plugin_id: str, project_root: str | Path, source_language: str | None = None, version: str | None = None) -> Path:
+    org, name = parse_plugin_id(plugin_id)
+    schema = get_plugin_schema(plugin_id, source_language, version)
+    local_name = f"{org}~{name}~{schema['source']['language']}"
+    generate_client_code(schema, local_name)  # Reject invalid remote contracts before changing the saved snapshot.
 
     project_root = Path(project_root)
-    schemas_dir = project_root / "src" / ".bsb" / "schemas"
+    schemas_dir = project_root / ".bsb" / "schemas"
     schemas_dir.mkdir(parents=True, exist_ok=True)
     ensure_gitignore(project_root)
-    schema_path = schemas_dir / f"{name}.json"
+    schema_path = schemas_dir / f"{local_name}.json"
     schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
     generate_clients(project_root)
     return schema_path
@@ -138,7 +161,7 @@ def sync_clients(project_root: str | Path) -> list[Path]:
     return generate_clients(project_root)
 
 
-def publish_plugins(project_root: str | Path) -> list[dict[str, Any]]:
+def publish_plugins(project_root: str | Path, *, target=None, token=None, plugin=None, org=None, allow_insecure=False) -> list[dict[str, Any]]:
     project_root = Path(project_root)
     build_project(project_root)
     manifest_path = project_root / "bsb-plugin.json"
@@ -147,6 +170,8 @@ def publish_plugins(project_root: str | Path) -> list[dict[str, Any]]:
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     plugin_entries = manifest.get("python", [])
+    if plugin is not None:
+        plugin_entries = [entry for entry in plugin_entries if entry["id"] == plugin]
     if not plugin_entries:
         raise RuntimeError("No Python plugins found in bsb-plugin.json")
 
@@ -155,7 +180,8 @@ def publish_plugins(project_root: str | Path) -> list[dict[str, Any]]:
     version = str(project_meta.get("version") or "1.0.0")
     readme_path = project_root / "README.md"
     fallback_docs = readme_path.read_text(encoding="utf-8") if readme_path.exists() else None
-    org = os.environ.get("BSB_ORG_ID", "_")
+    org = org or os.environ.get("BSB_ORG_ID", "_")
+    parse_plugin_id(org + "/check")
     published: list[dict[str, Any]] = []
 
     for plugin_meta in plugin_entries:
@@ -223,7 +249,11 @@ def publish_plugins(project_root: str | Path) -> list[dict[str, Any]]:
         if dependencies:
             publish_request["dependencies"] = dependencies
 
-        published.append(registry_request("POST", "/plugins", publish_request, require_auth=True))
+        if target:
+            publish_request.pop("documentation", None)
+            publish_request["eventSchema"]["pluginId"] = plugin_id
+        published.append(registry_request("POST", "/api/plugins/publish" if target else "/plugins", publish_request,
+            require_auth=True, target=target, token=token, allow_insecure=allow_insecure))
 
     return published
 

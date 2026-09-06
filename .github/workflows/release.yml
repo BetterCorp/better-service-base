@@ -404,7 +404,17 @@ jobs:
         run: pytest
 
       - name: Build package
-        run: python -m build
+        env:
+          BSB_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          python -c 'import os,pathlib,re; p=pathlib.Path("pyproject.toml"); p.write_text(re.sub(r"(?m)^version = .*", "version = " + chr(34) + os.environ["BSB_VERSION"] + chr(34), p.read_text()))'
+          python -m build
+
+      - name: Upload native Python packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: bsb-python-packages
+          path: python/dist/*
 
   go:
     name: Go
@@ -868,6 +878,7 @@ jobs:
         with:
           context: ./python
           file: ./python/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.forgejo_tags }}
@@ -923,6 +934,7 @@ jobs:
         with:
           context: ./python
           file: ./python/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.dockerhub_tags }}

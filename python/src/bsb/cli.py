@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -36,11 +37,13 @@ def _usage() -> int:
     print("  bsb run")
     print("  bsb plugin build")
     print("  bsb plugin export")
+    print("  bsb plugin pack")
+    print("  bsb plugin install <distribution|wheel> [--version VERSION] [--source DIRECTORY]")
     print("  bsb client list")
     print("  bsb client search <query>")
     print("  bsb client info <name>")
     print("  bsb client schema <name>")
-    print("  bsb client install <name>")
+    print("  bsb client install <org/name> [--source-language LANGUAGE] [--version VERSION]")
     print("  bsb client sync")
     print("  bsb client export")
     print("  bsb client publish")
@@ -64,13 +67,26 @@ def main(argv: list[str] | None = None) -> int:
     command = args.pop(0)
 
     try:
-        if command == "run":
+        if command in ("run", "start"):
             return _run_service()
 
         if command == "plugin":
             if not args:
                 return _error("Missing plugin subcommand")
             subcommand = args.pop(0)
+            if subcommand == "pack":
+                from .packages import pack
+                print(f"Built wheels: {pack(cwd)}")
+                return 0
+            if subcommand == "install":
+                from .packages import install
+                parser = argparse.ArgumentParser(prog="bsb plugin install")
+                parser.add_argument("package")
+                parser.add_argument("--version")
+                parser.add_argument("--source")
+                options = parser.parse_args(args)
+                install(options.package, options.version, options.source)
+                return 0
             if subcommand == "build":
                 result = build_project(cwd)
                 print(f"Generated manifest: {result['manifest']}")
@@ -94,21 +110,20 @@ def main(argv: list[str] | None = None) -> int:
                     return _error("Usage: bsb client search <query>")
                 _print_json(search_plugins(args[0]))
                 return 0
-            if subcommand == "info":
-                if not args:
-                    return _error("Usage: bsb client info <name>")
-                _print_json(get_plugin_info(args[0]))
-                return 0
-            if subcommand == "schema":
-                if not args:
-                    return _error("Usage: bsb client schema <name>")
-                _print_json(get_plugin_schema(args[0]))
-                return 0
-            if subcommand == "install":
-                if not args:
-                    return _error("Usage: bsb client install <name>")
-                schema_path = install_plugin(args[0], cwd)
-                print(f"Installed schema: {schema_path}")
+            if subcommand in ("info", "schema", "install"):
+                parser = argparse.ArgumentParser(prog=f"bsb client {subcommand}")
+                parser.add_argument("plugin")
+                parser.add_argument("--source-language")
+                if subcommand != "info":
+                    parser.add_argument("--version")
+                options = parser.parse_args(args)
+                if subcommand == "info":
+                    _print_json(get_plugin_info(options.plugin, options.source_language))
+                elif subcommand == "schema":
+                    _print_json(get_plugin_schema(options.plugin, options.source_language, options.version))
+                else:
+                    schema_path = install_plugin(options.plugin, cwd, options.source_language, options.version)
+                    print(f"Installed schema: {schema_path}")
                 return 0
             if subcommand == "sync":
                 written = sync_clients(cwd)
@@ -122,7 +137,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Generated {len(generated)} client file(s)")
                 return 0
             if subcommand == "publish":
-                published = publish_plugins(cwd)
+                parser = argparse.ArgumentParser(prog="bsb client publish")
+                for option in ("target", "token", "plugin", "org"):
+                    parser.add_argument("--" + option)
+                parser.add_argument("--allow-insecure", action="store_true")
+                options = parser.parse_args(args)
+                published = publish_plugins(cwd, target=options.target, token=options.token, plugin=options.plugin, org=options.org, allow_insecure=options.allow_insecure)
                 print(f"Published {len(published)} plugin(s)")
                 return 0
             return _error(f"Unknown client subcommand: {subcommand}")

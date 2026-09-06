@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bsb-native-examples"
+version = "1.0.0"
+description = "Native Python BSB example plugins loaded by the BSB host"
+requires-python = ">=3.11"
+dependencies = ["service-base>=0.1.0"]
+
+[project.entry-points."bsb.plugins"]
+service-default0 = "bsb_examples.default0:Plugin"
+service-default1 = "bsb_examples.default1:Plugin"
+service-default2 = "bsb_examples.default2:Plugin"
+service-default3 = "bsb_examples.default3:Plugin"
+service-default4 = "bsb_examples.default4:Plugin"
+service-benchmarkify = "bsb_examples.benchmark:Plugin"
+service-demo-todo = "bsb_examples.todo:Plugin"
+
+[tool.bsb]
+clients-package = "bsb_examples.clients"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bsb_examples = ["static/*"]

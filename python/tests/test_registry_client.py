@@ -17,12 +17,12 @@ class _Response:
 def test_optional_read_sends_configured_registry_token(monkeypatch) -> None:
     authorization: list[str | None] = []
 
-    def fake_urlopen(request):
-        authorization.append(request.get_header('Authorization'))
-        return _Response()
+    def fake_request(method, url, **kwargs):
+        authorization.append(kwargs['headers'].get('Authorization'))
+        return {}
 
     monkeypatch.setattr(registry_client, 'REGISTRY_TOKEN', 'private-read-token')
-    monkeypatch.setattr(registry_client, 'urlopen', fake_urlopen)
+    monkeypatch.setattr(registry_client, 'json_request', fake_request)
 
     registry_client.registry_request('GET', '/plugins')
 

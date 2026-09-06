@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from graphlib import TopologicalSorter
 from typing import Any
 
-from .base import BSBService, PluginCtor, validate_plugin_config
+from .base import BSBService, PluginCtor, dispose_all, validate_plugin_config
 from .events_controller import SBEvents
 from .observable import ObservableBackend
 from .plugin_loader import LoadedPlugin, SBPlugins
@@ -40,18 +40,23 @@ class SBServices:
         self.obs = observable_backend
         self._active_services: list[BSBService] = []
 
-    def dispose(self) -> None:
-        for service in self._active_services:
-            service.dispose()
+    async def dispose(self) -> None:
+        await dispose_all(reversed(self._active_services))
 
     async def setup(self, sb_config: Any) -> None:
         plugins = await sb_config.get_service_plugins()
+        if not plugins:
+            raise RuntimeError("At least one enabled service is required")
+        self._definitions = await sb_config.get_service_references()
+        self.sb_events.set_services(self._definitions)
         for alias, plugin_def in plugins.items():
             await self._add_service(
                 sb_config,
                 alias,
                 self._field(plugin_def, "plugin"),
                 self._field(plugin_def, "package"),
+                self._field(plugin_def, "version"),
+                self._field(plugin_def, "language"),
             )
         for service in self._active_services:
             await self._remap_deps(sb_config, service)
@@ -65,18 +70,14 @@ class SBServices:
     async def _map_plugins(self, sb_config: Any, ref_name: str, source: list[str]) -> list[str]:
         out: list[str] = []
         for plugin in source or []:
-            plugin_def = await sb_config.get_service_plugin_definition(plugin)
-            if not plugin_def.get("enabled", False):
-                self.obs.warn(
-                    self.obs.create_trace("services:map_plugins", "SBServices"),
-                    "Plugin {plugin} is disabled for {pluginNeeded}",
-                    {"plugin": plugin, "pluginNeeded": ref_name},
-                )
-            out.append(plugin_def["name"])
+            if plugin in self._definitions:
+                out.append(plugin)
+            else:
+                out.extend(alias for alias, definition in self._definitions.items() if definition.get("plugin") == plugin)
         return out
 
-    async def _add_service(self, sb_config: Any, alias: str, plugin_ref: str, package: str | None) -> None:
-        loaded: LoadedPlugin = await self.sb_plugins.load_plugin("service", package, plugin_ref, alias)
+    async def _add_service(self, sb_config: Any, alias: str, plugin_ref: str, package: str | None, version=None, language=None) -> None:
+        loaded: LoadedPlugin = await self.sb_plugins.load_plugin("service", package, plugin_ref or alias, alias, version, language)
         plugin_config = validate_plugin_config(
             loaded.service_config,
             await sb_config.get_plugin_config("service", alias),
@@ -92,11 +93,10 @@ class SBServices:
                 plugin_cwd=loaded.plugin_cwd,
                 config=plugin_config,
                 plugin_version=loaded.version,
-                observable_backend=self.obs,
+                observable_backend=self.obs.for_plugin(alias),
                 events=self.sb_events,
             )
         )
-        self.sb_events.register_service_schemas(alias, getattr(loaded.plugin, "EventSchemas", {}))
         self._active_services.append(service)
 
     @staticmethod
@@ -140,9 +140,16 @@ class SBServices:
         return [by_name[name] for name in TopologicalSorter(dependencies).static_order()]
 
     async def _sort_and_run_or_init(self, phase: str) -> None:
-        trace = self.obs.create_trace(f"services:{phase}", "SBServices")
         plugins = self._sort_by_deps(phase, self._gather_list())
-        self.obs.info(trace, "{phase} plugins in order: {plugins}", {"phase": phase, "plugins": ",".join(x.plugin_name for x in plugins)})
+        if phase == "init":
+            self._active_services = [plugin.reference for plugin in plugins]
         for plugin in plugins:
+            trace = plugin.reference.create_trace(phase)
             fn = getattr(plugin.reference, phase)
-            await fn(trace)
+            try:
+                await fn(trace)
+            except Exception as error:
+                trace.error(error)
+                raise
+            finally:
+                trace.end()

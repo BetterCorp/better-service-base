@@ -15,6 +15,8 @@ def object_schema(
     required: list[str] | None = None,
     unknown_keys: av.UnknownKeyMode = "strip",
 ) -> av.ObjectSchema:
+    if required is None:
+        required = [key for key, schema in properties.items() if not isinstance(schema, av.OptionalSchema)]
     return av.object_(properties, required=required, unknown_keys=unknown_keys)
 
 
@@ -44,6 +46,38 @@ def safe_parse(schema: av.BaseSchema[Any], input_value: Any) -> av.ParseResult[A
 
 def parse(schema: av.BaseSchema[Any], input_value: Any) -> Any:
     return schema.parse(input_value)
+
+
+def client_value(document: dict, value: Any) -> Any:
+    """Materialize tuple outputs while preserving omitted object fields and native JSON values."""
+    definitions = document.get("definitions", {})
+
+    def convert(node: dict, data: Any) -> Any:
+        kind = node["kind"]
+        if kind in ("nullable", "optional"):
+            return None if data is None else convert(node.get("schema", node.get("inner")), data)
+        if kind == "ref":
+            return convert(definitions[node["ref"].removeprefix("#/definitions/")], data)
+        if kind == "tuple":
+            return tuple(convert(item, part) for item, part in zip(node.get("elements", node.get("items", [])), data))
+        if kind == "array":
+            return [convert(node["items"], item) for item in data]
+        if kind == "record":
+            return {key: convert(node.get("valueSchema", node.get("values")), item) for key, item in data.items()}
+        if kind == "object":
+            fields = node.get("properties", {})
+            return {key: convert(fields[key], item) if key in fields else item for key, item in data.items()}
+        if kind == "union":
+            for variant in node.get("variants", node.get("schemas", [])):
+                if import_portable_schema({**document, "root": variant}).safe_parse(data).success:
+                    return convert(variant, data)
+        if kind == "intersection":
+            for member in node.get("allOf", node.get("schemas", [])):
+                data = convert(member, data)
+            return data
+        return data
+
+    return convert(document["root"], value)
 
 
 __all__ = [

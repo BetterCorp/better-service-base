@@ -4,22 +4,29 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "service-base"
-version = "0.1.0"
-description = "Python port of Better Service Base runtime"
+version = "9.1.11"
+description = "Better Service Base native Python plugin host and typed client tooling"
 requires-python = ">=3.11"
-dependencies = ["anyvali>=1.1.1,<2", "PyYAML>=6.0.3,<7"]
+dependencies = [
+  "anyvali>=1.1.1,<2", "PyYAML>=6.0.3,<7",
+  "aio-pika>=10.0.1,<11", "cryptography>=50.0.1,<51",
+  "google-auth[requests]>=2.57.1,<3",
+]
 
 [project.scripts]
 bsb = "bsb.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=9.1.1,<10"]
+dev = ["pytest>=9.1.1,<10", "mypy>=2.3.1,<3"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+bsb = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

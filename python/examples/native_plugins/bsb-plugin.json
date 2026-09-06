@@ -1,0 +1,284 @@
+{
+  "python": [
+    {
+      "id": "service-default0",
+      "language": "python",
+      "version": "1.0.0",
+      "path": "src/bsb_examples/default0.py",
+      "class": "Plugin",
+      "name": "service-default0",
+      "description": "Native Python BSB example plugins loaded by the BSB host",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "testa": {
+              "kind": "number",
+              "min": 0,
+              "default": 0
+            },
+            "testb": {
+              "kind": "number",
+              "min": 0,
+              "default": 0
+            }
+          },
+          "required": [
+            "testa",
+            "testb"
+          ],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "service-default1",
+      "language": "python",
+      "version": "1.0.0",
+      "path": "src/bsb_examples/default1.py",
+      "class": "Plugin",
+      "name": "service-default1",
+      "description": "Native Python BSB example plugins loaded by the BSB host",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {},
+          "required": [],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "service-default2",
+      "language": "python",
+      "version": "1.0.0",
+      "path": "src/bsb_examples/default2.py",
+      "class": "Plugin",
+      "name": "service-default2",
+      "description": "Native Python BSB example plugins loaded by the BSB host",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {},
+          "required": [],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "service-default3",
+      "language": "python",
+      "version": "1.0.0",
+      "path": "src/bsb_examples/default3.py",
+      "class": "Plugin",
+      "name": "service-default3",
+      "description": "Native Python BSB example plugins loaded by the BSB host",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {},
+          "required": [],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "service-default4",
+      "language": "python",
+      "version": "1.0.0",
+      "path": "src/bsb_examples/default4.py",
+      "class": "Plugin",
+      "name": "service-default4",
+      "description": "Native Python BSB example plugins loaded by the BSB host",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {},
+          "required": [],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "service-benchmarkify",
+      "language": "python",
+      "version": "1.0.0",
+      "path": "src/bsb_examples/benchmark.py",
+      "class": "Plugin",
+      "name": "service-benchmarkify",
+      "description": "Native Python BSB example plugins loaded by the BSB host",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "iterations": {
+              "kind": "int32",
+              "min": 1,
+              "max": 100000,
+              "default": 1000
+            }
+          },
+          "required": [
+            "iterations"
+          ],
+          "unknownKeys": "strip"
+        }
+      }
+    },
+    {
+      "id": "service-demo-todo",
+      "language": "python",
+      "version": "1.0.0",
+      "path": "src/bsb_examples/todo.py",
+      "class": "Plugin",
+      "name": "service-demo-todo",
+      "description": "Native todo CRUD, atomic file storage and HTTP example",
+      "category": "service",
+      "tags": [],
+      "configSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "storage": {
+              "kind": "object",
+              "properties": {
+                "path": {
+                  "kind": "string",
+                  "default": "./.temp/demo-todos.json",
+                  "metadata": {
+                    "description": "Path to the todo JSON storage file"
+                  }
+                },
+                "autoSaveInterval": {
+                  "kind": "int32",
+                  "min": 1000,
+                  "default": 5000,
+                  "metadata": {
+                    "description": "Auto-save interval in milliseconds"
+                  }
+                },
+                "prettyPrint": {
+                  "kind": "bool",
+                  "default": true,
+                  "metadata": {
+                    "description": "Whether stored todo JSON is formatted for readability"
+                  }
+                }
+              },
+              "required": [
+                "autoSaveInterval",
+                "path",
+                "prettyPrint"
+              ],
+              "unknownKeys": "strip",
+              "metadata": {
+                "description": "Todo storage settings"
+              }
+            },
+            "http": {
+              "kind": "object",
+              "properties": {
+                "port": {
+                  "kind": "int32",
+                  "min": 1,
+                  "max": 65535,
+                  "default": 3000,
+                  "metadata": {
+                    "description": "HTTP server port for the todo API"
+                  }
+                },
+                "host": {
+                  "kind": "string",
+                  "default": "0.0.0.0",
+                  "metadata": {
+                    "description": "HTTP server bind address for the todo API"
+                  }
+                },
+                "cors": {
+                  "kind": "bool",
+                  "default": true,
+                  "metadata": {
+                    "description": "Whether CORS is enabled for the todo API"
+                  }
+                }
+              },
+              "required": [
+                "cors",
+                "host",
+                "port"
+              ],
+              "unknownKeys": "strip",
+              "metadata": {
+                "description": "Todo HTTP API settings"
+              }
+            },
+            "features": {
+              "kind": "object",
+              "properties": {
+                "statsInterval": {
+                  "kind": "int32",
+                  "min": 0,
+                  "default": 30,
+                  "metadata": {
+                    "description": "Interval in seconds between todo statistics broadcasts, or 0 to disable"
+                  }
+                },
+                "maxTodos": {
+                  "kind": "int32",
+                  "min": 1,
+                  "default": 1000,
+                  "metadata": {
+                    "description": "Maximum number of todos allowed in storage"
+                  }
+                }
+              },
+              "required": [
+                "maxTodos",
+                "statsInterval"
+              ],
+              "unknownKeys": "strip",
+              "metadata": {
+                "description": "Todo feature limits and intervals"
+              }
+            }
+          },
+          "required": [
+            "features",
+            "http",
+            "storage"
+          ],
+          "unknownKeys": "strip",
+          "metadata": {
+            "description": "Demo todo service plugin configuration"
+          }
+        }
+      }
+    }
+  ]
+}

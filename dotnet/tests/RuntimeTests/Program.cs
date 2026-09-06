@@ -223,7 +223,10 @@ try
 {
     var contract = new BSBEventSchemas { OnReturnableEvents = new() {
         ["orders.get"] = new(BSBTypes.Object(new() { ["id"] = BSBTypes.Int32(), ["status"] = BSBTypes.Enum(["open", "closed"]) }), schema, 5) } };
-    var generated = ClientGenerator.Generate(contract.Export("service-orders", "1.0.0"), "orders");
+    var portableContract = contract.Export("service-orders", "1.0.0");
+    portableContract.Events["orders.get"].InputSchema!["root"]!["properties"]!["note"] = JsonNode.Parse("""{"kind":"optional","schema":{"kind":"nullable","schema":{"kind":"string"}}}""");
+    var generated = ClientGenerator.Generate(portableContract, "orders");
+    Check(generated.Contains("OptionalValue<string?> Note"), "Python wrapper spelling lost optional/nullable client types");
     await File.WriteAllTextAsync(Path.Combine(clientDirectory, "Orders.cs"), generated);
     var assemblyPath = System.Security.SecurityElement.Escape(typeof(ServiceBase).Assembly.Location);
     await File.WriteAllTextAsync(Path.Combine(clientDirectory, "Consumer.csproj"), $"""

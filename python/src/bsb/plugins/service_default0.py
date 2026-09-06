@@ -65,7 +65,7 @@ class Plugin(BSBService):
     async def run(self, trace: Trace) -> None:
         cfg = self.config or {}
         await self.events.emit_event("test", {"a": "test", "b": "test"})
-        result = await self.events.emit_event_and_return(
+        result = await self.create_self().events.emit_event_and_return(
             "calculate",
             {"a": int(cfg.get("testa", 0)), "b": int(cfg.get("testb", 0))},
             timeout_seconds=2.0,

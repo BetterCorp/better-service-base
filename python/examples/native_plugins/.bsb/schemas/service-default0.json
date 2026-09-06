@@ -1,0 +1,257 @@
+{
+  "pluginId": "service-default0",
+  "pluginName": "service-default0",
+  "events": {
+    "test": {
+      "type": "fire-and-forget",
+      "category": "emitEvents",
+      "description": "Test event with string parameters",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "a": {
+              "kind": "string"
+            },
+            "b": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Test event parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "startup": {
+      "type": "fire-and-forget",
+      "category": "onEvents",
+      "description": "Handle system startup notification",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "timestamp": {
+              "kind": "string",
+              "format": "date-time"
+            },
+            "source": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "timestamp",
+            "source"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Startup event parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "calculate": {
+      "type": "returnable",
+      "category": "emitReturnableEvents",
+      "description": "Calculate with two numbers",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "a": {
+              "kind": "number",
+              "min": 0
+            },
+            "b": {
+              "kind": "number",
+              "min": 0
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Calculate input parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "number"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Calculation result"
+          }
+        }
+      }
+    },
+    "data.validate": {
+      "type": "returnable",
+      "category": "onReturnableEvents",
+      "description": "Validate data against a schema",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "data": {
+              "kind": "unknown"
+            },
+            "schema": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "data",
+            "schema"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Validation input"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "valid": {
+              "kind": "bool"
+            },
+            "errors": {
+              "kind": "array",
+              "items": {
+                "kind": "string"
+              }
+            }
+          },
+          "required": [
+            "valid",
+            "errors"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Validation output"
+          }
+        }
+      }
+    },
+    "system.alert": {
+      "type": "broadcast",
+      "category": "emitBroadcast",
+      "description": "System-wide alert broadcast",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "level": {
+              "kind": "enum",
+              "values": [
+                "info",
+                "warning",
+                "error",
+                "critical"
+              ]
+            },
+            "message": {
+              "kind": "string"
+            },
+            "timestamp": {
+              "kind": "string",
+              "format": "date-time"
+            },
+            "source": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "level",
+            "message",
+            "timestamp",
+            "source"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "System alert parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "system.shutdown": {
+      "type": "broadcast",
+      "category": "onBroadcast",
+      "description": "Listen for system shutdown broadcasts",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "reason": {
+              "kind": "string"
+            },
+            "gracefulTimeout": {
+              "kind": "number"
+            }
+          },
+          "required": [
+            "reason",
+            "gracefulTimeout"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Shutdown parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    }
+  },
+  "version": "1.0.0"
+}

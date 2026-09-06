@@ -1,4 +1,4 @@
-from .base import BSBValidationError, ServiceClient
+from .base import BSBConfig, BSBError, BSBEvents, BSBObservable, BSBService, BSBValidationError, PluginCtor, ServiceClient
 from .client_generator import generate_clients
 from .schema_events import (
     create_broadcast_event,
@@ -6,6 +6,7 @@ from .schema_events import (
     create_fire_and_forget_event,
     create_returnable_event,
     export_event_schemas,
+    import_event_schemas,
 )
 from .schema_export import build_project, export_schemas
 from .service_base import ServiceBase
@@ -24,6 +25,8 @@ from .schema import (
 __all__ = [
     "AnyValiDocument",
     "BSBValidationError",
+    "BSBConfig", "BSBError", "BSBEvents", "BSBObservable", "BSBService", "PluginCtor",
+    "import_event_schemas",
     "Schema",
     "ServiceClient",
     "ServiceBase",

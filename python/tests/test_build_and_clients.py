@@ -99,8 +99,9 @@ def test_generate_clients_creates_service_client_module(tmp_path: Path) -> None:
     )
 
     written = generate_clients(tmp_path)
-    client_path = tmp_path / "src" / ".bsb" / "clients" / "service-demo.py"
+    client_path = tmp_path / "src" / "bsb_clients" / "service_demo.py"
     assert client_path in written
     client_code = client_path.read_text(encoding="utf-8")
     assert "class DemoClient(ServiceClient):" in client_code
-    assert "async def sum(self, payload: Any, timeout_seconds: float = 4.0)" in client_code
+    assert "async def sum(self, payload: DemoClientSumInput, timeout_seconds: float = 4.0" in client_code
+    compile(client_code, str(client_path), "exec")

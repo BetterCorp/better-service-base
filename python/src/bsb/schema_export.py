@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import re
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -127,10 +128,13 @@ def _has_method(plugin_cls: Any, method_name: str) -> bool:
 
 def build_capabilities(plugin_type: PluginType, plugin_cls: Any) -> dict[str, Any] | None:
     if plugin_type == "observable":
+        from .base import BSBObservable
+        def handles(signal):
+            return getattr(plugin_cls, "emit_" + signal, None) is not getattr(BSBObservable, "emit_" + signal)
         return {
-            "logging": {name: _has_method(plugin_cls, name) for name in OBSERVABLE_METHODS["logging"]},
-            "metrics": {name: _has_method(plugin_cls, name) for name in OBSERVABLE_METHODS["metrics"]},
-            "tracing": {name: _has_method(plugin_cls, name) for name in OBSERVABLE_METHODS["tracing"]},
+            "logging": {name: handles("log") for name in OBSERVABLE_METHODS["logging"]},
+            "metrics": {name: handles("metric") for name in OBSERVABLE_METHODS["metrics"]},
+            "tracing": {name: handles("span") for name in OBSERVABLE_METHODS["tracing"]},
         }
     if plugin_type == "events":
         return {"eventsApi": {name: _has_method(plugin_cls, name) for name in EVENTS_METHODS}}
@@ -147,15 +151,32 @@ def discover_plugins(project_root: str | Path) -> list[DiscoveredPlugin]:
     plugins: list[DiscoveredPlugin] = []
     package_version = str(read_project_metadata(project_root).get("version") or "1.0.0")
 
-    for file_path in sorted(source_root.rglob("*.py")):
+    project = tomllib.loads((Path(project_root) / "pyproject.toml").read_text(encoding="utf-8")) if (Path(project_root) / "pyproject.toml").exists() else {}
+    entries = project.get("project", {}).get("entry-points", {}).get("bsb.plugins", {})
+    candidates = []
+    if entries:
+        if str(source_root) not in sys.path:
+            sys.path.insert(0, str(source_root))
+        for plugin_id, target in entries.items():
+            module_name, separator, class_name = target.partition(":")
+            if not separator or not class_name.isidentifier():
+                raise ValueError("bsb.plugins entry points must target module:Class")
+            file_path = source_root.joinpath(*module_name.split(".")).with_suffix(".py")
+            module = _import_module(source_root, file_path)
+            candidates.append((file_path, module, getattr(module, class_name), plugin_id))
+    else:
+        for file_path in sorted(source_root.rglob("*.py")):
+            if file_path.name == "__init__.py" or any(part in ("__pycache__", "bsb_clients", ".bsb") for part in file_path.parts):
+                continue
+            module = _import_module(source_root, file_path)
+            plugin_cls = getattr(module, "Plugin", None)
+            if plugin_cls is not None and getattr(plugin_cls, "__module__", None) == module.__name__:
+                candidates.append((file_path, module, plugin_cls, None))
+    seen = set()
+    for file_path, module, plugin_cls, explicit_id in candidates:
         if file_path.name == "__init__.py":
             continue
         if "__pycache__" in file_path.parts:
-            continue
-
-        module = _import_module(source_root, file_path)
-        plugin_cls = getattr(module, "Plugin", None)
-        if plugin_cls is None:
             continue
 
         config_cls = getattr(module, "Config", None)
@@ -163,7 +184,10 @@ def discover_plugins(project_root: str | Path) -> list[DiscoveredPlugin]:
         if not isinstance(metadata, dict):
             metadata = {}
 
-        plugin_id = _resolve_plugin_id(config_cls, file_path)
+        plugin_id = explicit_id or _resolve_plugin_id(config_cls, file_path)
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", plugin_id) or plugin_id in seen:
+            raise ValueError("Plugin IDs must be unique local names")
+        seen.add(plugin_id)
         plugin_type = infer_plugin_type(plugin_id, plugin_cls)
         if plugin_type == "unknown":
             continue
@@ -226,6 +250,10 @@ def build_plugin_manifest(project_root: str | Path) -> Path:
         config_schema = getattr(plugin.config_cls, "validation_schema", None)
         entry: dict[str, Any] = {
             "id": plugin.plugin_id,
+            "language": "python",
+            "version": plugin.version,
+            "path": plugin.source_path.relative_to(project_root).as_posix(),
+            "class": plugin.plugin_cls.__name__,
             "name": metadata.get("displayName") or metadata.get("name") or plugin.plugin_id,
             "description": metadata.get("description") or project_meta.get("description", ""),
             "category": category,
@@ -247,6 +275,8 @@ def build_plugin_manifest(project_root: str | Path) -> Path:
 
 
 def build_project(project_root: str | Path) -> dict[str, Any]:
+    from .client_generator import generate_clients
+    generate_clients(project_root)
     schema_paths = export_schemas(project_root)
     manifest_path = build_plugin_manifest(project_root)
     return {

@@ -17,6 +17,19 @@ import { importPortableSchema } from '../../interfaces/schema-types.js';
 import * as ts from 'typescript';
 
 describe('generate-client-types', () => {
+  it('accepts Python wrapper and tuple field names without losing runtime constraints', () => {
+    const document: any = { anyvaliVersion: '1.0', schemaVersion: '1.1', root: {
+      kind: 'object', properties: {
+        note: { kind: 'optional', schema: { kind: 'nullable', schema: { kind: 'string', minLength: 2 } } },
+        pair: { kind: 'tuple', elements: [{ kind: 'int32' }, { kind: 'string' }] },
+      }, required: ['pair'], unknownKeys: 'strip',
+    } };
+    const generated = clientSchemaCode(document, 'Python');
+    assert.ok(generated.expression.includes('[number, string]'));
+    const parsed = importPortableSchema(document);
+    assert.equal(parsed.safeParse({ pair: [1, 'ok'] }).success, true);
+    assert.equal(parsed.safeParse({ pair: [1, 'ok'], note: 'x' }).success, false);
+  });
   it('keeps the wire target independent of the installed implementation filename', () => {
     const schema = exportEventSchemas('service-orders', createEventSchemas({
       onEvents: { save: createFireAndForgetEvent(bsb.string()) },
