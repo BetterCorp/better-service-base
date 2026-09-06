@@ -69,17 +69,17 @@ public abstract class BSBObservable<TConfig> : MainBase, IObservablePlugin
     // Override to record metric values in your backend.
 
     /// <inheritdoc />
-    public virtual void IncrementCounter(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void IncrementCounter(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void SetGauge(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void SetGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void IncrementGauge(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void IncrementGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void DecrementGauge(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void DecrementGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void RecordHistogram(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void RecordHistogram(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 }

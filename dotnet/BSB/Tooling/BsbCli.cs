@@ -8,14 +8,14 @@ public static class BsbCli
 {
     public static async Task Run(string[] args, string cwd)
     {
-        if (args.Length < 2) throw new ArgumentException("Usage: bsb client install|generate|publish, or bsb plugin build|export");
+        if (args.Length < 2) throw new ArgumentException("Usage: bsb client install|generate|publish, or bsb plugin build|export|pack|install");
         var positional = new List<string>(); var options = new Dictionary<string, string>();
         for (var i = 2; i < args.Length; i++)
         {
             if (!args[i].StartsWith("--")) { positional.Add(args[i]); continue; }
             var key = args[i];
             if (key == "--allow-insecure") { options.Add(key, "true"); continue; }
-            if (key is not ("--source-language" or "--version" or "--target" or "--token" or "--plugin" or "--org" or "--package"))
+            if (key is not ("--source-language" or "--version" or "--target" or "--token" or "--plugin" or "--org" or "--package" or "--source"))
                 throw new ArgumentException($"Unknown option: {key}");
             if (++i >= args.Length || args[i].StartsWith("--")) throw new ArgumentException($"Missing value for {key}");
             options.Add(key, args[i]);
@@ -23,6 +23,10 @@ public static class BsbCli
         if (positional.Count > 1) throw new ArgumentException("Only one project, assembly or plugin ID is accepted");
         switch ((args[0], args[1]))
         {
+            case ("plugin", "pack"):
+                await NativePackages.Pack(cwd, positional.SingleOrDefault() ?? Directory.GetFiles(cwd, "*.csproj").Single()); return;
+            case ("plugin", "install"):
+                Console.WriteLine(await NativePackages.Install(cwd, positional.Single(), options.GetValueOrDefault("--version") ?? throw new ArgumentException("--version is required"), options.GetValueOrDefault("--source"))); return;
             case ("client", "generate"):
                 await RegistryClient.Regenerate(cwd); return;
             case ("client", "install"):
@@ -92,7 +96,7 @@ public static class BsbCli
         await File.WriteAllTextAsync(Path.Combine(cwd, "bsb-plugin.json"), new JsonObject { ["csharp"] = exports }.ToJsonString(Interfaces.EventSchemaExport.JsonOptions));
     }
 
-    private static async Task<string> Process(string executable, string[] arguments, string cwd)
+    internal static async Task<string> Process(string executable, string[] arguments, string cwd)
     {
         var start = new ProcessStartInfo(executable) { WorkingDirectory = cwd, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         foreach (var argument in arguments) start.ArgumentList.Add(argument);

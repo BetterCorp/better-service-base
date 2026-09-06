@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <PackageId>BetterCorp.BSB.Examples</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../BSB/BSB.csproj" Private="false" ExcludeAssets="runtime" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <EmbeddedResource Include=".bsb/schemas/*.json" LogicalName="Contracts.%(Filename).json" />
+    <EmbeddedResource Include="../../../plugins/nodejs/demo-todo-app/src/plugins/service-demo-todo/static/*" LogicalName="Static.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

@@ -20,6 +20,8 @@ Vault uses the same environment names as Node: `vaultUrl`, `apiKeyId`, `apiSecre
 
 The executable also provides native tooling:
 
+`BetterCorp.BSB` is the SDK NuGet package. `BetterCorp.BSB.Cli` is a .NET tool that installs the `bsb` command and bundled native plugins. Build packages locally with `dotnet pack BSB/BSB.csproj -c Release -o packages` and `dotnet pack BetterServiceBase/BetterServiceBase.csproj -c Release -o packages`. Install the tool with `dotnet tool install BetterCorp.BSB.Cli --tool-path ./tools --add-source ./packages --version 9.1.11`. Release builds stamp both packages from the release version; the source version is not the published release version.
+
 ```sh
 dotnet /path/to/BetterServiceBase.dll plugin build ./MyPlugin.csproj
 dotnet /path/to/BetterServiceBase.dll plugin export ./lib/MyPlugin.dll
@@ -29,6 +31,8 @@ dotnet /path/to/BetterServiceBase.dll client publish --org acme
 ```
 
 `plugin build` regenerates installed clients, publishes the class library, and exports static contracts without constructing the service. It writes `bsb-plugin.json` and `lib/schemas/`. Deploy the `lib` directory with its manifest and dependencies. Manifests allow plugin IDs to differ from assembly names. Multiple plugins in one assembly must each declare a unique `Metadata.Name`.
+
+`bsb plugin pack MyPlugin.csproj` builds the plugin and includes its manifest, schemas and dependency metadata in its NuGet package under `packages/`. `bsb plugin install Example.Worker --version 1.2.3` restores that exact NuGet version and its dependencies into `.bsb/plugins/Example.Worker/1.2.3`. An optional `--source` selects a NuGet feed. Installation uses a staging directory and moves the complete version into place atomically. Configure `package`, `version` and the logical `plugin` ID in the deployment profile. Build/pack/install require the .NET SDK; the runtime-only Docker image loads plugins prepared in an SDK build stage. The image runs as user `bsb` (UID 10001), from `/home/bsb`, with the host installed at `/opt/bsb`.
 
 Installed schemas live in `.bsb/schemas`; C# clients live in `BsbClients`. Create a generated client in your service constructor with `new GeneratedClient(Events)`. Its methods accept `IObservable` and typed request values. Objects, enums, arrays, records and numeric types get native C# types; structural unions, intersections and tuples use `JsonElement`, validated against the full AnyVali schema. No handwritten shared-service client packages are required. Set `BSB_REGISTRY_URL` and `BSB_REGISTRY_TOKEN` for another registry. Publishing directly to Vault uses `--target URL --plugin ID --token TOKEN`.
 
@@ -55,6 +59,24 @@ Native logging includes `observable-default`, `observable-logging-file`, `observ
 The file plugin uses `path` (default `logs/application.log`), `level`, `redact`, and `prettyPrint`. Its rotation options, also available for console plugins' optional files, are `maxBytes` (10485760), `maxFiles` (7 archives; 0 means unlimited), `interval` (`daily`, `hourly`, or `none`), and `compress` (true). Rotation preserves whole entries, so a single entry may exceed the byte threshold. Archives use a `.bsb-` suffix and optional gzip compression. Human-readable file output can span multiple lines; the default is one JSON object per line.
 
 Completed spans include parent IDs, duration, attributes and errors. Transport listeners continue incoming Node traces. Linux SIGTERM and console cancellation initiate host shutdown; plugins dispose in reverse order even when another plugin's cleanup fails.
+
+Native remote exporters are bundled:
+
+| Plugin | Transport and main options |
+| --- | --- |
+| `observable-opentelemetry` | OTLP HTTP JSON; `endpoint` defaults to `http://localhost:4318`, with `/v1/logs`, `/v1/metrics`, `/v1/traces` appended. |
+| `observable-axiom` | Required sensitive `token`; `dataset`, optional `orgId`; default `https://api.axiom.co`. Logs/metrics use dataset ingestion; traces use OTLP. HTTP requires explicit `allowInsecureHttp`. |
+| `observable-zipkin` | Zipkin v2 traces; `endpoint` defaults to `http://localhost:9411/api/v2/spans`. |
+| `observable-graylog` | GELF UDP/TCP/TLS/HTTP; `host`, `port` (12201), `protocol`, `facility`, `additionalFields`; UDP `compress` defaults true. HTTP supports `httpEndpoint` and sensitive `headers`. |
+| `observable-syslog` | RFC 5424 or 3164; `host`, `port` (514), `protocol` (`udp`, `tcp`, `tls`), numeric `facility` (16), `hostname`, `appName`, `rfc`. TCP `framing` can be `newline` or `octet-counting`; TLS always counts octets. |
+
+OTLP/Axiom/Zipkin share `serviceName`, `serviceVersion`, `headers`, `resourceAttributes`, `samplingRate` (0–1), `flushIntervalMs` (5000), and `maxBatchSize` (512). OTLP/Axiom can disable individual `logs`, `metrics`, or `traces`. Metrics use cumulative counters and histograms, with separate plugin scopes. Custom native observable plugins must accept `pluginName` as the first argument to metric recording methods.
+
+Graylog/syslog share `level`, `redact`, `flushIntervalMs` (1000), and TLS PEM options `caCertificatePath`, `clientCertificatePath`, `clientKeyPath`. Paths resolve from the application directory. TLS validates the peer name and certificate chain; supplying a CA replaces the system trust roots. It does not disable verification.
+
+Remote exporters buffer up to 4096 entries and report overflow/export failures to stderr. They flush at intervals and drain on shutdown with a ten-second deadline. HTTP never follows redirects, retries transient failures up to three attempts, and respects `Retry-After`; authentication failures and partial acknowledgements are not retried. UDP is best effort. Failed TCP batches are reported and the next batch reconnects. These buffers are not durable audit storage.
+
+Lifecycle `InitBeforePlugins`, `InitAfterPlugins`, `RunBeforePlugins` and `RunAfterPlugins` accept profile aliases or logical plugin names. Explicit aliases take precedence; logical names match all configured instances. Missing optional peers are ignored; dependency cycles, including self-dependencies, fail startup.
 
 The runtime remains an incomplete port, not full Node.js feature parity. The host smoke test verifies external discovery, aliases, configuration, shared contract identity, event wiring, metadata and lifecycle:
 

@@ -82,25 +82,25 @@ public class BSBPluginMetadata
     public string? Image { get; init; }
 
     /// <summary>
-    /// Plugins that must initialize before this plugin.
+    /// Plugins that this plugin must initialize before.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? InitBeforePlugins { get; init; }
 
     /// <summary>
-    /// Plugins that must initialize after this plugin.
+    /// Plugins that this plugin must initialize after.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? InitAfterPlugins { get; init; }
 
     /// <summary>
-    /// Plugins that must run before this plugin.
+    /// Plugins that this plugin must run before.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? RunBeforePlugins { get; init; }
 
     /// <summary>
-    /// Plugins that must run after this plugin.
+    /// Plugins that this plugin must run after.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? RunAfterPlugins { get; init; }

@@ -116,19 +116,18 @@ internal class SBServices : IAsyncDisposable
     }
 
     /// <summary>
-    /// Wire the InternalObservable property on a service instance so that
-    /// CreateTrace works at runtime.
-    /// BSBService has: internal IObservable? InternalObservable { get; set; }
+    /// Wire independent root trace creation for background work and HTTP requests.
     /// </summary>
     private static void WireObservable(MainBase instance, SBObservable observable)
     {
-        var obsProp = instance.GetType().GetProperty("InternalObservable",
+        var obsProp = instance.GetType().GetProperty("TraceFactory",
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         if (obsProp is not null && obsProp.CanWrite)
         {
-            var obs = observable.CreateObservable(instance.PluginName, "trace-root");
-            obsProp.SetValue(instance, obs);
+            Func<string, Dictionary<string, object?>?, IObservable> factory = (name, attributes) =>
+                observable.CreateObservable(instance.PluginName, name, attributes: attributes);
+            obsProp.SetValue(instance, factory);
         }
     }
 
@@ -142,18 +141,22 @@ internal class SBServices : IAsyncDisposable
         Func<ServiceEntry, string[]?> getAfter,
         Func<ServiceEntry, string[]?> getBefore)
     {
-        if (entries.Count <= 1)
-            return new List<ServiceEntry>(entries);
-
         var nameMap = new Dictionary<string, ServiceEntry>();
         var inDegree = new Dictionary<string, int>();
-        var adj = new Dictionary<string, List<string>>();
+        var adj = new Dictionary<string, HashSet<string>>();
 
         foreach (var entry in entries)
         {
-            nameMap[entry.Name] = entry;
+            nameMap.Add(entry.Name, entry);
             inDegree[entry.Name] = 0;
-            adj[entry.Name] = new List<string>();
+            adj[entry.Name] = new HashSet<string>();
+        }
+
+        IEnumerable<string> Resolve(string name) => nameMap.ContainsKey(name) ? [name] :
+            entries.Where(e => e.Metadata?.Name == name).Select(e => e.Name);
+        void Edge(string from, string to)
+        {
+            if (adj[from].Add(to)) inDegree[to]++;
         }
 
         foreach (var entry in entries)
@@ -164,11 +167,7 @@ internal class SBServices : IAsyncDisposable
             {
                 foreach (var dep in after)
                 {
-                    if (adj.ContainsKey(dep))
-                    {
-                        adj[dep].Add(entry.Name);
-                        inDegree[entry.Name]++;
-                    }
+                    foreach (var name in Resolve(dep)) Edge(name, entry.Name);
                 }
             }
 
@@ -178,11 +177,7 @@ internal class SBServices : IAsyncDisposable
             {
                 foreach (var target in before)
                 {
-                    if (adj.ContainsKey(entry.Name) && inDegree.ContainsKey(target))
-                    {
-                        adj[entry.Name].Add(target);
-                        inDegree[target]++;
-                    }
+                    foreach (var name in Resolve(target)) Edge(entry.Name, name);
                 }
             }
         }

@@ -6,9 +6,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../../BSB/BSB.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../examples/ExamplePlugins/ExamplePlugins.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../plugins/config-vault/config-vault.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../plugins/config-vault-google/config-vault-google.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../plugins/config-default/config-default.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../plugins/events-default/events-default.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../plugins/events-rabbitmq/events-rabbitmq.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/observable-axiom/observable-axiom.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/observable-opentelemetry/observable-opentelemetry.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/observable-zipkin/observable-zipkin.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/observable-graylog/observable-graylog.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../plugins/observable-syslog/observable-syslog.csproj" /></ItemGroup>
 </Project>

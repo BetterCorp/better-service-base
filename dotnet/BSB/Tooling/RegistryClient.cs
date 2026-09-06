@@ -63,6 +63,9 @@ public sealed class RegistryClient : IDisposable
         var local = $"{org}~{name}~{sourceLanguage}";
         var code = ClientGenerator.Generate(EventSchemaExport.FromJson(document.ToJsonString()), local);
         var schemas = Path.Combine(cwd, ".bsb", "schemas"); var clients = Path.Combine(cwd, "BsbClients");
+        if (Directory.Exists(schemas) && Directory.EnumerateFiles(schemas, "*.json").Select(Path.GetFileNameWithoutExtension)
+            .Any(existing => existing != local && ClientGenerator.Identifier(existing!) == ClientGenerator.Identifier(local)))
+            throw new InvalidOperationException("Installed client names collide after C# identifier normalization");
         Directory.CreateDirectory(schemas); Directory.CreateDirectory(clients);
         await File.WriteAllTextAsync(Path.Combine(schemas, local + ".json"), document.ToJsonString(EventSchemaExport.JsonOptions));
         var output = Path.Combine(clients, local + ".cs");

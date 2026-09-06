@@ -1,0 +1,47 @@
+{
+  "pluginId": "service-default4",
+  "pluginName": "service-default4",
+  "events": {
+    "onReverseReturnable": {
+      "type": "returnable",
+      "category": "emitReturnableEvents",
+      "description": "Reverse text string",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "text": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Reverse input parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "string"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Reversed text"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0.0"
+}

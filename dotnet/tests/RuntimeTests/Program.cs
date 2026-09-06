@@ -53,6 +53,9 @@ Check(clientSchemas.EmitReturnableEvents.ContainsKey("orders.get"), "Client even
 Check(clientSchemas.EmitReturnableEvents["orders.get"].Output.Validate(new { items = new[] { 1 }, email = "dev@example.com" }), "Exported output schema lost");
 Console.WriteLine("PASS: portable event exports and client schema direction");
 await RabbitChecks.Run();
+await TelemetryChecks.Run();
+await LifecycleChecks.Run();
+await ExampleChecks.Run();
 
 var traceObserver = new TestObserver();
 var parentObs = new ObservableBackend("worker", "parent", new(), [traceObserver]);
@@ -266,7 +269,7 @@ try
       public Plugin(ServiceConstructorArgs<object> args) : base(args) { File.WriteAllText(Path.Combine(Cwd, "constructed"), "yes"); }
     }
     """);
-    await BsbCli.Run(["plugin", "build", "Example.csproj"], pluginDirectory);
+    await BsbCli.Run(["plugin", "pack", "Example.csproj"], pluginDirectory);
     Check(!File.Exists(Path.Combine(pluginDirectory, "constructed")), "Build constructed the service");
     var manifest = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(pluginDirectory, "bsb-plugin.json")))!;
     Check(manifest["csharp"]![0]!["assembly"]!.GetValue<string>() == "lib/Example.Worker.dll", "Build manifest lost assembly path");
@@ -275,7 +278,24 @@ try
         .Invoke(loader, [new PluginDefinition { Name = "worker", Plugin = "service-worker" }]) as string;
     Check(resolvedAssembly == Path.Combine(pluginDirectory, "lib", "Example.Worker.dll"), "Manifest-based assembly discovery failed");
     Check(File.Exists(Path.Combine(pluginDirectory, "lib", "schemas", "service-worker.json")), "Build did not export schema");
-    Console.WriteLine("PASS: CLI builds/exports without starting services; host discovers an independently named assembly");
+    using (var package = System.IO.Compression.ZipFile.OpenRead(Directory.GetFiles(Path.Combine(pluginDirectory, "packages"), "*.nupkg").Single()))
+        Check(package.GetEntry("bsb/bsb-plugin.json") is not null && package.GetEntry("bsb/schemas/service-worker.json") is not null,
+            "NuGet package omitted BSB metadata");
+    var previousPluginDir = Environment.GetEnvironmentVariable("BSB_PLUGIN_DIR");
+    var previousNuget = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+    try
+    {
+        Environment.SetEnvironmentVariable("BSB_PLUGIN_DIR", Path.Combine(pluginDirectory, "installed"));
+        Environment.SetEnvironmentVariable("NUGET_PACKAGES", Path.Combine(pluginDirectory, "nuget-cache"));
+        var installed = await NativePackages.Install(pluginDirectory, "Example.Worker", "1.2.3", Path.Combine(pluginDirectory, "packages"));
+        var packageLoader = new SBPlugins(pluginDirectory);
+        var resolvedPackage = typeof(SBPlugins).GetMethod("ResolveAssemblyPath", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(packageLoader, [new PluginDefinition { Name = "worker", Plugin = "service-worker", Package = "Example.Worker", Version = "1.2.3" }]) as string;
+        Check(resolvedPackage == Path.Combine(installed, "Example.Worker.dll"), "Installed NuGet plugin was not discoverable");
+        Check(await NativePackages.Install(pluginDirectory, "Example.Worker", "1.2.3") == installed, "Native package install was not idempotent");
+    }
+    finally { Environment.SetEnvironmentVariable("BSB_PLUGIN_DIR", previousPluginDir); Environment.SetEnvironmentVariable("NUGET_PACKAGES", previousNuget); }
+    Console.WriteLine("PASS: CLI builds/packs without starting services; installs native NuGet metadata and discovers its assembly");
 }
 finally { Directory.Delete(pluginDirectory, recursive: true); }
 

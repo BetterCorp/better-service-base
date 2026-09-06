@@ -1,0 +1,74 @@
+{
+  "csharp": [
+    {
+      "id": "service-default0",
+      "language": "csharp",
+      "version": "9.1.11",
+      "assembly": "lib/ExamplePlugins.dll",
+      "type": "BSB.Examples.Default0",
+      "category": "service",
+      "package": "BetterCorp.BSB.Examples",
+      "description": "Native BSB example service-default0"
+    },
+    {
+      "id": "service-default1",
+      "language": "csharp",
+      "version": "9.1.11",
+      "assembly": "lib/ExamplePlugins.dll",
+      "type": "BSB.Examples.Default1",
+      "category": "service",
+      "package": "BetterCorp.BSB.Examples",
+      "description": "Native BSB example service-default1"
+    },
+    {
+      "id": "service-default2",
+      "language": "csharp",
+      "version": "9.1.11",
+      "assembly": "lib/ExamplePlugins.dll",
+      "type": "BSB.Examples.Default2",
+      "category": "service",
+      "package": "BetterCorp.BSB.Examples",
+      "description": "Native BSB example service-default2"
+    },
+    {
+      "id": "service-default3",
+      "language": "csharp",
+      "version": "9.1.11",
+      "assembly": "lib/ExamplePlugins.dll",
+      "type": "BSB.Examples.Default3",
+      "category": "service",
+      "package": "BetterCorp.BSB.Examples",
+      "description": "Native reverse and RPC example"
+    },
+    {
+      "id": "service-default4",
+      "language": "csharp",
+      "version": "9.1.11",
+      "assembly": "lib/ExamplePlugins.dll",
+      "type": "BSB.Examples.Default4",
+      "category": "service",
+      "package": "BetterCorp.BSB.Examples",
+      "description": "Native BSB example service-default4"
+    },
+    {
+      "id": "service-benchmarkify",
+      "language": "csharp",
+      "version": "9.1.11",
+      "assembly": "lib/ExamplePlugins.dll",
+      "type": "BSB.Examples.Benchmark",
+      "category": "service",
+      "package": "BetterCorp.BSB.Examples",
+      "description": "Native BSB example service-benchmarkify"
+    },
+    {
+      "id": "service-demo-todo",
+      "language": "csharp",
+      "version": "9.1.11",
+      "assembly": "lib/ExamplePlugins.dll",
+      "type": "BSB.Examples.Todo",
+      "category": "service",
+      "package": "BetterCorp.BSB.Examples",
+      "description": "Native todo CRUD, file storage and HTTP example"
+    }
+  ]
+}

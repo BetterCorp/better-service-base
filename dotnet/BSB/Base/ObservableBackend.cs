@@ -225,7 +225,7 @@ internal class ObservableBackend : IObservable
         {
             foreach (var obs in _backend._observers)
                 obs.CreateCounter(_backend._pluginName, name, description, unit);
-            return new BackendCounter(name, _backend._observers);
+            return new BackendCounter(_backend._pluginName, name, _backend._observers);
         }
 
         /// <inheritdoc />
@@ -233,7 +233,7 @@ internal class ObservableBackend : IObservable
         {
             foreach (var obs in _backend._observers)
                 obs.CreateGauge(_backend._pluginName, name, description, unit);
-            return new BackendGauge(name, _backend._observers);
+            return new BackendGauge(_backend._pluginName, name, _backend._observers);
         }
 
         /// <inheritdoc />
@@ -241,7 +241,7 @@ internal class ObservableBackend : IObservable
         {
             foreach (var obs in _backend._observers)
                 obs.CreateHistogram(_backend._pluginName, name, description, unit);
-            return new BackendHistogram(name, _backend._observers);
+            return new BackendHistogram(_backend._pluginName, name, _backend._observers);
         }
 
         /// <inheritdoc />
@@ -258,11 +258,13 @@ internal class ObservableBackend : IObservable
     private sealed class BackendCounter : ICounter
     {
         private readonly string _name;
+        private readonly string _pluginName;
         private readonly List<IObservablePlugin> _observers;
 
-        internal BackendCounter(string name, List<IObservablePlugin> observers)
+        internal BackendCounter(string pluginName, string name, List<IObservablePlugin> observers)
         {
             _name = name;
+            _pluginName = pluginName;
             _observers = observers;
         }
 
@@ -270,7 +272,7 @@ internal class ObservableBackend : IObservable
         public void Increment(double value = 1, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.IncrementCounter(_name, value, labels);
+                obs.IncrementCounter(_pluginName, _name, value, labels);
         }
     }
 
@@ -280,11 +282,13 @@ internal class ObservableBackend : IObservable
     private sealed class BackendGauge : IGauge
     {
         private readonly string _name;
+        private readonly string _pluginName;
         private readonly List<IObservablePlugin> _observers;
 
-        internal BackendGauge(string name, List<IObservablePlugin> observers)
+        internal BackendGauge(string pluginName, string name, List<IObservablePlugin> observers)
         {
             _name = name;
+            _pluginName = pluginName;
             _observers = observers;
         }
 
@@ -292,21 +296,21 @@ internal class ObservableBackend : IObservable
         public void Set(double value, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.SetGauge(_name, value, labels);
+                obs.SetGauge(_pluginName, _name, value, labels);
         }
 
         /// <inheritdoc />
         public void Increment(double value = 1, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.IncrementGauge(_name, value, labels);
+                obs.IncrementGauge(_pluginName, _name, value, labels);
         }
 
         /// <inheritdoc />
         public void Decrement(double value = 1, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.DecrementGauge(_name, value, labels);
+                obs.DecrementGauge(_pluginName, _name, value, labels);
         }
     }
 
@@ -316,11 +320,13 @@ internal class ObservableBackend : IObservable
     private sealed class BackendHistogram : IHistogram
     {
         private readonly string _name;
+        private readonly string _pluginName;
         private readonly List<IObservablePlugin> _observers;
 
-        internal BackendHistogram(string name, List<IObservablePlugin> observers)
+        internal BackendHistogram(string pluginName, string name, List<IObservablePlugin> observers)
         {
             _name = name;
+            _pluginName = pluginName;
             _observers = observers;
         }
 
@@ -328,7 +334,7 @@ internal class ObservableBackend : IObservable
         public void Record(double value, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.RecordHistogram(_name, value, labels);
+                obs.RecordHistogram(_pluginName, _name, value, labels);
         }
     }
 }

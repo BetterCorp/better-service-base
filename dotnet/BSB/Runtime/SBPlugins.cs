@@ -43,7 +43,7 @@ public class SBPlugins
     {
         _cwd = Path.GetFullPath(cwd);
         _pluginDir = Environment.GetEnvironmentVariable("BSB_PLUGIN_DIR")
-            ?? Environment.GetEnvironmentVariable("BSB_PLUGINS_DIR");
+            ?? Environment.GetEnvironmentVariable("BSB_PLUGINS_DIR") ?? Path.Combine(_cwd, ".bsb", "plugins");
     }
 
     /// <summary>
@@ -230,6 +230,9 @@ public class SBPlugins
 
         if (def.Package is not null && !string.IsNullOrEmpty(def.Version)) return null;
 
+        var applicationManifest = ResolveManifest(_cwd, pluginName);
+        if (applicationManifest is not null) return applicationManifest;
+
         // Application plugins override the defaults shipped alongside the BSB host.
         foreach (var root in new[] { Path.Combine(_cwd, "plugins"), Path.Combine(AppContext.BaseDirectory, "plugins") })
         {
@@ -241,7 +244,7 @@ public class SBPlugins
             if (File.Exists(flatDll)) return Path.GetFullPath(flatDll);
         }
 
-        return ResolveManifest(_cwd, pluginName);
+        return null;
     }
 
     /// <summary>

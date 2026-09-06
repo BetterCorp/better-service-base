@@ -1,27 +1,21 @@
 ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:10.0
-ARG DOTNET_RUNTIME_IMAGE=mcr.microsoft.com/dotnet/runtime:10.0
+ARG DOTNET_RUNTIME_IMAGE=mcr.microsoft.com/dotnet/aspnet:10.0
 
 FROM ${DOTNET_SDK_IMAGE} AS build
 WORKDIR /src
 
-COPY BSB.sln .
-COPY BSB/BSB.csproj BSB/
-COPY BetterServiceBase/BetterServiceBase.csproj BetterServiceBase/
-COPY plugins/config-default/config-default.csproj plugins/config-default/
-COPY plugins/observable-default/observable-default.csproj plugins/observable-default/
-COPY plugins/events-default/events-default.csproj plugins/events-default/
-RUN dotnet restore BSB.sln
-
 COPY . .
-RUN dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /app/publish /p:UseAppHost=false
+ARG BSB_VERSION=9.1.11
+RUN dotnet restore BetterServiceBase/BetterServiceBase.csproj
+RUN dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /app/publish /p:UseAppHost=false /p:Version=${BSB_VERSION}
 
 FROM ${DOTNET_RUNTIME_IMAGE}
-WORKDIR /app
-RUN useradd --no-create-home bsb
-COPY --from=build /app/publish .
+RUN useradd --create-home --uid 10001 bsb
+COPY --from=build /app/publish /opt/bsb
+WORKDIR /home/bsb
 USER bsb
 
 ENV BSB_MODE=production
 ENV BSB_CONTAINER=true
 
-ENTRYPOINT ["dotnet", "BetterServiceBase.dll"]
+ENTRYPOINT ["dotnet", "/opt/bsb/BetterServiceBase.dll"]

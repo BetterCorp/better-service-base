@@ -6,9 +6,14 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>bsb</ToolCommandName>
+        <PackageId>BetterCorp.BSB.Cli</PackageId>
+        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeBundledPlugins</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
     <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <ProjectReference Include="..\BSB\BSB.csproj" />
         <ProjectReference Include="../plugins/config-default/config-default.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="../plugins/config-env/config-env.csproj" ReferenceOutputAssembly="false" />
@@ -20,6 +25,11 @@
         <ProjectReference Include="../plugins/observable-logging-file/observable-logging-file.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="../plugins/observable-pino/observable-pino.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="../plugins/observable-winston/observable-winston.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../plugins/observable-axiom/observable-axiom.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../plugins/observable-opentelemetry/observable-opentelemetry.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../plugins/observable-zipkin/observable-zipkin.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../plugins/observable-graylog/observable-graylog.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../plugins/observable-syslog/observable-syslog.csproj" ReferenceOutputAssembly="false" />
         <Content Include="../bsb-config.json" Link="bsb-config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
     <Target Name="PublishDefaultPlugins" AfterTargets="Publish">
@@ -27,6 +37,11 @@
             <BundledPlugin Include="$(TargetDir)plugins/**/*" />
         </ItemGroup>
         <Copy SourceFiles="@(BundledPlugin)" DestinationFiles="@(BundledPlugin->'$(PublishDir)plugins/%(RecursiveDir)%(Filename)%(Extension)')" />
+    </Target>
+    <Target Name="IncludeBundledPlugins">
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="$(TargetDir)plugins/**/*" PackagePath="tools/$(TargetFramework)/any/plugins/%(RecursiveDir)%(Filename)%(Extension)" />
+        </ItemGroup>
     </Target>
 
 </Project>

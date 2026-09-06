@@ -38,7 +38,7 @@ public abstract class BSBService<TConfig> : MainBase
     /// Internal observable backend for creating traces.
     /// Set by the framework after construction.
     /// </summary>
-    internal IObservable? InternalObservable { get; set; }
+    internal Func<string, Dictionary<string, object?>?, IObservable>? TraceFactory { get; set; }
 
     /// <summary>
     /// Construct a new service plugin.
@@ -78,8 +78,8 @@ public abstract class BSBService<TConfig> : MainBase
     /// </exception>
     public IObservable CreateTrace(string name, Dictionary<string, object?>? attributes = null)
     {
-        if (InternalObservable is null)
+        if (TraceFactory is null)
             throw new InvalidOperationException("Observable backend not initialized");
-        return InternalObservable.StartSpan(name, attributes);
+        return TraceFactory(name, attributes);
     }
 }
