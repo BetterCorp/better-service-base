@@ -26,6 +26,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native-integration:
+    name: Native languages and Vault integration
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    services:
+      rabbitmq:
+        image: rabbitmq:4.2-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: bsb-ci
+          RABBITMQ_DEFAULT_PASS: bsb-ci-tests
+        ports: ["5672:5672"]
+        options: --health-cmd "rabbitmq-diagnostics -q ping" --health-interval 10s --health-timeout 5s --health-retries 12
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: bsb-ci
+          POSTGRES_PASSWORD: bsb-ci-tests
+          POSTGRES_DB: bsb-ci
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bsb-ci" --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build native integration peers
+        run: |
+          npm ci
+          npm run tsc --workspace nodejs
+          node node_modules/typescript/bin/tsc -p plugins/nodejs/events-rabbitmq/tsconfig.json
+          node node_modules/typescript/bin/tsc -p plugins/nodejs/config-vault/tsconfig.json
+          python -m pip install -e ./python
+          dotnet build dotnet/tests/RabbitPeer -c Release
+      - name: Verify all native language pairs over RabbitMQ
+        timeout-minutes: 5
+        env:
+          BSB_RABBITMQ_URL: amqp://bsb-ci:bsb-ci-tests@127.0.0.1:5672
+        run: python tests/integration/rabbit_languages.py
+      - name: Verify Vault migration against PostgreSQL
+        env:
+          BSB_POSTGRES_URL: postgresql://bsb-ci:bsb-ci-tests@127.0.0.1:5432/bsb-ci
+        run: node tests/integration/vault-postgres.mjs
+
   nodejs:
     name: Node.js workspaces
     runs-on: blacksmith-4vcpu-ubuntu-2404

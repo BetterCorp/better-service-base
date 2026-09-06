@@ -1,3 +1,4 @@
+import { unwrapSchema as unwrapSchemaNode, sensitiveSchemaPaths } from './schema-secrets.js';
 import { normalizePluginLanguage, type PluginLanguage, type Observable } from '@bsb/base';
 import * as av from 'anyvali';
 import safeRegex from 'safe-regex2';
@@ -624,7 +625,7 @@ export class VaultService {
     const sectionName = sectionForKind(replacement.kind);
     if (!sectionName) return;
     const oldPackages = new Set(previousPlugins
-      .filter((plugin) => plugin.pluginId === replacement.pluginId && plugin.kind === replacement.kind)
+      .filter((plugin) => plugin.pluginId === replacement.pluginId && plugin.kind === replacement.kind && (plugin.language ?? 'nodejs') === replacement.language)
       .map((plugin) => plugin.packageName ?? null));
     const visit = async (
       config: RuntimeConfigDefinition | null,
@@ -636,6 +637,7 @@ export class VaultService {
       const section = config[sectionName] ?? {};
       for (const [name, entry] of Object.entries(section)) {
         if (entry.plugin !== replacement.pluginId) continue;
+        if ((entry.language ?? 'nodejs') !== replacement.language) continue;
         if (!oldPackages.has(entry.package ?? null)) continue;
         try {
           entry.config = await this.validatePluginConfig({
@@ -894,6 +896,18 @@ export class VaultService {
     if (!draft) throw new Error('No application profile draft found');
     const versionId = newId();
     const plaintext = this.decrypt<VaultRuntimeConfig>(draft, applicationDraftAad(applicationProfileId));
+    const sharedProfile = await this.store.getApplicationProfileById(applicationProfileId);
+    if (!sharedProfile) throw new Error('Application profile not found');
+    const catalog = await this.store.listPlugins();
+    for (const profile of await this.store.listAllProfiles()) {
+      if (profile.name !== sharedProfile.name || !profile.activeVersionId) continue;
+      const binding = await this.store.resolveProfileBinding(profile.id);
+      if (binding?.application.id !== sharedProfile.applicationId) continue;
+      const active = await this.store.getVersion(profile.activeVersionId);
+      if (!active) throw new Error(`Active config version missing for deployment ${profile.id}`);
+      const local = this.decrypt<VaultRuntimeConfig>(active, profileVersionAad(profile.id, active.id));
+      normalizeRuntimeConfig(mergeRuntimeConfig(plaintext[profile.name] ?? {}, local[profile.name] ?? {}), catalog, profile.language ?? 'nodejs');
+    }
     const encrypted = this.encrypt(plaintext, applicationVersionAad(applicationProfileId, versionId));
     const version = await this.store.createApplicationVersion({
       id: versionId,
@@ -1124,6 +1138,9 @@ export class VaultService {
     const sourceDraft = await this.getProfileDraft(input.sourceProfileId) ?? { observable: {}, events: {}, services: {} };
     const source = sourceDraft[input.section]?.[input.name];
     if (!source) throw new Error('Source plugin config not found');
+    const binding = await this.store.resolveProfileBinding(input.targetProfileId);
+    if (!binding) throw new Error('Target deployment profile not found');
+    normalizeRuntimeSection({ [input.name]: source }, input.section, await this.store.listPlugins(), binding.profile.language ?? 'nodejs');
     const targetDraft = await this.getProfileDraft(input.targetProfileId) ?? { observable: {}, events: {}, services: {} };
     const section = targetDraft[input.section] ?? {};
     if (section[input.name] && !input.overwrite) throw new Error('Target plugin config already exists');
@@ -1291,6 +1308,7 @@ export class VaultService {
         for (const [name, service] of Object.entries(config[profile.name]?.services ?? {})) {
           if (output[name]) continue;
           output[name] = {
+            language: service.language ?? profile.language ?? 'nodejs',
             plugin: service.plugin,
             package: service.package,
             version: service.version,
@@ -1927,13 +1945,6 @@ function schemaNodeAtPath(root: Record<string, unknown>, path: string): Record<s
   return unwrapSchemaNode(current);
 }
 
-function unwrapSchemaNode(node: Record<string, unknown> | null): Record<string, unknown> | null {
-  let current = node;
-  while (current && (current.kind === 'optional' || current.kind === 'nullable')) {
-    current = objectField(current.inner);
-  }
-  return current;
-}
 
 function requireObject(value: unknown, path: string): Record<string, unknown> {
   const object = objectField(value);
@@ -2270,6 +2281,9 @@ function normalizeRuntimeSection(
 ): Record<string, RuntimePluginDefinition> | undefined {
   if (!section) return undefined;
   return Object.fromEntries(Object.entries(section).map(([name, entry]) => {
+    if (entry.enabled !== false && entry.language && entry.language !== language) {
+      throw new Error(`Plugin ${entry.plugin} requires ${entry.language}; deployment targets ${language}`);
+    }
     const nativePlugins = entry.enabled === false ? plugins : plugins.filter(plugin => (plugin.language ?? 'nodejs') === language);
     const catalog = resolveCatalogForEntry(nativePlugins, sectionName, entry);
     if (!catalog && entry.enabled !== false && plugins.some(plugin =>
@@ -2278,6 +2292,7 @@ function normalizeRuntimeSection(
     }
     const normalized: RuntimePluginDefinition = {
       ...entry,
+      language: entry.language ?? catalog?.language ?? language,
       plugin: catalog?.pluginId ?? entry.plugin,
       package: entry.package ?? catalog?.packageName ?? undefined,
     };
@@ -2401,6 +2416,7 @@ function mergeSensitiveConfig(
   if (!root) return output;
   const clear = new Set(clearPaths);
   for (const path of sensitiveSchemaPaths(root)) {
+    if (!path) return clear.has('') ? {} : Object.keys(output).length ? output : cloneJson(existing) as Record<string, unknown>;
     if (clear.has(path)) {
       deleteValueAtPath(output, path);
       continue;
@@ -2411,18 +2427,6 @@ function mergeSensitiveConfig(
   return output;
 }
 
-function sensitiveSchemaPaths(node: Record<string, unknown>, prefix = ''): string[] {
-  const unwrapped = unwrapSchemaNode(node);
-  const rawMetadata = objectField(node.metadata);
-  const metadata = objectField(unwrapped?.metadata);
-  if (prefix && (rawMetadata?.sensitive === true || rawMetadata?.writeonly === true ||
-      metadata?.sensitive === true || metadata?.writeonly === true)) return [prefix];
-  if (!unwrapped || unwrapped.kind !== 'object') return [];
-  return Object.entries(objectField(unwrapped.properties) ?? {}).flatMap(([key, value]) => {
-    const child = objectField(value);
-    return child ? sensitiveSchemaPaths(child, prefix ? `${prefix}.${key}` : key) : [];
-  });
-}
 
 function deleteValueAtPath(target: Record<string, unknown>, path: string): void {
   const parts = safePathParts(path);

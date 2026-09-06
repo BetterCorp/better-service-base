@@ -9,7 +9,6 @@
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>bsb</ToolCommandName>
         <PackageId>BetterCorp.BSB.Cli</PackageId>
-        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeBundledPlugins</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
     <ItemGroup>
@@ -37,11 +36,6 @@
             <BundledPlugin Include="$(TargetDir)plugins/**/*" />
         </ItemGroup>
         <Copy SourceFiles="@(BundledPlugin)" DestinationFiles="@(BundledPlugin->'$(PublishDir)plugins/%(RecursiveDir)%(Filename)%(Extension)')" />
-    </Target>
-    <Target Name="IncludeBundledPlugins">
-        <ItemGroup>
-            <TfmSpecificPackageFile Include="$(TargetDir)plugins/**/*" PackagePath="tools/$(TargetFramework)/any/plugins/%(RecursiveDir)%(Filename)%(Extension)" />
-        </ItemGroup>
     </Target>
 
 </Project>

@@ -1,3 +1,4 @@
+import { unwrapSchema, isSensitiveSchema, sensitiveSchemaPaths } from './schema-secrets.js';
 import { PLUGIN_LANGUAGES, normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
@@ -2148,6 +2149,7 @@ function renderSchemaFields(schema: Record<string, unknown> | null | undefined, 
   if (!root || root.kind !== 'object' || !objectField(root.properties)) {
     return '<p class="muted">No config schema available for this plugin.</p>';
   }
+  if (isSensitiveSchema(root)) return '<p class="muted">This entire config is write-only. Replace it through the Vault API.</p>';
   return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root), false, {
     ...options,
     envOverridePaths: new Set(envOverridePathsFromSchema(schema)),
@@ -2181,9 +2183,13 @@ function renderSchemaControl(
   const node = unwrapSchema(rawNode);
   if (!node) return '';
   const value = rawValue ?? node.default ?? '';
-  const help = schemaHelp(rawNode, node, required);
+  const sensitive = isSensitiveSchema(rawNode);
+  const help = sensitive ? '' : schemaHelp(rawNode, node, required);
   let control = '';
-  if (node.kind === 'object' && objectField(node.properties)) {
+  if (sensitive) {
+    const isSet = rawValue !== undefined;
+    control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${escapeHtml(key)}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="${node.kind === 'string' ? 'string' : 'json'}" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${node.kind === 'string' ? '' : '<span class="schema-help">Enter the complete value as JSON to replace it.</span>'}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
+  } else if (node.kind === 'object' && objectField(node.properties)) {
     control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node), false, options)}</fieldset>`;
   } else if (node.kind === 'bool' || node.kind === 'boolean') {
     control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<select data-config-path="${escapeHtml(path)}" data-kind="bool" ${required ? 'required' : ''}><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
@@ -2213,16 +2219,11 @@ function renderSchemaControl(
       const kind = inputKind(child);
       return `<label>Item ${index + 1}<input data-tuple-index="${index}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(values[index] ?? child?.default ?? ''))}"></label>`;
     }).join('')}</fieldset>`;
-  } else if (node.kind === 'union' && Array.isArray(node.variants)) {
+  } else if (node.kind === 'union' && Array.isArray(node.variants ?? node.schemas)) {
     control = renderUnionControl(key, rawNode, node, path, value, required, help, options);
   } else {
     const kind = inputKind(node);
-    if (isSensitiveSchema(rawNode, node)) {
-      const isSet = rawValue !== undefined;
-      control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="string" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${help}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
-    } else {
-      control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
-    }
+    control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
   }
   if (rawNode?.kind === 'optional') control = optionalShell(key, path, control, rawValue !== undefined);
   if (options.overrideMode && node.kind !== 'object' && !(node.kind === 'literal' && hideLiteralField)) {
@@ -2241,7 +2242,7 @@ function renderUnionControl(
   help: string,
   options: RenderSchemaOptions = {},
 ): string {
-  const variants = (node.variants as unknown[])
+  const variants = ((node.variants ?? node.schemas) as unknown[])
     .map((variant) => unwrapSchema(objectField(variant)))
     .filter((variant): variant is Record<string, unknown> => variant !== null);
   if (variants.length === 0) return '';
@@ -2314,31 +2315,15 @@ function schemaHelp(rawNode: Record<string, unknown> | null, node: Record<string
   return notes ? `<span class="schema-help">${escapeHtml(notes)}</span>` : '';
 }
 
-function isSensitiveSchema(rawNode: Record<string, unknown> | null, node: Record<string, unknown>): boolean {
-  const rawMetadata = objectField(rawNode?.metadata);
-  const metadata = objectField(node.metadata);
-  return rawMetadata?.sensitive === true || rawMetadata?.writeonly === true || metadata?.sensitive === true || metadata?.writeonly === true;
-}
-
 function redactSensitiveConfig(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>): Record<string, unknown> {
   const copy = structuredClone(config);
   const root = objectField(objectField(schema?.root) ?? schema);
   if (!root) return copy;
-  for (const path of sensitiveSchemaPaths(root)) deleteValueAtPath(copy, path);
+  for (const path of sensitiveSchemaPaths(root)) {
+    if (!path) return {};
+    deleteValueAtPath(copy, path);
+  }
   return copy;
-}
-
-function sensitiveSchemaPaths(node: Record<string, unknown>, prefix = ''): string[] {
-  const unwrapped = unwrapSchema(node);
-  if (!unwrapped) return [];
-  if (prefix && isSensitiveSchema(node, unwrapped)) return [prefix];
-  if (unwrapped.kind !== 'object') return [];
-  const properties = objectField(unwrapped.properties) ?? {};
-  return Object.entries(properties).flatMap(([key, child]) => {
-    const path = prefix ? `${prefix}.${key}` : key;
-    const childNode = objectField(child);
-    return childNode ? sensitiveSchemaPaths(childNode, path) : [];
-  });
 }
 
 function deleteValueAtPath(target: Record<string, unknown>, path: string): void {
@@ -2389,14 +2374,6 @@ function inputKind(node: Record<string, unknown> | null): 'number' | 'bool' | 's
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function unwrapSchema(node: Record<string, unknown> | null): Record<string, unknown> | null {
-  let current = node;
-  while (current && (current.kind === 'optional' || current.kind === 'nullable')) {
-    current = objectField(current.inner);
-  }
-  return current;
 }
 
 function valueAtPath(source: Record<string, unknown>, path: string): unknown {
@@ -2795,20 +2772,18 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     if (field.disabled) return undefined;
     const raw = field.value;
     if (raw === '' && field.dataset.sensitive !== 'true') return undefined;
+    if (field.dataset.kind === 'json') return JSON.parse(raw);
     if (field.dataset.kind === 'number') return Number(raw);
     if (field.dataset.kind === 'bool') return raw === 'true';
     return raw;
   }
   function schemaRoot(schema) {
-    return schema && schema.root && schema.root.kind === 'object' ? schema.root : null;
+    return schema && schema.root && schema.root.kind === 'object' && !isSensitiveClient(schema.root) ? schema.root : null;
   }
   function escapeClient(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   }
-  function unwrapNode(node) {
-    while (node && (node.kind === 'optional' || node.kind === 'nullable')) node = node.inner;
-    return node;
-  }
+  const unwrapNode = ${unwrapSchema.toString()};
   function inputKind(node) {
     node = unwrapNode(node);
     if (!node) return 'string';
@@ -2838,11 +2813,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     ].filter(Boolean).join(' ');
     return notes ? '<span class="schema-help">' + escapeClient(notes) + '</span>' : '';
   }
-  function isSensitiveClient(rawNode, node) {
-    const rawMeta = rawNode && rawNode.metadata || {};
-    const meta = node && node.metadata || {};
-    return rawMeta.sensitive === true || rawMeta.writeonly === true || meta.sensitive === true || meta.writeonly === true;
-  }
+  const isSensitiveClient = ${isSensitiveSchema.toString()};
   function optionalShellClient(key, path, control) {
     return '<div class="schema-optional" data-optional-field="' + escapeClient(path) + '">'
       + '<label class="schema-toggle"><input type="checkbox" data-optional-toggle>Enable ' + escapeClient(key) + '</label>'
@@ -2881,9 +2852,12 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       const path = prefix ? prefix + '.' + key : key;
       const required = requiredSet.has(key) && !(rawNode && rawNode.kind === 'optional') && !Object.prototype.hasOwnProperty.call(node, 'default');
       const overrideable = envOverridePaths.includes(path);
-      const help = schemaHelpClient(rawNode, node, required);
+      const sensitive = isSensitiveClient(rawNode);
+      const help = sensitive ? '' : schemaHelpClient(rawNode, node, required);
       let control = '';
-      if (node.kind === 'object' && node.properties) {
+      if (sensitive) {
+        control = '<label>' + escapeClient(key) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="' + (node.kind === 'string' ? 'string' : 'json') + '" data-sensitive="true"' + (required ? ' required' : '') + '></label>';
+      } else if (node.kind === 'object' && node.properties) {
         control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties), hideLiteralFields, envOverridePaths) + '</fieldset>';
       } else if (node.kind === 'bool' || node.kind === 'boolean') {
         control = '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"' + (required ? ' required' : '') + '><option value="true"' + (node.default === true ? ' selected' : '') + '>true</option><option value="false"' + (node.default === false ? ' selected' : '') + '>false</option></select>' + help + '</label>';
@@ -2902,13 +2876,11 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       } else if (node.kind === 'tuple') {
         const items = Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : [];
         control = '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
-      } else if (node.kind === 'union' && Array.isArray(node.variants) && node.variants[0]) {
+      } else if (node.kind === 'union' && Array.isArray(node.variants ?? node.schemas) && (node.variants ?? node.schemas)[0]) {
         control = renderUnionClient(key, rawNode, node, path, required, help, envOverridePaths);
       } else {
         const kind = inputKind(node);
-        control = isSensitiveClient(rawNode, node)
-          ? '<div class="schema-sensitive" data-sensitive-field="' + escapeClient(path) + '"><label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="string" data-sensitive="true" ' + inputAttrsClient(node, required, 'string') + '>' + help + '</label></div>'
-          : '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
       }
       return rawNode && rawNode.kind === 'optional' ? optionalShellClient(key, path, control) : control;
     }).join('');
@@ -2924,7 +2896,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     return 'Option ' + (index + 1);
   }
   function renderUnionClient(key, rawNode, node, path, required, help, envOverridePaths) {
-    const variants = (node.variants || []).map(unwrapNode).filter(Boolean);
+    const variants = (node.variants || node.schemas || []).map(unwrapNode).filter(Boolean);
     const options = variants.map((variant, index) => '<option value="' + index + '">' + escapeClient(unionVariantLabelClient(variant, index)) + '</option>').join('');
     const panels = variants.map((variant, index) => {
       const fields = variant.kind === 'object' && variant.properties

@@ -255,13 +255,14 @@ module.exports = async ({ pluginRoot }) => {
                 port: { kind: 'int32', default: 3200, metadata: { description: 'HTTP port' } },
                 enabled: { kind: 'bool', metadata: { description: 'Feature enabled' } },
                 token: { kind: 'optional', inner: { kind: 'string' }, metadata: { description: 'Optional token' } },
+                credentials: { kind: 'optional', schema: { kind: 'record', values: { kind: 'string', metadata: { sensitive: true } } } },
                 tags: { kind: 'array', items: { kind: 'string' }, metadata: { description: 'Tags' } },
                 headers: { kind: 'record', valueSchema: { kind: 'string' }, metadata: { description: 'Headers' } },
                 bind: { kind: 'tuple', items: [{ kind: 'string' }, { kind: 'int32' }], metadata: { description: 'Bind Address' } },
                 mode: { kind: 'enum', values: ['file', 'postgres'], default: 'file', metadata: { description: 'Storage mode' } },
                 storage: {
                   kind: 'union',
-                  variants: [{
+                  schemas: [{
                     kind: 'object',
                     properties: {
                       backend: { kind: 'literal', value: 'file' },
@@ -321,7 +322,7 @@ module.exports = async ({ pluginRoot }) => {
           applications: [{ id: 'app-1', name: 'App', description: 'Main app' }],
           applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
           plugins: pluginCatalog,
-          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true, autoPinned: true, allowEnvOverrides: true }, worker: { plugin: 'service-api', enabled: false } } },
+          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true, autoPinned: true, allowEnvOverrides: true, config: { credentials: { api: 'must-stay-secret' } } }, worker: { plugin: 'service-api', enabled: false } } },
           inheritedDraft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
           configState: { state: 'draft-only', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: null },
           inheritedConfigState: { state: 'published', draftUpdatedAt: '2026-01-02T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
@@ -534,6 +535,8 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(deploymentHtml, /_\/syslog-client/);
     assert.doesNotMatch(deploymentHtml, />config-vault 1\.0\.0</);
     assert.match(deploymentHtml, /data-config-path="host"/);
+    assert.doesNotMatch(deploymentHtml, /must-stay-secret/);
+    assert.match(deploymentHtml, /data-config-path="credentials" data-kind="json" data-sensitive="true" data-secret-set="true"/);
     assert.match(deploymentHtml, /schema-meta overrideable">overrideable/);
     assert.doesNotMatch(deploymentHtml, /declared path/);
     assert.match(deploymentHtml, /import\('\/assets\/anyvali\/index\.js'\)/);

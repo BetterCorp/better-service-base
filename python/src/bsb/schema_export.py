@@ -130,7 +130,8 @@ def build_capabilities(plugin_type: PluginType, plugin_cls: Any) -> dict[str, An
     if plugin_type == "observable":
         from .base import BSBObservable
         def handles(signal):
-            return getattr(plugin_cls, "emit_" + signal, None) is not getattr(BSBObservable, "emit_" + signal)
+            method = getattr(plugin_cls, "emit_" + signal, None)
+            return callable(method) and method is not getattr(BSBObservable, "emit_" + signal)
         return {
             "logging": {name: handles("log") for name in OBSERVABLE_METHODS["logging"]},
             "metrics": {name: handles("metric") for name in OBSERVABLE_METHODS["metrics"]},

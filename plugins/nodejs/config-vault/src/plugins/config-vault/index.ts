@@ -40,6 +40,7 @@ export const Config = createConfigSchema(
 );
 
 interface RuntimeResolveResponse {
+  language: 'nodejs';
   application: string;
   group: string;
   profile: string;
@@ -364,6 +365,7 @@ function parseRuntimeResolve(input: unknown, obs: Observable): RuntimeResolveRes
   const profile = value.profile as string;
   const version = value.version as number;
   return {
+    language: 'nodejs',
     application,
     group,
     profile,
