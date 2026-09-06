@@ -52,7 +52,9 @@ async def main():
         waiting = asyncio.create_task(rpc("nodejs", "echo", {"late": True}))
         await asyncio.sleep(.2)
         await start("nodejs", True)
-        assert (await waiting)["value"] == {"late": True}
+        queued = await waiting
+        assert queued["value"] == {"late": True}, queued
+        print("PASS: request queued before listener startup", flush=True)
         await start("csharp", True)
         for caller in ("python", "nodejs", "csharp"):
             for target in ("python", "nodejs", "csharp"):
@@ -60,6 +62,7 @@ async def main():
                 value = {"from": caller, "to": target, "optional": None}
                 result = await rpc(target, "echo", value) if caller == "python" else await rpc(caller, "call", {"target": target, "value": value})
                 assert result == {"value": value, "trace": trace.trace_id}, result
+                print(f"PASS: RPC {caller} -> {target}", flush=True)
         for language in ("nodejs", "csharp"):
             pending = asyncio.create_task(rpc(language, "crash", "redelivered"))
             process = peers[language]
@@ -68,6 +71,7 @@ async def main():
             await process.wait()
             await start(language)
             assert await pending == "redelivered"
+            print(f"PASS: {language} consumer crash redelivery", flush=True)
         # Every directed language pair transfers the same binary data.
         for sender in ("python", "nodejs", "csharp"):
             for receiver in ("python", "nodejs", "csharp"):
@@ -81,6 +85,7 @@ async def main():
                     async with asyncio.timeout(10):
                         while (digest := await rpc(receiver, "digest", {})) is None: await asyncio.sleep(.01)
                 assert digest == expected, (sender, receiver, digest)
+                print(f"PASS: binary stream {sender} -> {receiver}", flush=True)
         print("PASS: six-direction RPC/trace/1 MiB stream matrix, absent listeners and crashed native consumers")
     finally:
         for process in peers.values():

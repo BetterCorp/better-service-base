@@ -19,9 +19,9 @@ let received;
 try {
   await rpc.init(obs);
   await streams.setupChannelsIfNotSetup(obs);
-  await rpc.onReturnableEvent(obs, 'nodejs', 'echo', async (span, value) => ({ value, trace: span.trace.t }));
-  await rpc.onReturnableEvent(obs, 'nodejs', 'call', async (span, value) => rpc.emitEventAndReturn(span, value.target, 'echo', 10, [value.value]));
-  await rpc.onReturnableEvent(obs, 'nodejs', 'crash', async (_span, value) => {
+  await rpc.onReturnableEvent(obs, 'nodejs', 'echo', async (span, [value]) => ({ value, trace: span.trace.t }));
+  await rpc.onReturnableEvent(obs, 'nodejs', 'call', async (span, [value]) => rpc.emitEventAndReturn(span, value.target, 'echo', 10, [value.value]));
+  await rpc.onReturnableEvent(obs, 'nodejs', 'crash', async (_span, [value]) => {
     if (process.env.BSB_INTEROP_CRASH_FIRST === 'true') { console.log('CRASH_READY'); await new Promise(() => {}); }
     return value;
   });
@@ -35,7 +35,7 @@ try {
     }, 5);
   });
   await rpc.onReturnableEvent(obs, 'nodejs', 'digest', async () => received ?? null);
-  await rpc.onReturnableEvent(obs, 'nodejs', 'send', async (span, value) => {
+  await rpc.onReturnableEvent(obs, 'nodejs', 'send', async (span, [value]) => {
     await streams.sendStream(span, value.target, 'file', value.id, Readable.from(Array.from({ length: 16 }, (_, i) => bytes.subarray(i * 65536, (i + 1) * 65536))));
     return true;
   });

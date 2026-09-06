@@ -60,6 +60,7 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - name: Build native integration peers
+        id: build-peers
         run: |
           npm ci
           npm run tsc --workspace nodejs
@@ -73,6 +74,7 @@ jobs:
           BSB_RABBITMQ_URL: amqp://bsb-ci:bsb-ci-tests@127.0.0.1:5672
         run: python tests/integration/rabbit_languages.py
       - name: Verify Vault migration against PostgreSQL
+        if: ${{ !cancelled() && steps.build-peers.outcome == 'success' }}
         env:
           BSB_POSTGRES_URL: postgresql://bsb-ci:bsb-ci-tests@127.0.0.1:5432/bsb-ci
         run: node tests/integration/vault-postgres.mjs
