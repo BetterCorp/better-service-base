@@ -166,7 +166,7 @@ func (p *Plugin) fetch(ctx context.Context) (response, bool, error) {
 			// Invalid JSON and oversized successful responses must never fall back to stale data.
 			var syntax *json.SyntaxError
 			var typed *json.UnmarshalTypeError
-			if errors.As(err, &syntax) || errors.As(err, &typed) || strings.Contains(err.Error(), "size limit") {
+			if errors.As(err, &syntax) || errors.As(err, &typed) || strings.Contains(err.Error(), "size limit") || strings.Contains(err.Error(), "invalid JSON response") {
 				return result, false, fmt.Errorf("invalid Vault response")
 			}
 		}

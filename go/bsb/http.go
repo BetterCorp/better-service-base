@@ -79,5 +79,8 @@ func JSONRequestLimit(ctx context.Context, method, endpoint string, body any, he
 	if len(data) == 0 {
 		return nil
 	}
-	return DecodeJSON(data, output)
+	if err := DecodeJSON(data, output); err != nil {
+		return fmt.Errorf("invalid JSON response: %w", err)
+	}
+	return nil
 }

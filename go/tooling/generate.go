@@ -125,10 +125,14 @@ func (g *generator) shape(document *bsb.SchemaDocument, hint string) (string, er
 			}
 			return "*" + inner, nil
 		case "array":
-			value, err := native(child(node, "items", "items"), name+"Item")
+			value, err := native(child(node, "items", "item"), name+"Item")
 			return "[]" + value, err
 		case "record":
-			value, err := native(child(node, "valueSchema", "values"), name+"Value")
+			shape := child(node, "valueSchema", "values")
+			if shape == nil {
+				shape = child(node, "value", "value")
+			}
+			value, err := native(shape, name+"Value")
 			return "map[string]" + value, err
 		case "ref":
 			key, _ := node["ref"].(string)

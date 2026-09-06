@@ -28,6 +28,7 @@ func NewRegistry() *bsb.PluginRegistry {
 	eventsrabbitmq.Register(registry)
 	observabledefault.Register(registry)
 	observablenative.Register(registry)
+	registerBuiltinContracts(registry)
 	return registry
 }
 func Run(ctx context.Context, registry *bsb.PluginRegistry, args []string) error {

@@ -1,6 +1,7 @@
 package bsb
 
 import (
+	"fmt"
 	av "github.com/BetterCorp/AnyVali/sdk/go"
 )
 
@@ -124,10 +125,88 @@ func ExportSchemaJSON(schema av.Schema, mode ExportMode) ([]byte, error) {
 
 // ImportSchema imports a SchemaDocument into a Schema.
 func ImportSchema(doc *SchemaDocument) (av.Schema, error) {
-	return av.Import(doc)
+	if doc == nil {
+		return nil, fmt.Errorf("schema document required")
+	}
+	copy, err := DecodeValue[SchemaDocument](doc)
+	if err != nil {
+		return nil, err
+	}
+	normalizeSchemaNode(copy.Root)
+	for _, node := range copy.Definitions {
+		normalizeSchemaNode(node)
+	}
+	return av.Import(&copy)
 }
 
 // ImportSchemaJSON imports JSON bytes into a Schema.
 func ImportSchemaJSON(data []byte) (av.Schema, error) {
-	return av.ImportJSON(data)
+	var document SchemaDocument
+	if err := DecodeJSON(data, &document); err != nil {
+		return nil, err
+	}
+	return ImportSchema(&document)
+}
+
+// Native SDKs accept different spellings of portable wrapper/composite fields.
+// Normalize only schema positions; defaults and literal application data stay intact.
+func normalizeSchemaNode(node map[string]any) {
+	alias := func(target string, sources ...string) {
+		if _, present := node[target]; present {
+			return
+		}
+		for _, source := range sources {
+			if value, ok := node[source]; ok {
+				node[target] = value
+				return
+			}
+		}
+	}
+	switch node["kind"] {
+	case "optional", "nullable":
+		alias("schema", "inner")
+	case "record":
+		alias("value", "valueSchema", "values")
+	case "intersection":
+		alias("schemas", "allOf")
+	case "tuple":
+		alias("items", "elements")
+	}
+	keys := []string{}
+	switch node["kind"] {
+	case "optional", "nullable":
+		keys = []string{"schema"}
+	case "record":
+		keys = []string{"value"}
+	case "array":
+		alias("items", "item")
+		keys = []string{"items"}
+	case "union":
+		alias("schemas", "variants")
+		keys = []string{"schemas"}
+	case "intersection":
+		keys = []string{"schemas"}
+	case "tuple":
+		keys = []string{"items"}
+	}
+	for _, key := range keys {
+		switch child := node[key].(type) {
+		case map[string]any:
+			normalizeSchemaNode(child)
+		case []any:
+			for _, item := range child {
+				if schema, ok := item.(map[string]any); ok {
+					normalizeSchemaNode(schema)
+				}
+			}
+		}
+	}
+
+	if properties, ok := node["properties"].(map[string]any); ok {
+		for _, value := range properties {
+			if schema, ok := value.(map[string]any); ok {
+				normalizeSchemaNode(schema)
+			}
+		}
+	}
 }
