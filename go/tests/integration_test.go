@@ -116,6 +116,7 @@ func (p *testServicePlugin) SetEvents(events *bsb.PluginEvents)            { p.e
 func (p *testServicePlugin) SetObservableBackend(_ *bsb.ObservableBackend) {}
 
 func TestServiceBaseIntegration(t *testing.T) {
+	var eventInstances int
 	// Create a temp directory with a config file
 	tmpDir := t.TempDir()
 	configData := map[string]any{
@@ -148,7 +149,7 @@ func TestServiceBaseIntegration(t *testing.T) {
 				"test-service": {Plugin: "test-service", Enabled: true},
 			},
 			events: map[string]bsb.PluginDefinition{
-				"events-default": {Plugin: "events-default", Enabled: true},
+				"events-default": {Plugin: "events-default", Enabled: true, Filter: []any{}},
 			},
 			observable: map[string]bsb.PluginDefinition{},
 			configs:    make(map[string]map[string]any),
@@ -157,6 +158,7 @@ func TestServiceBaseIntegration(t *testing.T) {
 
 	// Register a simple events plugin
 	registry.RegisterEvents("events-default", func(_ map[string]any) (bsb.EventsPlugin, error) {
+		eventInstances++
 		return newTestEventsPlugin(), nil
 	})
 
@@ -180,6 +182,9 @@ func TestServiceBaseIntegration(t *testing.T) {
 
 	if createdPlugin == nil {
 		t.Fatal("service plugin was not created")
+	}
+	if eventInstances != 2 {
+		t.Fatalf("filtered events backend did not get a local fallback: %d", eventInstances)
 	}
 	if !createdPlugin.initCalled {
 		t.Error("service Init() was not called")

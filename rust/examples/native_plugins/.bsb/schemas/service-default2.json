@@ -1,0 +1,340 @@
+{
+  "pluginId": "service-default2",
+  "pluginName": "service-default2",
+  "events": {
+    "task.completed": {
+      "type": "fire-and-forget",
+      "category": "emitEvents",
+      "description": "Emitted when a task is completed",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "taskId": {
+              "kind": "string"
+            },
+            "duration": {
+              "kind": "number"
+            },
+            "success": {
+              "kind": "bool"
+            }
+          },
+          "required": [
+            "taskId",
+            "duration",
+            "success"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Task completion parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "task.assigned": {
+      "type": "fire-and-forget",
+      "category": "onEvents",
+      "description": "Handle new task assignments",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "taskId": {
+              "kind": "string"
+            },
+            "type": {
+              "kind": "string"
+            },
+            "priority": {
+              "kind": "enum",
+              "values": [
+                "low",
+                "medium",
+                "high",
+                "urgent"
+              ]
+            }
+          },
+          "required": [
+            "taskId",
+            "type",
+            "priority"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Task assignment parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "resource.request": {
+      "type": "returnable",
+      "category": "emitReturnableEvents",
+      "description": "Request resource allocation",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "resourceType": {
+              "kind": "string"
+            },
+            "amount": {
+              "kind": "number"
+            },
+            "timeout": {
+              "kind": "optional",
+              "inner": {
+                "kind": "number"
+              }
+            }
+          },
+          "required": [
+            "resourceType",
+            "amount"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Resource request parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "allocated": {
+              "kind": "bool"
+            },
+            "resourceId": {
+              "kind": "optional",
+              "inner": {
+                "kind": "string"
+              }
+            },
+            "waitTime": {
+              "kind": "optional",
+              "inner": {
+                "kind": "number"
+              }
+            }
+          },
+          "required": [
+            "allocated"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Resource allocation response"
+          }
+        }
+      }
+    },
+    "calculate": {
+      "type": "returnable",
+      "category": "onReturnableEvents",
+      "description": "Calculate with two numbers",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "a": {
+              "kind": "number"
+            },
+            "b": {
+              "kind": "number"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Calculate input parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "number"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Calculation result"
+          }
+        }
+      }
+    },
+    "health.check": {
+      "type": "returnable",
+      "category": "onReturnableEvents",
+      "description": "Perform health check",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "includeDetails": {
+              "kind": "bool"
+            }
+          },
+          "required": [
+            "includeDetails"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Health check parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "status": {
+              "kind": "enum",
+              "values": [
+                "healthy",
+                "degraded",
+                "unhealthy"
+              ]
+            },
+            "uptime": {
+              "kind": "number"
+            },
+            "details": {
+              "kind": "optional",
+              "inner": {
+                "kind": "record",
+                "valueSchema": {
+                  "kind": "unknown"
+                }
+              }
+            }
+          },
+          "required": [
+            "status",
+            "uptime"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Health check response"
+          }
+        }
+      }
+    },
+    "metrics.report": {
+      "type": "broadcast",
+      "category": "emitBroadcast",
+      "description": "Broadcast performance metrics",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "timestamp": {
+              "kind": "string",
+              "format": "date-time"
+            },
+            "metrics": {
+              "kind": "record",
+              "valueSchema": {
+                "kind": "number"
+              }
+            },
+            "period": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "timestamp",
+            "metrics",
+            "period"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Metrics report parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "emergency.stop": {
+      "type": "broadcast",
+      "category": "onBroadcast",
+      "description": "Listen for emergency stop broadcasts",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "reason": {
+              "kind": "string"
+            },
+            "immediate": {
+              "kind": "bool"
+            }
+          },
+          "required": [
+            "reason",
+            "immediate"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Emergency stop parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    }
+  },
+  "version": "1.0.0",
+  "language": "rust"
+}

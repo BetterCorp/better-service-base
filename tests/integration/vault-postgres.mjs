@@ -30,14 +30,14 @@ try {
   assert.equal((await store.getPluginPublisher('service-worker')).tokenId, 'node-token');
   await Promise.all([store.init(), other.init()]);
   const now = new Date().toISOString();
-  for (const language of ['csharp', 'python']) {
+  for (const language of ['csharp', 'python', 'go', 'rust']) {
     const plugin = { id: language, org: 'acme', name: 'Worker', pluginId: 'service-worker', packageName: `${language}-worker`,
       version: '1.0.0', kind: 'service', source: 'manual', configSchema: null, eventSchema: null, createdAt: now, language };
     await store.createPrivatePlugin(plugin, { ...plugin, tokenId: `${language}-token`, secretHash: 'hash', rotatedAt: now });
     assert.equal((await store.getPluginPublisher('service-worker', language)).packageName, `${language}-worker`);
     assert.equal(await store.createPluginIfAbsent({ ...plugin, id: `${language}-duplicate` }), false);
   }
-  assert.equal((await store.listPlugins()).length, 3);
+  assert.equal((await store.listPlugins()).length, 5);
   await store.rotatePluginPublisher('service-worker', 'python-rotated', 'new-hash', now, 'python');
   assert.equal((await store.getPluginPublisher('service-worker', 'python')).tokenId, 'python-rotated');
   assert.equal((await store.getPluginPublisher('service-worker', 'nodejs')).tokenId, 'node-token');

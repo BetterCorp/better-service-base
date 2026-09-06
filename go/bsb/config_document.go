@@ -105,7 +105,7 @@ func (p *JSONConfig) LoadDocument(data []byte, profile string) error {
 			}
 			version, _ := entry["version"].(string)
 			pkg, _ := entry["package"].(string)
-			groups[group][name] = PluginDefinition{Plugin: plugin, Enabled: enabled, Config: config, Version: version, Package: pkg}
+			groups[group][name] = PluginDefinition{Plugin: plugin, Enabled: enabled, Config: config, Version: version, Package: pkg, Filter: entry["filter"]}
 		}
 	}
 	p.groups = groups

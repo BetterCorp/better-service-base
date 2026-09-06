@@ -24,11 +24,15 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 	}
 
 	// Always ensure events-default is loaded as fallback
-	defaultLoaded := false
+	router := &eventRouter{}
+	unfiltered := false
 	for _, name := range sortedPluginNames(pluginDefs) {
 		def := pluginDefs[name]
 		if !def.Enabled {
 			continue
+		}
+		if err := validateEventFilter(def.Filter); err != nil {
+			return fmt.Errorf("events %s: %w", name, err)
 		}
 
 		pluginName := def.Plugin
@@ -51,22 +55,20 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 		}
 
 		ec.plugins = append(ec.plugins, plugin)
+		router.routes = append(router.routes, eventRoute{plugin, def.Filter})
 		if err := plugin.Init(ctx, obs); err != nil {
 			return fmt.Errorf("failed to init events plugin %q: %w", pluginName, err)
 		}
 
-		if ec.primary == nil {
-			ec.primary = plugin
-		}
-		if pluginName == "events-default" {
-			defaultLoaded = true
+		if def.Filter == nil {
+			unfiltered = true
 		}
 
 		obs.Log().Info("events plugin loaded", map[string]any{"plugin": name})
 	}
 
 	// If no events plugin was loaded, try to create the default
-	if ec.primary == nil && !defaultLoaded {
+	if !unfiltered {
 		if ec.registry.HasPlugin(PluginTypeEvents, "events-default") {
 			plugin, err := ec.registry.CreateEvents("events-default", nil)
 			if err != nil {
@@ -76,14 +78,15 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 			if err := plugin.Init(ctx, obs); err != nil {
 				return fmt.Errorf("failed to init default events plugin: %w", err)
 			}
-			ec.primary = plugin
+			router.routes = append(router.routes, eventRoute{plugin, nil})
 			obs.Log().Info("loaded fallback events-default plugin")
 		}
 	}
 
-	if ec.primary == nil {
+	if len(router.routes) == 0 {
 		return fmt.Errorf("no events plugin available")
 	}
+	ec.primary = router
 
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 // sortedService holds a service plugin with its dependency metadata for ordering.
 type sortedService struct {
 	name              string
+	logicalName       string
 	plugin            ServicePlugin
 	initBeforePlugins []string
 	initAfterPlugins  []string
@@ -70,6 +71,7 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 
 		sc.services = append(sc.services, &sortedService{
 			name:              name,
+			logicalName:       pluginName,
 			plugin:            plugin,
 			initBeforePlugins: meta.InitBeforePlugins,
 			initAfterPlugins:  meta.InitAfterPlugins,
@@ -156,6 +158,18 @@ func topologicalSort(services []*sortedService, forInit bool) ([]*sortedService,
 	for i, svc := range services {
 		nameIndex[svc.name] = i
 	}
+	resolve := func(name string) []int {
+		if index, ok := nameIndex[name]; ok {
+			return []int{index}
+		}
+		var found []int
+		for index, service := range services {
+			if service.logicalName == name {
+				found = append(found, index)
+			}
+		}
+		return found
+	}
 
 	// Build adjacency: edges[a] = {b} means a must come before b
 	n := len(services)
@@ -182,14 +196,14 @@ func topologicalSort(services []*sortedService, forInit bool) ([]*sortedService,
 
 		// "before" means this plugin must init BEFORE those plugins
 		for _, dep := range before {
-			if j, ok := nameIndex[dep]; ok {
+			for _, j := range resolve(dep) {
 				addEdge(i, j)
 			}
 		}
 
 		// "after" means this plugin must init AFTER those plugins
 		for _, dep := range after {
-			if j, ok := nameIndex[dep]; ok {
+			for _, j := range resolve(dep) {
 				addEdge(j, i)
 			}
 		}

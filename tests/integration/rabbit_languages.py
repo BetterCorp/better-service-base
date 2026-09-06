@@ -1,11 +1,13 @@
 """Real native RPC/stream matrix plus absent/crashed consumer recovery."""
 import asyncio
 import hashlib
+import json
 import os
 from pathlib import Path
 import sys
 from urllib.parse import unquote, urlsplit
 import uuid
+import aio_pika
 
 from bsb.base import PluginCtor
 from bsb.observable import ObservableBackend, SBObservable
@@ -24,7 +26,10 @@ async def main():
         "credentials": {"username": unquote(endpoint.username or "guest"), "password": unquote(endpoint.password or "guest")}}, "1.0.0", backend))
     commands = {"nodejs": ["node", str(root / "tests/integration/node-rabbit-peer.mjs")],
         "csharp": ["dotnet", str(root / "dotnet/tests/RabbitPeer/bin/Release/net10.0/RabbitPeer.dll")],
-        "go": [str(root / "go/bin/rabbit-peer") + (".exe" if os.name == "nt" else "")]}
+        "go": [str(root / "go/bin/rabbit-peer") + (".exe" if os.name == "nt" else "")],
+        "rust": [str(root / "rust/target/debug/examples/rabbit-peer") + (".exe" if os.name == "nt" else "")]}
+    if os.environ.get("BSB_RUST_PEER_COMMAND_JSON"):
+        commands["rust"] = json.loads(os.environ["BSB_RUST_PEER_COMMAND_JSON"])
     languages = ("python", *commands)
     peers = {}
     async def line(process, expected):
@@ -40,6 +45,12 @@ async def main():
         await line(process, "READY")
     async def rpc(target, event, value):
         return await rabbit.emit_event_and_return(trace, target, event, 30, value)
+    async def forged_timeout(stream_id):
+        peer, identifier, _ = stream_id.split("||")
+        await rabbit.publisher.default_exchange.publish(aio_pika.Message(
+            b'{"type":"timeout"}', app_id="unrelated-peer", correlation_id="r-" + identifier,
+            content_type="application/json", expiration=5), routing_key=rabbit.queue("91se", peer))
+        await asyncio.sleep(.2)
     data = bytes(range(256)) * 4096
     expected = hashlib.sha256(data).hexdigest()
     incoming = None
@@ -59,6 +70,7 @@ async def main():
         print("PASS: request queued before listener startup", flush=True)
         await start("csharp", True)
         await start("go", True)
+        await start("rust", True)
         for caller in languages:
             for target in languages:
                 if caller == target: continue
@@ -81,7 +93,17 @@ async def main():
                 if sender == receiver: continue
                 incoming = asyncio.get_running_loop().create_future()
                 stream_id = await rabbit.receive_stream(trace, "python", "file", receive, 5) if receiver == "python" else await rpc(receiver, "receive", {})
-                if sender == "python": await rabbit.send_stream(trace, receiver, "file", stream_id, data)
+                if sender == "python":
+                    source = data
+                    if receiver == "csharp":
+                        await forged_timeout(stream_id)  # No sender has been accepted yet.
+                        async def attacked_source():
+                            # The first read confirms that the legitimate sender was accepted.
+                            await forged_timeout(stream_id)
+                            for offset in range(0, len(data), 65536): yield data[offset:offset + 65536]
+                        source = attacked_source()
+                    await rabbit.send_stream(trace, receiver, "file", stream_id, source)
+                    if receiver == "csharp": print("PASS: forged stream timeouts rejected before and after sender authentication", flush=True)
                 else: assert await rpc(sender, "send", {"target": receiver, "id": stream_id}) is True
                 if receiver == "python": digest = await asyncio.wait_for(incoming, 10)
                 else:

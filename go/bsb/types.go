@@ -62,6 +62,7 @@ type PluginDefinition struct {
 	Package string         // Optional package override
 	Version string         // Optional version constraint
 	Config  map[string]any // Plugin-specific configuration
+	Filter  any            // Event operation/plugin routing filter
 }
 
 // ServicePluginDefinition is the resolved definition for a service plugin.

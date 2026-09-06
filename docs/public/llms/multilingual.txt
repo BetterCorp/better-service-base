@@ -1,5 +1,20 @@
 BSB multilingual implementation rules
 
+Go/Rust event filters are evaluated in configured alias sort order, first match wins. Missing/null filter accepts every operation; [] accepts none. Operation arrays, boolean maps, plugin lists and {enabled,plugins} entries are supported. Host appends an unfiltered local backend when none is configured. Place a catch-all after selective aliases. Malformed filters fail startup.
+Registry implementation discovery returns only org/name/language/version summaries; fetch schemas/docs separately. Client installation rejects generated-name collisions before writing snapshots. .NET preserves UInt64 wire values, but AnyVali C# 1.1.1 uint64 validation remains capped at long.MaxValue.
+
+RUST HOST / CLIENT TOOLING (2026-09-06)
+- Rust 1.95+; BSB owns main and lifecycle. Crates export register(&mut bsb::host::Registry)->bsb::Result<()>. Static Contract/Ordering plus factories; constructors never run during export. Custom configuration/event/observer factories are supported.
+- bsb-plugin.json rust entries: {id, crate: dependency alias or current crate}. bsb plugin build links selected crates into lib/bsb and exports lib/schemas. Workspace Cargo dependencies and CARGO_TARGET_DIR are supported. No dynamic Rust ABI loading or runtime package downloads.
+- Full AnyVali 1.1.1 documents import once per event facade. Normalize SDK aliases only at schema nodes; preserve defaults, literals, definitions and metadata. Fresh reference parse contexts prevent cross-request contamination.
+- bsb client install/sync/publish uses the shared Registry or private --target Vault. Source identity/version stays in .bsb/schemas; generated Rust modules go to src/bsbclients. Add pub mod bsbclients. Never handwrite shared-service clients.
+- Optional<T>::Missing distinguishes omission from Present(None). Objects/arrays/maps/enums/references use typed Rust; complex structural shapes use Value plus full runtime validation. Generated client events() handles streams; specific(id) selects an instance. Pass incoming Observable through nested calls.
+- Native configuration: file/env/Vault/Google ADC. Enabled plugins must target rust. Vault cache is encrypted and bound to endpoint/key/language. Invalid/auth/wrong-language responses never fall back to cached config. Environment override paths are explicitly allowlisted.
+- Native events-default/Rabbit use matching durable queues, confirmed replies before ack, bounded retry/buffering and opaque stream IDs. Rust AsyncRead supports cancellation. Receivers consume through EOF and propagate errors. Streams do not resume across disconnects.
+- Nine native observable backends; Pino/Winston names select equivalent Rust formats. TLS verification, bounded exporters and redaction-before-interpolation are required. Histogram ceiling: count/sum and one aggregate bucket. Runtime options are documented in rust/README.md.
+- Seven examples in rust/examples/native_plugins use generated portable contracts; BSB links the crate. Todo's JSON file has one process owner and its unauthenticated HTTP example defaults to localhost.
+- Release workflow creates a Rust .crate/CLI artifact and versioned runtime images. Image stages run non-root with CA certificates. No crates.io publish is configured.
+
 BSB is the executable host. Applications are plugins loaded by BSB. Referencing BSB as a dependency does not start an application.
 
 Registry identity is org/name + implementation language + version. The same version can exist independently in nodejs, csharp, python, go, java and rust. Normalize dotnet to csharp. Language metadata support does not imply that every native runtime is implemented.
@@ -19,7 +34,7 @@ Native Vault startup must reject wrong-language responses, auth failures, redire
 
 See dotnet/README.md for current implemented native features and CLI commands. Do not claim Go/Rust host support from registry enum values alone.
 
-Go/Rust completion is in progress; see docs/native-go-rust-plan.md and go/README.md. Go plugins register factories and static PluginContract schemas. The host validates registered config schemas before construction and wires event schemas into service facades. Go file/env/Vault providers share profile validation; only enabled plugins must match go, while disabled references may target remote languages. The Go Rabbit implementation uses the same durable queues and stream envelopes, with producer/consumer declarations and confirmed replies before ack. Go/Rust packages are linked into a BSB-owned executable at build time; remote profiles never install or execute unapproved packages. Do not claim full parity until tooling, native observability and real integration gates pass.
+Go/Rust native hosts, tooling, backends and examples are implemented; see docs/native-go-rust-plan.md, go/README.md and rust/README.md. Go plugins register factories and static PluginContract schemas. The host validates registered config schemas before construction and wires event schemas into service facades. Go file/env/Vault providers share profile validation; only enabled plugins must match go, while disabled references may target remote languages. The Go Rabbit implementation uses the same durable queues and stream envelopes, with producer/consumer declarations and confirmed replies before ack. Go/Rust packages are linked into a BSB-owned executable at build time; remote profiles never install or execute unapproved packages. Do not claim full parity until tooling, native observability and real integration gates pass.
 
 .NET generated optional properties use OptionalValue<T>. Unset means omitted; OptionalValue<string?>(null) means present null. Do not collapse these states when generating clients. Specific(serverId, ...) methods append Node's event-serverId suffix while validating the unsuffixed contract.
 
@@ -31,7 +46,7 @@ Go/Rust completion is in progress; see docs/native-go-rust-plan.md and go/README
 
 .NET packages: BetterCorp.BSB SDK; BetterCorp.BSB.Cli tool, command bsb. bsb plugin pack <project.csproj> includes BSB metadata in NuGet. bsb plugin install <package> --version <exact-major.minor.patch> [--source <feed>] atomically installs .bsb/plugins/<package>/<version>; BSB_PLUGIN_DIR overrides the root. Configure logical plugin ID separately from NuGet package and assembly. Runtime-only images load prebuilt plugins; tooling requires an SDK build stage. Never construct application services during schema export.
 
-Lifecycle ordering resolves explicit profile aliases before logical metadata names. Logical names match every configured instance; cycles must fail, including a single plugin referencing itself. Real broker and database integration validation remains outstanding; do not claim production parity solely from simulated protocol tests.
+Lifecycle ordering resolves explicit profile aliases before logical metadata names. Logical names match every configured instance; cycles must fail, including a single plugin referencing itself. Real broker integration passes all 20 Node/.NET/Python/Go/Rust RPC/trace/stream directions and crashed consumers. PostgreSQL migration CI passed at 017b1b9.
 
 The native-integration CI job runs tests/integration/rabbit_languages.py against RabbitMQ and vault-postgres.mjs against PostgreSQL. These require real services; adding the job does not mean it has run. Local fast suites remain separate.
 
@@ -54,4 +69,4 @@ GO HOST / CLIENT TOOLING (2026-09-06)
 - Source identities include Registry, org, name, language, version. Never infer a language for ambiguous implementations. Registry/Vault services remain shared Node services.
 - Generated client Events() handles streams; Specific(id) suffixes instance operations. Use bsb.WithObservable for nested traces. Optional[T] + omitzero preserves omitted/null; json.Number preserves untyped integer precision.
 - Nine observable implementations are linked. Native Pino/Winston formats, rotating files, OTLP, Axiom, Zipkin, GELF/syslog; bounded queues/flush, redaction before interpolation. Go README documents options and histogram ceiling.
-- Node/.NET/Python/Go 12 directed RPC/trace/stream integration pairs passed. Rust and Go example parity remain in progress; do not describe the full Go/Rust plan as complete yet.
+- Node/.NET/Python/Go/Rust 20 directed RPC/trace/stream pairs passed locally, including absent listeners and crashed consumers. All seven native examples exist in both Go and Rust. See the plan for outstanding signing/CI status.

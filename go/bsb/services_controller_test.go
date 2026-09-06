@@ -90,3 +90,15 @@ func TestTopologicalSortRunDeps(t *testing.T) {
 		t.Errorf("expected 'db' first in run order, got %q", sorted[0].name)
 	}
 }
+
+func TestTopologicalSortLogicalAliases(t *testing.T) {
+	services := []*sortedService{{name: "api", initAfterPlugins: []string{"database"}}, {name: "db-one", logicalName: "database"}, {name: "db-two", logicalName: "database"}}
+	ordered, err := topologicalSort(services, true)
+	if err != nil || ordered[len(ordered)-1].name != "api" {
+		t.Fatalf("logical dependency did not include all instances: %v %v", ordered, err)
+	}
+	services[1].initAfterPlugins = []string{"database"}
+	if _, err = topologicalSort(services, true); err == nil {
+		t.Fatal("logical self-dependency must fail")
+	}
+}

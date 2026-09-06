@@ -1,0 +1,92 @@
+{
+  "pluginId": "service-default3",
+  "pluginName": "service-default3",
+  "events": {
+    "calculate": {
+      "type": "returnable",
+      "category": "emitReturnableEvents",
+      "description": "Calculate with two numbers",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "a": {
+              "kind": "number"
+            },
+            "b": {
+              "kind": "number"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Calculate input parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "number"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Calculation result"
+          }
+        }
+      }
+    },
+    "onReverseReturnable": {
+      "type": "returnable",
+      "category": "onReturnableEvents",
+      "description": "Reverse a string",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "text": {
+              "kind": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Reverse input parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "string"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Reversed text"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0.0",
+  "language": "rust"
+}

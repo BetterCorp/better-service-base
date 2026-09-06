@@ -72,7 +72,9 @@ jobs:
           node node_modules/typescript/bin/tsc -p plugins/nodejs/config-vault/tsconfig.json
           python -m pip install -e ./python
           dotnet build dotnet/tests/RabbitPeer -c Release
-          cd go && go build -o bin/rabbit-peer ./tests/rabbitpeer
+          (cd go && go build -o bin/rabbit-peer ./tests/rabbitpeer)
+          rustup toolchain install 1.95 --profile minimal
+          cargo +1.95 build --locked --manifest-path rust/Cargo.toml --example rabbit-peer
       - name: Verify all native language pairs over RabbitMQ
         timeout-minutes: 5
         env:
@@ -241,6 +243,63 @@ jobs:
           dotnet run --project tests/RuntimeTests -c Release
           dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /tmp/bsb-dotnet
           dotnet run --project tests/SmokeTests -c Release -- /tmp/bsb-dotnet tests/TestPlugin/bin/Release/net10.0
+
+      - name: Verify installed NuGet tool includes native plugins
+        run: |
+          dotnet pack BetterServiceBase/BetterServiceBase.csproj -c Release -o /tmp/bsb-tool-pack
+          version=$(dotnet msbuild BetterServiceBase/BetterServiceBase.csproj -getProperty:Version)
+          dotnet tool install BetterCorp.BSB.Cli --version "$version" --tool-path /tmp/bsb-tool --add-source /tmp/bsb-tool-pack
+          host=$(find /tmp/bsb-tool/.store -path '*/tools/net10.0/any' -type d)
+          test -n "$host"
+          dotnet run --project tests/SmokeTests -c Release -- "$host" tests/TestPlugin/bin/Release/net10.0
+
+  rust:
+    name: Rust
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Rust
+        run: rustup toolchain install 1.95 --profile minimal
+      - name: Test runtime, generated clients and native examples
+        run: |
+          rustup default 1.95
+          cargo test --locked --manifest-path rust/Cargo.toml
+          cargo test --locked --manifest-path rust/examples/native_plugins/Cargo.toml
+      - name: Build linked plugin host and export static contracts
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
+        run: |
+          cd rust/examples/native_plugins
+          cargo run --locked --manifest-path ../../Cargo.toml --bin bsb -- plugin build
+          ./lib/bsb export > /tmp/rust-contracts.json
+          python -c 'import json; docs=json.load(open("/tmp/rust-contracts.json")); assert len(docs)==22; assert all(d["language"]=="rust" for d in docs)'
+
+  docker-rust:
+    name: Rust Docker image
+    needs: [rust]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: rust/Dockerfile
+      - uses: useblacksmith/build-push-action@v2
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile
+          load: true
+          platforms: linux/amd64
+          push: false
+          tags: service-base:rust-ci
+      - name: Verify non-root runtime and builtins
+        run: |
+          test "$(docker run --rm --entrypoint id service-base:rust-ci -u)" = "1000"
+          docker run --rm service-base:rust-ci export > /tmp/builtins.json
+          python -c 'import json; docs=json.load(open("/tmp/builtins.json")); assert len(docs)==15; assert all(d["language"]=="rust" for d in docs)'
 
   docker-nodejs:
     name: Node.js Docker image

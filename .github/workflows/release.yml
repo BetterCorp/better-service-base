@@ -441,6 +441,35 @@ jobs:
       - name: Build CLI
         run: go build -o /tmp/bsb ./cmd/bsb
 
+  rust:
+    name: Rust
+    needs: [prepare]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Rust
+        run: rustup toolchain install 1.95 --profile minimal && rustup default 1.95
+      - name: Verify and package native SDK and CLI
+        env:
+          BSB_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          cargo test --locked
+          cargo test --locked --manifest-path examples/native_plugins/Cargo.toml
+          sh set-version.sh "$BSB_VERSION"
+          cargo package --locked --allow-dirty
+          cargo build --locked --release --bin bsb
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bsb-rust-packages
+          path: |
+            rust/target/package/*.crate
+            rust/target/release/bsb
+
   dotnet:
     name: .NET
     needs: [prepare]
@@ -1027,6 +1056,99 @@ jobs:
         with:
           context: ./dotnet
           file: ./dotnet/BetterServiceBase/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.dockerhub_tags }}
+
+  docker-rust-forgejo:
+    name: Docker Rust Forgejo
+    needs: [rust, prepare]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: rust/Dockerfile
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          FORGEJO_TAGS="${FORGEJO_SERVICE_BASE_IMAGE}:rust-${VERSION}"
+          FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:rust-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:rust"
+          fi
+          echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Forgejo
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
+
+      - name: Build and push to Forgejo
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.forgejo_tags }}
+
+  docker-rust-dockerhub:
+    name: Docker Rust Docker Hub
+    needs: [rust, prepare]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          DOCKERHUB_TAGS="betterweb/service-base:rust-${VERSION}"
+          DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:rust-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:rust"
+          fi
+          echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to DockerHub
+        continue-on-error: true
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push to DockerHub
+        continue-on-error: true
+        uses: docker/build-push-action@v7
+        with:
+          context: ./rust
+          file: ./rust/Dockerfile
           build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true

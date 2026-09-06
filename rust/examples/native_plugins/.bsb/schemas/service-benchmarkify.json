@@ -1,0 +1,299 @@
+{
+  "pluginId": "service-benchmarkify",
+  "pluginName": "service-benchmarkify",
+  "events": {
+    "benchmark.started": {
+      "type": "fire-and-forget",
+      "category": "emitEvents",
+      "description": "Benchmark test started",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "name": {
+              "kind": "string"
+            },
+            "timestamp": {
+              "kind": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "name",
+            "timestamp"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Benchmark start parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "benchmark.trigger": {
+      "type": "fire-and-forget",
+      "category": "onEvents",
+      "description": "Trigger benchmark execution",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "testName": {
+              "kind": "optional",
+              "inner": {
+                "kind": "string"
+              }
+            }
+          },
+          "required": [],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Benchmark trigger parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "performance.test": {
+      "type": "returnable",
+      "category": "emitReturnableEvents",
+      "description": "Request performance test execution",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "iterations": {
+              "kind": "number"
+            },
+            "warmup": {
+              "kind": "bool"
+            }
+          },
+          "required": [
+            "iterations",
+            "warmup"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Performance test parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "duration": {
+              "kind": "number"
+            },
+            "opsPerSecond": {
+              "kind": "number"
+            }
+          },
+          "required": [
+            "duration",
+            "opsPerSecond"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Performance test results"
+          }
+        }
+      }
+    },
+    "add": {
+      "type": "returnable",
+      "category": "onReturnableEvents",
+      "description": "Add two numbers",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "a": {
+              "kind": "number"
+            },
+            "b": {
+              "kind": "number"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Add input parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "number"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Sum of numbers"
+          }
+        }
+      }
+    },
+    "void": {
+      "type": "returnable",
+      "category": "onReturnableEvents",
+      "description": "Void event for benchmarking",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {},
+          "required": [],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Empty parameters"
+          }
+        }
+      },
+      "outputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "unknown"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "void"
+          }
+        }
+      }
+    },
+    "benchmark.results": {
+      "type": "broadcast",
+      "category": "emitBroadcast",
+      "description": "Broadcast benchmark results to all interested parties",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "testName": {
+              "kind": "string"
+            },
+            "results": {
+              "kind": "array",
+              "items": {
+                "kind": "object",
+                "properties": {
+                  "operation": {
+                    "kind": "string"
+                  },
+                  "opsPerSecond": {
+                    "kind": "number"
+                  },
+                  "duration": {
+                    "kind": "number"
+                  }
+                },
+                "required": [
+                  "operation",
+                  "opsPerSecond",
+                  "duration"
+                ],
+                "unknownKeys": "strip"
+              }
+            },
+            "timestamp": {
+              "kind": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "testName",
+            "results",
+            "timestamp"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "Benchmark results parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    },
+    "system.load": {
+      "type": "broadcast",
+      "category": "onBroadcast",
+      "description": "Listen for system load updates",
+      "inputSchema": {
+        "anyvaliVersion": "1.0",
+        "schemaVersion": "1.1",
+        "root": {
+          "kind": "object",
+          "properties": {
+            "cpuUsage": {
+              "kind": "number"
+            },
+            "memoryUsage": {
+              "kind": "number"
+            },
+            "timestamp": {
+              "kind": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "cpuUsage",
+            "memoryUsage",
+            "timestamp"
+          ],
+          "unknownKeys": "strip"
+        },
+        "definitions": {},
+        "extensions": {
+          "bsb": {
+            "description": "System load parameters"
+          }
+        }
+      },
+      "outputSchema": null
+    }
+  },
+  "version": "1.0.0",
+  "language": "rust"
+}
