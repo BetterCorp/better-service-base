@@ -224,9 +224,12 @@ try
     var contract = new BSBEventSchemas { OnReturnableEvents = new() {
         ["orders.get"] = new(BSBTypes.Object(new() { ["id"] = BSBTypes.Int32(), ["status"] = BSBTypes.Enum(["open", "closed"]) }), schema, 5) } };
     var portableContract = contract.Export("service-orders", "1.0.0");
+    portableContract.Events["orders.get"].InputSchema!["root"]!["unknownKeys"] = "allow";
+    portableContract.Events["orders.get"].InputSchema!["root"]!["properties"]!["additionalProperties"] = JsonNode.Parse("""{"kind":"optional","schema":{"kind":"string"}}""");
     portableContract.Events["orders.get"].InputSchema!["root"]!["properties"]!["note"] = JsonNode.Parse("""{"kind":"optional","schema":{"kind":"nullable","schema":{"kind":"string"}}}""");
     var generated = ClientGenerator.Generate(portableContract, "orders");
     Check(generated.Contains("OptionalValue<string?> Note"), "Python wrapper spelling lost optional/nullable client types");
+    Check(generated.Contains("OptionalValue<string> AdditionalProperties") && generated.Contains("JsonElement>? AdditionalProperties_"), "Extension data collided with a contract property");
     await File.WriteAllTextAsync(Path.Combine(clientDirectory, "Orders.cs"), generated);
     var assemblyPath = System.Security.SecurityElement.Escape(typeof(ServiceBase).Assembly.Location);
     await File.WriteAllTextAsync(Path.Combine(clientDirectory, "Consumer.csproj"), $"""

@@ -131,7 +131,9 @@ def build_capabilities(plugin_type: PluginType, plugin_cls: Any) -> dict[str, An
         from .base import BSBObservable
         def handles(signal):
             method = getattr(plugin_cls, "emit_" + signal, None)
-            return callable(method) and method is not getattr(BSBObservable, "emit_" + signal)
+            exported_signal = {"log": "logs", "metric": "metrics", "span": "traces"}[signal]
+            signals = getattr(plugin_cls, "signals", ("logs", "metrics", "traces"))
+            return exported_signal in signals and callable(method) and method is not getattr(BSBObservable, "emit_" + signal)
         return {
             "logging": {name: handles("log") for name in OBSERVABLE_METHODS["logging"]},
             "metrics": {name: handles("metric") for name in OBSERVABLE_METHODS["metrics"]},

@@ -20,7 +20,10 @@
         "./docs/service-bsb-registry-ui.md"
       ],
       "pluginPath": "src/plugins/service-bsb-registry-ui/",
-      "image": "../../../docs/public/assets/images/bsb-logo.png"
+      "image": "../../../docs/public/assets/images/bsb-logo.png",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
     },
     {
       "id": "service-bsb-registry",
@@ -41,7 +44,10 @@
         "./docs/bsb-registry-db-file.md"
       ],
       "pluginPath": "src/plugins/service-bsb-registry/",
-      "image": "../../../docs/public/assets/images/bsb-logo.png"
+      "image": "../../../docs/public/assets/images/bsb-logo.png",
+      "links": {
+        "github": "https://github.com/BetterCorp/better-service-base"
+      }
     }
   ]
 }

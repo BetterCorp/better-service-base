@@ -98,7 +98,11 @@ public static class ClientGenerator
                             properties.AppendLine($"    public {(optional ? "" : "required ")}{propertyType} {property} {{ get; init; }}");
                         }
                         if (node["unknownKeys"]?.GetValue<string>() is "passthrough" or "allow")
-                            properties.AppendLine("    [JsonExtensionData] public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }");
+                        {
+                            var extensionProperty = "AdditionalProperties";
+                            while (!propertyNames.Add(extensionProperty)) extensionProperty += "_";
+                            properties.AppendLine($"    [JsonExtensionData] public Dictionary<string, JsonElement>? {extensionProperty} {{ get; init; }}");
+                        }
                         declarations.AppendLine($"public sealed record {suggested}\n{{\n{properties}}}");
                         return suggested;
                     case "union": case "intersection": case "tuple":

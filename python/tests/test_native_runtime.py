@@ -16,6 +16,19 @@ from bsb.schema import av, object_schema
 from bsb.schema_events import create_returnable_event, export_event_schemas
 
 
+def test_exporter_capabilities_match_supported_signals():
+    from bsb.schema_export import build_capabilities
+    from bsb.plugins.observable_zipkin import Plugin as Zipkin
+    from bsb.plugins.observable_syslog import Plugin as Syslog
+    from bsb.plugins.observable_opentelemetry import Plugin as Otlp
+
+    for plugin, supported in ((Zipkin, {"tracing"}), (Syslog, {"logging"}),
+                              (Otlp, {"logging", "metrics", "tracing"}), (object, set())):
+        capabilities = build_capabilities("observable", plugin)
+        for category, methods in capabilities.items():
+            assert all(value == (category in supported) for value in methods.values())
+
+
 def test_native_contracts_traces_and_streams(tmp_path):
     async def check():
         sink = SBObservable("test", "development")

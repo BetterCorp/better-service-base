@@ -2,6 +2,7 @@
   "bsb/config-default": "CORE",
   "bsb/config-env": "CORE",
   "bsb/config-vault": "OFFICIAL",
+  "bsb/config-vault-google": "OFFICIAL",
   "bsb/events-default": "CORE",
   "bsb/events-rabbitmq": "OFFICIAL",
   "bsb/observable-axiom": "OFFICIAL",
