@@ -8,6 +8,49 @@ import (
 	"testing"
 )
 
+func TestSyncRemovesOnlyStaleGeneratedClients(t *testing.T) {
+	root := t.TempDir()
+	schemas := filepath.Join(root, ".bsb", "schemas")
+	if err := os.MkdirAll(schemas, 0755); err != nil {
+		t.Fatal(err)
+	}
+	old := filepath.Join(schemas, "old.json")
+	data := []byte(`{"pluginId":"worker","events":{}}`)
+	if err := os.WriteFile(old, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	written, err := SyncClients(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manual := filepath.Join(root, "bsbclients", "custom.go")
+	if err = os.WriteFile(manual, []byte("package bsbclients\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Rename(old, filepath.Join(schemas, "new.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = SyncClients(root); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Stat(written[0]); !os.IsNotExist(err) {
+		t.Fatal("stale client remains", err)
+	}
+	if _, err = os.Stat(manual); err != nil {
+		t.Fatal("manual file removed", err)
+	}
+	if err = os.Remove(filepath.Join(schemas, "new.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = SyncClients(root); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := filepath.Glob(filepath.Join(root, "bsbclients", "*.go"))
+	if len(files) != 1 || files[0] != manual {
+		t.Fatal(files)
+	}
+}
+
 func TestBuildExternalPluginHostWithoutConstructingDuringExport(t *testing.T) {
 	directory := t.TempDir()
 	module, err := filepath.Abs("..")

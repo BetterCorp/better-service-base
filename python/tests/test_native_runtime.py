@@ -16,6 +16,22 @@ from bsb.schema import av, object_schema
 from bsb.schema_events import create_returnable_event, export_event_schemas
 
 
+def test_service_targets_require_unambiguous_aliases():
+    bus = SBEvents("test", "development", ".", None, None)
+    bus.set_services({"primary": {"plugin": "worker"}, "secondary": {"plugin": "worker"}})
+    with pytest.raises(ValueError, match="specify its alias"):
+        asyncio.run(bus.emit_event("worker", "event", {}))
+    assert bus._target("secondary") == "secondary"
+    bus.services["secondary"]["enabled"] = False
+    assert bus._target("worker") == "primary"
+    bus.services["primary"]["enabled"] = False
+    with pytest.raises(ValueError, match="specify its alias"):
+        bus._target("worker")
+    del bus.services["primary"]
+    assert bus._target("worker") == "secondary"
+    assert bus._target("unknown") == "unknown"
+
+
 def test_exporter_capabilities_match_supported_signals():
     from bsb.schema_export import build_capabilities
     from bsb.plugins.observable_zipkin import Plugin as Zipkin

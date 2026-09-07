@@ -92,6 +92,12 @@ pub struct Registry {
     observers: BTreeMap<String, (Contract, ObserverFactory)>,
 }
 impl Registry {
+    fn contains(&self, id: &str) -> bool {
+        self.services.contains_key(id)
+            || self.configs.contains_key(id)
+            || self.buses.contains_key(id)
+            || self.observers.contains_key(id)
+    }
     pub fn new() -> Self {
         let mut registry = Self::default();
         for kind in [
@@ -153,7 +159,7 @@ impl Registry {
             "service registration requires service category"
         );
         ensure!(
-            !self.services.contains_key(&contract.plugin_id),
+            !self.contains(&contract.plugin_id),
             "duplicate service registration"
         );
         self.services.insert(
@@ -172,7 +178,7 @@ impl Registry {
     {
         contract.validate()?;
         ensure!(
-            contract.category == "config" && !self.configs.contains_key(&contract.plugin_id),
+            contract.category == "config" && !self.contains(&contract.plugin_id),
             "invalid or duplicate config registration"
         );
         self.configs
@@ -188,7 +194,7 @@ impl Registry {
     {
         contract.validate()?;
         ensure!(
-            contract.category == "events" && !self.buses.contains_key(&contract.plugin_id),
+            contract.category == "events" && !self.contains(&contract.plugin_id),
             "invalid or duplicate events registration"
         );
         self.buses
@@ -201,7 +207,7 @@ impl Registry {
     {
         contract.validate()?;
         ensure!(
-            contract.category == "observable" && !self.observers.contains_key(&contract.plugin_id),
+            contract.category == "observable" && !self.contains(&contract.plugin_id),
             "invalid or duplicate observable registration"
         );
         self.observers
@@ -290,15 +296,22 @@ pub struct Host {
     pub cancel: CancellationToken,
 }
 fn lifecycle_targets(config: &Config, target: &str) -> Result<Vec<String>> {
-    if config.groups["services"].contains_key(target) {
-        return Ok(vec![target.into()]);
+    if let Some(definition) = config.groups["services"].get(target) {
+        return Ok(if definition.enabled {
+            vec![target.into()]
+        } else {
+            vec![]
+        });
     }
     let targets: Vec<_> = config.groups["services"]
         .iter()
         .filter(|(_, v)| v.enabled && v.plugin == target)
         .map(|(name, _)| name.clone())
         .collect();
-    ensure!(!targets.is_empty(), "unknown lifecycle dependency {target}");
+    ensure!(
+        config.groups["services"].values().any(|v| v.plugin == target),
+        "unknown lifecycle dependency {target}"
+    );
     Ok(targets)
 }
 impl Host {

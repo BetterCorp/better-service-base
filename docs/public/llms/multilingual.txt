@@ -65,6 +65,7 @@ Python config-default/env/Vault/VaultGoogle, events-default/Rabbit, and native o
 Python observability: file/Pino/Winston are native equivalents, not JS adapters. OTLP HTTP JSON/Axiom/Zipkin and GELF/syslog share bounded asynchronous exporting, TLS verification, redaction and shutdown draining. Metrics are cumulative and namespaced per plugin. Buffers are non-durable. Native examples live in python/examples/native_plugins; generic generated clients share Node contracts. The todo HTTP server and JSON storage are examples, not a production multi-writer persistence layer.
 
 GO HOST / CLIENT TOOLING (2026-09-06)
+- Go Rabbit source reads honor stream timeout/cancellation. Blocking sources must implement io.ReadCloser with Close unblocking Read; interrupted reads close that source. A non-closable reader can retain one blocked read goroutine until it returns. Client sync removes stale BSB-generated Go files, preserving handwritten files.
 - Go packages export Register(*bsb.PluginRegistry); static PluginContract plus factories. BSB owns main and lifecycle.
 - bsb-plugin.json go entries: {id, package: Go import path}. bsb plugin build generates .bsb/host/main.go, lib/bsb, lib/schemas. No runtime dependency downloads.
 - bsb client install ID --source-language LANG [--version VERSION] stores exact .bsb/schemas snapshot and emits bsbclients Go package. sync is offline. publish builds and exports without constructors; --target uses private Vault.

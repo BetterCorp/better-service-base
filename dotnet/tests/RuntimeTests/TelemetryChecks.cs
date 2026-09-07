@@ -68,6 +68,14 @@ static class TelemetryChecks
             Check(handler.Requests.Count == 1, "Authentication/redirect failure was retried");
         }
         var partial = new Capture(HttpStatusCode.OK, """{"partialSuccess":{"rejectedSpans":"1"}}""");
+        foreach (var date in new[] { false, true })
+        {
+            var retry = new RetryAfterCapture(date);
+            using var client = new TelemetryHttp(retry);
+            using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            await client.Post(new Uri("https://collector.example"), new { }, null, budget.Token);
+            Check(retry.Calls == 2, "Large Retry-After prevented bounded retry");
+        }
         using (var client = new TelemetryHttp(partial))
         {
             try { await client.Post(new Uri("https://collector.example"), new { }, null, default); throw new Exception("Partial rejection accepted"); }
@@ -149,6 +157,19 @@ static class TelemetryChecks
     { protected override HttpMessageHandler CreateHandler() => capture; }
     sealed class Zipkin(ServiceConstructorArgs<TelemetryConfig> args, Capture capture) : BSB.Plugins.Zipkin.Plugin(args)
     { protected override HttpMessageHandler CreateHandler() => capture; }
+    sealed class RetryAfterCapture(bool date) : HttpMessageHandler
+    {
+        public int Calls;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        {
+            var response = new HttpResponseMessage(++Calls == 1 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK);
+            response.Content = new StringContent("{}");
+            if (Calls == 1) response.Headers.RetryAfter = date
+                ? new System.Net.Http.Headers.RetryConditionHeaderValue(DateTimeOffset.UtcNow.AddYears(1))
+                : new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromDays(365));
+            return Task.FromResult(response);
+        }
+    }
     sealed class Capture(HttpStatusCode status = HttpStatusCode.OK, string response = "{}") : HttpMessageHandler
     {
         public readonly List<(string Path, JsonNode Body, string? Authorization)> Requests = new();

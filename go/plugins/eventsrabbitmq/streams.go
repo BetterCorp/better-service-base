@@ -269,6 +269,34 @@ func (p *Plugin) ReceiveStream(ctx context.Context, obs bsb.Observable, plugin, 
 	}()
 	return p.id + "||" + id + "||" + strconv.FormatInt(int64(timeout/time.Second), 10), nil
 }
+
+// readSource owns its buffer, so a late Read cannot race with the sender after cancellation.
+func readSource(ctx, transport context.Context, source io.Reader, timeout time.Duration) ([]byte, error) {
+	result := make(chan packet, 1)
+	go func() {
+		buffer := make([]byte, 65536)
+		n, err := source.Read(buffer)
+		result <- packet{data: buffer[:n], err: err}
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	var err error
+	select {
+	case part := <-result:
+		return part.data, part.err
+	case <-ctx.Done():
+		err = ctx.Err()
+	case <-transport.Done():
+		err = transport.Err()
+	case <-timer.C:
+		err = fmt.Errorf("stream source read timeout")
+	}
+	// Plain io.Reader cannot interrupt Read; use an io.ReadCloser for blocking sources.
+	if closer, ok := source.(io.Closer); ok {
+		_ = closer.Close()
+	}
+	return nil, err
+}
 func (p *Plugin) SendStream(ctx context.Context, obs bsb.Observable, plugin, event, id string, source io.Reader) error {
 	parts := strings.Split(id, "||")
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
@@ -331,8 +359,8 @@ func (p *Plugin) SendStream(ctx context.Context, obs bsb.Observable, plugin, eve
 		if ended {
 			continue
 		}
-		buffer := make([]byte, 65536)
-		n, readErr := source.Read(buffer)
+		buffer, readErr := readSource(ctx, p.ctx, source, timeout)
+		n := len(buffer)
 		if readErr != nil && readErr != io.EOF {
 			return readErr
 		}

@@ -35,6 +35,19 @@ fn shared_contracts_generate_compiling_rust_clients() -> Result<()> {
         generator::generate(&tree.to_string(), "tree")?,
     )?;
     modules.push_str("pub mod tree;\n");
+    // Compile event and property names from every strict/reserved keyword.
+    // Source: https://doc.rust-lang.org/reference/keywords.html
+    let keywords = "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self static struct super trait true type unsafe use where while abstract become box do final gen macro override priv try typeof unsized virtual yield";
+    let mut properties = bsb::serde_json::Map::new();
+    let mut events = bsb::serde_json::Map::new();
+    for word in keywords.split_whitespace() {
+        properties.insert(word.into(), json!({"kind":"string"}));
+        events.insert(word.into(), json!({"type":"fire-and-forget","category":"onEvents","inputSchema":{"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"string"}}}));
+    }
+    events.insert("fields".into(), json!({"type":"fire-and-forget","category":"onEvents","inputSchema":{"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"object","properties":properties}}}));
+    let keywords = json!({"pluginId":"keywords","events":events});
+    fs::write(source.join("keywords.rs"), generator::generate(&keywords.to_string(), "keywords")?)?;
+    modules.push_str("pub mod keywords;\n");
     fs::write(source.join("lib.rs"), modules)?;
     let manifest = json!({"package":{"name":"generated-check","version":"0.0.0","edition":"2024"},"dependencies":{"bsb":{"package":"better-service-base","path":root.to_string_lossy()}}});
     fs::write(

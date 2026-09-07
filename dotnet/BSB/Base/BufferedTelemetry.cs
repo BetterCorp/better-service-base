@@ -144,7 +144,7 @@ public sealed class TelemetryHttp : IDisposable
                     throw new HttpRequestException($"Telemetry HTTP {(int)response.StatusCode}", null, response.StatusCode);
                 var retryAfter = response.Headers.RetryAfter;
                 var requestedDelay = retryAfter?.Delta ?? retryAfter?.Date - DateTimeOffset.UtcNow;
-                if (requestedDelay > delay) delay = requestedDelay.Value;
+                if (requestedDelay > delay) delay = TimeSpan.FromMilliseconds(Math.Min(requestedDelay.Value.TotalMilliseconds, 2000));
             }
             catch (HttpRequestException error) when (error.StatusCode is null && attempt < 2) { }
             catch (OperationCanceledException) when (!token.IsCancellationRequested && attempt < 2) { }

@@ -36,6 +36,8 @@ Set `BSB_REGISTRY_URL` and `BSB_REGISTRY_TOKEN` for the shared Registry. A sourc
 
 Generated clients contain typed objects, integer widths, arrays, maps, string enums, recursive references, nullable pointers and optional fields. Union/intersection/tuple and heterogeneous literal shapes use `json.RawMessage` with the full AnyVali contract still checked at runtime. Constructors resolve unique deployment aliases; pass an explicit alias when multiple profiles reference one plugin. `Specific(id)` targets one instance. `Events()` exposes the scoped stream API. Generic JSON conversion preserves large integers.
 
+Rabbit stream source reads observe the negotiated timeout, caller cancellation and transport shutdown. For blocking sources, pass an `io.ReadCloser` whose `Close` unblocks `Read`; BSB closes it when a read is interrupted. A plain `io.Reader` cannot be forcibly interrupted: the send returns, but its read goroutine remains until that source returns. `bsb client sync` removes obsolete BSB-generated files while preserving handwritten Go files.
+
 ## Native observability
 
 The host links `observable-default`, `observable-logging-file`, `observable-pino`, `observable-winston`, `observable-opentelemetry`, `observable-axiom`, `observable-zipkin`, `observable-graylog` and `observable-syslog`. Pino/Winston names select equivalent native Go output; they do not load JavaScript.

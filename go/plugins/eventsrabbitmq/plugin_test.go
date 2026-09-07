@@ -3,10 +3,45 @@ package eventsrabbitmq
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/bettercorp/service-base/go/bsb"
+	"io"
 	"testing"
 	"time"
 )
+
+func TestBlockedSourceReadStops(t *testing.T) {
+	for _, mode := range []string{"timeout", "caller", "transport"} {
+		t.Run(mode, func(t *testing.T) {
+			reader, writer := io.Pipe()
+			defer reader.Close()
+			defer writer.Close()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			transport, stop := context.WithCancel(context.Background())
+			defer stop()
+			if mode == "caller" {
+				time.AfterFunc(20*time.Millisecond, cancel)
+			}
+			if mode == "transport" {
+				time.AfterFunc(20*time.Millisecond, stop)
+			}
+			done := make(chan error, 1)
+			go func() { _, err := readSource(ctx, transport, reader, 30*time.Millisecond); done <- err }()
+			select {
+			case err := <-done:
+				if err == nil {
+					t.Fatal("blocked source succeeded")
+				}
+			case <-time.After(time.Second):
+				t.Fatal("blocked read ignored timeout/cancellation")
+			}
+			if _, err := writer.Write([]byte("late")); !errors.Is(err, io.ErrClosedPipe) {
+				t.Fatal("source not closed", err)
+			}
+		})
+	}
+}
 
 func TestWireTraceQueuesAndBinaryChunks(t *testing.T) {
 	transport, err := New(map[string]any{"platformKey": "test"})

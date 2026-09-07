@@ -63,8 +63,11 @@ class SBEvents:
         if plugin in self.services:
             return plugin
         matches = [(key, value) for key, value in self.services.items() if value.get("plugin") == plugin]
-        matches.sort(key=lambda pair: not pair[1].get("enabled", True))
-        return matches[0][0] if matches else plugin
+        active = [key for key, value in matches if value.get("enabled", True)]
+        targets = active or [key for key, _ in matches]
+        if len(targets) > 1:
+            raise ValueError(f"Ambiguous service {plugin}; specify its alias")
+        return targets[0] if targets else plugin
 
     @staticmethod
     def matches(filter_value, operation: str, plugin: str) -> bool:

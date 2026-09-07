@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/bettercorp/service-base/go/bsb"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGoProfileLanguageAndOverrides(t *testing.T) {
@@ -44,6 +46,38 @@ func TestStartupFailureDisposesConfig(t *testing.T) {
 	host := bsb.NewServiceBase(bsb.BSBOptions{}, registry)
 	if err := host.RunAndWait(context.Background()); err == nil || !config.disposed {
 		t.Fatalf("startup cleanup: %v disposed=%v", err, config.disposed)
+	}
+}
+
+type countedEvents struct {
+	*testEventsPlugin
+	disposals int
+	runError  error
+}
+
+func (p *countedEvents) Run(context.Context, bsb.Observable) error { return p.runError }
+func (p *countedEvents) Dispose() error                            { p.disposals++; return errors.New("cleanup failed") }
+func TestHostHasOneCleanupPath(t *testing.T) {
+	for _, fails := range []bool{false, true} {
+		registry := bsb.NewPluginRegistry()
+		registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
+			return &testConfigPlugin{services: map[string]bsb.PluginDefinition{}, events: map[string]bsb.PluginDefinition{"events-default": {Plugin: "events-default", Enabled: true}}, observable: map[string]bsb.PluginDefinition{}}, nil
+		})
+		plugin := &countedEvents{testEventsPlugin: newTestEventsPlugin()}
+		if fails {
+			plugin.runError = errors.New("run failed")
+		}
+		registry.RegisterEvents("events-default", func(map[string]any) (bsb.EventsPlugin, error) { return plugin, nil })
+		host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: t.TempDir()}, registry)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+		err := host.RunAndWait(ctx)
+		cancel()
+		if plugin.disposals != 1 || err == nil || !strings.Contains(err.Error(), "cleanup failed") {
+			t.Fatalf("disposals=%d err=%v", plugin.disposals, err)
+		}
+		if fails && !strings.Contains(err.Error(), "run failed") {
+			t.Fatal(err)
+		}
 	}
 }
 

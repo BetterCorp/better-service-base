@@ -53,6 +53,22 @@ fn profile_language_and_aliases() {
         assert!(Config::load(&bad, "default").is_err())
     }
 }
+
+#[test]
+fn registry_ids_are_unique_across_categories() -> Result<()> {
+    let mut registry = Registry::new();
+    for id in ["config-default", "events-default", "observable-default"] {
+        assert!(registry.register(Contract::empty(id, "service"), Ordering::default(), |_| panic!("factory must not run")).is_err());
+    }
+    registry.register(Contract::empty("custom", "service"), Ordering::default(), |_| panic!("factory must not run"))?;
+    assert!(registry.register_config(Contract::empty("custom", "config"), |_| panic!("factory must not run")).is_err());
+    assert!(registry.register_events(Contract::empty("custom", "events"), |_, _| panic!("factory must not run")).is_err());
+    assert!(registry.register_observable(Contract::empty("custom", "observable"), |_| panic!("factory must not run")).is_err());
+    let exported = registry.export()?;
+    let ids: std::collections::BTreeSet<_> = exported.iter().map(|v| v["pluginId"].as_str().unwrap()).collect();
+    assert_eq!(ids.len(), exported.len());
+    Ok(())
+}
 #[test]
 fn optional_null_and_large_integers() {
     #[derive(Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -164,6 +180,29 @@ async fn unused_stream_notifies_receiver_on_deadline() -> Result<()> {
 struct Waiting {
     started: tokio::sync::mpsc::Sender<()>,
     closed: Arc<AtomicUsize>,
+}
+
+struct StopOnRun;
+#[async_trait]
+impl Service for StopOnRun {
+    async fn run(&mut self, context: &ServiceContext) -> Result<()> {
+        context.cancel.cancel();
+        anyhow::bail!("reached run")
+    }
+}
+#[tokio::test]
+async fn lifecycle_ignores_disabled_aliases_and_logical_targets() -> Result<()> {
+    for target in ["remote", "optional", "missing", "worker"] {
+        let mut registry = Registry::new();
+        registry.register(Contract::empty("worker", "service"), Ordering {
+            init_after: vec![target.into()], run_before: vec![target.into()], ..Ordering::default()
+        }, |_| Ok(Box::new(StopOnRun)))?;
+        let host = Host::new(registry)?;
+        let result = host.run_config(Config::load(&json!({"services":{"worker":{},"remote":{"plugin":"optional","enabled":false,"language":"nodejs"}}}), "default")?).await;
+        let message = format!("{:#}", result.unwrap_err());
+        assert!(message.contains(match target { "missing" => "unknown lifecycle", "worker" => "cycle", _ => "reached run" }), "{target}: {message}");
+    }
+    Ok(())
 }
 #[async_trait]
 impl Service for Waiting {

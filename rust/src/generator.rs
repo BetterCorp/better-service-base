@@ -38,6 +38,7 @@ pub fn snake(raw: &str) -> String {
         "fn", "in", "use", "pub", "where", "struct", "enum", "trait", "impl", "const", "static",
         "return", "let", "mut", "as", "break", "continue", "else", "if", "for", "while", "dyn",
         "unsafe", "extern", "true", "false", "box", "do", "yield", "try", "gen",
+        "abstract", "become", "final", "macro", "override", "priv", "typeof", "unsized", "virtual",
     ]
     .contains(&out.as_str())
     {
