@@ -37,6 +37,13 @@ fn contract() -> Contract {
     )]);
     contract
 }
+fn registry_with_local_events() -> Result<Registry> {
+    let mut registry = Registry::new();
+    registry.register_events(Contract::empty("events-default", "events"), |_, _| {
+        Box::pin(async { Ok(Arc::new(LocalBus::default()) as Arc<dyn Bus>) })
+    })?;
+    Ok(registry)
+}
 #[test]
 fn profile_language_and_aliases() {
     let config=Config::load(&json!({"default":{"services":{"local":{"plugin":"worker","config":{"a":1}},"remote":{"plugin":"service-registry","language":"nodejs","enabled":false}}},"staging":{"language":"rust","services":{"local":{"config":{"b":2}}}}}),"staging").unwrap();
@@ -57,15 +64,37 @@ fn profile_language_and_aliases() {
 #[test]
 fn registry_ids_are_unique_across_categories() -> Result<()> {
     let mut registry = Registry::new();
-    for id in ["config-default", "events-default", "observable-default"] {
-        assert!(registry.register(Contract::empty(id, "service"), Ordering::default(), |_| panic!("factory must not run")).is_err());
-    }
-    registry.register(Contract::empty("custom", "service"), Ordering::default(), |_| panic!("factory must not run"))?;
-    assert!(registry.register_config(Contract::empty("custom", "config"), |_| panic!("factory must not run")).is_err());
-    assert!(registry.register_events(Contract::empty("custom", "events"), |_, _| panic!("factory must not run")).is_err());
-    assert!(registry.register_observable(Contract::empty("custom", "observable"), |_| panic!("factory must not run")).is_err());
+    registry.register(
+        Contract::empty("custom", "service"),
+        Ordering::default(),
+        |_| panic!("factory must not run"),
+    )?;
+    assert!(
+        registry
+            .register_config(Contract::empty("custom", "config"), |_| panic!(
+                "factory must not run"
+            ))
+            .is_err()
+    );
+    assert!(
+        registry
+            .register_events(Contract::empty("custom", "events"), |_, _| panic!(
+                "factory must not run"
+            ))
+            .is_err()
+    );
+    assert!(
+        registry
+            .register_observable(Contract::empty("custom", "observable"), |_| panic!(
+                "factory must not run"
+            ))
+            .is_err()
+    );
     let exported = registry.export()?;
-    let ids: std::collections::BTreeSet<_> = exported.iter().map(|v| v["pluginId"].as_str().unwrap()).collect();
+    let ids: std::collections::BTreeSet<_> = exported
+        .iter()
+        .map(|v| v["pluginId"].as_str().unwrap())
+        .collect();
     assert_eq!(ids.len(), exported.len());
     Ok(())
 }
@@ -202,7 +231,10 @@ async fn requires_an_enabled_service() -> Result<()> {
             host.run_config(Config::load(&json!({"services":services}), "default")?),
         )
         .await;
-        assert!(result.is_ok(), "empty service profile did not fail promptly");
+        assert!(
+            result.is_ok(),
+            "empty service profile did not fail promptly"
+        );
         let message = format!("{:#}", result.unwrap().unwrap_err());
         assert!(message.contains("must enable at least one service"));
     }
@@ -211,14 +243,27 @@ async fn requires_an_enabled_service() -> Result<()> {
 #[tokio::test]
 async fn lifecycle_ignores_disabled_aliases_and_logical_targets() -> Result<()> {
     for target in ["remote", "optional", "missing", "worker"] {
-        let mut registry = Registry::new();
-        registry.register(Contract::empty("worker", "service"), Ordering {
-            init_after: vec![target.into()], run_before: vec![target.into()], ..Ordering::default()
-        }, |_| Ok(Box::new(StopOnRun)))?;
+        let mut registry = registry_with_local_events()?;
+        registry.register(
+            Contract::empty("worker", "service"),
+            Ordering {
+                init_after: vec![target.into()],
+                run_before: vec![target.into()],
+                ..Ordering::default()
+            },
+            |_| Ok(Box::new(StopOnRun)),
+        )?;
         let host = Host::new(registry)?;
         let result = host.run_config(Config::load(&json!({"services":{"worker":{},"remote":{"plugin":"optional","enabled":false,"language":"nodejs"}}}), "default")?).await;
         let message = format!("{:#}", result.unwrap_err());
-        assert!(message.contains(match target { "missing" => "unknown lifecycle", "worker" => "cycle", _ => "reached run" }), "{target}: {message}");
+        assert!(
+            message.contains(match target {
+                "missing" => "unknown lifecycle",
+                "worker" => "cycle",
+                _ => "reached run",
+            }),
+            "{target}: {message}"
+        );
     }
     Ok(())
 }
@@ -238,7 +283,7 @@ async fn cancellation_interrupts_startup_and_cleans_services() -> Result<()> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let closed = Arc::new(AtomicUsize::new(0));
     let count = closed.clone();
-    let mut registry = Registry::new();
+    let mut registry = registry_with_local_events()?;
     registry.register(
         Contract::empty("waiting", "service"),
         Ordering::default(),
@@ -278,7 +323,7 @@ impl Service for Failing {
 async fn validates_before_factory_and_cleans_failed_startup() -> Result<()> {
     let calls = Arc::new(AtomicUsize::new(0));
     let disposed = Arc::new(AtomicUsize::new(0));
-    let mut registry = Registry::new();
+    let mut registry = registry_with_local_events()?;
     let created = calls.clone();
     let cleaned = disposed.clone();
     registry.register(contract(), Ordering::default(), move |_| {

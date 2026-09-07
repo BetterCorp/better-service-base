@@ -2,7 +2,7 @@
 
 Go applications are BSB plugins. The BSB executable owns configuration, observability, transport startup, service ordering and shutdown. Plugin packages register factories and static `bsb.PluginContract` metadata; export never invokes application constructors. Selected packages are linked into a BSB host at build time.
 
-File/environment/Vault configuration, native Rabbit transport, runtime validation, package/client tooling and native observability are implemented. The real broker harness verifies all 20 directed RPC/trace/binary-stream pairs across Node, .NET, Python, Go and Rust, plus absent and crashed consumers. Seven native examples are included under `examples/nativeplugins`; verification status is tracked in [the implementation plan](../docs/native-go-rust-plan.md).
+File/environment/Vault configuration, native Rabbit transport, runtime validation, package/client tooling and native observability are implemented. The real broker harness verifies all 20 directed RPC/trace/binary-stream pairs across Node, .NET, Python, Go and Rust, plus absent and crashed consumers. Native implementations live in `../plugins/go`, including seven examples under `../plugins/go/examples`; verification status is tracked in [the implementation plan](../docs/native-go-rust-plan.md).
 
 `go run ./cmd/bsb` starts the host. Set `BSB_CONFIG_PLUGIN` to `config-default` (default), `config-env`, `config-vault` or `config-vault-google`. File configuration reads `sec-config.json`; `BSB_CONFIG_FILE` overrides its path. Environment configuration reads `BSB_CONFIG_JSON`. `BSB_PROFILE` selects a profile (default `default`). Profiles merge recursively with defaults, enabled native entries must use language `go`, and disabled remote service references may use another language. An enabled package absent from the linked host fails startup.
 
@@ -12,7 +12,7 @@ Vault uses `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs` (5000), `staleAllowe
 
 `bsb.WithObservable(ctx, obs)` preserves the caller trace through nested client calls. Generated optional fields use `bsb.Optional[T]` and `json:",omitzero"` to distinguish omitted values from explicit nulls.
 
-Run `go test ./...`. Real multi-language Rabbit tests run in the repository integration CI with a RabbitMQ service.
+The repository-level `go.mod` includes the framework under `go/` and native plugins under `plugins/go/`, preserving the framework's `/go/bsb` import path. From the repository root run `go generate ./plugins/go/examples` then `go test ./go/... ./plugins/go/...`. Real multi-language Rabbit tests run in the repository integration CI with a RabbitMQ service.
 
 ## Package builds and generated clients
 
@@ -22,7 +22,7 @@ A consuming Go module adds BSB as a dependency and lists its linked plugin packa
 {"go":[{"id":"service-orders","package":"example.com/orders/plugin"}]}
 ```
 
-Each package exports `Register(*bsb.PluginRegistry)` and registers factories plus static contracts. Run `go run github.com/bettercorp/service-base/go/cmd/bsb plugin build` from the consuming module. This writes `.bsb/host/main.go`, compiles `lib/bsb` (`.exe` on Windows), and exports `lib/schemas/*.json`. Start **that BSB executable** with `run`; application packages do not own startup. A final Docker stage can copy `lib/bsb` over `/usr/local/bin/bsb` in the BSB Go image. Build the executable for the image's OS/architecture.
+Each package exports `Register(*bsb.PluginRegistry)` and registers factories plus static contracts. Run `go run github.com/bettercorp/service-base/go/cmd/bsb plugin build` from the consuming module. This runs the project's `go generate` directives and regenerates installed clients, writes `.bsb/host/main.go`, compiles `lib/bsb` (`.exe` on Windows), and exports `lib/schemas/*.json`. Generated clients and `.bsb` caches are build outputs. Start **that BSB executable** with `run`; application packages do not own startup. A final Docker stage can copy `lib/bsb` over `/usr/local/bin/bsb` in the BSB Go image. Build the executable for the image's OS/architecture.
 
 ```sh
 bsb client info @org/service-orders --source-language nodejs

@@ -34,9 +34,9 @@ def test_service_targets_require_unambiguous_aliases():
 
 def test_exporter_capabilities_match_supported_signals():
     from bsb.schema_export import build_capabilities
-    from bsb.plugins.observable_zipkin import Plugin as Zipkin
-    from bsb.plugins.observable_syslog import Plugin as Syslog
-    from bsb.plugins.observable_opentelemetry import Plugin as Otlp
+    from bsb_python_plugins.observable_zipkin import Plugin as Zipkin
+    from bsb_python_plugins.observable_syslog import Plugin as Syslog
+    from bsb_python_plugins.observable_opentelemetry import Plugin as Otlp
 
     for plugin, supported in ((Zipkin, {"tracing"}), (Syslog, {"logging"}),
                               (Otlp, {"logging", "metrics", "tracing"}), (object, set())):

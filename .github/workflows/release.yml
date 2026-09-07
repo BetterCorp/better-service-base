@@ -397,8 +397,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip build
+          python -m pip install --upgrade pip build setuptools wheel
           python -m pip install -e ".[dev]"
+          python -m pip install -e ../plugins/python/builtins
+          python -m pip install --no-build-isolation -e ../plugins/python/examples
 
       - name: Run tests
         run: pytest
@@ -407,14 +409,19 @@ jobs:
         env:
           BSB_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          python -c 'import os,pathlib,re; p=pathlib.Path("pyproject.toml"); p.write_text(re.sub(r"(?m)^version = .*", "version = " + chr(34) + os.environ["BSB_VERSION"] + chr(34), p.read_text()))'
-          python -m build
+          python -c 'import os,pathlib,re; paths=[pathlib.Path(p) for p in ("pyproject.toml", "../plugins/python/builtins/pyproject.toml", "../plugins/python/examples/pyproject.toml")]; [p.write_text(re.sub(r"(?m)^version = .*", "version = " + chr(34) + os.environ["BSB_VERSION"] + chr(34), p.read_text())) for p in paths]'
+          python -m build --no-isolation
+          python -m build --no-isolation ../plugins/python/builtins
+          python -m build --no-isolation ../plugins/python/examples
 
       - name: Upload native Python packages
         uses: actions/upload-artifact@v7
         with:
           name: bsb-python-packages
-          path: python/dist/*
+          path: |
+            python/dist/*
+            plugins/python/builtins/dist/*
+            plugins/python/examples/dist/*
 
   go:
     name: Go
@@ -433,10 +440,12 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: "1.26.1"
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: go.sum
 
       - name: Run tests
-        run: go test ./...
+        run: |
+          go generate ../plugins/go/examples
+          go test ./... ../plugins/go/...
 
       - name: Build CLI
         run: go build -o /tmp/bsb ./cmd/bsb
@@ -458,17 +467,16 @@ jobs:
         env:
           BSB_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          cargo test --locked
-          cargo test --locked --manifest-path examples/native_plugins/Cargo.toml
+          cargo test --locked --workspace
           sh set-version.sh "$BSB_VERSION"
           cargo package --locked --allow-dirty
-          cargo build --locked --release --bin bsb
+          cargo build --locked --release -p better-service-base-cli --bin bsb
       - uses: actions/upload-artifact@v7
         with:
           name: bsb-rust-packages
           path: |
-            rust/target/package/*.crate
-            rust/target/release/bsb
+            target/package/*.crate
+            target/release/bsb
 
   dotnet:
     name: .NET
@@ -807,7 +815,7 @@ jobs:
       - name: Build and push to Forgejo
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./go
+          context: .
           file: ./go/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
@@ -862,7 +870,7 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v7
         with:
-          context: ./go
+          context: .
           file: ./go/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
@@ -905,7 +913,7 @@ jobs:
       - name: Build and push to Forgejo
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./python
+          context: .
           file: ./python/Dockerfile
           build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
@@ -961,7 +969,7 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v7
         with:
-          context: ./python
+          context: .
           file: ./python/Dockerfile
           build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
@@ -1005,7 +1013,7 @@ jobs:
       - name: Build and push to Forgejo
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./dotnet
+          context: .
           file: ./dotnet/BetterServiceBase/Dockerfile
           build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
@@ -1054,7 +1062,7 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v7
         with:
-          context: ./dotnet
+          context: .
           file: ./dotnet/BetterServiceBase/Dockerfile
           build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
@@ -1098,7 +1106,7 @@ jobs:
       - name: Build and push to Forgejo
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./rust
+          context: .
           file: ./rust/Dockerfile
           build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
@@ -1147,7 +1155,7 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v7
         with:
-          context: ./rust
+          context: .
           file: ./rust/Dockerfile
           build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64

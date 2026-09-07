@@ -2,11 +2,11 @@
 
 Rust applications are plugin crates loaded by a BSB executable. BSB owns configuration, transport startup, service ordering and shutdown. Plugins register factories and static contracts; exporting schemas never constructs application services. Selected crates are linked at build time. Runtime profiles cannot download or execute packages.
 
-Requires Rust 1.95 or later and a native C toolchain for TLS dependencies. `cargo test --locked` checks the runtime and compiles clients generated from the shared portable contracts. `cargo test --manifest-path examples/native_plugins/Cargo.toml` checks the native Todo example. The repository integration harness exercises all directed Node/.NET/Python/Go/Rust RPC, trace and binary-stream pairs against RabbitMQ.
+Requires Rust 1.95 or later and a native C toolchain for TLS dependencies. The root Cargo workspace contains the SDK in `rust/`, CLI in `rust/cli`, builtin implementations in `plugins/rust/builtins`, and examples in `plugins/rust/native-examples`. `cargo test --workspace --locked` checks these packages and generates clients from shared portable contracts during compilation. The repository integration harness exercises all directed Node/.NET/Python/Go/Rust RPC, trace and binary-stream pairs against RabbitMQ.
 
 ## Build and run plugins
 
-Install the CLI from this checkout with `cargo install --path . --locked`. A consuming crate depends on BSB:
+From the repository root, install the CLI with `cargo install --path rust/cli --locked`. The SDK contains reusable contracts, runtime and host interfaces; the CLI composes the separate builtin plugin crate. `Registry::new()` creates an empty registry; custom host composition registers defaults with `bsb_rust_builtins::register`. A consuming plugin crate depends only on the SDK:
 
 ```toml
 [dependencies]
@@ -21,7 +21,7 @@ Its library exports `pub fn register(registry: &mut bsb::host::Registry) -> bsb:
 
 Save this as `bsb-plugin.json` beside the consuming `Cargo.toml`. `crate` identifies the current crate or a dependency alias; Cargo's hyphen/underscore spelling is accepted. Explicit and workspace-inherited dependencies are supported. Each selected crate registers once, even if it supplies several plugins.
 
-Run `bsb plugin build` to generate `.bsb/host`, compile `lib/bsb` (`.exe` on Windows), and export `lib/schemas`. `CARGO_TARGET_DIR` is respected for build caching. Start **`lib/bsb run`**; application crates do not own startup. Build for the target OS/architecture. In a final Docker stage based on the Rust BSB runtime, copy this linked executable over `/usr/local/bin/bsb`; the runtime image deliberately contains no compiler. See [the seven working examples](examples/native_plugins/README.md).
+Run `bsb plugin build` to generate `.bsb/host`, compile `lib/bsb` (`.exe` on Windows), and export `lib/schemas`. `CARGO_TARGET_DIR` is respected for build caching. Start **`lib/bsb run`**; application crates do not own startup. Build for the target OS/architecture. In a final Docker stage based on the Rust BSB runtime, copy this linked executable over `/usr/local/bin/bsb`; the runtime image deliberately contains no compiler. See [the seven working examples](../plugins/rust/native-examples/README.md).
 
 ## Configuration and Vault
 

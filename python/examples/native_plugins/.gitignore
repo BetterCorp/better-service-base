@@ -1,7 +1,0 @@
-!.bsb/
-.bsb/*
-!.bsb/schemas/
-lib/
-build/
-*.egg-info/
-.temp/

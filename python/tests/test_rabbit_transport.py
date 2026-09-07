@@ -6,7 +6,7 @@ import pytest
 
 from bsb.base import PluginCtor
 from bsb.observable import ObservableBackend, SBObservable
-from bsb.plugins.events_rabbitmq import Plugin
+from bsb_python_plugins.events_rabbitmq import Plugin
 
 
 def test_rabbit_wire_confirmations_poison_and_streams(tmp_path):

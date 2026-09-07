@@ -2,11 +2,11 @@ FROM rust:1.95-bookworm AS builder
 ARG BSB_VERSION=
 WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
-COPY set-version.sh ./
-RUN if [ -n "$BSB_VERSION" ]; then sh set-version.sh "$BSB_VERSION"; fi
-COPY src ./src
-COPY examples/rabbit-peer.rs ./examples/rabbit-peer.rs
-RUN cargo build --locked --release --bin bsb
+COPY rust ./rust
+COPY plugins/rust ./plugins/rust
+COPY plugins/contracts ./plugins/contracts
+RUN if [ -n "$BSB_VERSION" ]; then sh rust/set-version.sh "$BSB_VERSION"; fi
+RUN cargo build --locked --release -p better-service-base-cli --bin bsb
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \

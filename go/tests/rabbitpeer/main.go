@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/bettercorp/service-base/go/bsb"
-	"github.com/bettercorp/service-base/go/plugins/eventsrabbitmq"
+	"github.com/bettercorp/service-base/plugins/go/eventsrabbitmq"
 )
 
 func main() {

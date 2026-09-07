@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <PackageId>BetterCorp.BSB.Events.RabbitMQ</PackageId>
+    <AssemblyName>events-rabbitmq</AssemblyName>
+    <OutputPath>../../../dotnet/BetterServiceBase/bin/$(Configuration)/net10.0/plugins/events-rabbitmq/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../dotnet/BSB/BSB.csproj" Private="false" ExcludeAssets="runtime" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
+  </ItemGroup>
+</Project>

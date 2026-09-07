@@ -61,8 +61,8 @@ jobs:
           dotnet-version: "10.0.x"
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
       - name: Build native integration peers
         id: build-peers
         run: |
@@ -70,11 +70,11 @@ jobs:
           npm run tsc --workspace nodejs
           node node_modules/typescript/bin/tsc -p plugins/nodejs/events-rabbitmq/tsconfig.json
           node node_modules/typescript/bin/tsc -p plugins/nodejs/config-vault/tsconfig.json
-          python -m pip install -e ./python
+          python -m pip install -e ./python -e ./plugins/python/builtins
           dotnet build dotnet/tests/RabbitPeer -c Release
           (cd go && go build -o bin/rabbit-peer ./tests/rabbitpeer)
           rustup toolchain install 1.95 --profile minimal
-          cargo +1.95 build --locked --manifest-path rust/Cargo.toml --example rabbit-peer
+          cargo +1.95 build --locked --manifest-path plugins/rust/builtins/Cargo.toml --example rabbit-peer
       - name: Verify all native language pairs over RabbitMQ
         timeout-minutes: 5
         env:
@@ -185,8 +185,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip build setuptools wheel
           python -m pip install -e ".[dev]"
+          python -m pip install -e ../plugins/python/builtins
+          python -m pip install --no-build-isolation -e ../plugins/python/examples
 
       - name: Run tests
         run: pytest
@@ -207,10 +209,12 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: "1.26.1"
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: go.sum
 
       - name: Run tests
-        run: go test ./...
+        run: |
+          go generate ../plugins/go/examples
+          go test ./... ../plugins/go/...
 
       - name: Build CLI
         run: go build -o /tmp/bsb ./cmd/bsb
@@ -265,15 +269,15 @@ jobs:
       - name: Test runtime, generated clients and native examples
         run: |
           rustup default 1.95
-          cargo test --locked --manifest-path rust/Cargo.toml
-          cargo test --locked --manifest-path rust/examples/native_plugins/Cargo.toml
+          cargo test --locked --workspace
       - name: Build linked plugin host and export static contracts
         env:
-          CARGO_TARGET_DIR: ${{ github.workspace }}/rust/target
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
         run: |
-          cd rust/examples/native_plugins
-          cargo run --locked --manifest-path ../../Cargo.toml --bin bsb -- plugin build
+          cd plugins/rust/native-examples
+          cargo run --locked -p better-service-base-cli --bin bsb -- plugin build
           ./lib/bsb export > /tmp/rust-contracts.json
+          ./lib/bsb client sync
           python -c 'import json; docs=json.load(open("/tmp/rust-contracts.json")); assert len(docs)==22; assert all(d["language"]=="rust" for d in docs)'
 
   docker-rust:
@@ -289,7 +293,7 @@ jobs:
           cache-key: rust/Dockerfile
       - uses: useblacksmith/build-push-action@v2
         with:
-          context: ./rust
+          context: .
           file: ./rust/Dockerfile
           load: true
           platforms: linux/amd64
@@ -460,7 +464,7 @@ jobs:
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./go
+          context: .
           file: ./go/Dockerfile
           platforms: linux/amd64
           push: false
@@ -497,7 +501,7 @@ jobs:
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./python
+          context: .
           file: ./python/Dockerfile
           platforms: linux/amd64
           push: false
@@ -527,7 +531,7 @@ jobs:
       - name: Build image
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./dotnet
+          context: .
           file: ./dotnet/BetterServiceBase/Dockerfile
           platforms: linux/amd64
           push: false

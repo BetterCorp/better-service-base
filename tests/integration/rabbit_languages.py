@@ -11,7 +11,7 @@ import aio_pika
 
 from bsb.base import PluginCtor
 from bsb.observable import ObservableBackend, SBObservable
-from bsb.plugins.events_rabbitmq import Plugin
+from bsb_python_plugins.events_rabbitmq import Plugin
 
 
 async def main():
@@ -27,7 +27,7 @@ async def main():
     commands = {"nodejs": ["node", str(root / "tests/integration/node-rabbit-peer.mjs")],
         "csharp": ["dotnet", str(root / "dotnet/tests/RabbitPeer/bin/Release/net10.0/RabbitPeer.dll")],
         "go": [str(root / "go/bin/rabbit-peer") + (".exe" if os.name == "nt" else "")],
-        "rust": [str(root / "rust/target/debug/examples/rabbit-peer") + (".exe" if os.name == "nt" else "")]}
+        "rust": [str(root / "target/debug/examples/rabbit-peer") + (".exe" if os.name == "nt" else "")]}
     if os.environ.get("BSB_RUST_PEER_COMMAND_JSON"):
         commands["rust"] = json.loads(os.environ["BSB_RUST_PEER_COMMAND_JSON"])
     languages = ("python", *commands)

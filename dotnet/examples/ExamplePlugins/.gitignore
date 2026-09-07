@@ -1,5 +1,0 @@
-/lib/
-/packages/
-!.bsb/
-.bsb/*
-!.bsb/schemas/

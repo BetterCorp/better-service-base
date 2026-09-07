@@ -6,7 +6,7 @@ These use real RabbitMQ and PostgreSQL services in the `native-integration` buil
 npm run tsc --workspace nodejs
 node node_modules/typescript/bin/tsc -p plugins/nodejs/events-rabbitmq/tsconfig.json
 node node_modules/typescript/bin/tsc -p plugins/nodejs/config-vault/tsconfig.json
-python -m pip install -e ./python
+python -m pip install -e ./python -e ./plugins/python/builtins
 dotnet build dotnet/tests/RabbitPeer -c Release
 BSB_RABBITMQ_URL=amqp://user:password@localhost:5672 python tests/integration/rabbit_languages.py
 BSB_POSTGRES_URL=postgresql://user:password@localhost/testdb node tests/integration/vault-postgres.mjs

@@ -9,8 +9,8 @@ from cryptography.exceptions import InvalidTag
 
 from bsb.base import PluginCtor
 from bsb.observable import ObservableBackend, SBObservable
-from bsb.plugins.config_vault import Config, Plugin, RetryableVaultError, apply_overrides
-from bsb.plugins.config_vault_google import Plugin as GooglePlugin
+from bsb_python_plugins.config_vault import Config, Plugin, RetryableVaultError, apply_overrides
+from bsb_python_plugins.config_vault_google import Plugin as GooglePlugin
 import bsb.registry_client as registry
 
 
@@ -122,7 +122,7 @@ def test_vault_http_cache_and_registry_variants(tmp_path, monkeypatch):
 
 
 def test_google_identity_refresh(monkeypatch, tmp_path):
-    import bsb.plugins.config_vault_google as google
+    import bsb_python_plugins.config_vault_google as google
     calls = []
     class Credentials:
         valid = False

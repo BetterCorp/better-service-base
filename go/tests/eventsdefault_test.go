@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bettercorp/service-base/go/bsb"
-	"github.com/bettercorp/service-base/go/plugins/eventsdefault"
+	"github.com/bettercorp/service-base/plugins/go/eventsdefault"
 )
 
 func TestTimeoutCancelsHandlerAndStreamsAreOneShot(t *testing.T) {

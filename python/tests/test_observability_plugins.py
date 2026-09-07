@@ -18,8 +18,8 @@ from cryptography.x509.oid import NameOID
 
 from bsb.base import PluginCtor
 from bsb.observable import ObservableBackend, SBObservable
-from bsb.plugins.observable_graylog import datagrams
-from bsb.plugins.observable_pino import Config as PinoConfig, Plugin as Pino
+from bsb_python_plugins.observable_graylog import datagrams
+from bsb_python_plugins.observable_pino import Config as PinoConfig, Plugin as Pino
 from bsb.telemetry import post
 
 
@@ -42,7 +42,7 @@ def test_native_logging_and_remote_exports(tmp_path):
     entry = {"timestamp": datetime.now(timezone.utc).isoformat(), "level": "info", "plugin": "worker", "message": "hello",
         "traceId": trace.trace_id, "spanId": trace.span_id, "meta": {"users": [{"token": "secret", "name": "one"}]}}
     def create(name, config):
-        module = importlib.import_module("bsb.plugins.observable_" + name)
+        module = importlib.import_module("bsb_python_plugins.observable_" + name)
         return module.Plugin(PluginCtor("test", "test", name, str(tmp_path), "", "", module.Config.validation_schema.parse(config), "1.0.0", backend))
     async def check():
         file = create("logging_file", {"path": "app.log", "maxBytes": 400, "maxFiles": 2, "compress": True, "redact": ["meta.users.*.token"]})

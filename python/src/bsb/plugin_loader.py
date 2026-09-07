@@ -113,7 +113,7 @@ class SBPlugins:
 
         if npm_package:
             candidates.append(f"{npm_package}.{plugin_mod}")
-        candidates.append(f"bsb.plugins.{plugin_mod}")
+        candidates.append(f"bsb_python_plugins.{plugin_mod}")
 
         last_error: Exception | None = None
         for module_name in candidates:

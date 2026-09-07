@@ -15,12 +15,13 @@ RUN useradd --create-home --uid 1000 bsb \
 
 WORKDIR /opt/bsb-src
 
-COPY pyproject.toml README.md ./
-COPY src/ ./src/
+COPY python/pyproject.toml python/README.md ./python/
+COPY python/src/ ./python/src/
+COPY plugins/python/builtins/ ./plugins/python/builtins/
 
 RUN python -m venv /opt/bsb \
-    && python -c 'import os,pathlib,re; p=pathlib.Path("pyproject.toml"); p.write_text(re.sub(r"(?m)^version = .*", "version = " + chr(34) + os.environ["BSB_VERSION"] + chr(34), p.read_text()))' \
-    && /opt/bsb/bin/python -m pip install --no-cache-dir .
+    && python -c 'import os,pathlib,re; [p.write_text(re.sub(r"(?m)^version = .*", "version = " + chr(34) + os.environ["BSB_VERSION"] + chr(34), p.read_text())) for p in map(pathlib.Path, ("python/pyproject.toml", "plugins/python/builtins/pyproject.toml"))]' \
+    && /opt/bsb/bin/python -m pip install --no-cache-dir ./python ./plugins/python/builtins
 
 USER bsb
 WORKDIR /home/bsb/app

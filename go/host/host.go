@@ -9,26 +9,13 @@ import (
 	"strings"
 
 	"github.com/bettercorp/service-base/go/bsb"
-	"github.com/bettercorp/service-base/go/plugins/configdefault"
-	"github.com/bettercorp/service-base/go/plugins/configenv"
-	"github.com/bettercorp/service-base/go/plugins/configvault"
-	"github.com/bettercorp/service-base/go/plugins/eventsdefault"
-	"github.com/bettercorp/service-base/go/plugins/eventsrabbitmq"
-	"github.com/bettercorp/service-base/go/plugins/observabledefault"
-	"github.com/bettercorp/service-base/go/plugins/observablenative"
 	"github.com/bettercorp/service-base/go/tooling"
+	"github.com/bettercorp/service-base/plugins/go/builtins"
 )
 
 func NewRegistry() *bsb.PluginRegistry {
 	registry := bsb.NewPluginRegistry()
-	configdefault.Register(registry)
-	configenv.Register(registry)
-	configvault.Register(registry)
-	eventsdefault.Register(registry)
-	eventsrabbitmq.Register(registry)
-	observabledefault.Register(registry)
-	observablenative.Register(registry)
-	registerBuiltinContracts(registry)
+	builtins.Register(registry)
 	return registry
 }
 func Run(ctx context.Context, registry *bsb.PluginRegistry, args []string) error {

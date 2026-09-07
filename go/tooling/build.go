@@ -39,6 +39,15 @@ func BuildHost(ctx context.Context, cwd string) (string, error) {
 	if len(imports) == 0 {
 		return "", fmt.Errorf("bsb-plugin.json requires Go plugin entries with package import paths")
 	}
+	// Run project-owned generators before compiling packages that reference their output.
+	generate := exec.CommandContext(ctx, "go", "generate", "./...")
+	generate.Dir, generate.Stdout, generate.Stderr = cwd, os.Stdout, os.Stderr
+	if err = generate.Run(); err != nil {
+		return "", fmt.Errorf("generate plugin build inputs: %w", err)
+	}
+	if _, err = SyncClients(cwd); err != nil {
+		return "", fmt.Errorf("generate installed clients: %w", err)
+	}
 	var source strings.Builder
 	source.WriteString("package main\nimport (\n\"github.com/bettercorp/service-base/go/host\"\n")
 	packages := keys(imports)

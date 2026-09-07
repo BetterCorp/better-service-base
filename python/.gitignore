@@ -1,13 +1,6 @@
-src/.bsb/
+bsb-plugin.json
+lib/
 __pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
+*.py[cod]
 *.egg-info/
-dist/
-build/
-*.egg
-.coverage
-htmlcov/
-.venv/
-venv/
+.pytest_cache/

@@ -1,5 +1,5 @@
 use crate::{
-    config::{self, Config},
+    config::Config,
     contract::{Contract, parse_schema},
     events::{Bus, Events, LocalBus},
     observable::{Backend, Observable, Observer},
@@ -48,22 +48,6 @@ pub trait Configuration: Send {
         Ok(())
     }
 }
-struct NativeConfig {
-    kind: &'static str,
-    raw: Value,
-}
-#[async_trait]
-impl Configuration for NativeConfig {
-    async fn load(&mut self, cwd: &Path, profile: &str) -> Result<Config> {
-        if self.kind == "config-vault" || self.kind == "config-vault-google" {
-            crate::vault::Vault::new(cwd, &self.raw, self.kind == "config-vault-google")?
-                .load()
-                .await
-        } else {
-            config::local(cwd, self.kind, profile).await
-        }
-    }
-}
 type ConfigFactory = Arc<dyn Fn(Value) -> Result<Box<dyn Configuration>> + Send + Sync>;
 type BusFactory =
     Arc<dyn Fn(Value, Observable) -> BoxFuture<'static, Result<Arc<dyn Bus>>> + Send + Sync>;
@@ -99,55 +83,7 @@ impl Registry {
             || self.observers.contains_key(id)
     }
     pub fn new() -> Self {
-        let mut registry = Self::default();
-        for kind in [
-            "config-default",
-            "config-env",
-            "config-vault",
-            "config-vault-google",
-        ] {
-            registry
-                .register_config(crate::builtins::contract(kind, "config"), move |raw| {
-                    Ok(Box::new(NativeConfig { kind, raw }))
-                })
-                .expect("builtin config contract");
-        }
-        registry
-            .register_events(
-                crate::builtins::contract("events-default", "events"),
-                |_, _| Box::pin(async { Ok(Arc::new(LocalBus::default()) as Arc<dyn Bus>) }),
-            )
-            .expect("builtin events contract");
-        registry
-            .register_events(
-                crate::builtins::contract("events-rabbitmq", "events"),
-                |raw, obs| {
-                    Box::pin(async move {
-                        Ok(Arc::new(crate::rabbit::Rabbit::new(raw, obs).await?) as Arc<dyn Bus>)
-                    })
-                },
-            )
-            .expect("builtin Rabbit contract");
-        for kind in [
-            "observable-default",
-            "observable-logging-file",
-            "observable-pino",
-            "observable-winston",
-            "observable-opentelemetry",
-            "observable-axiom",
-            "observable-zipkin",
-            "observable-graylog",
-            "observable-syslog",
-        ] {
-            registry
-                .register_observable(crate::builtins::contract(kind, "observable"), move |raw| {
-                    Box::pin(async move {
-                        Ok(crate::telemetry::Native::new(kind, raw).await? as Arc<dyn Observer>)
-                    })
-                })
-                .expect("builtin observable contract");
-        }
-        registry
+        Self::default()
     }
     pub fn register<F>(&mut self, contract: Contract, ordering: Ordering, factory: F) -> Result<()>
     where
@@ -309,7 +245,9 @@ fn lifecycle_targets(config: &Config, target: &str) -> Result<Vec<String>> {
         .map(|(name, _)| name.clone())
         .collect();
     ensure!(
-        config.groups["services"].values().any(|v| v.plugin == target),
+        config.groups["services"]
+            .values()
+            .any(|v| v.plugin == target),
         "unknown lifecycle dependency {target}"
     );
     Ok(targets)
@@ -324,7 +262,9 @@ impl Host {
     }
     pub async fn run_config(&self, config: Config) -> Result<()> {
         ensure!(
-            config.groups["services"].values().any(|definition| definition.enabled),
+            config.groups["services"]
+                .values()
+                .any(|definition| definition.enabled),
             "deployment profile must enable at least one service"
         );
         let config = Arc::new(config);
@@ -434,9 +374,6 @@ impl Host {
 }
 pub async fn main_with_registry(registry: Registry) -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    if crate::tooling::command(&std::env::current_dir()?, &args).await? {
-        return Ok(());
-    }
     if args.first().map(String::as_str) == Some("export") || args == ["plugin", "export"] {
         println!("{}", serde_json::to_string(&registry.export()?)?);
         return Ok(());

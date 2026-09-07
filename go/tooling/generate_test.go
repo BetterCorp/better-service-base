@@ -30,12 +30,12 @@ func TestGeneratedClientCompilesAndPreservesOptionalNull(t *testing.T) {
 		t.Fatalf("missing optional/null representation: %s", code)
 	}
 	directory := t.TempDir()
-	module, err := filepath.Abs("..")
+	module, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	files := map[string]string{"go.mod": "module generatedtest\n\ngo 1.26.1\nrequire github.com/bettercorp/service-base/go v0.0.0\nreplace github.com/bettercorp/service-base/go => " + strconv.Quote(filepath.ToSlash(module)) + "\n", "client.go": string(code), "client_test.go": `package bsbclients
-import("context";"encoding/json";"testing";"github.com/bettercorp/service-base/go/bsb";"github.com/bettercorp/service-base/go/plugins/eventsdefault")
+	files := map[string]string{"go.mod": "module generatedtest\n\ngo 1.26.1\nrequire github.com/bettercorp/service-base v0.0.0\nreplace github.com/bettercorp/service-base => " + strconv.Quote(filepath.ToSlash(module)) + "\n", "client.go": string(code), "client_test.go": `package bsbclients
+import("context";"encoding/json";"testing";"github.com/bettercorp/service-base/go/bsb";"github.com/bettercorp/service-base/plugins/go/eventsdefault")
 func TestRoundTrip(t *testing.T){
  input:=EchoClientEchoInput{Name:"ok"}
  data,_:=json.Marshal(input);if string(data)!="{\"name\":\"ok\"}"{t.Fatal(string(data))}

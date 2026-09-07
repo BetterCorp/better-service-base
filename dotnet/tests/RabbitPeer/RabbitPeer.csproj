@@ -7,6 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../BSB/BSB.csproj" />
-    <ProjectReference Include="../../plugins/events-rabbitmq/events-rabbitmq.csproj" />
+    <ProjectReference Include="../../../plugins/dotnet/events-rabbitmq/events-rabbitmq.csproj" />
   </ItemGroup>
 </Project>

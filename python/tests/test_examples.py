@@ -12,7 +12,7 @@ from bsb.service_base import ServiceBase
 
 
 def test_native_examples_manifest_clients_http_and_persistence(tmp_path, monkeypatch):
-    root = Path(__file__).parents[1] / "examples" / "native_plugins"
+    root = Path(__file__).parents[2] / "plugins" / "python" / "examples"
     build_project(root)
     manifest = json.loads((root / "bsb-plugin.json").read_text())
     assert len(manifest["python"]) == 7

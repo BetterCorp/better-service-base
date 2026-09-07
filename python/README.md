@@ -7,7 +7,7 @@ BSB is the executable host. Your application is a Python plugin distribution loa
 ```sh
 python -m venv .venv
 # Activate .venv using your shell's activation script.
-python -m pip install -e /path/to/service-base/python
+python -m pip install -e /path/to/service-base/python -e /path/to/service-base/plugins/python/builtins
 bsb plugin install my-bsb-plugins --version 1.2.3
 bsb run
 ```
@@ -54,7 +54,7 @@ BSB uses installed distribution entry points and pip's dependency resolver. Each
 
 Exact Registry versions can include prerelease/build suffixes. For wheels, use [PEP 440-compatible versions](https://packaging.pypa.io/en/stable/version.html): `1.2.3-beta.1` in a profile matches pip's normalized `1.2.3b1`. BSB uses `packaging` for this comparison and installation; Registry identities retain their original version strings.
 
-See [the native examples](examples/native_plugins/README.md) for seven runnable plugins and a wheel installation example.
+See [the native examples](../plugins/python/examples/README.md) for seven runnable plugins and a wheel installation example.
 
 ## Generated clients across languages
 
@@ -118,11 +118,11 @@ Network loggers accept `host`, `port`, `protocol`, `level`, `redact`, and option
 ## Build and verification
 
 ```sh
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev]' -e ../plugins/python/builtins
 python -m pytest tests -q
 ```
 
-Tests cover actual generated client type checking, plugin lifecycles, Vault/registry HTTP boundaries, encryption, simulated AMQP delivery and streams, exporter payloads, real UDP/TLS, and example HTTP/persistence. Real multi-language Rabbit and PostgreSQL migration integration remain separate validation requirements. Docker builds install BSB in `/opt/bsb`; application plugins belong in that environment during a derivative image's build stage. Runtime containers run as `bsb` from `/home/bsb/app`.
+Tests cover actual generated client type checking, plugin lifecycles, Vault/registry HTTP boundaries, encryption, simulated AMQP delivery and streams, exporter payloads, real UDP/TLS, and example HTTP/persistence. Real multi-language Rabbit and PostgreSQL migration integration remain separate validation requirements. Docker builds install BSB and `bsb-python-builtins` in `/opt/bsb`; application plugins belong in that environment during a derivative image's build stage. Runtime containers run as `bsb` from `/home/bsb/app`.
 
 ## Hosted clients
 

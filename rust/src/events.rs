@@ -24,7 +24,7 @@ pub type Handler =
 pub type Reader = Pin<Box<dyn AsyncRead + Send>>;
 pub type StreamHandler =
     Arc<dyn Fn(Observable, Reader) -> BoxFuture<'static, Result<()>> + Send + Sync>;
-pub(crate) fn failed_reader(message: impl Into<String>) -> Reader {
+pub fn failed_reader(message: impl Into<String>) -> Reader {
     let message = message.into();
     Box::pin(tokio_util::io::StreamReader::new(Box::pin(
         futures_util::stream::once(async move {

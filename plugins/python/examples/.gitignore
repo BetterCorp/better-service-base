@@ -1,0 +1,12 @@
+.bsb/
+bsb-plugin.json
+lib/
+build/
+dist/
+*.egg-info/
+.temp/
+__pycache__/
+*.py[cod]
+.venv/
+src/bsb_examples/clients/
+src/bsb_examples/contracts/

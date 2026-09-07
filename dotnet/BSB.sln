@@ -4,19 +4,19 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BSB", "BSB\BSB.csproj", "{B
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BetterServiceBase", "BetterServiceBase\BetterServiceBase.csproj", "{8F3AD3A2-8E2D-488F-ACA3-B16518C2A4EE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-default", "plugins\config-default\config-default.csproj", "{C1A1A1A1-0001-0001-0001-000000000001}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-default", "..\plugins\dotnet\config-default\config-default.csproj", "{C1A1A1A1-0001-0001-0001-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-default", "plugins\observable-default\observable-default.csproj", "{C1A1A1A1-0001-0001-0001-000000000002}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-default", "..\plugins\dotnet\observable-default\observable-default.csproj", "{C1A1A1A1-0001-0001-0001-000000000002}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "events-default", "plugins\events-default\events-default.csproj", "{C1A1A1A1-0001-0001-0001-000000000003}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "events-default", "..\plugins\dotnet\events-default\events-default.csproj", "{C1A1A1A1-0001-0001-0001-000000000003}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "plugins", "plugins", "{07D57EEB-2F50-60C4-C011-FE4FA775C9A8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-env", "plugins\config-env\config-env.csproj", "{4A5FF370-9DD3-4517-B0A6-EB567541FA51}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-env", "..\plugins\dotnet\config-env\config-env.csproj", "{4A5FF370-9DD3-4517-B0A6-EB567541FA51}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-vault", "plugins\config-vault\config-vault.csproj", "{3FB4A11B-3743-40E4-BA2A-243C47B5F174}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-vault", "..\plugins\dotnet\config-vault\config-vault.csproj", "{3FB4A11B-3743-40E4-BA2A-243C47B5F174}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-vault-google", "plugins\config-vault-google\config-vault-google.csproj", "{EE4FE785-E321-4A1B-99B4-D6FE0849C206}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "config-vault-google", "..\plugins\dotnet\config-vault-google\config-vault-google.csproj", "{EE4FE785-E321-4A1B-99B4-D6FE0849C206}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
@@ -26,27 +26,27 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestPlugin", "tests\TestPlu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmokeTests", "tests\SmokeTests\SmokeTests.csproj", "{D05D184D-110E-4711-9164-294557EF181B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "events-rabbitmq", "plugins\events-rabbitmq\events-rabbitmq.csproj", "{C5CFAC35-5F84-48EB-AC5F-317C207252E2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "events-rabbitmq", "..\plugins\dotnet\events-rabbitmq\events-rabbitmq.csproj", "{C5CFAC35-5F84-48EB-AC5F-317C207252E2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-logging-file", "plugins\observable-logging-file\observable-logging-file.csproj", "{03191D05-ECCD-4B9A-A875-A63473B073BF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-logging-file", "..\plugins\dotnet\observable-logging-file\observable-logging-file.csproj", "{03191D05-ECCD-4B9A-A875-A63473B073BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-pino", "plugins\observable-pino\observable-pino.csproj", "{B8B67E6E-382F-4DDC-BCB9-E408AD31D0BC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-pino", "..\plugins\dotnet\observable-pino\observable-pino.csproj", "{B8B67E6E-382F-4DDC-BCB9-E408AD31D0BC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-winston", "plugins\observable-winston\observable-winston.csproj", "{C38878E9-79F2-4DDE-A606-6C9D46961C5D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-winston", "..\plugins\dotnet\observable-winston\observable-winston.csproj", "{C38878E9-79F2-4DDE-A606-6C9D46961C5D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-axiom", "plugins\observable-axiom\observable-axiom.csproj", "{273E8147-96EB-473A-9B4E-00D772E65804}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-axiom", "..\plugins\dotnet\observable-axiom\observable-axiom.csproj", "{273E8147-96EB-473A-9B4E-00D772E65804}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-opentelemetry", "plugins\observable-opentelemetry\observable-opentelemetry.csproj", "{016C3377-C5E6-4459-8BEF-B7C9BD5CF2DF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-opentelemetry", "..\plugins\dotnet\observable-opentelemetry\observable-opentelemetry.csproj", "{016C3377-C5E6-4459-8BEF-B7C9BD5CF2DF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-zipkin", "plugins\observable-zipkin\observable-zipkin.csproj", "{146B74F4-D0E4-4DCB-87B4-2C11C36C41C1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-zipkin", "..\plugins\dotnet\observable-zipkin\observable-zipkin.csproj", "{146B74F4-D0E4-4DCB-87B4-2C11C36C41C1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-graylog", "plugins\observable-graylog\observable-graylog.csproj", "{ACC56B21-3DCC-49B5-8D12-750DA63BC66B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-graylog", "..\plugins\dotnet\observable-graylog\observable-graylog.csproj", "{ACC56B21-3DCC-49B5-8D12-750DA63BC66B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-syslog", "plugins\observable-syslog\observable-syslog.csproj", "{D553802D-BD2D-4233-BA96-97D7E7C25CA9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "observable-syslog", "..\plugins\dotnet\observable-syslog\observable-syslog.csproj", "{D553802D-BD2D-4233-BA96-97D7E7C25CA9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExamplePlugins", "examples\ExamplePlugins\ExamplePlugins.csproj", "{1308935F-BBB5-490D-9B52-87C1DB3D4379}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExamplePlugins", "..\plugins\dotnet\examples\ExamplePlugins\ExamplePlugins.csproj", "{1308935F-BBB5-490D-9B52-87C1DB3D4379}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

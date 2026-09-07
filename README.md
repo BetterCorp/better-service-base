@@ -5,6 +5,8 @@ It is production-ready and secure-by-default for validated APIs and distributed 
 Simplicity, flexibility, and expandability are core design goals.  
 Node.js is the primary implementation. Native [Go](go/README.md), [Python](python/README.md), [.NET](dotnet/README.md), and [Rust](rust/README.md) hosts run application plugins and generate clients from shared contracts. Registry, Vault, and syslog servers remain shared Node services. Each native guide documents packaging, runtime options, and remaining SDK limitations.
 
+See [repository layout and build outputs](docs/repository-layout.md) for framework/plugin separation, generated clients, SDK references and deployable artifacts.
+
 [![Intro 1](http://img.youtube.com/vi/-ulXL44D_ZI/0.jpg)](http://www.youtube.com/watch?v=-ulXL44D_ZI)  
 `#Sales pitch`
 

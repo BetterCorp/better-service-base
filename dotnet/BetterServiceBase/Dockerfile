@@ -6,8 +6,8 @@ WORKDIR /src
 
 COPY . .
 ARG BSB_VERSION=9.1.11
-RUN dotnet restore BetterServiceBase/BetterServiceBase.csproj
-RUN dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o /app/publish /p:UseAppHost=false /p:Version=${BSB_VERSION}
+RUN dotnet restore dotnet/BetterServiceBase/BetterServiceBase.csproj
+RUN dotnet publish dotnet/BetterServiceBase/BetterServiceBase.csproj -c Release -o /app/publish /p:UseAppHost=false /p:Version=${BSB_VERSION}
 
 FROM ${DOTNET_RUNTIME_IMAGE}
 RUN useradd --create-home --uid 10001 bsb

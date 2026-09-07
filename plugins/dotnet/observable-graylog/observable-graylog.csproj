@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <OutputPath>../../../dotnet/BetterServiceBase/bin/$(Configuration)/net10.0/plugins/observable-graylog/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../../dotnet/BSB/BSB.csproj" Private="false" ExcludeAssets="runtime" /></ItemGroup>
+</Project>

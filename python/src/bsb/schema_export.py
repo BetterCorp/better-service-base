@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import re
+import shutil
 import sys
 import tomllib
 from dataclasses import dataclass
@@ -80,6 +81,43 @@ def read_project_metadata(project_root: str | Path) -> dict[str, Any]:
         "author": author_value,
         "runtime": {"python": project.get("requires-python")} if project.get("requires-python") else None,
     }
+
+
+def prepare_contract_inputs(project_root: str | Path) -> list[Path]:
+    """Copy declared portable contracts into generated schema and package-input locations."""
+    project_root = Path(project_root)
+    pyproject_path = project_root / "pyproject.toml"
+    if not pyproject_path.exists():
+        return []
+    options = tomllib.loads(pyproject_path.read_text(encoding="utf-8")).get("tool", {}).get("bsb", {})
+    source_value = options.get("contracts-source")
+    package_name = options.get("contracts-package")
+    if source_value is None and package_name is None:
+        return []
+    if not isinstance(source_value, str) or not isinstance(package_name, str) or any(not part.isidentifier() for part in package_name.split(".")):
+        raise ValueError("contracts-source and contracts-package must be configured together")
+
+    package_dir = project_root / "src" / Path(*package_name.split("."))
+    source_dir = (project_root / source_value).resolve()
+    if not source_dir.is_dir():
+        source_dir = package_dir
+    if not source_dir.is_dir():
+        raise ValueError("Portable contract inputs are missing")
+
+    schema_dir = project_root / ".bsb" / "schemas"
+    package_dir.mkdir(parents=True, exist_ok=True)
+    schema_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+    for source in sorted(source_dir.glob("*.json")):
+        package_target = package_dir / source.name
+        schema_target = schema_dir / source.name
+        if source.resolve() != package_target.resolve():
+            shutil.copyfile(source, package_target)
+        shutil.copyfile(source, schema_target)
+        written.append(schema_target)
+    if not written:
+        raise ValueError("Portable contract inputs contain no schemas")
+    return written
 
 
 def _import_module(source_root: Path, file_path: Path) -> ModuleType:
@@ -284,6 +322,8 @@ def build_plugin_manifest(project_root: str | Path) -> Path:
 
 def build_project(project_root: str | Path) -> dict[str, Any]:
     from .client_generator import generate_clients
+    project_root = Path(project_root).resolve()
+    prepare_contract_inputs(project_root)
     generate_clients(project_root)
     schema_paths = export_schemas(project_root)
     manifest_path = build_plugin_manifest(project_root)
@@ -301,5 +341,6 @@ __all__ = [
     "discover_plugins",
     "export_schemas",
     "infer_plugin_type",
+    "prepare_contract_inputs",
     "read_project_metadata",
 ]
