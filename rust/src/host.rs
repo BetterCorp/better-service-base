@@ -323,6 +323,10 @@ impl Host {
         })
     }
     pub async fn run_config(&self, config: Config) -> Result<()> {
+        ensure!(
+            config.groups["services"].values().any(|definition| definition.enabled),
+            "deployment profile must enable at least one service"
+        );
         let config = Arc::new(config);
         let backend = Arc::new(Backend::default());
         let obs = Observable::new("bsb", backend.clone());

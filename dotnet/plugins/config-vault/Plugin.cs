@@ -11,6 +11,7 @@ namespace BSB.Plugins.ConfigVault;
 
 public class Plugin(PluginConstructorArgs args) : JsonConfigProvider(args)
 {
+    private const int MaxCacheBytes = 6 * 1024 * 1024;
     public static Schema ConfigSchema => V.Object(new() {
         ["vaultUrl"] = V.String().MinLength(1), ["apiKeyId"] = V.String().MinLength(1),
         ["apiSecret"] = V.String().MinLength(1).Describe("Runtime secret", new() { Sensitive = true }),
@@ -139,7 +140,16 @@ public class Plugin(PluginConstructorArgs args) : JsonConfigProvider(args)
     }
     private async Task<JsonObject> ReadCache(Uri url)
     {
-        var cache = JsonNode.Parse(await File.ReadAllTextAsync(CacheFile(url)))!.AsObject();
+        var bytes = new byte[MaxCacheBytes + 1]; var length = 0;
+        await using (var stream = File.OpenRead(CacheFile(url)))
+            while (length < bytes.Length)
+            {
+                var read = await stream.ReadAsync(bytes.AsMemory(length));
+                if (read == 0) break;
+                length += read;
+            }
+        if (length > MaxCacheBytes) throw new InvalidDataException("Vault cache exceeds size limit");
+        var cache = JsonNode.Parse(bytes.AsSpan(0, length))!.AsObject();
         var ciphertext = Convert.FromBase64String(cache["data"]!.GetValue<string>());
         var plaintext = new byte[ciphertext.Length];
         using var aes = new AesGcm(CacheKey(url), 16);

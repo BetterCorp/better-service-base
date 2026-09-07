@@ -71,7 +71,7 @@ GO HOST / CLIENT TOOLING (2026-09-06)
 - bsb client install ID --source-language LANG [--version VERSION] stores exact .bsb/schemas snapshot and emits bsbclients Go package. sync is offline. publish builds and exports without constructors; --target uses private Vault.
 - Source identities include Registry, org, name, language, version. Never infer a language for ambiguous implementations. Registry/Vault services remain shared Node services.
 - Generated client Events() handles streams; Specific(id) suffixes instance operations. Use bsb.WithObservable for nested traces. Optional[T] + omitzero preserves omitted/null; json.Number preserves untyped integer precision.
-- Nine observable implementations are linked. Native Pino/Winston formats, rotating files, OTLP, Axiom, Zipkin, GELF/syslog; bounded queues/flush, redaction before interpolation. Go README documents options and histogram ceiling.
+- Nine observable implementations are linked. Native Pino/Winston formats, rotating files, OTLP, Axiom, Zipkin, GELF/syslog; bounded queues/flush, redaction before interpolation. Go histograms export consistent count/sum/bucket snapshots and explicit finite, strictly increasing boundaries, including the overflow bucket. Go README documents options.
 - Node/.NET/Python/Go/Rust 20 directed RPC/trace/stream pairs passed locally, including absent listeners and crashed consumers. All seven native examples exist in both Go and Rust. See the plan for outstanding signing/CI status.
 
 HOSTED CONTRACT DISCOVERY

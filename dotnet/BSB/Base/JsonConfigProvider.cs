@@ -14,7 +14,7 @@ public abstract class JsonConfigProvider(PluginConstructorArgs args) : BSBConfig
         var legacy = document.ContainsKey("services") || document.ContainsKey("events") || document.ContainsKey("observable");
         var defaults = legacy ? document : document["default"] as JsonObject ?? new();
         var selected = legacy ? document["profiles"]?[profileName] as JsonObject : document[profileName] as JsonObject;
-        if (!legacy && selected is null && profileName != "default") throw new JsonException($"Missing configuration profile: {profileName}");
+        if (selected is null && profileName != "default") throw new JsonException($"Missing configuration profile: {profileName}");
         _profile = Merge(defaults, selected);
         if (_profile["language"]?.GetValue<string>() is string hostLanguage && hostLanguage is not ("csharp" or "dotnet"))
             throw new JsonException($"Profile requires {hostLanguage}; this host is csharp");

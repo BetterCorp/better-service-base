@@ -134,6 +134,21 @@ var client = own.CreateClient("service-orders", new BSBEventSchemas {
     OnReturnableEvents = new() { ["get"] = new(BSBTypes.Int32(), BSBTypes.String()) } }.Export("service-orders", "1.0.0"));
 own.SetBackend(router);
 Check(Equals(await client.EmitEventAndReturn("get", null!, 1), "remote:mapped"), "Constructor-created client did not resolve backend");
+var ambiguousRouter = new SBEvents(ctor);
+ambiguousRouter.AddPlugin(local);
+ambiguousRouter.SetServices(new() {
+    ["one"] = new() { Name = "one", Plugin = "service-orders", Enabled = true },
+    ["two"] = new() { Name = "two", Plugin = "service-orders", Enabled = true },
+});
+try { await ambiguousRouter.EmitEventAndReturn("service-orders", "get", null!, "x"); throw new Exception("Ambiguous service reference accepted"); }
+catch (InvalidOperationException error) when (error.Message.Contains("ambiguous")) { }
+Check(Equals(await ambiguousRouter.EmitEventAndReturn("one", "get", null!, "x"), "local:one"), "Explicit service alias did not override logical ambiguity");
+ambiguousRouter.SetServices(new() {
+    ["one"] = new() { Name = "one", Plugin = "service-orders", Enabled = false },
+    ["two"] = new() { Name = "two", Plugin = "service-orders", Enabled = false },
+});
+try { await ambiguousRouter.EmitEventAndReturn("service-orders", "get", null!, "x"); throw new Exception("Ambiguous remote service reference accepted"); }
+catch (InvalidOperationException error) when (error.Message.Contains("ambiguous")) { }
 var calls = remote.Calls;
 try { await client.EmitEventAndReturn("get", null!, "bad"); throw new Exception("Invalid input accepted"); }
 catch (ValidationError) { }
@@ -152,6 +167,8 @@ var mergedConfig = (JsonElement)(await configFixture.GetPluginConfig(null!, Plug
 Check(mergedConfig.GetProperty("nested").GetProperty("a").GetInt32() == 1 && mergedConfig.GetProperty("nested").GetProperty("b").GetInt32() == 2, "Profile config merge lost fields");
 Check((await configFixture.GetServicePlugins(null!))["worker"].Package == "Example.Worker", "Profile package override ignored");
 try { configFixture.Load(JsonNode.Parse("""{"services":{"bad":{"enabled":true,"language":"python"}}}""")!.AsObject(), "default"); throw new Exception("Wrong native plugin accepted"); }
+catch (JsonException) { }
+try { configFixture.Load(JsonNode.Parse("""{"services":{"worker":{}}}""")!.AsObject(), "production"); throw new Exception("Missing legacy profile accepted"); }
 catch (JsonException) { }
 Console.WriteLine("PASS: profile merging and native implementation validation");
 try { configFixture.Load(JsonNode.Parse("""{"language":"python","services":{"worker":{}}}""")!.AsObject(), "default"); throw new Exception("Wrong host profile accepted"); }
@@ -267,6 +284,9 @@ try
     await File.WriteAllTextAsync(file, tampered.ToJsonString());
     try { await (Task<JsonObject>)readCache.Invoke(vault, [new Uri("https://vault.example/runtime/config")])!; throw new Exception("Tampered cache accepted"); }
     catch (System.Security.Cryptography.CryptographicException) { }
+    await File.WriteAllBytesAsync(file, new byte[6 * 1024 * 1024 + 1]);
+    try { await (Task<JsonObject>)readCache.Invoke(vault, [new Uri("https://vault.example/runtime/config")])!; throw new Exception("Oversized Vault cache accepted"); }
+    catch (InvalidDataException) { }
     Console.WriteLine("PASS: Vault fetch, encrypted cache, authentication/redirect/language failures and tamper rejection");
     await using var google = new TestGoogleVault(vaultArgs, validVault);
     await google.Init(observable);

@@ -68,7 +68,7 @@ func TestHostStopsWhenFilteredBackendFails(t *testing.T) {
 	registry := bsb.NewPluginRegistry()
 	registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
 		return &testConfigPlugin{
-			services: map[string]bsb.PluginDefinition{}, observable: map[string]bsb.PluginDefinition{},
+			services: map[string]bsb.PluginDefinition{"test-service": {Plugin: "test-service", Enabled: true}}, observable: map[string]bsb.PluginDefinition{},
 			events: map[string]bsb.PluginDefinition{"a-local": {Plugin: "events-default", Enabled: true}, "z-rabbit": {Plugin: "events-failing", Enabled: true, Filter: []any{"emitEvent"}}},
 		}, nil
 	})
@@ -77,6 +77,7 @@ func TestHostStopsWhenFilteredBackendFails(t *testing.T) {
 	expected := errors.New("broker disconnected")
 	broken.failed <- expected
 	registry.RegisterEvents("events-failing", func(map[string]any) (bsb.EventsPlugin, error) { return broken, nil })
+	registry.RegisterService("test-service", func(map[string]any) (bsb.ServicePlugin, error) { return &testServicePlugin{}, nil })
 	host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: t.TempDir()}, registry)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

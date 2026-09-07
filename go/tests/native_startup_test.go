@@ -49,6 +49,34 @@ func TestStartupFailureDisposesConfig(t *testing.T) {
 	}
 }
 
+func TestStartupRequiresEnabledService(t *testing.T) {
+	for name, services := range map[string]map[string]bsb.PluginDefinition{
+		"empty":        {},
+		"all disabled": {"disabled": {Plugin: "service-test", Enabled: false}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			registry := bsb.NewPluginRegistry()
+			registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
+				return &testConfigPlugin{
+					services:   services,
+					events:     map[string]bsb.PluginDefinition{},
+					observable: map[string]bsb.PluginDefinition{},
+				}, nil
+			})
+			registry.RegisterEvents("events-default", func(map[string]any) (bsb.EventsPlugin, error) {
+				return newTestEventsPlugin(), nil
+			})
+
+			host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: t.TempDir()}, registry)
+			defer host.Dispose()
+			err := host.Init(context.Background())
+			if err == nil || !strings.Contains(err.Error(), "At least one enabled service is required") {
+				t.Fatalf("expected missing enabled service error, got %v", err)
+			}
+		})
+	}
+}
+
 type countedEvents struct {
 	*testEventsPlugin
 	disposals int
@@ -61,13 +89,14 @@ func TestHostHasOneCleanupPath(t *testing.T) {
 	for _, fails := range []bool{false, true} {
 		registry := bsb.NewPluginRegistry()
 		registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
-			return &testConfigPlugin{services: map[string]bsb.PluginDefinition{}, events: map[string]bsb.PluginDefinition{"events-default": {Plugin: "events-default", Enabled: true}}, observable: map[string]bsb.PluginDefinition{}}, nil
+			return &testConfigPlugin{services: map[string]bsb.PluginDefinition{"test-service": {Plugin: "test-service", Enabled: true}}, events: map[string]bsb.PluginDefinition{"events-default": {Plugin: "events-default", Enabled: true}}, observable: map[string]bsb.PluginDefinition{}}, nil
 		})
 		plugin := &countedEvents{testEventsPlugin: newTestEventsPlugin()}
 		if fails {
 			plugin.runError = errors.New("run failed")
 		}
 		registry.RegisterEvents("events-default", func(map[string]any) (bsb.EventsPlugin, error) { return plugin, nil })
+		registry.RegisterService("test-service", func(map[string]any) (bsb.ServicePlugin, error) { return &testServicePlugin{}, nil })
 		host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: t.TempDir()}, registry)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 		err := host.RunAndWait(ctx)

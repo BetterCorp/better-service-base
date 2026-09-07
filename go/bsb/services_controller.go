@@ -33,8 +33,18 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 	if err != nil {
 		return fmt.Errorf("load services configuration: %w", err)
 	}
+	hasEnabledService := false
+	for _, def := range pluginDefs {
+		if def.Enabled {
+			hasEnabledService = true
+			break
+		}
+	}
+	if !hasEnabledService {
+		return fmt.Errorf("At least one enabled service is required")
+	}
 
-	// Load all service plugins
+	// Load all service plugins.
 	for _, name := range sortedPluginNames(pluginDefs) {
 		def := pluginDefs[name]
 		if !def.Enabled {

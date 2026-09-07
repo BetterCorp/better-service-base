@@ -136,8 +136,8 @@ func (b *ObservableBackend) CreateGauge(pluginName, name, description, help stri
 func (b *ObservableBackend) CreateHistogram(pluginName, name, description, help string, boundaries []float64) *Histogram {
 	h := NewHistogram(name, description, help, boundaries)
 	started := fmt.Sprint(time.Now().UnixNano())
-	h.onChange = func(count int64, sum float64) {
-		b.metric(pluginName, map[string]any{"kind": "histogram", "name": name, "description": description, "unit": help, "count": count, "sum": sum, "startedNs": started, "timestampNs": fmt.Sprint(time.Now().UnixNano())})
+	h.onChange = func(count int64, sum float64, buckets []int64, boundaries []float64) {
+		b.metric(pluginName, map[string]any{"kind": "histogram", "name": name, "description": description, "unit": help, "count": count, "sum": sum, "bucketCounts": buckets, "explicitBounds": boundaries, "startedNs": started, "timestampNs": fmt.Sprint(time.Now().UnixNano())})
 	}
 	return h
 }

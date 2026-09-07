@@ -191,6 +191,24 @@ impl Service for StopOnRun {
     }
 }
 #[tokio::test]
+async fn requires_an_enabled_service() -> Result<()> {
+    for services in [
+        json!({}),
+        json!({"remote":{"plugin":"optional","enabled":false,"language":"nodejs"}}),
+    ] {
+        let host = Host::new(Registry::new())?;
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            host.run_config(Config::load(&json!({"services":services}), "default")?),
+        )
+        .await;
+        assert!(result.is_ok(), "empty service profile did not fail promptly");
+        let message = format!("{:#}", result.unwrap().unwrap_err());
+        assert!(message.contains("must enable at least one service"));
+    }
+    Ok(())
+}
+#[tokio::test]
 async fn lifecycle_ignores_disabled_aliases_and_logical_targets() -> Result<()> {
     for target in ["remote", "optional", "missing", "worker"] {
         let mut registry = Registry::new();

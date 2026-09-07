@@ -2,6 +2,8 @@ package bsb
 
 import (
 	"math"
+	"slices"
+	"sync"
 	"sync/atomic"
 )
 
@@ -113,10 +115,11 @@ type Histogram struct {
 	description string
 	help        string
 	boundaries  []float64
+	mu          sync.Mutex
 	buckets     []atomic.Int64
 	count       atomic.Int64
 	sum         atomic.Uint64
-	onChange    func(int64, float64)
+	onChange    func(int64, float64, []int64, []float64)
 }
 
 // NewHistogram creates a new histogram metric.
@@ -124,11 +127,16 @@ func NewHistogram(name, description, help string, boundaries []float64) *Histogr
 	if len(boundaries) == 0 {
 		boundaries = []float64{5, 10, 25, 50, 75, 100, 250, 500, 750, 1000}
 	}
+	for i, boundary := range boundaries {
+		if math.IsNaN(boundary) || math.IsInf(boundary, 0) || (i > 0 && boundary <= boundaries[i-1]) {
+			panic("histogram boundaries must be finite and strictly increasing")
+		}
+	}
 	return &Histogram{
 		name:        name,
 		description: description,
 		help:        help,
-		boundaries:  boundaries,
+		boundaries:  slices.Clone(boundaries),
 		buckets:     make([]atomic.Int64, len(boundaries)+1),
 	}
 }
@@ -138,13 +146,24 @@ func (h *Histogram) Record(value float64) {
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		panic("histogram value must be finite")
 	}
-	h.count.Add(1)
-	addFloat(&h.sum, value)
+	h.mu.Lock()
 	defer func() {
+		// Export one consistent snapshot without holding the lock during callbacks.
+		count, sum := h.Count(), h.Sum()
+		var buckets []int64
 		if h.onChange != nil {
-			h.onChange(h.Count(), h.Sum())
+			buckets = make([]int64, len(h.buckets))
+			for i := range h.buckets {
+				buckets[i] = h.buckets[i].Load()
+			}
+		}
+		h.mu.Unlock()
+		if h.onChange != nil {
+			h.onChange(count, sum, buckets, slices.Clone(h.boundaries))
 		}
 	}()
+	addFloat(&h.sum, value)
+	h.count.Add(1)
 	for i, boundary := range h.boundaries {
 		if value <= boundary {
 			h.buckets[i].Add(1)

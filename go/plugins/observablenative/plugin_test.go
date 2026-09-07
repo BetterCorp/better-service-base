@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -150,6 +151,7 @@ func TestRedactionBeforeInterpolationAndFileRotation(t *testing.T) {
 func TestOTLPLogsTracesAndMetricsFlush(t *testing.T) {
 	var mu sync.Mutex
 	received := map[string]int{}
+	var histogramPoint map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -160,6 +162,16 @@ func TestOTLPLogsTracesAndMetricsFlush(t *testing.T) {
 		}
 		mu.Lock()
 		received[r.URL.Path]++
+		if r.URL.Path == "/v1/metrics" {
+			resource := body["resourceMetrics"].([]any)[0].(map[string]any)
+			scope := resource["scopeMetrics"].([]any)[0].(map[string]any)
+			for _, raw := range scope["metrics"].([]any) {
+				metric := raw.(map[string]any)
+				if metric["name"] == "latency" {
+					histogramPoint = metric["histogram"].(map[string]any)["dataPoints"].([]any)[0].(map[string]any)
+				}
+			}
+		}
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("{}"))
@@ -180,11 +192,22 @@ func TestOTLPLogsTracesAndMetricsFlush(t *testing.T) {
 	span.End()
 	obs.Metrics().Counter("requests", "Requests", "count").Increment()
 	obs.Metrics().Gauge("precise", "Precision", "ratio").Set(.00001)
+	boundaries := []float64{10, 50}
+	histogram := obs.Metrics().Histogram("latency", "Latency", "ms", boundaries)
+	boundaries[0] = 100 // The metric owns its boundaries.
+	for _, value := range []float64{5, 10, 25, 50, 75} {
+		histogram.Record(value)
+	}
 	if err = plugin.Dispose(); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()
 	defer mu.Unlock()
+	if !reflect.DeepEqual(histogramPoint["bucketCounts"], []any{"2", "2", "1"}) ||
+		!reflect.DeepEqual(histogramPoint["explicitBounds"], []any{float64(10), float64(50)}) ||
+		histogramPoint["count"] != "5" || histogramPoint["sum"] != float64(165) {
+		t.Fatalf("histogram distribution lost in OTLP export: %v", histogramPoint)
+	}
 	for _, signal := range []string{"logs", "traces", "metrics"} {
 		if received["/v1/"+signal] != 1 {
 			t.Errorf("missing %s export: %v", signal, received)

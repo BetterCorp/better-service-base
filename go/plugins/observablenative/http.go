@@ -132,6 +132,14 @@ func (p *Plugin) otlp(signal string, entries []map[string]any) map[string]any {
 				point["sum"] = entry["sum"]
 				point["bucketCounts"] = []string{fmt.Sprint(entry["count"])}
 				point["explicitBounds"] = []float64{}
+				if buckets, ok := entry["bucketCounts"].([]any); ok {
+					counts := make([]string, len(buckets))
+					for i, count := range buckets {
+						counts[i] = fmt.Sprint(count)
+					}
+					point["bucketCounts"] = counts
+					point["explicitBounds"] = entry["explicitBounds"]
+				}
 				item["histogram"] = map[string]any{"aggregationTemporality": 2, "dataPoints": []any{point}}
 			} else {
 				point["asDouble"] = entry["value"]

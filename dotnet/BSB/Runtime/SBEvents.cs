@@ -15,8 +15,16 @@ internal class SBEvents(PluginConstructorArgs args) : BSBEvents(args)
     public override Task Completion => HasPlugins ? Task.WhenAny(_plugins.Select(x => x.Plugin.Completion)).Unwrap() : base.Completion;
     public void AddPlugin(BSBEvents plugin, JsonElement? filter = null) => _plugins.Add((plugin, filter));
     public void SetServices(Dictionary<string, PluginDefinition> services) => _services = services;
-    private string Target(string plugin) => _services.ContainsKey(plugin) ? plugin
-        : _services.Values.OrderByDescending(x => x.Enabled).FirstOrDefault(x => x.ResolvedPluginName == plugin)?.Name ?? plugin;
+    private string Target(string plugin)
+    {
+        if (_services.ContainsKey(plugin)) return plugin;
+        var matches = _services.Values.Where(x => x.ResolvedPluginName == plugin).Select(x => (x.Name, x.Enabled)).ToArray();
+        var active = matches.Where(x => x.Enabled).Select(x => x.Name).ToArray();
+        if (active.Length > 1) throw new InvalidOperationException($"Service reference {plugin} is ambiguous; use its profile alias");
+        if (active.Length == 1) return active[0];
+        if (matches.Length > 1) throw new InvalidOperationException($"Service reference {plugin} is ambiguous; use its profile alias");
+        return matches.FirstOrDefault().Name ?? plugin;
+    }
 
     private BSBEvents Route(string operation, string plugin) => _plugins.FirstOrDefault(x => Matches(x.Filter, operation, Target(plugin))).Plugin
         ?? throw new InvalidOperationException($"No events backend matches {operation} for {plugin}");
