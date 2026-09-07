@@ -78,7 +78,7 @@ OTLP/Axiom/Zipkin share `serviceName`, `serviceVersion`, `headers`, `resourceAtt
 
 Graylog/syslog share `level`, `redact`, `flushIntervalMs` (1000), and TLS PEM options `caCertificatePath`, `clientCertificatePath`, `clientKeyPath`. Paths resolve from the application directory. TLS validates the peer name and certificate chain; supplying a CA replaces the system trust roots. It does not disable verification.
 
-Structured log templates interpolate metadata after redaction. HTTP telemetry exporters also accept dotted `redact` paths, for example `["meta.token"]`, so secrets stay redacted in both metadata and rendered messages.
+Structured log templates interpolate metadata after redaction. HTTP telemetry exporters accept dotted `redact` paths for logs and completed spans, for example `["meta.token", "attributes.token", "error"]`. Redaction runs before enqueueing and formatting OTLP, Axiom and Zipkin spans, including wildcard paths such as `attributes.users.*.secret`, without changing the span shared with other exporters.
 
 Remote exporters buffer up to 4096 entries and report overflow/export failures to stderr. They flush at intervals and drain on shutdown with a ten-second deadline. HTTP never follows redirects, retries transient failures up to three attempts, and respects `Retry-After`; authentication failures and partial acknowledgements are not retried. UDP is best effort. Failed TCP batches are reported and the next batch reconnects. These buffers are not durable audit storage.
 

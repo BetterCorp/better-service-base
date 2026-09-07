@@ -1,6 +1,7 @@
 using AnyVali;
 using BSB.Interfaces;
 using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BSB.Base;
@@ -56,9 +57,12 @@ public abstract class HttpTelemetry<TConfig>(ServiceConstructorArgs<TConfig> arg
     }
     public override void SpanEnded(CompletedSpan span)
     {
-        if (!span.Trace.IsValid || Config.SamplingRate <= 0) return;
+        if (!TracesEnabled || !span.Trace.IsValid || Config.SamplingRate <= 0) return;
         var fraction = uint.Parse(span.Trace.TraceId[..8], NumberStyles.HexNumber, CultureInfo.InvariantCulture) / ((double)uint.MaxValue + 1);
-        if (fraction < Config.SamplingRate) base.SpanEnded(span);
+        if (!(fraction < Config.SamplingRate)) return;
+        var entry = JsonSerializer.SerializeToNode(span, EventSchemaExport.JsonOptions)!.AsObject();
+        Redact(entry, Config.Redact);
+        Enqueue("traces", entry);
     }
     public override async ValueTask DisposeAsync()
     {

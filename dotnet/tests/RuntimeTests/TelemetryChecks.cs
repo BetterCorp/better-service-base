@@ -20,11 +20,14 @@ static class TelemetryChecks
     {
         await CheckTls();
         var capture = new Capture();
-        var exporter = new Otlp(Args(new TelemetryConfig { Endpoint = "https://collector.example", ServiceName = "fixture", Redact = ["meta.token"] }), capture);
+        string[] redact = ["meta.token", "attributes.token", "attributes.users.*.secret", "error"];
+        var attributes = new Dictionary<string, object?> { ["token"] = "span-secret", ["public"] = "retained",
+            ["users"] = new[] { new Dictionary<string, object?> { ["secret"] = "nested-secret" } } };
+        var exporter = new Otlp(Args(new TelemetryConfig { Endpoint = "https://collector.example", ServiceName = "fixture", Redact = redact }), capture);
         var obs = new ObservableBackend("one", "root", new(), [exporter]);
         await exporter.Init(obs);
         obs.Log.Info("token={token}", new LogMeta { ["token"] = "secret" });
-        var child = obs.StartSpan("child"); child.End();
+        var child = obs.StartSpan("child", attributes); child.End();
         var counter = obs.Metrics.Counter("requests", "request count", "1"); counter.Increment(2); counter.Increment(3, new());
         var second = new ObservableBackend("two", "root", new(), [exporter]);
         second.Metrics.Counter("requests", "request count", "1").Increment(7);
@@ -37,6 +40,8 @@ static class TelemetryChecks
         var span = traces["resourceSpans"]![0]!["scopeSpans"]![0]!["spans"]![0]!;
         Check(span["traceId"]!.GetValue<string>() == obs.TraceId && span["spanId"]!.GetValue<string>() == child.SpanId &&
             span["parentSpanId"]!.GetValue<string>() == obs.SpanId && span["startTimeUnixNano"]!.GetValueKind() == JsonValueKind.String, "OTLP span lost IDs/parent/nanosecond encoding");
+        CheckRedactedSpan(traces);
+        Check(span["status"]!["code"]!.GetValue<int>() == 0, "Error redaction marked a successful span as failed");
         var scopes = capture.Requests.Single(x => x.Path == "/v1/metrics").Body["resourceMetrics"]![0]!["scopeMetrics"]!.AsArray();
         Check(scopes.Select(x => x!["scope"]!["name"]!.GetValue<string>()).Distinct().Count() == 2, "Plugin metric scopes collided");
         var metrics = scopes.SelectMany(x => x!["metrics"]!.AsArray()).ToArray();
@@ -47,20 +52,28 @@ static class TelemetryChecks
         Check(hist["count"]!.GetValue<string>() == "2" && hist["sum"]!.GetValue<double>() == 6, "Histogram cumulative snapshot is invalid");
 
         var axiomCapture = new Capture();
-        var axiom = new Axiom(Args(new BSB.Plugins.Axiom.AxiomConfig { Endpoint = "https://api.axiom.co", Token = "fixture-token", Dataset = "fixture" }), axiomCapture);
+        var axiom = new Axiom(Args(new BSB.Plugins.Axiom.AxiomConfig { Endpoint = "https://api.axiom.co", Token = "fixture-token", Dataset = "fixture", Redact = redact }), axiomCapture);
         await axiom.Init(obs); axiom.Info(obs.Trace, "one", "axiom");
-        axiom.SpanEnded(new(child.Trace, obs.SpanId, "one", "trace", new(), DateTimeOffset.UtcNow, TimeSpan.FromMilliseconds(1), new Dictionary<string, object?>(), null));
+        var completed = new CompletedSpan(child.Trace, obs.SpanId, "one", "trace", new(), DateTimeOffset.UtcNow, TimeSpan.FromMilliseconds(2), attributes, "error-secret");
+        axiom.SpanEnded(completed);
         await axiom.DisposeAsync();
         Check(axiomCapture.Requests.Count == 2 && axiomCapture.Requests.All(x => x.Authorization == "Bearer fixture-token") &&
             axiomCapture.Requests.Any(x => x.Path == "/v1/datasets/fixture/ingest"), "Axiom ingestion or authorization differs from its API");
+        var axiomTraces = axiomCapture.Requests.Single(x => x.Path == "/v1/traces").Body;
+        CheckRedactedSpan(axiomTraces);
+        Check(axiomTraces["resourceSpans"]![0]!["scopeSpans"]![0]!["spans"]![0]!["status"]!["message"]!.GetValue<string>() == "[REDACTED]", "Axiom span error was not redacted");
         var zipkinCapture = new Capture();
-        var zipkin = new Zipkin(Args(new TelemetryConfig { Endpoint = "https://zipkin.example/api/v2/spans" }), zipkinCapture);
+        var zipkin = new Zipkin(Args(new TelemetryConfig { Endpoint = "https://zipkin.example/api/v2/spans", Redact = redact }), zipkinCapture);
         await zipkin.Init(obs);
-        zipkin.SpanEnded(new(child.Trace, obs.SpanId, "one", "trace", new(), DateTimeOffset.UtcNow, TimeSpan.FromMilliseconds(2), new Dictionary<string, object?>(), "failed"));
+        zipkin.SpanEnded(completed);
         await zipkin.DisposeAsync();
         var zippedSpan = zipkinCapture.Requests.Single().Body[0]!;
-        Check(zippedSpan["id"]!.GetValue<string>() == child.SpanId && zippedSpan["duration"]!.GetValue<long>() == 2000 && zippedSpan["tags"]!["error"]!.GetValue<string>() == "failed",
+        Check(zippedSpan["id"]!.GetValue<string>() == child.SpanId && zippedSpan["duration"]!.GetValue<long>() == 2000 && zippedSpan["tags"]!["error"]!.GetValue<string>() == "[REDACTED]",
             "Zipkin IDs, microsecond duration or error tags are invalid");
+        Check(zippedSpan["tags"]!["token"]!.GetValue<string>() == "[REDACTED]" && zippedSpan["tags"]!["public"]!.GetValue<string>() == "retained", "Zipkin span attribute redaction failed");
+        CheckRedactedSpan(zippedSpan);
+        Check((string)attributes["token"]! == "span-secret" && completed.Error == "error-secret" &&
+            (string)((Dictionary<string, object?>[])attributes["users"]!)[0]["secret"]! == "nested-secret", "Exporter redaction mutated the shared span");
 
         foreach (var status in new[] { HttpStatusCode.Redirect, HttpStatusCode.Unauthorized })
         {
@@ -105,6 +118,12 @@ static class TelemetryChecks
         using var reader = new StreamReader(gzip);
         Check(JsonNode.Parse(await reader.ReadToEndAsync())!["level"]!.GetValue<int>() == 6, "Compressed GELF severity is invalid");
         Console.WriteLine("PASS: OTLP/Axiom/Zipkin payloads, cumulative plugin metrics, HTTP failure rules, real UDP syslog and GELF chunking/compression");
+    }
+    private static void CheckRedactedSpan(JsonNode span)
+    {
+        var json = span.ToJsonString();
+        Check(!json.Contains("span-secret") && !json.Contains("nested-secret") && !json.Contains("error-secret") &&
+            json.Contains("[REDACTED]") && json.Contains("retained"), "HTTP span leaked a redacted field or lost public attributes");
     }
     private static async Task CheckTls()
     {

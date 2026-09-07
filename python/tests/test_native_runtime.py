@@ -30,6 +30,19 @@ def test_service_targets_require_unambiguous_aliases():
     del bus.services["primary"]
     assert bus._target("worker") == "secondary"
     assert bus._target("unknown") == "unknown"
+    bus.set_services({"worker": {"plugin": "worker", "enabled": False}, "active": {"plugin": "worker"},
+                      "explicit": {"plugin": "other", "enabled": False}})
+    assert bus._target("worker") == "active"
+    assert bus._target("explicit") == "explicit"
+
+
+def test_config_service_resolution_prefers_enabled_canonical_match(tmp_path):
+    backend = ObservableBackend("development", "test", "config", SBObservable("test", "development"))
+    config = JsonConfig(PluginCtor("test", "development", "config", str(tmp_path), "", "", {}, "1.0.0", backend))
+    config.load({"services": {"worker": {"enabled": False}, "active": {"plugin": "worker"},
+                              "explicit": {"plugin": "other", "enabled": False}}})
+    assert asyncio.run(config.get_service_plugin_definition(None, "worker"))["name"] == "active"
+    assert asyncio.run(config.get_service_plugin_definition(None, "explicit"))["name"] == "explicit"
 
 
 def test_exporter_capabilities_match_supported_signals():

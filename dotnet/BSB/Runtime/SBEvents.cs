@@ -44,7 +44,7 @@ internal class SBEvents(PluginConstructorArgs args) : BSBEvents(args)
     public void SetServices(Dictionary<string, PluginDefinition> services) => _services = services;
     private string Target(string plugin)
     {
-        if (_services.ContainsKey(plugin)) return plugin;
+        if (_services.TryGetValue(plugin, out var exact) && exact.ResolvedPluginName != plugin) return plugin;
         var matches = _services.Values.Where(x => x.ResolvedPluginName == plugin).Select(x => (x.Name, x.Enabled)).ToArray();
         var active = matches.Where(x => x.Enabled).Select(x => x.Name).ToArray();
         if (active.Length > 1) throw new InvalidOperationException($"Service reference {plugin} is ambiguous; use its profile alias");

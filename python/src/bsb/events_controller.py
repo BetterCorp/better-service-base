@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .base import BSBEvents, PluginCtor, dispose_all, validate_plugin_config
+from .config_common import resolve_service_target
 from .observable import ObservableBackend, Trace
 
 
@@ -62,14 +63,7 @@ class SBEvents:
         self.services = services
 
     def _target(self, plugin: str) -> str:
-        if plugin in self.services:
-            return plugin
-        matches = [(key, value) for key, value in self.services.items() if value.get("plugin") == plugin]
-        active = [key for key, value in matches if value.get("enabled", True)]
-        targets = active or [key for key, _ in matches]
-        if len(targets) > 1:
-            raise ValueError(f"Ambiguous service {plugin}; specify its alias")
-        return targets[0] if targets else plugin
+        return resolve_service_target(self.services, plugin)
 
     @staticmethod
     def validate_filter(filter_value) -> None:

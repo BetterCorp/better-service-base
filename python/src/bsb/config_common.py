@@ -13,6 +13,18 @@ def merge(base: dict, override: dict) -> dict:
     return result
 
 
+def resolve_service_target(services: dict[str, dict], target: str) -> str:
+    exact = services.get(target)
+    if exact is not None and exact.get("plugin") != target:
+        return target
+    matches = [(key, value) for key, value in services.items() if value.get("plugin") == target]
+    active = [key for key, value in matches if value.get("enabled", True)]
+    targets = active or [key for key, _ in matches]
+    if len(targets) > 1:
+        raise ValueError(f"Ambiguous service {target}; specify its alias")
+    return targets[0] if targets else target
+
+
 class JsonConfig(BSBConfig):
     def load(self, document: dict[str, Any], profile: str = "default") -> None:
         if not isinstance(document, dict):
@@ -67,8 +79,9 @@ class JsonConfig(BSBConfig):
 
     async def get_service_plugin_definition(self, trace, plugin_name: str) -> dict:
         plugins = self._profile_data["services"]
-        matches = [(plugin_name, plugins[plugin_name])] if plugin_name in plugins else [(key, value) for key, value in plugins.items() if value["plugin"] == plugin_name]
-        if len(matches) != 1:
-            raise BSBError(f"Service reference {plugin_name} is missing or ambiguous; use its profile alias")
-        name, value = matches[0]
+        try:
+            name = resolve_service_target(plugins, plugin_name)
+            value = plugins[name]
+        except (KeyError, ValueError) as error:
+            raise BSBError(f"Service reference {plugin_name} is missing or ambiguous; use its profile alias") from error
         return {**deepcopy(value), "name": name}

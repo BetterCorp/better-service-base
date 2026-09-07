@@ -147,6 +147,15 @@ ambiguousRouter.SetServices(new() {
 });
 try { await ambiguousRouter.EmitEventAndReturn("service-orders", "get", null!, "x"); throw new Exception("Ambiguous service reference accepted"); }
 catch (InvalidOperationException error) when (error.Message.Contains("ambiguous")) { }
+var canonicalRouter = new SBEvents(ctor);
+canonicalRouter.AddPlugin(remote, JsonSerializer.SerializeToElement(new { emitEventAndReturn = new[] { "active" } }));
+canonicalRouter.AddPlugin(local);
+canonicalRouter.SetServices(new() {
+    ["service-orders"] = new() { Name = "service-orders", Enabled = false },
+    ["active"] = new() { Name = "active", Plugin = "service-orders", Enabled = true },
+});
+Check(Equals(await canonicalRouter.EmitEventAndReturn("service-orders", "get", null!, "x"), "remote:active"),
+    "Disabled canonical entry shadowed enabled alias or selected the wrong transport");
 Check(Equals(await ambiguousRouter.EmitEventAndReturn("one", "get", null!, "x"), "local:one"), "Explicit service alias did not override logical ambiguity");
 ambiguousRouter.SetServices(new() {
     ["one"] = new() { Name = "one", Plugin = "service-orders", Enabled = false },
