@@ -152,6 +152,32 @@ async fn gelf_chunks_and_syslog_octet_framing() -> Result<()> {
     let message: bsb::Value = bsb::serde_json::from_slice(&assembled)?;
     assert_eq!(message["short_message"].as_str().unwrap().len(), 3000);
     assert!(!message["_meta"].as_str().unwrap().contains("hidden"));
+    let http = TcpListener::bind("127.0.0.1:0").await?;
+    let address = http.local_addr()?;
+    let request = tokio::spawn(async move {
+        let (mut stream, _) = http.accept().await?;
+        let mut bytes = Vec::new();
+        loop {
+            bytes.push(stream.read_u8().await?);
+            anyhow::ensure!(bytes.len() < 16384, "oversized headers");
+            if bytes.ends_with(b"\r\n\r\n") {
+                break;
+            }
+        }
+        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}").await?;
+        Ok::<_, anyhow::Error>(String::from_utf8(bytes)?)
+    });
+    let plugin=Native::new("observable-graylog",json!({"host":"127.0.0.1","port":address.port(),"protocol":"http","headers":{"Authorization":"Bearer secret"}})).await?;
+    let backend = Arc::new(Backend::default());
+    backend.add(plugin.clone());
+    Observable::new("test", backend).info("http", json!({}));
+    plugin.shutdown().await?;
+    let request = tokio::time::timeout(Duration::from_secs(2), request).await???;
+    assert!(
+        request
+            .to_ascii_lowercase()
+            .contains("authorization: bearer secret\r\n")
+    );
     let tcp = TcpListener::bind("127.0.0.1:0").await?;
     let plugin=Native::new("observable-syslog",json!({"host":"127.0.0.1","port":tcp.local_addr()?.port(),"protocol":"tcp","framing":"octet-counting"})).await?;
     let backend = Arc::new(Backend::default());

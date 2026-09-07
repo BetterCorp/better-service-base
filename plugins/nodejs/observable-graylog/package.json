@@ -38,7 +38,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "anyvali": "^1.1.2",
+    "anyvali": "^1.1.4",
     "@bsb/base": "^9.1.11"
   },
   "devDependencies": {

@@ -12,7 +12,7 @@ name = "bsb"
 
 [dependencies]
 anyhow = "1"
-anyvali = "=1.1.2"
+anyvali = "=1.1.4"
 async-trait = "0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal", "time", "fs", "net", "io-util", "process"] }
 tokio-util = { version = "0.7", features = ["rt", "io"] }

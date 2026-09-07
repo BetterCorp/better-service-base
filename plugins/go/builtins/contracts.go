@@ -21,7 +21,8 @@ func registerContracts(registry *bsb.PluginRegistry) {
 			case bsb.PluginTypeConfig:
 				add("cwd configFile", av.String())
 				if strings.HasPrefix(name, "config-vault") {
-					add("vaultUrl apiKeyId apiSecret cacheDir googleAudience", av.String())
+					add("vaultUrl apiKeyId cacheDir googleAudience", av.String())
+					add("apiSecret", av.String().Describe("Vault API secret", av.DescribeOpts{Sensitive: true, Writeonly: true}))
 					add("timeoutMs", av.Int32().Min(1000).Max(60000))
 					add("staleAllowedHours", av.Int32().Min(0).Max(8760))
 					add("allowInsecureHttp", av.Bool())
@@ -33,7 +34,7 @@ func registerContracts(registry *bsb.PluginRegistry) {
 					add("fatalOnDisconnect", av.Bool())
 					add("prefetch", av.Int32().Min(1).Max(65535))
 					add("endpoints", av.Array(av.String()))
-					add("credentials", av.Object(map[string]av.Schema{"username": av.Optional(av.String()), "password": av.Optional(av.String())}))
+					add("credentials", av.Object(map[string]av.Schema{"username": av.Optional(av.String()), "password": av.Optional(av.String().Describe("RabbitMQ password", av.DescribeOpts{Sensitive: true, Writeonly: true}))}))
 				}
 			case bsb.PluginTypeObservable:
 				if name == "observable-default" {
@@ -42,7 +43,8 @@ func registerContracts(registry *bsb.PluginRegistry) {
 					add("level", av.Enum("trace", "debug", "info", "warn", "error", "fatal"))
 					add("redact", av.Array(av.String()))
 					add("base", av.Record(av.Any()))
-					add("path filePath endpoint serviceName serviceVersion token dataset orgId host protocol hostname appName rfc framing caCertificatePath clientCertificatePath clientKeyPath httpEndpoint", av.String())
+					add("path filePath endpoint serviceName serviceVersion dataset orgId host protocol hostname appName rfc framing caCertificatePath clientCertificatePath clientKeyPath httpEndpoint", av.String())
+					add("token", av.String().Describe("Telemetry API token", av.DescribeOpts{Sensitive: true, Writeonly: true}))
 					add("prettyPrint compress logs metrics traces allowInsecureHttp", av.Bool())
 					add("maxBytes", av.Int64().Min(1))
 					add("maxFiles", av.Int32().Min(0))
@@ -51,7 +53,8 @@ func registerContracts(registry *bsb.PluginRegistry) {
 					add("samplingRate", av.Float64().Min(0).Max(1))
 					add("port", av.Int32().Min(1).Max(65535))
 					add("interval", av.Enum("none", "hourly", "daily"))
-					add("headers resourceAttributes", av.Record(av.String()))
+					add("headers", av.Record(av.String()).Describe("Telemetry request headers", av.DescribeOpts{Sensitive: true, Writeonly: true}))
+					add("resourceAttributes", av.Record(av.String()))
 					add("additionalFields", av.Record(av.Any()))
 					add("facility", av.Union(av.String(), av.Int32().Min(0).Max(23)))
 				}

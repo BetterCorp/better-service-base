@@ -11,6 +11,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AnyVali" Version="1.1.2" />
+        <PackageReference Include="AnyVali" Version="1.1.4" />
     </ItemGroup>
 </Project>

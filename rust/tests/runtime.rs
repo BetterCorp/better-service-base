@@ -46,12 +46,13 @@ fn registry_with_local_events() -> Result<Registry> {
 }
 #[test]
 fn profile_language_and_aliases() {
-    let config=Config::load(&json!({"default":{"services":{"local":{"plugin":"worker","config":{"a":1}},"remote":{"plugin":"service-registry","language":"nodejs","enabled":false}}},"staging":{"language":"rust","services":{"local":{"config":{"b":2}}}}}),"staging").unwrap();
+    let config=Config::load(&json!({"default":{"services":{"local":{"plugin":"local-worker","config":{"a":1}},"remote":{"plugin":"service-registry","language":"nodejs","enabled":false},"worker":{"enabled":false},"active":{"plugin":"worker"}}},"staging":{"language":"rust","services":{"local":{"config":{"b":2}}}}}),"staging").unwrap();
     assert_eq!(
         config.groups["services"]["local"].config,
         json!({"a":1,"b":2})
     );
     assert_eq!(config.resolve("service-registry").unwrap(), "remote");
+    assert_eq!(config.resolve("worker").unwrap(), "active");
     for bad in [
         Value::Null,
         json!({"default":{"language":"go"}}),

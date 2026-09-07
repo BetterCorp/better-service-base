@@ -243,20 +243,40 @@ func (pe *PluginEvents) ClientTarget(target string, schemas BSBEventSchemas) (*P
 	if target == "" {
 		return nil, fmt.Errorf("empty client target")
 	}
-	if _, exact := pe.definitions[target]; !exact {
-		found := ""
-		for alias, entry := range pe.definitions {
-			if entry.Plugin != target {
-				continue
-			}
-			if found != "" {
-				return nil, fmt.Errorf("ambiguous service %s; specify its alias", target)
-			}
-			found = alias
+	if entry, exact := pe.definitions[target]; !exact || entry.Plugin == target {
+		resolved, err := resolveServiceTarget(pe.definitions, target)
+		if err != nil {
+			return nil, err
 		}
-		if found != "" {
-			target = found
+		if resolved != "" {
+			target = resolved
 		}
 	}
 	return pe.ForTarget(target, schemas), nil
+}
+
+func resolveServiceTarget(definitions map[string]PluginDefinition, plugin string) (string, error) {
+	active, disabled := "", ""
+	disabledCount := 0
+	for alias, entry := range definitions {
+		if entry.Plugin != plugin {
+			continue
+		}
+		if entry.Enabled {
+			if active != "" {
+				return "", fmt.Errorf("ambiguous service %s; specify its alias", plugin)
+			}
+			active = alias
+		} else {
+			disabled = alias
+			disabledCount++
+		}
+	}
+	if active != "" {
+		return active, nil
+	}
+	if disabledCount > 1 {
+		return "", fmt.Errorf("ambiguous service %s; specify its alias", plugin)
+	}
+	return disabled, nil
 }

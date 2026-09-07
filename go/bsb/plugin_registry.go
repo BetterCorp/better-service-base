@@ -54,8 +54,10 @@ func (r *PluginRegistry) register(pluginType PluginType, name string, factory an
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	key := string(pluginType) + ":" + name
-	if _, exists := r.plugins[key]; exists {
-		panic("duplicate plugin factory: " + key)
+	for _, plugin := range r.plugins {
+		if plugin.name == name {
+			panic("duplicate plugin factory ID: " + name)
+		}
 	}
 	r.plugins[key] = &registeredPlugin{
 		pluginType: pluginType,
@@ -98,9 +100,8 @@ func (r *PluginRegistry) ListPlugins(pluginType PluginType) []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var names []string
-	prefix := string(pluginType) + ":"
-	for key, p := range r.plugins {
-		if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+	for _, p := range r.plugins {
+		if p.pluginType == pluginType {
 			names = append(names, p.name)
 		}
 	}

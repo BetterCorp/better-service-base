@@ -31,7 +31,7 @@ def format_entry(entry, config):
         prefix = f"<{priority}>{month} {timestamp.day:2} {timestamp:%H:%M:%S} {host} {app}[{os.getpid()}]: "
     data = (prefix + json.dumps(entry, default=str, ensure_ascii=False)).encode()
     if config["protocol"] == "udp": return data
-    if config["protocol"] == "tls" or config["framing"] == "octet-counting": return str(len(data)).encode() + b" " + data
+    if config["framing"] == "octet-counting": return str(len(data)).encode() + b" " + data
     return data + b"\n"
 
 

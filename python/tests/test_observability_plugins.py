@@ -86,6 +86,9 @@ def test_native_logging_and_remote_exports(tmp_path):
         message = await asyncio.wait_for(asyncio.get_running_loop().sock_recv(udp, 65535), 2)
         udp.close()
         assert message.startswith(b"<134>1 ") and b"secret" not in message
+        from bsb_python_plugins.observable_syslog import format_entry
+        tls_newline = format_entry(entry, {"facility": 16, "hostname": "host", "appName": "app", "rfc": "5424", "protocol": "tls", "framing": "newline"})
+        assert tls_newline.endswith(b"\n")
         chunks = datagrams({"message": "a" * 5000}, False)
         assert len(chunks) > 1 and chunks[0][:2] == b"\x1e\x0f"
         assert json.loads(b"".join(chunk[12:] for chunk in chunks))["message"] == "a" * 5000
@@ -113,7 +116,7 @@ def test_native_logging_and_remote_exports(tmp_path):
                 await writer.wait_closed()
         listener = await asyncio.start_server(accept, "127.0.0.1", 0, ssl=context)
         port = listener.sockets[0].getsockname()[1]
-        tls = create("syslog", {"host": "localhost", "port": port, "protocol": "tls", "caCertificatePath": str(cert_path)})
+        tls = create("syslog", {"host": "localhost", "port": port, "protocol": "tls", "framing": "octet-counting", "caCertificatePath": str(cert_path)})
         try:
             await tls.export([entry])
             assert (await asyncio.wait_for(received, 2)).startswith(b"<134>1 ")

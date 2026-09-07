@@ -3,7 +3,7 @@ module github.com/bettercorp/service-base
 go 1.26.1
 
 require (
-	github.com/BetterCorp/AnyVali/sdk/go v0.0.0-20260907145251-9d398a873fdd
+	github.com/BetterCorp/AnyVali/sdk/go v0.0.0-20260907212015-f98fa58c697c
 	github.com/google/uuid v1.6.0
 	github.com/rabbitmq/amqp091-go v1.14.0
 	golang.org/x/oauth2 v0.36.0

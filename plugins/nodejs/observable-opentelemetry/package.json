@@ -50,7 +50,7 @@
     "@opentelemetry/sdk-node": "^0.222.0",
     "@opentelemetry/sdk-trace-base": "^2.8.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
-    "anyvali": "^1.1.2",
+    "anyvali": "^1.1.4",
     "@bsb/base": "^9.1.11"
   },
   "devDependencies": {

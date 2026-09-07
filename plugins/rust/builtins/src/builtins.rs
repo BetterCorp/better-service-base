@@ -10,8 +10,12 @@ pub(crate) fn contract(name: &str, category: &str) -> Contract {
     match category {
         "config" if name.starts_with("config-vault") => {
             add(
-                "vaultUrl apiKeyId apiSecret cacheDir googleAudience",
+                "vaultUrl apiKeyId cacheDir googleAudience",
                 json!({"kind":"string"}),
+            );
+            add(
+                "apiSecret",
+                json!({"kind":"string","metadata":{"sensitive":true,"writeonly":true}}),
             );
             add("timeoutMs", json!({"kind":"int32","min":1000,"max":60000}));
             add(
@@ -34,7 +38,7 @@ pub(crate) fn contract(name: &str, category: &str) -> Contract {
             );
             add(
                 "credentials",
-                json!({"kind":"object","unknownKeys":"reject","properties":{"username":{"kind":"optional","inner":{"kind":"string"}},"password":{"kind":"optional","inner":{"kind":"string"}}}}),
+                json!({"kind":"object","unknownKeys":"reject","properties":{"username":{"kind":"optional","inner":{"kind":"string"}},"password":{"kind":"optional","inner":{"kind":"string","metadata":{"sensitive":true,"writeonly":true}}}}}),
             );
         }
         "observable" => {
@@ -52,8 +56,12 @@ pub(crate) fn contract(name: &str, category: &str) -> Contract {
                 json!({"kind":"record","values":{"kind":"any"}}),
             );
             add(
-                "path filePath endpoint serviceName serviceVersion token dataset orgId host protocol hostname appName rfc framing caCertificatePath clientCertificatePath clientKeyPath httpEndpoint",
+                "path filePath endpoint serviceName serviceVersion dataset orgId host protocol hostname appName rfc framing caCertificatePath clientCertificatePath clientKeyPath httpEndpoint",
                 json!({"kind":"string"}),
+            );
+            add(
+                "token",
+                json!({"kind":"string","metadata":{"sensitive":true,"writeonly":true}}),
             );
             add(
                 "prettyPrint compress logs metrics traces allowInsecureHttp",
@@ -73,7 +81,11 @@ pub(crate) fn contract(name: &str, category: &str) -> Contract {
                 json!({"kind":"enum","values":["none","hourly","daily"]}),
             );
             add(
-                "headers resourceAttributes",
+                "headers",
+                json!({"kind":"record","values":{"kind":"string"},"metadata":{"sensitive":true,"writeonly":true}}),
+            );
+            add(
+                "resourceAttributes",
                 json!({"kind":"record","values":{"kind":"string"}}),
             );
             add(
@@ -90,4 +102,52 @@ pub(crate) fn contract(name: &str, category: &str) -> Contract {
         json!({"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"object","properties":fields,"unknownKeys":"reject"},"definitions":{},"extensions":{}}),
     );
     contract
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn telemetry_headers_are_write_only() {
+        let schema = contract("observable-opentelemetry", "observable")
+            .config_schema
+            .unwrap();
+        let properties = &schema["root"]["properties"];
+        assert_eq!(
+            properties["headers"]["inner"]["metadata"]["sensitive"],
+            true
+        );
+        assert_eq!(
+            properties["headers"]["inner"]["metadata"]["writeonly"],
+            true
+        );
+        assert!(
+            properties["resourceAttributes"]["inner"]
+                .get("metadata")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn builtin_credentials_are_write_only() {
+        let vault = contract("config-vault", "config").config_schema.unwrap();
+        assert_eq!(
+            vault["root"]["properties"]["apiSecret"]["inner"]["metadata"]["writeonly"],
+            true
+        );
+        let rabbit = contract("events-rabbitmq", "events").config_schema.unwrap();
+        assert_eq!(
+            rabbit["root"]["properties"]["credentials"]["inner"]["properties"]["password"]["inner"]
+                ["metadata"]["sensitive"],
+            true
+        );
+        let telemetry = contract("observable-axiom", "observable")
+            .config_schema
+            .unwrap();
+        assert_eq!(
+            telemetry["root"]["properties"]["token"]["inner"]["metadata"]["writeonly"],
+            true
+        );
+    }
 }

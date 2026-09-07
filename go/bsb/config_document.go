@@ -160,21 +160,15 @@ func (p *JSONConfig) GetServicePluginDefinition(_ context.Context, _ Observable,
 	if err != nil {
 		return nil, err
 	}
-	if entry, ok := entries[name]; ok {
+	if entry, ok := entries[name]; ok && entry.Plugin != name {
 		return &ServicePluginDefinition{Name: name, Enabled: entry.Enabled}, nil
 	}
-	var found *ServicePluginDefinition
-	for alias, entry := range entries {
-		if entry.Plugin != name {
-			continue
-		}
-		if found != nil {
-			return nil, fmt.Errorf("ambiguous service reference %s; use its profile alias", name)
-		}
-		found = &ServicePluginDefinition{Name: alias, Enabled: entry.Enabled}
+	alias, err := resolveServiceTarget(entries, name)
+	if err != nil {
+		return nil, fmt.Errorf("ambiguous service reference %s; use its profile alias", name)
 	}
-	if found == nil {
+	if alias == "" {
 		return nil, fmt.Errorf("unknown service reference %s", name)
 	}
-	return found, nil
+	return &ServicePluginDefinition{Name: alias, Enabled: entries[alias].Enabled}, nil
 }

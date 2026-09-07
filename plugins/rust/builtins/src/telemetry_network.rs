@@ -1,7 +1,7 @@
 use crate::telemetry::{Options, level, post, valid_url};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, pin::Pin, sync::Arc, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncWrite, AsyncWriteExt},
     net::{TcpStream, UdpSocket},
@@ -171,7 +171,7 @@ impl Network {
                     } else {
                         self.options.http_endpoint.clone()
                     };
-                    post(&endpoint, value, &BTreeMap::new()).await?;
+                    post(&endpoint, value, &self.options.headers).await?;
                     continue;
                 }
                 let mut data = serde_json::to_vec(&value)?;
@@ -186,23 +186,7 @@ impl Network {
             } else {
                 let priority = self.options.facility.as_u64().unwrap() * 8
                     + syslog_level(entry["level"].as_str().unwrap_or("info")) as u64;
-                let text = if self.options.rfc == "3164" {
-                    format!(
-                        "<{priority}>{} {} {}: {}",
-                        chrono::Local::now().format("%b %e %H:%M:%S"),
-                        header(&self.options.hostname, 255),
-                        header(&self.options.app_name, 48),
-                        entry
-                    )
-                } else {
-                    format!(
-                        "<{priority}>1 {} {} {} - - - {}",
-                        chrono::Utc::now().to_rfc3339(),
-                        header(&self.options.hostname, 255),
-                        header(&self.options.app_name, 48),
-                        entry
-                    )
-                };
+                let text = syslog_text(priority, &entry, &self.options)?;
                 let data = if self.options.protocol == "udp" {
                     text.into_bytes()
                 } else if self.options.framing == "octet-counting" {
@@ -214,6 +198,31 @@ impl Network {
             }
         }
         Ok(())
+    }
+}
+fn syslog_text(priority: u64, entry: &Value, options: &Options) -> Result<String> {
+    let timestamp = entry["timestamp"]
+        .as_str()
+        .context("telemetry timestamp required")?;
+    if options.rfc == "3164" {
+        let timestamp = chrono::DateTime::parse_from_rfc3339(timestamp)
+            .context("invalid telemetry timestamp")?;
+        Ok(format!(
+            "<{priority}>{} {} {}: {}",
+            timestamp.format("%b %e %H:%M:%S"),
+            header(&options.hostname, 255),
+            header(&options.app_name, 48),
+            entry
+        ))
+    } else {
+        chrono::DateTime::parse_from_rfc3339(timestamp).context("invalid telemetry timestamp")?;
+        Ok(format!(
+            "<{priority}>1 {} {} {} - - - {}",
+            timestamp,
+            header(&options.hostname, 255),
+            header(&options.app_name, 48),
+            entry
+        ))
     }
 }
 fn header(value: &str, max: usize) -> String {
@@ -263,4 +272,32 @@ pub(super) fn gelf_chunks(data: &[u8], compress: bool) -> Result<Vec<Vec<u8>>> {
             chunk
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn syslog_preserves_event_timestamp() {
+        let entry = json!({"timestamp":"2026-01-02T03:04:05+02:00"});
+        let options = Options {
+            rfc: "5424".into(),
+            ..Options::default()
+        };
+        assert!(
+            syslog_text(134, &entry, &options)
+                .unwrap()
+                .starts_with("<134>1 2026-01-02T03:04:05+02:00 ")
+        );
+        let options = Options {
+            rfc: "3164".into(),
+            ..Options::default()
+        };
+        assert!(
+            syslog_text(134, &entry, &options)
+                .unwrap()
+                .starts_with("<134>Jan  2 03:04:05 ")
+        );
+    }
 }

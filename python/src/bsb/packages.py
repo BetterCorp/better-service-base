@@ -29,7 +29,8 @@ def install(package, version=None, source=None):
     if sys.prefix == sys.base_prefix:
         raise ValueError("Install Python plugins in the application's virtual environment")
     wheel = Path(package)
-    if wheel.suffix == ".whl" and wheel.is_file():
+    is_wheel = wheel.suffix == ".whl" and wheel.is_file()
+    if is_wheel:
         with zipfile.ZipFile(wheel) as archive:
             names = [name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt")]
             if len(names) != 1 or "[bsb.plugins]" not in archive.read(names[0]).decode():
@@ -44,3 +45,7 @@ def install(package, version=None, source=None):
         args.extend(["--find-links", source])
     subprocess.run(args, check=True)
     importlib.invalidate_caches()
+    if not is_wheel:
+        distribution = importlib.metadata.distribution(package)
+        if not any(entry.group == "bsb.plugins" for entry in distribution.entry_points):
+            raise ValueError(f"Distribution {package} does not declare bsb.plugins entry points")

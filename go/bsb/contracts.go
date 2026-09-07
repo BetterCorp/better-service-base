@@ -74,8 +74,10 @@ func (r *PluginRegistry) RegisterContract(contract PluginContract) {
 		r.contracts = make(map[string]PluginContract)
 	}
 	key := string(contract.Metadata.Category) + ":" + contract.Metadata.Name
-	if _, exists := r.contracts[key]; exists {
-		panic("duplicate plugin contract: " + key)
+	for _, existing := range r.contracts {
+		if existing.Metadata.Name == contract.Metadata.Name {
+			panic("duplicate plugin contract ID: " + contract.Metadata.Name)
+		}
 	}
 	r.contracts[key] = contract
 }

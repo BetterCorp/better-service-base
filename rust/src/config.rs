@@ -112,17 +112,25 @@ impl Config {
     }
     pub fn resolve(&self, target: &str) -> Result<String> {
         let services = &self.groups["services"];
-        if services.contains_key(target) {
+        if services
+            .get(target)
+            .is_some_and(|definition| definition.plugin != target)
+        {
             return Ok(target.into());
         }
         let matches: Vec<_> = services
             .iter()
             .filter(|(_, value)| value.plugin == target)
             .collect();
-        match matches.as_slice() {
-            [] => Ok(target.into()),
+        let enabled: Vec<_> = matches.iter().filter(|(_, value)| value.enabled).collect();
+        match enabled.as_slice() {
             [(name, _)] => Ok((*name).clone()),
-            _ => bail!("ambiguous service {target}; specify its alias"),
+            [_, _, ..] => bail!("ambiguous service {target}; specify its alias"),
+            [] => match matches.as_slice() {
+                [] => Ok(target.into()),
+                [(name, _)] => Ok((*name).clone()),
+                _ => bail!("ambiguous service {target}; specify its alias"),
+            },
         }
     }
 }
