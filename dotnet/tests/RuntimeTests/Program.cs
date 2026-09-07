@@ -35,6 +35,30 @@ try {
     } finally {listener.Stop();}
 }finally{Directory.Delete(registryTemp,true);}
 
+var regenerateTemp=Directory.CreateTempSubdirectory("bsb-regenerate-").FullName;
+try {
+    var schemas=Path.Combine(regenerateTemp,".bsb","schemas");var clients=Path.Combine(regenerateTemp,"BsbClients");
+    Directory.CreateDirectory(schemas);Directory.CreateDirectory(clients);
+    const string registrySchema="""{"pluginName":"worker","version":"1.0.0","events":{}}""";
+    await File.WriteAllTextAsync(Path.Combine(schemas,"old-name.json"),registrySchema);
+    await File.WriteAllTextAsync(Path.Combine(clients,"Handwritten.cs"),"public class Handwritten { }");
+    await RegistryClient.Regenerate(regenerateTemp);
+    File.Move(Path.Combine(schemas,"old-name.json"),Path.Combine(schemas,"new-name.json"));
+    await File.WriteAllTextAsync(Path.Combine(schemas,"invalid.json"),"not-json");
+    try { await RegistryClient.Regenerate(regenerateTemp); throw new Exception("Invalid saved schema accepted"); }
+    catch (JsonException) { }
+    Check(File.Exists(Path.Combine(clients,"old-name.cs")) && !File.Exists(Path.Combine(clients,"new-name.cs")), "Regeneration wrote before validating all saved schemas");
+    File.Delete(Path.Combine(schemas,"invalid.json"));
+    await RegistryClient.Regenerate(regenerateTemp);
+    Check(!File.Exists(Path.Combine(clients,"old-name.cs")) && File.Exists(Path.Combine(clients,"new-name.cs")) && File.Exists(Path.Combine(clients,"Handwritten.cs")),
+        "Regeneration did not prune stale generated clients while preserving handwritten files");
+    Directory.Delete(Path.Combine(regenerateTemp,".bsb"),true);
+    await RegistryClient.Regenerate(regenerateTemp);
+    Check(!File.Exists(Path.Combine(clients,"new-name.cs")) && File.Exists(Path.Combine(clients,"Handwritten.cs")),
+        "Regeneration did not prune clients after all saved schemas were removed");
+}finally{Directory.Delete(regenerateTemp,true);}
+await HostedChecks.Run();
+
 var schema = BSBTypes.Object(new() {
     ["items"] = BSBTypes.Array(BSBTypes.Int32(min: 1), minLength: 1),
     ["email"] = BSBTypes.Email(),
@@ -304,7 +328,7 @@ try
     var reference = System.Security.SecurityElement.Escape(typeof(ServiceBase).Assembly.Location);
     await File.WriteAllTextAsync(Path.Combine(pluginDirectory, "Example.csproj"), $"""
     <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings>
-    <EnableDynamicLoading>true</EnableDynamicLoading><AssemblyName>Example.Worker</AssemblyName><PackageId>Example.Worker</PackageId><Version>1.2.3</Version></PropertyGroup>
+    <EnableDynamicLoading>true</EnableDynamicLoading><AssemblyName>Example.Worker</AssemblyName><PackageId>Example.Worker</PackageId><Version>1.2.3-beta.1+build.7</Version></PropertyGroup>
     <ItemGroup><Reference Include="BSB"><HintPath>{reference}</HintPath><Private>false</Private></Reference></ItemGroup></Project>
     """);
     await File.WriteAllTextAsync(Path.Combine(pluginDirectory, "Plugin.cs"), """
@@ -332,12 +356,12 @@ try
     {
         Environment.SetEnvironmentVariable("BSB_PLUGIN_DIR", Path.Combine(pluginDirectory, "installed"));
         Environment.SetEnvironmentVariable("NUGET_PACKAGES", Path.Combine(pluginDirectory, "nuget-cache"));
-        var installed = await NativePackages.Install(pluginDirectory, "Example.Worker", "1.2.3", Path.Combine(pluginDirectory, "packages"));
+        var installed = await NativePackages.Install(pluginDirectory, "Example.Worker", "1.2.3-beta.1+build.7", Path.Combine(pluginDirectory, "packages"));
         var packageLoader = new SBPlugins(pluginDirectory);
         var resolvedPackage = typeof(SBPlugins).GetMethod("ResolveAssemblyPath", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(packageLoader, [new PluginDefinition { Name = "worker", Plugin = "service-worker", Package = "Example.Worker", Version = "1.2.3" }]) as string;
+            .Invoke(packageLoader, [new PluginDefinition { Name = "worker", Plugin = "service-worker", Package = "Example.Worker", Version = "1.2.3-beta.1+build.7" }]) as string;
         Check(resolvedPackage == Path.Combine(installed, "Example.Worker.dll"), "Installed NuGet plugin was not discoverable");
-        Check(await NativePackages.Install(pluginDirectory, "Example.Worker", "1.2.3") == installed, "Native package install was not idempotent");
+        Check(await NativePackages.Install(pluginDirectory, "Example.Worker", "1.2.3-beta.1+build.7") == installed, "Native package install was not idempotent");
     }
     finally { Environment.SetEnvironmentVariable("BSB_PLUGIN_DIR", previousPluginDir); Environment.SetEnvironmentVariable("NUGET_PACKAGES", previousNuget); }
     Console.WriteLine("PASS: CLI builds/packs without starting services; installs native NuGet metadata and discovers its assembly");

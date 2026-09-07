@@ -12,6 +12,7 @@ pub mod contract;
 pub mod events;
 mod events_router;
 pub mod generator;
+pub mod hosted;
 pub mod tooling;
 pub fn runtime() -> std::io::Result<tokio::runtime::Runtime> {
     tokio::runtime::Builder::new_multi_thread()

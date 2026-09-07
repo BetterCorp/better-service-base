@@ -141,10 +141,7 @@ def get_plugin_schema(plugin_id: str, source_language: str | None = None, versio
     return {**schema, "pluginId": name, "source": {"org": org, "name": name, "language": language, "version": version, "registry": REGISTRY_URL}}
 
 
-def install_plugin(plugin_id: str, project_root: str | Path, source_language: str | None = None, version: str | None = None) -> Path:
-    org, name = parse_plugin_id(plugin_id)
-    schema = get_plugin_schema(plugin_id, source_language, version)
-    local_name = f"{org}~{name}~{schema['source']['language']}"
+def save_client_schema(schema: dict, local_name: str, project_root: str | Path) -> Path:
     generate_client_code(schema, local_name)  # Reject invalid remote contracts before changing the saved snapshot.
 
     project_root = Path(project_root)
@@ -157,6 +154,12 @@ def install_plugin(plugin_id: str, project_root: str | Path, source_language: st
     schema_path.write_text(json.dumps(schema, indent=2), encoding="utf-8")
     generate_clients(project_root)
     return schema_path
+
+
+def install_plugin(plugin_id: str, project_root: str | Path, source_language: str | None = None, version: str | None = None) -> Path:
+    org, name = parse_plugin_id(plugin_id)
+    schema = get_plugin_schema(plugin_id, source_language, version)
+    return save_client_schema(schema, f"{org}~{name}~{schema['source']['language']}", project_root)
 
 
 def sync_clients(project_root: str | Path) -> list[Path]:
@@ -272,5 +275,6 @@ __all__ = [
     "publish_plugins",
     "registry_request",
     "search_plugins",
+    "save_client_schema",
     "sync_clients",
 ]

@@ -19,6 +19,7 @@ from cryptography.x509.oid import NameOID
 from bsb.base import PluginCtor
 from bsb.observable import ObservableBackend, SBObservable
 from bsb.plugins.observable_graylog import datagrams
+from bsb.plugins.observable_pino import Config as PinoConfig, Plugin as Pino
 from bsb.telemetry import post
 
 
@@ -58,7 +59,7 @@ def test_native_logging_and_remote_exports(tmp_path):
             create("zipkin", {"endpoint": url + "/api/v2/spans"})]
         sink.plugins = plugins
         for plugin in plugins: await plugin.init(trace)
-        backend.info(trace, "hello", entry["meta"])
+        backend.info(trace, "hello {users}", entry["meta"])
         backend.create_counter("requests").increment(1, {"route": "/"})
         backend.create_counter("requests").increment(2, {"route": "/"})
         backend.for_plugin("other").create_counter("requests").increment(8)
@@ -73,6 +74,7 @@ def test_native_logging_and_remote_exports(tmp_path):
         assert counter["sum"]["isMonotonic"] and counter["sum"]["dataPoints"][0]["asDouble"] == 3
         logs = next(body for path, body, _ in requests if path == "/v1/logs")
         assert "secret" not in json.dumps(logs)
+        assert "[REDACTED]" in logs["resourceLogs"][0]["scopeLogs"][0]["logRecords"][0]["body"]["stringValue"]
         assert next(body for path, body, _ in requests if path == "/api/v2/spans")[0]["traceId"] == trace.trace_id
         assert any(path == "/v1/datasets/test/ingest" and headers["Authorization"] == "Bearer axiom-token" for path, _, headers in requests)
         udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -137,3 +139,28 @@ def test_native_logging_and_remote_exports(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_log_redaction_is_per_exporter_and_preserves_raw_sinks(tmp_path, capsys):
+    sink = SBObservable("test", "test")
+    backend = ObservableBackend("test", "test", "worker", sink)
+    trace = backend.create_trace("request")
+    pino = Pino(PluginCtor("test", "test", "pino", str(tmp_path), "", "",
+        PinoConfig.validation_schema.parse({"redact": ["meta"]}), "1.0.0", backend))
+
+    class Custom:
+        def emit_log(self, entry):
+            self.entry = entry
+
+    custom = Custom()
+    sink.plugins = [pino, custom]
+    backend.info(trace, "login {token}", {"token": "secret"})
+    output = json.loads(capsys.readouterr().out)
+    assert output["msg"] == "login [REDACTED]" and output["meta"] == "[REDACTED]"
+    assert custom.entry["message"] == "login secret"
+    assert custom.entry["meta"] == {"token": "secret"}
+    fallback = []
+    sink.plugins = []
+    sink.logger = type("Logger", (), {"log": lambda _, level, message: fallback.append((level, message))})()
+    backend.info(trace, "login {token}", {"token": "secret"})
+    assert fallback == [(20, "login secret")]

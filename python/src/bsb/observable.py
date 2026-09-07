@@ -167,11 +167,12 @@ class SBObservable:
         await dispose_all(reversed(self.plugins))
         self.plugins.clear()
 
-    def emit(self, signal: str, value: dict) -> None:
+    def emit(self, signal: str, value: dict, message_template: str | None = None) -> None:
         if not self.plugins and signal == "log":
             self.logger.log({"trace": 10, "debug": 10, "info": 20, "warn": 30, "error": 40, "fatal": 50}[value["level"]], value["message"])
         for plugin in self.plugins:
-            getattr(plugin, "emit_" + signal)(value)
+            redact_log = getattr(plugin, "_redact_log", None)
+            getattr(plugin, "emit_" + signal)(redact_log(value, message_template) if signal == "log" and message_template is not None and redact_log else value)
 
 
 class ObservableBackend:
@@ -192,7 +193,7 @@ class ObservableBackend:
 
     def _log(self, level: str, trace: Trace, message: str, meta: dict | None = None) -> None:
         self._sb.emit("log", {"timestamp": datetime.now(timezone.utc).isoformat(), "level": level,
-            "plugin": self.plugin_name, "message": _fmt(message, meta), "meta": dict(meta or {}), "traceId": trace.trace_id, "spanId": trace.span_id})
+            "plugin": self.plugin_name, "message": _fmt(message, meta), "meta": dict(meta or {}), "traceId": trace.trace_id, "spanId": trace.span_id}, message)
 
     def debug(self, trace: Trace, message: str, meta: dict | None = None) -> None:
         self._log("debug", trace, message, meta)

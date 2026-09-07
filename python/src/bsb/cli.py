@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .client_generator import generate_clients
+from .hosted_client import install_hosted_plugin
 from .registry_client import (
     REGISTRY_URL,
     get_plugin_info,
@@ -43,7 +44,7 @@ def _usage() -> int:
     print("  bsb client search <query>")
     print("  bsb client info <name>")
     print("  bsb client schema <name>")
-    print("  bsb client install <org/name> [--source-language LANGUAGE] [--version VERSION]")
+    print("  bsb client install <org/name|https://origin> [--source-language LANGUAGE] [--version VERSION] [--plugin ID --allow-insecure]")
     print("  bsb client sync")
     print("  bsb client export")
     print("  bsb client publish")
@@ -116,13 +117,21 @@ def main(argv: list[str] | None = None) -> int:
                 parser.add_argument("--source-language")
                 if subcommand != "info":
                     parser.add_argument("--version")
+                if subcommand == "install":
+                    parser.add_argument("--plugin", dest="hosted_plugin")
+                    parser.add_argument("--allow-insecure", action="store_true")
                 options = parser.parse_args(args)
                 if subcommand == "info":
                     _print_json(get_plugin_info(options.plugin, options.source_language))
                 elif subcommand == "schema":
                     _print_json(get_plugin_schema(options.plugin, options.source_language, options.version))
                 else:
-                    schema_path = install_plugin(options.plugin, cwd, options.source_language, options.version)
+                    if options.plugin.lower().startswith(("https://", "http://")):
+                        schema_path = install_hosted_plugin(options.plugin, cwd, options.hosted_plugin, options.source_language, options.version, options.allow_insecure)
+                    elif options.hosted_plugin or options.allow_insecure:
+                        return _error("--plugin and --allow-insecure require a hosted service URL")
+                    else:
+                        schema_path = install_plugin(options.plugin, cwd, options.source_language, options.version)
                     print(f"Installed schema: {schema_path}")
                 return 0
             if subcommand == "sync":

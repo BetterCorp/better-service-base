@@ -30,8 +30,11 @@ public static class BsbCli
             case ("client", "generate"):
                 await RegistryClient.Regenerate(cwd); return;
             case ("client", "install"):
-                using (var client = new RegistryClient(options.GetValueOrDefault("--target"), options.GetValueOrDefault("--token"), options.ContainsKey("--allow-insecure")))
-                    Console.WriteLine(await client.Install(cwd, positional.Single(), options.GetValueOrDefault("--source-language"), options.GetValueOrDefault("--version")));
+                var source = positional.Single();
+                if (Uri.TryCreate(source, UriKind.Absolute, out var hosted) && hosted.Scheme is "http" or "https")
+                    Console.WriteLine(await HostedClient.Install(cwd, source, options.GetValueOrDefault("--plugin"), options.GetValueOrDefault("--source-language"), options.GetValueOrDefault("--version"), options.ContainsKey("--allow-insecure")));
+                else using (var client = new RegistryClient(options.GetValueOrDefault("--target"), options.GetValueOrDefault("--token"), options.ContainsKey("--allow-insecure")))
+                    Console.WriteLine(await client.Install(cwd, source, options.GetValueOrDefault("--source-language"), options.GetValueOrDefault("--version")));
                 return;
             case ("plugin", "export"):
                 await SaveExports(cwd, SBPlugins.ExportAssembly(Path.GetFullPath(positional.Single(), cwd), options.GetValueOrDefault("--package"), options.GetValueOrDefault("--version")));

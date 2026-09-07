@@ -50,7 +50,7 @@ pub fn plugin_id(id: &str) -> Result<(String, String)> {
         (parts[0].into(), parts[1].into())
     })
 }
-fn source_language(value: &str) -> Result<String> {
+pub(crate) fn source_language(value: &str) -> Result<String> {
     let language = if value == "dotnet" { "csharp" } else { value };
     ensure!(
         ["nodejs", "csharp", "python", "go", "rust", "java"].contains(&language),
@@ -58,16 +58,31 @@ fn source_language(value: &str) -> Result<String> {
     );
     Ok(language.into())
 }
-fn exact_version(value: &str) -> bool {
-    let core = value.split(['-', '+']).next().unwrap_or_default();
+pub(crate) fn exact_version(value: &str) -> bool {
+    fn identifiers(value: &str, numeric: bool) -> bool {
+        !value.is_empty()
+            && value.split('.').all(|part| {
+                !part.is_empty()
+                    && part
+                        .bytes()
+                        .all(|c| c.is_ascii_alphanumeric() || c == b'-')
+                    && (!numeric
+                        || !part.bytes().all(|c| c.is_ascii_digit())
+                        || part == "0"
+                        || !part.starts_with('0'))
+            })
+    }
+    let (core_and_pre, build) = value.split_once('+').map_or((value, None), |(a, b)| (a, Some(b)));
+    let (core, pre) = core_and_pre
+        .split_once('-')
+        .map_or((core_and_pre, None), |(a, b)| (a, Some(b)));
     let parts: Vec<_> = core.split('.').collect();
     parts.len() == 3
         && parts
             .iter()
-            .all(|part| !part.is_empty() && part.bytes().all(|c| c.is_ascii_digit()))
-        && value
-            .bytes()
-            .all(|c| c.is_ascii_alphanumeric() || b".-+".contains(&c))
+            .all(|part| !part.is_empty() && part.bytes().all(|c| c.is_ascii_digit()) && (*part == "0" || !part.starts_with('0')))
+        && pre.is_none_or(|value| identifiers(value, true))
+        && build.is_none_or(|value| identifiers(value, false))
 }
 pub struct RegistryClient {
     origin: Url,
@@ -196,35 +211,7 @@ impl RegistryClient {
             .as_str()
             .context("source language required")?;
         let name = format!("{org}~{name}~{language}");
-        let data = serde_json::to_string_pretty(&schema)?;
-        generator::generate(&data, &name)?;
-        let directory = cwd.join(".bsb/schemas");
-        match tokio::fs::read_dir(&directory).await {
-            Ok(mut entries) => {
-                while let Some(entry) = entries.next_entry().await? {
-                    let path = entry.path();
-                    if path.extension().is_none_or(|v| v != "json") {
-                        continue;
-                    }
-                    let existing = path
-                        .file_stem()
-                        .and_then(|v| v.to_str())
-                        .context("invalid snapshot name")?;
-                    ensure!(
-                        existing == name || generator::snake(existing) != generator::snake(&name),
-                        "installed client names collide"
-                    );
-                }
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error.into()),
-        }
-        atomic_write(
-            &cwd.join(".bsb/schemas").join(format!("{name}.json")),
-            data.as_bytes(),
-        )
-        .await?;
-        sync_clients(cwd).await
+        install_schema(cwd, &schema, &name).await
     }
     pub async fn publish(
         &self,
@@ -292,6 +279,41 @@ impl RegistryClient {
         ensure!(!results.is_empty(), "no matching Rust plugins to publish");
         Ok(json!(results))
     }
+}
+pub(crate) async fn install_schema(
+    cwd: &Path,
+    schema: &Value,
+    name: &str,
+) -> Result<Vec<PathBuf>> {
+    let data = serde_json::to_string_pretty(schema)?;
+    generator::generate(&data, name)?;
+    let directory = cwd.join(".bsb/schemas");
+    match tokio::fs::read_dir(&directory).await {
+        Ok(mut entries) => {
+            while let Some(entry) = entries.next_entry().await? {
+                let path = entry.path();
+                if path.extension().is_none_or(|v| v != "json") {
+                    continue;
+                }
+                let existing = path
+                    .file_stem()
+                    .and_then(|v| v.to_str())
+                    .context("invalid snapshot name")?;
+                ensure!(
+                    existing == name || generator::snake(existing) != generator::snake(name),
+                    "installed client names collide"
+                );
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    atomic_write(
+        &directory.join(format!("{name}.json")),
+        data.as_bytes(),
+    )
+    .await?;
+    sync_clients(cwd).await
 }
 pub async fn sync_clients(cwd: &Path) -> Result<Vec<PathBuf>> {
     let directory = cwd.join(".bsb/schemas");
@@ -552,12 +574,13 @@ pub async fn command(cwd: &Path, args: &[String]) -> Result<bool> {
                     "token",
                     "org",
                     "plugin",
-                    "allow-insecure-http"
+                    "allow-insecure-http",
+                    "allow-insecure"
                 ]
                 .contains(&key),
                 "unknown option {arg}"
             );
-            if key == "allow-insecure-http" {
+            if key == "allow-insecure-http" || key == "allow-insecure" {
                 flags.insert(key, "true");
             } else {
                 index += 1;
@@ -575,14 +598,32 @@ pub async fn command(cwd: &Path, args: &[String]) -> Result<bool> {
         println!("{}", json!(sync_clients(cwd).await?));
         return Ok(true);
     }
+    let source = flags.get("source-language").copied();
+    let version = flags.get("version").copied();
+    if action == "install"
+        && positional.len() == 1
+        && Url::parse(positional[0]).is_ok()
+    {
+        let client = crate::hosted::HostedClient::new(
+            positional[0],
+            flags.contains_key("allow-insecure"),
+        )?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!(
+                client
+                    .install(cwd, flags.get("plugin").copied(), source, version)
+                    .await?
+            ))?
+        );
+        return Ok(true);
+    }
     let client = RegistryClient::new(
         flags.get("target").copied(),
         flags.get("token").copied(),
         flags.contains_key("allow-insecure-http")
             || std::env::var("BSB_REGISTRY_ALLOW_INSECURE_HTTP").as_deref() == Ok("true"),
     )?;
-    let source = flags.get("source-language").copied();
-    let version = flags.get("version").copied();
     let result = match action.as_str() {
         "list" => {
             client

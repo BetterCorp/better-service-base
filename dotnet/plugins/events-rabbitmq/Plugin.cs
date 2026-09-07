@@ -153,7 +153,7 @@ public partial class Plugin : BSBEvents
             await _publisher.BasicPublishAsync(exchange, queue, mandatory, new BasicProperties {
                 Persistent = true, ContentType = "application/json", MessageId = Guid.NewGuid().ToString(), AppId = _myId,
                 CorrelationId = correlation, Expiration = ttl.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
+                Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
             }, bytes, timeout.Token);
         }
         finally { _publishLock.Release(); }

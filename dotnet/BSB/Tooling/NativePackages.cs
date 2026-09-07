@@ -27,8 +27,8 @@ public static class NativePackages
 
     public static async Task<string> Install(string cwd, string package, string version, string? source = null)
     {
-        if (!Regex.IsMatch(package, "^[A-Za-z0-9][A-Za-z0-9_.-]*$") || !Regex.IsMatch(version, "^[0-9]+\\.[0-9]+\\.[0-9]+$"))
-            throw new ArgumentException("A NuGet package ID and exact major.minor.patch version are required");
+        if (!Regex.IsMatch(package, "^[A-Za-z0-9][A-Za-z0-9_.-]*$") || !RegistryClient.IsExactVersion(version))
+            throw new ArgumentException("A NuGet package ID and exact semantic version are required");
         var root = Path.GetFullPath(Environment.GetEnvironmentVariable("BSB_PLUGIN_DIR") ?? Environment.GetEnvironmentVariable("BSB_PLUGINS_DIR") ?? Path.Combine(cwd, ".bsb", "plugins"), cwd);
         var packageRoot = Path.Combine(root, package);
         var destination = Path.Combine(packageRoot, version);
@@ -53,7 +53,9 @@ public static class NativePackages
             if (source is not null) { restore.Add("--source"); restore.Add(source); }
             await BsbCli.Process("dotnet", restore.ToArray(), build);
             var assets = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(build, "obj", "project.assets.json")))!;
-            var library = assets["libraries"]!.AsObject().Single(x => x.Key.Equals(package + "/" + version, StringComparison.OrdinalIgnoreCase)).Value!;
+            var libraryEntry = assets["libraries"]!.AsObject().Single(x => x.Key.StartsWith(package + "/", StringComparison.OrdinalIgnoreCase));
+            var resolvedVersion = libraryEntry.Key[(package.Length + 1)..];
+            var library = libraryEntry.Value!;
             var relative = library["path"]!.GetValue<string>().Replace('/', Path.DirectorySeparatorChar);
             var packageDirectory = assets["packageFolders"]!.AsObject().Select(x => Path.Combine(x.Key, relative)).Single(Directory.Exists);
             var manifestPath = Path.Combine(packageDirectory, "bsb", "bsb-plugin.json");
@@ -64,7 +66,7 @@ public static class NativePackages
             foreach (var entry in entries)
             {
                 var id = entry!["id"]!.GetValue<string>(); var (_, localName) = RegistryClient.ParsePluginId(id);
-                if (localName != id || entry["version"]!.GetValue<string>() != version ||
+                if (localName != id || (entry["version"]!.GetValue<string>() != version && entry["version"]!.GetValue<string>() != resolvedVersion) ||
                     !string.Equals(entry["package"]!.GetValue<string>(), package, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("NuGet plugin manifest identity/version does not match the requested package");
                 var assembly = entry["assembly"]!.GetValue<string>();

@@ -2,6 +2,7 @@ namespace BSB.Runtime;
 
 using BSB.Base;
 using BSB.Interfaces;
+using BSB.Tooling;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
@@ -256,6 +257,13 @@ public class SBPlugins
     {
         var packageDir = Path.GetFullPath(Path.Combine(_pluginDir!, package_));
         if (!Directory.Exists(packageDir)) return null;
+
+        if (requestedVersion is not null && RegistryClient.IsExactVersion(requestedVersion))
+        {
+            var exact = Path.Combine(packageDir, requestedVersion);
+            var manifestAssembly = ResolveManifest(exact, pluginName);
+            if (manifestAssembly is not null) return manifestAssembly;
+        }
 
         // Try versioned layout: {package}/{M}/{m}/{p}/
         var versions = ListVersions(packageDir);

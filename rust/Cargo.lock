@@ -119,9 +119,9 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "anyvali"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63e9b669d7f5b304dbec3deaccac8d9b9d9e7aecd215dbf0a2a5770bf8d21510"
+checksum = "432d3a785a5d2e630ed38368b48ea6364fce51112c0d82a12a6e75c6faff521a"
 dependencies = [
  "indexmap 2.14.2",
  "regex",

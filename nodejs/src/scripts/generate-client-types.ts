@@ -515,4 +515,4 @@ if (isMainModule(import.meta.url)) {
   });
 }
 
-export { main as generateClientTypes, generateVirtualClient };
+export { main as generateClientTypes, generateVirtualClient, pluginNameToClassName };

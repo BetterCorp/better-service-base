@@ -30,6 +30,8 @@ static class RabbitChecks
         var published = broker.Messages.Last();
         Check(published.Body["args"]![0]!["value"]!.GetValue<int>() == 1 && published.Body["trace"]!["t"] is not null && published.Properties.Persistent,
             "Fire event wire format/persistence differs from Node");
+        Check(Math.Abs(published.Properties.Timestamp.UnixTime - DateTimeOffset.UtcNow.ToUnixTimeSeconds()) <= 5,
+            "AMQP timestamp must use Unix seconds");
 
         await rabbit.OnReturnableEvent("worker", "get", obs, (_, value) => Task.FromResult<object?>(value));
         broker.Confirmation = new(TaskCreationOptions.RunContinuationsAsynchronously);

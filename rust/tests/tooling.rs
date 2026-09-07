@@ -1,5 +1,46 @@
+use anyhow::Context;
 use bsb::{Result, contract::Contract, generator, json, tooling};
 use std::{fs, path::Path, process::Command};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpListener,
+};
+
+async fn hosted_server(
+    responses: Vec<(&'static str, u16, bsb::Value)>,
+) -> Result<(String, tokio::task::JoinHandle<Result<()>>)> {
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let origin = format!("http://{}", listener.local_addr()?);
+    let server = tokio::spawn(async move {
+        for (path, status, body) in responses {
+            let (mut stream, _) = listener.accept().await?;
+            let mut bytes = vec![];
+            while !bytes.ends_with(b"\r\n\r\n") {
+                bytes.push(stream.read_u8().await?);
+                anyhow::ensure!(bytes.len() < 16384, "oversized headers");
+            }
+            let headers = String::from_utf8(bytes)?;
+            assert!(headers.starts_with(&format!("GET {path} HTTP/1.1")), "{headers}");
+            assert!(
+                !headers.to_ascii_lowercase().contains("\r\nauthorization:"),
+                "hosted requests must not send tokens: {headers}"
+            );
+            let body = body.to_string();
+            let location = if status == 302 { "Location: /redirect\r\n" } else { "" };
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 {status} Test\r\n{location}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await?;
+        }
+        Ok(())
+    });
+    Ok((origin, server))
+}
 
 #[test]
 fn shared_contracts_generate_compiling_rust_clients() -> Result<()> {
@@ -58,6 +99,7 @@ fn shared_contracts_generate_compiling_rust_clients() -> Result<()> {
         .arg("check")
         .arg("--manifest-path")
         .arg(directory.path().join("Cargo.toml"))
+        .env("CARGO_TARGET_DIR", directory.path().join("target"))
         .status()?;
     anyhow::ensure!(status.success(), "generated clients did not compile");
     Ok(())
@@ -150,5 +192,140 @@ async fn registry_install_pins_source_and_offline_sync() -> Result<()> {
     assert_eq!(schema["source"]["language"], "nodejs");
     assert_eq!(schema["pluginId"], "worker");
     assert_eq!(tooling::sync_clients(dir.path()).await?, paths);
+    Ok(())
+}
+
+#[tokio::test]
+async fn hosted_install_selects_links_and_stays_offline_after_install() -> Result<()> {
+    let mut discovery: bsb::Value = bsb::serde_json::from_str(include_str!(
+        "../../tests/fixtures/hosted-discovery.json"
+    ))?;
+    let mut first = discovery["plugins"][0]["schema"].clone();
+    first["description"] = json!("first");
+    let mut refreshed = first.clone();
+    refreshed["description"] = json!("refreshed");
+    discovery["plugins"].as_array_mut().unwrap().push(json!({
+        "id":"acme/service-reports",
+        "language":"rust",
+        "version":"1.2.3-beta.1",
+        "schema":"/contracts/reports.json"
+    }));
+    let (origin, server) = hosted_server(vec![
+        ("/.well-known/bsb", 200, discovery.clone()),
+        ("/contracts/reports.json", 200, first),
+        ("/.well-known/bsb", 200, discovery),
+        ("/contracts/reports.json", 200, refreshed),
+        ("/.well-known/bsb", 200, bsb::serde_json::from_str(include_str!(
+            "../../tests/fixtures/hosted-discovery.json"
+        ))?),
+    ])
+    .await?;
+    let dir = tempfile::tempdir()?;
+    let args = vec![
+        "client".into(),
+        "install".into(),
+        origin.clone(),
+        "--plugin".into(),
+        "acme/service-reports".into(),
+        "--source-language".into(),
+        "rust".into(),
+        "--version".into(),
+        "1.2.3-beta.1".into(),
+        "--allow-insecure".into(),
+        "--token".into(),
+        "must-not-leak".into(),
+    ];
+    assert!(tooling::command(dir.path(), &args).await?);
+    assert!(tooling::command(dir.path(), &args).await?);
+    bsb::hosted::HostedClient::new(&origin, true)?
+        .install(
+            dir.path(),
+            Some("acme/service-reports"),
+            Some("nodejs"),
+            Some("1.2.3-beta.1"),
+        )
+        .await?;
+    server.await??;
+    let snapshots = dir.path().join(".bsb/schemas");
+    let snapshots: Vec<_> = fs::read_dir(&snapshots)?
+        .map(|entry| Ok(entry?.path()))
+        .collect::<Result<_>>()?;
+    let snapshot = snapshots
+        .iter()
+        .find(|path| path.file_name().unwrap().to_str().unwrap().ends_with("~rust.json"))
+        .context("linked snapshot required")?;
+    assert_eq!(snapshots.len(), 2);
+    assert!(
+        snapshot
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with("hosted~")
+    );
+    let saved: bsb::Value = bsb::serde_json::from_slice(&fs::read(snapshot)?)?;
+    assert_eq!(saved["description"], "refreshed");
+    assert_eq!(saved["source"]["url"], origin);
+    assert_eq!(saved["source"]["org"], "acme");
+    assert_eq!(saved["source"]["language"], "rust");
+    assert_eq!(saved["source"]["version"], "1.2.3-beta.1");
+    assert_eq!(tooling::sync_clients(dir.path()).await?.len(), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn hosted_install_rejects_ambiguous_invalid_and_unsafe_responses() -> Result<()> {
+    let schema = json!({"pluginId":"reports","events":{}});
+    let ambiguous = json!({"bsb":1,"plugins":[
+        {"id":"acme/reports","language":"rust","version":"1.0.0","schema":schema.clone()},
+        {"id":"acme/reports","language":"rust","version":"2.0.0","schema":schema}
+    ]});
+    let invalid = json!({"bsb":1,"plugins":[
+        {"id":"bad/id/extra","language":"rust","version":"1.0.0","schema":{"pluginId":"reports","events":{}}}
+    ]});
+    let duplicate = json!({"bsb":1,"plugins":[
+        {"id":"reports","language":"rust","version":"1.0.0","schema":{"pluginId":"reports","events":{}}},
+        {"id":"_/reports","language":"rust","version":"1.0.0","schema":{"pluginId":"reports","events":{}}}
+    ]});
+    let mismatched_version = json!({"bsb":1,"plugins":[
+        {"id":"acme/reports","language":"rust","version":"1.0.0","schema":{"pluginId":"reports","version":"2.0.0","events":{}}}
+    ]});
+    let off_origin = json!({"bsb":1,"plugins":[
+        {"id":"acme/reports","language":"rust","version":"1.0.0","schema":"https://example.invalid/schema.json"}
+    ]});
+    for response in [ambiguous, invalid, duplicate, mismatched_version, off_origin] {
+        let (origin, server) = hosted_server(vec![("/.well-known/bsb", 200, response)]).await?;
+        let dir = tempfile::tempdir()?;
+        assert!(
+            bsb::hosted::HostedClient::new(&origin, true)?
+                .install(dir.path(), None, None, None)
+                .await
+                .is_err()
+        );
+        server.await??;
+        assert!(!dir.path().join(".bsb/schemas").exists());
+    }
+    let (origin, server) = hosted_server(vec![("/.well-known/bsb", 302, json!({}))]).await?;
+    assert!(
+        bsb::hosted::HostedClient::new(&origin, true)?
+            .install(tempfile::tempdir()?.path(), None, None, None)
+            .await
+            .is_err()
+    );
+    server.await??;
+    let normalized = json!({"bsb":1,"plugins":[
+        {"id":"_/reports","language":"rust","version":"1.0.0","schema":{"pluginId":"reports","events":{}}}
+    ]});
+    let (origin, server) = hosted_server(vec![("/.well-known/bsb", 200, normalized)]).await?;
+    let dir = tempfile::tempdir()?;
+    bsb::hosted::HostedClient::new(&origin, true)?
+        .install(
+            dir.path(),
+            Some("reports"),
+            Some("rust"),
+            Some("1.0.0"),
+        )
+        .await?;
+    server.await??;
     Ok(())
 }

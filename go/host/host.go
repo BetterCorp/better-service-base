@@ -74,7 +74,7 @@ func clientCommand(ctx context.Context, cwd string, args []string) error {
 			continue
 		}
 		key := strings.TrimPrefix(arg, "--")
-		if key == "allow-insecure-http" {
+		if key == "allow-insecure-http" || key == "allow-insecure" {
 			flags[key] = "true"
 			continue
 		}
@@ -91,6 +91,13 @@ func clientCommand(ctx context.Context, cwd string, args []string) error {
 	}
 	if command == "sync" {
 		files, err := tooling.SyncClients(cwd)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(files)
+	}
+	if command == "install" && len(positional) == 1 && (strings.HasPrefix(strings.ToLower(positional[0]), "https://") || strings.HasPrefix(strings.ToLower(positional[0]), "http://")) {
+		files, err := tooling.InstallHosted(ctx, cwd, positional[0], tooling.HostedOptions{Plugin: flags["plugin"], Language: flags["source-language"], Version: flags["version"], AllowHTTP: flags["allow-insecure"] == "true" || flags["allow-insecure-http"] == "true"})
 		if err != nil {
 			return err
 		}

@@ -375,6 +375,15 @@ pub fn apply_overrides(document: &mut Value, profile: &str, raw: &str) -> Result
 mod tests {
     use super::*;
     #[tokio::test]
+    async fn atomic_write_replaces_existing_file() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("cache.json");
+        tokio::fs::write(&path, b"previous contents").await?;
+        atomic_write(&path, b"current").await?;
+        assert_eq!(tokio::fs::read(path).await?, b"current");
+        Ok(())
+    }
+    #[tokio::test]
     async fn cached_config_does_not_mask_authentication_or_invalid_responses() -> Result<()> {
         use tokio::{
             io::{AsyncReadExt, AsyncWriteExt},

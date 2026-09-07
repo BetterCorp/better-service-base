@@ -2,7 +2,7 @@
 
 BSB is the executable host. Application services are class-library plugins that reference BSB for their contracts; they do not start their own `ServiceBase` process.
 
-The JSON boundary preserves signed and unsigned 64-bit integers without converting them to floating point. AnyVali 1.1.1's C# `uint64` validator currently caps its range at `long.MaxValue`; larger values remain exact at the wire boundary but fail that SDK's schema validation. Full-range `uint64` validation needs an upstream AnyVali change.
+The JSON boundary preserves signed and unsigned 64-bit integers without converting them to floating point. AnyVali 1.1.2's C# `uint64` validator currently caps its range at `long.MaxValue`; larger values remain exact at the wire boundary but fail that SDK's schema validation. Full-range `uint64` validation needs an upstream AnyVali change.
 
 ```sh
 dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o output
@@ -14,7 +14,7 @@ The `version` field selects among versions in mounted package directories. Local
 
 Plugin projects should use `<EnableDynamicLoading>true</EnableDynamicLoading>`. Reference BSB with `Private="false"` and `ExcludeAssets="runtime"`; the loader shares the running host's BSB assembly so plugin contracts retain the same type identity. Private managed/native dependencies resolve through `AssemblyDependencyResolver`.
 
-Plugins share the host's AnyVali 1.1.1 assembly as well as BSB. Declare a static `ConfigSchema` using `AnyVali.V` and a static `EventSchemas` using `BSBEventSchemas`. BSB validates config before construction and validates declared event inputs and outputs at runtime. `BSBTypes` remains available as a compatibility facade over AnyVali. Exported schemas preserve definitions, defaults and sensitive metadata.
+Plugins share the host's AnyVali 1.1.2 assembly as well as BSB. Declare a static `ConfigSchema` using `AnyVali.V` and a static `EventSchemas` using `BSBEventSchemas`. BSB validates config before construction and validates declared event inputs and outputs at runtime. `BSBTypes` remains available as a compatibility facade over AnyVali. Exported schemas preserve definitions, defaults and sensitive metadata.
 
 Choose the configuration provider with `BSB_CONFIG_PLUGIN`. Bundled providers include `config-default` (JSON or YAML), `config-env` (`BSB_CONFIG_JSON`), `config-vault`, and `config-vault-google`. The file provider falls back to `sec-config.yaml` when `bsb-config.json` is absent. The file and environment providers accept Node's `default`/named-profile format as well as the original .NET root sections with optional `profiles`. `BSB_PROFILE` selects the profile; nested configuration merges recursively. At least one enabled service is required.
 
@@ -88,3 +88,7 @@ The runtime remains an incomplete port, not full Node.js feature parity. The hos
 dotnet run --project tests/SmokeTests -c Release -- output tests/TestPlugin/bin/Release/net10.0
 dotnet run --project tests/RuntimeTests
 ```
+
+## Hosted clients
+
+`bsb client install https://service.example.com` discovers public contracts at `/.well-known/bsb` and generates a client in this language. Use `--plugin org/name` when multiple contracts are hosted; `--source-language` and `--version` select an implementation. Saved schemas support offline regeneration. See the [discovery format and hosting instructions](../docs/hosted-client-discovery.md). Calls still use the configured BSB events transport.

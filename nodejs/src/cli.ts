@@ -113,7 +113,7 @@ Client Commands (Registry Operations):
   bsb client search <query>     Search for plugins by name or tag
   bsb client info <org/name>    Get plugin details from registry
   bsb client schema <org/name>  Get plugin event schema from registry
-  bsb client install <org/name> Download schema and generate types
+  bsb client install <org/name|https://origin> Download schema and generate types
   bsb client publish            Publish current plugin to registry
   bsb client publish --target <vault-url> --plugin <id> --token <bv_p_...>
   bsb client token generate     Generate API token for registry
@@ -217,12 +217,12 @@ async function main() {
         case 'install':
           if (!process.argv[4]) {
             // eslint-disable-next-line no-console
-            console.error('Error: install requires a plugin ID\n');
+            console.error('Error: install requires a plugin ID or hosted origin\n');
             // eslint-disable-next-line no-console
-            console.log('Usage: bsb client install <org/name>');
+            console.log('Usage: bsb client install <org/name|https://origin>');
             process.exit(1);
           }
-          await spawnClientCli(['install', process.argv[4]]);
+          await spawnClientCli(['install', ...process.argv.slice(4)]);
           break;
         case 'publish':
           await spawnClientCli(['publish', ...process.argv.slice(4)]);

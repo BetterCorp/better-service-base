@@ -10,6 +10,7 @@ import time
 import uuid
 
 from .base import BSBObservable
+from .observable import _fmt
 from .schema import av, object_schema
 
 
@@ -37,6 +38,14 @@ def redact(entry, paths):
                     visit(value[key], parts[1:])
     for path in paths:
         visit(entry, path.split("."))
+    return entry
+
+
+def redact_log(entry, message, paths):
+    meta = entry.get("meta", {})
+    entry = redact(entry, paths)
+    values = entry["meta"] if isinstance(entry["meta"], dict) else dict.fromkeys(meta, "[REDACTED]") if isinstance(meta, dict) else {}
+    entry["message"] = _fmt(message, values)
     return entry
 
 
@@ -91,6 +100,9 @@ class StructuredLogging(BSBObservable):
         path = self.config.get("path") if self.file_only else self.config.get("filePath")
         if path:
             self._file = RotatingLogFile(Path(self.cwd) / path, self.config)
+
+    def _redact_log(self, entry, message):
+        return redact_log({**self.config.get("base", {}), **entry}, message, self.config["redact"])
 
     def emit_log(self, entry):
         level = entry["level"]

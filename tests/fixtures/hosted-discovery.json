@@ -1,0 +1,22 @@
+{
+  "bsb": 1,
+  "plugins": [
+    {
+      "id": "acme/service-reports",
+      "language": "nodejs",
+      "version": "1.2.3-beta.1",
+      "schema": {
+        "pluginId": "service-reports",
+        "version": "1.2.3-beta.1",
+        "events": {
+          "lookup": {
+            "type": "returnable",
+            "category": "onReturnableEvents",
+            "inputSchema": {"anyvaliVersion": "1.0", "schemaVersion": "1.1", "root": {"kind": "string"}, "definitions": {}, "extensions": {}},
+            "outputSchema": {"anyvaliVersion": "1.0", "schemaVersion": "1.1", "root": {"kind": "string"}, "definitions": {}, "extensions": {}}
+          }
+        }
+      }
+    }
+  ]
+}

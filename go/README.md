@@ -49,3 +49,7 @@ OTLP/HTTP uses `endpoint`, `serviceName`, `serviceVersion`, `headers`, `resource
 Graylog supports GELF over UDP/TCP/TLS/HTTP with bounded UDP chunking. Syslog supports RFC3164/5424 and newline/octet-counting TCP framing. Set `host`, `port`, `protocol`, `hostname`, and appropriate `facility`; TLS verifies certificates and supports `caCertificatePath`, `clientCertificatePath`, `clientKeyPath`. Graylog also accepts `httpEndpoint`, `additionalFields`, and `compress`.
 
 Event backends evaluate filter in alias sort order; the first match handles an operation. Missing/null accepts all, an empty list accepts none. Filters support operation lists, operation-to-boolean/plugin-list maps, or {enabled, plugins} entries. BSB adds an unfiltered local fallback if needed. Put a catch-all alias after selective aliases; malformed filters fail startup.
+
+## Hosted clients
+
+`bsb client install https://service.example.com` discovers public contracts at `/.well-known/bsb` and generates a client in this language. Use `--plugin org/name` when multiple contracts are hosted; `--source-language` and `--version` select an implementation. Saved schemas support offline regeneration. See the [discovery format and hosting instructions](../docs/hosted-client-discovery.md). Calls still use the configured BSB events transport.

@@ -1,6 +1,6 @@
 # BSB Python
 
-BSB is the executable host. Your application is a Python plugin distribution loaded by BSB; installing BSB as a dependency does not start it. Python 3.11+ and AnyVali 1.1.1 are required.
+BSB is the executable host. Your application is a Python plugin distribution loaded by BSB; installing BSB as a dependency does not start it. Python 3.11+ and AnyVali 1.1.2 are required.
 
 ## Run an application
 
@@ -123,3 +123,7 @@ python -m pytest tests -q
 ```
 
 Tests cover actual generated client type checking, plugin lifecycles, Vault/registry HTTP boundaries, encryption, simulated AMQP delivery and streams, exporter payloads, real UDP/TLS, and example HTTP/persistence. Real multi-language Rabbit and PostgreSQL migration integration remain separate validation requirements. Docker builds install BSB in `/opt/bsb`; application plugins belong in that environment during a derivative image's build stage. Runtime containers run as `bsb` from `/home/bsb/app`.
+
+## Hosted clients
+
+`bsb client install https://service.example.com` discovers public contracts at `/.well-known/bsb` and generates a client in this language. Use `--plugin org/name` when multiple contracts are hosted; `--source-language` and `--version` select an implementation. Saved schemas support offline regeneration. See the [discovery format and hosting instructions](../docs/hosted-client-discovery.md). Calls still use the configured BSB events transport.

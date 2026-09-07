@@ -9,7 +9,7 @@ from urllib.error import HTTPError, URLError
 
 from .base import BSBObservable
 from .http import json_request, origin
-from .logging import LEVELS, redact
+from .logging import LEVELS, redact, redact_log
 from .schema import av
 
 
@@ -130,6 +130,9 @@ class BufferedTelemetry(BSBObservable):
         self._dropped = 0
         self._worker = None
         self._stop = asyncio.Event()
+
+    def _redact_log(self, entry, message):
+        return redact_log(entry, message, self.config.get("redact", []))
 
     def enqueue(self, signal, entry):
         if self._closed or signal not in self.signals or not self.config.get(signal, True):

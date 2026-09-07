@@ -141,6 +141,9 @@ func (r *Registry) Install(ctx context.Context, cwd, id, source, version string)
 	org, name, _ := ParsePluginID(id)
 	source = schema["source"].(map[string]any)["language"].(string)
 	local := org + "~" + name + "~" + source
+	return installSchema(cwd, schema, local)
+}
+func installSchema(cwd string, schema map[string]any, local string) ([]string, error) {
 	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
 		return nil, err

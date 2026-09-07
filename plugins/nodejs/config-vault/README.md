@@ -99,7 +99,7 @@ The admin UI validates plugin config with the portable AnyVali schema before sub
 
 ## Private Plugin CI Publishing
 
-Vault accepts AnyVali 1.1.1 documents from Node, .NET and Python, including native wrapper and union aliases. Sensitive collections are masked and replaced as a whole using JSON in the password field; omitted values preserve the existing collection. Referenced schemas use this same conservative editor. This avoids leaking nested credentials or restoring a secret to the wrong array element after reordering.
+Vault accepts AnyVali 1.1.2 documents from Node, .NET and Python, including native wrapper and union aliases. Sensitive collections are masked and replaced as a whole using JSON in the password field; omitted values preserve the existing collection. Referenced schemas use this same conservative editor. This avoids leaking nested credentials or restoring a secret to the wrong array element after reordering.
 
 Shared application profiles are validated against every active deployment profile before publication. Enable only implementations matching that deployment's host language; disabled references may point to services in another language. Deployment overrides can select the local implementation. Profile language is locked after publication.
 
