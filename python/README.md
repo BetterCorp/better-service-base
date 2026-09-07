@@ -87,6 +87,8 @@ Vault uses lower camel case environment settings: `vaultUrl`, `apiKeyId`, `apiSe
 
 Vault responses must target `python`. Wrong language, invalid config, authentication errors, redirects and TLS validation errors fail startup. Only transient failures permit encrypted cached config within the stale window. AES-GCM/HKDF cache files bind origin, key ID and language; changed secrets or tampering fail authentication. Cache paths are runtime-specific. `BSB_CONFIG_OVERRIDES` accepts only returned `envOverridePaths`, applies in memory and never changes the encrypted baseline.
 
+Registry, hosted, telemetry, and Vault JSON requests use one monotonic deadline for HTTP headers and incremental body reads. DNS resolution and connection setup retain platform/standard-library timeout limits; they cannot always be interrupted safely.
+
 ## Rabbit and streams
 
 `events-rabbitmq` uses native aio-pika with Node BSB 9 queue names and `{trace:{t,s},args:[payload]}` envelopes. Options: `endpoints`, `credentials.username/password`, `platformKey`, `uniqueId`, `prefetch` (10), and `fatalOnDisconnect` (true). Disabling fatal disconnect enables the client's topology recovery. Endpoints must use AMQP/AMQPS and the same virtual host; initial connections try them in order, and subsequent recovery uses the selected endpoint.

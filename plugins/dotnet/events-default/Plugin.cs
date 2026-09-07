@@ -115,7 +115,8 @@ public class Plugin : BSBEvents
         foreach (var channel in _streamSources.Values)
         {
             channel.Writer.TryComplete();
-            while (channel.Reader.TryRead(out var stream)) stream.Dispose();
+            // Queued streams remain owned by their senders, including during shutdown.
+            while (channel.Reader.TryRead(out _)) { }
         }
         _eventHandlers.Clear(); _returnableHandlers.Clear(); _broadcastHandlers.Clear(); _streamSources.Clear();
         _shutdown.Dispose();

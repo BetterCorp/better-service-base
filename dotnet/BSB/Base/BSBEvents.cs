@@ -154,15 +154,16 @@ public abstract class BSBEvents : MainBase
             }
             catch (Exception error)
             {
-                if (receive is not null) _ = DisposeLate(receive);
+                if (receive is not null) _ = ObserveLate(receive);
                 try { await handler(obs, error, null); } catch (Exception failure) { obs.Error(failure); }
                 return;
             }
             try { await handler(obs, null, stream); } catch (Exception error) { obs.Error(error); }
         }
-        static async Task DisposeLate(Task<Stream> receive)
+        static async Task ObserveLate(Task<Stream> receive)
         {
-            try { (await receive).Dispose(); } catch { }
+            // Legacy backends may return the sender's borrowed stream; only observe completion.
+            try { await receive; } catch { }
         }
     }
     public virtual Task SendStream(string pluginName, string eventName, IObservable obs, string streamId, Stream data) =>

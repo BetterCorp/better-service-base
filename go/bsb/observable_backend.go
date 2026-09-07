@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -17,10 +18,17 @@ type ObservableBackend struct {
 	pluginName string
 	logger     *slog.Logger
 
-	mu       sync.RWMutex
-	plugins  []ObservablePlugin
-	counters map[string]*Counter
-	gauges   map[string]*Gauge
+	mu         sync.RWMutex
+	plugins    []ObservablePlugin
+	counters   map[string]*Counter
+	gauges     map[string]*Gauge
+	histograms map[string]*Histogram
+	metrics    map[string]metricDefinition
+}
+
+type metricDefinition struct {
+	kind, description, help string
+	boundaries              []float64
 }
 
 // NewObservableBackend creates the framework's observable backend.
@@ -37,6 +45,8 @@ func NewObservableBackend(mode DebugMode, appID, pluginName string) *ObservableB
 		logger:     slog.New(handler),
 		counters:   make(map[string]*Counter),
 		gauges:     make(map[string]*Gauge),
+		histograms: make(map[string]*Histogram),
+		metrics:    make(map[string]metricDefinition),
 	}
 }
 
@@ -103,6 +113,7 @@ func (b *ObservableBackend) CreateCounter(pluginName, name, description, help st
 	key := pluginName + ":" + name
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.registerMetric(key, metricDefinition{kind: "counter", description: description, help: help})
 	if c, ok := b.counters[key]; ok {
 		return c
 	}
@@ -120,6 +131,7 @@ func (b *ObservableBackend) CreateGauge(pluginName, name, description, help stri
 	key := pluginName + ":" + name
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.registerMetric(key, metricDefinition{kind: "gauge", description: description, help: help})
 	if g, ok := b.gauges[key]; ok {
 		return g
 	}
@@ -132,14 +144,34 @@ func (b *ObservableBackend) CreateGauge(pluginName, name, description, help stri
 	return g
 }
 
-// CreateHistogram creates a new histogram.
+// CreateHistogram creates or returns an existing histogram.
 func (b *ObservableBackend) CreateHistogram(pluginName, name, description, help string, boundaries []float64) *Histogram {
+	key := pluginName + ":" + name
 	h := NewHistogram(name, description, help, boundaries)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	definition := metricDefinition{kind: "histogram", description: description, help: help, boundaries: h.boundaries}
+	b.registerMetric(key, definition)
+	if existing, ok := b.histograms[key]; ok {
+		return existing
+	}
 	started := fmt.Sprint(time.Now().UnixNano())
 	h.onChange = func(count int64, sum float64, buckets []int64, boundaries []float64) {
 		b.metric(pluginName, map[string]any{"kind": "histogram", "name": name, "description": description, "unit": help, "count": count, "sum": sum, "bucketCounts": buckets, "explicitBounds": boundaries, "startedNs": started, "timestampNs": fmt.Sprint(time.Now().UnixNano())})
 	}
+	b.histograms[key] = h
 	return h
+}
+
+func (b *ObservableBackend) registerMetric(key string, definition metricDefinition) {
+	if existing, ok := b.metrics[key]; ok {
+		if existing.kind != definition.kind || existing.description != definition.description || existing.help != definition.help || !slices.Equal(existing.boundaries, definition.boundaries) {
+			panic("metric already registered with conflicting definition")
+		}
+		return
+	}
+	definition.boundaries = slices.Clone(definition.boundaries)
+	b.metrics[key] = definition
 }
 
 func (b *ObservableBackend) metric(plugin string, entry map[string]any) {

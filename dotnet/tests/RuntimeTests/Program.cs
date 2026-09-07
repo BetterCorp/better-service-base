@@ -158,9 +158,9 @@ var slowStreams = new SlowStreamBackend(ctor);
 var timedOut = new TaskCompletionSource<Exception?>(TaskCreationOptions.RunContinuationsAsynchronously);
 await slowStreams.ReceiveStream("one", "slow", null!, (_, error, _) => { timedOut.SetResult(error); return Task.CompletedTask; }, 1);
 Check(await timedOut.Task.WaitAsync(TimeSpan.FromSeconds(2)) is TimeoutException, "Compatibility stream timeout was ignored");
-var lateStream = new MemoryStream(); slowStreams.Complete(lateStream);
+using var lateStream = new MemoryStream(); slowStreams.Complete(lateStream);
 await Task.Delay(50);
-Check(!lateStream.CanRead, "Late compatibility stream was not disposed after timeout");
+Check(lateStream.CanRead, "Late compatibility receive disposed the sender's stream");
 var calls = remote.Calls;
 try { await client.EmitEventAndReturn("get", null!, "bad"); throw new Exception("Invalid input accepted"); }
 catch (ValidationError) { }
@@ -202,8 +202,18 @@ await using (var bus = new BSB.Plugins.EventsDefault.Plugin(ctor))
     var receive = bus.ReceiveStream("two", "stream", null!);
     await bus.SendStream("two", "stream", null!, sent);
     Check(ReferenceEquals(sent, await receive), "Receiver-first stream was lost");
+    var expired = new TaskCompletionSource<Exception?>(TaskCreationOptions.RunContinuationsAsynchronously);
+    var callbacks = 0;
+    var streamId = await bus.ReceiveStream("one", "late", null!, (_, error, _) =>
+    { Interlocked.Increment(ref callbacks); expired.TrySetResult(error); return Task.CompletedTask; }, 1);
+    Check(await expired.Task.WaitAsync(TimeSpan.FromSeconds(2)) is TimeoutException, "Local receiver deadline was ignored");
+    await bus.SendStream("one", "late", null!, streamId, sent);
+    await Task.Delay(50);
+    Check(sent.CanRead && callbacks == 1, "Late sender lost ownership or expired callback ran twice");
+    await bus.SendStream("one", "queued", null!, sent);
     var pending = bus.ReceiveStream("one", "pending", null!);
     await bus.DisposeAsync();
+    Check(sent.CanRead, "Shutdown disposed a queued sender-owned stream");
     try { await pending; throw new Exception("Shutdown did not cancel pending stream"); }
     catch (OperationCanceledException) { }
     await bus.DisposeAsync();

@@ -231,7 +231,11 @@ func TestOTLPLogsTracesAndMetricsFlush(t *testing.T) {
 	boundaries := []float64{10, 50}
 	histogram := obs.Metrics().Histogram("latency", "Latency", "ms", boundaries)
 	boundaries[0] = 100 // The metric owns its boundaries.
-	for _, value := range []float64{5, 10, 25, 50, 75} {
+	for _, value := range []float64{5, 10} {
+		histogram.Record(value)
+	}
+	histogram = obs.Metrics().Histogram("latency", "Latency", "ms", []float64{10, 50})
+	for _, value := range []float64{25, 50, 75} {
 		histogram.Record(value)
 	}
 	if err = plugin.Dispose(); err != nil {

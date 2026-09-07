@@ -112,3 +112,30 @@ func TestObservableMetrics(t *testing.T) {
 		t.Error("timer should be non-negative")
 	}
 }
+
+func TestMetricRegistrationIdentity(t *testing.T) {
+	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test")
+	first := backend.CreateHistogram("plugin", "latency", "Latency", "ms", []float64{10, 50})
+	first.Record(5)
+	second := backend.CreateHistogram("plugin", "latency", "Latency", "ms", []float64{10, 50})
+	second.Record(25)
+	if first != second || second.Count() != 2 || second.Sum() != 30 {
+		t.Fatalf("histogram state was not reused: first=%p second=%p count=%d sum=%v", first, second, second.Count(), second.Sum())
+	}
+
+	backend.CreateCounter("plugin", "requests", "Requests", "count")
+	for name, conflict := range map[string]func(){
+		"kind":       func() { backend.CreateGauge("plugin", "requests", "Requests", "count") },
+		"metadata":   func() { backend.CreateCounter("plugin", "requests", "Other", "count") },
+		"boundaries": func() { backend.CreateHistogram("plugin", "latency", "Latency", "ms", []float64{20, 50}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("conflicting metric registration accepted")
+				}
+			}()
+			conflict()
+		})
+	}
+}

@@ -83,3 +83,7 @@ HOSTED CONTRACT DISCOVERY
 Rust metric constructors counter/gauge/histogram return Result<Metric>; propagate registration errors. Identity is plugin/name; kind, description and unit must match existing definitions. Remote trace and span IDs must be correctly sized hexadecimal strings and individually nonzero.
 
 Python synchronous stream sources must provide prompt, thread-safe close() that unblocks read. Cancellation closes the source and joins the reader; non-closable synchronous readers are rejected. Async read sources do not need close().
+
+Go metric constructors reuse cumulative instruments by plugin/name; kind, description, unit and histogram boundaries must match on repeated registration. Conflicting definitions panic. .NET local transport borrows sender streams; late timeout completion and transport shutdown never dispose them.
+
+Python JSON HTTP reads use a monotonic response deadline, incremental reads and active socket shutdown; timeout while reading an HTTP error body preserves its status with an empty diagnostic body. Platform DNS resolution and connection setup retain OS/stdlib timeout limitations.
