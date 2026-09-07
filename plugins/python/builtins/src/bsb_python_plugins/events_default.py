@@ -91,14 +91,16 @@ class Plugin(BSBEvents):
         stream = ByteStream(timeout_seconds)
         async def receive():
             called = False
+            completed = False
             span = None
             try:
-                parent = await asyncio.wait_for(started, 30)
+                parent = await asyncio.wait_for(started, timeout_seconds)
                 span = self._obs.for_plugin(plugin_name).create_trace("stream.receive", parent=parent)
                 called = True
                 await handler(span, None, stream)
                 if not stream.ended:
                     raise RuntimeError("Receiver must consume the stream through EOF")
+                completed = True
             except Exception as error:
                 stream.abort(error)
                 if not called:
@@ -106,10 +108,14 @@ class Plugin(BSBEvents):
                 raise
             finally:
                 self._streams.pop(stream_id, None)
+                sender = entry[4]
+                if not completed and sender is not None and not sender.done() and sender.cancelling() == 0:
+                    sender.cancel()
                 if span:
                     span.end()
         task = asyncio.create_task(receive())
-        self._streams[stream_id] = (key, started, stream, task)
+        entry = [key, started, stream, task, None]
+        self._streams[stream_id] = entry
         self._tasks.add(task)
         def completed(done):
             self._tasks.discard(done)
@@ -123,7 +129,10 @@ class Plugin(BSBEvents):
         entry = self._streams.get(stream_id)
         if entry is None or entry[0] != key or entry[1].done():
             raise ValueError("Unknown, mismatched or used stream ID")
-        _, started, stream, task = entry
+        _, started, stream, task, _ = entry
+        sender = asyncio.current_task()
+        entry[4] = sender
+        self._tasks.add(sender)
         started.set_result(trace)
         try:
             async for data in chunks(source):
@@ -131,17 +140,23 @@ class Plugin(BSBEvents):
             await stream.feed(None)
             await asyncio.wait_for(asyncio.shield(task), stream.timeout_seconds)
         except BaseException as error:
-            stream.abort(RuntimeError(str(error)))
+            receiver_error = stream.error if stream.closed else None
+            if not stream.closed:
+                stream.abort(RuntimeError(str(error)))
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+            if isinstance(error, asyncio.CancelledError) and receiver_error is not None:
+                raise receiver_error
             raise
+        finally:
+            self._tasks.discard(sender)
 
     async def dispose(self):
         if self._closed:
             return
         self._closed = True
-        for _, _, stream, _ in self._streams.values():
-            stream.abort(RuntimeError("Transport closed"))
+        for entry in self._streams.values():
+            entry[2].abort(RuntimeError("Transport closed"))
         tasks = list(self._tasks)
         for task in tasks:
             task.cancel()

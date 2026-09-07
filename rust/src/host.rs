@@ -52,7 +52,7 @@ type ConfigFactory = Arc<dyn Fn(Value) -> Result<Box<dyn Configuration>> + Send 
 type BusFactory =
     Arc<dyn Fn(Value, Observable) -> BoxFuture<'static, Result<Arc<dyn Bus>>> + Send + Sync>;
 type ObserverFactory =
-    Arc<dyn Fn(Value) -> BoxFuture<'static, Result<Arc<dyn Observer>>> + Send + Sync>;
+    Arc<dyn Fn(Value, PathBuf) -> BoxFuture<'static, Result<Arc<dyn Observer>>> + Send + Sync>;
 fn options(contract: &Contract, value: &Value) -> Result<Value> {
     let parsed = if let Some(schema) = &contract.config_schema {
         parse_schema(schema, value)?
@@ -139,7 +139,10 @@ impl Registry {
     }
     pub fn register_observable<F>(&mut self, contract: Contract, factory: F) -> Result<()>
     where
-        F: Fn(Value) -> BoxFuture<'static, Result<Arc<dyn Observer>>> + Send + Sync + 'static,
+        F: Fn(Value, PathBuf) -> BoxFuture<'static, Result<Arc<dyn Observer>>>
+            + Send
+            + Sync
+            + 'static,
     {
         contract.validate()?;
         ensure!(
@@ -277,7 +280,7 @@ impl Host {
             obs.info("BSB observability startup",json!({}));
             for definition in config.groups["observable"].values().filter(|v|v.enabled) {
                 let (contract,factory)=self.registry.observers.get(&definition.plugin).context("enabled observable plugin is not linked")?;
-                backend.add(factory(options(contract,&definition.config)?).await?);
+                backend.add(factory(options(contract,&definition.config)?,self.cwd.clone()).await?);
             }
             obs.info("BSB events startup",json!({}));
             let mut routes=Vec::new();

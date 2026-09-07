@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
+    path::Path,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -103,6 +104,19 @@ impl Default for Options {
         }
     }
 }
+fn resolve_paths(cwd: &Path, options: &mut Options) {
+    for path in [
+        &mut options.path,
+        &mut options.file_path,
+        &mut options.ca_certificate_path,
+        &mut options.client_certificate_path,
+        &mut options.client_key_path,
+    ] {
+        if !path.is_empty() && Path::new(path.as_str()).is_relative() {
+            *path = cwd.join(path.as_str()).to_string_lossy().into_owned();
+        }
+    }
+}
 pub(super) fn level(value: &str) -> Option<u8> {
     match value {
         "trace" => Some(0),
@@ -126,6 +140,9 @@ pub struct Native {
 }
 impl Native {
     pub async fn new(kind: &str, raw: Value) -> Result<Arc<Self>> {
+        Self::new_at(kind, raw, &std::env::current_dir()?).await
+    }
+    pub async fn new_at(kind: &str, raw: Value, cwd: &Path) -> Result<Arc<Self>> {
         ensure!(
             [
                 "observable-default",
@@ -153,6 +170,7 @@ impl Native {
             defaults["facility"] = json!("bsb")
         }
         let mut options: Options = serde_json::from_value(bsb::config::merge(&defaults, &raw))?;
+        resolve_paths(cwd, &mut options);
         ensure!(
             ["production", "production-debug", "development"].contains(&options.mode.as_str()),
             "invalid observable mode"
@@ -666,4 +684,42 @@ async fn export(kind: &str, options: &Options, batch: Vec<Value>) -> Result<()> 
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_relative_file_and_tls_paths_only() {
+        let cwd = tempfile::tempdir().unwrap();
+        let absolute_dir = tempfile::tempdir().unwrap();
+        let absolute = absolute_dir.path().join("output.log");
+        let mut options = Options {
+            path: "logs/app.log".into(),
+            file_path: absolute.to_string_lossy().into_owned(),
+            ca_certificate_path: "tls/ca.pem".into(),
+            client_certificate_path: "tls/client.pem".into(),
+            client_key_path: "tls/client.key".into(),
+            ..Options::default()
+        };
+        resolve_paths(cwd.path(), &mut options);
+        assert_eq!(
+            options.path,
+            cwd.path().join("logs/app.log").to_string_lossy()
+        );
+        assert_eq!(options.file_path, absolute.to_string_lossy());
+        assert_eq!(
+            options.ca_certificate_path,
+            cwd.path().join("tls/ca.pem").to_string_lossy()
+        );
+        assert_eq!(
+            options.client_certificate_path,
+            cwd.path().join("tls/client.pem").to_string_lossy()
+        );
+        assert_eq!(
+            options.client_key_path,
+            cwd.path().join("tls/client.key").to_string_lossy()
+        );
+    }
 }

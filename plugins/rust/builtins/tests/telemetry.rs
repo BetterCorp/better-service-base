@@ -1,5 +1,9 @@
 use bsb::{
-    Result, json,
+    Result,
+    config::Config,
+    contract::Contract,
+    host::{Host, Ordering, Registry, Service},
+    json,
     observable::{Backend, Observable, Observer},
 };
 use bsb_rust_builtins::telemetry::{Native, redact};
@@ -11,6 +15,38 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
 };
+
+struct TestService;
+impl Service for TestService {}
+
+#[tokio::test]
+async fn relative_paths_use_host_working_directory() -> Result<()> {
+    let dir = tempfile::tempdir()?;
+    let relative = format!("logs/{}.log", uuid::Uuid::new_v4());
+    let process_path = std::env::current_dir()?.join(&relative);
+    let mut registry = Registry::new();
+    bsb_rust_builtins::register(&mut registry)?;
+    registry.register(
+        Contract::empty("worker", "service"),
+        Ordering::default(),
+        |_| Ok(Box::new(TestService)),
+    )?;
+    let mut host = Host::new(registry)?;
+    host.cwd = dir.path().to_owned();
+    host.cancel.cancel();
+    host.run_config(Config::load(
+        &json!({"services":{"worker":{}},"observable":{"log":{"plugin":"observable-logging-file","config":{"path":relative,"compress":false}}}}),
+        "default",
+    )?)
+    .await?;
+    let misplaced = process_path.exists();
+    if misplaced {
+        std::fs::remove_file(&process_path)?;
+    }
+    assert!(dir.path().join(&relative).exists());
+    assert!(!misplaced);
+    Ok(())
+}
 
 #[tokio::test]
 async fn otlp_flush_and_integer_metrics() -> Result<()> {

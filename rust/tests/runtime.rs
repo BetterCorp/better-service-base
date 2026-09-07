@@ -86,7 +86,7 @@ fn registry_ids_are_unique_across_categories() -> Result<()> {
     );
     assert!(
         registry
-            .register_observable(Contract::empty("custom", "observable"), |_| panic!(
+            .register_observable(Contract::empty("custom", "observable"), |_, _| panic!(
                 "factory must not run"
             ))
             .is_err()

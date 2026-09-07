@@ -66,10 +66,10 @@ pub fn register(registry: &mut Registry) -> Result<()> {
         "observable-graylog",
         "observable-syslog",
     ] {
-        registry.register_observable(builtins::contract(kind, "observable"), move |raw| {
-            Box::pin(
-                async move { Ok(telemetry::Native::new(kind, raw).await? as Arc<dyn Observer>) },
-            )
+        registry.register_observable(builtins::contract(kind, "observable"), move |raw, cwd| {
+            Box::pin(async move {
+                Ok(telemetry::Native::new_at(kind, raw, &cwd).await? as Arc<dyn Observer>)
+            })
         })?;
     }
     Ok(())

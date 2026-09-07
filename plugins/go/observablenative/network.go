@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -174,6 +175,14 @@ func cleanField(value string, max int) string {
 	}
 	return value
 }
+
+var gelfFieldName = regexp.MustCompile(`^[\w.-]+$`)
+
+func additionalGELFField(key string) (string, bool) {
+	key = strings.TrimLeft(key, "_")
+	return "_" + key, key != "id" && gelfFieldName.MatchString(key)
+}
+
 func (w *networkWriter) export(ctx context.Context, batch []map[string]any) error {
 	for _, entry := range batch {
 		level, _ := entry["level"].(string)
@@ -185,8 +194,7 @@ func (w *networkWriter) export(ctx context.Context, batch []map[string]any) erro
 		if w.kind == "observable-graylog" {
 			message := map[string]any{"version": "1.1", "host": w.config.Hostname, "short_message": entry["message"], "full_message": string(data), "timestamp": float64(timestamp.UnixNano()) / 1e9, "level": severity(level), "_facility": w.config.Facility, "_plugin": entry["plugin"], "_trace_id": entry["traceId"], "_span_id": entry["spanId"]}
 			for key, value := range w.config.AdditionalFields {
-				key = "_" + strings.TrimLeft(key, "_")
-				if key != "_id" && message[key] == nil {
+				if key, valid := additionalGELFField(key); valid && message[key] == nil {
 					message[key] = value
 				}
 			}

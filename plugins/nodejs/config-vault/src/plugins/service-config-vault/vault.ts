@@ -1359,8 +1359,9 @@ export class VaultService {
       for (const sectionName of ['services', 'events', 'observable'] as const) {
         const section = config[sectionName] ?? {};
         for (const [name, entry] of Object.entries(section)) {
-          const languages = context.language && entry.enabled !== false
-            ? [context.language] : [...new Set(plugins.map(plugin => plugin.language ?? 'nodejs'))];
+          const languages = entry.enabled === false
+            ? [entry.language ?? 'nodejs']
+            : context.language ? [context.language] : [...new Set(plugins.map(plugin => plugin.language ?? 'nodejs'))];
           for (const language of languages) add(resolveCatalogForEntry(plugins.filter(plugin => (plugin.language ?? 'nodejs') === language), sectionName, entry), {
             label: `${context.prefix} / ${sectionName} / ${name}`,
             href: context.href,

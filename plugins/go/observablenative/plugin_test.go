@@ -268,6 +268,41 @@ func TestGelfChunksAndTlsConfiguration(t *testing.T) {
 	if _, err := newNetworkWriter(config{Host: "localhost", Port: 514, Protocol: "tls", Facility: float64(16), RFC: "5424", Framing: "newline", ClientKeyPath: "missing"}, "observable-syslog"); err == nil {
 		t.Fatal("accepted incomplete mTLS identity")
 	}
+	for input, expected := range map[string]string{"request.id-2": "_request.id-2", "__valid_name": "_valid_name"} {
+		if field, ok := additionalGELFField(input); !ok || field != expected {
+			t.Fatalf("GELF field %q resolved to %q, %v", input, field, ok)
+		}
+	}
+	for _, input := range []string{"request id", "request$id", "métric", "_id", "___"} {
+		if field, ok := additionalGELFField(input); ok {
+			t.Fatalf("invalid GELF field %q accepted as %q", input, field)
+		}
+	}
+}
+
+func TestGelfSkipsInvalidAdditionalFieldNames(t *testing.T) {
+	received := make(chan map[string]any, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var message map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&message); err != nil {
+			t.Error(err)
+		}
+		received <- message
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+	writer, err := newNetworkWriter(config{Host: "localhost", Port: 1, Protocol: "http", HTTPEndpoint: server.URL, AdditionalFields: map[string]any{"request.id": "kept", "request id": "dropped", "_id": "reserved"}}, "observable-graylog")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = writer.export(context.Background(), []map[string]any{{"timestamp": time.Now().Format(time.RFC3339Nano), "level": "info", "message": "hello"}}); err != nil {
+		t.Fatal(err)
+	}
+	message := <-received
+	if message["_request.id"] != "kept" || message["_request id"] != nil || message["_id"] != nil {
+		t.Fatalf("invalid GELF fields exported: %v", message)
+	}
 }
 
 func TestRotationOnlyRemovesOwnArchives(t *testing.T) {
