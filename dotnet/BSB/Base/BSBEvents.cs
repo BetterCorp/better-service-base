@@ -146,13 +146,23 @@ public abstract class BSBEvents : MainBase
         async Task Deliver()
         {
             Stream? stream;
-            try { stream = await ReceiveStream(pluginName, eventName + "-" + id, obs); }
+            Task<Stream>? receive = null;
+            try
+            {
+                receive = ReceiveStream(pluginName, eventName + "-" + id, obs);
+                stream = await receive.WaitAsync(TimeSpan.FromSeconds(timeoutSeconds));
+            }
             catch (Exception error)
             {
+                if (receive is not null) _ = DisposeLate(receive);
                 try { await handler(obs, error, null); } catch (Exception failure) { obs.Error(failure); }
                 return;
             }
             try { await handler(obs, null, stream); } catch (Exception error) { obs.Error(error); }
+        }
+        static async Task DisposeLate(Task<Stream> receive)
+        {
+            try { (await receive).Dispose(); } catch { }
         }
     }
     public virtual Task SendStream(string pluginName, string eventName, IObservable obs, string streamId, Stream data) =>

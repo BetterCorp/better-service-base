@@ -42,10 +42,12 @@ func (oc *ObservableController) Init(ctx context.Context, obs Observable, config
 		if err != nil {
 			return fmt.Errorf("observable %q configuration: %w", pluginName, err)
 		}
-
 		plugin, err := oc.registry.CreateObservable(pluginName, pluginConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create observable plugin %q: %w", pluginName, err)
+		}
+		if cwdPlugin, ok := plugin.(interface{ SetCwd(string) }); ok {
+			cwdPlugin.SetCwd(oc.opts.Cwd)
 		}
 
 		oc.plugins = append(oc.plugins, plugin)

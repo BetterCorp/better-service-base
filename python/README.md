@@ -93,7 +93,7 @@ Vault responses must target `python`. Wrong language, invalid config, authentica
 
 Producers declare durable fire/RPC queues so absent/crashed listeners do not lose queued messages. Existing protocol TTLs remain: fire queues one hour, RPC queues one minute, per-request expiration based on timeout. Replies are confirmed before acknowledging requests. Failed publishes requeue the request. Handlers must tolerate duplicate execution. Ten failures in a running consumer dead-letter a poison message; retry counts are process-local and bounded to 10,000 tracked messages.
 
-Register streams with `await events.receive_stream(event, handler, timeout_seconds=5)`, pass the returned opaque ID to `send_stream`, and consume the receiver through EOF. Timeouts use whole seconds for cross-language IDs. Queues bound buffered chunks, and senders retain ownership of the source. Distributed streams are transient and fail on interrupted transfers; they do not provide durable resume.
+Register streams with `await events.receive_stream(event, handler, timeout_seconds=5)`, pass the returned opaque ID to `send_stream`, and consume the receiver through EOF. Timeouts use whole seconds for cross-language IDs. Queues bound buffered chunks, and senders retain ownership of the source. Synchronous sources must provide a prompt, thread-safe `close()` that unblocks `read`; BSB calls it when an in-flight read is cancelled and rejects sources without it. Distributed streams are transient and fail on interrupted transfers; they do not provide durable resume.
 
 ## Observability plugins
 

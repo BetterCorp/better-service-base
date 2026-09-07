@@ -20,18 +20,20 @@ static class TelemetryChecks
     {
         await CheckTls();
         var capture = new Capture();
-        var exporter = new Otlp(Args(new TelemetryConfig { Endpoint = "https://collector.example", ServiceName = "fixture" }), capture);
+        var exporter = new Otlp(Args(new TelemetryConfig { Endpoint = "https://collector.example", ServiceName = "fixture", Redact = ["meta.token"] }), capture);
         var obs = new ObservableBackend("one", "root", new(), [exporter]);
         await exporter.Init(obs);
-        obs.Log.Info("hello", new LogMeta { ["count"] = 2 });
+        obs.Log.Info("token={token}", new LogMeta { ["token"] = "secret" });
         var child = obs.StartSpan("child"); child.End();
-        var counter = obs.Metrics.Counter("requests", "request count", "1"); counter.Increment(2); counter.Increment(3);
+        var counter = obs.Metrics.Counter("requests", "request count", "1"); counter.Increment(2); counter.Increment(3, new());
         var second = new ObservableBackend("two", "root", new(), [exporter]);
         second.Metrics.Counter("requests", "request count", "1").Increment(7);
         var histogram = obs.Metrics.Histogram("latency", "duration", "ms"); histogram.Record(2); histogram.Record(4);
         await exporter.DisposeAsync();
         Check(capture.Requests.Count == 3, "OTLP did not export all three signals");
         var traces = capture.Requests.Single(x => x.Path == "/v1/traces").Body;
+        var log = capture.Requests.Single(x => x.Path == "/v1/logs").Body["resourceLogs"]![0]!["scopeLogs"]![0]!["logRecords"]![0]!;
+        Check(log["body"]!["stringValue"]!.GetValue<string>() == "token=[REDACTED]", "HTTP log interpolated before metadata redaction");
         var span = traces["resourceSpans"]![0]!["scopeSpans"]![0]!["spans"]![0]!;
         Check(span["traceId"]!.GetValue<string>() == obs.TraceId && span["spanId"]!.GetValue<string>() == child.SpanId &&
             span["parentSpanId"]!.GetValue<string>() == obs.SpanId && span["startTimeUnixNano"]!.GetValueKind() == JsonValueKind.String, "OTLP span lost IDs/parent/nanosecond encoding");
@@ -91,6 +93,9 @@ static class TelemetryChecks
         var packet = Encoding.UTF8.GetString((await incoming).Buffer);
         Check(packet.StartsWith("<134>1 ") && packet.Contains(obs.TraceId), "Native syslog UDP framing or trace context is invalid");
         var entry = JsonSerializer.SerializeToNode(new { timestamp = DateTimeOffset.UtcNow.ToString("O"), level = "info", plugin = "one", message = new string('x', 5000) })!.AsObject();
+        var tlsNewline = BSB.Plugins.Syslog.Plugin.Format(entry, new() { Protocol = "tls", Framing = "newline" });
+        var tcpOctets = BSB.Plugins.Syslog.Plugin.Format(entry, new() { Protocol = "tcp", Framing = "octet-counting" });
+        Check(tlsNewline[^1] == (byte)'\n' && tcpOctets.TakeWhile(x => x != (byte)' ').All(x => char.IsAsciiDigit((char)x)), "Syslog ignored configured stream framing");
         var gelf = BSB.Plugins.Graylog.Plugin.Format(entry, new());
         var chunks = BSB.Plugins.Graylog.Plugin.DatagramChunks(gelf, false);
         Check(chunks.Length > 1 && chunks.All(x => x[0] == 0x1e && x[1] == 0x0f && x[11] == chunks.Length && x.Length <= 1200), "GELF chunk header invalid");

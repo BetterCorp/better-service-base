@@ -126,6 +126,11 @@ var remote = new TestBackend(ctor, "remote");
 var local = new TestBackend(ctor, "local");
 router.AddPlugin(remote, JsonSerializer.SerializeToElement(new { emitEventAndReturn = new[] { "mapped" } }));
 router.AddPlugin(local);
+foreach (var malformed in new[] { "[1]", "{\"emitEvent\":[1]}", "{\"emitEvent\":{\"enabled\":true}}" })
+{
+    try { router.AddPlugin(local, JsonSerializer.Deserialize<JsonElement>(malformed)); throw new Exception("Malformed events filter accepted"); }
+    catch (InvalidOperationException) { }
+}
 router.SetServices(new() { ["mapped"] = new() { Name = "mapped", Plugin = "service-orders", Enabled = false } });
 Check(Equals(await router.EmitEventAndReturn("service-orders", "orders.get", null!, "x"), "remote:mapped"), "Remote alias did not select transport");
 Check(Equals(await router.EmitEventAndReturn("unmapped", "get", null!, "x"), "local:unmapped"), "Fallback transport not selected");
@@ -149,6 +154,13 @@ ambiguousRouter.SetServices(new() {
 });
 try { await ambiguousRouter.EmitEventAndReturn("service-orders", "get", null!, "x"); throw new Exception("Ambiguous remote service reference accepted"); }
 catch (InvalidOperationException error) when (error.Message.Contains("ambiguous")) { }
+var slowStreams = new SlowStreamBackend(ctor);
+var timedOut = new TaskCompletionSource<Exception?>(TaskCreationOptions.RunContinuationsAsynchronously);
+await slowStreams.ReceiveStream("one", "slow", null!, (_, error, _) => { timedOut.SetResult(error); return Task.CompletedTask; }, 1);
+Check(await timedOut.Task.WaitAsync(TimeSpan.FromSeconds(2)) is TimeoutException, "Compatibility stream timeout was ignored");
+var lateStream = new MemoryStream(); slowStreams.Complete(lateStream);
+await Task.Delay(50);
+Check(!lateStream.CanRead, "Late compatibility stream was not disposed after timeout");
 var calls = remote.Calls;
 try { await client.EmitEventAndReturn("get", null!, "bad"); throw new Exception("Invalid input accepted"); }
 catch (ValidationError) { }
@@ -243,6 +255,9 @@ try
     var entry = JsonNode.Parse("""{"meta":{"users":[{"secret":"one"},{"secret":"two"}]}}""")!.AsObject();
     StructuredLogging<object>.Redact(entry, ["meta.users.*.secret"]);
     Check(!entry.ToJsonString().Contains("one") && !entry.ToJsonString().Contains("two"), "Wildcard array redaction leaked a secret");
+    var structured = new CaptureStructured(new ServiceConstructorArgs<object> { AppId = "test", Cwd = ".", PluginName = "capture", Mode = DebugMode.Development, Config = new() });
+    structured.Info(default, "one", "token={token}", new LogMeta { ["token"] = "secret" });
+    Check(structured.Entry!["message"]!.GetValue<string>() == "token=[REDACTED]", "Structured message interpolated before metadata redaction");
     Console.WriteLine("PASS: size rotation, gzip archives, retention and nested array redaction");
 }
 finally { Directory.Delete(logDirectory, true); }
@@ -449,7 +464,7 @@ sealed class TestGoogleVault(PluginConstructorArgs args, string body) : BSB.Plug
     }
 }
 
-sealed class TestBackend(PluginConstructorArgs args, string label) : BSBEvents(args)
+class TestBackend(PluginConstructorArgs args, string label) : BSBEvents(args)
 {
     public int Calls { get; private set; }
     public object? Reply { get; set; }
@@ -462,4 +477,15 @@ sealed class TestBackend(PluginConstructorArgs args, string label) : BSBEvents(a
     public override Task EmitBroadcast(string p, string n, IObservable o, object? d) => Task.CompletedTask;
     public override Task<Stream> ReceiveStream(string p, string n, IObservable o) => throw new NotSupportedException();
     public override Task SendStream(string p, string n, IObservable o, Stream d) => throw new NotSupportedException();
+}
+sealed class SlowStreamBackend(PluginConstructorArgs args) : TestBackend(args, "slow")
+{
+    private readonly TaskCompletionSource<Stream> _stream = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public void Complete(Stream stream) => _stream.SetResult(stream);
+    public override Task<Stream> ReceiveStream(string p, string n, IObservable o) => _stream.Task;
+}
+sealed class CaptureStructured(ServiceConstructorArgs<object> args) : StructuredLogging<object>(args)
+{
+    public JsonObject? Entry { get; private set; }
+    protected override void Write(JsonObject entry) { Redact(entry, ["meta.token"]); Interpolate(entry); Entry = entry; }
 }

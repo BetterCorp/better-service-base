@@ -80,7 +80,8 @@ public abstract class BufferedTelemetry<TConfig>(ServiceConstructorArgs<TConfig>
         if (!MetricsEnabled || _disposed != 0) return;
         if (!double.IsFinite(value) || (expected == "counter" && value < 0)) throw new ArgumentOutOfRangeException(nameof(value));
         if (!_instruments.TryGetValue((plugin, name), out var instrument) || instrument.Kind != expected) throw new ArgumentException($"Unknown {expected}: {plugin}.{name}");
-        var key = JsonSerializer.Serialize(new { plugin, name, labels = labels?.OrderBy(x => x.Key, StringComparer.Ordinal) });
+        var normalizedLabels = labels ?? new();
+        var key = JsonSerializer.Serialize(new { plugin, name, labels = normalizedLabels.OrderBy(x => x.Key, StringComparer.Ordinal) });
         // ponytail: cap metric series at 10,000; add configurable cardinality limits if a deployment needs more.
         if (_series.Count >= 10000 && !_series.ContainsKey(key)) return;
         var state = _series.GetOrAdd(key, _ => new());
@@ -89,7 +90,7 @@ public abstract class BufferedTelemetry<TConfig>(ServiceConstructorArgs<TConfig>
             state.Value = expected == "counter" || increment ? state.Value + value : value;
             state.Count++; state.Sum += value; state.Min = Math.Min(state.Min, value); state.Max = Math.Max(state.Max, value);
             Enqueue("metrics", new JsonObject { ["name"] = name, ["plugin"] = plugin, ["kind"] = expected, ["description"] = instrument.Description,
-                ["unit"] = instrument.Unit, ["value"] = state.Value, ["labels"] = JsonSerializer.SerializeToNode((labels ?? new()).OrderBy(x => x.Key, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.Value)),
+                ["unit"] = instrument.Unit, ["value"] = state.Value, ["labels"] = JsonSerializer.SerializeToNode(normalizedLabels.OrderBy(x => x.Key, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.Value)),
                 ["count"] = state.Count, ["sum"] = state.Sum, ["min"] = state.Min, ["max"] = state.Max,
                 ["started"] = state.Started.ToString("O"), ["timestamp"] = DateTimeOffset.UtcNow.ToString("O") });
         }

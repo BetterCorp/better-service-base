@@ -142,3 +142,22 @@ def test_profiles_filters_and_cleanup(tmp_path):
     with pytest.raises(ExceptionGroup):
         asyncio.run(dispose_all([Bad(), Good()]))
     assert calls == ["bad", "good"]
+
+
+def test_events_reject_malformed_filters_before_loading_plugins():
+    class Config:
+        async def get_events_plugins(self):
+            return {
+                "valid": {"filter": None},
+                "invalid": {"filter": {"emitEvent": ["worker", 1]}},
+            }
+
+    class Loader:
+        def __init__(self): self.calls = []
+        async def load_plugin(self, *args): self.calls.append(args)
+
+    loader = Loader()
+    bus = SBEvents("test", "development", ".", loader, None)
+    with pytest.raises(ValueError, match="lists must contain strings"):
+        asyncio.run(bus.init(Config()))
+    assert loader.calls == []

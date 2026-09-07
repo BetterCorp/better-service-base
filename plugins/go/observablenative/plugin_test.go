@@ -63,6 +63,42 @@ func TestFileLoggingRecoversAfterRotationFailure(t *testing.T) {
 	}
 }
 
+func TestRelativePathsResolveFromApplicationCwd(t *testing.T) {
+	cwd := t.TempDir()
+	absolute := filepath.Join(t.TempDir(), "client.key")
+	value, err := New("observable-syslog", map[string]any{
+		"protocol": "tls", "caCertificatePath": "tls/ca.pem",
+		"clientCertificatePath": "tls/client.pem", "clientKeyPath": absolute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.(*Plugin).SetCwd(cwd)
+	configured := value.(*Plugin).config
+	if configured.CACertificatePath != filepath.Join(cwd, "tls/ca.pem") || configured.ClientCertificatePath != filepath.Join(cwd, "tls/client.pem") || configured.ClientKeyPath != absolute {
+		t.Fatalf("paths not resolved from cwd: %+v", configured)
+	}
+
+	value, err = New("observable-logging-file", map[string]any{"path": "logs/app.log", "filePath": "logs/compat.log"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plugin := value.(*Plugin)
+	plugin.SetCwd(cwd)
+	if plugin.config.FilePath != filepath.Join(cwd, "logs/compat.log") {
+		t.Fatalf("filePath not resolved from cwd: %s", plugin.config.FilePath)
+	}
+	backend := bsb.NewObservableBackend(bsb.ModeProduction, "test", "app")
+	obs := bsb.NewObservable(bsb.NewDTrace(), bsb.ResourceContext{}, backend, "app")
+	if err = plugin.Init(context.Background(), obs); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Stat(filepath.Join(cwd, "logs/app.log")); err != nil {
+		t.Fatal(err)
+	}
+	plugin.Dispose()
+}
+
 func TestTLSSyslogHonorsConfiguredFraming(t *testing.T) {
 	fixture := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer fixture.Close()

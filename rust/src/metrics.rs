@@ -8,6 +8,13 @@ pub(crate) enum ValueState {
     Gauge(f64),
     Histogram { count: u64, sum: f64 },
 }
+pub(crate) struct Definition {
+    kind: &'static str,
+    description: String,
+    unit: String,
+    started: String,
+    state: Arc<Mutex<ValueState>>,
+}
 #[derive(Clone)]
 pub struct Metric {
     obs: Observable,
@@ -18,13 +25,13 @@ pub struct Metric {
     state: Arc<Mutex<ValueState>>,
 }
 impl Observable {
-    pub fn counter(&self, name: &str, description: &str, unit: &str) -> Metric {
+    pub fn counter(&self, name: &str, description: &str, unit: &str) -> Result<Metric> {
         Metric::new(self, name, description, unit, ValueState::Counter(0))
     }
-    pub fn gauge(&self, name: &str, description: &str, unit: &str) -> Metric {
+    pub fn gauge(&self, name: &str, description: &str, unit: &str) -> Result<Metric> {
         Metric::new(self, name, description, unit, ValueState::Gauge(0.0))
     }
-    pub fn histogram(&self, name: &str, description: &str, unit: &str) -> Metric {
+    pub fn histogram(&self, name: &str, description: &str, unit: &str) -> Result<Metric> {
         Metric::new(
             self,
             name,
@@ -35,33 +42,46 @@ impl Observable {
     }
 }
 impl Metric {
-    fn new(obs: &Observable, name: &str, description: &str, unit: &str, state: ValueState) -> Self {
+    fn new(
+        obs: &Observable,
+        name: &str,
+        description: &str,
+        unit: &str,
+        state: ValueState,
+    ) -> Result<Self> {
         let kind = match state {
             ValueState::Counter(_) => "counter",
             ValueState::Gauge(_) => "gauge",
             ValueState::Histogram { .. } => "histogram",
         };
         let mut metrics = obs.backend.metrics.lock().unwrap();
-        let (started, state) = metrics
-            .entry(format!("{}\0{name}\0{kind}", obs.plugin))
-            .or_insert_with(|| {
-                (
-                    chrono::Utc::now()
-                        .timestamp_nanos_opt()
-                        .unwrap_or_default()
-                        .to_string(),
-                    Arc::new(Mutex::new(state)),
-                )
-            })
-            .clone();
-        Self {
+        let definition = metrics
+            .entry((obs.plugin.clone(), name.into()))
+            .or_insert_with(|| Definition {
+                kind,
+                description: description.into(),
+                unit: unit.into(),
+                started: chrono::Utc::now()
+                    .timestamp_nanos_opt()
+                    .unwrap_or_default()
+                    .to_string(),
+                state: Arc::new(Mutex::new(state)),
+            });
+        ensure!(
+            definition.kind == kind
+                && definition.description == description
+                && definition.unit == unit,
+            "conflicting metric definition for {}/{name}",
+            obs.plugin
+        );
+        Ok(Self {
             obs: obs.clone(),
             name: name.into(),
             description: description.into(),
             unit: unit.into(),
-            started,
-            state,
-        }
+            started: definition.started.clone(),
+            state: definition.state.clone(),
+        })
     }
     fn update(&self, change: impl FnOnce(&mut ValueState) -> Result<()>) -> Result<()> {
         let mut state = self.state.lock().unwrap();

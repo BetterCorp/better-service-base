@@ -357,3 +357,49 @@ async fn validates_before_factory_and_cleans_failed_startup() -> Result<()> {
     assert_eq!(disposed.load(AtomicOrdering::SeqCst), 1);
     Ok(())
 }
+
+#[test]
+fn metric_definitions_are_unique_per_plugin_and_name() -> Result<()> {
+    let backend = Arc::new(Backend::default());
+    let obs = Observable::new("worker", backend.clone());
+    let counter = obs.counter("requests", "Requests", "count")?;
+    counter.increment(2)?;
+    obs.counter("requests", "Requests", "count")?.increment(3)?;
+    assert_eq!(counter.snapshot(), json!(5));
+    assert!(obs.gauge("requests", "Requests", "count").is_err());
+    assert!(obs.histogram("requests", "Requests", "count").is_err());
+    assert!(obs.counter("requests", "Changed", "count").is_err());
+    assert!(obs.counter("requests", "Requests", "seconds").is_err());
+    // A rejected registration must leave the original instrument usable.
+    counter.increment(1)?;
+    assert_eq!(counter.snapshot(), json!(6));
+    let other = Observable::new("other", backend);
+    other
+        .histogram("requests", "Latency", "seconds")?
+        .record(0.5)?;
+    Ok(())
+}
+
+#[test]
+fn remote_trace_identifiers_must_be_nonzero_hex() {
+    use bsb::observable::Trace;
+    let valid = Trace {
+        trace_id: "0000000000000000000000000000000a".into(),
+        span_id: "000000000000000B".into(),
+    };
+    assert!(valid.validate());
+    for (trace, span) in [
+        ("0".repeat(32), valid.span_id.clone()),
+        (valid.trace_id.clone(), "0".repeat(16)),
+        ("g".repeat(32), valid.span_id.clone()),
+        (valid.trace_id.clone(), "1".repeat(15)),
+    ] {
+        assert!(
+            !Trace {
+                trace_id: trace,
+                span_id: span
+            }
+            .validate()
+        );
+    }
+}

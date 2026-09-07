@@ -67,10 +67,10 @@ async fn otlp_flush_and_integer_metrics() -> Result<()> {
     let obs = Observable::new("test", backend.clone());
     obs.info("hello", json!({}));
     drop(obs.span("work"));
-    let counter = obs.counter("requests", "requests", "count");
+    let counter = obs.counter("requests", "requests", "count")?;
     counter.increment(9007199254740993)?;
-    obs.counter("requests", "requests", "count").increment(1)?;
-    let gauge = obs.gauge("precision", "precision", "ratio");
+    obs.counter("requests", "requests", "count")?.increment(1)?;
+    let gauge = obs.gauge("precision", "precision", "ratio")?;
     gauge.set(0.000001)?;
     plugin.shutdown().await?;
     tokio::time::timeout(Duration::from_secs(10), server).await???;
@@ -88,7 +88,7 @@ async fn otlp_flush_and_integer_metrics() -> Result<()> {
         .find(|item| item["name"] == "requests")
         .unwrap();
     assert_eq!(counter["sum"]["dataPoints"][0]["asInt"], "9007199254740994");
-    assert!(obs.counter("bad", "", "count").increment(-1).is_err());
+    assert!(obs.counter("bad", "", "count")?.increment(-1).is_err());
     Ok(())
 }
 #[tokio::test]

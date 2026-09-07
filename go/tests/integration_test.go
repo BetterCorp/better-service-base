@@ -11,7 +11,34 @@ import (
 	"time"
 
 	"github.com/bettercorp/service-base/go/bsb"
+	"github.com/bettercorp/service-base/plugins/go/observablenative"
 )
+
+func TestObservablePathsUseApplicationCwd(t *testing.T) {
+	cwd := t.TempDir()
+	registry := bsb.NewPluginRegistry()
+	registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
+		return &testConfigPlugin{
+			services:   map[string]bsb.PluginDefinition{"test-service": {Plugin: "test-service", Enabled: true}},
+			events:     map[string]bsb.PluginDefinition{"events-default": {Plugin: "events-default", Enabled: true}},
+			observable: map[string]bsb.PluginDefinition{"file": {Plugin: "observable-logging-file", Enabled: true}},
+			configs:    map[string]map[string]any{"file": {"path": "logs/app.log"}},
+		}, nil
+	})
+	registry.RegisterObservable("observable-logging-file", func(config map[string]any) (bsb.ObservablePlugin, error) {
+		return observablenative.New("observable-logging-file", config)
+	})
+	registry.RegisterEvents("events-default", func(map[string]any) (bsb.EventsPlugin, error) { return newTestEventsPlugin(), nil })
+	registry.RegisterService("test-service", func(map[string]any) (bsb.ServicePlugin, error) { return &testServicePlugin{}, nil })
+	host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: cwd}, registry)
+	defer host.Dispose()
+	if err := host.Init(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(cwd, "logs/app.log")); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // testConfigPlugin is a minimal in-memory config plugin for integration testing.
 type testConfigPlugin struct {

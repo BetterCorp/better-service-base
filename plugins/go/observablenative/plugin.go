@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -123,6 +124,13 @@ func New(kind string, raw map[string]any) (bsb.ObservablePlugin, error) {
 		return nil, fmt.Errorf("invalid rotation interval")
 	}
 	return &Plugin{kind: kind, config: options, spans: map[string]span{}, queue: make(chan map[string]any, 4096), stop: make(chan struct{}), done: make(chan struct{})}, nil
+}
+func (p *Plugin) SetCwd(cwd string) {
+	for _, path := range []*string{&p.config.Path, &p.config.FilePath, &p.config.CACertificatePath, &p.config.ClientCertificatePath, &p.config.ClientKeyPath} {
+		if *path != "" && !filepath.IsAbs(*path) {
+			*path = filepath.Join(cwd, *path)
+		}
+	}
 }
 func Register(registry *bsb.PluginRegistry) {
 	for _, kind := range []string{"observable-logging-file", "observable-pino", "observable-winston", "observable-opentelemetry", "observable-axiom", "observable-zipkin", "observable-graylog", "observable-syslog"} {

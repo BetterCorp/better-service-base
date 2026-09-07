@@ -75,8 +75,24 @@ async def chunks(source: Any):
             for offset in range(0, len(data), 65536):
                 yield bytes(data[offset:offset + 65536])
     else:
+        asynchronous = inspect.iscoroutinefunction(source.read)
+        close = getattr(source, "close", None)
+        if not asynchronous and not callable(close):
+            raise TypeError("Synchronous stream sources must provide close()")
         while True:
-            data = await source.read(65536) if inspect.iscoroutinefunction(source.read) else await asyncio.to_thread(source.read, 65536)
+            if asynchronous:
+                data = await source.read(65536)
+            else:
+                read = asyncio.create_task(asyncio.to_thread(source.read, 65536))
+                try:
+                    data = await asyncio.shield(read)
+                except asyncio.CancelledError:
+                    try:
+                        close()
+                    except Exception:
+                        pass
+                    await asyncio.gather(read, return_exceptions=True)
+                    raise
             if not data:
                 break
             if not isinstance(data, bytes):

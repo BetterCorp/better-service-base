@@ -79,3 +79,7 @@ REPOSITORY LAYOUT: native implementations belong plugins/dotnet, plugins/python,
 HOSTED CONTRACT DISCOVERY
 - All five implemented CLIs accept bsb client install https://origin [--plugin org/name] [--source-language LANGUAGE] [--version VERSION] [--allow-insecure]. GET /.well-known/bsb expects {bsb:1,plugins:[{id,language,version,schema}]}; schema is a full event document or same-origin link. Multiple matches require an explicit selection. Preserve the wire pluginId; reject version mismatches.
 - HTTPS origins only by default, no URL credentials/query/fragment/path, no redirects, no Registry token forwarding, 10-second/4-MiB request limits. Hosting discovery is explicit; no new listener or HTTP RPC transport is created. Snapshot source.url records the origin; generated filenames include its public SHA-256 prefix. Normal sync/generate stays offline. See docs/hosted-client-discovery.md for the authoritative format and fixture tests/fixtures/hosted-discovery.json.
+
+Rust metric constructors counter/gauge/histogram return Result<Metric>; propagate registration errors. Identity is plugin/name; kind, description and unit must match existing definitions. Remote trace and span IDs must be correctly sized hexadecimal strings and individually nonzero.
+
+Python synchronous stream sources must provide prompt, thread-safe close() that unblocks read. Cancellation closes the source and joins the reader; non-closable synchronous readers are rejected. Async read sources do not need close().

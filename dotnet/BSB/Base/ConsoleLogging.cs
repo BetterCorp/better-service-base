@@ -41,6 +41,7 @@ public abstract class ConsoleLogging(ServiceConstructorArgs<ConsoleLoggingConfig
         foreach (var (key, value) in Config.Base)
             if (!entry.ContainsKey(key)) entry[key] = System.Text.Json.JsonSerializer.SerializeToNode(value);
         Redact(entry, Config.Redact);
+        Interpolate(entry);
         if (NumericLevel)
         {
             entry["level"] = (Severity(level) + 1) * 10;

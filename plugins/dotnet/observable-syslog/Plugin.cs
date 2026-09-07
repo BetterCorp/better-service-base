@@ -40,7 +40,7 @@ public class Plugin(ServiceConstructorArgs<SyslogConfig> args) : NetworkLogging<
             : $"<{priority}>{timestamp.ToString("MMM", CultureInfo.InvariantCulture)} {timestamp.Day.ToString(CultureInfo.InvariantCulture).PadLeft(2)} {timestamp:HH:mm:ss} {Field(config.Hostname)} {Field(config.AppName)}[{Environment.ProcessId}]: ";
         var bytes = Encoding.UTF8.GetBytes(prefix + entry.ToJsonString());
         if (config.Protocol == "udp") return bytes;
-        if (config.Protocol == "tls" || config.Framing == "octet-counting")
+        if (config.Framing == "octet-counting")
             return [.. Encoding.ASCII.GetBytes(bytes.Length.ToString(CultureInfo.InvariantCulture) + " "), .. bytes];
         return [.. bytes, (byte)'\n'];
     }

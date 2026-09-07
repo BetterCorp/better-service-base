@@ -24,6 +24,8 @@ class SBEvents:
 
     async def init(self, sb_config) -> None:
         definitions = await sb_config.get_events_plugins()
+        for definition in definitions.values():
+            self.validate_filter(definition.get("filter"))
         if not any(value.get("filter") is None for value in definitions.values()):
             definitions = {**definitions, "_local_fallback": {"plugin": "events-default"}}
         for alias, definition in definitions.items():
@@ -68,6 +70,26 @@ class SBEvents:
         if len(targets) > 1:
             raise ValueError(f"Ambiguous service {plugin}; specify its alias")
         return targets[0] if targets else plugin
+
+    @staticmethod
+    def validate_filter(filter_value) -> None:
+        if filter_value is None:
+            return
+        if isinstance(filter_value, list):
+            if not all(isinstance(value, str) for value in filter_value):
+                raise ValueError("Events filter lists must contain strings")
+            return
+        if not isinstance(filter_value, dict):
+            raise ValueError("Events filter must be a list or object")
+        for value in filter_value.values():
+            if type(value) is bool:
+                continue
+            if isinstance(value, list):
+                SBEvents.validate_filter(value)
+            elif isinstance(value, dict) and type(value.get("enabled")) is bool and isinstance(value.get("plugins"), list):
+                SBEvents.validate_filter(value["plugins"])
+            else:
+                raise ValueError("Invalid events filter operation")
 
     @staticmethod
     def matches(filter_value, operation: str, plugin: str) -> bool:

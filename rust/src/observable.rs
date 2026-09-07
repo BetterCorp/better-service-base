@@ -22,6 +22,8 @@ impl Trace {
     pub fn validate(&self) -> bool {
         self.trace_id.len() == 32
             && self.span_id.len() == 16
+            && self.trace_id.bytes().any(|c| c != b'0')
+            && self.span_id.bytes().any(|c| c != b'0')
             && self
                 .trace_id
                 .bytes()
@@ -39,12 +41,8 @@ pub trait Observer: Send + Sync {
 #[derive(Default)]
 pub struct Backend {
     plugins: RwLock<Vec<Arc<dyn Observer>>>,
-    pub(crate) metrics: std::sync::Mutex<
-        std::collections::BTreeMap<
-            String,
-            (String, Arc<std::sync::Mutex<crate::metrics::ValueState>>),
-        >,
-    >,
+    pub(crate) metrics:
+        std::sync::Mutex<std::collections::BTreeMap<(String, String), crate::metrics::Definition>>,
 }
 impl Backend {
     pub fn add(&self, plugin: Arc<dyn Observer>) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/bettercorp/service-base/go/bsb"
 	"io"
+	"strings"
 	"testing"
 	"time"
 )
@@ -65,6 +66,14 @@ func TestWireTraceQueuesAndBinaryChunks(t *testing.T) {
 	}
 	if _, err := wireTrace(map[string]any{"t": trace.TraceID, "s": "xxxxxxxxxxxxxxxx"}); err == nil {
 		t.Fatal("invalid span accepted")
+	}
+	for _, invalid := range []map[string]any{
+		{"t": strings.Repeat("0", 32), "s": trace.SpanID},
+		{"t": trace.TraceID, "s": strings.Repeat("0", 16)},
+	} {
+		if _, err := wireTrace(invalid); err == nil {
+			t.Fatalf("zero trace identifier accepted: %v", invalid)
+		}
 	}
 	_, span, payload, err := p.incoming(wire, "service", "echo")
 	if err != nil || span.TraceID() != trace.TraceID || payload.(map[string]any)["value"] != float64(1) {

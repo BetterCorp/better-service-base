@@ -40,7 +40,7 @@ public abstract class NetworkLogging<TConfig>(ServiceConstructorArgs<TConfig> ar
     protected override void Write(JsonObject entry)
     {
         if (Severity(entry["level"]!.GetValue<string>()) < Severity(Config.Level)) return;
-        Redact(entry, Config.Redact); base.Write(entry);
+        Redact(entry, Config.Redact); Interpolate(entry); base.Write(entry);
     }
     protected async Task Send(ReadOnlyMemory<byte> bytes, CancellationToken token)
     {

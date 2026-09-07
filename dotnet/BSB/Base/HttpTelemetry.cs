@@ -18,6 +18,7 @@ public class TelemetryConfig
     public bool Logs { get; init; } = true;
     public bool Metrics { get; init; } = true;
     public bool Traces { get; init; } = true;
+    public string[] Redact { get; init; } = [];
     public static Dictionary<string, Schema> Fields(string endpoint) => new() {
         ["endpoint"] = V.String().Format("url").Default(endpoint),
         ["serviceName"] = V.String().MinLength(1).Default("bsb-service"), ["serviceVersion"] = V.Optional(V.String()),
@@ -25,6 +26,7 @@ public class TelemetryConfig
         ["resourceAttributes"] = V.Record(V.String()).Default(new Dictionary<string, object?>()),
         ["flushIntervalMs"] = V.Int32().Min(100).Max(60000).Default(5000), ["maxBatchSize"] = V.Int32().Min(1).Max(4096).Default(512),
         ["samplingRate"] = V.Number().Min(0).Max(1).Default(1.0),
+        ["redact"] = V.Array(V.String().MinLength(1)).Default(new List<object?>()),
         ["logs"] = V.Bool().Default(true), ["metrics"] = V.Bool().Default(true), ["traces"] = V.Bool().Default(true),
     };
 }
@@ -38,6 +40,12 @@ public abstract class HttpTelemetry<TConfig>(ServiceConstructorArgs<TConfig> arg
     protected override bool MetricsEnabled => Config.Metrics;
     protected override bool TracesEnabled => Config.Traces;
     protected virtual HttpMessageHandler? CreateHandler() => null;
+    protected override void Write(JsonObject entry)
+    {
+        Redact(entry, Config.Redact);
+        Interpolate(entry);
+        base.Write(entry);
+    }
     public override Task Init(IObservable obs)
     {
         var uri = new Uri(Config.Endpoint);

@@ -13,7 +13,34 @@ internal class SBEvents(PluginConstructorArgs args) : BSBEvents(args)
     public bool HasPlugins => _plugins.Count > 0;
     public bool HasUnfilteredPlugin => _plugins.Any(x => x.Filter is null || x.Filter.Value.ValueKind == JsonValueKind.Null);
     public override Task Completion => HasPlugins ? Task.WhenAny(_plugins.Select(x => x.Plugin.Completion)).Unwrap() : base.Completion;
-    public void AddPlugin(BSBEvents plugin, JsonElement? filter = null) => _plugins.Add((plugin, filter));
+    public void AddPlugin(BSBEvents plugin, JsonElement? filter = null)
+    {
+        ValidateFilter(filter);
+        _plugins.Add((plugin, filter));
+    }
+    private static void ValidateFilter(JsonElement? filter)
+    {
+        if (filter is null || filter.Value.ValueKind == JsonValueKind.Null) return;
+        var value = filter.Value;
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            if (value.EnumerateArray().Any(x => x.ValueKind != JsonValueKind.String)) throw new InvalidOperationException("Invalid events filter operation list");
+            return;
+        }
+        if (value.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Invalid events filter");
+        foreach (var property in value.EnumerateObject())
+        {
+            var entry = property.Value;
+            if (entry.ValueKind is JsonValueKind.True or JsonValueKind.False) continue;
+            if (entry.ValueKind == JsonValueKind.Object)
+            {
+                if (!entry.TryGetProperty("enabled", out var enabled) || enabled.ValueKind is not (JsonValueKind.True or JsonValueKind.False) ||
+                    !entry.TryGetProperty("plugins", out entry)) throw new InvalidOperationException("Invalid events filter plugin selector");
+            }
+            if (entry.ValueKind != JsonValueKind.Array || entry.EnumerateArray().Any(x => x.ValueKind != JsonValueKind.String))
+                throw new InvalidOperationException("Invalid events filter plugin list");
+        }
+    }
     public void SetServices(Dictionary<string, PluginDefinition> services) => _services = services;
     private string Target(string plugin)
     {

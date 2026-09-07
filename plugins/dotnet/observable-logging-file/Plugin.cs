@@ -36,6 +36,7 @@ public class Plugin(ServiceConstructorArgs<LoggingConfig> args) : StructuredLogg
     {
         if (Severity(entry["level"]!.GetValue<string>()) < Severity(Config.Level)) return;
         Redact(entry, Config.Redact);
+        Interpolate(entry);
         (_file ?? throw new InvalidOperationException("File logging not initialized")).Write(entry.ToJsonString(new() { WriteIndented = Config.PrettyPrint }));
     }
     public override ValueTask DisposeAsync() { _file?.Dispose(); return ValueTask.CompletedTask; }

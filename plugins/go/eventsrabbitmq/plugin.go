@@ -433,6 +433,9 @@ func wireTrace(value any) (bsb.DTrace, error) {
 	if _, err := hex.DecodeString(id + span); err != nil {
 		return trace, fmt.Errorf("invalid wire trace identifiers")
 	}
+	if id == strings.Repeat("0", 32) || span == strings.Repeat("0", 16) {
+		return trace, fmt.Errorf("invalid wire trace identifiers")
+	}
 	trace.TraceID = id
 	trace.SpanID = span
 	return trace, nil

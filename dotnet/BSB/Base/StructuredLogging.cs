@@ -27,6 +27,13 @@ public abstract class StructuredLogging<TConfig>(ServiceConstructorArgs<TConfig>
     public override void Error(DTrace trace, string pluginName, Exception error, string? message = null, LogMeta? meta = null) => Log("error", trace, pluginName, message ?? error.Message, meta, error);
 
     public static int Severity(string level) => level switch { "trace" => 0, "debug" => 1, "info" => 2, "warn" => 3, "error" => 4, "fatal" => 5, _ => throw new ArgumentException("Unknown log level") };
+    protected static void Interpolate(JsonObject entry)
+    {
+        if (entry["message"] is not JsonValue message || entry["meta"] is not JsonObject meta) return;
+        var result = message.GetValue<string>();
+        foreach (var (key, value) in meta) result = result.Replace($"{{{key}}}", value?.ToString() ?? "null", StringComparison.Ordinal);
+        entry["message"] = result;
+    }
     public static void Redact(JsonObject entry, IEnumerable<string> paths)
     {
         foreach (var path in paths) Visit(entry, path.Split('.'), 0);
