@@ -3,6 +3,7 @@ package bsb
 import (
 	"context"
 	"fmt"
+	"reflect"
 )
 
 // EventsController manages events plugin instances and routes event calls.
@@ -94,6 +95,24 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 // Primary returns the primary events plugin for use by service plugins.
 func (ec *EventsController) Primary() EventsPlugin {
 	return ec.primary
+}
+
+// Wait monitors every concrete backend, including filtered and non-primary routes.
+func (ec *EventsController) Wait(ctx context.Context) error {
+	cases := []reflect.SelectCase{{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}}
+	for _, plugin := range ec.plugins {
+		if source, ok := plugin.(interface{ Failure() <-chan error }); ok {
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(source.Failure())})
+		}
+	}
+	chosen, value, open := reflect.Select(cases)
+	if chosen == 0 {
+		return nil
+	}
+	if !open || value.IsNil() {
+		return fmt.Errorf("events backend stopped without an error")
+	}
+	return value.Interface().(error)
 }
 
 // Run starts all events plugins.

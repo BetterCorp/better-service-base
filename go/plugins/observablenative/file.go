@@ -2,6 +2,7 @@ package observablenative
 
 import (
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,28 +21,42 @@ type rotatingFile struct {
 	file    *os.File
 	opened  time.Time
 	size    int64
+	closed  bool
 }
 
 func newRotatingFile(path string, options config) (*rotatingFile, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
+	f := &rotatingFile{path: path, options: options}
+	if err := f.open(); err != nil {
 		return nil, err
+	}
+	return f, nil
+}
+func (f *rotatingFile) open() error {
+	file, err := os.OpenFile(f.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
 	}
 	info, err := file.Stat()
 	if err != nil {
 		file.Close()
-		return nil, err
+		return err
 	}
-	return &rotatingFile{path: path, options: options, file: file, opened: info.ModTime(), size: info.Size()}, nil
+	f.file, f.opened, f.size = file, info.ModTime(), info.Size()
+	return nil
 }
 func (f *rotatingFile) write(data []byte) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.file == nil {
+	if f.closed {
 		return fmt.Errorf("log file closed")
+	}
+	if f.file == nil {
+		if err := f.open(); err != nil {
+			return err
+		}
 	}
 	interval := time.Duration(0)
 	if f.options.Interval == "hourly" {
@@ -59,13 +74,23 @@ func (f *rotatingFile) write(data []byte) error {
 	f.size += int64(n)
 	return err
 }
-func (f *rotatingFile) rotate() error {
-	if err := f.file.Close(); err != nil {
+func (f *rotatingFile) rotate() (err error) {
+	defer func() {
+		if f.file == nil {
+			err = errors.Join(err, f.open())
+		}
+	}()
+	err = f.file.Close()
+	f.file = nil
+	if err != nil {
 		return err
 	}
-	f.file = nil
 	archive := fmt.Sprintf("%s.bsb-%020d", f.path, time.Now().UnixNano())
 	if err := os.Rename(f.path, archive); err != nil {
+		return err
+	}
+	// Keep the active path writable even if archive processing fails.
+	if err := f.open(); err != nil {
 		return err
 	}
 	if f.options.Compress {
@@ -90,13 +115,6 @@ func (f *rotatingFile) rotate() error {
 			return err
 		}
 	}
-	var err error
-	f.file, err = os.OpenFile(f.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		return err
-	}
-	f.opened = time.Now()
-	f.size = 0
 	if f.options.MaxFiles > 0 {
 		entries, err := os.ReadDir(filepath.Dir(f.path))
 		if err != nil {
@@ -130,6 +148,7 @@ func (f *rotatingFile) rotate() error {
 func (f *rotatingFile) close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.closed = true
 	if f.file == nil {
 		return nil
 	}

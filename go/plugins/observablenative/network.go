@@ -222,7 +222,7 @@ func (w *networkWriter) export(ctx context.Context, batch []map[string]any) erro
 			}
 			data = append([]byte(prefix), data...)
 			if w.config.Protocol != "udp" {
-				if w.config.Protocol == "tls" || w.config.Framing == "octet-counting" {
+				if w.config.Framing == "octet-counting" {
 					data = append([]byte(strconv.Itoa(len(data))+" "), data...)
 				} else {
 					data = append(data, '\n')

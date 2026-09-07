@@ -6,8 +6,10 @@ import subprocess
 import sys
 import tomllib
 import zipfile
+from packaging.version import Version
 
 from .schema_export import build_project
+from .versions import EXACT_VERSION
 
 
 def pack(project_root):
@@ -34,9 +36,9 @@ def install(package, version=None, source=None):
                 raise ValueError("Wheel does not declare bsb.plugins entry points")
         requirement = str(wheel.resolve())
     else:
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", package) or not version or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", package) or not isinstance(version, str) or not EXACT_VERSION.fullmatch(version):
             raise ValueError("A distribution name and exact --version are required")
-        requirement = f"{package}=={version}"
+        requirement = f"{package}=={Version(version)}"
     args = [sys.executable, "-m", "pip", "install", requirement]
     if source:
         args.extend(["--find-links", source])

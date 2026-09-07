@@ -11,6 +11,7 @@ from urllib.parse import urlencode, quote
 from .client_generator import generate_clients, generate_client_code, validate_client_names
 from .http import json_request, origin
 from .schema_export import build_project, read_project_metadata
+from .versions import EXACT_VERSION
 
 
 REGISTRY_URL = os.environ.get("BSB_REGISTRY_URL", "https://io.bsbcode.dev")
@@ -132,7 +133,7 @@ def get_plugin_schema(plugin_id: str, source_language: str | None = None, versio
     if version is None:
         detail = get_plugin_info(plugin_id, language)
         version = detail.get("plugin", detail)["version"]
-    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?", version):
+    if not isinstance(version, str) or not EXACT_VERSION.fullmatch(version):
         raise ValueError("An exact semantic version is required")
     schema = registry_request("GET", f"/plugins/{org}/{name}/{quote(version, safe='')}/schema?{urlencode({'language': language})}")
     if not isinstance(schema, dict):

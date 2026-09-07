@@ -255,13 +255,7 @@ func (sb *ServiceBase) RunAndWait(ctx context.Context) error {
 	}
 	shutdown, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	var failed <-chan error
-	if plugin, ok := sb.eventsCtrl.Primary().(interface{ Failure() <-chan error }); ok {
-		failed = plugin.Failure()
-	}
-	select {
-	case <-shutdown.Done():
-	case err := <-failed:
+	if err := sb.eventsCtrl.Wait(shutdown); err != nil {
 		return err
 	}
 	return sb.Dispose()

@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -53,6 +54,38 @@ type testEventsPlugin struct {
 
 func newTestEventsPlugin() *testEventsPlugin {
 	return &testEventsPlugin{listeners: make(map[string]bsb.ReturnableListener)}
+}
+
+type failingEventsPlugin struct {
+	*testEventsPlugin
+	failed   chan error
+	disposed bool
+}
+
+func (p *failingEventsPlugin) Failure() <-chan error { return p.failed }
+func (p *failingEventsPlugin) Dispose() error        { p.disposed = true; return nil }
+func TestHostStopsWhenFilteredBackendFails(t *testing.T) {
+	registry := bsb.NewPluginRegistry()
+	registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
+		return &testConfigPlugin{
+			services: map[string]bsb.PluginDefinition{}, observable: map[string]bsb.PluginDefinition{},
+			events: map[string]bsb.PluginDefinition{"a-local": {Plugin: "events-default", Enabled: true}, "z-rabbit": {Plugin: "events-failing", Enabled: true, Filter: []any{"emitEvent"}}},
+		}, nil
+	})
+	registry.RegisterEvents("events-default", func(map[string]any) (bsb.EventsPlugin, error) { return newTestEventsPlugin(), nil })
+	broken := &failingEventsPlugin{testEventsPlugin: newTestEventsPlugin(), failed: make(chan error, 1)}
+	expected := errors.New("broker disconnected")
+	broken.failed <- expected
+	registry.RegisterEvents("events-failing", func(map[string]any) (bsb.EventsPlugin, error) { return broken, nil })
+	host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: t.TempDir()}, registry)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := host.RunAndWait(ctx); !errors.Is(err, expected) {
+		t.Fatalf("lost backend failure: %v", err)
+	}
+	if !broken.disposed {
+		t.Fatal("backend was not disposed")
+	}
 }
 
 func (p *testEventsPlugin) Init(_ context.Context, _ bsb.Observable) error { return nil }

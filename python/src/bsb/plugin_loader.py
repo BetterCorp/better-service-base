@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from .versions import EXACT_VERSION, versions_equal
 
 
 @dataclass(slots=True)
@@ -37,14 +38,14 @@ class SBPlugins:
             raise ValueError("Invalid plugin identifier")
         if npm_package is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", npm_package):
             raise ValueError("Invalid Python distribution name")
-        if version is not None and not re.fullmatch(r"\d+\.\d+\.\d+", version):
-            raise ValueError("An exact major.minor.patch version is required")
+        if version is not None and (not isinstance(version, str) or not EXACT_VERSION.fullmatch(version)):
+            raise ValueError("An exact semantic version is required")
         resolved = self._manifest_plugin(plugin, npm_package, version)
         if resolved is not None:
             module, plugin_cls, resolved_version = resolved
         elif npm_package:
             distribution = importlib.metadata.distribution(npm_package)
-            if version is not None and distribution.version != version:
+            if version is not None and not versions_equal(distribution.version, version):
                 raise RuntimeError(f"Installed {npm_package} version does not match {version}")
             entries = [entry for entry in distribution.entry_points if entry.group == "bsb.plugins" and entry.name == plugin]
             if len(entries) != 1:
@@ -56,7 +57,7 @@ class SBPlugins:
             module = self._resolve_module(plugin_type, None, plugin)
             plugin_cls = getattr(module, "Plugin", None)
             resolved_version = str(getattr(module, "__version__", "1.0.0"))
-            if version is not None and version != resolved_version:
+            if version is not None and not versions_equal(resolved_version, version):
                 raise RuntimeError(f"Plugin {plugin} version does not match {version}")
         if plugin_cls is None:
             raise RuntimeError(f"Plugin class not exported: {plugin}")
@@ -91,7 +92,7 @@ class SBPlugins:
             if not matches or "path" not in matches[0]:
                 continue
             entry = matches[0]
-            if entry.get("language", "python") != "python" or version is not None and entry.get("version") != version:
+            if entry.get("language", "python") != "python" or version is not None and not versions_equal(str(entry.get("version", "")), version):
                 raise ValueError("Plugin manifest language/version does not match configuration")
             file_path = (root / entry["path"]).resolve()
             if not file_path.is_relative_to(root.resolve()):

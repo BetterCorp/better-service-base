@@ -2,17 +2,115 @@ package observablenative
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/bettercorp/service-base/go/bsb"
 )
+
+func TestFileLoggingRecoversAfterRotationFailure(t *testing.T) {
+	for _, missingParent := range []bool{false, true} {
+		t.Run(fmt.Sprint(missingParent), func(t *testing.T) {
+			root := t.TempDir()
+			file, err := newRotatingFile(filepath.Join(root, "original.log"), config{MaxBytes: 10})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.close()
+			if err = file.write([]byte("original")); err != nil {
+				t.Fatal(err)
+			}
+			file.path = filepath.Join(root, "next.log")
+			if missingParent {
+				file.path = filepath.Join(root, "missing", "next.log")
+			}
+			if err = file.rotate(); err == nil {
+				t.Fatal("expected rename failure")
+			}
+			if err = os.MkdirAll(filepath.Dir(file.path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err = file.write([]byte("recovered")); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(file.path)
+			if err != nil || string(data) != "recovered" {
+				t.Fatal(string(data), err)
+			}
+			data, err = os.ReadFile(filepath.Join(root, "original.log"))
+			if err != nil || string(data) != "original" {
+				t.Fatal(string(data), err)
+			}
+			file.close()
+			if file.write([]byte("closed")) == nil {
+				t.Fatal("reopened a disposed logger")
+			}
+		})
+	}
+}
+
+func TestTLSSyslogHonorsConfiguredFraming(t *testing.T) {
+	fixture := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer fixture.Close()
+	ca := filepath.Join(t.TempDir(), "ca.pem")
+	if err := os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: fixture.Certificate().Raw}), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, framing := range []string{"newline", "octet-counting"} {
+		t.Run(framing, func(t *testing.T) {
+			listener, err := tls.Listen("tcp", "127.0.0.1:0", fixture.TLS)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			result := make(chan []byte, 1)
+			go func() {
+				connection, err := listener.Accept()
+				if err != nil {
+					result <- nil
+					return
+				}
+				defer connection.Close()
+				connection.SetDeadline(time.Now().Add(5 * time.Second))
+				data, _ := io.ReadAll(connection)
+				result <- data
+			}()
+			writer, err := newNetworkWriter(config{Host: "127.0.0.1", Port: listener.Addr().(*net.TCPAddr).Port, Protocol: "tls", CACertificatePath: ca, Facility: float64(16), RFC: "5424", Framing: framing}, "observable-syslog")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer writer.close()
+			if err = writer.export(context.Background(), []map[string]any{{"timestamp": time.Now().Format(time.RFC3339Nano), "level": "info", "message": "hello"}}); err != nil {
+				t.Fatal(err)
+			}
+			writer.close()
+			data := <-result
+			if framing == "newline" {
+				if len(data) == 0 || data[0] != '<' || data[len(data)-1] != '\n' {
+					t.Fatalf("invalid newline frame: %q", data)
+				}
+			} else {
+				parts := strings.SplitN(string(data), " ", 2)
+				if len(parts) != 2 || parts[0] != strconv.Itoa(len(parts[1])) || !strings.HasPrefix(parts[1], "<") {
+					t.Fatalf("invalid octet frame: %q", data)
+				}
+			}
+		})
+	}
+}
 
 func TestRedactionBeforeInterpolationAndFileRotation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "app.log")
