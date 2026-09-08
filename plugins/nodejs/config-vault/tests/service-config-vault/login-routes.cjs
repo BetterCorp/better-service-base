@@ -6,6 +6,11 @@ const http = require('node:http');
 const { createHash } = require('node:crypto');
 
 module.exports = async ({ pluginRoot }) => {
+  for (const [open, close] of [['<script>', '</script>'], ['<SCRIPT nonce="test">', '</SCRIPT >'], ['<script\nnonce="test">', '</script\t\r\n>'], ['<script>', '</script ignored="value">']]) {
+    assertScriptsParse(`${open}const valid = 1;${close}`);
+    assert.throws(() => assertScriptsParse(`${open}const = ;${close}`), SyntaxError);
+  }
+  assert.throws(() => assertScriptsParse('<p>No scripts</p>'), /No inline scripts found/);
   const { VaultHttpServer } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/http-server.js')).href);
   const port = await freePort();
   const registryPort = await freePort();
@@ -509,7 +514,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const deploymentHtml = await deployment.text();
     assert.equal(deployment.status, 200);
-    for (const script of deploymentHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/gi)) new Function(script[1]);
+    assertScriptsParse(deploymentHtml);
     assert.match(deploymentHtml, /Profile Config/);
     assert.match(deploymentHtml, /state-badge live">Enabled/);
     assert.match(deploymentHtml, /state-badge disabled">Disabled/);
@@ -601,7 +606,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const pluginsHtml = await pluginsPage.text();
     assert.equal(pluginsPage.status, 200);
-    for (const script of pluginsHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/gi)) new Function(script[1]);
+    assertScriptsParse(pluginsHtml);
     assert.match(pluginsHtml, /syslog-client/);
     assert.doesNotMatch(pluginsHtml, /_\/syslog-client/);
     assert.doesNotMatch(pluginsHtml, /config-vault/);
@@ -808,6 +813,13 @@ module.exports = async ({ pluginRoot }) => {
     await new Promise((resolve) => registryServer.close(resolve));
   }
 };
+
+function assertScriptsParse(html) {
+  // Syntax-check this fixture's generated inline scripts; this is not an HTML sanitizer.
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)];
+  assert.ok(scripts.length > 0, 'No inline scripts found');
+  for (const script of scripts) new Function(script[1]);
+}
 
 async function postJson(port, pathname, body) {
   const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
