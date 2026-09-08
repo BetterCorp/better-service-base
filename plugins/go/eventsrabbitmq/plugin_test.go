@@ -93,3 +93,22 @@ func TestWireTraceQueuesAndBinaryChunks(t *testing.T) {
 		t.Fatal("accepted fractional stream timeout")
 	}
 }
+
+func TestRabbitWireIdentifiersValidateCompletedValues(t *testing.T) {
+	if _, err := New(map[string]any{"uniqueId": "worker||peer"}); err == nil {
+		t.Fatal("stream token delimiter accepted in unique ID")
+	}
+	transport, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := transport.(*Plugin)
+	uuid := "00000000-0000-0000-0000-000000000000"
+	boundary := strings.Repeat("\u00e9", 105) + "a"
+	if name, err := p.queue("91eb", boundary, "x", uuid); err != nil || len(name) != 255 {
+		t.Fatalf("valid completed queue rejected: bytes=%d err=%v", len(name), err)
+	}
+	if _, err := p.queue("91eb", boundary+"b", "x", uuid); err == nil {
+		t.Fatal("oversized completed broadcast queue accepted")
+	}
+}

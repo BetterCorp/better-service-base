@@ -74,6 +74,9 @@ func New(config map[string]any) (bsb.EventsPlugin, error) {
 	if len(opts.Endpoints) == 0 || opts.Prefetch < 1 || opts.Prefetch > 65535 {
 		return nil, fmt.Errorf("invalid Rabbit endpoints or prefetch")
 	}
+	if strings.Contains(opts.UniqueID, "||") {
+		return nil, fmt.Errorf("invalid Rabbit unique ID")
+	}
 	vhost := ""
 	for index, endpoint := range opts.Endpoints {
 		u, err := url.Parse(endpoint)
@@ -483,7 +486,10 @@ func (p *Plugin) listen(plugin, event string, listener bsb.EventListener, broadc
 	name := route
 	routing := ""
 	if broadcast {
-		name += "-" + uuid.NewString()
+		name, err = p.queue(kind, plugin, event, uuid.NewString())
+		if err != nil {
+			return err
+		}
 		routing = route
 	}
 	return p.consume(name, 3600000, broadcast, routing, false, func(message amqp.Delivery, body map[string]any) error {

@@ -29,15 +29,14 @@ impl Network {
             options.additional_fields.is_object(),
             "additionalFields must be an object"
         );
-        for (key, value) in options.additional_fields.as_object().unwrap() {
+        for key in options.additional_fields.as_object().unwrap().keys() {
             let normalized = gelf_key(key);
             ensure!(
                 !key.is_empty()
                     && normalized != "_id"
                     && key
                         .bytes()
-                        .all(|c| c.is_ascii_alphanumeric() || b"_.-".contains(&c))
-                    && (value.is_string() || value.is_number()),
+                        .all(|c| c.is_ascii_alphanumeric() || b"_.-".contains(&c)),
                 "invalid GELF additional field"
             )
         }
@@ -159,7 +158,10 @@ impl Network {
                 for (key, field) in self.options.additional_fields.as_object().unwrap() {
                     let key = gelf_key(key);
                     if value.get(&key).is_none() {
-                        value[&key] = field.clone();
+                        value[&key] = match field {
+                            Value::String(_) | Value::Number(_) => field.clone(),
+                            _ => Value::String(field.to_string()),
+                        };
                     }
                 }
                 if self.options.protocol == "http" {
