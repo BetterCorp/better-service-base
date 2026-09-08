@@ -156,6 +156,9 @@ func (g *generator) shape(document *bsb.SchemaDocument, hint string) (string, er
 			}
 			return "*" + reference, nil
 		case "object":
+			if mode, _ := node["unknownKeys"].(string); mode == "allow" || mode == "passthrough" {
+				return "map[string]any", nil
+			}
 			if err := g.reserve(name); err != nil {
 				return "", err
 			}

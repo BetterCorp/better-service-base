@@ -1,4 +1,5 @@
 """Use wheels, entry points and pip's dependency resolver for native Python plugins."""
+import configparser
 import importlib.metadata
 from pathlib import Path
 import re
@@ -33,7 +34,15 @@ def install(package, version=None, source=None):
     if is_wheel:
         with zipfile.ZipFile(wheel) as archive:
             names = [name for name in archive.namelist() if name.endswith(".dist-info/entry_points.txt")]
-            if len(names) != 1 or "[bsb.plugins]" not in archive.read(names[0]).decode():
+            entries = configparser.ConfigParser(interpolation=None)
+            valid = False
+            try:
+                if len(names) == 1:
+                    entries.read_string(archive.read(names[0]).decode())
+                    valid = bool(entries._sections.get("bsb.plugins"))
+            except (UnicodeDecodeError, configparser.Error):
+                pass
+            if not valid:
                 raise ValueError("Wheel does not declare bsb.plugins entry points")
         requirement = str(wheel.resolve())
     else:

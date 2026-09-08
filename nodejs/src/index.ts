@@ -29,6 +29,7 @@ export * from "./base/index.js";
 export * from "./interfaces/index.js";
 export * from "./interfaces/plugin-language.js";
 export * from "./interfaces/registry-identifiers.js";
+export * from "./interfaces/schema-safety.js";
 export * from "./serviceBase/index.js";
 /**
  * @see {@link https://bsbcode.dev/languages/nodejs/types/modules.html | API: Module Index}

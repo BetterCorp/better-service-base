@@ -11,6 +11,20 @@ static class HostedChecks
 
     public static async Task Run()
     {
+        using (var registryServer = new LocalServer(1, _ => (200, "{}")))
+        using (var otherServer = new LocalServer(1, _ => (200, "{}")))
+        using (var registry = new RegistryClient(registryServer.Origin, "origin-bound-token", allowInsecure: true))
+        {
+            foreach (var path in new[] { otherServer.Origin + "/collect", "//" + new Uri(otherServer.Origin).Authority + "/collect", "/\\attacker.invalid/collect", "plugins/acme/worker", "/\n/attacker.invalid" })
+            {
+                try { await registry.Request(HttpMethod.Get, path); throw new Exception("Unsafe registry request path accepted"); }
+                catch (ArgumentException) { }
+            }
+            await registry.Request(HttpMethod.Get, "/plugins/acme/worker?language=go");
+            await registryServer.WaitAsync(TimeSpan.FromSeconds(5));
+            Check(otherServer.Requests.Count == 0, "Registry token reached a different origin");
+            Check(registryServer.Requests.Single().Headers["Authorization"] == "Bearer origin-bound-token", "Same-origin registry request lost authorization");
+        }
         var cwd = Directory.CreateTempSubdirectory("bsb-hosted-").FullName;
         try
         {

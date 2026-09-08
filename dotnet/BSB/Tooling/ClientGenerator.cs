@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Globalization;
 using BSB.Interfaces;
 
 namespace BSB.Tooling;
@@ -47,7 +48,8 @@ public static class ClientGenerator
                     case "int64": return "long";
                     case "uint64": return "ulong";
                     case "float32": return "float";
-                    case "int": case "number": case "float64": return "double";
+                    case "int": return "long";
+                    case "number": case "float64": return "double";
                     case "null": case "any": case "unknown": case "never": return "JsonElement";
                     case "literal": return node["value"]?.GetValueKind() switch { JsonValueKind.String => "string", JsonValueKind.True or JsonValueKind.False => "bool", JsonValueKind.Number => "double", _ => "JsonElement" };
                     case "nullable": case "optional":
@@ -123,7 +125,7 @@ public static class ClientGenerator
             var input = Shape(definition.InputSchema!, name + method + "Input");
             var output = definition.OutputSchema is null ? "object?" : Shape(definition.OutputSchema, name + method + "Output");
             var key = Quote(eventName);
-            var timeout = definition.DefaultTimeoutSeconds ?? 5;
+            var timeout = (definition.DefaultTimeoutSeconds ?? 5).ToString("R", CultureInfo.InvariantCulture);
             if (listens)
             {
                 var operation = definition.Type switch { "returnable" => "OnReturnableEvent", "broadcast" => "OnBroadcast", _ => "OnEvent" };
@@ -138,9 +140,9 @@ public static class ClientGenerator
             }
             else if (definition.Type == "returnable")
             {
-                methods.AppendLine($"    public async Task<{output}> {method}(IObservable obs, {input} input, int timeoutSeconds = {timeout}) => Convert<{output}>(await _events.EmitEventAndReturn({key}, obs, input, timeoutSeconds));");
+                methods.AppendLine($"    public async Task<{output}> {method}(IObservable obs, {input} input, double timeoutSeconds = {timeout}) => Convert<{output}>(await _events.EmitEventAndReturn({key}, obs, input, timeoutSeconds));");
                 if (!used.Add(method + "Specific")) throw new JsonException($"Generated method collision: {eventName}Specific");
-                methods.AppendLine($"    public async Task<{output}> {method}Specific(string serverId, IObservable obs, {input} input, int timeoutSeconds = {timeout}) => Convert<{output}>(await _events.EmitEventAndReturnSpecific(serverId, {key}, obs, input, timeoutSeconds));");
+                methods.AppendLine($"    public async Task<{output}> {method}Specific(string serverId, IObservable obs, {input} input, double timeoutSeconds = {timeout}) => Convert<{output}>(await _events.EmitEventAndReturnSpecific(serverId, {key}, obs, input, timeoutSeconds));");
             }
             else
             {

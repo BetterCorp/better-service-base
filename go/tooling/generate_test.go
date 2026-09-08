@@ -12,12 +12,15 @@ import (
 	"strings"
 	"testing"
 
+	av "github.com/BetterCorp/AnyVali/sdk/go"
 	"github.com/bettercorp/service-base/go/bsb"
 )
 
 func TestGeneratedClientCompilesAndPreservesOptionalNull(t *testing.T) {
 	schemas := bsb.NewEventSchemas()
 	schemas.OnReturnableEvents["echo"] = bsb.CreateReturnableEvent(bsb.ObjectSchema(map[string]bsb.BSBSchema{"name": bsb.StringSchema(), "note": bsb.OptionalWrap(bsb.NullableWrap(bsb.StringSchema()))}), bsb.StringSchema(), "echo")
+	extensions := av.Object(map[string]av.Schema{"name": av.String()}).UnknownKeys(av.Allow)
+	schemas.OnReturnableEvents["extend"] = bsb.CreateReturnableEvent(extensions, extensions, "extend")
 	data, err := json.Marshal(bsb.ExportSchemas("service-echo", "1.0.0", schemas))
 	if err != nil {
 		t.Fatal(err)
@@ -44,6 +47,10 @@ func TestRoundTrip(t *testing.T){
  client,err:=NewEchoClient(parent);if err!=nil{t.Fatal(err)}
  bus.OnReturnableEvent(context.Background(),nil,"service-echo","echo",func(ctx context.Context,obs bsb.Observable,value any)(any,error){return value.(map[string]any)["name"],nil})
  result,err:=client.Echo(context.Background(),input);if err!=nil||result!="ok"{t.Fatalf("%s %v",result,err)}
+ bus.OnReturnableEvent(context.Background(),nil,"service-echo","extend",func(ctx context.Context,obs bsb.Observable,value any)(any,error){return value,nil})
+ extended:=map[string]any{"name":"ok","requestId":"abc","flags":[]any{"one",float64(2)}}
+ echoed,err:=client.Extend(context.Background(),extended);if err!=nil{t.Fatal(err)}
+ if echoed["requestId"]!="abc"||len(echoed["flags"].([]any))!=2{t.Fatalf("extensions lost: %#v",echoed)}
 }
 `}
 	for name, contents := range files {

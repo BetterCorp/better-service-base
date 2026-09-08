@@ -221,7 +221,7 @@ impl Generator {
                             seen,
                         )?;
                         let optional = value["kind"] == "optional"
-                            || required.is_some_and(|required| !required.iter().any(|v| v == key));
+                            || required.is_none_or(|required| !required.iter().any(|v| v == key));
                         if optional && value["kind"] != "optional" {
                             ty = format!("bsb::contract::Optional<{ty}>")
                         };
@@ -233,6 +233,16 @@ impl Generator {
                             } else {
                                 ""
                             }
+                        )?;
+                    }
+                    if matches!(node["unknownKeys"].as_str(), Some("allow" | "passthrough")) {
+                        let mut field = "additional_properties".to_owned();
+                        while !fields.insert(field.clone()) {
+                            field.push('_');
+                        }
+                        writeln!(
+                            source,
+                            "#[serde(flatten)] pub {field}: std::collections::BTreeMap<String,bsb::Value>,"
                         )?;
                     }
                     source.push_str("}\n");

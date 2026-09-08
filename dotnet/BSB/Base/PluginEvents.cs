@@ -57,9 +57,9 @@ public class PluginEvents
         return Backend.OnReturnableEvent(_pluginName, eventName, obs,
             async (trace, data) => Parse(schema.Output, await handler(trace, Parse(schema.Input, data))));
     }
-    public async Task<object?> EmitEventAndReturn(string eventName, IObservable obs, object? data = null, int timeoutSeconds = 30)
+    public async Task<object?> EmitEventAndReturn(string eventName, IObservable obs, object? data = null, double timeoutSeconds = 30)
     {
-        if (timeoutSeconds <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutSeconds));
+        BSBEvents.TimeoutDuration(timeoutSeconds);
         var schema = Schema("emitReturnableEvents", eventName);
         return Parse(schema.Output, await Backend.EmitEventAndReturn(_pluginName, eventName, obs, Parse(schema.Input, data), timeoutSeconds));
     }
@@ -90,9 +90,9 @@ public class PluginEvents
         return Backend.OnReturnableEvent(_pluginName, Specific(eventName, serverId), obs,
             async (trace, data) => Parse(schema.Output, await handler(trace, Parse(schema.Input, data))));
     }
-    public async Task<object?> EmitEventAndReturnSpecific(string serverId, string eventName, IObservable obs, object? data = null, int timeoutSeconds = 30)
+    public async Task<object?> EmitEventAndReturnSpecific(string serverId, string eventName, IObservable obs, object? data = null, double timeoutSeconds = 30)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
+        BSBEvents.TimeoutDuration(timeoutSeconds);
         var schema = Schema("emitReturnableEvents", eventName);
         return Parse(schema.Output, await Backend.EmitEventAndReturn(_pluginName, Specific(eventName, serverId), obs, Parse(schema.Input, data), timeoutSeconds));
     }

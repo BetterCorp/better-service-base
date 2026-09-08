@@ -3,6 +3,8 @@ package bsb
 import (
 	"fmt"
 	"math"
+	"strings"
+	"unicode"
 )
 
 type PortableEvent struct {
@@ -38,8 +40,11 @@ func ImportEventSchemas(data []byte, flip bool) (BSBEventSchemas, error) {
 		if flip {
 			category = FlipEventCategory[category]
 		}
-		if name == "" || event.Input == nil {
-			return result, fmt.Errorf("event name and input schema required")
+		if name == "" || strings.IndexFunc(name, unicode.IsControl) >= 0 {
+			return result, fmt.Errorf("invalid event name")
+		}
+		if event.Input == nil {
+			return result, fmt.Errorf("event input schema required")
 		}
 		input, err := ImportSchema(event.Input)
 		if err != nil {
@@ -78,7 +83,7 @@ func ImportEventSchemas(data []byte, flip bool) (BSBEventSchemas, error) {
 			if timeout == 0 {
 				timeout = 5
 			}
-			if timeout < 0 || math.IsNaN(timeout) || math.IsInf(timeout, 0) {
+			if timeout < 0 || timeout > 86400 || math.IsNaN(timeout) || math.IsInf(timeout, 0) {
 				return result, fmt.Errorf("invalid event timeout")
 			}
 			schema := CreateReturnableEvent(input, output, event.Description, timeout)

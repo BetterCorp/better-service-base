@@ -2,6 +2,7 @@ import asyncio
 import json
 import sys
 from types import SimpleNamespace
+import zipfile
 import pytest
 from bsb.plugin_loader import SBPlugins
 
@@ -54,3 +55,28 @@ def test_prerelease_manifest_distribution_and_installer(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="does not declare bsb.plugins"):
         packages.install("ordinary-package", "1.2.3")
     assert commands[-1][-1] == "ordinary-package==1.2.3"
+
+
+@pytest.mark.parametrize("entries", ["[bsb.plugins.extra]\ndemo = package:Plugin\n", "[bsb.plugins]\n"])
+def test_wheel_installer_requires_exact_nonempty_plugin_group(tmp_path, monkeypatch, entries):
+    from bsb import packages
+
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
+    wheel = tmp_path / "demo-1.0.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("demo-1.0.0.dist-info/entry_points.txt", entries)
+    with pytest.raises(ValueError, match="does not declare bsb.plugins"):
+        packages.install(str(wheel))
+
+
+def test_wheel_installer_accepts_exact_nonempty_plugin_group(tmp_path, monkeypatch):
+    from bsb import packages
+
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
+    commands = []
+    monkeypatch.setattr(packages.subprocess, "run", lambda args, **_: commands.append(args))
+    wheel = tmp_path / "demo-1.0.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("demo-1.0.0.dist-info/entry_points.txt", "[bsb.plugins]\ndemo = package:Plugin\n")
+    packages.install(str(wheel))
+    assert commands[0][-1] == str(wheel.resolve())

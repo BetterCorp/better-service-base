@@ -2,7 +2,7 @@
 
 BSB is the executable host. Application services are class-library plugins that reference BSB for their contracts; they do not start their own `ServiceBase` process.
 
-The JSON boundary preserves signed and unsigned 64-bit integers without converting them to floating point. AnyVali 1.1.4's C# `uint64` validator currently caps its range at `long.MaxValue`; larger values remain exact at the wire boundary but fail that SDK's schema validation. Full-range `uint64` validation needs an upstream AnyVali change.
+The JSON boundary preserves signed and unsigned 64-bit integers without converting them to floating point, and generated clients map the portable generic `int` to C# `long`. AnyVali 1.1.4's C# `uint64` validator currently caps its range at `long.MaxValue`; larger values remain exact at the wire boundary but fail that SDK's schema validation. Full-range `uint64` validation needs an upstream AnyVali change.
 
 ```sh
 dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o output
@@ -57,6 +57,8 @@ await Events.SendStream("download", obs, id, inputStream);
 ```
 
 The receiver ID is opaque and single-use. The sender retains ownership of its input stream. Consume the receiver stream through EOF; early completion aborts the transfer. Registration waits up to 30 seconds for the sender; the optional timeout controls inactivity after connection. Native streams transfer bytes and support Node Buffer JSON envelopes.
+
+Returnable event defaults and calls accept fractional seconds and require a finite value greater than zero and no more than 86,400 seconds.
 
 Native logging includes `observable-default`, `observable-logging-file`, `observable-pino`, and `observable-winston`. Pino/Winston identities select native equivalents; JavaScript transport modules and Node-specific option objects do not run in .NET. Both equivalents support `level`, `prettyPrint`, `base`, dotted `redact` paths (including `*` across objects/arrays), and an optional `filePath`. Pino uses numeric log levels; Winston uses named levels. Redaction applies to console and file output.
 

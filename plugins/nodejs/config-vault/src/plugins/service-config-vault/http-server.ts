@@ -1832,8 +1832,8 @@ function configSectionEditor(
   const entries = Object.entries(draft[section] ?? {}).filter(([, entry]) => !entry.override);
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No plugins configured.</p>' : entries.map(([name, entry]) => {
-      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
-      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package);
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
+      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package, entry.language);
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
@@ -1883,8 +1883,8 @@ function applicationConfigSectionEditor(
   const entries = Object.entries(draft[section] ?? {});
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No shared plugins configured.</p>' : entries.map(([name, entry]) => {
-      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
-      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package);
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
+      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package, entry.language);
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
@@ -1947,7 +1947,7 @@ function inheritedOverrideSection(
   return `<section><h3>${escapeHtml(title)}</h3>${entries.map(([name, entry]) => {
     const localEntry = local[section]?.[name];
     const effective = localEntry ? mergePluginEntry(entry, localEntry) : entry;
-    const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+    const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
     const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
     const enabledOverridden = localEntry?.enabled !== undefined;
     return `<details class="plugin-card">
@@ -2020,7 +2020,7 @@ function environmentOverridesSummary(
       const override = local[section]?.[name];
       const entry = base && override ? mergePluginEntry(base, override) : override ?? base;
       if (!entry?.allowEnvOverrides) continue;
-      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
       const paths = envOverridePathsFromSchema(catalog?.configSchema);
       if (paths.length === 0) continue;
       rows.push(`<tr><td>${escapeHtml(labels[section])}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(catalog ? pluginDisplayName(catalog) : entry.plugin)}</td><td>${paths.map((path) => `<code>${escapeHtml(path)}</code>`).join('<br>')}</td></tr>`);
@@ -2062,10 +2062,12 @@ function findCatalogPlugin(
   pluginId: string,
   version?: string,
   packageName?: string,
+  language: PluginLanguage = 'nodejs',
 ): DeploymentProfileData['plugins'][number] | undefined {
   const matches = data.plugins.filter((plugin) =>
     (plugin.pluginId === pluginId || `${plugin.org}/${plugin.pluginId}` === pluginId) &&
     plugin.kind !== 'config' &&
+    (plugin.language ?? 'nodejs') === language &&
     (packageName ? plugin.packageName === packageName : true)
   );
   return version

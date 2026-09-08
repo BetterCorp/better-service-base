@@ -89,7 +89,7 @@ internal class SBEvents(PluginConstructorArgs args) : BSBEvents(args)
         => Route("emitEvent", plugin).EmitEvent(Target(plugin), name, obs, data);
     public override Task OnReturnableEvent(string plugin, string name, IObservable obs, ReturnableEventHandler handler)
         => Route("onReturnableEvent", plugin).OnReturnableEvent(Target(plugin), name, obs, handler);
-    public override Task<object?> EmitEventAndReturn(string plugin, string name, IObservable obs, object? data, int timeoutSeconds = 30)
+    public override Task<object?> EmitEventAndReturn(string plugin, string name, IObservable obs, object? data, double timeoutSeconds = 30)
         => Route("emitEventAndReturn", plugin).EmitEventAndReturn(Target(plugin), name, obs, data, timeoutSeconds);
     public override Task OnBroadcast(string plugin, string name, IObservable obs, BroadcastHandler handler)
         => Route("onBroadcast", plugin).OnBroadcast(Target(plugin), name, obs, handler);

@@ -13,6 +13,9 @@ static void Check(bool condition, string message)
     if (!condition) throw new Exception(message);
 }
 
+await FractionalTimeoutChecks.Run();
+await IntegerClientChecks.Run();
+
 Check(RegistryClient.ParsePluginId("@acme/service.worker") == ("@acme", "service.worker"), "Valid scoped/dotted Registry ID rejected");
 foreach (var id in new[] { "../worker", "a/b/c", "worker\n" })
 {
@@ -487,7 +490,7 @@ class TestBackend(PluginConstructorArgs args, string label) : BSBEvents(args)
 {
     public int Calls { get; private set; }
     public object? Reply { get; set; }
-    public override Task<object?> EmitEventAndReturn(string plugin, string name, IObservable obs, object? data, int timeoutSeconds = 30)
+    public override Task<object?> EmitEventAndReturn(string plugin, string name, IObservable obs, object? data, double timeoutSeconds = 30)
     { Calls++; return Task.FromResult<object?>(Reply ?? $"{label}:{plugin}"); }
     public override Task OnEvent(string p, string n, IObservable o, BSB.Base.EventHandler h) => Task.CompletedTask;
     public override Task EmitEvent(string p, string n, IObservable o, object? d) => Task.CompletedTask;

@@ -206,15 +206,15 @@ public partial class Plugin : BSBEvents
             finally { span.End(); }
         });
 
-    public override async Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, int timeoutSeconds = 30)
+    public override async Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, double timeoutSeconds = 30)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
-        var ttl = checked(timeoutSeconds * 1000 + 5000);
+        var duration = TimeoutDuration(timeoutSeconds);
+        var ttl = checked((int)Math.Ceiling(timeoutSeconds * 1000 + 5000));
         var correlation = Guid.NewGuid().ToString();
         var pending = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[correlation] = pending;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+        timeout.CancelAfter(duration);
         var span = obs.StartSpan("events.request", new() { ["plugin"] = pluginName, ["event"] = eventName });
         try
         {

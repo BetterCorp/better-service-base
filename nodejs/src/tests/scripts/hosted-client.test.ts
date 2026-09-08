@@ -62,6 +62,18 @@ describe('Hosted client discovery', () => {
       discovery = structuredClone(fixture);
       discovery.plugins[0].version = '../invalid';
       await assert.rejects(hostedSchema(endpoint, { allowInsecure: true }), /metadata/);
+      for (const root of [
+        { kind: 'string', pattern: '^(a+)+$' },
+        { kind: 'string', pattern: 'a'.repeat(1025) },
+        JSON.parse('{"kind":"object","properties":{"__proto__":{"kind":"string"}}}'),
+        Array.from({ length: 66 }).reduce<object>(inner => ({ kind: 'optional', inner }), { kind: 'string' }),
+      ]) {
+        discovery = structuredClone(fixture);
+        discovery.plugins[0].schema.events.lookup.outputSchema.root = root;
+        await assert.rejects(run(process.execPath, [cli, 'client', 'install', endpoint, '--allow-insecure'], { cwd, env }),
+          (error: any) => /unsafe regular expression|forbidden key|maximum nesting depth/.test(error.stdout));
+        assert.equal(await readFile(snapshot, 'utf8'), before);
+      }
       redirect = true;
       await assert.rejects(hostedSchema(endpoint, { allowInsecure: true }));
       redirect = false; oversized = true;

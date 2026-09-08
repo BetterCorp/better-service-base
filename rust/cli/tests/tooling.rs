@@ -100,14 +100,33 @@ fn shared_contracts_generate_compiling_rust_clients() -> Result<()> {
         generator::generate(&keywords.to_string(), "keywords")?,
     )?;
     modules.push_str("pub mod keywords;\n");
+    let roundtrip = json!({"pluginId":"roundtrip","events":{"echo":{"type":"fire-and-forget","category":"onEvents","inputSchema":{"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"object","properties":{"known":{"kind":"object","properties":{"declared":{"kind":"string"}},"unknownKeys":"allow"},"omitted":{"kind":"string"},"additionalProperties":{"kind":"string"}},"unknownKeys":"passthrough"}}}}});
+    fs::write(
+        source.join("roundtrip.rs"),
+        generator::generate(&roundtrip.to_string(), "roundtrip")?,
+    )?;
+    modules.push_str("pub mod roundtrip;\n");
     fs::write(source.join("lib.rs"), modules)?;
     let manifest = json!({"package":{"name":"generated-check","version":"0.0.0","edition":"2024"},"dependencies":{"bsb":{"package":"better-service-base","path":root.join("..").to_string_lossy()}}});
     fs::write(
         directory.path().join("Cargo.toml"),
         toml::to_string(&manifest)?,
     )?;
+    let tests = directory.path().join("tests");
+    fs::create_dir(&tests)?;
+    fs::write(
+        tests.join("roundtrip.rs"),
+        r#"#[test]
+fn preserves_omitted_optional_fields_and_unknown_data() {
+    let input = bsb::json!({"known":{"nestedExtra":2},"extra":{"nested":1}});
+    let value: generated_check::roundtrip::RoundtripClientEchoInput =
+        bsb::serde_json::from_value(input.clone()).unwrap();
+    assert_eq!(bsb::serde_json::to_value(value).unwrap(), input);
+}
+"#,
+    )?;
     let status = Command::new("cargo")
-        .arg("check")
+        .arg("test")
         .arg("--manifest-path")
         .arg(directory.path().join("Cargo.toml"))
         .env("CARGO_TARGET_DIR", directory.path().join("target"))

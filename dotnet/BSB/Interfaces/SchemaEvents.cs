@@ -18,7 +18,7 @@ public record FireAndForgetEventSchema(BSBType Input, string? Description = null
 /// <param name="Output">Schema for the response payload.</param>
 /// <param name="DefaultTimeoutSeconds">Default timeout in seconds before the call is considered failed.</param>
 /// <param name="Description">Optional human-readable description of the event.</param>
-public record ReturnableEventSchema(BSBType Input, BSBType Output, int DefaultTimeoutSeconds = 30, string? Description = null);
+public record ReturnableEventSchema(BSBType Input, BSBType Output, double DefaultTimeoutSeconds = 30, string? Description = null);
 
 /// <summary>
 /// Schema for a broadcast event (emitter sends to ALL listeners, no return value).
@@ -36,8 +36,10 @@ public class BSBEventSchemas
     public EventSchemaExport Export(string pluginName, string version)
     {
         var result = new EventSchemaExport { PluginName = pluginName, PluginId = pluginName, Version = version };
-        void Add(string name, string category, string type, BSBType input, BSBType? output, string? description, int? timeout)
+        void Add(string name, string category, string type, BSBType input, BSBType? output, string? description, double? timeout)
         {
+            if (timeout is not null && (!double.IsFinite(timeout.Value) || timeout is <= 0 or > 86400))
+                throw new InvalidOperationException($"Invalid timeout: {name}");
             if (!result.Events.TryAdd(name, new ExportedEvent { Category = category, Type = type,
                 InputSchema = input.ToAnyVali(), OutputSchema = output?.ToAnyVali(), Description = description, DefaultTimeoutSeconds = timeout }))
                 throw new InvalidOperationException($"Duplicate event name across categories: {name}");
@@ -70,7 +72,7 @@ public class BSBEventSchemas
                 case "onReturnableEvents" or "emitReturnableEvents" when e.Type == "returnable":
                     var output = BSBType.Import(e.OutputSchema ?? throw new JsonException($"Missing output schema: {name}"));
                     var timeout = e.DefaultTimeoutSeconds ?? 5;
-                    if (timeout <= 0) throw new JsonException($"Invalid timeout: {name}");
+                    if (!double.IsFinite(timeout) || timeout is <= 0 or > 86400) throw new JsonException($"Invalid timeout: {name}");
                     (category == "onReturnableEvents" ? result.OnReturnableEvents : result.EmitReturnableEvents).Add(name, new(input, output, timeout, e.Description));
                     break;
                 default: throw new JsonException($"Invalid event category/type: {name}");
@@ -123,7 +125,7 @@ public static class EventSchemaBuilder
     /// <summary>
     /// Create a returnable (request-response) event schema.
     /// </summary>
-    public static ReturnableEventSchema CreateReturnableEvent(BSBType input, BSBType output, string? description = null, int defaultTimeout = 30)
+    public static ReturnableEventSchema CreateReturnableEvent(BSBType input, BSBType output, string? description = null, double defaultTimeout = 30)
         => new(input, output, defaultTimeout, description);
 
     /// <summary>
@@ -215,5 +217,5 @@ public class ExportedEvent
     /// Default timeout in seconds (returnable events only).
     /// </summary>
     [JsonPropertyName("defaultTimeout")]
-    public int? DefaultTimeoutSeconds { get; init; }
+    public double? DefaultTimeoutSeconds { get; init; }
 }

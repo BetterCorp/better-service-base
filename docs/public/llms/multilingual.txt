@@ -91,3 +91,9 @@ Go metric constructors reuse cumulative instruments by plugin/name; kind, descri
 Python JSON HTTP reads use a monotonic response deadline, incremental reads and active socket shutdown; timeout while reading an HTTP error body preserves its status with an empty diagnostic body. Platform DNS resolution and connection setup retain OS/stdlib timeout limitations.
 
 AnyVali dependencies: npm/NuGet/Python/Rust 1.1.4; Go revision f98fa58c697c. Go/Rust native contracts must put sensitive/writeonly flags inside metadata for header maps, telemetry tokens, Vault apiSecret and Rabbit credentials.password; Vault does not treat top-level sensitive flags as masking metadata. Logical clients prefer enabled mappings, then disabled remote mappings; true explicit aliases retain precedence.
+
+Portable client objects: omitted required means no required fields. Go allow/passthrough objects use map[string]any; Rust preserves extra fields in a flattened map. Runtime schemas still validate payloads. Go imported event names reject control characters and event defaults cannot exceed 86400 seconds. Python lifecycle dependencies must resolve even when disabled; wheel entry points require an exact nonempty bsb.plugins group.
+
+.NET generic int clients use long to preserve signed 64-bit integers. Returnable event timeout APIs use double seconds (finite, greater than zero, at most 86400); custom BSBEvents.EmitEventAndReturn overrides must use double. Generated defaults use invariant culture. Registry Request requires root-relative paths on its configured origin before sending credentials.
+
+Node hosted contracts share Registry/Vault's schema-safety gate (10000 nodes, depth64, prototype keys rejected, pattern length1024 and safe-regex2 check). Vault editor catalogs must match the entry language for current/update schemas before masking configuration; unannotated legacy entries default to nodejs.

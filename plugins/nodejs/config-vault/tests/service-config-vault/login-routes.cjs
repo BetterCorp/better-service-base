@@ -347,8 +347,16 @@ module.exports = async ({ pluginRoot }) => {
             source: 'manual',
             configSchema: { root: { kind: 'object', properties: { host: { kind: 'string' } } } },
             eventSchema: null,
-          }],
-          draft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
+          }, ...['nodejs', 'csharp'].flatMap(language => ['1.0.0', '2.0.0'].map(version => ({
+            id: `shared-${language}-${version}`, org: 'acme', name: 'Shared', pluginId: 'service-shared', language,
+            packageName: '', version, kind: 'service', source: 'manual', eventSchema: null,
+            configSchema: { root: { kind: 'object', properties: { token: { kind: 'string', metadata: { sensitive: language === 'csharp' } } } } },
+          })))],
+          draft: { observable: {}, events: {}, services: {
+            shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } },
+            native: { plugin: 'service-shared', language: 'csharp', version: '1.0.0', enabled: true, config: { token: 'native-secret-must-not-appear' } },
+            legacy: { plugin: 'service-shared', version: '1.0.0', enabled: true, config: { token: 'public-node-value' } },
+          } },
           configState: { state: 'draft-pending', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
         };
       },
@@ -573,6 +581,10 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(appConfigHtml, /Unpublished changes/);
     assert.match(appConfigHtml, /\/api\/application-profile-plugins/);
     assert.match(appConfigHtml, /\/api\/application-profile-publish/);
+    assert.match(appConfigHtml, /data-current-catalog-id="shared-csharp-1.0.0" data-update-catalog-id="shared-csharp-2.0.0"/);
+    assert.match(appConfigHtml, /data-current-catalog-id="shared-nodejs-1.0.0" data-update-catalog-id="shared-nodejs-2.0.0"/);
+    assert.doesNotMatch(appConfigHtml, /native-secret-must-not-appear/);
+    assert.match(appConfigHtml, /public-node-value/);
 
     const runtimeKeys = await fetch(`http://127.0.0.1:${port}/runtime-keys?keyId=vk_test&secret=vs_test`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },

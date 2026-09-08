@@ -1,7 +1,7 @@
 import { unwrapSchema as unwrapSchemaNode, sensitiveSchemaPaths } from './schema-secrets.js';
 import { normalizePluginLanguage, type PluginLanguage, type Observable } from '@bsb/base';
 import * as av from 'anyvali';
-import safeRegex from 'safe-regex2';
+import { assertSafeSchemaDocument as assertSafePortableSchema } from '@bsb/base';
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -1884,27 +1884,7 @@ function validateAnyValiNode(
 
 function assertSafeSchemaDocument(document: Record<string, unknown> | null): void {
   if (!document) return;
-  const blocked = new Set(['__proto__', 'prototype', 'constructor']);
-  const stack: Array<{ value: unknown; depth: number }> = [{ value: document, depth: 0 }];
-  let nodes = 0;
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    nodes += 1;
-    if (nodes > 10_000) throw new Error('Schema exceeds the maximum node count');
-    if (current.depth > 64) throw new Error('Schema exceeds the maximum nesting depth');
-    if (Array.isArray(current.value)) {
-      for (const value of current.value) stack.push({ value, depth: current.depth + 1 });
-      continue;
-    }
-    if (!isPlainObject(current.value)) continue;
-    for (const [key, value] of Object.entries(current.value)) {
-      if (blocked.has(key)) throw new Error(`Schema contains forbidden key ${key}`);
-      if (key === 'pattern' && typeof value === 'string' && (value.length > 1024 || !safeRegex(value))) {
-        throw new Error('Schema contains an unsafe regular expression');
-      }
-      stack.push({ value, depth: current.depth + 1 });
-    }
-  }
+  assertSafePortableSchema(document);
   const root = objectField(objectField(document.root) ?? document);
   const paths = envOverridePathsFromSchema(document);
   if (paths.length > 256) throw new Error('Config schema declares too many environment override paths');

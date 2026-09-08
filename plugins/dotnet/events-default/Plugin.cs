@@ -54,14 +54,14 @@ public class Plugin : BSBEvents
         return Task.CompletedTask;
     }
 
-    public override async Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, int timeoutSeconds = 30)
+    public override async Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, double timeoutSeconds = 30)
     {
         ObjectDisposedException.ThrowIf(_disposed != 0, this);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
+        var timeout = TimeoutDuration(timeoutSeconds);
         if (!_returnableHandlers.TryGetValue((pluginName, eventName), out var handler))
             throw new BSBError($"No handler registered for returnable event '{eventName}'", obs.Trace, pluginName);
 
-        return await handler(obs, data).WaitAsync(TimeSpan.FromSeconds(timeoutSeconds), _shutdown.Token);
+        return await handler(obs, data).WaitAsync(timeout, _shutdown.Token);
     }
 
     // --- Broadcast ---

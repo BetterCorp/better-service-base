@@ -34,7 +34,12 @@ public sealed class RegistryClient : IDisposable
     public static bool IsExactVersion(string version) => Regex.IsMatch(version, "\\A[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?(?:\\+[A-Za-z0-9.-]+)?\\z");
     public async Task<JsonNode> Request(HttpMethod method, string path, JsonNode? body = null)
     {
-        using var request = new HttpRequestMessage(method, new Uri(_url, path));
+        if (string.IsNullOrEmpty(path) || path[0] != '/' || path.StartsWith("//", StringComparison.Ordinal) || path.Contains('\\') || path.Any(char.IsControl))
+            throw new ArgumentException("Registry API path must be root-relative", nameof(path));
+        var uri = new Uri(_url, path);
+        if (uri.Scheme != _url.Scheme || uri.IdnHost != _url.IdnHost || uri.Port != _url.Port)
+            throw new ArgumentException("Registry request must remain on the configured origin", nameof(path));
+        using var request = new HttpRequestMessage(method, uri);
         if (body is not null) request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
         using var response = await _http.SendAsync(request);
         if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Registry returned HTTP {(int)response.StatusCode}", null, response.StatusCode);

@@ -3,6 +3,7 @@ import { normalizePluginLanguage } from '../interfaces/plugin-language.js';
 import { parseRegistryPluginId } from '../interfaces/registry-identifiers.js';
 import type { EventSchemaExport } from '../interfaces/schema-events.js';
 import { importPortableSchema } from '../interfaces/schema-types.js';
+import { assertSafeSchemaDocument } from '../interfaces/schema-safety.js';
 
 const versionPattern = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?$/;
 const object = (value: unknown): value is Record<string, any> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -56,6 +57,7 @@ export async function hostedSchema(endpoint: string, options: { plugin?: string;
     schema = await getJson(link);
   }
   if (!object(schema) || !object(schema.events)) throw new Error('Hosted schema must contain an events object');
+  assertSafeSchemaDocument(schema);
   const categories: Record<string, string> = { onEvents: 'fire-and-forget', emitEvents: 'fire-and-forget', onReturnableEvents: 'returnable', emitReturnableEvents: 'returnable', onBroadcast: 'broadcast', emitBroadcast: 'broadcast' };
   for (const event of Object.values(schema.events)) {
     if (!object(event) || typeof event.category !== 'string' || !Object.hasOwn(categories, event.category) || categories[event.category] !== event.type) throw new Error('Invalid hosted event type/category');

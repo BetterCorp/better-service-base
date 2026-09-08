@@ -18,7 +18,7 @@ import fastifyView from '@fastify/view';
 import fastifyRateLimit from '@fastify/rate-limit';
 import handlebars from 'handlebars';
 import { marked } from 'marked';
-import safeRegex from 'safe-regex2';
+import { assertSafeSchemaDocument } from '@bsb/base';
 import * as av from 'anyvali';
 import { Observable, PLUGIN_LANGUAGES, normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import type { Plugin } from './index.js';
@@ -325,28 +325,8 @@ export function validateAnyValiDocument(value: unknown, path: Array<string | num
 }
 
 function unsafeSchemaIssue(value: unknown, path: Array<string | number>): ValidationIssue | null {
-  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
-  let nodes = 0;
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    if (++nodes > 10_000 || current.depth > 64) {
-      return { code: 'invalid_schema', message: 'Schema is too complex', path };
-    }
-    if (Array.isArray(current.value)) {
-      for (const item of current.value) stack.push({ value: item, depth: current.depth + 1 });
-      continue;
-    }
-    if (!current.value || typeof current.value !== 'object') continue;
-    for (const [key, item] of Object.entries(current.value as Record<string, unknown>)) {
-      if (['__proto__', 'prototype', 'constructor'].includes(key)) {
-        return { code: 'invalid_schema', message: `Schema contains forbidden key ${key}`, path };
-      }
-      if (key === 'pattern' && typeof item === 'string' && (item.length > 1024 || !safeRegex(item))) {
-        return { code: 'invalid_schema', message: 'Schema contains an unsafe regular expression', path };
-      }
-      stack.push({ value: item, depth: current.depth + 1 });
-    }
-  }
+  try { assertSafeSchemaDocument(value); }
+  catch (error) { return { code: 'invalid_schema', message: (error as Error).message, path }; }
   return null;
 }
 

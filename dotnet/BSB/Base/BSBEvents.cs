@@ -94,7 +94,7 @@ public abstract class BSBEvents : MainBase
     /// <param name="data">Request payload data.</param>
     /// <param name="timeoutSeconds">Maximum time to wait for a response.</param>
     /// <returns>The response from the handler.</returns>
-    public abstract Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, int timeoutSeconds = 30);
+    public abstract Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, double timeoutSeconds = 30);
 
     // --- Broadcast events ---
 
@@ -168,4 +168,7 @@ public abstract class BSBEvents : MainBase
     }
     public virtual Task SendStream(string pluginName, string eventName, IObservable obs, string streamId, Stream data) =>
         SendStream(pluginName, eventName + "-" + streamId, obs, data);
+
+    public static TimeSpan TimeoutDuration(double seconds) => double.IsFinite(seconds) && seconds is > 0 and <= 86400
+        ? TimeSpan.FromSeconds(seconds) : throw new ArgumentOutOfRangeException(nameof(seconds));
 }

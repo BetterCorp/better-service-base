@@ -71,9 +71,12 @@ class SBServices:
         out: list[str] = []
         for plugin in source or []:
             if plugin in self._definitions:
-                out.append(plugin)
+                matches = [plugin]
             else:
-                out.extend(alias for alias, definition in self._definitions.items() if definition.get("plugin") == plugin)
+                matches = [alias for alias, definition in self._definitions.items() if definition.get("plugin") == plugin]
+            if not matches:
+                raise ValueError(f"Unknown lifecycle dependency {plugin} for service {ref_name}")
+            out.extend(matches)
         return out
 
     async def _add_service(self, sb_config: Any, alias: str, plugin_ref: str, package: str | None, version=None, language=None) -> None:
