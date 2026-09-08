@@ -17,6 +17,19 @@ public static class ClientGenerator
         return result.Length == 0 ? "Generated" : char.IsDigit(result[0]) ? "_" + result : result;
     }
     private static string Quote(string value) => JsonSerializer.Serialize(value);
+    private static string LiteralType(JsonNode? value)
+    {
+        if (value?.GetValueKind() == JsonValueKind.String) return "string";
+        if (value?.GetValueKind() is JsonValueKind.True or JsonValueKind.False) return "bool";
+        if (value?.GetValueKind() != JsonValueKind.Number) return "JsonElement";
+        var literal = value.ToJsonString();
+        if (long.TryParse(literal, NumberStyles.Float, CultureInfo.InvariantCulture, out _)) return "long";
+        if (ulong.TryParse(literal, NumberStyles.Float, CultureInfo.InvariantCulture, out _)) return "ulong";
+        if (double.TryParse(literal, NumberStyles.Float, CultureInfo.InvariantCulture, out var floating)
+            && double.IsFinite(floating) && Math.Truncate(floating) != floating) return "double";
+        // Integral literals outside the 64-bit CLR range have no lossless primitive mapping.
+        return "JsonElement";
+    }
 
     public static string Generate(EventSchemaExport export, string localName)
     {
@@ -51,7 +64,7 @@ public static class ClientGenerator
                     case "int": return "long";
                     case "number": case "float64": return "double";
                     case "null": case "any": case "unknown": case "never": return "JsonElement";
-                    case "literal": return node["value"]?.GetValueKind() switch { JsonValueKind.String => "string", JsonValueKind.True or JsonValueKind.False => "bool", JsonValueKind.Number => "double", _ => "JsonElement" };
+                    case "literal": return LiteralType(node["value"]);
                     case "nullable": case "optional":
                         var inner = Type((node["schema"] ?? node["inner"])!, suggested);
                         return inner.EndsWith('?') ? inner : inner + "?";

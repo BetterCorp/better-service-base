@@ -50,6 +50,43 @@ async fn hosted_server(
     Ok((origin, server))
 }
 
+#[tokio::test]
+async fn plugin_build_uses_custom_library_name() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let cwd = directory.path();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    fs::create_dir(cwd.join("src"))?;
+    let manifest = json!({
+        "package":{"name":"orders-package","version":"1.0.0","edition":"2024"},
+        "lib":{"name":"orders_plugin"},
+        "dependencies":{
+            "bsb":{"package":"better-service-base","path":root.join("..").to_string_lossy()},
+            "examples":{"package":"bsb-native-examples","path":root.join("../../plugins/rust/native-examples").to_string_lossy()}
+        }
+    });
+    fs::write(cwd.join("Cargo.toml"), toml::to_string(&manifest)?)?;
+    fs::write(
+        cwd.join("src/lib.rs"),
+        "pub fn register(registry: &mut bsb::host::Registry) -> bsb::Result<()> { examples::register(registry) }",
+    )?;
+    fs::write(
+        cwd.join("bsb-plugin.json"),
+        r#"{"rust":[{"id":"service-default0","crate":"orders_plugin"}]}"#,
+    )?;
+    assert!(tooling::build_host(cwd).await?.is_file());
+    let linked: toml::Value =
+        toml::from_str(&fs::read_to_string(cwd.join(".bsb/host/Cargo.toml"))?)?;
+    assert_eq!(
+        linked["dependencies"]["plugin1"]["package"].as_str(),
+        Some("orders-package")
+    );
+    let contract: Contract = bsb::serde_json::from_str(&fs::read_to_string(
+        cwd.join("lib/schemas/service-default0.json"),
+    )?)?;
+    assert_eq!(contract.plugin_id, "service-default0");
+    Ok(())
+}
+
 #[test]
 fn shared_contracts_generate_compiling_rust_clients() -> Result<()> {
     let directory = tempfile::tempdir()?;

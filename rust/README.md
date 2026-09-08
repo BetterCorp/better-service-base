@@ -13,13 +13,13 @@ From the repository root, install the CLI with `cargo install --path rust/cli --
 bsb = { package = "better-service-base", path = "../service-base/rust" }
 ```
 
-Its library exports `pub fn register(registry: &mut bsb::host::Registry) -> bsb::Result<()>`. Register `Contract`, `Ordering` and factories with `registry.register`; services implement the async `Service` trait. `register_config`, `register_events` and `register_observable` support native extension backends. Factories receive validated options; observable factories also receive the application working directory. Register listeners in `init`; use `run` to start work and `shutdown` to release resources. Long-running tasks observe `ServiceContext.cancel`. Event calls receive the caller's `Observable` to preserve traces.
+Its library exports `pub fn register(registry: &mut bsb::host::Registry) -> bsb::Result<()>`. Register `Contract`, `Ordering` and factories with `registry.register`; services implement the async `Service` trait. `register_config`, `register_events` and `register_observable` support native extension backends. Factories receive validated options; observable factories also receive the application working directory. Enabled deployment entries with a `version` require that exact linked contract version; entries without one use the linked version. Register listeners in `init`; use `run` to start work and `shutdown` to release resources. Long-running tasks observe `ServiceContext.cancel`. Event calls receive the caller's `Observable` to preserve traces.
 
 ```json
 {"rust":[{"id":"service-orders","crate":"orders_plugin"}]}
 ```
 
-Save this as `bsb-plugin.json` beside the consuming `Cargo.toml`. `crate` identifies the current crate or a dependency alias; Cargo's hyphen/underscore spelling is accepted. Explicit and workspace-inherited dependencies are supported. Each selected crate registers once, even if it supplies several plugins.
+Save this as `bsb-plugin.json` beside the consuming `Cargo.toml`. `crate` identifies the current library target (`[lib].name`, or the normalized package name when omitted) or a dependency alias; Cargo's hyphen/underscore spelling is accepted. Explicit and workspace-inherited dependencies are supported. Each selected crate registers once, even if it supplies several plugins.
 
 Run `bsb plugin build` to generate `.bsb/host`, compile `lib/bsb` (`.exe` on Windows), and export `lib/schemas`. `CARGO_TARGET_DIR` is respected for build caching. Start **`lib/bsb run`**; application crates do not own startup. Build for the target OS/architecture. In a final Docker stage based on the Rust BSB runtime, copy this linked executable over `/usr/local/bin/bsb`; the runtime image deliberately contains no compiler. See [the seven working examples](../plugins/rust/native-examples/README.md).
 

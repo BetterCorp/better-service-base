@@ -1,5 +1,5 @@
 use crate::{
-    config::Config,
+    config::{Config, Definition},
     contract::{Contract, parse_schema},
     events::{Bus, Events, LocalBus},
     observable::{Backend, Observable, Observer},
@@ -61,6 +61,16 @@ fn options(contract: &Contract, value: &Value) -> Result<Value> {
     };
     ensure!(parsed.is_object(), "plugin configuration must be an object");
     Ok(parsed)
+}
+fn require_version(definition: &Definition, contract: &Contract) -> Result<()> {
+    ensure!(
+        definition.version.is_empty() || definition.version == contract.version,
+        "enabled plugin {} requires version {}, but linked version is {}",
+        definition.plugin,
+        definition.version,
+        contract.version
+    );
+    Ok(())
 }
 type Factory = Arc<dyn Fn(Value) -> Result<Box<dyn Service>> + Send + Sync>;
 struct Registration {
@@ -280,6 +290,7 @@ impl Host {
             obs.info("BSB observability startup",json!({}));
             for definition in config.groups["observable"].values().filter(|v|v.enabled) {
                 let (contract,factory)=self.registry.observers.get(&definition.plugin).context("enabled observable plugin is not linked")?;
+                require_version(definition,contract)?;
                 backend.add(factory(options(contract,&definition.config)?,self.cwd.clone()).await?);
             }
             obs.info("BSB events startup",json!({}));
@@ -287,6 +298,7 @@ impl Host {
             for definition in config.groups["events"].values().filter(|v|v.enabled) {
                 crate::events_router::validate(&definition.filter)?;
                 let (contract,factory)=self.registry.buses.get(&definition.plugin).context("enabled events plugin is not linked")?;
+                require_version(definition,contract)?;
                 let bus=factory(options(contract,&definition.config)?,obs.clone()).await?;
                 routes.push((bus.clone(),definition.filter.clone()));buses.push(bus);
             }
@@ -297,6 +309,7 @@ impl Host {
             obs.info("BSB services startup",json!({}));
             for (alias,definition) in config.groups["services"].iter().filter(|(_,v)|v.enabled) {
                 let entry=self.registry.services.get(&definition.plugin).with_context(||format!("enabled service {} is not linked",definition.plugin))?;
+                require_version(definition,&entry.contract)?;
                 let options=if let Some(schema)=&entry.contract.config_schema{parse_schema(schema,&definition.config)?}else{definition.config.clone()};
                 ensure!(options.is_object(),"plugin config schema must produce an object");
                 let service=(entry.factory)(options)?;

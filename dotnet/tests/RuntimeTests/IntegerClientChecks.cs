@@ -19,10 +19,13 @@ public static class IntegerClientChecks
         foreach (var value in new[] { 9007199254740993L, long.MaxValue })
             if (!schema.Validate(new { value })) throw new Exception($"AnyVali generic int rejected {value}");
 
-        var contract = new BSBEventSchemas
-        {
-            OnReturnableEvents = new() { ["echo"] = new(schema, schema, .5) }
-        }.Export("service-integer", "1.0.0");
+        var literalDocument = JsonNode.Parse("""
+        {"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"object","properties":{"value":{"kind":"int"},"signed":{"kind":"literal","value":9007199254740993},"signedExponent":{"kind":"literal","value":9007199254740993e0},"unsigned":{"kind":"literal","value":18446744073709551615},"fractional":{"kind":"literal","value":0.5}},"required":["value","signed","signedExponent","unsigned","fractional"]},"definitions":{},"extensions":{}}
+        """)!.AsObject();
+        var contract = new EventSchemaExport { PluginName = "service-integer", Version = "1.0.0", Events = new() {
+            ["echo"] = new ExportedEvent { Category = "onReturnableEvents", Type = "returnable",
+                InputSchema = literalDocument, OutputSchema = literalDocument, DefaultTimeoutSeconds = .5 }
+        } };
         var directory = Directory.CreateTempSubdirectory("bsb-integer-client-").FullName;
         try
         {
@@ -37,11 +40,15 @@ public static class IntegerClientChecks
             using System.Text.Json;
             foreach (var value in new[] { 9007199254740993L, long.MaxValue })
             {
-                var outbound = new IntegerClientEchoInput { Value = value };
+                var outbound = new IntegerClientEchoInput { Value = value, Signed = 9007199254740993L, SignedExponent = 9007199254740993L, Unsigned = ulong.MaxValue, Fractional = .5 };
                 var json = JsonSerializer.Serialize(outbound);
                 if (JsonDocument.Parse(json).RootElement.GetProperty("value").GetInt64() != value) throw new Exception("Outbound integer precision lost");
+                if (JsonDocument.Parse(json).RootElement.GetProperty("signed").GetInt64() != 9007199254740993L) throw new Exception("Signed literal precision lost");
+                if (JsonDocument.Parse(json).RootElement.GetProperty("signedExponent").GetInt64() != 9007199254740993L) throw new Exception("Exponent literal precision lost");
+                if (JsonDocument.Parse(json).RootElement.GetProperty("unsigned").GetUInt64() != ulong.MaxValue) throw new Exception("Unsigned literal precision lost");
                 var inbound = JsonSerializer.Deserialize<IntegerClientEchoOutput>(json)!;
-                if (inbound.Value != value) throw new Exception("Inbound integer precision lost");
+                if (inbound.Value != value || inbound.Signed != 9007199254740993L || inbound.SignedExponent != 9007199254740993L || inbound.Unsigned != ulong.MaxValue || inbound.Fractional != .5)
+                    throw new Exception("Inbound numeric precision lost");
             }
             """);
             var start = new ProcessStartInfo("dotnet")
@@ -65,6 +72,6 @@ public static class IntegerClientChecks
         {
             Directory.Delete(directory, recursive: true);
         }
-        Console.WriteLine("PASS: generated generic integer client preserves Int64 precision inbound and outbound");
+        Console.WriteLine("PASS: generated generic integers and numeric literals preserve signed, unsigned and fractional precision");
     }
 }

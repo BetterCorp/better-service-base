@@ -367,6 +367,12 @@ pub async fn build_host(cwd: &Path) -> Result<PathBuf> {
     let package = cargo["package"]["name"]
         .as_str()
         .context("Cargo package name required")?;
+    let library = cargo
+        .get("lib")
+        .and_then(|lib| lib.get("name"))
+        .and_then(toml::Value::as_str)
+        .unwrap_or(package)
+        .replace('-', "_");
     let mut dependencies = cargo["dependencies"]
         .as_table()
         .context("BSB dependency required")?
@@ -473,7 +479,7 @@ pub async fn build_host(cwd: &Path) -> Result<PathBuf> {
             continue;
         }
         let key = format!("plugin{}", imports.len());
-        let value = if entry.package.replace('-', "_") == package.replace('-', "_") {
+        let value = if entry.package.replace('-', "_") == library {
             toml::Value::Table(toml::map::Map::from_iter([
                 ("package".into(), toml::Value::String(package.into())),
                 (

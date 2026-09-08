@@ -119,6 +119,7 @@ impl Rabbit {
             !config.endpoints.is_empty() && config.prefetch > 0,
             "invalid Rabbit endpoints or prefetch"
         );
+        ensure!(!config.unique_id.contains("||"), "invalid Rabbit unique ID");
         let mut vhost = None;
         for endpoint in &mut config.endpoints {
             let mut url = reqwest::Url::parse(endpoint)?;
@@ -509,7 +510,7 @@ impl Bus for Rabbit {
             &[target, event],
         )?;
         let name = if broadcast {
-            format!("{route}-{}", uuid::Uuid::new_v4())
+            broadcast_queue(&route, &uuid::Uuid::new_v4().to_string())?
         } else {
             route.clone()
         };
@@ -704,5 +705,44 @@ impl Bus for Rabbit {
         }
         *self.inner.pending.lock().unwrap() = Pending::default();
         Ok(())
+    }
+}
+
+fn broadcast_queue(route: &str, consumer: &str) -> Result<String> {
+    let name = format!("{route}-{consumer}");
+    ensure!(
+        name.len() <= 255 && !name.contains('\0'),
+        "invalid Rabbit queue name"
+    );
+    Ok(name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Rabbit, broadcast_queue};
+    use bsb::observable::{Backend, Observable};
+    use serde_json::json;
+    use std::sync::Arc;
+
+    #[test]
+    fn broadcast_queue_validates_completed_utf8_name() {
+        let consumer = "00000000-0000-0000-0000-000000000000";
+        assert_eq!(
+            broadcast_queue(&"\u{00e9}".repeat(109), consumer)
+                .unwrap()
+                .len(),
+            255
+        );
+        assert!(broadcast_queue(&format!("{}a", "\u{00e9}".repeat(109)), consumer).is_err());
+    }
+
+    #[tokio::test]
+    async fn stream_token_delimiter_is_rejected_before_connecting() {
+        let obs = Observable::new("test", Arc::new(Backend::default()));
+        let error = Rabbit::new(json!({"uniqueId":"worker||peer"}), obs)
+            .await
+            .err()
+            .expect("invalid unique ID accepted");
+        assert!(error.to_string().contains("unique ID"));
     }
 }

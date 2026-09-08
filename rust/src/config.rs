@@ -23,6 +23,8 @@ pub fn merge(base: &Value, overlay: &Value) -> Value {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Definition {
     pub plugin: String,
+    #[serde(default)]
+    pub version: String,
     pub enabled: bool,
     pub config: Value,
     #[serde(default)]
@@ -93,12 +95,20 @@ impl Config {
                         }
                     };
                     ensure!(!plugin.is_empty(), "empty plugin identity");
+                    let version = match raw.get("version") {
+                        None => String::new(),
+                        Some(value) => value
+                            .as_str()
+                            .context("plugin version must be a string")?
+                            .into(),
+                    };
                     let config = raw.get("config").cloned().unwrap_or_else(|| json!({}));
                     ensure!(config.is_object(), "plugin config must be an object");
                     definitions.insert(
                         name.clone(),
                         Definition {
                             plugin: plugin.into(),
+                            version,
                             enabled,
                             config,
                             filter: raw.get("filter").cloned().unwrap_or(Value::Null),

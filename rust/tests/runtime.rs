@@ -53,13 +53,47 @@ fn profile_language_and_aliases() {
     );
     assert_eq!(config.resolve("service-registry").unwrap(), "remote");
     assert_eq!(config.resolve("worker").unwrap(), "active");
+    let pinned = Config::load(
+        &json!({"services":{"worker":{"version":"1.2.3"}}}),
+        "default",
+    )
+    .unwrap();
+    assert_eq!(pinned.groups["services"]["worker"].version, "1.2.3");
     for bad in [
         Value::Null,
         json!({"default":{"language":"go"}}),
         json!({"default":{"services":{"bad":{"enabled":"false"}}}}),
+        json!({"services":{"bad":{"version":1}}}),
     ] {
         assert!(Config::load(&bad, "default").is_err())
     }
+}
+
+#[test]
+fn only_returnable_events_accept_outputs() {
+    let invalid = json!({"not":"an AnyVali document"});
+    for (category, kind) in [
+        ("onEvents", "fire-and-forget"),
+        ("emitEvents", "fire-and-forget"),
+        ("onBroadcast", "broadcast"),
+        ("emitBroadcast", "broadcast"),
+    ] {
+        let mut nonreturnable = contract();
+        {
+            let event = nonreturnable.events.get_mut("echo").unwrap();
+            event.category = category.into();
+            event.kind = kind.into();
+        }
+        assert!(nonreturnable.validate().is_err(), "{category}");
+        nonreturnable.events.get_mut("echo").unwrap().output_schema = None;
+        assert!(nonreturnable.validate().is_ok(), "{category}");
+    }
+
+    let mut returnable = contract();
+    returnable.events.get_mut("echo").unwrap().output_schema = None;
+    assert!(returnable.validate().is_err());
+    returnable.events.get_mut("echo").unwrap().output_schema = Some(invalid);
+    assert!(returnable.validate().is_err());
 }
 
 #[test]
@@ -241,6 +275,54 @@ async fn requires_an_enabled_service() -> Result<()> {
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn pinned_versions_are_checked_before_all_enabled_factories() -> Result<()> {
+    for category in ["observable", "events", "services"] {
+        let mut registry = Registry::new();
+        if category != "services" {
+            registry.register(
+                Contract::empty("worker", "service"),
+                Ordering::default(),
+                |_| Ok(Box::new(StopOnRun)),
+            )?;
+        }
+        match category {
+            "observable" => registry
+                .register_observable(Contract::empty("target", "observable"), |_, _| {
+                    panic!("observable factory must not run for a mismatched version")
+                })?,
+            "events" => registry.register_events(Contract::empty("target", "events"), |_, _| {
+                panic!("events factory must not run for a mismatched version")
+            })?,
+            "services" => registry.register(
+                Contract::empty("target", "service"),
+                Ordering::default(),
+                |_| panic!("service factory must not run for a mismatched version"),
+            )?,
+            _ => unreachable!(),
+        }
+        let services = if category == "services" {
+            json!({"target":{"version":"999.0.0"}})
+        } else {
+            json!({"worker":{}})
+        };
+        let mut document = json!({"services":services});
+        if category != "services" {
+            document[category] = json!({"target":{"version":"999.0.0"}});
+        }
+        let error = Host::new(registry)?
+            .run_config(Config::load(&document, "default")?)
+            .await
+            .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("requires version 999.0.0"),
+            "{category}: {message}"
+        );
+    }
+    Ok(())
+}
 #[tokio::test]
 async fn lifecycle_ignores_disabled_aliases_and_logical_targets() -> Result<()> {
     for target in ["remote", "optional", "missing", "worker"] {
@@ -349,7 +431,7 @@ async fn validates_before_factory_and_cleans_failed_startup() -> Result<()> {
     host.cancel = bsb::CancellationToken::new();
     assert!(
         host.run_config(Config::load(
-            &json!({"services":{"worker":{"config":{"count":1}}}}),
+            &json!({"services":{"worker":{"version":env!("CARGO_PKG_VERSION"),"config":{"count":1}}}}),
             "default"
         )?)
         .await

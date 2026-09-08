@@ -1,4 +1,4 @@
-use anyhow::{Result, bail, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -164,10 +164,16 @@ impl Contract {
             );
             CompiledSchema::new(&event.input_schema)?;
             if expected == "returnable" {
-                ensure!(event.output_schema.is_some(), "missing returnable output");
-            }
-            if let Some(schema) = &event.output_schema {
+                let schema = event
+                    .output_schema
+                    .as_ref()
+                    .context("missing returnable output")?;
                 CompiledSchema::new(schema)?;
+            } else {
+                ensure!(
+                    event.output_schema.is_none(),
+                    "unexpected output for non-returnable event {name}"
+                );
             }
         }
         Ok(())

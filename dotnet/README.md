@@ -2,7 +2,7 @@
 
 BSB is the executable host. Application services are class-library plugins that reference BSB for their contracts; they do not start their own `ServiceBase` process.
 
-The JSON boundary preserves signed and unsigned 64-bit integers without converting them to floating point, and generated clients map the portable generic `int` to C# `long`. AnyVali 1.1.4's C# `uint64` validator currently caps its range at `long.MaxValue`; larger values remain exact at the wire boundary but fail that SDK's schema validation. Full-range `uint64` validation needs an upstream AnyVali change.
+The JSON boundary preserves signed and unsigned 64-bit integers without converting them to floating point, and generated clients map the portable generic `int` to C# `long`. Numeric literals from contract JSON use `long` or `ulong` for exact integral values, including decimal/exponent notation, and `JsonElement` when an integral value exceeds both ranges. Fractional values use `double`. This does not alter AnyVali's own numeric normalization. AnyVali 1.1.4's C# `uint64` validator currently caps its range at `long.MaxValue`; larger values remain exact at the wire boundary but fail that SDK's schema validation. Full-range `uint64` validation needs an upstream AnyVali change.
 
 ```sh
 dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o output
