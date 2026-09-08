@@ -509,7 +509,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const deploymentHtml = await deployment.text();
     assert.equal(deployment.status, 200);
-    for (const script of deploymentHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)) new Function(script[1]);
+    for (const script of deploymentHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/gi)) new Function(script[1]);
     assert.match(deploymentHtml, /Profile Config/);
     assert.match(deploymentHtml, /state-badge live">Enabled/);
     assert.match(deploymentHtml, /state-badge disabled">Disabled/);
@@ -601,7 +601,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const pluginsHtml = await pluginsPage.text();
     assert.equal(pluginsPage.status, 200);
-    for (const script of pluginsHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)) new Function(script[1]);
+    for (const script of pluginsHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/gi)) new Function(script[1]);
     assert.match(pluginsHtml, /syslog-client/);
     assert.doesNotMatch(pluginsHtml, /_\/syslog-client/);
     assert.doesNotMatch(pluginsHtml, /config-vault/);
