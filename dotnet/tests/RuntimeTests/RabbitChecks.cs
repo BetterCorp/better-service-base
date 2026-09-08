@@ -18,6 +18,13 @@ static class RabbitChecks
         var broker = new Broker();
         var args = new PluginConstructorArgs { AppId = "wire-test", Cwd = ".", PluginName = "events-rabbitmq", Mode = DebugMode.Development,
             RawConfig = new { platformKey = "fixture" } };
+        try
+        {
+            _ = new TestRabbit(new PluginConstructorArgs { AppId = "wire-test", Cwd = ".", PluginName = "events-rabbitmq",
+                Mode = DebugMode.Development, RawConfig = new { platformKey = "fixture", uniqueId = "bad||identity" } }, broker);
+            throw new Exception("RabbitMQ stream-delimiter identity accepted");
+        }
+        catch (ArgumentException) { }
         await using var rabbit = new TestRabbit(args, broker);
         var obs = new ObservableBackend("test", "rabbit", new(), new());
         await rabbit.Init(obs);
@@ -76,6 +83,35 @@ static class RabbitChecks
             new BasicProperties { AppId = "node-peer", CorrelationId = id });
         Check((await received.Task.WaitAsync(TimeSpan.FromSeconds(5))).SequenceEqual(new byte[] { 0, 128, 255 }), "Node byte stream was corrupted");
         await Until(() => broker.Messages.Any(x => x.Body["event"]?.GetValue<string>() == "end" && x.Properties.CorrelationId == "s-" + id));
+
+        var unicode = string.Concat(Enumerable.Repeat("😀", 262144));
+        var unicodeReceived = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var unicodeStreamId = await rabbit.ReceiveStream("worker", "unicode", obs, async (_, error, stream) => {
+            if (error is not null) { unicodeReceived.TrySetException(error); return; }
+            using var bytes = new MemoryStream(); await stream!.CopyToAsync(bytes); unicodeReceived.TrySetResult(bytes.ToArray());
+        });
+        var unicodeId = unicodeStreamId.Split("||")[1];
+        var streamControlQueue = broker.Consumers.Keys.Single(x => x.StartsWith("91se-"));
+        var streamDataQueue = broker.Consumers.Keys.Single(x => x.StartsWith("91sd-"));
+        await broker.Deliver(streamControlQueue, new { type = "start", myId = "node-peer", trace = obs.Trace },
+            new BasicProperties { AppId = "node-peer", CorrelationId = "r-" + unicodeId });
+        await broker.Deliver(streamDataQueue, new { type = "data", data = unicode },
+            new BasicProperties { AppId = "node-peer", CorrelationId = unicodeId });
+        await broker.Deliver(streamDataQueue, new { type = "event", @event = "end" },
+            new BasicProperties { AppId = "node-peer", CorrelationId = unicodeId });
+        Check((await unicodeReceived.Task.WaitAsync(TimeSpan.FromSeconds(5))).Length == 1048576,
+            "A valid 1 MiB multibyte UTF-8 chunk was rejected");
+
+        var releaseOversized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var oversizedId = (await rabbit.ReceiveStream("worker", "oversized", obs, async (_, _, _) => await releaseOversized.Task)).Split("||")[1];
+        await broker.Deliver(streamControlQueue, new { type = "start", myId = "node-peer", trace = obs.Trace },
+            new BasicProperties { AppId = "node-peer", CorrelationId = "r-" + oversizedId });
+        var nacksBeforeOversized = broker.Nacks.Count;
+        await broker.Deliver(streamDataQueue, new { type = "data", data = unicode + "é" },
+            new BasicProperties { AppId = "node-peer", CorrelationId = oversizedId, MessageId = "oversized-utf8" });
+        await Until(() => broker.Nacks.Count > nacksBeforeOversized);
+        Check(broker.Nacks.Last(), "UTF-8 stream chunk above 1 MiB was not rejected");
+        releaseOversized.TrySetResult();
         Console.WriteLine("PASS: RabbitMQ durable declarations, Node envelopes/RPC/stream, confirmation before ack and bounded poison retries");
     }
 

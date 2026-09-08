@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+
+import pytest
 
 from bsb.client_generator import generate_clients
 from bsb.schema_export import build_project
@@ -57,21 +60,28 @@ def _write_demo_project(tmp_path: Path) -> None:
     )
 
 
-def test_build_project_exports_schemas_and_manifest(tmp_path: Path) -> None:
+@pytest.mark.parametrize("module_version", [None, "2.4.6"])
+def test_build_project_exports_schemas_and_manifest(tmp_path: Path, monkeypatch, module_version) -> None:
     _write_demo_project(tmp_path)
+    for name in ("demo_pkg", "demo_pkg.service_demo"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
+    if module_version is not None:
+        with (tmp_path / "src/demo_pkg/service_demo.py").open("a", encoding="utf-8") as module:
+            module.write(f"\n__version__ = {module_version!r}\n")
     result = build_project(tmp_path)
 
     schema_path = tmp_path / "lib" / "schemas" / "service-demo.json"
     assert schema_path in result["schemas"]
     exported = json.loads(schema_path.read_text(encoding="utf-8"))
     assert exported["pluginName"] == "service-demo"
-    assert exported["version"] == "1.2.3"
+    assert exported["version"] == (module_version or "1.2.3")
     assert exported["events"]["sum"]["category"] == "onReturnableEvents"
     assert exported["configSchema"]["root"]["unknownKeys"] == "strip"
 
     manifest = json.loads(result["manifest"].read_text(encoding="utf-8"))
     assert manifest["python"][0]["id"] == "service-demo"
     assert manifest["python"][0]["category"] == "service"
+    assert manifest["python"][0]["version"] == exported["version"]
 
 
 def test_package_entry_point_manifest_loads(tmp_path: Path) -> None:

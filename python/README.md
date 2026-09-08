@@ -50,7 +50,7 @@ bsb plugin pack    # build a standard wheel with pip/setuptools
 bsb plugin install .bsb/packages/my_plugins-1.2.3-py3-none-any.whl
 ```
 
-BSB uses installed distribution entry points and pip's dependency resolver. Named installs verify `bsb.plugins` entry points after pip completes; a validation failure does not roll back pip's environment changes. Each virtual environment has one version of a distribution; conflicting versions require separate hosts/environments. An exact configured version must match the installed version. Local `bsb-plugin.json` manifests and `BSB_PLUGIN_DIR` support development sources; paths cannot escape their manifest directory. Package names, logical plugin IDs and Python module names are separate identities.
+BSB uses installed distribution entry points and pip's dependency resolver. Named installs verify `bsb.plugins` entry points after pip completes; a validation failure does not roll back pip's environment changes. Each virtual environment has one version of a distribution; conflicting versions require separate hosts/environments. An exact configured version must match the installed version. Build exports use the discovered module `__version__` for both manifest and contract, falling back to the project version when absent. Local `bsb-plugin.json` manifests and `BSB_PLUGIN_DIR` support development sources; paths cannot escape their manifest directory. Package names, logical plugin IDs and Python module names are separate identities.
 
 Exact Registry versions can include prerelease/build suffixes. For wheels, use [PEP 440-compatible versions](https://packaging.pypa.io/en/stable/version.html): `1.2.3-beta.1` in a profile matches pip's normalized `1.2.3b1`. BSB uses `packaging` for this comparison and installation; Registry identities retain their original version strings.
 
@@ -91,7 +91,7 @@ Registry, hosted, telemetry, and Vault JSON requests use one monotonic deadline 
 
 ## Rabbit and streams
 
-`events-rabbitmq` uses native aio-pika with Node BSB 9 queue names and `{trace:{t,s},args:[payload]}` envelopes. Options: `endpoints`, `credentials.username/password`, `platformKey`, `uniqueId`, `prefetch` (10), and `fatalOnDisconnect` (true). Disabling fatal disconnect enables the client's topology recovery. Endpoints must use AMQP/AMQPS and the same virtual host; initial connections try them in order, and subsequent recovery uses the selected endpoint.
+`events-rabbitmq` uses native aio-pika with Node BSB 9 queue names and `{trace:{t,s},args:[payload]}` envelopes. Options: `endpoints`, `credentials.username/password`, `platformKey`, `uniqueId`, `prefetch` (10), and `fatalOnDisconnect` (true). Disabling fatal disconnect enables the client's topology recovery. Endpoints must use AMQP/AMQPS and the same virtual host; initial connections try every endpoint in order with a 15-second limit per attempt, and subsequent recovery uses the selected endpoint. `uniqueId` must not contain `||`; complete broadcast queue names must fit 255 UTF-8 bytes including the 37-byte consumer suffix.
 
 Producers declare durable fire/RPC queues so absent/crashed listeners do not lose queued messages. Existing protocol TTLs remain: fire queues one hour, RPC queues one minute, per-request expiration based on timeout. Replies are confirmed before acknowledging requests. Failed publishes requeue the request. Handlers must tolerate duplicate execution. Ten failures in a running consumer dead-letter a poison message; retry counts are process-local and bounded to 10,000 tracked messages.
 

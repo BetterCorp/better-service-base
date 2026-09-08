@@ -6,7 +6,87 @@ import pytest
 
 from bsb.base import PluginCtor
 from bsb.observable import ObservableBackend, SBObservable
+import bsb_python_plugins.events_rabbitmq as rabbitmq
 from bsb_python_plugins.events_rabbitmq import Plugin
+
+
+def create_rabbit(tmp_path, config=None):
+    backend = ObservableBackend("test", "test", "rabbit", SBObservable("test", "test"))
+    return Plugin(PluginCtor("test", "test", "rabbit", str(tmp_path), "", "", config or {}, "1.0.0", backend))
+
+
+def test_rabbit_rejects_stream_delimiter_in_unique_id(tmp_path):
+    with pytest.raises(ValueError, match=r"uniqueId cannot contain \|\|"):
+        create_rabbit(tmp_path, {"uniqueId": "host||stream"})
+
+
+def test_rabbit_validates_completed_broadcast_queue_name(tmp_path, monkeypatch):
+    async def check():
+        rabbit = create_rabbit(tmp_path)
+        consumed = []
+
+        async def consume(name, *_args, **_kwargs):
+            consumed.append(name)
+
+        rabbit.consume = consume
+        monkeypatch.setattr(rabbitmq.uuid, "uuid4", lambda: "00000000-0000-0000-0000-000000000000")
+        plugin = "é" * 105 + "a"
+        await rabbit.listen(plugin, "x", lambda *_: None, True)
+        assert len(consumed[0].encode()) == 255
+        with pytest.raises(ValueError, match="exceeds 255 bytes"):
+            await rabbit.listen(plugin + "b", "x", lambda *_: None, True)
+        assert len(consumed) == 1
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize("fatal", [True, False])
+def test_rabbit_connect_attempts_every_endpoint_with_per_attempt_timeout(tmp_path, monkeypatch, fatal):
+    async def check():
+        rabbit = create_rabbit(tmp_path, {
+            "endpoints": ["amqp://first/v", "amqp://second/v", "amqp://third/v"],
+            "fatalOnDisconnect": fatal,
+        })
+        attempts = []
+        deadlines = []
+        closed = []
+        clock = {"now": 0, "deadline": None}
+
+        class Connection:
+            def __init__(self, url, **_kwargs):
+                self.host = url.host
+                assert url.query["name"] == f"BSB {rabbit.my_id} publish"
+            async def connect(self, *, timeout):
+                if clock["deadline"] is not None and clock["now"] >= clock["deadline"]:
+                    raise TimeoutError
+                attempts.append((self.host, timeout))
+                if len(attempts) < 3:
+                    clock["now"] += timeout
+                    raise TimeoutError
+            async def close(self):
+                closed.append(self.host)
+
+        class AggregateTimeout:
+            def __init__(self, seconds):
+                self.deadline = clock["now"] + seconds
+                self.previous = None
+                deadlines.append(seconds)
+            async def __aenter__(self):
+                self.previous = clock["deadline"]
+                clock["deadline"] = self.deadline
+            async def __aexit__(self, *_args):
+                clock["deadline"] = self.previous
+
+        monkeypatch.setattr(rabbitmq.aio_pika, "Connection", Connection)
+        monkeypatch.setattr(rabbitmq.aio_pika, "RobustConnection", Connection)
+        monkeypatch.setattr(rabbitmq.asyncio, "timeout", AggregateTimeout)
+        connection = await rabbit.connect("publish")
+        assert connection.host == "third"
+        assert attempts == [("first", 15), ("second", 15), ("third", 15)]
+        assert deadlines == [15, 15, 15]
+        assert closed == ["first", "second"]
+
+    asyncio.run(check())
 
 
 def test_rabbit_wire_confirmations_poison_and_streams(tmp_path):

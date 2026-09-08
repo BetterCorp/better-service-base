@@ -62,7 +62,8 @@ public partial class Plugin
                 var array = value is JsonArray list ? list : value is JsonObject buffer ? buffer["data"] as JsonArray : null;
                 byte[] bytes;
                 if (array is not null && array.Count <= 1048576) bytes = array.Select(x => x!.GetValue<byte>()).ToArray();
-                else if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text) && text.Length <= 1048576)
+                else if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text)
+                    && System.Text.Encoding.UTF8.GetByteCount(text) <= 1048576)
                     bytes = System.Text.Encoding.UTF8.GetBytes(text);
                 else throw new JsonException("Invalid stream byte buffer or chunk exceeds 1 MiB");
                 await receiver.Data.Writer.WriteAsync(bytes, receiver.Timeout.Token);

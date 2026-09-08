@@ -32,6 +32,8 @@ class Plugin(BSBEvents):
     def __init__(self, ctor):
         super().__init__(ctor)
         self.config = Config.validation_schema.parse(self.config or {})
+        if self.config["uniqueId"] is not None and "||" in self.config["uniqueId"]:
+            raise ValueError("RabbitMQ uniqueId cannot contain ||")
         self.my_id = f"{self.config['uniqueId'] or socket.gethostname()}-{uuid.uuid4()}"
         self._closed = False
         self._connections, self._channels = [], []
@@ -53,17 +55,23 @@ class Plugin(BSBEvents):
         urls = [URL(value) for value in self.config["endpoints"]]
         if any(url.scheme not in ("amqp", "amqps") or not url.host or url.path != urls[0].path for url in urls):
             raise ValueError("RabbitMQ endpoints must use amqp/amqps and the same virtual host")
-        connector = aio_pika.connect if self.config["fatalOnDisconnect"] else aio_pika.connect_robust
-        async with asyncio.timeout(30):
-            for index, url in enumerate(urls):
-                credentials = self.config["credentials"]
-                url = url.with_user(credentials["username"]).with_password(credentials["password"])
-                url = url.update_query(heartbeat=30)
-                try:
-                    return await connector(url, timeout=15, client_properties={"connection_name": f"BSB {self.my_id} {label}"})
-                except (OSError, aio_pika.exceptions.AMQPException, TimeoutError):
-                    if index == len(urls) - 1:
-                        raise
+        connection_type = aio_pika.Connection if self.config["fatalOnDisconnect"] else aio_pika.RobustConnection
+        for index, url in enumerate(urls):
+            credentials = self.config["credentials"]
+            url = url.with_user(credentials["username"]).with_password(credentials["password"])
+            url = url.update_query(heartbeat=30, name=f"BSB {self.my_id} {label}")
+            connection = connection_type(url)
+            try:
+                async with asyncio.timeout(15):
+                    await connection.connect(timeout=15)
+                return connection
+            except (OSError, aio_pika.exceptions.AMQPException, TimeoutError):
+                await asyncio.gather(connection.close(), return_exceptions=True)
+                if index == len(urls) - 1:
+                    raise
+            except BaseException:
+                await asyncio.gather(connection.close(), return_exceptions=True)
+                raise
 
     async def init(self, trace):
         self.failure = asyncio.get_running_loop().create_future()
@@ -185,7 +193,8 @@ class Plugin(BSBEvents):
                 raise
             finally:
                 trace.end()
-        await self.consume(route + "-" + str(uuid.uuid4()) if broadcast else route, 3600000, broadcast, handle, route if broadcast else None)
+        name = self.queue("91eb", plugin, event, str(uuid.uuid4())) if broadcast else route
+        await self.consume(name, 3600000, broadcast, handle, route if broadcast else None)
 
     async def emit_event(self, trace, plugin, event, payload):
         await self.publish(self.queue("91eq", plugin, event), {"trace": trace.to_wire(), "args": [payload]}, 3600000, declare_ttl=3600000)

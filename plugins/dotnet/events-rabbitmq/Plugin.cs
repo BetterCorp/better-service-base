@@ -47,7 +47,10 @@ public partial class Plugin : BSBEvents
     public Plugin(PluginConstructorArgs args) : base(args)
     {
         _settings = JsonSerializer.SerializeToNode(ConfigSchema.Parse(BSBType.ToWireValue(args.RawConfig ?? new { })))!.AsObject();
-        _myId = $"{_settings["uniqueId"]?.GetValue<string>() ?? Environment.MachineName}-{Guid.NewGuid()}";
+        var uniqueId = _settings["uniqueId"]?.GetValue<string>() ?? Environment.MachineName;
+        if (uniqueId.Contains("||", StringComparison.Ordinal))
+            throw new ArgumentException("RabbitMQ uniqueId cannot contain the stream token delimiter", nameof(args));
+        _myId = $"{uniqueId}-{Guid.NewGuid()}";
         QueueName(PrivateQueue("91kr", _myId));
     }
 
@@ -62,9 +65,10 @@ public partial class Plugin : BSBEvents
             AutomaticRecoveryEnabled = !_settings["fatalOnDisconnect"]!.GetValue<bool>(), TopologyRecoveryEnabled = true,
             RequestedConnectionTimeout = TimeSpan.FromSeconds(15), RequestedHeartbeat = TimeSpan.FromSeconds(30),
         };
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(30));
         var endpoints = uris.Select(uri => new AmqpTcpEndpoint(uri)).ToArray();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        // Each of the two connections may exhaust every endpoint before failover succeeds.
+        timeout.CancelAfter(factory.RequestedConnectionTimeout * (endpoints.Length * 2 + 1));
         _publishConnection = await Connect(factory, endpoints, $"BSB {_myId} publish", timeout.Token);
         _receiveConnection = await Connect(factory, endpoints, $"BSB {_myId} receive", timeout.Token);
         foreach (var connection in new[] { _publishConnection, _receiveConnection })

@@ -105,3 +105,5 @@ Node generated RPC defaults also enforce the 86400-second portable maximum. .NET
 Rust GELF additionalFields accepts arbitrary JSON values, preserving strings/numbers and encoding other values as compact JSON strings. Go Rabbit also validates broadcast queue names after suffixing and rejects uniqueId containing || before connecting.
 
 Node hosted contracts share Registry/Vault's schema-safety gate (10000 nodes, depth64, prototype keys rejected, pattern length1024 and safe-regex2 check). Vault editor catalogs must match the entry language for current/update schemas before masking configuration; unannotated legacy entries default to nodejs.
+
+Python build contracts and manifests use the discovered module __version__, falling back to the project version. Python Rabbit attempts every configured endpoint with a 15-second timeout per attempt and validates complete broadcast queue names including the UUID suffix against 255 UTF-8 bytes. Python/.NET Rabbit reject uniqueId containing ||; .NET stream text chunks must fit 1 MiB after UTF-8 encoding, and its startup timeout budget includes both connections and every endpoint.

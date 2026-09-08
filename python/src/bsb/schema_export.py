@@ -259,13 +259,11 @@ def export_schemas(project_root: str | Path) -> list[Path]:
     project_root = Path(project_root)
     output_dir = project_root / "lib" / "schemas"
     output_dir.mkdir(parents=True, exist_ok=True)
-    project_meta = read_project_metadata(project_root)
-    package_version = str(project_meta.get("version") or "1.0.0")
     written: list[Path] = []
 
     for plugin in discover_plugins(project_root):
         event_schemas = getattr(plugin.plugin_cls, "EventSchemas", None)
-        export_doc = export_event_schemas(plugin.plugin_id, package_version, event_schemas)
+        export_doc = export_event_schemas(plugin.plugin_id, plugin.version, event_schemas)
         capabilities = build_capabilities(plugin.plugin_type, plugin.plugin_cls)
         if capabilities:
             export_doc["capabilities"] = capabilities
