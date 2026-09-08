@@ -62,3 +62,5 @@ Event backends evaluate filter in alias sort order; the first match handles an o
 `bsb client install https://service.example.com` discovers public contracts at `/.well-known/bsb` and generates a client in this language. Use `--plugin org/name` when multiple contracts are hosted; `--source-language` and `--version` select an implementation. Saved schemas support offline regeneration. See the [discovery format and hosting instructions](../docs/hosted-client-discovery.md). Calls still use the configured BSB events transport.
 
 Local broadcasts invoke every registered listener after handler errors and report the collected failures after delivery.
+
+The first span from a local observable has no parent; nested spans and imported trace contexts retain their actual parent. Local fire-and-forget and broadcast handlers run without an RPC response deadline; returnable calls still enforce their timeout.

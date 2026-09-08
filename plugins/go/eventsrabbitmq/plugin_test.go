@@ -44,6 +44,33 @@ func TestBlockedSourceReadStops(t *testing.T) {
 	}
 }
 
+type transientEmptyReader struct {
+	reads int
+}
+
+func (r *transientEmptyReader) Read(buffer []byte) (int, error) {
+	r.reads++
+	if r.reads == 1 {
+		return 0, nil
+	}
+	return copy(buffer, "data"), nil
+}
+
+type emptyReader struct{}
+
+func (emptyReader) Read([]byte) (int, error) { return 0, nil }
+
+func TestReadSourceRetriesTransientEmptyRead(t *testing.T) {
+	reader := &transientEmptyReader{}
+	data, err := readSource(context.Background(), context.Background(), reader, time.Second)
+	if err != nil || string(data) != "data" || reader.reads != 2 {
+		t.Fatalf("empty read lost the outstanding request: data=%q reads=%d err=%v", data, reader.reads, err)
+	}
+	if _, err = readSource(context.Background(), context.Background(), emptyReader{}, 5*time.Second); !errors.Is(err, io.ErrNoProgress) {
+		t.Fatalf("permanent no-progress reader returned %v", err)
+	}
+}
+
 func TestWireTraceQueuesAndBinaryChunks(t *testing.T) {
 	transport, err := New(map[string]any{"platformKey": "test"})
 	if err != nil {

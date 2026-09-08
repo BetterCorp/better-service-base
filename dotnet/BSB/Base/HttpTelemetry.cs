@@ -40,6 +40,7 @@ public abstract class HttpTelemetry<TConfig>(ServiceConstructorArgs<TConfig> arg
     protected override bool LogsEnabled => Config.Logs;
     protected override bool MetricsEnabled => Config.Metrics;
     protected override bool TracesEnabled => Config.Traces;
+    protected override void PrepareMetric(JsonObject entry) => Redact(entry, Config.Redact);
     protected virtual HttpMessageHandler? CreateHandler() => null;
     protected override void Write(JsonObject entry)
     {

@@ -10,7 +10,7 @@ dotnet publish BetterServiceBase/BetterServiceBase.csproj -c Release -o output
 
 Run `dotnet /absolute/path/to/output/BetterServiceBase.dll` from the application's working directory. Configure services in `bsb-config.json` (or `BSB_CONFIG_FILE`) and place each published plugin at `plugins/<plugin-name>/<plugin-name>.dll`, alongside its private dependencies and `.deps.json`. BSB also searches its own `plugins/` directory for the bundled config, observable and events defaults. `BSB_PLUGIN_DIR` supports externally mounted, versioned packages.
 
-The `version` field selects among versions in mounted package directories. Local and flat plugin layouts accept it as metadata; a missing version in a versioned package does not fall back to a flat or local DLL.
+The `version` field requires a matching versioned plugin directory, including when `package` is omitted. Place pinned implementations under `.bsb/plugins/<package-or-plugin>/<version>/` or the equivalent `BSB_PLUGIN_DIR` layout. If that version cannot be resolved, startup fails; flat, application and bundled DLLs cannot satisfy an unverified pin. Omit `version` for unpinned local/flat loading.
 
 Plugin projects should use `<EnableDynamicLoading>true</EnableDynamicLoading>`. Reference BSB with `Private="false"` and `ExcludeAssets="runtime"`; the loader shares the running host's BSB assembly so plugin contracts retain the same type identity. Private managed/native dependencies resolve through `AssemblyDependencyResolver`.
 
@@ -98,3 +98,5 @@ dotnet run --project tests/RuntimeTests
 ## Hosted clients
 
 `bsb client install https://service.example.com` discovers public contracts at `/.well-known/bsb` and generates a client in this language. Use `--plugin org/name` when multiple contracts are hosted; `--source-language` and `--version` select an implementation. Saved schemas support offline regeneration. See the [discovery format and hosting instructions](../docs/hosted-client-discovery.md). Calls still use the configured BSB events transport.
+
+HTTP telemetry applies configured `Redact` paths to metric records before queueing, including paths such as `labels.token`, as well as logs and spans.

@@ -103,7 +103,13 @@ func (p *JSONConfig) LoadDocument(data []byte, profile string) error {
 					return fmt.Errorf("%s.config must be an object", name)
 				}
 			}
-			version, _ := entry["version"].(string)
+			version := ""
+			if value, exists := entry["version"]; exists {
+				version, ok = value.(string)
+				if !ok {
+					return fmt.Errorf("%s.version must be a string", name)
+				}
+			}
 			pkg, _ := entry["package"].(string)
 			groups[group][name] = PluginDefinition{Plugin: plugin, Enabled: enabled, Config: config, Version: version, Package: pkg, Filter: entry["filter"]}
 		}

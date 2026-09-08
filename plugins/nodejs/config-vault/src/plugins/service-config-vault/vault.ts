@@ -1975,7 +1975,11 @@ function privatePluginFromSchema(input: PrivatePluginUploadInput): Omit<PluginCa
     if (schemaPluginId !== pluginId) throw new Error(`Schema file ${input.schemaFileName.trim()} does not match plugin id ${pluginId}`);
   }
   const org = (optionalString(manifest?.org) ?? input.org.trim()) || '_';
-  const language = normalizePluginLanguage(input.language ?? manifest?.language ?? schema?.language ?? 'nodejs');
+  const languages = [manifest?.language, schema?.language, input.language]
+    .filter(value => value !== undefined)
+    .map(normalizePluginLanguage);
+  const language = languages[0] ?? 'nodejs';
+  if (languages.some(value => value !== language)) throw new Error('Invalid plugin language metadata: request, manifest and schema must agree');
   const packageName = optionalString(input.packageName) ?? manifestPackageName(manifest, language);
   if (!/^(_|@?[a-z0-9][a-z0-9._-]*)$/i.test(org)) throw new Error('Plugin org is invalid');
   if (packageName && /\s/.test(packageName)) throw new Error('Plugin package is invalid');

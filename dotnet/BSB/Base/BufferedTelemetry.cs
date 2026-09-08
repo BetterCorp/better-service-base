@@ -29,6 +29,7 @@ public abstract class BufferedTelemetry<TConfig>(ServiceConstructorArgs<TConfig>
     protected virtual bool LogsEnabled => true;
     protected virtual bool MetricsEnabled => true;
     protected virtual bool TracesEnabled => true;
+    protected virtual void PrepareMetric(JsonObject entry) { }
     protected abstract Task Export(IReadOnlyList<JsonObject> batch, CancellationToken token);
     protected void Enqueue(string signal, JsonObject value)
     {
@@ -89,10 +90,12 @@ public abstract class BufferedTelemetry<TConfig>(ServiceConstructorArgs<TConfig>
         {
             state.Value = expected == "counter" || increment ? state.Value + value : value;
             state.Count++; state.Sum += value; state.Min = Math.Min(state.Min, value); state.Max = Math.Max(state.Max, value);
-            Enqueue("metrics", new JsonObject { ["name"] = name, ["plugin"] = plugin, ["kind"] = expected, ["description"] = instrument.Description,
+            var entry = new JsonObject { ["name"] = name, ["plugin"] = plugin, ["kind"] = expected, ["description"] = instrument.Description,
                 ["unit"] = instrument.Unit, ["value"] = state.Value, ["labels"] = JsonSerializer.SerializeToNode(normalizedLabels.OrderBy(x => x.Key, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.Value)),
                 ["count"] = state.Count, ["sum"] = state.Sum, ["min"] = state.Min, ["max"] = state.Max,
-                ["started"] = state.Started.ToString("O"), ["timestamp"] = DateTimeOffset.UtcNow.ToString("O") });
+                ["started"] = state.Started.ToString("O"), ["timestamp"] = DateTimeOffset.UtcNow.ToString("O") };
+            PrepareMetric(entry);
+            Enqueue("metrics", entry);
         }
     }
     public override void IncrementCounter(string pluginName, string name, double value, Dictionary<string, string>? labels = null) => Metric(pluginName, name, value, labels, "counter");

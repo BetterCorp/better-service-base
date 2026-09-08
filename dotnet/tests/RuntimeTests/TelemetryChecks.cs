@@ -20,7 +20,7 @@ static class TelemetryChecks
     {
         await CheckTls();
         var capture = new Capture();
-        string[] redact = ["meta.token", "attributes.token", "attributes.users.*.secret", "error"];
+        string[] redact = ["meta.token", "attributes.token", "attributes.users.*.secret", "labels.token", "error"];
         var attributes = new Dictionary<string, object?> { ["token"] = "span-secret", ["public"] = "retained",
             ["users"] = new[] { new Dictionary<string, object?> { ["secret"] = "nested-secret" } } };
         var exporter = new Otlp(Args(new TelemetryConfig { Endpoint = "https://collector.example", ServiceName = "fixture", Redact = redact }), capture);
@@ -29,6 +29,7 @@ static class TelemetryChecks
         obs.Log.Info("token={token}", new LogMeta { ["token"] = "secret" });
         var child = obs.StartSpan("child", attributes); child.End();
         var counter = obs.Metrics.Counter("requests", "request count", "1"); counter.Increment(2); counter.Increment(3, new());
+        obs.Metrics.Counter("sensitive", "redacted labels", "1").Increment(1, new() { ["token"] = "metric-secret", ["public"] = "retained" });
         var second = new ObservableBackend("two", "root", new(), [exporter]);
         second.Metrics.Counter("requests", "request count", "1").Increment(7);
         var histogram = obs.Metrics.Histogram("latency", "duration", "ms"); histogram.Record(2); histogram.Record(4);
@@ -48,6 +49,9 @@ static class TelemetryChecks
         var requests = metrics.Where(x => x!["name"]!.GetValue<string>() == "requests").ToArray();
         Check(requests.Length == 2 && requests.Select(x => x!["sum"]!["dataPoints"]![0]!["asDouble"]!.GetValue<double>()).Order().SequenceEqual(new[] { 5d, 7d }),
             "Metric accumulation mixed plugin namespaces or lost increments");
+        var sensitive = metrics.Single(x => x!["name"]!.GetValue<string>() == "sensitive")!["sum"]!["dataPoints"]![0]!["attributes"]!.ToJsonString();
+        Check(sensitive.Contains("[REDACTED]") && sensitive.Contains("retained") && !sensitive.Contains("metric-secret"),
+            "Metric label redaction leaked a configured secret or removed a public label");
         var hist = metrics.Single(x => x!["name"]!.GetValue<string>() == "latency")!["histogram"]!["dataPoints"]![0]!;
         Check(hist["count"]!.GetValue<string>() == "2" && hist["sum"]!.GetValue<double>() == 6, "Histogram cumulative snapshot is invalid");
 

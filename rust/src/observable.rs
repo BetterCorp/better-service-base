@@ -81,6 +81,7 @@ pub struct Observable {
     pub trace: Trace,
     pub plugin: String,
     pub backend: Arc<Backend>,
+    has_parent: bool,
 }
 impl Observable {
     pub fn new(plugin: impl Into<String>, backend: Arc<Backend>) -> Self {
@@ -88,6 +89,7 @@ impl Observable {
             trace: Trace::default(),
             plugin: plugin.into(),
             backend,
+            has_parent: false,
         }
     }
     pub fn with_trace(&self, trace: Trace, plugin: impl Into<String>) -> Self {
@@ -95,6 +97,7 @@ impl Observable {
             trace,
             plugin: plugin.into(),
             backend: self.backend.clone(),
+            has_parent: true,
         }
     }
     pub fn log(&self, level: &str, message: &str, metadata: Value) {
@@ -106,9 +109,10 @@ impl Observable {
     pub fn span(&self, name: impl Into<String>) -> Span {
         let mut obs = self.clone();
         obs.trace.span_id = Trace::default().span_id;
+        obs.has_parent = true;
         Span {
             observable: obs,
-            parent: self.trace.span_id.clone(),
+            parent: self.has_parent.then(|| self.trace.span_id.clone()),
             name: name.into(),
             started: chrono::Utc::now(),
             error: None,
@@ -117,7 +121,7 @@ impl Observable {
 }
 pub struct Span {
     pub observable: Observable,
-    parent: String,
+    parent: Option<String>,
     name: String,
     started: chrono::DateTime<chrono::Utc>,
     error: Option<String>,
@@ -129,6 +133,10 @@ impl Span {
 }
 impl Drop for Span {
     fn drop(&mut self) {
-        self.observable.backend.record(json!({"signal":"traces","name":self.name,"plugin":self.observable.plugin,"traceId":self.observable.trace.trace_id,"spanId":self.observable.trace.span_id,"parentSpanId":self.parent,"startedNs":self.started.timestamp_nanos_opt().unwrap_or_default().to_string(),"endedNs":chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default().to_string(),"error":self.error,"attributes":{}}));
+        let mut record = json!({"signal":"traces","name":self.name,"plugin":self.observable.plugin,"traceId":self.observable.trace.trace_id,"spanId":self.observable.trace.span_id,"startedNs":self.started.timestamp_nanos_opt().unwrap_or_default().to_string(),"endedNs":chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default().to_string(),"error":self.error,"attributes":{}});
+        if let Some(parent) = &self.parent {
+            record["parentSpanId"] = json!(parent);
+        }
+        self.observable.backend.record(record);
     }
 }

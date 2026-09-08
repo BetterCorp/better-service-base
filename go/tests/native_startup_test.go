@@ -20,7 +20,7 @@ func TestGoProfileLanguageAndOverrides(t *testing.T) {
 	if err != nil || got["a"] != json.Number("1") || got["b"] != json.Number("3") {
 		t.Fatalf("merge: %v %v", got, err)
 	}
-	for _, invalid := range []string{`null`, `{"default":{"language":"python"}}`, `{"default":{"services":{"bad":{"enabled":"false"}}}}`, `{"default":{"services":{"bad":{"language":"rust"}}}}`} {
+	for _, invalid := range []string{`null`, `{"default":{"language":"python"}}`, `{"default":{"services":{"bad":{"enabled":"false"}}}}`, `{"default":{"services":{"bad":{"language":"rust"}}}}`, `{"default":{"services":{"bad":{"version":123}}}}`, `{"default":{"events":{"bad":{"version":null}}}}`} {
 		if err := config.LoadDocument([]byte(invalid), "default"); err == nil {
 			t.Fatalf("accepted invalid profile %s", invalid)
 		}

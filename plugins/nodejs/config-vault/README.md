@@ -105,7 +105,7 @@ Shared application profiles are validated against every active deployment profil
 
 The `native-integration` CI job exercises real cross-language Rabbit RPC/streams and PostgreSQL catalog migrations. See [integration checks](../../../tests/integration/README.md) for local prerequisites.
 
-On the Plugins page, upload one or more generated `lib/schemas/{plugin-id}.plugin.json` manifests. Vault processes each file independently, lists its result, and creates a plugin-specific `bv_p_` publish token for each new plugin. Store each token as a CI secret.
+On the Plugins page, upload one or more generated `lib/schemas/{plugin-id}.plugin.json` manifests. Request, manifest and schema language declarations must agree; `dotnet` is normalized to `csharp`. A request language fills missing artifact metadata, and uploads with no language default to Node.js. Vault processes each file independently, lists its result, and creates a plugin-specific `bv_p_` publish token for each new plugin. Store each token as a CI secret.
 
 Publish the executable package to your private npm registry first, then append its generated schema to Vault:
 

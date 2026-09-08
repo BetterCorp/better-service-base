@@ -275,8 +275,26 @@ func readSource(ctx, transport context.Context, source io.Reader, timeout time.D
 	result := make(chan packet, 1)
 	go func() {
 		buffer := make([]byte, 65536)
-		n, err := source.Read(buffer)
-		result <- packet{data: buffer[:n], err: err}
+		for emptyReads := 0; ; emptyReads++ {
+			n, err := source.Read(buffer)
+			if n != 0 || err != nil {
+				result <- packet{data: buffer[:n], err: err}
+				return
+			}
+			if emptyReads == 99 {
+				result <- packet{err: io.ErrNoProgress}
+				return
+			}
+			select {
+			case <-ctx.Done():
+				result <- packet{err: ctx.Err()}
+				return
+			case <-transport.Done():
+				result <- packet{err: transport.Err()}
+				return
+			case <-time.After(time.Millisecond):
+			}
+		}
 	}()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -363,9 +381,6 @@ func (p *Plugin) SendStream(ctx context.Context, obs bsb.Observable, plugin, eve
 		n := len(buffer)
 		if readErr != nil && readErr != io.EOF {
 			return readErr
-		}
-		if n == 0 && readErr == nil {
-			continue
 		}
 		body := map[string]any{"type": "event", "event": "end", "data": nil, "trace": obs.Trace()}
 		if n > 0 {

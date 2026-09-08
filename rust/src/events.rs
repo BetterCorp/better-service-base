@@ -123,7 +123,9 @@ impl Bus for LocalBus {
         value: Value,
         timeout: Duration,
     ) -> Result<Value> {
-        ensure!(timeout > Duration::ZERO, "positive timeout required");
+        if kind == "returnable" {
+            ensure!(timeout > Duration::ZERO, "positive timeout required");
+        }
         let key = (kind.into(), target.into(), event.into());
         let work = async {
             loop {
@@ -191,9 +193,13 @@ impl Bus for LocalBus {
                 tokio::select! { _=changed=>{}, _=self.cancel.cancelled()=>bail!("event bus closed") }
             }
         };
-        tokio::time::timeout(timeout, work)
-            .await
-            .context("event deadline exceeded")?
+        if kind == "returnable" {
+            tokio::time::timeout(timeout, work)
+                .await
+                .context("event deadline exceeded")?
+        } else {
+            work.await
+        }
     }
     async fn receive(
         &self,

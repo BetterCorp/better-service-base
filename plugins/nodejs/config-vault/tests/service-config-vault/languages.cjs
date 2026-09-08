@@ -49,8 +49,20 @@ module.exports = async ({ pluginRoot }) => {
     org: 'acme', packageName, manifestFileName: 'service-shared.plugin.json',
     manifest: { id: 'service-shared', name: 'Shared', version: '1.0.0', category: 'service', language },
   });
+  for (const [request, manifest, schema] of [
+    ['python', 'csharp', undefined], ['python', undefined, 'csharp'],
+    [undefined, 'python', 'csharp'], ['python', 'python', 'csharp'],
+  ]) {
+    await assert.rejects(vault.createPrivatePlugin('admin', {
+      ...upload(manifest, 'test-package'), language: request, schema: { language: schema },
+    }), /Invalid plugin language metadata/);
+  }
+  assert.equal(plugins.length, 0, 'conflicting artifacts must not reach the catalog');
+  assert.equal(publishers.size, 0, 'conflicting artifacts must not create publisher credentials');
   const node = await vault.createPrivatePlugin('admin', upload('nodejs', '@acme/shared'));
-  const csharp = await vault.createPrivatePlugin('admin', upload('csharp', 'Acme.Shared'));
+  const csharp = await vault.createPrivatePlugin('admin', {
+    ...upload('csharp', 'Acme.Shared'), language: 'dotnet', schema: { language: 'csharp' },
+  });
   assert.equal(plugins.length, 2);
   assert.equal(csharp.plugin.language, 'csharp');
   assert.notEqual(node.keyId, csharp.keyId);
@@ -83,5 +95,17 @@ module.exports = async ({ pluginRoot }) => {
     assert.equal((await vault.publishPrivatePlugin(native.secret, payload)).status, 'published');
     assert.equal((await vault.publishPrivatePlugin(native.secret, payload)).status, 'unchanged');
     assert.equal((await vault.createDeployment('admin', 'app', language, language)).profile.language, language);
+  }
+  for (const source of ['manifest', 'schema', 'request', 'legacy']) {
+    const language = source === 'legacy' ? 'nodejs' : 'python';
+    const created = await vault.createPrivatePlugin('admin', {
+      org: 'acme', language: source === 'request' ? language : undefined,
+      manifest: { id: `service-${source}`, category: 'service', version: '1.0.0',
+        language: source === 'manifest' ? language : undefined,
+        packages: { nodejs: '@acme/demo', python: 'acme-demo' } },
+      schema: source === 'schema' ? { language } : undefined,
+    });
+    assert.equal(created.plugin.language, language);
+    assert.equal(created.plugin.packageName, language === 'python' ? 'acme-demo' : '@acme/demo');
   }
 };

@@ -229,7 +229,8 @@ public class SBPlugins
             if (path is not null) return path;
         }
 
-        if (def.Package is not null && !string.IsNullOrEmpty(def.Version)) return null;
+        // A pin may only resolve from a versioned plugin directory; flat/local assemblies have no verifiable version.
+        if (!string.IsNullOrEmpty(def.Version)) return null;
 
         var applicationManifest = ResolveManifest(_cwd, pluginName);
         if (applicationManifest is not null) return applicationManifest;
@@ -288,6 +289,8 @@ public class SBPlugins
             // A versioned package must never fall back to an unrelated flat DLL.
             return null;
         }
+
+        if (!string.IsNullOrEmpty(requestedVersion)) return null;
 
         // Flat layout: {package}/{plugin}.dll
         var manifestPath = ResolveManifest(packageDir, pluginName);

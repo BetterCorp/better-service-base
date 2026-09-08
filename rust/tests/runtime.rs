@@ -10,7 +10,7 @@ use bsb::{
 use std::{
     collections::BTreeMap,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicUsize, Ordering as AtomicOrdering},
     },
     time::Duration,
@@ -258,6 +258,59 @@ async fn broadcast_invokes_all_listeners_before_returning_failures() -> Result<(
     let message = error.to_string();
     assert!(message.contains("first failure"), "{message}");
     assert!(message.contains("last failure"), "{message}");
+    bus.shutdown().await
+}
+
+#[tokio::test]
+async fn local_deadlines_only_cancel_returnable_events() -> Result<()> {
+    let bus = LocalBus::default();
+    for kind in ["event", "broadcast"] {
+        bus.listen(
+            kind,
+            "worker",
+            kind,
+            Arc::new(|_, _| {
+                Box::pin(async {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    Ok(Value::Null)
+                })
+            }),
+        )
+        .await?;
+        bus.emit(
+            Observable::new("test", Arc::new(Backend::default())),
+            kind,
+            "worker",
+            kind,
+            Value::Null,
+            Duration::from_millis(1),
+        )
+        .await?;
+    }
+    bus.listen(
+        "returnable",
+        "worker",
+        "rpc",
+        Arc::new(|_, _| {
+            Box::pin(async {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                Ok(Value::Null)
+            })
+        }),
+    )
+    .await?;
+    let error = bus
+        .emit(
+            Observable::new("test", Arc::new(Backend::default())),
+            "returnable",
+            "worker",
+            "rpc",
+            Value::Null,
+            Duration::from_millis(1),
+        )
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("event deadline exceeded"));
     bus.shutdown().await
 }
 struct Failing {
@@ -536,4 +589,41 @@ fn remote_trace_identifiers_must_be_nonzero_hex() {
             .validate()
         );
     }
+}
+
+#[derive(Default)]
+struct Records(Mutex<Vec<Value>>);
+impl bsb::observable::Observer for Records {
+    fn record(&self, value: Value) {
+        self.0.lock().unwrap().push(value);
+    }
+}
+
+#[test]
+fn local_root_spans_omit_phantom_parents_but_nested_and_imported_spans_have_them() {
+    let backend = Arc::new(Backend::default());
+    let records = Arc::new(Records::default());
+    backend.add(records.clone());
+    let root = Observable::new("worker", backend);
+    {
+        let outer = root.span("outer");
+        let _nested = outer.observable.span("nested");
+    }
+    let imported_parent = "0123456789abcdef";
+    root.with_trace(
+        bsb::observable::Trace {
+            trace_id: "0123456789abcdef0123456789abcdef".into(),
+            span_id: imported_parent.into(),
+        },
+        "remote",
+    )
+    .span("imported");
+
+    let records = records.0.lock().unwrap();
+    let outer = records.iter().find(|v| v["name"] == "outer").unwrap();
+    let nested = records.iter().find(|v| v["name"] == "nested").unwrap();
+    let imported = records.iter().find(|v| v["name"] == "imported").unwrap();
+    assert!(outer.get("parentSpanId").is_none());
+    assert_eq!(nested["parentSpanId"], outer["spanId"]);
+    assert_eq!(imported["parentSpanId"], imported_parent);
 }
