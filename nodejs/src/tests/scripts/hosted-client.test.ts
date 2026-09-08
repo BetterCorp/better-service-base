@@ -60,8 +60,19 @@ describe('Hosted client discovery', () => {
       discovery.plugins[0].schema.version = '9.0.0';
       await assert.rejects(hostedSchema(endpoint, { allowInsecure: true }), /version does not match/);
       discovery = structuredClone(fixture);
-      discovery.plugins[0].version = '../invalid';
-      await assert.rejects(hostedSchema(endpoint, { allowInsecure: true }), /metadata/);
+      for (const version of ['../invalid', '01.2.3', '1.02.3', '1.2.03', '1.2.3-alpha..1', '1.2.3-01', '1.2.3-alpha.01', '1.2.3-', '1.2.3+build..1', '1.2.3+', 'v1.2.3', '1.2.3\n', '1.2.3\r', '1.2.3\u2028', '1.2.3\u2029']) {
+        discovery.plugins[0].version = version;
+        await assert.rejects(hostedSchema(endpoint, { allowInsecure: true }), /metadata/, version);
+        await assert.rejects(hostedSchema(endpoint, { allowInsecure: true, version }), /exact semantic version/, version);
+      }
+      discovery.plugins[0].version = '01.2.3';
+      await assert.rejects(run(process.execPath, [cli, 'client', 'install', endpoint, '--allow-insecure'], { cwd, env }), (error: any) => /metadata/.test(error.stdout));
+      assert.equal(await readFile(snapshot, 'utf8'), before);
+      for (const version of ['0.0.0', '1.2.3', '1.2.3-alpha.0', '1.2.3-01a.--+001.build-1']) {
+        discovery.plugins[0].version = discovery.plugins[0].schema.version = version;
+        const result = await hostedSchema(endpoint, { allowInsecure: true, version });
+        assert.equal(result.schema.version, version);
+      }
       for (const root of [
         { kind: 'string', pattern: '^(a+)+$' },
         { kind: 'string', pattern: 'a'.repeat(1025) },

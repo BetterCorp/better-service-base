@@ -30,7 +30,7 @@ func registerContracts(registry *bsb.PluginRegistry) {
 			case bsb.PluginTypeEvents:
 				if name == "events-rabbitmq" {
 					add("platformKey", av.Nullable(av.String()))
-					add("uniqueId", av.String())
+					add("uniqueId", av.Nullable(av.String()))
 					add("fatalOnDisconnect", av.Bool())
 					add("prefetch", av.Int32().Min(1).Max(65535))
 					add("endpoints", av.Array(av.String()))

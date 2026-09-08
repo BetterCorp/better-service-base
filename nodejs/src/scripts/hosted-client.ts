@@ -5,7 +5,8 @@ import type { EventSchemaExport } from '../interfaces/schema-events.js';
 import { importPortableSchema } from '../interfaces/schema-types.js';
 import { assertSafeSchemaDocument } from '../interfaces/schema-safety.js';
 
-const versionPattern = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?$/;
+// SemVer 2.0.0 identifiers; (?![\s\S]) requires the actual end, including for line terminators.
+const versionPattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?![\s\S])/;
 const object = (value: unknown): value is Record<string, any> => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 async function getJson(url: URL): Promise<unknown> {
@@ -37,10 +38,10 @@ export async function hostedSchema(endpoint: string, options: { plugin?: string;
   if (!object(manifest) || manifest.bsb !== 1 || !Array.isArray(manifest.plugins) || !manifest.plugins.length || manifest.plugins.length > 128) throw new Error('Invalid BSB discovery document');
   const selected = options.plugin ? parseRegistryPluginId(options.plugin) : undefined;
   const language = options.language ? normalizePluginLanguage(options.language) : undefined;
-  if (options.version !== undefined && (!versionPattern.test(options.version) || options.version.includes('\n'))) throw new Error('An exact semantic version is required');
+  if (options.version !== undefined && !versionPattern.test(options.version)) throw new Error('An exact semantic version is required');
   const identities = new Set<string>();
   const candidates = manifest.plugins.map((entry: unknown) => {
-    if (!object(entry) || typeof entry.id !== 'string' || typeof entry.language !== 'string' || typeof entry.version !== 'string' || !versionPattern.test(entry.version) || entry.version.includes('\n') || !(object(entry.schema) || typeof entry.schema === 'string')) throw new Error('Invalid hosted plugin metadata');
+    if (!object(entry) || typeof entry.id !== 'string' || typeof entry.language !== 'string' || typeof entry.version !== 'string' || !versionPattern.test(entry.version) || !(object(entry.schema) || typeof entry.schema === 'string')) throw new Error('Invalid hosted plugin metadata');
     const { org, name } = parseRegistryPluginId(entry.id);
     const implementation = normalizePluginLanguage(entry.language);
     const identity = `${org}/${name}~${implementation}~${entry.version}`;

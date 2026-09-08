@@ -103,7 +103,8 @@ static class RabbitChecks
             "A valid 1 MiB multibyte UTF-8 chunk was rejected");
 
         var releaseOversized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var oversizedId = (await rabbit.ReceiveStream("worker", "oversized", obs, async (_, _, _) => await releaseOversized.Task)).Split("||")[1];
+        var oversizedStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var oversizedId = (await rabbit.ReceiveStream("worker", "oversized", obs, async (_, _, _) => { oversizedStarted.SetResult(); await releaseOversized.Task; })).Split("||")[1];
         await broker.Deliver(streamControlQueue, new { type = "start", myId = "node-peer", trace = obs.Trace },
             new BasicProperties { AppId = "node-peer", CorrelationId = "r-" + oversizedId });
         var nacksBeforeOversized = broker.Nacks.Count;
@@ -111,7 +112,12 @@ static class RabbitChecks
             new BasicProperties { AppId = "node-peer", CorrelationId = oversizedId, MessageId = "oversized-utf8" });
         await Until(() => broker.Nacks.Count > nacksBeforeOversized);
         Check(broker.Nacks.Last(), "UTF-8 stream chunk above 1 MiB was not rejected");
+        await oversizedStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var disposal = rabbit.DisposeAsync().AsTask();
+        await Task.Delay(50);
+        Check(!disposal.IsCompleted, "RabbitMQ disposal did not wait for a running stream receiver");
         releaseOversized.TrySetResult();
+        await disposal.WaitAsync(TimeSpan.FromSeconds(5));
         Console.WriteLine("PASS: RabbitMQ durable declarations, Node envelopes/RPC/stream, confirmation before ack and bounded poison retries");
     }
 

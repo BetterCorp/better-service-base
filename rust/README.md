@@ -31,7 +31,7 @@ Vault bootstrap settings use environment variables `vaultUrl`, `apiKeyId`, `apiS
 
 ## Events and generated clients
 
-`events-default` provides in-process events and bounded streams. `events-rabbitmq` uses `platformKey`, `endpoints`, `credentials.username/password`, `uniqueId`, `prefetch` (10), and `fatalOnDisconnect` (true). Producer and consumer declare matching durable RPC/event queues, preserving requests sent before a listener starts. Replies are confirmed before acknowledging requests. Failed deliveries are requeued up to ten times; poison counts are process-local. With `fatalOnDisconnect=false`, consumers restore topology and publications reconnect. Active streams do not resume across disconnects.
+`events-default` provides in-process events and bounded streams. A stream timeout limits registration until claim, then starts a fresh transfer deadline. `events-rabbitmq` uses `platformKey`, `endpoints`, `credentials.username/password`, `uniqueId`, `prefetch` (10), and `fatalOnDisconnect` (true); an omitted or null `uniqueId` falls back to the hostname. Producer and consumer declare matching durable RPC/event queues, preserving requests sent before a listener starts. Replies are confirmed before acknowledging requests. Failed deliveries are requeued up to ten times; poison counts are process-local. With `fatalOnDisconnect=false`, consumers restore topology and publications reconnect. Active streams do not resume across disconnects.
 
 ```sh
 bsb client info @org/service-orders --source-language nodejs

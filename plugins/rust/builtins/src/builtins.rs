@@ -29,7 +29,10 @@ pub(crate) fn contract(name: &str, category: &str) -> Contract {
                 "platformKey",
                 json!({"kind":"nullable","inner":{"kind":"string"}}),
             );
-            add("uniqueId", json!({"kind":"string"}));
+            add(
+                "uniqueId",
+                json!({"kind":"nullable","inner":{"kind":"string"}}),
+            );
             add("fatalOnDisconnect", json!({"kind":"bool"}));
             add("prefetch", json!({"kind":"int32","min":1,"max":65535}));
             add(
@@ -149,5 +152,11 @@ mod tests {
             telemetry["root"]["properties"]["token"]["inner"]["metadata"]["writeonly"],
             true
         );
+    }
+
+    #[test]
+    fn rabbit_unique_id_accepts_null() {
+        let schema = contract("events-rabbitmq", "events").config_schema.unwrap();
+        bsb::contract::parse_schema(&schema, &json!({"uniqueId":null})).unwrap();
     }
 }

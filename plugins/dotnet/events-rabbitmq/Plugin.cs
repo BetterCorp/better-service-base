@@ -236,7 +236,7 @@ public partial class Plugin : BSBEvents
         _completion.TrySetResult();
         foreach (var pending in _pending.Values) pending.TrySetCanceled();
         _pending.Clear();
-        DisposeStreams();
+        await DisposeStreams();
         List<Exception> errors = new();
         foreach (var channel in _channels) try { await channel.DisposeAsync(); } catch (Exception error) { errors.Add(error); }
         if (_publisher is not null) try { await _publisher.DisposeAsync(); } catch (Exception error) { errors.Add(error); }

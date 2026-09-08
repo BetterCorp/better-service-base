@@ -10,12 +10,14 @@ namespace BSB.Plugins.EventsRabbitMQ;
 public partial class Plugin
 {
     private readonly ConcurrentDictionary<string, Receiver> _receivers = new();
+    private readonly object _streamsLock = new();
     private readonly ConcurrentDictionary<string, (string Peer, Channel<JsonObject> Controls)> _senders = new();
     private sealed class Receiver(CancellationToken shutdown, int timeoutSeconds)
     {
         public readonly CancellationTokenSource Timeout = CancellationTokenSource.CreateLinkedTokenSource(shutdown);
         public readonly TaskCompletionSource<JsonObject> Start = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly Channel<byte[]> Data = Channel.CreateBounded<byte[]>(8);
+        public Task Task = Task.CompletedTask;
         public string? Sender;
         public int TimeoutSeconds = timeoutSeconds;
         public void Touch() => Timeout.CancelAfter(TimeSpan.FromSeconds(TimeoutSeconds));
@@ -80,13 +82,18 @@ public partial class Plugin
 
     public override Task<string> ReceiveStream(string pluginName, string eventName, IObservable obs, StreamHandler handler, int timeoutSeconds = 5)
     {
-        ObjectDisposedException.ThrowIf(_disposed != 0, this);
         if (timeoutSeconds is <= 0 or > 86400) throw new ArgumentOutOfRangeException(nameof(timeoutSeconds));
-        var id = Guid.NewGuid().ToString();
-        var receiver = new Receiver(_shutdown.Token, timeoutSeconds);
-        receiver.Timeout.CancelAfter(TimeSpan.FromSeconds(30));
-        _receivers[id] = receiver;
-        _ = RunReceiver();
+        string id;
+        Receiver receiver;
+        lock (_streamsLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed != 0, this);
+            id = Guid.NewGuid().ToString();
+            receiver = new Receiver(_shutdown.Token, timeoutSeconds);
+            receiver.Timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            _receivers[id] = receiver;
+            receiver.Task = RunReceiver();
+        }
         return Task.FromResult($"{_myId}||{id}||{timeoutSeconds}");
 
         async Task RunReceiver()
@@ -173,10 +180,17 @@ public partial class Plugin
         throw new NotSupportedException("Distributed streams require ReceiveStream(handler) and passing its returned ID to SendStream(streamId, stream)");
     public override Task SendStream(string pluginName, string eventName, IObservable obs, Stream data) =>
         throw new NotSupportedException("Distributed streams require the receiver's stream ID");
-    private void DisposeStreams()
+    private async Task DisposeStreams()
     {
-        foreach (var receiver in _receivers.Values) { receiver.Timeout.Cancel(); receiver.Data.Writer.TryComplete(); }
+        Task[] receiverTasks;
+        lock (_streamsLock)
+        {
+            foreach (var receiver in _receivers.Values) { receiver.Timeout.Cancel(); receiver.Data.Writer.TryComplete(); }
+            receiverTasks = _receivers.Values.Select(receiver => receiver.Task).ToArray();
+        }
         foreach (var sender in _senders.Values) sender.Controls.Writer.TryComplete();
+        try { await Task.WhenAll(receiverTasks).WaitAsync(TimeSpan.FromSeconds(5)); }
+        catch (TimeoutException) { }
         _receivers.Clear(); _senders.Clear();
     }
 

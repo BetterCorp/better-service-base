@@ -66,7 +66,7 @@ Native logging includes `observable-default`, `observable-logging-file`, `observ
 
 The file plugin uses `path` (default `logs/application.log`), `level`, `redact`, and `prettyPrint`. Its rotation options, also available for console plugins' optional files, are `maxBytes` (10485760), `maxFiles` (7 archives; 0 means unlimited), `interval` (`daily`, `hourly`, or `none`), and `compress` (true). Rotation preserves whole entries, so a single entry may exceed the byte threshold. Archives use a `.bsb-` suffix and optional gzip compression. Human-readable file output can span multiple lines; the default is one JSON object per line.
 
-Completed spans include parent IDs, duration, attributes and errors. Transport listeners continue incoming Node traces. Linux SIGTERM and console cancellation initiate host shutdown; plugins dispose in reverse order even when another plugin's cleanup fails.
+Completed spans include parent IDs, duration, attributes and errors. Transport listeners continue incoming Node traces. Linux SIGTERM and console cancellation initiate host shutdown; plugins dispose in reverse order even when another plugin's cleanup fails. RabbitMQ disposal cancels active stream receivers and waits up to five seconds for their handlers before closing channels and connections. Handlers should finish promptly on cancellation; later publishes are rejected.
 
 Native remote exporters are bundled:
 

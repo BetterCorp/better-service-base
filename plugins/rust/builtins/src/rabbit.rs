@@ -30,7 +30,7 @@ struct Settings {
     prefetch: u16,
     endpoints: Vec<String>,
     credentials: Credentials,
-    unique_id: String,
+    unique_id: Option<String>,
 }
 #[derive(Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -54,9 +54,17 @@ impl Default for Settings {
             prefetch: 10,
             endpoints: vec!["amqp://localhost".into()],
             credentials: Credentials::default(),
-            unique_id: std::env::var("HOSTNAME").unwrap_or_else(|_| "rust".into()),
+            unique_id: Some(hostname()),
         }
     }
+}
+fn hostname() -> String {
+    std::env::var("HOSTNAME").unwrap_or_else(|_| "rust".into())
+}
+fn settings(raw: Value) -> Result<Settings> {
+    let mut config: Settings = serde_json::from_value(raw)?;
+    config.unique_id.get_or_insert_with(hostname);
+    Ok(config)
 }
 type WireHandler = Arc<dyn Fn(Delivery, Value) -> BoxFuture<'static, Result<()>> + Send + Sync>;
 pub(super) struct Receiver {
@@ -114,12 +122,13 @@ impl Drop for Guard {
 }
 impl Rabbit {
     pub async fn new(raw: Value, obs: Observable) -> Result<Self> {
-        let mut config: Settings = serde_json::from_value(raw)?;
+        let mut config = settings(raw)?;
+        let unique_id = config.unique_id.as_ref().unwrap();
         ensure!(
             !config.endpoints.is_empty() && config.prefetch > 0,
             "invalid Rabbit endpoints or prefetch"
         );
-        ensure!(!config.unique_id.contains("||"), "invalid Rabbit unique ID");
+        ensure!(!unique_id.contains("||"), "invalid Rabbit unique ID");
         let mut vhost = None;
         for endpoint in &mut config.endpoints {
             let mut url = reqwest::Url::parse(endpoint)?;
@@ -143,7 +152,7 @@ impl Rabbit {
                 .map_err(|_| anyhow::anyhow!("invalid Rabbit password"))?;
             *endpoint = url.to_string();
         }
-        let id = format!("{}-{}", config.unique_id, uuid::Uuid::new_v4());
+        let id = format!("{}-{}", unique_id, uuid::Uuid::new_v4());
         let bus = Self {
             inner: Arc::new(Inner {
                 config,
@@ -719,7 +728,7 @@ fn broadcast_queue(route: &str, consumer: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Rabbit, broadcast_queue};
+    use super::{Rabbit, broadcast_queue, hostname, settings};
     use bsb::observable::{Backend, Observable};
     use serde_json::json;
     use std::sync::Arc;
@@ -744,5 +753,18 @@ mod tests {
             .err()
             .expect("invalid unique ID accepted");
         assert!(error.to_string().contains("unique ID"));
+    }
+
+    #[test]
+    fn unique_id_defaults_for_missing_and_null() {
+        assert_eq!(settings(json!({})).unwrap().unique_id, Some(hostname()));
+        assert_eq!(
+            settings(json!({"uniqueId":null})).unwrap().unique_id,
+            Some(hostname())
+        );
+        assert_eq!(
+            settings(json!({"uniqueId":"worker"})).unwrap().unique_id,
+            Some("worker".into())
+        );
     }
 }

@@ -345,6 +345,40 @@ async fn unused_stream_notifies_receiver_on_deadline() -> Result<()> {
     bus.shutdown().await
 }
 
+#[tokio::test]
+async fn late_stream_claim_gets_a_fresh_transfer_deadline() -> Result<()> {
+    let bus = LocalBus::default();
+    let obs = Observable::new("test", Arc::new(Backend::default()));
+    let id = bus
+        .receive(
+            obs.clone(),
+            "test",
+            "file",
+            Arc::new(|_, mut reader| {
+                Box::pin(async move {
+                    use tokio::io::AsyncReadExt;
+                    tokio::time::sleep(Duration::from_millis(180)).await;
+                    let mut bytes = vec![];
+                    reader.read_to_end(&mut bytes).await?;
+                    assert_eq!(bytes, b"healthy");
+                    Ok(())
+                })
+            }),
+            Duration::from_millis(300),
+        )
+        .await?;
+    tokio::time::sleep(Duration::from_millis(180)).await;
+    bus.send(
+        obs,
+        "test",
+        "file",
+        &id,
+        Box::pin(std::io::Cursor::new(b"healthy")),
+    )
+    .await?;
+    bus.shutdown().await
+}
+
 struct Waiting {
     started: tokio::sync::mpsc::Sender<()>,
     closed: Arc<AtomicUsize>,

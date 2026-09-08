@@ -25,3 +25,5 @@ Use an HTTPS origin without credentials, paths, query strings or fragments. `--a
 Snapshots retain the complete contract and `source: {url, org, name, language, version}`. The local name is `hosted~<first 16 lowercase SHA-256 hex characters of the canonical origin>~<org>~<name>~<language>`; unqualified entries use org `_`. The hash identifies a public origin, not a secret. Canonical origins lowercase the host, omit default ports and have no trailing slash. Reinstalling the URL refreshes its snapshot; normal client sync/generate remains offline. Existing normalized-name collision checks apply.
 
 Node hosted imports use the same schema-safety gate as Registry and Vault: at most 10,000 nodes and 64 nesting levels, no prototype-related keys, and patterns limited to 1,024 characters and checked by `safe-regex2`. Rejected documents do not replace an installed snapshot.
+
+Node validates both discovery versions and `--version` against [SemVer 2.0.0](https://semver.org/): no leading zeroes in core numbers or numeric prerelease identifiers, no empty suffix identifiers, and no surrounding whitespace. Build identifiers may contain leading zeroes (`1.2.3+001` is valid).

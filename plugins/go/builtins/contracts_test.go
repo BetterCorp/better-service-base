@@ -41,3 +41,25 @@ func TestSecretConfigFieldsAreSensitiveWriteOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestRabbitUniqueIDAcceptsNull(t *testing.T) {
+	registry := bsb.NewPluginRegistry()
+	Register(registry)
+	contracts, err := registry.ExportContracts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, contract := range contracts {
+		if contract["pluginId"] == "events-rabbitmq" {
+			schema, err := bsb.ImportSchema(contract["configSchema"].(*bsb.SchemaDocument))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = schema.Parse(map[string]any{"uniqueId": nil}); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+	}
+	t.Fatal("events-rabbitmq contract not registered")
+}

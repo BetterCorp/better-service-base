@@ -76,6 +76,7 @@ struct WaitingStream {
     event: String,
     handler: StreamHandler,
     expires: Instant,
+    timeout: Duration,
     claimed: CancellationToken,
 }
 #[derive(Default)]
@@ -224,6 +225,7 @@ impl Bus for LocalBus {
                 event: event.into(),
                 handler,
                 expires: Instant::now() + timeout,
+                timeout,
                 claimed: claimed.clone(),
             },
         );
@@ -278,7 +280,7 @@ impl Bus for LocalBus {
             tokio::try_join!(copy, (stream.handler)(obs, Box::pin(receiver)))?;
             Ok(())
         };
-        tokio::select! { result=tokio::time::timeout_at(stream.expires.into(),work)=>result.context("stream deadline exceeded")?, _=self.cancel.cancelled()=>bail!("event bus closed") }
+        tokio::select! { result=tokio::time::timeout(stream.timeout,work)=>result.context("stream deadline exceeded")?, _=self.cancel.cancelled()=>bail!("event bus closed") }
     }
     async fn shutdown(&self) -> Result<()> {
         self.cancel.cancel();
