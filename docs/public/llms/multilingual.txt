@@ -96,4 +96,6 @@ Portable client objects: omitted required means no required fields. Go allow/pas
 
 .NET generic int clients use long to preserve signed 64-bit integers. Returnable event timeout APIs use double seconds (finite, greater than zero, at most 86400); custom BSBEvents.EmitEventAndReturn overrides must use double. Generated defaults use invariant culture. Registry Request requires root-relative paths on its configured origin before sending credentials.
 
+.NET declared Metadata.Name must match the requested plugin ID; only a single metadata-free implementation may use legacy fallback. TLS logging rejects clientKeyPath without clientCertificatePath before connecting. Go portable defaultTimeout distinguishes omission (five seconds) from explicit zero (invalid). Rust rotation removes partial gzip output after compression errors and preserves the uncompressed source.
+
 Node hosted contracts share Registry/Vault's schema-safety gate (10000 nodes, depth64, prototype keys rejected, pattern length1024 and safe-regex2 check). Vault editor catalogs must match the entry language for current/update schemas before masking configuration; unannotated legacy entries default to nodejs.

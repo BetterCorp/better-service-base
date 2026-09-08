@@ -44,6 +44,8 @@ public abstract class NetworkLogging<TConfig>(ServiceConstructorArgs<TConfig> ar
     }
     protected async Task Send(ReadOnlyMemory<byte> bytes, CancellationToken token)
     {
+        if (Config.Protocol == "tls" && Config.ClientKeyPath is not null && Config.ClientCertificatePath is null)
+            throw new InvalidOperationException("clientKeyPath requires clientCertificatePath for TLS logging");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         try

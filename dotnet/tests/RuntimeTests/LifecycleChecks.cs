@@ -6,6 +6,7 @@ static class LifecycleChecks
 {
     public static async Task Run()
     {
+        PluginSelectionChecks.Run();
         var calls = new List<string>();
         await using var observable = new SBObservable();
         await using var events = new SBEvents(new PluginConstructorArgs { AppId = "test", PluginName = "events", Cwd = ".", Mode = DebugMode.Development });

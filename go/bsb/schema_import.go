@@ -13,7 +13,7 @@ type PortableEvent struct {
 	Input       *SchemaDocument `json:"inputSchema"`
 	Output      *SchemaDocument `json:"outputSchema"`
 	Description string          `json:"description"`
-	Timeout     float64         `json:"defaultTimeout"`
+	Timeout     *float64        `json:"defaultTimeout"`
 }
 type PortableContract struct {
 	PluginID     string                   `json:"pluginId"`
@@ -79,11 +79,11 @@ func ImportEventSchemas(data []byte, flip bool) (BSBEventSchemas, error) {
 			if err != nil {
 				return result, err
 			}
-			timeout := event.Timeout
-			if timeout == 0 {
-				timeout = 5
+			timeout := 5.0
+			if event.Timeout != nil {
+				timeout = *event.Timeout
 			}
-			if timeout < 0 || timeout > 86400 || math.IsNaN(timeout) || math.IsInf(timeout, 0) {
+			if timeout <= 0 || timeout > 86400 || math.IsNaN(timeout) || math.IsInf(timeout, 0) {
 				return result, fmt.Errorf("invalid event timeout")
 			}
 			schema := CreateReturnableEvent(input, output, event.Description, timeout)

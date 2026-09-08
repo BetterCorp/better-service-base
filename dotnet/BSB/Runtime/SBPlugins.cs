@@ -410,8 +410,7 @@ public class SBPlugins
     // -----------------------------------------------------------------
 
     /// <summary>
-    /// Find a plugin type in an assembly that extends the expected base class.
-    /// Priority: class named "Plugin" > any class extending the base.
+    /// Find a plugin type by declared metadata, with a sole-candidate fallback for legacy plugins without metadata.
     /// </summary>
     private static Type? FindPluginType(Assembly assembly, Type expectedBaseType, string pluginName)
     {
@@ -420,21 +419,9 @@ public class SBPlugins
         if (named.Length == 1) return named[0];
         if (named.Length > 1 || matches.Length > 1)
             throw new InvalidOperationException($"Ambiguous plugin {pluginName}; each implementation must declare unique Metadata.Name");
-        Type? fallback = null;
-
-        foreach (var type in assembly.GetExportedTypes())
-        {
-            if (type.IsAbstract || type.IsInterface) continue;
-            if (!ExtendsBase(type, expectedBaseType)) continue;
-
-            // Prefer a class named "Plugin" (convention from Node.js)
-            if (type.Name == "Plugin")
-                return type;
-
-            fallback ??= type;
-        }
-
-        return fallback;
+        if (matches.Length == 1 && ExtractMetadata(matches[0]) is { } metadata)
+            throw new InvalidOperationException($"Plugin {pluginName} does not match declared Metadata.Name {metadata.Name}");
+        return matches.SingleOrDefault();
     }
 
     /// <summary>Read static plugin contracts from a built assembly without constructing application services.</summary>

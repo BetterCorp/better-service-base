@@ -32,7 +32,9 @@ dotnet /path/to/BetterServiceBase.dll client generate
 dotnet /path/to/BetterServiceBase.dll client publish --org acme
 ```
 
-`plugin build` regenerates installed clients, publishes the class library, and exports static contracts without constructing the service. It writes `bsb-plugin.json` and `lib/schemas/`. Deploy the `lib` directory with its manifest and dependencies. Manifests allow plugin IDs to differ from assembly names. Multiple plugins in one assembly must each declare a unique `Metadata.Name`.
+`plugin build` regenerates installed clients, publishes the class library, and exports static contracts without constructing the service. It writes `bsb-plugin.json` and `lib/schemas/`. Deploy the `lib` directory with its manifest and dependencies. Manifests allow plugin IDs to differ from assembly names. Declared `Metadata.Name` must match the requested plugin ID; the single-plugin legacy fallback applies only when metadata is absent. Multiple plugins in one assembly must each declare a unique `Metadata.Name`.
+
+Syslog and GELF TLS logging require `clientCertificatePath` whenever `clientKeyPath` is configured. Invalid pairs fail before opening a connection.
 
 Public `client publish` includes the local Markdown files listed in `Metadata.Documentation`, falling back to the project `README.md`. Missing or empty documentation fails locally before upload. Vault publishing (`--target`) does not require documentation.
 

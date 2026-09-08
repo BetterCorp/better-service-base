@@ -127,6 +127,16 @@ static class TelemetryChecks
     }
     private static async Task CheckTls()
     {
+        using (var listener = new TcpListener(IPAddress.Loopback, 0))
+        {
+            listener.Start();
+            await using var sender = new NetworkProbe(Args(new NetworkLoggingConfig {
+                Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port,
+                Protocol = "tls", ClientKeyPath = "unused-client-key.pem" }));
+            try { await sender.SendTest(default); throw new Exception("TLS client key without certificate was accepted"); }
+            catch (InvalidOperationException error) { Check(error.Message.Contains("clientCertificatePath"), "Missing TLS certificate diagnostic was lost"); }
+            Check(!listener.Pending(), "Invalid TLS credentials opened a connection");
+        }
         using var caKey = RSA.Create(2048);
         var caRequest = new CertificateRequest("CN=BSB test CA", caKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         caRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));

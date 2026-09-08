@@ -75,21 +75,13 @@ impl RotatingFile {
         self.opened = SystemTime::now();
         self.size = 0;
         if self.options.compress {
-            let mut source = File::open(&archive)?;
-            let compressed = PathBuf::from(format!("{}.gz", archive.display()));
-            let mut options = OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                options.mode(0o600);
-            }
-            let output = options.open(compressed)?;
-            let mut encoder = flate2::write::GzEncoder::new(output, flate2::Compression::default());
-            std::io::copy(&mut source, &mut encoder)?;
-            encoder.finish()?.sync_all()?;
-            drop(source);
-            fs::remove_file(&archive)?;
+            compress_archive(&archive, |source, output| {
+                let mut encoder =
+                    flate2::write::GzEncoder::new(output, flate2::Compression::default());
+                std::io::copy(source, &mut encoder)?;
+                encoder.finish()?.sync_all()?;
+                Ok(())
+            })?;
         }
         if self.options.max_files > 0 {
             let prefix = format!(
@@ -126,6 +118,54 @@ impl RotatingFile {
         if let Some(file) = self.file.take() {
             file.sync_all()?;
         }
+        Ok(())
+    }
+}
+
+fn compress_archive(
+    archive: &Path,
+    compress: impl FnOnce(&mut File, File) -> Result<()>,
+) -> Result<()> {
+    let mut source = File::open(archive)?;
+    let compressed = PathBuf::from(format!("{}.gz", archive.display()));
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let output = options.open(&compressed)?;
+    if let Err(error) = compress(&mut source, output) {
+        fs::remove_file(&compressed).context("failed to remove partial gzip archive")?;
+        return Err(error);
+    }
+    drop(source);
+    fs::remove_file(archive)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::bail;
+
+    #[test]
+    fn compression_failure_removes_partial_and_preserves_source() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let archive = directory
+            .path()
+            .join("application.log.bsb-00000000000000000001");
+        fs::write(&archive, b"complete source")?;
+        assert!(
+            compress_archive(&archive, |_, mut output| {
+                output.write_all(b"partial")?;
+                bail!("injected compression failure")
+            })
+            .is_err()
+        );
+        assert_eq!(fs::read(&archive)?, b"complete source");
+        assert!(!PathBuf::from(format!("{}.gz", archive.display())).exists());
         Ok(())
     }
 }

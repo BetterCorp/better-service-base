@@ -39,6 +39,17 @@ func TestImportEventSchemasRejectsUnsafeMetadata(t *testing.T) {
 	}
 	events := contract["events"].(map[string]any)
 	definition := events["lookup"].(map[string]any)
+	delete(definition, "defaultTimeout")
+	omittedTimeout, _ := json.Marshal(contract)
+	imported, err := bsb.ImportEventSchemas(omittedTimeout, false)
+	if err != nil || imported.OnReturnableEvents["lookup"].DefaultTimeout != 5 {
+		t.Fatalf("omitted timeout did not default to five seconds: %v %v", imported.OnReturnableEvents["lookup"].DefaultTimeout, err)
+	}
+	definition["defaultTimeout"] = float64(0)
+	explicitZero, _ := json.Marshal(contract)
+	if _, err = bsb.ImportEventSchemas(explicitZero, false); err == nil {
+		t.Fatal("explicit zero event timeout accepted")
+	}
 	definition["defaultTimeout"] = float64(86401)
 	invalidTimeout, _ := json.Marshal(contract)
 	if _, err = bsb.ImportEventSchemas(invalidTimeout, false); err == nil {
