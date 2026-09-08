@@ -23,6 +23,36 @@ from bsb_python_plugins.observable_pino import Config as PinoConfig, Plugin as P
 from bsb.telemetry import post
 
 
+@pytest.mark.parametrize(("host", "endpoint", "expected"), [
+    ("::1", None, "http://[::1]:12201/gelf"),
+    ("2001:db8::1", None, "http://[2001:db8::1]:12201/gelf"),
+    ("[::1]", None, "http://[::1]:12201/gelf"),
+    ("127.0.0.1", None, "http://127.0.0.1:12201/gelf"),
+    ("collector.example", None, "http://collector.example:12201/gelf"),
+    ("::1", "https://collector.example/custom", "https://collector.example/custom"),
+])
+def test_gelf_http_url_preserves_host_and_endpoint(tmp_path, monkeypatch, host, endpoint, expected):
+    module = importlib.import_module("bsb_python_plugins.observable_graylog")
+    backend = ObservableBackend("test", "test", "worker", SBObservable("test", "test"))
+    trace = backend.create_trace("request")
+    options = {"protocol": "http", "host": host}
+    if endpoint is not None:
+        options["httpEndpoint"] = endpoint
+    plugin = module.Plugin(PluginCtor("test", "test", "graylog", str(tmp_path), "", "",
+        module.Config.validation_schema.parse(options), "1.0.0", backend))
+    posted = []
+    monkeypatch.setattr(module, "post", lambda url, message, headers: posted.append(url))
+
+    async def check():
+        await plugin.init(trace)
+        await plugin.export([{"timestamp": datetime.now(timezone.utc).isoformat(), "level": "info",
+            "message": "hello", "plugin": "worker", "traceId": trace.trace_id, "spanId": trace.span_id}])
+        await plugin.dispose()
+
+    asyncio.run(check())
+    assert posted == [expected]
+
+
 def test_native_logging_and_remote_exports(tmp_path):
     requests, state = [], {"status": 200, "reply": {}}
     class Handler(BaseHTTPRequestHandler):

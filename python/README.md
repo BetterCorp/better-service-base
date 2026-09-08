@@ -115,7 +115,7 @@ These use native configuration schemas; JavaScript Pino/Winston transports are n
 
 HTTP exporters accept `endpoint`, `headers`, `serviceName`, `serviceVersion`, `resourceAttributes`, `flushIntervalMs`, `maxBatchSize`, `samplingRate`, and signal booleans. Axiom requires `token` and supports `dataset`, `orgId`, and explicit `allowInsecureHttp`. Queue capacity is 4096 entries; overflow/export errors report to stderr. Shutdown attempts a ten-second drain. Buffers are not durable. Partial acknowledgements and authentication errors are not retried. Counters/gauges/histograms retain per-plugin cumulative series; each instrument caps distinct label sets at 10,000.
 
-Network loggers accept `host`, `port`, `protocol`, `level`, `redact`, and optional `caCertificatePath`, `clientCertificatePath`, `clientKeyPath`. TLS always checks both trust and hostname. Syslog adds `facility`, `hostname`, `appName`, `rfc`, `framing`. GELF adds `facility`, `compress`, `httpEndpoint`, `headers`, `additionalFields`.
+Network loggers accept `host`, `port`, `protocol`, `level`, `redact`, and optional `caCertificatePath`, `clientCertificatePath`, `clientKeyPath`. TLS always checks both trust and hostname. Syslog adds `facility`, `hostname`, `appName`, `rfc`, `framing`. GELF adds `facility`, `compress`, `httpEndpoint`, `headers`, `additionalFields`. Default GELF HTTP URLs support IPv6 literals such as `::1`; an explicit `httpEndpoint` takes precedence.
 
 ## Build and verification
 

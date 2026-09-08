@@ -92,6 +92,53 @@ type failingEventsPlugin struct {
 func (p *failingEventsPlugin) Failure() <-chan error { return p.failed }
 func (p *failingEventsPlugin) Dispose() error        { p.disposed = true; return nil }
 
+type tracedServicePlugin struct{ mockServicePlugin }
+
+func (*tracedServicePlugin) Init(_ context.Context, obs bsb.Observable) error {
+	span := obs.StartSpan("init.child")
+	span.End()
+	return nil
+}
+func (*tracedServicePlugin) Run(_ context.Context, obs bsb.Observable) error {
+	span := obs.StartSpan("run.child")
+	span.End()
+	return nil
+}
+
+func TestServiceLifecycleCreatesParentlessRootSpans(t *testing.T) {
+	registry := bsb.NewPluginRegistry()
+	recorder := &recordingObservablePlugin{}
+	registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
+		return &testConfigPlugin{
+			services:   map[string]bsb.PluginDefinition{"service-traced": {Enabled: true}},
+			events:     map[string]bsb.PluginDefinition{"events-default": {Enabled: true}},
+			observable: map[string]bsb.PluginDefinition{"observable-recorder": {Enabled: true}},
+		}, nil
+	})
+	registry.RegisterObservable("observable-recorder", func(map[string]any) (bsb.ObservablePlugin, error) { return recorder, nil })
+	registry.RegisterEvents("events-default", func(map[string]any) (bsb.EventsPlugin, error) { return newTestEventsPlugin(), nil })
+	registry.RegisterService("service-traced", func(map[string]any) (bsb.ServicePlugin, error) { return &tracedServicePlugin{}, nil })
+	host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: t.TempDir()}, registry)
+	defer host.Dispose()
+	if err := host.Init(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := host.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(recorder.parents) != 4 || recorder.names[0] != "service.init" || recorder.names[1] != "init.child" || recorder.names[2] != "service.run" || recorder.names[3] != "run.child" {
+		t.Fatalf("unexpected lifecycle spans: %v", recorder.names)
+	}
+	for _, index := range []int{0, 2} {
+		if recorder.parents[index].SpanID != "" {
+			t.Fatalf("lifecycle root %q has phantom parent %q", recorder.names[index], recorder.parents[index].SpanID)
+		}
+		if recorder.parents[index+1].SpanID != recorder.ids[index] {
+			t.Fatalf("nested span %q has parent %q, want %q", recorder.names[index+1], recorder.parents[index+1].SpanID, recorder.ids[index])
+		}
+	}
+}
+
 func TestConfiguredPluginVersionsReachAllControllers(t *testing.T) {
 	tests := []struct {
 		name, version string

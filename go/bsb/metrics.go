@@ -12,6 +12,7 @@ type Counter struct {
 	name        string
 	description string
 	help        string
+	mu          sync.Mutex
 	value       atomic.Int64
 	onChange    func(int64)
 }
@@ -27,6 +28,8 @@ func NewCounter(name, description, help string) *Counter {
 
 // Increment adds to the counter (default 1).
 func (c *Counter) Increment(delta ...int64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	d := int64(1)
 	if len(delta) > 0 {
 		d = delta[0]
@@ -53,6 +56,7 @@ type Gauge struct {
 	name        string
 	description string
 	help        string
+	mu          sync.Mutex
 	value       atomic.Uint64 // IEEE 754 bits
 	onChange    func(float64)
 }
@@ -68,6 +72,8 @@ func NewGauge(name, description, help string) *Gauge {
 
 // Set sets the gauge value.
 func (g *Gauge) Set(value float64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		panic("gauge value must be finite")
 	}
@@ -79,6 +85,8 @@ func (g *Gauge) Set(value float64) {
 
 // Increment adds to the gauge (default 1).
 func (g *Gauge) Increment(delta ...float64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	d := 1.0
 	if len(delta) > 0 {
 		d = delta[0]
@@ -91,6 +99,8 @@ func (g *Gauge) Increment(delta ...float64) {
 
 // Decrement subtracts from the gauge (default 1).
 func (g *Gauge) Decrement(delta ...float64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	d := 1.0
 	if len(delta) > 0 {
 		d = delta[0]
@@ -147,8 +157,9 @@ func (h *Histogram) Record(value float64) {
 		panic("histogram value must be finite")
 	}
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	defer func() {
-		// Export one consistent snapshot without holding the lock during callbacks.
+		// Export one consistent snapshot in the same order as the updates.
 		count, sum := h.Count(), h.Sum()
 		var buckets []int64
 		if h.onChange != nil {
@@ -157,7 +168,6 @@ func (h *Histogram) Record(value float64) {
 				buckets[i] = h.buckets[i].Load()
 			}
 		}
-		h.mu.Unlock()
 		if h.onChange != nil {
 			h.onChange(count, sum, buckets, slices.Clone(h.boundaries))
 		}

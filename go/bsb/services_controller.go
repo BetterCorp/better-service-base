@@ -103,10 +103,15 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 	for _, svc := range sc.services {
 		meta := svc.plugin.Metadata()
 		resource := BuildResourceContext(meta.Name, meta.Version, sc.opts.AppID, sc.opts.Mode, sc.opts.Region)
-		svcObs := backend.CreateObservable(NewDTrace(), svc.name, resource)
+		svcObs := backend.CreateTrace("service.init", svc.name, resource, nil)
 
 		obs.Log().Debug("initializing service", map[string]any{"plugin": svc.name})
-		if err := svc.plugin.Init(ctx, svcObs); err != nil {
+		err := svc.plugin.Init(ctx, svcObs)
+		if err != nil {
+			svcObs.Error(err)
+		}
+		svcObs.End()
+		if err != nil {
 			return fmt.Errorf("service %q init failed: %w", svc.name, err)
 		}
 	}
@@ -128,10 +133,15 @@ func (sc *ServicesController) Run(ctx context.Context, obs Observable) error {
 	for _, svc := range sorted {
 		meta := svc.plugin.Metadata()
 		resource := BuildResourceContext(meta.Name, meta.Version, sc.opts.AppID, sc.opts.Mode, sc.opts.Region)
-		svcObs := sc.backend.CreateObservable(NewDTrace(), svc.name, resource)
+		svcObs := sc.backend.CreateTrace("service.run", svc.name, resource, nil)
 
 		obs.Log().Debug("running service", map[string]any{"plugin": svc.name})
-		if err := svc.plugin.Run(ctx, svcObs); err != nil {
+		err := svc.plugin.Run(ctx, svcObs)
+		if err != nil {
+			svcObs.Error(err)
+		}
+		svcObs.End()
+		if err != nil {
 			return fmt.Errorf("service %q run failed: %w", svc.name, err)
 		}
 	}

@@ -48,7 +48,10 @@ def datagrams(message, compress):
 class Plugin(NetworkLogging):
     async def init(self, trace):
         if self.config["protocol"] == "http":
-            self.url = self.config.get("httpEndpoint") or f"http://{self.config['host']}:{self.config['port']}/gelf"
+            host = self.config["host"]
+            if ":" in host and not host.startswith("["):
+                host = f"[{host}]"
+            self.url = self.config.get("httpEndpoint") or f"http://{host}:{self.config['port']}/gelf"
             origin(self.url, allow_http=True)
 
     async def export(self, batch):

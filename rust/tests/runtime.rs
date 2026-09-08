@@ -10,7 +10,7 @@ use bsb::{
 use std::{
     collections::BTreeMap,
     sync::{
-        Arc, Mutex,
+        Arc, Condvar, Mutex,
         atomic::{AtomicUsize, Ordering as AtomicOrdering},
     },
     time::Duration,
@@ -564,6 +564,57 @@ fn metric_definitions_are_unique_per_plugin_and_name() -> Result<()> {
     other
         .histogram("requests", "Latency", "seconds")?
         .record(0.5)?;
+    Ok(())
+}
+
+struct OrderedMetrics {
+    values: Mutex<Vec<i64>>,
+    first_started: Mutex<Option<std::sync::mpsc::Sender<()>>>,
+    release_first: (Mutex<bool>, Condvar),
+}
+impl bsb::observable::Observer for OrderedMetrics {
+    fn record(&self, value: Value) {
+        if value["signal"] != "metrics" {
+            return;
+        }
+        let value = value["value"].as_i64().unwrap();
+        if value == 1 {
+            if let Some(sender) = self.first_started.lock().unwrap().take() {
+                sender.send(()).unwrap();
+            }
+            let (released, changed) = &self.release_first;
+            let mut released = released.lock().unwrap();
+            while !*released {
+                released = changed.wait(released).unwrap();
+            }
+        }
+        self.values.lock().unwrap().push(value);
+    }
+}
+
+#[test]
+fn concurrent_metric_updates_publish_cumulative_values_in_update_order() -> Result<()> {
+    let (started, first_started) = std::sync::mpsc::channel();
+    let observer = Arc::new(OrderedMetrics {
+        values: Mutex::new(Vec::new()),
+        first_started: Mutex::new(Some(started)),
+        release_first: (Mutex::new(false), Condvar::new()),
+    });
+    let backend = Arc::new(Backend::default());
+    backend.add(observer.clone());
+    let counter = Observable::new("worker", backend).counter("requests", "Requests", "count")?;
+    let first = counter.clone();
+    let first = std::thread::spawn(move || first.increment(1));
+    first_started.recv_timeout(Duration::from_secs(1))?;
+    let second = std::thread::spawn(move || counter.increment(1));
+    second.join().unwrap()?;
+    {
+        let (released, changed) = &observer.release_first;
+        *released.lock().unwrap() = true;
+        changed.notify_all();
+    }
+    first.join().unwrap()?;
+    assert_eq!(*observer.values.lock().unwrap(), vec![1, 2]);
     Ok(())
 }
 

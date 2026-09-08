@@ -8,12 +8,17 @@ pub(crate) enum ValueState {
     Gauge(f64),
     Histogram { count: u64, sum: f64 },
 }
+struct MetricState {
+    value: ValueState,
+    pending: Option<Value>,
+    publishing: bool,
+}
 pub(crate) struct Definition {
     kind: &'static str,
     description: String,
     unit: String,
     started: String,
-    state: Arc<Mutex<ValueState>>,
+    state: Arc<Mutex<MetricState>>,
 }
 #[derive(Clone)]
 pub struct Metric {
@@ -22,7 +27,7 @@ pub struct Metric {
     description: String,
     unit: String,
     started: String,
-    state: Arc<Mutex<ValueState>>,
+    state: Arc<Mutex<MetricState>>,
 }
 impl Observable {
     pub fn counter(&self, name: &str, description: &str, unit: &str) -> Result<Metric> {
@@ -65,7 +70,11 @@ impl Metric {
                     .timestamp_nanos_opt()
                     .unwrap_or_default()
                     .to_string(),
-                state: Arc::new(Mutex::new(state)),
+                state: Arc::new(Mutex::new(MetricState {
+                    value: state,
+                    pending: None,
+                    publishing: false,
+                })),
             });
         ensure!(
             definition.kind == kind
@@ -85,15 +94,14 @@ impl Metric {
     }
     fn update(&self, change: impl FnOnce(&mut ValueState) -> Result<()>) -> Result<()> {
         let mut state = self.state.lock().unwrap();
-        change(&mut state)?;
-        let mut value = match *state {
+        change(&mut state.value)?;
+        let mut value = match state.value {
             ValueState::Counter(value) => json!({"kind":"counter","value":value}),
             ValueState::Gauge(value) => json!({"kind":"gauge","value":value}),
             ValueState::Histogram { count, sum } => {
                 json!({"kind":"histogram","count":count,"sum":sum})
             }
         };
-        drop(state);
         for (key, item) in [
             ("signal", json!("metrics")),
             ("plugin", json!(self.obs.plugin)),
@@ -113,7 +121,23 @@ impl Metric {
         ] {
             value[key] = item;
         }
-        self.obs.backend.record(value);
+        // Samples are cumulative, so only the newest pending value is needed while a
+        // publisher is inside an observer callback.
+        state.pending = Some(value);
+        if state.publishing {
+            return Ok(());
+        }
+        state.publishing = true;
+        loop {
+            let value = state.pending.take().unwrap();
+            drop(state);
+            self.obs.backend.record(value);
+            state = self.state.lock().unwrap();
+            if state.pending.is_none() {
+                state.publishing = false;
+                break;
+            }
+        }
         Ok(())
     }
     pub fn increment(&self, delta: i64) -> Result<()> {
@@ -167,7 +191,7 @@ impl Metric {
         })
     }
     pub fn snapshot(&self) -> Value {
-        match *self.state.lock().unwrap() {
+        match self.state.lock().unwrap().value {
             ValueState::Counter(value) => json!(value),
             ValueState::Gauge(value) => json!(value),
             ValueState::Histogram { count, sum } => json!({"count":count,"sum":sum}),

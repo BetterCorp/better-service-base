@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"runtime"
 	"testing"
 
 	"github.com/bettercorp/service-base/go/bsb"
@@ -9,6 +10,9 @@ import (
 
 type recordingObservablePlugin struct {
 	parents []bsb.DTrace
+	names   []string
+	ids     []string
+	metric  func(map[string]any)
 }
 
 func (*recordingObservablePlugin) Init(context.Context, bsb.Observable) error         { return nil }
@@ -18,11 +22,18 @@ func (*recordingObservablePlugin) OnDebug(bsb.DTrace, string, string, map[string
 func (*recordingObservablePlugin) OnInfo(bsb.DTrace, string, string, map[string]any)  {}
 func (*recordingObservablePlugin) OnWarn(bsb.DTrace, string, string, map[string]any)  {}
 func (*recordingObservablePlugin) OnError(bsb.DTrace, string, string, map[string]any) {}
-func (p *recordingObservablePlugin) OnSpanStart(parent bsb.DTrace, _, _, _ string, _ map[string]any) {
+func (p *recordingObservablePlugin) OnSpanStart(parent bsb.DTrace, _, name, id string, _ map[string]any) {
 	p.parents = append(p.parents, parent)
+	p.names = append(p.names, name)
+	p.ids = append(p.ids, id)
 }
 func (*recordingObservablePlugin) OnSpanEnd(bsb.DTrace, string, string, map[string]any) {}
 func (*recordingObservablePlugin) OnSpanError(bsb.DTrace, string, string, error, map[string]any) {
+}
+func (p *recordingObservablePlugin) OnMetric(_ string, entry map[string]any) {
+	if p.metric != nil {
+		p.metric(entry)
+	}
 }
 
 func TestCreateTraceHasNoPhantomParent(t *testing.T) {
@@ -41,6 +52,51 @@ func TestCreateTraceHasNoPhantomParent(t *testing.T) {
 	}
 	if exporter.parents[1] != root.Trace() || child.TraceID() != root.TraceID() {
 		t.Fatal("child span did not preserve its real parent")
+	}
+	imported := bsb.NewDTrace()
+	backend.CreateObservable(imported, "test", resource).StartSpan("imported")
+	if exporter.parents[2] != imported {
+		t.Fatal("imported trace parent was not preserved")
+	}
+}
+
+func TestCounterPublishesConcurrentUpdatesInOrder(t *testing.T) {
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	values := []int64{}
+	exporter := &recordingObservablePlugin{metric: func(entry map[string]any) {
+		value := entry["value"].(int64)
+		if value == 1 {
+			close(firstStarted)
+			<-releaseFirst
+		}
+		values = append(values, value)
+	}}
+	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test")
+	backend.AddPlugin(exporter)
+	counter := backend.CreateCounter("test", "requests", "Requests", "count")
+	firstDone := make(chan struct{})
+	go func() { counter.Increment(); close(firstDone) }()
+	<-firstStarted
+	secondStarted := make(chan struct{})
+	secondDone := make(chan struct{})
+	go func() {
+		close(secondStarted)
+		counter.Increment()
+		close(secondDone)
+	}()
+	<-secondStarted
+	runtime.Gosched()
+	if counter.Value() != 1 {
+		t.Fatalf("second update overtook blocked first publication: %d", counter.Value())
+	}
+	close(releaseFirst)
+	<-firstDone
+	<-secondDone
+	if len(values) != 2 || values[0] != 1 || values[1] != 2 {
+		t.Fatalf("counter publications went backward: %v", values)
 	}
 }
 

@@ -420,7 +420,7 @@ func (p *Plugin) incoming(body map[string]any, plugin, event string) (context.Co
 	return bsb.WithObservable(p.ctx, obs), obs, payload, nil
 }
 func wireTrace(value any) (bsb.DTrace, error) {
-	trace := bsb.NewDTrace()
+	trace := bsb.BootstrapTrace()
 	if value == nil {
 		return trace, nil
 	}

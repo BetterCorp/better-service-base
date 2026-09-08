@@ -256,7 +256,7 @@ func formatMessage(message string, meta map[string]any) string {
 // BootstrapTrace creates a trace suitable for use during framework bootstrap
 // before the full observable system is initialized.
 func BootstrapTrace() DTrace {
-	return NewDTrace()
+	return DTrace{TraceID: newTraceID()}
 }
 
 // Timestamp returns the current time in nanoseconds for metrics.

@@ -1,7 +1,7 @@
 use crate::telemetry::{Options, level, post, valid_url};
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{net::IpAddr, pin::Pin, sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncWrite, AsyncWriteExt},
     net::{TcpStream, UdpSocket},
@@ -165,11 +165,7 @@ impl Network {
                     }
                 }
                 if self.options.protocol == "http" {
-                    let endpoint = if self.options.http_endpoint.is_empty() {
-                        format!("http://{}:{}/gelf", self.options.host, self.options.port)
-                    } else {
-                        self.options.http_endpoint.clone()
-                    };
+                    let endpoint = gelf_http_endpoint(&self.options);
                     post(&endpoint, value, &self.options.headers).await?;
                     continue;
                 }
@@ -198,6 +194,16 @@ impl Network {
         }
         Ok(())
     }
+}
+fn gelf_http_endpoint(options: &Options) -> String {
+    if !options.http_endpoint.is_empty() {
+        return options.http_endpoint.clone();
+    }
+    let host = match options.host.parse::<IpAddr>() {
+        Ok(IpAddr::V6(_)) => format!("[{}]", options.host),
+        _ => options.host.clone(),
+    };
+    format!("http://{host}:{}/gelf", options.port)
 }
 fn gelf_key(key: &str) -> String {
     if key.starts_with('_') {
@@ -284,6 +290,33 @@ pub(super) fn gelf_chunks(data: &[u8], compress: bool) -> Result<Vec<Vec<u8>>> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn default_gelf_http_endpoint_formats_ip_authorities() {
+        for (host, expected) in [
+            ("::1", "http://[::1]:12201/gelf"),
+            ("127.0.0.1", "http://127.0.0.1:12201/gelf"),
+            ("graylog.internal", "http://graylog.internal:12201/gelf"),
+        ] {
+            let options = Options {
+                host: host.into(),
+                port: 12201,
+                ..Options::default()
+            };
+            let endpoint = gelf_http_endpoint(&options);
+            assert_eq!(endpoint, expected);
+            let parsed = reqwest::Url::parse(&endpoint).unwrap();
+            assert!(parsed.has_host());
+            assert_eq!(parsed.port(), Some(12201));
+            assert_eq!(parsed.path(), "/gelf");
+        }
+        let options = Options {
+            host: "::1".into(),
+            port: 12201,
+            http_endpoint: "https://logs.example/custom".into(),
+            ..Options::default()
+        };
+        assert_eq!(gelf_http_endpoint(&options), options.http_endpoint);
+    }
     #[test]
     fn syslog_preserves_event_timestamp() {
         let entry = json!({"timestamp":"2026-01-02T03:04:05+02:00"});
