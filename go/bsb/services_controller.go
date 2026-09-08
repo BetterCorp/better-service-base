@@ -66,7 +66,7 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 			return fmt.Errorf("service %q configuration: %w", pluginName, err)
 		}
 
-		plugin, err := sc.registry.CreateService(pluginName, pluginConfig)
+		plugin, err := sc.registry.CreateService(pluginName, pluginConfig, def.Version)
 		if err != nil {
 			return fmt.Errorf("failed to create service plugin %q: %w", pluginName, err)
 		}

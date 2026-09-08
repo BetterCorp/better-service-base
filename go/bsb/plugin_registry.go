@@ -1,6 +1,7 @@
 package bsb
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 )
@@ -72,18 +73,42 @@ func (r *PluginRegistry) CreateConfig(name string, config map[string]any) (Confi
 }
 
 // CreateObservable creates an observable plugin instance by name.
-func (r *PluginRegistry) CreateObservable(name string, config map[string]any) (ObservablePlugin, error) {
-	return createPlugin[ObservablePlugin](r, PluginTypeObservable, name, config)
+func (r *PluginRegistry) CreateObservable(name string, config map[string]any, version ...string) (ObservablePlugin, error) {
+	return createPlugin[ObservablePlugin](r, PluginTypeObservable, name, config, version...)
 }
 
 // CreateEvents creates an events plugin instance by name.
-func (r *PluginRegistry) CreateEvents(name string, config map[string]any) (EventsPlugin, error) {
-	return createPlugin[EventsPlugin](r, PluginTypeEvents, name, config)
+func (r *PluginRegistry) CreateEvents(name string, config map[string]any, version ...string) (EventsPlugin, error) {
+	return createPlugin[EventsPlugin](r, PluginTypeEvents, name, config, version...)
 }
 
 // CreateService creates a service plugin instance by name.
-func (r *PluginRegistry) CreateService(name string, config map[string]any) (ServicePlugin, error) {
-	return createPlugin[ServicePlugin](r, PluginTypeService, name, config)
+func (r *PluginRegistry) CreateService(name string, config map[string]any, version ...string) (ServicePlugin, error) {
+	return createPlugin[ServicePlugin](r, PluginTypeService, name, config, version...)
+}
+
+func requestedVersion(version []string) string {
+	if len(version) == 0 {
+		return ""
+	}
+	return version[0]
+}
+
+func (r *PluginRegistry) validateVersion(kind PluginType, name, requested string) error {
+	if requested == "" {
+		return nil
+	}
+	r.mu.RLock()
+	contract, ok := r.contracts[string(kind)+":"+name]
+	r.mu.RUnlock()
+	if !ok || contract.Metadata.Version != requested {
+		available := "unregistered"
+		if ok {
+			available = contract.Metadata.Version
+		}
+		return fmt.Errorf("%s plugin %q requires version %q, registered version is %q", kind, name, requested, available)
+	}
+	return nil
 }
 
 // HasPlugin checks whether a plugin is registered.

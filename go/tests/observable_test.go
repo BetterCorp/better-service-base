@@ -1,10 +1,48 @@
 package tests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/bettercorp/service-base/go/bsb"
 )
+
+type recordingObservablePlugin struct {
+	parents []bsb.DTrace
+}
+
+func (*recordingObservablePlugin) Init(context.Context, bsb.Observable) error         { return nil }
+func (*recordingObservablePlugin) Run(context.Context, bsb.Observable) error          { return nil }
+func (*recordingObservablePlugin) Dispose() error                                     { return nil }
+func (*recordingObservablePlugin) OnDebug(bsb.DTrace, string, string, map[string]any) {}
+func (*recordingObservablePlugin) OnInfo(bsb.DTrace, string, string, map[string]any)  {}
+func (*recordingObservablePlugin) OnWarn(bsb.DTrace, string, string, map[string]any)  {}
+func (*recordingObservablePlugin) OnError(bsb.DTrace, string, string, map[string]any) {}
+func (p *recordingObservablePlugin) OnSpanStart(parent bsb.DTrace, _, _, _ string, _ map[string]any) {
+	p.parents = append(p.parents, parent)
+}
+func (*recordingObservablePlugin) OnSpanEnd(bsb.DTrace, string, string, map[string]any) {}
+func (*recordingObservablePlugin) OnSpanError(bsb.DTrace, string, string, error, map[string]any) {
+}
+
+func TestCreateTraceHasNoPhantomParent(t *testing.T) {
+	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test")
+	exporter := &recordingObservablePlugin{}
+	backend.AddPlugin(exporter)
+	resource := bsb.BuildResourceContext("test", "1.0.0", "test-app", bsb.ModeDevelopment, "")
+
+	root := backend.CreateTrace("root", "test", resource, nil)
+	child := root.StartSpan("child")
+	if len(exporter.parents) != 2 {
+		t.Fatalf("expected root and child starts, got %d", len(exporter.parents))
+	}
+	if exporter.parents[0].TraceID != root.TraceID() || exporter.parents[0].SpanID != "" {
+		t.Fatalf("root received phantom parent: %#v", exporter.parents[0])
+	}
+	if exporter.parents[1] != root.Trace() || child.TraceID() != root.TraceID() {
+		t.Fatal("child span did not preserve its real parent")
+	}
+}
 
 func TestObservableBasicFlow(t *testing.T) {
 	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test-plugin")

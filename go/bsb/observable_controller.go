@@ -42,7 +42,7 @@ func (oc *ObservableController) Init(ctx context.Context, obs Observable, config
 		if err != nil {
 			return fmt.Errorf("observable %q configuration: %w", pluginName, err)
 		}
-		plugin, err := oc.registry.CreateObservable(pluginName, pluginConfig)
+		plugin, err := oc.registry.CreateObservable(pluginName, pluginConfig, def.Version)
 		if err != nil {
 			return fmt.Errorf("failed to create observable plugin %q: %w", pluginName, err)
 		}

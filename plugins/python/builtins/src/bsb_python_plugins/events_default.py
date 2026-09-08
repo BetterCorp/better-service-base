@@ -42,8 +42,14 @@ class Plugin(BSBEvents):
 
     async def emit_broadcast(self, trace: Trace, plugin_name: str, event: str, payload: Any) -> None:
         listeners = list(self._broadcast_listeners.get(self._key(plugin_name, event), []))
+        errors = []
         for listener in listeners:
-            await listener(trace, payload)
+            try:
+                await listener(trace, payload)
+            except Exception as error:
+                errors.append(error)
+        if errors:
+            raise ExceptionGroup("Broadcast listeners failed", errors)
 
     async def on_event(self, trace: Trace, plugin_name: str, event: str, listener: Callable[..., Awaitable[None]]) -> None:
         self._event_listeners[self._key(plugin_name, event)].append(listener)

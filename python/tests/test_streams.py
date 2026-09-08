@@ -63,6 +63,53 @@ def test_async_read_source_does_not_need_close():
     asyncio.run(check())
 
 
+def test_local_broadcast_calls_every_listener_and_aggregates_failures():
+    async def check():
+        events, trace = local_events()
+        called = []
+
+        async def fail_one(_trace, _payload):
+            called.append("first")
+            raise ValueError("first failed")
+
+        async def succeed(_trace, _payload):
+            called.append("second")
+
+        async def fail_three(_trace, _payload):
+            called.append("third")
+            raise RuntimeError("third failed")
+
+        for listener in (fail_one, succeed, fail_three):
+            await events.on_broadcast(trace, "worker", "changed", listener)
+        with pytest.raises(ExceptionGroup) as caught:
+            await events.emit_broadcast(trace, "worker", "changed", {"value": 1})
+        assert called == ["first", "second", "third"]
+        assert [str(error) for error in caught.value.exceptions] == ["first failed", "third failed"]
+
+    asyncio.run(check())
+
+
+def test_local_broadcast_preserves_listener_cancellation():
+    async def check():
+        events, trace = local_events()
+        called = []
+
+        async def cancel(_trace, _payload):
+            called.append("cancel")
+            raise asyncio.CancelledError
+
+        async def later(_trace, _payload):
+            called.append("later")
+
+        await events.on_broadcast(trace, "worker", "changed", cancel)
+        await events.on_broadcast(trace, "worker", "changed", later)
+        with pytest.raises(asyncio.CancelledError):
+            await events.emit_broadcast(trace, "worker", "changed", None)
+        assert called == ["cancel"]
+
+    asyncio.run(check())
+
+
 def test_read_error_during_cancellation_does_not_replace_timeout():
     class Source:
         def __init__(self):

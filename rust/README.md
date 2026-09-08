@@ -60,3 +60,5 @@ Event backends evaluate filter in alias sort order; the first match handles an o
 ## Hosted clients
 
 `bsb client install https://service.example.com` discovers public contracts at `/.well-known/bsb` and generates a client in this language. Use `--plugin org/name` when multiple contracts are hosted; `--source-language` and `--version` select an implementation. Saved schemas support offline regeneration. See the [discovery format and hosting instructions](../docs/hosted-client-discovery.md). Calls still use the configured BSB events transport.
+
+Local broadcasts invoke every registered listener after handler errors and report the collected failures after delivery.

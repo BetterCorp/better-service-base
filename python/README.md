@@ -50,7 +50,7 @@ bsb plugin pack    # build a standard wheel with pip/setuptools
 bsb plugin install .bsb/packages/my_plugins-1.2.3-py3-none-any.whl
 ```
 
-BSB uses installed distribution entry points and pip's dependency resolver. Named installs verify `bsb.plugins` entry points after pip completes; a validation failure does not roll back pip's environment changes. Each virtual environment has one version of a distribution; conflicting versions require separate hosts/environments. An exact configured version must match the installed version. Build exports use the discovered module `__version__` for both manifest and contract, falling back to the project version when absent. Local `bsb-plugin.json` manifests and `BSB_PLUGIN_DIR` support development sources; paths cannot escape their manifest directory. Package names, logical plugin IDs and Python module names are separate identities.
+BSB uses installed distribution entry points and pip's dependency resolver. Named installs verify `bsb.plugins` entry points after pip completes; a validation failure does not roll back pip's environment changes. Each virtual environment has one version of a distribution; conflicting versions require separate hosts/environments. An exact configured version must match the installed version. Build exports and Registry publication use the discovered module `__version__` for the manifest, contract and published version, falling back to the project version when absent. Local `bsb-plugin.json` manifests and `BSB_PLUGIN_DIR` support development sources; paths cannot escape their manifest directory. Package names, logical plugin IDs and Python module names are separate identities.
 
 Exact Registry versions can include prerelease/build suffixes. For wheels, use [PEP 440-compatible versions](https://packaging.pypa.io/en/stable/version.html): `1.2.3-beta.1` in a profile matches pip's normalized `1.2.3b1`. BSB uses `packaging` for this comparison and installation; Registry identities retain their original version strings.
 
@@ -129,3 +129,5 @@ Tests cover actual generated client type checking, plugin lifecycles, Vault/regi
 ## Hosted clients
 
 `bsb client install https://service.example.com` discovers public contracts at `/.well-known/bsb` and generates a client in this language. Use `--plugin org/name` when multiple contracts are hosted; `--source-language` and `--version` select an implementation. Saved schemas support offline regeneration. See the [discovery format and hosting instructions](../docs/hosted-client-discovery.md). Calls still use the configured BSB events transport.
+
+Local broadcasts invoke every registered listener even if earlier listeners fail, then raise an `ExceptionGroup` containing the failures. Task cancellation interrupts delivery immediately.

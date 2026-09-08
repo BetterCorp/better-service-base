@@ -91,6 +91,71 @@ type failingEventsPlugin struct {
 
 func (p *failingEventsPlugin) Failure() <-chan error { return p.failed }
 func (p *failingEventsPlugin) Dispose() error        { p.disposed = true; return nil }
+
+func TestConfiguredPluginVersionsReachAllControllers(t *testing.T) {
+	tests := []struct {
+		name, version string
+		mismatch      bsb.PluginType
+	}{
+		{"service mismatch", "9.9.9", bsb.PluginTypeService},
+		{"events mismatch", "9.9.9", bsb.PluginTypeEvents},
+		{"observable mismatch", "9.9.9", bsb.PluginTypeObservable},
+		{"matching", "1.2.3", ""},
+		{"unpinned", "", ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := bsb.NewPluginRegistry()
+			calls := map[bsb.PluginType]int{}
+			version := func(kind bsb.PluginType) string {
+				if test.mismatch == "" || test.mismatch == kind {
+					return test.version
+				}
+				return "1.2.3"
+			}
+			registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {
+				return &testConfigPlugin{
+					services:   map[string]bsb.PluginDefinition{"service-versioned": {Enabled: true, Version: version(bsb.PluginTypeService)}},
+					events:     map[string]bsb.PluginDefinition{"events-versioned": {Enabled: true, Version: version(bsb.PluginTypeEvents)}},
+					observable: map[string]bsb.PluginDefinition{"observable-versioned": {Enabled: true, Version: version(bsb.PluginTypeObservable)}},
+				}, nil
+			})
+			registry.RegisterObservable("observable-versioned", func(map[string]any) (bsb.ObservablePlugin, error) {
+				calls[bsb.PluginTypeObservable]++
+				return &recordingObservablePlugin{}, nil
+			})
+			registry.RegisterEvents("events-versioned", func(map[string]any) (bsb.EventsPlugin, error) {
+				calls[bsb.PluginTypeEvents]++
+				return newTestEventsPlugin(), nil
+			})
+			registry.RegisterService("service-versioned", func(map[string]any) (bsb.ServicePlugin, error) {
+				calls[bsb.PluginTypeService]++
+				return &mockServicePlugin{name: "service-versioned"}, nil
+			})
+			for _, item := range []struct {
+				kind bsb.PluginType
+				name string
+			}{{bsb.PluginTypeObservable, "observable-versioned"}, {bsb.PluginTypeEvents, "events-versioned"}, {bsb.PluginTypeService, "service-versioned"}} {
+				registry.RegisterContract(bsb.PluginContract{Metadata: bsb.PluginMetadata{Name: item.name, Category: item.kind, Version: "1.2.3"}, Events: bsb.NewEventSchemas()})
+			}
+
+			host := bsb.NewServiceBase(bsb.BSBOptions{Cwd: t.TempDir()}, registry)
+			err := host.Init(context.Background())
+			if test.mismatch != "" {
+				if err == nil {
+					t.Fatal("configured version mismatch was accepted")
+				}
+				if calls[test.mismatch] != 0 {
+					t.Fatalf("%s factory ran before version validation", test.mismatch)
+				}
+			} else if err != nil {
+				t.Fatalf("valid configured versions were rejected: %v", err)
+			}
+			_ = host.Dispose()
+		})
+	}
+}
+
 func TestHostStopsWhenFilteredBackendFails(t *testing.T) {
 	registry := bsb.NewPluginRegistry()
 	registry.RegisterConfig("config-default", func(map[string]any) (bsb.ConfigPlugin, error) {

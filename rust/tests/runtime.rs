@@ -209,6 +209,57 @@ async fn validated_rpc_and_bounded_binary_stream() -> Result<()> {
         .await?;
     bus.shutdown().await
 }
+
+#[tokio::test]
+async fn broadcast_invokes_all_listeners_before_returning_failures() -> Result<()> {
+    let bus = LocalBus::default();
+    let called = Arc::new(AtomicUsize::new(0));
+    bus.listen(
+        "broadcast",
+        "worker",
+        "notice",
+        Arc::new(|_, _| Box::pin(async { anyhow::bail!("first failure") })),
+    )
+    .await?;
+    let later = called.clone();
+    bus.listen(
+        "broadcast",
+        "worker",
+        "notice",
+        Arc::new(move |_, _| {
+            let later = later.clone();
+            Box::pin(async move {
+                later.fetch_add(1, AtomicOrdering::SeqCst);
+                Ok(Value::Null)
+            })
+        }),
+    )
+    .await?;
+    bus.listen(
+        "broadcast",
+        "worker",
+        "notice",
+        Arc::new(|_, _| Box::pin(async { anyhow::bail!("last failure") })),
+    )
+    .await?;
+
+    let error = bus
+        .emit(
+            Observable::new("test", Arc::new(Backend::default())),
+            "broadcast",
+            "worker",
+            "notice",
+            json!({}),
+            Duration::from_secs(1),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(called.load(AtomicOrdering::SeqCst), 1);
+    let message = error.to_string();
+    assert!(message.contains("first failure"), "{message}");
+    assert!(message.contains("last failure"), "{message}");
+    bus.shutdown().await
+}
 struct Failing {
     disposed: Arc<AtomicUsize>,
 }

@@ -192,19 +192,20 @@ def publish_plugins(project_root: str | Path, *, target=None, token=None, plugin
 
     for plugin_meta in plugin_entries:
         plugin_id = plugin_meta["id"]
+        plugin_version = str(plugin_meta.get("version") or version)
         category = str(plugin_meta.get("category") or plugin_id.split("-", 1)[0]).lower()
         if category not in VALID_CATEGORIES:
             raise RuntimeError(f"Invalid category '{category}' for plugin '{plugin_id}'")
 
         schema_path = project_root / "lib" / "schemas" / f"{plugin_id}.json"
-        event_schema: dict[str, Any] = {"pluginName": plugin_id, "version": version, "events": {}}
+        event_schema: dict[str, Any] = {"pluginName": plugin_id, "version": plugin_version, "events": {}}
         config_schema: dict[str, Any] | None = None
         dependencies: list[dict[str, str]] | None = None
         if schema_path.exists():
             parsed = json.loads(schema_path.read_text(encoding="utf-8"))
             event_schema = {
                 "pluginName": parsed.get("pluginName", plugin_id),
-                "version": parsed.get("version", version),
+                "version": plugin_version,
                 "events": parsed.get("events", {}),
             }
             if parsed.get("capabilities"):
@@ -228,7 +229,7 @@ def publish_plugins(project_root: str | Path, *, target=None, token=None, plugin
         publish_request: dict[str, Any] = {
             "org": org,
             "name": plugin_id,
-            "version": version,
+            "version": plugin_version,
             "language": "python",
             "metadata": {
                 "displayName": plugin_meta.get("name", plugin_id),

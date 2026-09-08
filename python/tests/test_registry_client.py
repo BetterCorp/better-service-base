@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import bsb.registry_client as registry_client
 import pytest
 
@@ -78,3 +80,30 @@ def test_optional_read_sends_configured_registry_token(monkeypatch) -> None:
     registry_client.registry_request('GET', '/plugins')
 
     assert authorization == ['Bearer private-read-token']
+
+
+@pytest.mark.parametrize(("manifest_version", "expected"), [("2.4.6", "2.4.6"), (None, "1.2.3")])
+def test_publish_uses_discovered_plugin_version_consistently(tmp_path, monkeypatch, manifest_version, expected):
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "example-package"\nversion = "1.2.3"\n')
+    entry = {"id": "service-demo", "category": "service"}
+    if manifest_version is not None:
+        entry["version"] = manifest_version
+    (tmp_path / "bsb-plugin.json").write_text(json.dumps({"python": [entry]}))
+    schema_dir = tmp_path / "lib" / "schemas"
+    schema_dir.mkdir(parents=True)
+    (schema_dir / "service-demo.json").write_text(json.dumps({
+        "pluginName": "service-demo", "version": "9.9.9", "events": {}
+    }))
+    requests = []
+    monkeypatch.setattr(registry_client, "build_project", lambda _root: {})
+    monkeypatch.setattr(registry_client, "registry_request", lambda method, path, body, **kwargs: requests.append((method, path, body, kwargs)) or {})
+
+    registry_client.publish_plugins(tmp_path, org="acme", token="token")
+
+    assert len(requests) == 1
+    method, path, body, options = requests[0]
+    assert (method, path) == ("POST", "/plugins")
+    assert body["version"] == expected
+    assert body["eventSchema"]["version"] == expected
+    assert body["package"] == {"python": "example-package"}
+    assert options["require_auth"] is True and options["token"] == "token"

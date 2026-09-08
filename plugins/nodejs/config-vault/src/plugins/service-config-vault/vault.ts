@@ -1037,6 +1037,7 @@ export class VaultService {
     });
     if (!input.baseConfig) await this.syncProfilePluginPlaceholders(userId, binding.group.id, {
       ...input,
+      language: binding.profile.language ?? 'nodejs',
       plugin: catalog.pluginId,
       packageName: catalog.packageName,
       version: input.version ? catalog.version : undefined,
@@ -1047,6 +1048,7 @@ export class VaultService {
     userId: string,
     groupId: string,
     input: {
+      language: PluginLanguage;
       profileId: string;
       section: 'services' | 'events' | 'observable';
       name: string;
@@ -1057,11 +1059,12 @@ export class VaultService {
   ): Promise<void> {
     const profiles = await this.store.listProfiles(groupId);
     for (const profile of profiles) {
-      if (profile.id === input.profileId) continue;
+      if (profile.id === input.profileId || (profile.language ?? 'nodejs') !== input.language) continue;
       const draft = await this.getProfileDraft(profile.id) ?? { observable: {}, events: {}, services: {} };
       const section = draft[input.section] ?? {};
       if (section[input.name]) continue;
       section[input.name] = {
+        language: input.language,
         plugin: input.plugin,
         package: input.packageName ?? undefined,
         version: input.version ?? undefined,

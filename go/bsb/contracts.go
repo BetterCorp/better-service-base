@@ -88,8 +88,11 @@ func (r *PluginRegistry) EventSchemas(kind PluginType, name string) BSBEventSche
 	return r.contracts[string(kind)+":"+name].Events
 }
 
-func createPlugin[T Plugin](r *PluginRegistry, kind PluginType, name string, config map[string]any) (T, error) {
+func createPlugin[T Plugin](r *PluginRegistry, kind PluginType, name string, config map[string]any, version ...string) (T, error) {
 	var zero T
+	if err := r.validateVersion(kind, name, requestedVersion(version)); err != nil {
+		return zero, err
+	}
 	factory, err := r.getFactory(kind, name)
 	if err != nil {
 		return zero, err

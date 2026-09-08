@@ -50,7 +50,7 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 			return fmt.Errorf("events %q configuration: %w", pluginName, err)
 		}
 
-		plugin, err := ec.registry.CreateEvents(pluginName, pluginConfig)
+		plugin, err := ec.registry.CreateEvents(pluginName, pluginConfig, def.Version)
 		if err != nil {
 			return fmt.Errorf("failed to create events plugin %q: %w", pluginName, err)
 		}

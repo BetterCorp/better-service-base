@@ -162,6 +162,7 @@ module.exports = async ({ pluginRoot }) => {
   });
   const synced = decryptDraft('profile-2');
   assert.deepEqual(synced.prod.services.api, {
+    language: 'nodejs',
     plugin: 'service-api',
     package: '@bsb/service-api',
     version: '1.0.0',

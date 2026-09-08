@@ -221,7 +221,7 @@ func (b *ObservableBackend) ErrorSpan(trace DTrace, pluginName, spanID string, e
 
 // CreateTrace creates a new root trace and returns an Observable.
 func (b *ObservableBackend) CreateTrace(name string, pluginName string, resource ResourceContext, attributes map[string]any) Observable {
-	trace := NewDTrace()
+	trace := DTrace{TraceID: newTraceID()}
 	trace, spanID := b.StartSpan(trace, pluginName, name, attributes)
 	return &pluginObservable{
 		trace:      trace,

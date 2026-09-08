@@ -141,13 +141,23 @@ impl Bus for LocalBus {
                     .unwrap_or_default();
                 if !handlers.is_empty() {
                     let mut result = Value::Null;
+                    let mut failures = Vec::new();
                     for handler in handlers {
                         let mut span = obs.span(event);
                         let response = handler(span.observable.clone(), value.clone()).await;
                         if let Err(error) = &response {
                             span.error(error)
                         };
-                        result = response?;
+                        match response {
+                            Ok(value) => result = value,
+                            Err(error) if kind == "broadcast" => {
+                                failures.push(format!("{error:#}"))
+                            }
+                            Err(error) => return Err(error),
+                        }
+                    }
+                    if !failures.is_empty() {
+                        bail!("broadcast listener failures: {}", failures.join("; "))
                     }
                     return Ok(result);
                 }
