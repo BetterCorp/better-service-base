@@ -98,4 +98,6 @@ Portable client objects: omitted required means no required fields. Go allow/pas
 
 .NET declared Metadata.Name must match the requested plugin ID; only a single metadata-free implementation may use legacy fallback. TLS logging rejects clientKeyPath without clientCertificatePath before connecting. Go portable defaultTimeout distinguishes omission (five seconds) from explicit zero (invalid). Rust rotation removes partial gzip output after compression errors and preserves the uncompressed source.
 
+Node generated RPC defaults also enforce the 86400-second portable maximum. .NET import/export rejects empty and control-character event names. Go rotation cleans partial gzip output; Go GELF converts nonstring/nonnumeric additional values to JSON strings. Rust GELF preserves configured facility and rejects normalized _id; Axiom metrics use recorded timestampNs. See docs/dependency-review.md for the Tokio 1.53.1 Socket assessment and unresolved evidence; a verified checksum is not a source-safety guarantee.
+
 Node hosted contracts share Registry/Vault's schema-safety gate (10000 nodes, depth64, prototype keys rejected, pattern length1024 and safe-regex2 check). Vault editor catalogs must match the entry language for current/update schemas before masking configuration; unannotated legacy entries default to nodejs.

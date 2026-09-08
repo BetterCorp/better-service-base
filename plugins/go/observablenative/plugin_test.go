@@ -63,6 +63,22 @@ func TestFileLoggingRecoversAfterRotationFailure(t *testing.T) {
 	}
 }
 
+func TestCompressionFailureRemovesPartialArchive(t *testing.T) {
+	archive := filepath.Join(t.TempDir(), "source")
+	if err := os.Mkdir(archive, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := compressLogArchive(archive); err == nil {
+		t.Fatal("directory compression unexpectedly succeeded")
+	}
+	if info, err := os.Stat(archive); err != nil || !info.IsDir() {
+		t.Fatalf("source archive lost: %v", err)
+	}
+	if _, err := os.Stat(archive + ".gz"); !os.IsNotExist(err) {
+		t.Fatalf("partial compressed archive retained: %v", err)
+	}
+}
+
 func TestRelativePathsResolveFromApplicationCwd(t *testing.T) {
 	cwd := t.TempDir()
 	absolute := filepath.Join(t.TempDir(), "client.key")
@@ -292,7 +308,10 @@ func TestGelfSkipsInvalidAdditionalFieldNames(t *testing.T) {
 		w.Write([]byte("{}"))
 	}))
 	defer server.Close()
-	writer, err := newNetworkWriter(config{Host: "localhost", Port: 1, Protocol: "http", HTTPEndpoint: server.URL, AdditionalFields: map[string]any{"request.id": "kept", "request id": "dropped", "_id": "reserved"}}, "observable-graylog")
+	writer, err := newNetworkWriter(config{Host: "localhost", Port: 1, Protocol: "http", HTTPEndpoint: server.URL, AdditionalFields: map[string]any{
+		"request.id": "kept", "request id": "dropped", "_id": "reserved", "bool": true,
+		"object": map[string]any{"a": 1}, "array": []any{"x", 2}, "null": nil, "number": 7,
+	}}, "observable-graylog")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,6 +321,9 @@ func TestGelfSkipsInvalidAdditionalFieldNames(t *testing.T) {
 	message := <-received
 	if message["_request.id"] != "kept" || message["_request id"] != nil || message["_id"] != nil {
 		t.Fatalf("invalid GELF fields exported: %v", message)
+	}
+	if message["_bool"] != "true" || message["_object"] != `{"a":1}` || message["_array"] != `["x",2]` || message["_null"] != "null" || message["_number"] != float64(7) {
+		t.Fatalf("invalid GELF values exported: %v", message)
 	}
 }
 

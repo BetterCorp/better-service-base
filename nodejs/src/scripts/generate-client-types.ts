@@ -138,7 +138,7 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
     const category = FLIP_MAP[eventDef.category];
     if (!category) throw new Error(`Unknown event category: ${eventDef.category}`);
     if (!['fire-and-forget', 'returnable', 'broadcast'].includes(eventDef.type)) throw new Error(`Unknown event type: ${eventDef.type}`);
-    if (eventDef.defaultTimeout !== undefined && (!Number.isFinite(eventDef.defaultTimeout) || eventDef.defaultTimeout <= 0)) {
+    if (eventDef.defaultTimeout !== undefined && (!Number.isFinite(eventDef.defaultTimeout) || eventDef.defaultTimeout <= 0 || eventDef.defaultTimeout > 86400)) {
       throw new Error(`Invalid event timeout: ${eventName}`);
     }
     const name = eventNameToMethodName(eventName);

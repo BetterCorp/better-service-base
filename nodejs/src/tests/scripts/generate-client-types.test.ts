@@ -129,6 +129,25 @@ describe('generate-client-types', () => {
     assert.ok(code.includes('this._requireClientEvents("emitEventAndReturn", "fixture.headers")'));
   });
 
+  it('enforces the portable returnable-event timeout range', () => {
+    const schema = exportEventSchemas('service-timeouts', createEventSchemas({
+      onReturnableEvents: {
+        bounded: createReturnableEvent(bsb.string(), bsb.string(), undefined, 86400),
+        fractional: createReturnableEvent(bsb.string(), bsb.string(), undefined, 0.5),
+      },
+    }));
+
+    const code = generateVirtualClient(schema, '@bsb/base', 'service-timeouts');
+    assert.ok(code.includes('createReturnableEvent(_boundedSchema, _boundedOutputSchema, undefined, 86400)'));
+    assert.ok(code.includes('createReturnableEvent(_fractionalSchema, _fractionalOutputSchema, undefined, 0.5)'));
+
+    schema.events.bounded.defaultTimeout = 86400.1;
+    assert.throws(
+      () => generateVirtualClient(schema, '@bsb/base', 'service-timeouts'),
+      /Invalid event timeout: bounded/
+    );
+  });
+
   it('preserves the full imported schema while generating static types', () => {
     const document: any = {
       anyvaliVersion: '1.0', schemaVersion: '1.1', extensions: {},

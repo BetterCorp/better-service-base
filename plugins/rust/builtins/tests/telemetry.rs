@@ -161,7 +161,7 @@ async fn file_redaction_and_retention_isolation() -> Result<()> {
 #[tokio::test]
 async fn gelf_chunks_and_syslog_octet_framing() -> Result<()> {
     let udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await?;
-    let plugin=Native::new("observable-graylog",json!({"host":"127.0.0.1","port":udp.local_addr()?.port(),"compress":false,"redact":["meta.secret"]})).await?;
+    let plugin=Native::new("observable-graylog",json!({"host":"127.0.0.1","port":udp.local_addr()?.port(),"facility":"custom","compress":false,"redact":["meta.secret"]})).await?;
     let backend = Arc::new(Backend::default());
     backend.add(plugin.clone());
     Observable::new("test", backend).info(&"x".repeat(3000), json!({"secret":"hidden"}));
@@ -187,7 +187,18 @@ async fn gelf_chunks_and_syslog_octet_framing() -> Result<()> {
     }
     let message: bsb::Value = bsb::serde_json::from_slice(&assembled)?;
     assert_eq!(message["short_message"].as_str().unwrap().len(), 3000);
+    assert_eq!(message["_facility"], "custom");
     assert!(!message["_meta"].as_str().unwrap().contains("hidden"));
+    for key in ["id", "_id"] {
+        assert!(
+            Native::new(
+                "observable-graylog",
+                json!({"additionalFields":{(key):"reserved"}})
+            )
+            .await
+            .is_err()
+        );
+    }
     let http = TcpListener::bind("127.0.0.1:0").await?;
     let address = http.local_addr()?;
     let request = tokio::spawn(async move {

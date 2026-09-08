@@ -94,22 +94,8 @@ func (f *rotatingFile) rotate() (err error) {
 		return err
 	}
 	if f.options.Compress {
-		incoming, err := os.Open(archive)
-		if err != nil {
+		if err = compressLogArchive(archive); err != nil {
 			return err
-		}
-		out, err := os.OpenFile(archive+".gz", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-		if err != nil {
-			incoming.Close()
-			return err
-		}
-		compressed := gzip.NewWriter(out)
-		_, copyErr := io.Copy(compressed, incoming)
-		zipErr := compressed.Close()
-		closeErr := out.Close()
-		incoming.Close()
-		if copyErr != nil || zipErr != nil || closeErr != nil {
-			return fmt.Errorf("log compression failed")
 		}
 		if err = os.Remove(archive); err != nil {
 			return err
@@ -145,6 +131,32 @@ func (f *rotatingFile) rotate() (err error) {
 	}
 	return nil
 }
+
+func compressLogArchive(archive string) (err error) {
+	incoming, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer incoming.Close()
+	path := archive + ".gz"
+	out, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, os.Remove(path))
+		}
+	}()
+	compressed := gzip.NewWriter(out)
+	_, copyErr := io.Copy(compressed, incoming)
+	err = errors.Join(copyErr, compressed.Close(), out.Close())
+	if err != nil {
+		return fmt.Errorf("log compression failed: %w", err)
+	}
+	return nil
+}
+
 func (f *rotatingFile) close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

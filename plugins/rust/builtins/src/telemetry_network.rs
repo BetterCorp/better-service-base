@@ -30,9 +30,10 @@ impl Network {
             "additionalFields must be an object"
         );
         for (key, value) in options.additional_fields.as_object().unwrap() {
+            let normalized = gelf_key(key);
             ensure!(
                 !key.is_empty()
-                    && key != "_id"
+                    && normalized != "_id"
                     && key
                         .bytes()
                         .all(|c| c.is_ascii_alphanumeric() || b"_.-".contains(&c))
@@ -154,13 +155,9 @@ impl Network {
     pub async fn export(&mut self, entries: Vec<Value>) -> Result<()> {
         for entry in entries {
             if self.kind == "observable-graylog" {
-                let mut value = json!({"version":"1.1","host":self.options.hostname,"short_message":entry.get("message").cloned().unwrap_or(Value::Null),"timestamp":entry["timestamp"].as_str().and_then(|v|chrono::DateTime::parse_from_rfc3339(v).ok()).map(|v|v.timestamp_millis()as f64/1000.0).unwrap_or_default(),"level":syslog_level(entry["level"].as_str().unwrap_or("info")),"_plugin":entry["plugin"],"_trace_id":entry["traceId"],"_span_id":entry["spanId"],"_meta":entry["meta"].to_string()});
+                let mut value = json!({"version":"1.1","host":self.options.hostname,"short_message":entry.get("message").cloned().unwrap_or(Value::Null),"timestamp":entry["timestamp"].as_str().and_then(|v|chrono::DateTime::parse_from_rfc3339(v).ok()).map(|v|v.timestamp_millis()as f64/1000.0).unwrap_or_default(),"level":syslog_level(entry["level"].as_str().unwrap_or("info")),"_facility":self.options.facility,"_plugin":entry["plugin"],"_trace_id":entry["traceId"],"_span_id":entry["spanId"],"_meta":entry["meta"].to_string()});
                 for (key, field) in self.options.additional_fields.as_object().unwrap() {
-                    let key = if key.starts_with('_') {
-                        key.clone()
-                    } else {
-                        format!("_{key}")
-                    };
+                    let key = gelf_key(key);
                     if value.get(&key).is_none() {
                         value[&key] = field.clone();
                     }
@@ -198,6 +195,13 @@ impl Network {
             }
         }
         Ok(())
+    }
+}
+fn gelf_key(key: &str) -> String {
+    if key.starts_with('_') {
+        key.into()
+    } else {
+        format!("_{key}")
     }
 }
 fn syslog_text(priority: u64, entry: &Value, options: &Options) -> Result<String> {

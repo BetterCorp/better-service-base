@@ -24,3 +24,19 @@ pub async fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     }
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn atomic_write_replaces_existing_file_without_temporary_files() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let path = directory.path().join("state.json");
+        atomic_write(&path, b"old").await?;
+        atomic_write(&path, b"new").await?;
+        assert_eq!(tokio::fs::read(&path).await?, b"new");
+        assert_eq!(std::fs::read_dir(directory.path())?.count(), 1);
+        Ok(())
+    }
+}

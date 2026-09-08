@@ -183,6 +183,15 @@ func additionalGELFField(key string) (string, bool) {
 	return "_" + key, key != "id" && gelfFieldName.MatchString(key)
 }
 
+func additionalGELFValue(value any) (any, error) {
+	switch value.(type) {
+	case string, json.Number, float32, float64, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return value, nil
+	}
+	data, err := json.Marshal(value)
+	return string(data), err
+}
+
 func (w *networkWriter) export(ctx context.Context, batch []map[string]any) error {
 	for _, entry := range batch {
 		level, _ := entry["level"].(string)
@@ -195,7 +204,10 @@ func (w *networkWriter) export(ctx context.Context, batch []map[string]any) erro
 			message := map[string]any{"version": "1.1", "host": w.config.Hostname, "short_message": entry["message"], "full_message": string(data), "timestamp": float64(timestamp.UnixNano()) / 1e9, "level": severity(level), "_facility": w.config.Facility, "_plugin": entry["plugin"], "_trace_id": entry["traceId"], "_span_id": entry["spanId"]}
 			for key, value := range w.config.AdditionalFields {
 				if key, valid := additionalGELFField(key); valid && message[key] == nil {
-					message[key] = value
+					message[key], err = additionalGELFValue(value)
+					if err != nil {
+						return err
+					}
 				}
 			}
 			if w.config.Protocol == "http" {

@@ -38,6 +38,8 @@ public class BSBEventSchemas
         var result = new EventSchemaExport { PluginName = pluginName, PluginId = pluginName, Version = version };
         void Add(string name, string category, string type, BSBType input, BSBType? output, string? description, double? timeout)
         {
+            if (name.Length == 0 || name.Any(char.IsControl))
+                throw new InvalidOperationException("Invalid event name");
             if (timeout is not null && (!double.IsFinite(timeout.Value) || timeout is <= 0 or > 86400))
                 throw new InvalidOperationException($"Invalid timeout: {name}");
             if (!result.Events.TryAdd(name, new ExportedEvent { Category = category, Type = type,
@@ -58,6 +60,8 @@ public class BSBEventSchemas
         var result = new BSBEventSchemas();
         foreach (var (name, e) in export.Events)
         {
+            if (name.Length == 0 || name.Any(char.IsControl))
+                throw new JsonException("Invalid event name");
             var input = BSBType.Import(e.InputSchema ?? throw new JsonException($"Missing input schema: {name}"));
             var category = client ? e.Category switch {
                 "onEvents" => "emitEvents", "emitEvents" => "onEvents",

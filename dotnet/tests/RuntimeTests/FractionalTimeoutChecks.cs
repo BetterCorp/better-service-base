@@ -27,6 +27,19 @@ static class FractionalTimeoutChecks
         if (!code.Contains("double timeoutSeconds = 0.5", StringComparison.Ordinal))
             throw new Exception("Generated fractional timeout was lost");
 
+        foreach (var invalidName in new[] { "", "bad\0name", "bad\nname" })
+        {
+            var invalidExport = new EventSchemaExport { PluginName = "service-invalid", Version = "1.0.0", Events = new() {
+                [invalidName] = new ExportedEvent { Category = "onEvents", Type = "fire-and-forget", InputSchema = exported.Events["half"].InputSchema }
+            } };
+            try { BSBEventSchemas.Import(invalidExport); throw new Exception("Invalid imported event name accepted"); }
+            catch (System.Text.Json.JsonException) { }
+
+            var invalidSchema = new BSBEventSchemas { OnEvents = new() { [invalidName] = new(V.String()) } };
+            try { invalidSchema.Export("service-invalid", "1.0.0"); throw new Exception("Invalid exported event name accepted"); }
+            catch (InvalidOperationException) { }
+        }
+
         var obs = new ObservableBackend("test", "timeout", new(), new());
         await using var events = new Plugin(new PluginConstructorArgs { AppId = "test", Cwd = ".", Mode = DebugMode.Development, PluginName = "events" });
         await events.OnReturnableEvent("worker", "slow", obs, async (_, _) => { await Task.Delay(1000); return null; });

@@ -552,6 +552,16 @@ fn attributes(value: &Value) -> Vec<Value> {
         })
         .unwrap_or_default()
 }
+fn axiom_time(entry: &Value) -> Value {
+    entry.get("timestamp").cloned().unwrap_or_else(|| {
+        entry["timestampNs"]
+            .as_str()
+            .and_then(|value| value.parse::<i64>().ok())
+            .map(chrono::DateTime::from_timestamp_nanos)
+            .map(|value| json!(value.to_rfc3339()))
+            .unwrap_or_else(|| json!(chrono::Utc::now().to_rfc3339()))
+    })
+}
 fn otlp(signal: &str, options: &Options, entries: Vec<Value>) -> Value {
     let mut resource = json!(options.resource_attributes);
     resource["service.name"] = json!(options.service_name);
@@ -649,10 +659,7 @@ async fn export(kind: &str, options: &Options, batch: Vec<Value>) -> Result<()> 
             .filter(|v| v["signal"] != "traces")
             .map(|v| {
                 let mut entry = v.clone();
-                entry["_time"] = entry
-                    .get("timestamp")
-                    .cloned()
-                    .unwrap_or_else(|| json!(chrono::Utc::now().to_rfc3339()));
+                entry["_time"] = axiom_time(v);
                 entry["service"] = json!(options.service_name);
                 entry
             })
@@ -720,6 +727,14 @@ mod tests {
         assert_eq!(
             options.client_key_path,
             cwd.path().join("tls/client.key").to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn axiom_metrics_use_the_recorded_timestamp() {
+        assert_eq!(
+            axiom_time(&json!({"timestampNs":"1767323045000000000"})),
+            "2026-01-02T03:04:05+00:00"
         );
     }
 }
