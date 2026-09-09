@@ -13,6 +13,19 @@ static void Check(bool condition, string message)
     if (!condition) throw new Exception(message);
 }
 
+Check(ServiceBaseOptions.ParseMode(null) == DebugMode.Development &&
+    ServiceBaseOptions.ParseMode("development") == DebugMode.Development &&
+    ServiceBaseOptions.ParseMode("production-debug") == DebugMode.ProductionDebug &&
+    ServiceBaseOptions.ParseMode("production") == DebugMode.Production, "BSB_MODE mapping is invalid");
+try { ServiceBaseOptions.ParseMode("staging"); throw new Exception("Unknown BSB_MODE accepted"); }
+catch (ArgumentException) { }
+
+var semvers = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "fixtures", "semver-versions.json")))!;
+foreach (var version in semvers["valid"]!.AsArray().Select(value => value!.GetValue<string>()))
+    Check(RegistryClient.IsExactVersion(version), $"Valid semantic version rejected: {version}");
+foreach (var version in semvers["invalid"]!.AsArray().Select(value => value!.GetValue<string>()))
+    Check(!RegistryClient.IsExactVersion(version), $"Invalid semantic version accepted: {version}");
+
 await FractionalTimeoutChecks.Run();
 await IntegerClientChecks.Run();
 

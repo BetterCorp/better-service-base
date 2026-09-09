@@ -16,7 +16,7 @@ import (
 )
 
 var pluginIDPattern = regexp.MustCompile(`^@?[A-Za-z0-9_][A-Za-z0-9._-]*(/@?[A-Za-z0-9_][A-Za-z0-9._-]*)?$`)
-var versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?(\+[A-Za-z0-9.-]+)?$`)
+var versionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
 
 func ParsePluginID(id string) (string, string, error) {
 	if len(id) > 200 || !pluginIDPattern.MatchString(id) {

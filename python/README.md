@@ -14,6 +14,8 @@ bsb run
 
 Use `bsb-config.json`, `sec-config.yaml`, or `sec-config.json` in the application directory, or set `BSB_CONFIG_FILE`. Select a profile with `BSB_PROFILE` (default `default`). JSON/YAML may contain root sections and `profiles`, or `default` and named profile sections. Named profiles deeply merge the defaults.
 
+`bsb run` generates an instance ID when `BSB_APP_ID` is absent or empty. Set a nonempty `BSB_APP_ID` to provide an explicit ID.
+
 ```json
 {
   "language": "python",
@@ -52,7 +54,7 @@ bsb plugin install .bsb/packages/my_plugins-1.2.3-py3-none-any.whl
 
 BSB uses installed distribution entry points and pip's dependency resolver. Named installs verify `bsb.plugins` entry points after pip completes; a validation failure does not roll back pip's environment changes. Each virtual environment has one version of a distribution; conflicting versions require separate hosts/environments. An exact configured version must match the installed version. Build exports and Registry publication use the discovered module `__version__` for the manifest, contract and published version, falling back to the project version when absent. Local `bsb-plugin.json` manifests and `BSB_PLUGIN_DIR` support development sources; paths cannot escape their manifest directory. Package names, logical plugin IDs and Python module names are separate identities.
 
-Exact Registry versions can include prerelease/build suffixes. For wheels, use [PEP 440-compatible versions](https://packaging.pypa.io/en/stable/version.html): `1.2.3-beta.1` in a profile matches pip's normalized `1.2.3b1`. BSB uses `packaging` for this comparison and installation; Registry identities retain their original version strings.
+Exact Registry, hosted-client and plugin version selectors require SemVer, including valid prerelease/build suffixes: leading zeroes in core numbers or numeric prerelease identifiers and empty identifiers are rejected. Build metadata such as `+001` is valid. For wheels, use [PEP 440-compatible versions](https://packaging.pypa.io/en/stable/version.html): `1.2.3-beta.1` in a profile matches pip's normalized `1.2.3b1`. BSB uses `packaging` for this comparison and installation; Registry identities retain their original version strings.
 
 See [the native examples](../plugins/python/examples/README.md) for seven runnable plugins and a wheel installation example.
 

@@ -86,6 +86,23 @@ pub(crate) fn exact_version(value: &str) -> bool {
         && pre.is_none_or(|value| identifiers(value, true))
         && build.is_none_or(|value| identifiers(value, false))
 }
+
+#[cfg(test)]
+mod version_tests {
+    #[test]
+    fn shared_semver_cases() {
+        let cases: serde_json::Value =
+            serde_json::from_str(include_str!("../../../tests/fixtures/semver-versions.json"))
+                .unwrap();
+        for (group, expected) in [("valid", true), ("invalid", false)] {
+            for version in cases[group].as_array().unwrap() {
+                let version = version.as_str().unwrap();
+                assert_eq!(super::exact_version(version), expected, "{version:?}");
+            }
+        }
+    }
+}
+
 pub struct RegistryClient {
     origin: Url,
     token: String,

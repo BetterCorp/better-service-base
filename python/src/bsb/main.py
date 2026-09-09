@@ -10,7 +10,7 @@ from .service_base import ServiceBase
 
 
 async def _main() -> int:
-    app = ServiceBase(BSBOptions(cwd=os.getcwd(), mode=os.environ.get("BSB_MODE", "development"), app_id=os.environ.get("BSB_APP_ID", "bsb-python")))
+    app = ServiceBase(BSBOptions(cwd=os.getcwd(), mode=os.environ.get("BSB_MODE", "development"), app_id=os.environ.get("BSB_APP_ID", "")))
     loop = asyncio.get_running_loop()
     signals = {}
     for signum in (signal.SIGINT, signal.SIGTERM):

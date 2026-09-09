@@ -304,7 +304,7 @@ func (p *Plugin) EmitEventAndReturn(ctx context.Context, obs bsb.Observable, plu
 }
 
 // ReceiveStream registers a stream listener and returns a stream ID.
-func (p *Plugin) ReceiveStream(_ context.Context, obs bsb.Observable, pluginName, event string, listener bsb.StreamListener, timeout time.Duration) (string, error) {
+func (p *Plugin) ReceiveStream(ctx context.Context, obs bsb.Observable, pluginName, event string, listener bsb.StreamListener, timeout time.Duration) (string, error) {
 	key := eventKey(pluginName, event)
 	streamID := bsb.NewDTrace().SpanID // use a span ID as stream identifier
 
@@ -330,9 +330,16 @@ func (p *Plugin) ReceiveStream(_ context.Context, obs bsb.Observable, pluginName
 	p.streamListeners[streamKey] = wrapped
 	p.streamTimeouts[streamKey] = time.AfterFunc(timeout, func() {
 		p.mu.Lock()
-		defer p.mu.Unlock()
+		listener, ok := p.streamListeners[streamKey]
 		delete(p.streamListeners, streamKey)
 		delete(p.streamTimeouts, streamKey)
+		p.mu.Unlock()
+		if ok {
+			reader, writer := io.Pipe()
+			_ = writer.CloseWithError(fmt.Errorf("stream registration %q expired", streamKey))
+			defer reader.Close()
+			_ = listener(ctx, obs, reader)
+		}
 	})
 
 	return streamID, nil

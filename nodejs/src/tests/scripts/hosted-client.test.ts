@@ -13,6 +13,7 @@ describe('Hosted client discovery', () => {
   it('installs through the public CLI, refreshes offline snapshots and keeps credentials local', async function () {
     this.timeout(30000);
     const fixture = JSON.parse(await readFile('../tests/fixtures/hosted-discovery.json', 'utf8'));
+    const versions = JSON.parse(await readFile('../tests/fixtures/semver-versions.json', 'utf8'));
     let discovery = structuredClone(fixture);
     let redirect = false;
     let oversized = false;
@@ -60,7 +61,7 @@ describe('Hosted client discovery', () => {
       discovery.plugins[0].schema.version = '9.0.0';
       await assert.rejects(hostedSchema(endpoint, { allowInsecure: true }), /version does not match/);
       discovery = structuredClone(fixture);
-      for (const version of ['../invalid', '01.2.3', '1.02.3', '1.2.03', '1.2.3-alpha..1', '1.2.3-01', '1.2.3-alpha.01', '1.2.3-', '1.2.3+build..1', '1.2.3+', 'v1.2.3', '1.2.3\n', '1.2.3\r', '1.2.3\u2028', '1.2.3\u2029']) {
+      for (const version of versions.invalid) {
         discovery.plugins[0].version = version;
         await assert.rejects(hostedSchema(endpoint, { allowInsecure: true }), /metadata/, version);
         await assert.rejects(hostedSchema(endpoint, { allowInsecure: true, version }), /exact semantic version/, version);
@@ -68,7 +69,7 @@ describe('Hosted client discovery', () => {
       discovery.plugins[0].version = '01.2.3';
       await assert.rejects(run(process.execPath, [cli, 'client', 'install', endpoint, '--allow-insecure'], { cwd, env }), (error: any) => /metadata/.test(error.stdout));
       assert.equal(await readFile(snapshot, 'utf8'), before);
-      for (const version of ['0.0.0', '1.2.3', '1.2.3-alpha.0', '1.2.3-01a.--+001.build-1']) {
+      for (const version of versions.valid) {
         discovery.plugins[0].version = discovery.plugins[0].schema.version = version;
         const result = await hostedSchema(endpoint, { allowInsecure: true, version });
         assert.equal(result.schema.version, version);

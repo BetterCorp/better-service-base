@@ -19,10 +19,11 @@ type sortedService struct {
 
 // ServicesController manages service plugin instances with dependency ordering.
 type ServicesController struct {
-	backend  *ObservableBackend
-	registry *PluginRegistry
-	opts     BSBOptions
-	services []*sortedService
+	backend      *ObservableBackend
+	registry     *PluginRegistry
+	opts         BSBOptions
+	services     []*sortedService
+	serviceNames map[string]bool // configured aliases are true; logical names are false
 }
 
 // Init loads and initializes service plugins from config.
@@ -32,6 +33,17 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 	pluginDefs, err := config.GetServicePlugins(ctx, obs)
 	if err != nil {
 		return fmt.Errorf("load services configuration: %w", err)
+	}
+	sc.serviceNames = make(map[string]bool, len(pluginDefs)*2)
+	for name, def := range pluginDefs {
+		sc.serviceNames[name] = true
+		pluginName := def.Plugin
+		if pluginName == "" {
+			pluginName = name
+		}
+		if _, isAlias := sc.serviceNames[pluginName]; !isAlias {
+			sc.serviceNames[pluginName] = false
+		}
 	}
 	hasEnabledService := false
 	for _, def := range pluginDefs {
@@ -93,7 +105,7 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 	}
 
 	// Sort by init dependencies
-	sorted, err := topologicalSort(sc.services, true)
+	sorted, err := topologicalSort(sc.services, sc.serviceNames, true)
 	if err != nil {
 		return fmt.Errorf("failed to sort service init order: %w", err)
 	}
@@ -125,7 +137,7 @@ func (sc *ServicesController) Init(ctx context.Context, obs Observable, config *
 // Run starts all service plugins in dependency order.
 func (sc *ServicesController) Run(ctx context.Context, obs Observable) error {
 	// Re-sort by run dependencies
-	sorted, err := topologicalSort(sc.services, false)
+	sorted, err := topologicalSort(sc.services, sc.serviceNames, false)
 	if err != nil {
 		return fmt.Errorf("failed to sort service run order: %w", err)
 	}
@@ -168,7 +180,7 @@ func (sc *ServicesController) Dispose() error {
 
 // topologicalSort orders services based on their before/after dependency declarations.
 // If forInit is true, uses initBefore/initAfter; otherwise uses runBefore/runAfter.
-func topologicalSort(services []*sortedService, forInit bool) ([]*sortedService, error) {
+func topologicalSort(services []*sortedService, knownNames map[string]bool, forInit bool) ([]*sortedService, error) {
 	if len(services) == 0 {
 		return services, nil
 	}
@@ -181,6 +193,9 @@ func topologicalSort(services []*sortedService, forInit bool) ([]*sortedService,
 	resolve := func(name string) []int {
 		if index, ok := nameIndex[name]; ok {
 			return []int{index}
+		}
+		if knownNames[name] {
+			return nil
 		}
 		var found []int
 		for index, service := range services {
@@ -216,14 +231,26 @@ func topologicalSort(services []*sortedService, forInit bool) ([]*sortedService,
 
 		// "before" means this plugin must init BEFORE those plugins
 		for _, dep := range before {
-			for _, j := range resolve(dep) {
+			resolved := resolve(dep)
+			if len(resolved) == 0 {
+				if _, ok := knownNames[dep]; !ok {
+					return nil, fmt.Errorf("service %q has unknown dependency %q", svc.name, dep)
+				}
+			}
+			for _, j := range resolved {
 				addEdge(i, j)
 			}
 		}
 
 		// "after" means this plugin must init AFTER those plugins
 		for _, dep := range after {
-			for _, j := range resolve(dep) {
+			resolved := resolve(dep)
+			if len(resolved) == 0 {
+				if _, ok := knownNames[dep]; !ok {
+					return nil, fmt.Errorf("service %q has unknown dependency %q", svc.name, dep)
+				}
+			}
+			for _, j := range resolved {
 				addEdge(j, i)
 			}
 		}

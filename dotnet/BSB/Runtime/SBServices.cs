@@ -43,19 +43,15 @@ internal class SBServices : IAsyncDisposable
         foreach (var entry in ordered)
         {
             var obs = observable.CreateObservable(entry.Name, "init");
-
-            WireEvents(entry.Instance, eventsBackend);
-            WireObservable(entry.Instance, observable);
-
-            var initMethod = entry.Instance.GetType().GetMethod("Init", new[] { typeof(IObservable) });
-            if (initMethod is not null)
+            try
             {
-                var result = initMethod.Invoke(entry.Instance, new object[] { obs });
-                if (result is Task task)
-                    await task;
+                WireEvents(entry.Instance, eventsBackend);
+                WireObservable(entry.Instance, observable);
+                var initMethod = entry.Instance.GetType().GetMethod("Init", new[] { typeof(IObservable) });
+                if (initMethod?.Invoke(entry.Instance, new object[] { obs }) is Task task) await task;
             }
-
-            obs.End();
+            catch (Exception error) { obs.Error(error is TargetInvocationException { InnerException: { } inner } ? inner : error); throw; }
+            finally { obs.End(); }
         }
     }
 
@@ -74,16 +70,13 @@ internal class SBServices : IAsyncDisposable
         foreach (var entry in ordered)
         {
             var obs = observable.CreateObservable(entry.Name, "run");
-
-            var runMethod = entry.Instance.GetType().GetMethod("Run", new[] { typeof(IObservable) });
-            if (runMethod is not null)
+            try
             {
-                var result = runMethod.Invoke(entry.Instance, new object[] { obs });
-                if (result is Task task)
-                    await task;
+                var runMethod = entry.Instance.GetType().GetMethod("Run", new[] { typeof(IObservable) });
+                if (runMethod?.Invoke(entry.Instance, new object[] { obs }) is Task task) await task;
             }
-
-            obs.End();
+            catch (Exception error) { obs.Error(error is TargetInvocationException { InnerException: { } inner } ? inner : error); throw; }
+            finally { obs.End(); }
         }
     }
 

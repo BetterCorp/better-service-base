@@ -17,4 +17,5 @@
   <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-zipkin/observable-zipkin.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-graylog/observable-graylog.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-syslog/observable-syslog.csproj" /></ItemGroup>
+  <ItemGroup><Content Include="../../../tests/fixtures/semver-versions.json" Link="fixtures/semver-versions.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
 </Project>

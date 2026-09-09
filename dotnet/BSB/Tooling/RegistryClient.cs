@@ -31,7 +31,8 @@ public sealed class RegistryClient : IDisposable
         "dotnet" => "csharp", "nodejs" or "csharp" or "python" or "go" or "java" or "rust" => language,
         _ => throw new ArgumentException($"Unsupported language: {language}"),
     };
-    public static bool IsExactVersion(string version) => Regex.IsMatch(version, "\\A[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?(?:\\+[A-Za-z0-9.-]+)?\\z");
+    public static bool IsExactVersion(string version) => Regex.IsMatch(version,
+        "\\A(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?\\z");
     public async Task<JsonNode> Request(HttpMethod method, string path, JsonNode? body = null)
     {
         if (string.IsNullOrEmpty(path) || path[0] != '/' || path.StartsWith("//", StringComparison.Ordinal) || path.Contains('\\') || path.Any(char.IsControl))

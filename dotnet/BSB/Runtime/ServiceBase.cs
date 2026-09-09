@@ -227,6 +227,14 @@ public class ServiceBase : IAsyncDisposable
 /// </summary>
 public class ServiceBaseOptions
 {
+    public static DebugMode ParseMode(string? mode) => mode switch
+    {
+        null or "development" => DebugMode.Development,
+        "production-debug" => DebugMode.ProductionDebug,
+        "production" => DebugMode.Production,
+        _ => throw new ArgumentException($"Invalid BSB_MODE: {mode}"),
+    };
+
     public PluginDefinition? ConfigPlugin { get; init; }
     public object? Config { get; init; }
     public required string Cwd { get; init; }

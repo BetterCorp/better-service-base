@@ -15,8 +15,7 @@ if (args.Length > 0 && args[0] != "start")
 await using var service = ServiceBase.Create(new ServiceBaseOptions
 {
     Cwd = Directory.GetCurrentDirectory(),
-    Mode = Environment.GetEnvironmentVariable("BSB_MODE") == "production"
-        ? BSB.Interfaces.DebugMode.Production : BSB.Interfaces.DebugMode.Development,
+    Mode = ServiceBaseOptions.ParseMode(Environment.GetEnvironmentVariable("BSB_MODE")),
     AppId = Environment.GetEnvironmentVariable("BSB_APP_ID"),
     Region = Environment.GetEnvironmentVariable("BSB_REGION"),
 });

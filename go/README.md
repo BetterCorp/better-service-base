@@ -12,6 +12,8 @@ Vault uses `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs` (5000), `staleAllowe
 
 `bsb.WithObservable(ctx, obs)` preserves the caller trace through nested client calls. Service `Init` and `Run` each export a parentless root span; spans created by the service are their children. Generated optional fields use `bsb.Optional[T]` and `json:",omitzero"` to distinguish omitted values from explicit nulls.
 
+Lifecycle before/after dependencies must name a configured service alias or logical plugin name. Unknown targets fail startup; configured disabled targets add no ordering constraint, and explicit aliases take precedence over logical names. Unclaimed `events-default` stream registrations notify their listener with a reader that returns an expiry error.
+
 The repository-level `go.mod` includes the framework under `go/` and native plugins under `plugins/go/`, preserving the framework's `/go/bsb` import path. From the repository root run `go generate ./plugins/go/examples` then `go test ./go/... ./plugins/go/...`. Real multi-language Rabbit tests run in the repository integration CI with a RabbitMQ service.
 
 ## Package builds and generated clients
@@ -33,6 +35,8 @@ bsb client publish --target https://vault.example --token TOKEN
 ```
 
 Set `BSB_REGISTRY_URL` and `BSB_REGISTRY_TOKEN` for the shared Registry. A source language is required when multiple implementations exist. Installation writes the exact schema and source identity into `.bsb/schemas`, then generates `bsbclients/*.go`; sync works offline. Publish builds the linked host, exports without constructing plugins and publishes each manifest entry. Registry publishing includes documentation from the contract's `Documentation` paths (or `README.md`); `--target` publishes to a private Vault.
+
+Registry and hosted-client versions require strict SemVer: no leading zeroes in core numbers or numeric prerelease identifiers and no empty suffix identifiers. Build metadata such as `+001` is valid.
 
 Generated clients contain typed objects, integer widths, arrays, maps, string enums, recursive references, nullable pointers and optional fields. Objects with `unknownKeys: "allow"` or `"passthrough"` use `map[string]any` to preserve additional fields; the full schema still validates their declared properties. Union/intersection/tuple and heterogeneous literal shapes use `json.RawMessage` with the full AnyVali contract still checked at runtime. Constructors resolve unique deployment aliases; pass an explicit alias when multiple profiles reference one plugin. `Specific(id)` targets one instance. `Events()` exposes the scoped stream API. Generic JSON conversion preserves large integers.
 
