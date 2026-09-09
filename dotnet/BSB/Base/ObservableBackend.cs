@@ -1,6 +1,7 @@
 namespace BSB.Base;
 
 using BSB.Interfaces;
+using System.Diagnostics;
 
 /// <summary>
 /// Internal observable implementation. Routes logging, metrics, and tracing
@@ -15,7 +16,11 @@ internal class ObservableBackend : IObservable
     private readonly string _spanName;
     private readonly Dictionary<string, object?> _attributes;
     private readonly ResourceContext _resource;
-    private bool _ended;
+    private int _ended;
+    private readonly string? _parentSpanId;
+    private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
+    private readonly long _started = Stopwatch.GetTimestamp();
+    private string? _error;
 
     /// <summary>
     /// The distributed trace context for this span.
@@ -67,13 +72,15 @@ internal class ObservableBackend : IObservable
         ResourceContext resource,
         List<IObservablePlugin> observers,
         DTrace? trace = null,
-        Dictionary<string, object?>? attributes = null)
+        Dictionary<string, object?>? attributes = null,
+        string? parentSpanId = null)
     {
         _pluginName = pluginName;
         _spanName = spanName;
         _resource = resource;
         _observers = observers;
-        _attributes = attributes ?? new();
+        _attributes = attributes is null ? new() : new(attributes);
+        _parentSpanId = parentSpanId;
         Trace = trace ?? DTrace.Generate();
 
         Log = new ObservableLog(this);
@@ -86,16 +93,17 @@ internal class ObservableBackend : IObservable
     /// <param name="name">Name for the child span.</param>
     /// <param name="attributes">Optional attributes for the child span.</param>
     /// <returns>A new observable representing the child span.</returns>
-    public IObservable StartSpan(string name, Dictionary<string, object?>? attributes = null)
+    public IObservable StartSpan(string name, Dictionary<string, object?>? attributes = null, DTrace? parent = null)
     {
-        var childTrace = Trace.NewSpan();
+        var parentTrace = parent ?? Trace;
+        var childTrace = parentTrace.NewSpan();
         var merged = new Dictionary<string, object?>(_attributes);
         if (attributes is not null)
         {
             foreach (var (k, v) in attributes)
                 merged[k] = v;
         }
-        return new ObservableBackend(_pluginName, name, _resource, _observers, childTrace, merged);
+        return new ObservableBackend(_pluginName, name, _resource, _observers, childTrace, merged, parentTrace.SpanId);
     }
 
     /// <summary>
@@ -129,6 +137,7 @@ internal class ObservableBackend : IObservable
     /// <param name="attributes">Optional additional attributes.</param>
     public void Error(Exception error, Dictionary<string, object?>? attributes = null)
     {
+        _error = error.Message;
         if (attributes is not null)
             SetAttributes(attributes);
         foreach (var observer in _observers)
@@ -141,10 +150,12 @@ internal class ObservableBackend : IObservable
     /// <param name="attributes">Optional final attributes to set before ending.</param>
     public void End(Dictionary<string, object?>? attributes = null)
     {
-        if (_ended) return;
-        _ended = true;
+        if (Interlocked.Exchange(ref _ended, 1) != 0) return;
         if (attributes is not null)
             SetAttributes(attributes);
+        var span = new CompletedSpan(Trace, _parentSpanId, _pluginName, _spanName, _resource,
+            _startedAt, Stopwatch.GetElapsedTime(_started), new Dictionary<string, object?>(_attributes), _error);
+        foreach (var observer in _observers) observer.SpanEnded(span);
     }
 
     // -----------------------------------------------------------------------
@@ -214,7 +225,7 @@ internal class ObservableBackend : IObservable
         {
             foreach (var obs in _backend._observers)
                 obs.CreateCounter(_backend._pluginName, name, description, unit);
-            return new BackendCounter(name, _backend._observers);
+            return new BackendCounter(_backend._pluginName, name, _backend._observers);
         }
 
         /// <inheritdoc />
@@ -222,7 +233,7 @@ internal class ObservableBackend : IObservable
         {
             foreach (var obs in _backend._observers)
                 obs.CreateGauge(_backend._pluginName, name, description, unit);
-            return new BackendGauge(name, _backend._observers);
+            return new BackendGauge(_backend._pluginName, name, _backend._observers);
         }
 
         /// <inheritdoc />
@@ -230,7 +241,7 @@ internal class ObservableBackend : IObservable
         {
             foreach (var obs in _backend._observers)
                 obs.CreateHistogram(_backend._pluginName, name, description, unit);
-            return new BackendHistogram(name, _backend._observers);
+            return new BackendHistogram(_backend._pluginName, name, _backend._observers);
         }
 
         /// <inheritdoc />
@@ -247,11 +258,13 @@ internal class ObservableBackend : IObservable
     private sealed class BackendCounter : ICounter
     {
         private readonly string _name;
+        private readonly string _pluginName;
         private readonly List<IObservablePlugin> _observers;
 
-        internal BackendCounter(string name, List<IObservablePlugin> observers)
+        internal BackendCounter(string pluginName, string name, List<IObservablePlugin> observers)
         {
             _name = name;
+            _pluginName = pluginName;
             _observers = observers;
         }
 
@@ -259,7 +272,7 @@ internal class ObservableBackend : IObservable
         public void Increment(double value = 1, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.IncrementCounter(_name, value, labels);
+                obs.IncrementCounter(_pluginName, _name, value, labels);
         }
     }
 
@@ -269,11 +282,13 @@ internal class ObservableBackend : IObservable
     private sealed class BackendGauge : IGauge
     {
         private readonly string _name;
+        private readonly string _pluginName;
         private readonly List<IObservablePlugin> _observers;
 
-        internal BackendGauge(string name, List<IObservablePlugin> observers)
+        internal BackendGauge(string pluginName, string name, List<IObservablePlugin> observers)
         {
             _name = name;
+            _pluginName = pluginName;
             _observers = observers;
         }
 
@@ -281,21 +296,21 @@ internal class ObservableBackend : IObservable
         public void Set(double value, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.SetGauge(_name, value, labels);
+                obs.SetGauge(_pluginName, _name, value, labels);
         }
 
         /// <inheritdoc />
         public void Increment(double value = 1, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.IncrementGauge(_name, value, labels);
+                obs.IncrementGauge(_pluginName, _name, value, labels);
         }
 
         /// <inheritdoc />
         public void Decrement(double value = 1, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.DecrementGauge(_name, value, labels);
+                obs.DecrementGauge(_pluginName, _name, value, labels);
         }
     }
 
@@ -305,11 +320,13 @@ internal class ObservableBackend : IObservable
     private sealed class BackendHistogram : IHistogram
     {
         private readonly string _name;
+        private readonly string _pluginName;
         private readonly List<IObservablePlugin> _observers;
 
-        internal BackendHistogram(string name, List<IObservablePlugin> observers)
+        internal BackendHistogram(string pluginName, string name, List<IObservablePlugin> observers)
         {
             _name = name;
+            _pluginName = pluginName;
             _observers = observers;
         }
 
@@ -317,7 +334,7 @@ internal class ObservableBackend : IObservable
         public void Record(double value, Dictionary<string, string>? labels = null)
         {
             foreach (var obs in _observers)
-                obs.RecordHistogram(_name, value, labels);
+                obs.RecordHistogram(_pluginName, _name, value, labels);
         }
     }
 }

@@ -2,9 +2,11 @@ namespace BSB.Runtime;
 
 using BSB.Base;
 using BSB.Interfaces;
+using BSB.Tooling;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 /// <summary>
 /// Result of loading a plugin from an assembly.
@@ -40,9 +42,9 @@ public class SBPlugins
 
     public SBPlugins(string cwd)
     {
-        _cwd = cwd;
+        _cwd = Path.GetFullPath(cwd);
         _pluginDir = Environment.GetEnvironmentVariable("BSB_PLUGIN_DIR")
-            ?? Environment.GetEnvironmentVariable("BSB_PLUGINS_DIR");
+            ?? Environment.GetEnvironmentVariable("BSB_PLUGINS_DIR") ?? Path.Combine(_cwd, ".bsb", "plugins");
     }
 
     /// <summary>
@@ -60,7 +62,7 @@ public class SBPlugins
     internal BSBConfig CreateConfigInstance(PluginDefinition def, PluginConstructorArgs args)
     {
         var loaded = LoadPlugin(def, typeof(BSBConfig));
-        return (BSBConfig)Activator.CreateInstance(loaded.PluginType, args)!;
+        return (BSBConfig)Activator.CreateInstance(loaded.PluginType, WithConfig(args, ResolveConfig(loaded.PluginType, args.RawConfig, environment: true)))!;
     }
 
     /// <summary>
@@ -79,7 +81,7 @@ public class SBPlugins
     internal BSBEvents CreateEventsInstance(PluginDefinition def, PluginConstructorArgs args)
     {
         var loaded = LoadPlugin(def, typeof(BSBEvents));
-        return (BSBEvents)Activator.CreateInstance(loaded.PluginType, args)!;
+        return (BSBEvents)Activator.CreateInstance(loaded.PluginType, WithConfig(args, ResolveConfig(loaded.PluginType, args.RawConfig)))!;
     }
 
     /// <summary>
@@ -112,6 +114,8 @@ public class SBPlugins
     /// </summary>
     private LoadedPlugin LoadPlugin(PluginDefinition def, Type expectedBaseType)
     {
+        if (def.Language is not null && def.Language is not ("csharp" or "dotnet"))
+            throw new InvalidOperationException($"Cannot load {def.Language} plugin in the csharp host");
         var pluginName = def.ResolvedPluginName;
         var cacheKey = CacheKey(def, expectedBaseType);
 
@@ -178,6 +182,8 @@ public class SBPlugins
             // Plugins compile against BSB but must share the host's contract identity.
             var framework = typeof(MainBase).Assembly;
             if (name.Name == framework.GetName().Name) return framework;
+            var schemas = typeof(AnyVali.Schema).Assembly;
+            if (name.Name == schemas.GetName().Name) return schemas;
             var resolved = _resolver.ResolveAssemblyToPath(name);
             if (resolved is not null) return LoadFromAssemblyPath(resolved);
             var adjacent = Path.Combine(Path.GetDirectoryName(assemblyPath)!, name.Name + ".dll");
@@ -205,6 +211,9 @@ public class SBPlugins
     private string? ResolveAssemblyPath(PluginDefinition def)
     {
         var pluginName = def.ResolvedPluginName;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(pluginName, "^[A-Za-z0-9_-]+$") ||
+            (def.Package is not null && !System.Text.RegularExpressions.Regex.IsMatch(def.Package, "^[A-Za-z0-9][A-Za-z0-9_.-]*$")))
+            throw new ArgumentException("Invalid native plugin or NuGet package identifier");
 
         // 1. External plugin directory (BSB_PLUGIN_DIR)
         if (_pluginDir is not null && def.Package is not null)
@@ -220,11 +229,17 @@ public class SBPlugins
             if (path is not null) return path;
         }
 
-        if (def.Package is not null && !string.IsNullOrEmpty(def.Version)) return null;
+        // A pin may only resolve from a versioned plugin directory; flat/local assemblies have no verifiable version.
+        if (!string.IsNullOrEmpty(def.Version)) return null;
+
+        var applicationManifest = ResolveManifest(_cwd, pluginName);
+        if (applicationManifest is not null) return applicationManifest;
 
         // Application plugins override the defaults shipped alongside the BSB host.
         foreach (var root in new[] { Path.Combine(_cwd, "plugins"), Path.Combine(AppContext.BaseDirectory, "plugins") })
         {
+            var manifestAssembly = ResolveManifest(Path.Combine(root, pluginName), pluginName) ?? ResolveManifest(root, pluginName);
+            if (manifestAssembly is not null) return manifestAssembly;
             var localDll = Path.Combine(root, pluginName, pluginName + ".dll");
             if (File.Exists(localDll)) return Path.GetFullPath(localDll);
             var flatDll = Path.Combine(root, pluginName + ".dll");
@@ -244,6 +259,13 @@ public class SBPlugins
         var packageDir = Path.GetFullPath(Path.Combine(_pluginDir!, package_));
         if (!Directory.Exists(packageDir)) return null;
 
+        if (requestedVersion is not null && RegistryClient.IsExactVersion(requestedVersion))
+        {
+            var exact = Path.Combine(packageDir, requestedVersion);
+            var manifestAssembly = ResolveManifest(exact, pluginName);
+            if (manifestAssembly is not null) return manifestAssembly;
+        }
+
         // Try versioned layout: {package}/{M}/{m}/{p}/
         var versions = ListVersions(packageDir);
         if (versions.Count > 0)
@@ -251,6 +273,8 @@ public class SBPlugins
             var resolved = ResolveVersion(versions, requestedVersion);
             if (resolved is not null)
             {
+                var manifestAssembly = ResolveManifest(resolved, pluginName);
+                if (manifestAssembly is not null) return manifestAssembly;
                 var versionedDll = Path.Combine(resolved, pluginName + ".dll");
                 if (File.Exists(versionedDll)) return Path.GetFullPath(versionedDll);
 
@@ -266,7 +290,11 @@ public class SBPlugins
             return null;
         }
 
+        if (!string.IsNullOrEmpty(requestedVersion)) return null;
+
         // Flat layout: {package}/{plugin}.dll
+        var manifestPath = ResolveManifest(packageDir, pluginName);
+        if (manifestPath is not null) return manifestPath;
         var flatDll = Path.Combine(packageDir, pluginName + ".dll");
         if (File.Exists(flatDll)) return Path.GetFullPath(flatDll);
 
@@ -278,12 +306,35 @@ public class SBPlugins
     /// Returns sorted list of (version string, path) pairs.
     /// Supports layout: {dir}/{major}/{minor}/{patch}/
     /// </summary>
+    private static string? ResolveManifest(string directory, string plugin)
+    {
+        var manifest = Path.Combine(directory, "bsb-plugin.json");
+        if (!File.Exists(manifest)) return null;
+        var entries = JsonNode.Parse(File.ReadAllText(manifest))?["csharp"]?.AsArray();
+        var matching = entries?.Where(e => e?["id"]?.GetValue<string>() == plugin).ToArray();
+        if (matching is null || matching.Length == 0) return null;
+        if (matching.Length != 1) throw new InvalidOperationException($"Duplicate native plugin manifest entry: {plugin}");
+        var entry = matching[0]!["assembly"]?.GetValue<string>() ?? throw new JsonException("Plugin manifest lacks assembly path");
+        var root = Path.GetFullPath(directory);
+        var path = Path.GetFullPath(Path.Combine(root, entry));
+        var relative = Path.GetRelativePath(root, path);
+        if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar))
+            throw new InvalidOperationException("Plugin assembly path escapes its package");
+        if (!path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || !File.Exists(path)) throw new FileNotFoundException("Plugin manifest assembly is missing", path);
+        return path;
+    }
+
     private static List<(Version Version, string Path)> ListVersions(string dir)
     {
         var result = new List<(Version, string)>();
 
         foreach (var majorDir in Directory.GetDirectories(dir))
         {
+            if (Version.TryParse(Path.GetFileName(majorDir), out var flatVersion) && flatVersion.Build >= 0)
+            {
+                result.Add((flatVersion, majorDir));
+                continue;
+            }
             if (!int.TryParse(Path.GetFileName(majorDir), out var major)) continue;
 
             foreach (var minorDir in Directory.GetDirectories(majorDir))
@@ -362,26 +413,48 @@ public class SBPlugins
     // -----------------------------------------------------------------
 
     /// <summary>
-    /// Find a plugin type in an assembly that extends the expected base class.
-    /// Priority: class named "Plugin" > any class extending the base.
+    /// Find a plugin type by declared metadata, with a sole-candidate fallback for legacy plugins without metadata.
     /// </summary>
     private static Type? FindPluginType(Assembly assembly, Type expectedBaseType, string pluginName)
     {
-        Type? fallback = null;
+        var matches = assembly.GetExportedTypes().Where(type => !type.IsAbstract && !type.IsInterface && ExtendsBase(type, expectedBaseType)).ToArray();
+        var named = matches.Where(type => ExtractMetadata(type)?.Name == pluginName).ToArray();
+        if (named.Length == 1) return named[0];
+        if (named.Length > 1 || matches.Length > 1)
+            throw new InvalidOperationException($"Ambiguous plugin {pluginName}; each implementation must declare unique Metadata.Name");
+        if (matches.Length == 1 && ExtractMetadata(matches[0]) is { } metadata)
+            throw new InvalidOperationException($"Plugin {pluginName} does not match declared Metadata.Name {metadata.Name}");
+        return matches.SingleOrDefault();
+    }
 
-        foreach (var type in assembly.GetExportedTypes())
+    /// <summary>Read static plugin contracts from a built assembly without constructing application services.</summary>
+    public static JsonArray ExportAssembly(string path, string? package = null, string? version = null)
+    {
+        path = Path.GetFullPath(path);
+        using var assemblyFile = File.OpenRead(path);
+        var assembly = new PluginLoadContext(path).LoadFromStream(assemblyFile);
+        var types = assembly.GetExportedTypes().Where(t => !t.IsAbstract && typeof(MainBase).IsAssignableFrom(t)).ToArray();
+        var result = new JsonArray();
+        foreach (var type in types)
         {
-            if (type.IsAbstract || type.IsInterface) continue;
-            if (!ExtendsBase(type, expectedBaseType)) continue;
-
-            // Prefer a class named "Plugin" (convention from Node.js)
-            if (type.Name == "Plugin")
-                return type;
-
-            fallback ??= type;
+            var metadata = ExtractMetadata(type);
+            var id = metadata?.Name ?? (types.Length == 1 ? Path.GetFileNameWithoutExtension(path) : throw new InvalidOperationException("Plugins in a shared assembly require Metadata.Name"));
+            var pluginVersion = version ?? metadata?.Version ?? assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+            var events = type.GetProperty("EventSchemas", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(null) as BSBEventSchemas ?? new();
+            var schema = JsonNode.Parse(events.Export(id, pluginVersion).ToJson())!.AsObject();
+            var config = type.GetProperty("ConfigSchema", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(null);
+            if (config is AnyVali.Schema native) schema["configSchema"] = JsonNode.Parse(AnyVali.V.Export(native).ToJson());
+            else if (config is BSBType bsb) schema["configSchema"] = bsb.ToAnyVali();
+            var category = typeof(BSBConfig).IsAssignableFrom(type) ? "config" : typeof(BSBEvents).IsAssignableFrom(type) ? "events"
+                : typeof(IObservablePlugin).IsAssignableFrom(type) ? "observable" : "service";
+            result.Add(new JsonObject { ["id"] = id, ["language"] = "csharp", ["version"] = pluginVersion,
+                ["assembly"] = Path.GetFileName(path), ["type"] = type.FullName, ["category"] = category,
+                ["package"] = package ?? assembly.GetName().Name,
+                ["documentation"] = new JsonArray((metadata?.Documentation ?? []).Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
+                ["description"] = metadata?.Description ?? id, ["schema"] = schema });
         }
-
-        return fallback;
+        if (result.Count == 0) throw new InvalidOperationException("Assembly contains no BSB plugins");
+        return result;
     }
 
     /// <summary>
@@ -427,6 +500,7 @@ public class SBPlugins
     /// </summary>
     internal static object BuildServiceConstructorArgs(Type pluginType, PluginConstructorArgs baseArgs, object? config)
     {
+        config = ResolveConfig(pluginType, config);
         var configType = FindGenericConfigType(pluginType)
             ?? throw new InvalidOperationException(
                 $"Plugin type '{pluginType.FullName}' does not extend a generic base with a config type parameter");
@@ -446,10 +520,10 @@ public class SBPlugins
         {
             configProp.SetValue(ctorArgs, config);
         }
-        else if (config is JsonElement jsonElement)
+        else if (config is not null)
         {
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var deserialized = JsonSerializer.Deserialize(jsonElement.GetRawText(), configType, options)
+            var deserialized = JsonSerializer.Deserialize(JsonSerializer.Serialize(config), configType, options)
                 ?? CreateDefaultConfig(configType);
             configProp.SetValue(ctorArgs, deserialized);
         }
@@ -482,6 +556,26 @@ public class SBPlugins
         }
         return null;
     }
+
+    private static object? ResolveConfig(Type pluginType, object? config, bool environment = false)
+    {
+        var declared = pluginType.GetProperty("ConfigSchema", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(null);
+        var schema = declared is BSBType bsb ? bsb.ToSchema() : declared as AnyVali.Schema;
+        if (schema is null) return config;
+        var input = BSBType.ToWireValue(config ?? new { });
+        if (environment && input is Dictionary<string, object?> values)
+        {
+            var root = System.Text.Json.Nodes.JsonNode.Parse(AnyVali.V.Export(schema).ToJson())!["root"];
+            if (root?["properties"] is System.Text.Json.Nodes.JsonObject properties)
+                foreach (var (key, _) in properties)
+                    if (!values.ContainsKey(key) && Environment.GetEnvironmentVariable(key) is string value) values[key] = value;
+        }
+        return schema.Parse(input);
+    }
+
+    private static PluginConstructorArgs WithConfig(PluginConstructorArgs args, object? config) => new() {
+        AppId = args.AppId, Cwd = args.Cwd, Mode = args.Mode, PluginName = args.PluginName, Region = args.Region, RawConfig = config,
+    };
 
     /// <summary>
     /// Create a default instance of a config type using its parameterless constructor.

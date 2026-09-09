@@ -2,7 +2,25 @@
 
 Event-driven plugin storage and business logic for the BSB plugin registry. This plugin has no HTTP server -- it exposes all operations as BSB returnable events. The companion `service-bsb-registry-ui` plugin provides the HTTP/web layer.
 
-## Configuration
+## Language implementations
+
+A logical plugin keeps its `org/name` across implementations. Versions are immutable within one language: `acme/service-orders@1.0.0` can exist independently in Node, C# and Python. The canonical language names are `nodejs`, `csharp`, `python`, `go`, `java`, and `rust`; HTTP input also accepts `dotnet` for C#.
+
+`registry.plugin.implementations` and `GET /plugins/:org/:name/implementations` return the latest accessible entry for each language. Individual detail, version, schema, documentation and deletion operations accept an optional language. HTTP reads use `?language=csharp`. Legacy unqualified reads prefer Node when available, otherwise use the sole accessible implementation; multiple non-Node implementations require an explicit language. Authorization filtering happens before discovery or language selection.
+
+The output language in `/types/:language` is independent of the source selected by the query. For example, `/plugins/acme/service-orders/1.0.0/types/python?language=csharp` requests Python types for the C# service contract.
+
+TypeScript consumers can install any source implementation:
+
+```sh
+bsb client install acme/service-orders --source-language csharp --version 1.0.0
+```
+
+Installation generates a TypeScript client from the portable AnyVali schema. Omit `--source-language` only when there is a single accessible implementation. Saved schemas retain the resolved source version for regeneration; local filenames include organization and language without changing the event target name. Shared registry, Vault and syslog services use this same generation path.
+
+Existing `<version>.json` file records remain readable. New files use `<language>@<version>.json`, so creating or deleting one implementation preserves the others.
+
+## Configuration settings
 
 ```yaml
 service-bsb-registry:

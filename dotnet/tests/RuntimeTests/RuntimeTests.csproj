@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../BSB/BSB.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/examples/ExamplePlugins/ExamplePlugins.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/config-vault/config-vault.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/config-vault-google/config-vault-google.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/config-default/config-default.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/events-default/events-default.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/events-rabbitmq/events-rabbitmq.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-axiom/observable-axiom.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-opentelemetry/observable-opentelemetry.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-zipkin/observable-zipkin.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-graylog/observable-graylog.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../plugins/dotnet/observable-syslog/observable-syslog.csproj" /></ItemGroup>
+  <ItemGroup><Content Include="../../../tests/fixtures/semver-versions.json" Link="fixtures/semver-versions.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>

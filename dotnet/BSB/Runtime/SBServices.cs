@@ -37,22 +37,21 @@ internal class SBServices : IAsyncDisposable
             e => e.Metadata?.InitAfterPlugins,
             e => e.Metadata?.InitBeforePlugins);
 
+        _services.Clear();
+        _services.AddRange(ordered);
+
         foreach (var entry in ordered)
         {
             var obs = observable.CreateObservable(entry.Name, "init");
-
-            WireEvents(entry.Instance, eventsBackend);
-            WireObservable(entry.Instance, observable);
-
-            var initMethod = entry.Instance.GetType().GetMethod("Init", new[] { typeof(IObservable) });
-            if (initMethod is not null)
+            try
             {
-                var result = initMethod.Invoke(entry.Instance, new object[] { obs });
-                if (result is Task task)
-                    await task;
+                WireEvents(entry.Instance, eventsBackend);
+                WireObservable(entry.Instance, observable);
+                var initMethod = entry.Instance.GetType().GetMethod("Init", new[] { typeof(IObservable) });
+                if (initMethod?.Invoke(entry.Instance, new object[] { obs }) is Task task) await task;
             }
-
-            obs.End();
+            catch (Exception error) { obs.Error(error is TargetInvocationException { InnerException: { } inner } ? inner : error); throw; }
+            finally { obs.End(); }
         }
     }
 
@@ -71,16 +70,13 @@ internal class SBServices : IAsyncDisposable
         foreach (var entry in ordered)
         {
             var obs = observable.CreateObservable(entry.Name, "run");
-
-            var runMethod = entry.Instance.GetType().GetMethod("Run", new[] { typeof(IObservable) });
-            if (runMethod is not null)
+            try
             {
-                var result = runMethod.Invoke(entry.Instance, new object[] { obs });
-                if (result is Task task)
-                    await task;
+                var runMethod = entry.Instance.GetType().GetMethod("Run", new[] { typeof(IObservable) });
+                if (runMethod?.Invoke(entry.Instance, new object[] { obs }) is Task task) await task;
             }
-
-            obs.End();
+            catch (Exception error) { obs.Error(error is TargetInvocationException { InnerException: { } inner } ? inner : error); throw; }
+            finally { obs.End(); }
         }
     }
 
@@ -89,8 +85,10 @@ internal class SBServices : IAsyncDisposable
     {
         GC.SuppressFinalize(this);
         // Dispose in reverse order of registration
+        List<Exception> errors = new();
         for (int i = _services.Count - 1; i >= 0; i--)
-            await _services[i].Instance.DisposeAsync();
+            try { await _services[i].Instance.DisposeAsync(); } catch (Exception error) { errors.Add(error); }
+        if (errors.Count > 0) throw new AggregateException(errors);
     }
 
     /// <summary>
@@ -111,19 +109,18 @@ internal class SBServices : IAsyncDisposable
     }
 
     /// <summary>
-    /// Wire the InternalObservable property on a service instance so that
-    /// CreateTrace works at runtime.
-    /// BSBService has: internal IObservable? InternalObservable { get; set; }
+    /// Wire independent root trace creation for background work and HTTP requests.
     /// </summary>
     private static void WireObservable(MainBase instance, SBObservable observable)
     {
-        var obsProp = instance.GetType().GetProperty("InternalObservable",
+        var obsProp = instance.GetType().GetProperty("TraceFactory",
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         if (obsProp is not null && obsProp.CanWrite)
         {
-            var obs = observable.CreateObservable(instance.PluginName, "trace-root");
-            obsProp.SetValue(instance, obs);
+            Func<string, Dictionary<string, object?>?, IObservable> factory = (name, attributes) =>
+                observable.CreateObservable(instance.PluginName, name, attributes: attributes);
+            obsProp.SetValue(instance, factory);
         }
     }
 
@@ -137,18 +134,22 @@ internal class SBServices : IAsyncDisposable
         Func<ServiceEntry, string[]?> getAfter,
         Func<ServiceEntry, string[]?> getBefore)
     {
-        if (entries.Count <= 1)
-            return new List<ServiceEntry>(entries);
-
         var nameMap = new Dictionary<string, ServiceEntry>();
         var inDegree = new Dictionary<string, int>();
-        var adj = new Dictionary<string, List<string>>();
+        var adj = new Dictionary<string, HashSet<string>>();
 
         foreach (var entry in entries)
         {
-            nameMap[entry.Name] = entry;
+            nameMap.Add(entry.Name, entry);
             inDegree[entry.Name] = 0;
-            adj[entry.Name] = new List<string>();
+            adj[entry.Name] = new HashSet<string>();
+        }
+
+        IEnumerable<string> Resolve(string name) => nameMap.ContainsKey(name) ? [name] :
+            entries.Where(e => e.Metadata?.Name == name).Select(e => e.Name);
+        void Edge(string from, string to)
+        {
+            if (adj[from].Add(to)) inDegree[to]++;
         }
 
         foreach (var entry in entries)
@@ -159,11 +160,7 @@ internal class SBServices : IAsyncDisposable
             {
                 foreach (var dep in after)
                 {
-                    if (adj.ContainsKey(dep))
-                    {
-                        adj[dep].Add(entry.Name);
-                        inDegree[entry.Name]++;
-                    }
+                    foreach (var name in Resolve(dep)) Edge(name, entry.Name);
                 }
             }
 
@@ -173,11 +170,7 @@ internal class SBServices : IAsyncDisposable
             {
                 foreach (var target in before)
                 {
-                    if (adj.ContainsKey(entry.Name) && inDegree.ContainsKey(target))
-                    {
-                        adj[entry.Name].Add(target);
-                        inDegree[target]++;
-                    }
+                    foreach (var name in Resolve(target)) Edge(entry.Name, name);
                 }
             }
         }
@@ -208,12 +201,8 @@ internal class SBServices : IAsyncDisposable
             }
         }
 
-        // Append any remaining entries (cycle or unresolved) in original order
-        foreach (var entry in entries)
-        {
-            if (!visited.Contains(entry.Name))
-                result.Add(entry);
-        }
+        if (result.Count != entries.Count)
+            throw new InvalidOperationException("Plugin lifecycle dependency cycle: " + string.Join(", ", entries.Where(e => !visited.Contains(e.Name)).Select(e => e.Name)));
 
         return result;
     }

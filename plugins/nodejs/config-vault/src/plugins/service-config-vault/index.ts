@@ -8,6 +8,7 @@ import {
   createConfigSchema,
   createEventSchemas,
   createReturnableEvent,
+  PLUGIN_LANGUAGES,
 } from '@bsb/base';
 import { loadMasterKey, newToken } from './crypto.js';
 import { VaultHttpServer } from './http-server.js';
@@ -32,6 +33,7 @@ export const VaultServiceConfigSchema = av.object({
 export type VaultServiceConfig = av.Infer<typeof VaultServiceConfigSchema>;
 
 const RuntimeConfigResponse = bsb.object({
+  language: bsb.enum([...PLUGIN_LANGUAGES], 'Deployment host language'),
   application: bsb.string({ description: 'Bound application name' }),
   group: bsb.string({ description: 'Bound service group name' }),
   profile: bsb.string({ description: 'Bound deployment profile name' }),

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import { RegistryUIServer } from '../src/plugins/service-bsb-registry-ui/http-server.js';
 
@@ -15,6 +15,8 @@ const trace = {
 };
 
 type TestableRegistryServer = {
+  app: FastifyInstance;
+  registerRateLimit(): Promise<void>;
   createTrace: () => typeof trace;
   registryClient: {
     registryAuthVerify: () => Promise<{ valid: boolean; userId: string }>;
@@ -49,6 +51,8 @@ for (const encodedOrg of ['..%2Foutside', '%2E%2E%2Foutside']) {
     };
 
     const app = Fastify();
+    internals.app = app;
+    await internals.registerRateLimit();
     await app.register(fastifyMultipart);
     app.post('/plugins/:org/:name/image', (request, reply) => (
       internals.handleImageUpload(request, reply)

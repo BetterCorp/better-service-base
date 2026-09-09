@@ -1,0 +1,32 @@
+{
+  "go": [
+    {
+      "id": "service-benchmarkify",
+      "package": "github.com/bettercorp/service-base/plugins/go/examples"
+    },
+    {
+      "id": "service-default0",
+      "package": "github.com/bettercorp/service-base/plugins/go/examples"
+    },
+    {
+      "id": "service-default1",
+      "package": "github.com/bettercorp/service-base/plugins/go/examples"
+    },
+    {
+      "id": "service-default2",
+      "package": "github.com/bettercorp/service-base/plugins/go/examples"
+    },
+    {
+      "id": "service-default3",
+      "package": "github.com/bettercorp/service-base/plugins/go/examples"
+    },
+    {
+      "id": "service-default4",
+      "package": "github.com/bettercorp/service-base/plugins/go/examples"
+    },
+    {
+      "id": "service-demo-todo",
+      "package": "github.com/bettercorp/service-base/plugins/go/examples"
+    }
+  ]
+}

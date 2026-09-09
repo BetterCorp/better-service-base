@@ -1,10 +1,11 @@
+import { PLUGIN_LANGUAGES } from '@bsb/base';
 import * as av from 'anyvali';
 import { createError, type H3Event } from 'h3';
 
 const uuidPattern = '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$';
 const slugPattern = '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$';
 const orgPattern = '^(_|@?[A-Za-z0-9][A-Za-z0-9._-]{0,99})$';
-const packagePattern = '^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$';
+const packagePattern = '^[A-Za-z0-9@][A-Za-z0-9@._:/+-]*$';
 const semverPattern = '^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$';
 const tokenPattern = '^[A-Za-z0-9_-]{1,512}$';
 
@@ -13,7 +14,7 @@ const requiredText = (max: number) => text(max).minLength(1);
 const uuid = av.string().maxLength(64).pattern(uuidPattern);
 const slug = av.string().maxLength(100).pattern(slugPattern);
 const org = av.string().maxLength(100).pattern(orgPattern);
-const packageName = av.string().maxLength(214).pattern(packagePattern);
+const packageName = av.string().maxLength(300).pattern(packagePattern);
 const semver = av.string().maxLength(128).pattern(semverPattern);
 const token = av.string().maxLength(512).pattern(tokenPattern);
 const totp = av.string().maxLength(6).pattern('^\\d{6}$');
@@ -27,12 +28,14 @@ const optionalSlug = av.optional(slug);
 const optionalJsonObject = av.optional(jsonObject);
 const optionalJsonObjectInput = av.optional(jsonObjectInput);
 const strict = <T extends Record<string, av.SchemaAny>>(shape: T) => av.object(shape).unknownKeys('reject');
+const language = av.optional(av.enum_([...PLUGIN_LANGUAGES, 'dotnet'] as const));
 const privatePluginUpload = av.union([
-  strict({ org, packageName, schemaFileName: requiredText(105), schema: jsonObject, replace: checkbox }),
-  strict({ org: av.optional(org), packageName: av.optional(packageName), manifestFileName: requiredText(105), manifest: jsonObject, replace: checkbox }),
+  strict({ language, org, packageName, schemaFileName: requiredText(105), schema: jsonObject, replace: checkbox }),
+  strict({ language, org: av.optional(org), packageName: av.optional(packageName), manifestFileName: requiredText(105), manifest: jsonObject, replace: checkbox }),
 ]);
 
 const pluginConfig = {
+  language,
   section: av.enum_(['services', 'events', 'observable'] as const),
   name: slug,
   plugin: slug,
@@ -58,15 +61,15 @@ export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
   '/api/applications': strict({ name: requiredText(100), description: optionalText(1000) }),
   '/api/groups/update': strict({ id: uuid, applicationId: uuid, name: requiredText(100) }),
   '/api/groups/delete': strict({ id: uuid }),
-  '/api/groups': strict({ applicationId: uuid, name: requiredText(100) }),
-  '/api/profiles/update': strict({ id: uuid, groupId: uuid, name: slug }),
+  '/api/groups': strict({ language, applicationId: uuid, name: requiredText(100) }),
+  '/api/profiles/update': strict({ language, id: uuid, groupId: uuid, name: slug }),
   '/api/profiles/delete': strict({ id: uuid }),
-  '/api/profiles': strict({ groupId: uuid, name: slug }),
+  '/api/profiles': strict({ language, groupId: uuid, name: slug }),
   '/api/plugins/publish': strict({
     org,
     name: slug,
     version: semver,
-    language: av.optional(av.literal('nodejs')),
+    language,
     metadata: optionalJsonObject,
     package: optionalJsonObject,
     packageName: av.optional(packageName),
@@ -74,9 +77,9 @@ export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
     configSchema: av.optional(av.nullable(jsonObject)),
     dependencies: av.optional(av.array(jsonObject).maxItems(1000)),
   }),
-  '/api/plugins/publish-key/rotate': strict({ pluginId: slug }),
-  '/api/plugins/publish-key/enable': strict({ pluginId: slug }),
-  '/api/plugins/import': strict({ org, name: slug, pluginId: requiredText(201), packageName: optionalText(214), version: semver, kind: av.enum_(['service', 'events', 'observable', 'config'] as const), configSchema: optionalJsonObjectInput, eventSchema: optionalJsonObjectInput }),
+  '/api/plugins/publish-key/rotate': strict({ language, pluginId: slug }),
+  '/api/plugins/publish-key/enable': strict({ language, pluginId: slug }),
+  '/api/plugins/import': strict({ language, org, name: slug, pluginId: requiredText(201), packageName: optionalText(214), version: semver, kind: av.enum_(['service', 'events', 'observable', 'config'] as const), configSchema: optionalJsonObjectInput, eventSchema: optionalJsonObjectInput }),
   '/api/plugins/delete': strict({ id: uuid }),
   '/api/plugins': privatePluginUpload,
   '/api/drafts': strict({ profileId: uuid, config: jsonObjectInput }),

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bsb-python-builtins"
+version = "9.1.11"
+description = "Built-in Python plugins for the BSB host"
+requires-python = ">=3.11"
+dependencies = [
+  "service-base>=9,<10",
+  "PyYAML>=6.0.3,<7",
+  "aio-pika>=10.0.1,<11",
+  "cryptography>=50.0.1,<51",
+  "google-auth[requests]>=2.57.1,<3",
+]
+
+[project.entry-points."bsb.plugins"]
+config-default = "bsb_python_plugins.config_default:Plugin"
+config-env = "bsb_python_plugins.config_env:Plugin"
+config-vault = "bsb_python_plugins.config_vault:Plugin"
+config-vault-google = "bsb_python_plugins.config_vault_google:Plugin"
+events-default = "bsb_python_plugins.events_default:Plugin"
+events-rabbitmq = "bsb_python_plugins.events_rabbitmq:Plugin"
+observable-axiom = "bsb_python_plugins.observable_axiom:Plugin"
+observable-default = "bsb_python_plugins.observable_default:Plugin"
+observable-graylog = "bsb_python_plugins.observable_graylog:Plugin"
+observable-logging-file = "bsb_python_plugins.observable_logging_file:Plugin"
+observable-opentelemetry = "bsb_python_plugins.observable_opentelemetry:Plugin"
+observable-pino = "bsb_python_plugins.observable_pino:Plugin"
+observable-syslog = "bsb_python_plugins.observable_syslog:Plugin"
+observable-winston = "bsb_python_plugins.observable_winston:Plugin"
+observable-zipkin = "bsb_python_plugins.observable_zipkin:Plugin"
+service-default0 = "bsb_python_plugins.service_default0:Plugin"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

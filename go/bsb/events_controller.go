@@ -3,6 +3,7 @@ package bsb
 import (
 	"context"
 	"fmt"
+	"reflect"
 )
 
 // EventsController manages events plugin instances and routes event calls.
@@ -20,16 +21,19 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 
 	pluginDefs, err := config.GetEventsPlugins(ctx, obs)
 	if err != nil {
-		obs.Log().Warn("no events plugins in config, using defaults", map[string]any{
-			"error": err.Error(),
-		})
+		return fmt.Errorf("load events configuration: %w", err)
 	}
 
 	// Always ensure events-default is loaded as fallback
-	defaultLoaded := false
-	for name, def := range pluginDefs {
+	router := &eventRouter{}
+	unfiltered := false
+	for _, name := range sortedPluginNames(pluginDefs) {
+		def := pluginDefs[name]
 		if !def.Enabled {
 			continue
+		}
+		if err := validateEventFilter(def.Filter); err != nil {
+			return fmt.Errorf("events %s: %w", name, err)
 		}
 
 		pluginName := def.Plugin
@@ -38,54 +42,52 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 		}
 
 		if !ec.registry.HasPlugin(PluginTypeEvents, pluginName) {
-			obs.Log().Warn("events plugin not registered, skipping", map[string]any{"plugin": pluginName})
-			continue
+			return fmt.Errorf("enabled events plugin %q is not linked into this BSB host", pluginName)
 		}
 
 		pluginConfig, err := config.GetPluginConfig(ctx, obs, PluginTypeEvents, name)
 		if err != nil {
-			pluginConfig = def.Config
+			return fmt.Errorf("events %q configuration: %w", pluginName, err)
 		}
 
-		plugin, err := ec.registry.CreateEvents(pluginName, pluginConfig)
+		plugin, err := ec.registry.CreateEvents(pluginName, pluginConfig, def.Version)
 		if err != nil {
 			return fmt.Errorf("failed to create events plugin %q: %w", pluginName, err)
 		}
 
+		ec.plugins = append(ec.plugins, plugin)
+		router.routes = append(router.routes, eventRoute{plugin, def.Filter})
 		if err := plugin.Init(ctx, obs); err != nil {
 			return fmt.Errorf("failed to init events plugin %q: %w", pluginName, err)
 		}
 
-		ec.plugins = append(ec.plugins, plugin)
-		if ec.primary == nil {
-			ec.primary = plugin
-		}
-		if pluginName == "events-default" {
-			defaultLoaded = true
+		if def.Filter == nil {
+			unfiltered = true
 		}
 
 		obs.Log().Info("events plugin loaded", map[string]any{"plugin": name})
 	}
 
 	// If no events plugin was loaded, try to create the default
-	if ec.primary == nil && !defaultLoaded {
+	if !unfiltered {
 		if ec.registry.HasPlugin(PluginTypeEvents, "events-default") {
 			plugin, err := ec.registry.CreateEvents("events-default", nil)
 			if err != nil {
 				return fmt.Errorf("failed to create default events plugin: %w", err)
 			}
+			ec.plugins = append(ec.plugins, plugin)
 			if err := plugin.Init(ctx, obs); err != nil {
 				return fmt.Errorf("failed to init default events plugin: %w", err)
 			}
-			ec.plugins = append(ec.plugins, plugin)
-			ec.primary = plugin
+			router.routes = append(router.routes, eventRoute{plugin, nil})
 			obs.Log().Info("loaded fallback events-default plugin")
 		}
 	}
 
-	if ec.primary == nil {
+	if len(router.routes) == 0 {
 		return fmt.Errorf("no events plugin available")
 	}
+	ec.primary = router
 
 	return nil
 }
@@ -93,6 +95,24 @@ func (ec *EventsController) Init(ctx context.Context, obs Observable, config *Co
 // Primary returns the primary events plugin for use by service plugins.
 func (ec *EventsController) Primary() EventsPlugin {
 	return ec.primary
+}
+
+// Wait monitors every concrete backend, including filtered and non-primary routes.
+func (ec *EventsController) Wait(ctx context.Context) error {
+	cases := []reflect.SelectCase{{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}}
+	for _, plugin := range ec.plugins {
+		if source, ok := plugin.(interface{ Failure() <-chan error }); ok {
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(source.Failure())})
+		}
+	}
+	chosen, value, open := reflect.Select(cases)
+	if chosen == 0 {
+		return nil
+	}
+	if !open || value.IsNil() {
+		return fmt.Errorf("events backend stopped without an error")
+	}
+	return value.Interface().(error)
 }
 
 // Run starts all events plugins.

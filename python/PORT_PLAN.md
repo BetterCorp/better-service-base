@@ -1,62 +1,7 @@
-# BSB Multi-Language Port Plan
+# Native runtime status
 
-## Node.js Review Summary
+The .NET and Python hosts load application plugins and provide native configuration, events, observability, generated clients and example services. See [Python usage](README.md), [.NET usage](../dotnet/README.md), and [LLM rules](../docs/public/llms/multilingual.txt).
 
-- Core boot pipeline is clear and stable: config -> observable -> events -> services.
-- Service dependency ordering is based on before/after lists and mapped aliases.
-- Plugin loading supports local, build output, external plugin dir, and package sources.
-- Config plugin is the source of truth for enabled plugins and per-plugin config.
-- Events API provides four patterns: broadcast, fire-and-forget, request/response, stream.
+Registry, Vault and syslog servers remain Node implementations. Their portable event contracts generate native clients; do not duplicate those clients manually. Native Go and Rust hosts, backends, tooling and seven examples per language are implemented; see their READMEs and [verification status](../docs/native-go-rust-plan.md). Java remains metadata-only.
 
-## Target Architecture (Common Across Python, Go, .NET)
-
-- `ServiceBase`: lifecycle orchestration and shutdown behavior.
-- Controllers:
-  - `ConfigController`
-  - `ObservableController`
-  - `EventsController`
-  - `ServicesController`
-- Plugin contracts:
-  - `ConfigPlugin`
-  - `EventsPlugin`
-  - `ObservablePlugin`
-  - `ServicePlugin`
-- Built-in defaults:
-  - `config-default`
-  - `events-default`
-  - one sample service plugin
-
-## Python Status (This Commit)
-
-- Implemented controllers and `ServiceBase` orchestration.
-- Implemented dynamic plugin loader with built-in and `BSB_PLUGIN_DIR` fallback.
-- Implemented `config-default` and `events-default` plugins.
-- Implemented sample `service-default0` plugin.
-- Added runnable entrypoint and basic tests.
-
-## Go Plan
-
-- Package layout:
-  - `go/bsb/runtime/*` controllers and `ServiceBase`
-  - `go/bsb/plugins/default/*`
-  - `go/cmd/bsb/main.go`
-- Use interfaces for plugin contracts and explicit registration.
-- Prefer deterministic dependency ordering with topological sorting.
-- Use context-aware logging (`context.Context`) and structured logs.
-
-## .NET (C#) Plan
-
-- Project layout:
-  - `dotnet/src/Bsb.Runtime/*` controllers and `ServiceBase`
-  - `dotnet/src/Bsb.Plugins.Default/*`
-  - `dotnet/src/Bsb.Cli/*`
-- Use dependency injection + hosted service lifecycle (`IHostedService`).
-- Plugin contracts via interfaces and optional reflection-based discovery.
-- Strong options binding for config and validation.
-
-## Next Python Steps
-
-- Add `observable-default` plugin integration.
-- Add stream event API parity (`emitStreamAndReceiveStream`).
-- Add schema export and client generation hooks.
-- Add plugin CLI tooling to align with Node scripts.
+Real Node/.NET/Python/Go/Rust Rabbit integration passed all 20 directed RPC/trace/1 MiB stream pairs, absent listeners and crashed consumers. Shared Registry/Vault tests cover Go/Rust language isolation. PostgreSQL migrations and existing language builds passed CI at 017b1b9; the implementation plan records subsequent local checks and any outstanding CI/signing work.

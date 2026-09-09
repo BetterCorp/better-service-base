@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">9.1.11</Version>
+    <PackageId Condition="'$(PackageId)' == ''">BetterCorp.BSB.$(MSBuildProjectName.Replace('-', '.'))</PackageId>
+    <Authors>BetterCorp (PTY) Ltd</Authors>
+    <RepositoryUrl>https://github.com/BetterCorp/better-service-base</RepositoryUrl>
+    <Description Condition="'$(Description)' == ''">Better Service Base native runtime and plugins</Description>
+    <PackageLicenseFile Condition="Exists('$(MSBuildThisFileDirectory)../LICENSE')">LICENSE</PackageLicenseFile>
+    <PackageReadmeFile Condition="Exists('$(MSBuildThisFileDirectory)README.md')">README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../LICENSE" Condition="Exists('$(MSBuildThisFileDirectory)../LICENSE')" Pack="true" PackagePath="/" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Condition="Exists('$(MSBuildThisFileDirectory)README.md')" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>

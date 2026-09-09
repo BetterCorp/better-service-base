@@ -1,0 +1,3 @@
+recursive-include src/bsb_examples/contracts *.json
+recursive-include src/bsb_examples/clients *.py
+recursive-include src/bsb_examples/static *

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <AssemblyName>config-default</AssemblyName>
+        <OutputPath>..\..\..\dotnet\BetterServiceBase\bin\$(Configuration)\net10.0\plugins\config-default\</OutputPath>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="YamlDotNet" Version="18.1.0" />
+        <ProjectReference Include="..\..\..\dotnet\BSB\BSB.csproj" Private="false" ExcludeAssets="runtime" />
+    </ItemGroup>
+</Project>

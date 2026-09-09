@@ -82,25 +82,25 @@ public class BSBPluginMetadata
     public string? Image { get; init; }
 
     /// <summary>
-    /// Plugins that must initialize before this plugin.
+    /// Plugins that this plugin must initialize before.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? InitBeforePlugins { get; init; }
 
     /// <summary>
-    /// Plugins that must initialize after this plugin.
+    /// Plugins that this plugin must initialize after.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? InitAfterPlugins { get; init; }
 
     /// <summary>
-    /// Plugins that must run before this plugin.
+    /// Plugins that this plugin must run before.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? RunBeforePlugins { get; init; }
 
     /// <summary>
-    /// Plugins that must run after this plugin.
+    /// Plugins that this plugin must run after.
     /// Purely informational for ordering - not dependency resolution.
     /// </summary>
     public string[]? RunAfterPlugins { get; init; }
@@ -112,6 +112,8 @@ public class BSBPluginMetadata
 /// </summary>
 public class PluginDefinition
 {
+    public System.Text.Json.JsonElement? Filter { get; init; }
+    public string? Language { get; init; }
     /// <summary>
     /// The mapped name (config key). This is how the plugin is referenced in config.
     /// </summary>
@@ -151,6 +153,8 @@ public class PluginDefinition
 /// </summary>
 public class PluginConstructorArgs
 {
+    /// <summary>Configuration supplied to non-generic config and transport plugins.</summary>
+    public object? RawConfig { get; init; }
     /// <summary>
     /// Application instance identifier.
     /// </summary>

@@ -31,6 +31,11 @@ node_modules
 /dotnet/artifacts/
 /dotnet/**/Properties/launchSettings.json
 /rust/target
+/target/
+/plugins/dotnet/**/bin/
+/plugins/dotnet/**/obj/
+BsbClients/
+bsbclients/
 .idea
 # Repomix output
 repomix-output.xml

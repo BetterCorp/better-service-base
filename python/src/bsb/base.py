@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import inspect
 from typing import Any, Awaitable, Callable
 
 from .observable import ObservableBackend, Trace
@@ -42,7 +43,7 @@ def validate_schema_value(schema: Schema | None, value: Any, context: str) -> An
 
 
 def validate_plugin_config(config_cls: Any, value: Any, context: str) -> Any:
-    schema = getattr(config_cls, "validation_schema", None)
+    schema = getattr(config_cls, "validation_schema", None) or getattr(config_cls, "ConfigSchema", None)
     if schema is None:
         return {} if value is None else value
     payload = {} if value is None else value
@@ -87,6 +88,34 @@ class BSBPluginBase:
         return None
 
 
+async def dispose_all(instances) -> None:
+    errors = []
+    seen = set()
+    for instance in instances:
+        if id(instance) in seen:
+            continue
+        seen.add(id(instance))
+        try:
+            result = instance.dispose()
+            if inspect.isawaitable(result):
+                await result
+        except Exception as error:
+            errors.append(error)
+    if errors:
+        raise ExceptionGroup("Plugin cleanup failed", errors)
+
+
+class BSBObservable(BSBPluginBase):
+    def emit_log(self, entry: dict) -> None:
+        pass
+
+    def emit_span(self, entry: dict) -> None:
+        pass
+
+    def emit_metric(self, entry: dict) -> None:
+        pass
+
+
 class BSBConfig(BSBPluginBase):
     async def get_plugin_config(self, trace: Trace, plugin_type: str, plugin_name: str) -> dict[str, Any] | None:
         raise NotImplementedError
@@ -105,6 +134,12 @@ class BSBConfig(BSBPluginBase):
 
 
 class BSBEvents(BSBPluginBase):
+    async def receive_stream(self, trace: Trace, plugin_name: str, event: str, handler, timeout_seconds: float = 5) -> str:
+        raise NotImplementedError
+
+    async def send_stream(self, trace: Trace, plugin_name: str, event: str, stream_id: str, source) -> None:
+        raise NotImplementedError
+
     async def on_broadcast(self, trace: Trace, plugin_name: str, event: str, listener: Callable[..., Awaitable[None]]) -> None:
         raise NotImplementedError
 
@@ -132,33 +167,63 @@ class BSBEvents(BSBPluginBase):
 
 
 class _PluginEventsFacadeBase:
-    def __init__(self, target_plugin_name: str, events_controller: Any, observable: ObservableBackend) -> None:
+    def __init__(self, target_plugin_name: str, events_controller: Any, observable: ObservableBackend, schemas: dict | None = None) -> None:
         self._target_plugin_name = target_plugin_name
         self._events = events_controller
         self._obs = observable
+        self._schemas = schemas
 
-    async def on_event(self, event: str, listener: Callable[..., Awaitable[None]]) -> None:
-        await self._events.on_event(self._target_plugin_name, event, listener)
+    def _schema(self, category: str, event: str) -> dict:
+        if self._schemas is None:
+            return {}
+        if event not in self._schemas.get(category, {}):
+            raise BSBValidationError(f"Undeclared {category} event {self._target_plugin_name}.{event}")
+        return self._schemas[category][event]
 
-    async def emit_event(self, event: str, *args: Any) -> None:
-        await self._events.emit_event(self._target_plugin_name, event, _normalize_payload(args))
+    @staticmethod
+    def _specific(event: str, server_id: str | None) -> str:
+        if server_id is None:
+            return event
+        if not isinstance(server_id, str) or not server_id.strip() or "\0" in server_id:
+            raise ValueError("Invalid server ID")
+        return f"{event}-{server_id}"
 
-    async def on_broadcast(self, event: str, listener: Callable[..., Awaitable[None]]) -> None:
-        await self._events.on_broadcast(self._target_plugin_name, event, listener)
+    async def _listen(self, category, method, event, listener, obs, server_id=None):
+        schema = self._schema(category, event)
+        async def validated(trace, payload):
+            parsed = validate_schema_value(schema.get("input"), payload, event + " input")
+            result = await listener(trace, parsed)
+            return validate_schema_value(schema.get("output"), result, event + " output")
+        await getattr(self._events, method)(self._target_plugin_name, self._specific(event, server_id), validated, obs=obs)
 
-    async def emit_broadcast(self, event: str, *args: Any) -> None:
-        await self._events.emit_broadcast(self._target_plugin_name, event, _normalize_payload(args))
+    async def on_event(self, event: str, listener: Callable[..., Awaitable[None]], *, obs: Trace | None = None, server_id: str | None = None) -> None:
+        await self._listen("onEvents", "on_event", event, listener, obs, server_id)
 
-    async def on_returnable_event(self, event: str, listener: Callable[..., Awaitable[Any]]) -> None:
-        await self._events.on_returnable_event(self._target_plugin_name, event, listener)
+    async def emit_event(self, event: str, *args: Any, obs: Trace | None = None, server_id: str | None = None) -> None:
+        payload = validate_schema_value(self._schema("emitEvents", event).get("input"), _normalize_payload(args), event + " input")
+        await self._events.emit_event(self._target_plugin_name, self._specific(event, server_id), payload, obs=obs)
 
-    async def emit_event_and_return(self, event: str, *args: Any, timeout_seconds: float = 30.0) -> Any:
-        return await self._events.emit_event_and_return(
-            self._target_plugin_name,
-            event,
-            timeout_seconds,
-            _normalize_payload(args),
-        )
+    async def on_broadcast(self, event: str, listener: Callable[..., Awaitable[None]], *, obs: Trace | None = None) -> None:
+        await self._listen("onBroadcast", "on_broadcast", event, listener, obs)
+
+    async def emit_broadcast(self, event: str, *args: Any, obs: Trace | None = None) -> None:
+        payload = validate_schema_value(self._schema("emitBroadcast", event).get("input"), _normalize_payload(args), event + " input")
+        await self._events.emit_broadcast(self._target_plugin_name, event, payload, obs=obs)
+
+    async def on_returnable_event(self, event: str, listener: Callable[..., Awaitable[Any]], *, obs: Trace | None = None, server_id: str | None = None) -> None:
+        await self._listen("onReturnableEvents", "on_returnable_event", event, listener, obs, server_id)
+
+    async def emit_event_and_return(self, event: str, *args: Any, timeout_seconds: float = 30.0, obs: Trace | None = None, server_id: str | None = None) -> Any:
+        schema = self._schema("emitReturnableEvents", event)
+        payload = validate_schema_value(schema.get("input"), _normalize_payload(args), event + " input")
+        result = await self._events.emit_event_and_return(self._target_plugin_name, self._specific(event, server_id), timeout_seconds, payload, obs=obs)
+        return validate_schema_value(schema.get("output"), result, event + " output")
+
+    async def receive_stream(self, event: str, handler: Callable, *, obs: Trace | None = None, timeout_seconds: float = 5) -> str:
+        return await self._events.receive_stream(self._target_plugin_name, event, handler, obs=obs, timeout_seconds=timeout_seconds)
+
+    async def send_stream(self, event: str, stream_id: str, source: Any, *, obs: Trace | None = None) -> None:
+        await self._events.send_stream(self._target_plugin_name, event, stream_id, source, obs=obs)
 
 
 class PluginEventsFacade(_PluginEventsFacadeBase):
@@ -166,10 +231,12 @@ class PluginEventsFacade(_PluginEventsFacadeBase):
 
 
 class ServiceClient:
-    def __init__(self, target_plugin_name: str, context: "BSBService") -> None:
+    def __init__(self, target_plugin_name: str, context: "BSBService", schema: dict | None = None) -> None:
+        from .schema_events import import_event_schemas
         self.target_plugin_name = target_plugin_name
         self.context = context
-        self.events = _PluginEventsFacadeBase(target_plugin_name, context._events_controller, context._obs)
+        self.events = _PluginEventsFacadeBase(target_plugin_name, context._events_controller, context._obs,
+            import_event_schemas(schema, client=True) if schema is not None else None)
 
 
 class BSBService(BSBPluginBase):
@@ -182,8 +249,15 @@ class BSBService(BSBPluginBase):
     def __init__(self, ctor: PluginCtor) -> None:
         super().__init__(ctor)
         self._events_controller = ctor.events
-        self.events = PluginEventsFacade(self.plugin_name, ctor.events, self._obs)
+        self.events = PluginEventsFacade(self.plugin_name, ctor.events, self._obs, self.EventSchemas)
         self._clients: list[Any] = []
+
+    def create_trace(self, name: str, attributes: dict | None = None) -> Trace:
+        return self._obs.create_trace(name, attributes=attributes)
+
+    def create_self(self) -> ServiceClient:
+        from .schema_events import export_event_schemas
+        return ServiceClient(self.plugin_name, self, export_event_schemas(self.plugin_name, self.plugin_version, self.EventSchemas))
 
     def use_client(self, client_cls: type[Any], *args: Any, **kwargs: Any) -> Any:
         client = client_cls(self, *args, **kwargs)

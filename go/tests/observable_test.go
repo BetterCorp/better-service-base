@@ -1,10 +1,104 @@
 package tests
 
 import (
+	"context"
+	"runtime"
 	"testing"
 
 	"github.com/bettercorp/service-base/go/bsb"
 )
+
+type recordingObservablePlugin struct {
+	parents []bsb.DTrace
+	names   []string
+	ids     []string
+	metric  func(map[string]any)
+}
+
+func (*recordingObservablePlugin) Init(context.Context, bsb.Observable) error         { return nil }
+func (*recordingObservablePlugin) Run(context.Context, bsb.Observable) error          { return nil }
+func (*recordingObservablePlugin) Dispose() error                                     { return nil }
+func (*recordingObservablePlugin) OnDebug(bsb.DTrace, string, string, map[string]any) {}
+func (*recordingObservablePlugin) OnInfo(bsb.DTrace, string, string, map[string]any)  {}
+func (*recordingObservablePlugin) OnWarn(bsb.DTrace, string, string, map[string]any)  {}
+func (*recordingObservablePlugin) OnError(bsb.DTrace, string, string, map[string]any) {}
+func (p *recordingObservablePlugin) OnSpanStart(parent bsb.DTrace, _, name, id string, _ map[string]any) {
+	p.parents = append(p.parents, parent)
+	p.names = append(p.names, name)
+	p.ids = append(p.ids, id)
+}
+func (*recordingObservablePlugin) OnSpanEnd(bsb.DTrace, string, string, map[string]any) {}
+func (*recordingObservablePlugin) OnSpanError(bsb.DTrace, string, string, error, map[string]any) {
+}
+func (p *recordingObservablePlugin) OnMetric(_ string, entry map[string]any) {
+	if p.metric != nil {
+		p.metric(entry)
+	}
+}
+
+func TestCreateTraceHasNoPhantomParent(t *testing.T) {
+	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test")
+	exporter := &recordingObservablePlugin{}
+	backend.AddPlugin(exporter)
+	resource := bsb.BuildResourceContext("test", "1.0.0", "test-app", bsb.ModeDevelopment, "")
+
+	root := backend.CreateTrace("root", "test", resource, nil)
+	child := root.StartSpan("child")
+	if len(exporter.parents) != 2 {
+		t.Fatalf("expected root and child starts, got %d", len(exporter.parents))
+	}
+	if exporter.parents[0].TraceID != root.TraceID() || exporter.parents[0].SpanID != "" {
+		t.Fatalf("root received phantom parent: %#v", exporter.parents[0])
+	}
+	if exporter.parents[1] != root.Trace() || child.TraceID() != root.TraceID() {
+		t.Fatal("child span did not preserve its real parent")
+	}
+	imported := bsb.NewDTrace()
+	backend.CreateObservable(imported, "test", resource).StartSpan("imported")
+	if exporter.parents[2] != imported {
+		t.Fatal("imported trace parent was not preserved")
+	}
+}
+
+func TestCounterPublishesConcurrentUpdatesInOrder(t *testing.T) {
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	values := []int64{}
+	exporter := &recordingObservablePlugin{metric: func(entry map[string]any) {
+		value := entry["value"].(int64)
+		if value == 1 {
+			close(firstStarted)
+			<-releaseFirst
+		}
+		values = append(values, value)
+	}}
+	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test")
+	backend.AddPlugin(exporter)
+	counter := backend.CreateCounter("test", "requests", "Requests", "count")
+	firstDone := make(chan struct{})
+	go func() { counter.Increment(); close(firstDone) }()
+	<-firstStarted
+	secondStarted := make(chan struct{})
+	secondDone := make(chan struct{})
+	go func() {
+		close(secondStarted)
+		counter.Increment()
+		close(secondDone)
+	}()
+	<-secondStarted
+	runtime.Gosched()
+	if counter.Value() != 1 {
+		t.Fatalf("second update overtook blocked first publication: %d", counter.Value())
+	}
+	close(releaseFirst)
+	<-firstDone
+	<-secondDone
+	if len(values) != 2 || values[0] != 1 || values[1] != 2 {
+		t.Fatalf("counter publications went backward: %v", values)
+	}
+}
 
 func TestObservableBasicFlow(t *testing.T) {
 	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test-plugin")
@@ -110,5 +204,32 @@ func TestObservableMetrics(t *testing.T) {
 	elapsed := timer.Stop()
 	if elapsed < 0 {
 		t.Error("timer should be non-negative")
+	}
+}
+
+func TestMetricRegistrationIdentity(t *testing.T) {
+	backend := bsb.NewObservableBackend(bsb.ModeDevelopment, "test-app", "test")
+	first := backend.CreateHistogram("plugin", "latency", "Latency", "ms", []float64{10, 50})
+	first.Record(5)
+	second := backend.CreateHistogram("plugin", "latency", "Latency", "ms", []float64{10, 50})
+	second.Record(25)
+	if first != second || second.Count() != 2 || second.Sum() != 30 {
+		t.Fatalf("histogram state was not reused: first=%p second=%p count=%d sum=%v", first, second, second.Count(), second.Sum())
+	}
+
+	backend.CreateCounter("plugin", "requests", "Requests", "count")
+	for name, conflict := range map[string]func(){
+		"kind":       func() { backend.CreateGauge("plugin", "requests", "Requests", "count") },
+		"metadata":   func() { backend.CreateCounter("plugin", "requests", "Other", "count") },
+		"boundaries": func() { backend.CreateHistogram("plugin", "latency", "Latency", "ms", []float64{20, 50}) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("conflicting metric registration accepted")
+				}
+			}()
+			conflict()
+		})
 	}
 }

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bettercorp/service-base/go/bsb"
-	"github.com/bettercorp/service-base/go/plugins/eventsdefault"
+	"github.com/bettercorp/service-base/plugins/go/eventsdefault"
 )
 
 func TestTimeoutCancelsHandlerAndStreamsAreOneShot(t *testing.T) {
@@ -43,6 +43,49 @@ func TestTimeoutCancelsHandlerAndStreamsAreOneShot(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 	if err := plugin.SendStream(ctx, obs, "svc", "stream", id, strings.NewReader("late")); err == nil {
 		t.Fatal("expired stream accepted")
+	}
+}
+
+func TestLocalStreamExpiryNotifiesListener(t *testing.T) {
+	plugin, _ := eventsdefault.New(nil)
+	defer plugin.Dispose()
+	received := make(chan error, 1)
+	_, err := plugin.ReceiveStream(context.Background(), newTestObs(), "svc", "stream", func(_ context.Context, _ bsb.Observable, stream io.Reader) error {
+		_, err := io.ReadAll(stream)
+		received <- err
+		return nil
+	}, time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-received:
+		if err == nil || !strings.Contains(err.Error(), "expired") {
+			t.Fatalf("expected expiry error, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("listener was not notified of stream expiry")
+	}
+
+	received = make(chan error, 1)
+	id, err := plugin.ReceiveStream(context.Background(), newTestObs(), "svc", "claimed", func(_ context.Context, _ bsb.Observable, stream io.Reader) error {
+		_, err := io.ReadAll(stream)
+		received <- err
+		return nil
+	}, 20*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plugin.SendStream(context.Background(), newTestObs(), "svc", "claimed", id, strings.NewReader("ok")); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-received; err != nil {
+		t.Fatalf("claimed stream failed: %v", err)
+	}
+	select {
+	case err := <-received:
+		t.Fatalf("claimed listener invoked twice: %v", err)
+	case <-time.After(50 * time.Millisecond):
 	}
 }
 

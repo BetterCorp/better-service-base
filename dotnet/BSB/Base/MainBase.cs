@@ -9,6 +9,7 @@ using BSB.Interfaces;
 /// </summary>
 public abstract class MainBase : IAsyncDisposable
 {
+    protected object? RawConfig { get; }
     /// <summary>
     /// Unique application identifier shared by all plugins in this host.
     /// </summary>
@@ -43,8 +44,9 @@ public abstract class MainBase : IAsyncDisposable
         AppId = args.AppId;
         Mode = args.Mode;
         PluginName = args.PluginName;
-        Cwd = args.Cwd;
+        Cwd = Path.GetFullPath(args.Cwd);
         Region = args.Region;
+        RawConfig = args.RawConfig;
     }
 
     /// <summary>

@@ -1,8 +1,35 @@
 from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
+import math
 
 from .schema import AnyValiDocument, Schema
+from .schema import import_portable_schema
+
+FLIP_MAP = {"emitEvents": "onEvents", "onEvents": "emitEvents", "emitReturnableEvents": "onReturnableEvents",
+    "onReturnableEvents": "emitReturnableEvents", "emitBroadcast": "onBroadcast", "onBroadcast": "emitBroadcast"}
+
+
+def import_event_schemas(document: dict, *, client: bool = False) -> BSBEventSchemas:
+    schemas: BSBEventSchemas = {}
+    for name, entry in document["events"].items():
+        category = entry["category"]
+        if category not in FLIP_MAP or not isinstance(name, str) or not name or "\0" in name:
+            raise ValueError("Invalid event name/category")
+        expected = "returnable" if "Returnable" in category else "broadcast" if "Broadcast" in category else "fire-and-forget"
+        if entry["type"] != expected:
+            raise ValueError("Event category does not match its type")
+        event: Any = {"input": import_portable_schema(entry["inputSchema"]), "__brand": expected}
+        if expected == "returnable":
+            event["output"] = import_portable_schema(entry["outputSchema"])
+            timeout = entry.get("defaultTimeout", 30)
+            if type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 86400:
+                raise ValueError("Invalid event timeout")
+            event["default_timeout"] = timeout
+        if "description" in entry:
+            event["description"] = entry["description"]
+        schemas.setdefault(FLIP_MAP[category] if client else category, {})[name] = event
+    return schemas
 
 
 EventType = Literal["fire-and-forget", "returnable", "broadcast"]
@@ -109,10 +136,7 @@ def create_event_schemas(schemas: BSBEventSchemas) -> BSBEventSchemas:
 
     if duplicates:
         duplicate_names = ", ".join(sorted(duplicates))
-        print(
-            "[BSB Warning] Duplicate event names detected: "
-            f"{duplicate_names}. Consider unique names across categories."
-        )
+        raise ValueError(f"Duplicate event names across categories: {duplicate_names}")
 
     return schemas
 
@@ -124,6 +148,7 @@ def get_event_definition(schemas: BSBEventSchemas | None, category: EventCategor
 
 
 def export_event_schemas(plugin_name: str, version: str, schemas: BSBEventSchemas | None) -> EventSchemaExport:
+    create_event_schemas(schemas or {})
     events: dict[str, EventExportDefinition] = {}
     if schemas:
         for category in (
@@ -154,6 +179,7 @@ def export_event_schemas(plugin_name: str, version: str, schemas: BSBEventSchema
                 events[event_name] = export_def
 
     return {
+        "pluginId": plugin_name,
         "pluginName": plugin_name,
         "version": version,
         "events": events,

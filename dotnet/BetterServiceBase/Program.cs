@@ -1,4 +1,12 @@
 using BSB.Runtime;
+using BSB.Tooling;
+
+if (args.Length > 0 && args[0] != "start")
+{
+    try { await BsbCli.Run(args, Directory.GetCurrentDirectory()); }
+    catch (Exception error) { Console.Error.WriteLine(error.Message); Environment.ExitCode = 1; }
+    return;
+}
 
 // BSB Service Base -- the plugin container.
 // Plugins are loaded dynamically from config (bsb-config.json).
@@ -7,8 +15,7 @@ using BSB.Runtime;
 await using var service = ServiceBase.Create(new ServiceBaseOptions
 {
     Cwd = Directory.GetCurrentDirectory(),
-    Mode = Environment.GetEnvironmentVariable("BSB_MODE") == "production"
-        ? BSB.Interfaces.DebugMode.Production : BSB.Interfaces.DebugMode.Development,
+    Mode = ServiceBaseOptions.ParseMode(Environment.GetEnvironmentVariable("BSB_MODE")),
     AppId = Environment.GetEnvironmentVariable("BSB_APP_ID"),
     Region = Environment.GetEnvironmentVariable("BSB_REGION"),
 });

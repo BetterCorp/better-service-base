@@ -20,13 +20,17 @@
  *   BSB_REGISTRY_TOKEN  - API token for authentication
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from 'node:child_process';
+import { getModuleDir } from '../base/module-runtime.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as https from 'node:https';
 import * as http from 'node:http';
-import { getModuleDir } from '../base/module-runtime.js';
 import { retryRegistryPublish } from './registry-retry.js';
+import { normalizePluginLanguage } from '../interfaces/plugin-language.js';
+import { parseRegistryPluginId as parsePluginId } from '../interfaces/registry-identifiers.js';
+import { hostedSchema } from './hosted-client.js';
+import { generateVirtualClient, pluginNameToClassName } from './generate-client-types.js';
 
 type ColorName = 'reset' | 'bright' | 'red' | 'green' | 'yellow' | 'blue' | 'cyan';
 
@@ -70,21 +74,12 @@ const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
 
 const COMMAND = process.argv[2];
 const ARGS = process.argv.slice(3);
-const MODULE_DIR = getModuleDir(import.meta.url);
 
 /**
  * Parse a plugin ID into org and name.
  * Accepts both "org/name" and plain "name" formats.
  * When no org is provided, defaults to "_" (unaffiliated).
  */
-function parsePluginId(pluginId: string): { org: string; name: string } {
-  if (pluginId.includes('/')) {
-    const [org, ...rest] = pluginId.split('/');
-    return { org, name: rest.join('/') };
-  }
-  return { org: '_', name: pluginId };
-}
-
 /**
  * Format a plugin ID for display.
  * Hides the "_" sentinel org for unaffiliated plugins.
@@ -755,81 +750,54 @@ function ensureGitignore(): void {
  * Install plugin from registry (download schema and generate virtual client)
  */
 async function installPlugin(pluginId: string): Promise<void> {
-  if (!pluginId) {
-    error('Please provide a plugin ID: bsb-client install <name> or bsb-client install <org/name>');
-  }
-
-  const { org, name } = parsePluginId(pluginId);
-  const display = displayPluginId(org, name);
-
-  info(`Installing plugin ${display}...`);
-
+  if (!pluginId) error('Provide a plugin ID or hosted HTTPS origin');
   try {
-    // Get plugin metadata
-    const detailResult = await registryRequest('GET', `/plugins/${org}/${name}`);
-    const plugin = detailResult.plugin || detailResult;
-
-    // Get plugin schema
-    const schema = await registryRequest('GET', `/plugins/${org}/${name}/${plugin.version}/schema`);
-
-    // Create directories for remote schemas and virtual clients
+    const options: Record<string, string> = {};
+    for (let i = 1; i < ARGS.length; i++) {
+      const key = ARGS[i];
+      if (key === '--allow-insecure') { options[key] = 'true'; continue; }
+      if (!['--source-language', '--version', '--plugin'].includes(key) || !ARGS[i + 1] || ARGS[i + 1].startsWith('--')) {
+        throw new Error('Usage: install <org/name|https://origin> [--plugin ID] [--source-language LANGUAGE] [--version VERSION] [--allow-insecure]');
+      }
+      options[key] = ARGS[++i];
+    }
+    let schema;
+    let localName: string;
+    if (/^https?:\/\//i.test(pluginId)) {
+      ({ schema, localName } = await hostedSchema(pluginId, { plugin: options['--plugin'], language: options['--source-language'], version: options['--version'], allowInsecure: options['--allow-insecure'] === 'true' }));
+    } else {
+      if (options['--plugin']) throw new Error('--plugin selects an entry from a hosted origin');
+      const { org, name } = parsePluginId(pluginId);
+      let language = options['--source-language'] ? normalizePluginLanguage(options['--source-language']) : undefined;
+      if (!language) {
+        const result = await registryRequest('GET', `/plugins/${org}/${name}/implementations`);
+        const variants = result.implementations;
+        if (!Array.isArray(variants) || variants.length !== 1) throw new Error('No unique implementation; specify --source-language');
+        language = normalizePluginLanguage(variants[0].language);
+      }
+      const query = `?language=${language}`;
+      const detail = await registryRequest('GET', `/plugins/${org}/${name}${query}`);
+      const version = options['--version'] || (detail.plugin || detail).version;
+      schema = await registryRequest('GET', `/plugins/${org}/${name}/${encodeURIComponent(version)}/schema${query}`);
+      schema.pluginId = name;
+      schema.source = { org, name, language, version, registry: REGISTRY_URL };
+      localName = `${org}~${name}~${language}`;
+    }
+    generateVirtualClient(schema, '@bsb/base', localName);
     const schemasDir = path.join(process.cwd(), 'src', '.bsb', 'schemas');
     const clientsDir = path.join(process.cwd(), 'src', '.bsb', 'clients');
-
-    if (!fs.existsSync(schemasDir)) {
-      fs.mkdirSync(schemasDir, { recursive: true });
-    }
-    if (!fs.existsSync(clientsDir)) {
-      fs.mkdirSync(clientsDir, { recursive: true });
-    }
-
-    // Ensure .gitignore covers the generated directory
+    const existing = fs.existsSync(schemasDir) ? fs.readdirSync(schemasDir).filter(file => file.endsWith('.json')).map(file => path.basename(file, '.json')) : [];
+    if (existing.some(name => name !== localName && pluginNameToClassName(name) === pluginNameToClassName(localName))) throw new Error('Installed client names collide');
+    fs.mkdirSync(schemasDir, { recursive: true });
+    fs.mkdirSync(clientsDir, { recursive: true });
     ensureGitignore();
-
-    // Save schema
-    const schemaFile = path.join(schemasDir, `${name}.json`);
+    const schemaFile = path.join(schemasDir, `${localName}.json`);
     fs.writeFileSync(schemaFile, JSON.stringify(schema, null, 2), 'utf-8');
-    success(`Downloaded schema for ${display}`);
-
-    // Generate virtual client by calling the generator
-    const generatorPath = path.join(MODULE_DIR, 'generate-client-types.js');
-    if (fs.existsSync(generatorPath)) {
-      try {
-        execSync(`node "${generatorPath}"`, {
-          cwd: process.cwd(),
-          stdio: 'pipe',
-        });
-        success(`Generated virtual client for ${display}`);
-      } catch (err) {
-        warn('Failed to generate virtual client automatically. Run your build to regenerate.');
-      }
-    }
-
-    log('');
-    success(`Plugin ${display} @ ${plugin.version} installed`);
-    log(`  Schema: ${schemaFile}`, 'reset');
-    log(`  Import: import ${pluginNameToClassName(name)} from './.bsb/clients/${name}.js'`, 'reset');
-  } catch (err: any) {
-    error(`Failed to install plugin: ${err.message}`);
-  }
-}
-
-/**
- * Convert plugin key/ID to PascalCase client class name.
- * Strips non-alphanumeric characters to ensure valid TypeScript identifiers.
- */
-function pluginNameToClassName(pluginId: string): string {
-  let name = pluginId;
-  if (name.startsWith('service-')) {
-    name = name.substring('service-'.length);
-  }
-  const pascal = name
-    .replace(/[^a-zA-Z0-9-]/g, '')
-    .split('-')
-    .filter(part => part.length > 0)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-  return pascal + 'Client';
+    execFileSync(process.execPath, [path.join(getModuleDir(import.meta.url), 'generate-client-types.js')], { cwd: process.cwd(), stdio: 'pipe' });
+    success(`Installed ${pluginId}`);
+    log(`  Schema: ${schemaFile}`);
+    log(`  Import: import ${pluginNameToClassName(localName)} from './.bsb/clients/${localName}.js'`);
+  } catch (err: any) { error(`Failed to install plugin: ${err.message}`); }
 }
 
 /**
@@ -852,7 +820,7 @@ async function main(): Promise<void> {
     log('  bsb-client search <query>        - Search plugins');
     log('  bsb-client info <name>           - Get plugin details');
     log('  bsb-client schema <name>         - Get plugin event schema');
-    log('  bsb-client install <name>        - Download schema and generate types');
+    log('  bsb-client install <name|https://origin> [--plugin ID] [--source-language LANGUAGE] [--version VERSION] [--allow-insecure]');
     log('  bsb-client publish               - Publish current plugin(s) to registry');
     log('  bsb-client publish --target URL --plugin ID --token TOKEN - Publish one plugin directly to Vault');
     log('  bsb-client token generate        - Generate a new API token');

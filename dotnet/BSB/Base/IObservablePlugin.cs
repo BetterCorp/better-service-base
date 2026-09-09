@@ -10,6 +10,8 @@ using BSB.Interfaces;
 /// </summary>
 public interface IObservablePlugin
 {
+    Task Run(IObservable obs) => Task.CompletedTask;
+    void SpanEnded(CompletedSpan span) { }
     /// <summary>Log a debug-level message.</summary>
     /// <param name="trace">Active distributed trace.</param>
     /// <param name="pluginName">Name of the originating plugin.</param>
@@ -71,29 +73,29 @@ public interface IObservablePlugin
     /// <param name="name">Counter name.</param>
     /// <param name="value">Increment amount.</param>
     /// <param name="labels">Optional dimension labels.</param>
-    void IncrementCounter(string name, double value, Dictionary<string, string>? labels = null);
+    void IncrementCounter(string pluginName, string name, double value, Dictionary<string, string>? labels = null);
 
     /// <summary>Set a gauge to an absolute value.</summary>
     /// <param name="name">Gauge name.</param>
     /// <param name="value">Value to set.</param>
     /// <param name="labels">Optional dimension labels.</param>
-    void SetGauge(string name, double value, Dictionary<string, string>? labels = null);
+    void SetGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null);
 
     /// <summary>Increment a gauge by the given value.</summary>
     /// <param name="name">Gauge name.</param>
     /// <param name="value">Increment amount.</param>
     /// <param name="labels">Optional dimension labels.</param>
-    void IncrementGauge(string name, double value, Dictionary<string, string>? labels = null);
+    void IncrementGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null);
 
     /// <summary>Decrement a gauge by the given value.</summary>
     /// <param name="name">Gauge name.</param>
     /// <param name="value">Decrement amount.</param>
     /// <param name="labels">Optional dimension labels.</param>
-    void DecrementGauge(string name, double value, Dictionary<string, string>? labels = null);
+    void DecrementGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null);
 
     /// <summary>Record a value in a histogram.</summary>
     /// <param name="name">Histogram name.</param>
     /// <param name="value">Observed value.</param>
     /// <param name="labels">Optional dimension labels.</param>
-    void RecordHistogram(string name, double value, Dictionary<string, string>? labels = null);
+    void RecordHistogram(string pluginName, string name, double value, Dictionary<string, string>? labels = null);
 }

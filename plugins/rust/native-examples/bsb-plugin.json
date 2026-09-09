@@ -1,0 +1,32 @@
+{
+  "rust": [
+    {
+      "id": "service-benchmarkify",
+      "crate": "bsb_native_examples"
+    },
+    {
+      "id": "service-default0",
+      "crate": "bsb_native_examples"
+    },
+    {
+      "id": "service-default1",
+      "crate": "bsb_native_examples"
+    },
+    {
+      "id": "service-default2",
+      "crate": "bsb_native_examples"
+    },
+    {
+      "id": "service-default3",
+      "crate": "bsb_native_examples"
+    },
+    {
+      "id": "service-default4",
+      "crate": "bsb_native_examples"
+    },
+    {
+      "id": "service-demo-todo",
+      "crate": "bsb_native_examples"
+    }
+  ]
+}

@@ -1,86 +1,66 @@
 from __future__ import annotations
 
+import json
 import os
-from typing import Any
 
-from .base import BSBConfig, PluginCtor
-from .observable import ObservableBackend
-from .plugin_loader import SBPlugins
-from .plugins.config_default import Plugin as DefaultConfigPlugin
+from .base import PluginCtor, dispose_all, validate_plugin_config
 
 
 class SBConfig:
-    def __init__(
-        self,
-        app_id: str,
-        mode: str,
-        cwd: str,
-        sb_plugins: SBPlugins,
-        observable_backend: ObservableBackend,
-    ) -> None:
-        self.app_id = app_id
-        self.mode = mode
-        self.cwd = cwd
-        self.sb_plugins = sb_plugins
-        self.obs = observable_backend
-        self.config_package: str | None = None
-        self.config_plugin_name = "config-default"
-        self.config_plugin: BSBConfig = self._build_default()
-
-    def _build_default(self) -> BSBConfig:
-        return DefaultConfigPlugin(
-            PluginCtor(
-                app_id=self.app_id,
-                mode=self.mode,
-                plugin_name="config-default",
-                cwd=self.cwd,
-                package_cwd=self.cwd,
-                plugin_cwd=self.cwd,
-                config=None,
-                plugin_version="1.0.0",
-                observable_backend=self.obs,
-            )
-        )
+    def __init__(self, app_id, mode, cwd, sb_plugins, observable_backend) -> None:
+        self.app_id, self.mode, self.cwd, self.sb_plugins, self.obs = app_id, mode, cwd, sb_plugins, observable_backend
+        self.config_plugin = None
 
     async def init(self) -> None:
-        env_name = os.environ.get("BSB_CONFIG_PLUGIN")
-        env_package = os.environ.get("BSB_CONFIG_PLUGIN_PACKAGE")
-        if env_name and env_name.startswith("config-"):
-            self.config_plugin_name = env_name
-            self.config_package = env_package
+        name = os.environ.get("BSB_CONFIG_PLUGIN", "config-default")
+        loaded = await self.sb_plugins.load_plugin("config", os.environ.get("BSB_CONFIG_PLUGIN_PACKAGE"), name, name)
+        values = {}
+        schema = getattr(loaded.service_config, "validation_schema", None) or getattr(loaded.service_config, "ConfigSchema", None)
+        if schema is not None:
+            root = schema.export("extended")["root"]
+            while root["kind"] in ("optional", "nullable"):
+                root = root.get("schema", root.get("inner"))
+            for key, field in root.get("properties", {}).items():
+                if key not in os.environ:
+                    continue
+                while field["kind"] in ("optional", "nullable"):
+                    field = field.get("schema", field.get("inner"))
+                raw = os.environ[key]
+                values[key] = raw if field["kind"] == "string" else json.loads(raw)
+        backend = self.obs.for_plugin(name)
+        self.config_plugin = loaded.plugin(PluginCtor(self.app_id, self.mode, name, self.cwd, loaded.package_cwd, loaded.plugin_cwd,
+            validate_plugin_config(loaded.service_config, values, "Invalid configuration provider settings"), loaded.version, backend))
+        trace = backend.create_trace("init")
+        try:
+            await self.config_plugin.init(trace)
+        finally:
+            trace.end()
 
-        trace = self.obs.create_trace("config:init", "SBConfig")
-        if self.config_plugin_name != "config-default":
-            loaded = await self.sb_plugins.load_plugin("config", self.config_package, self.config_plugin_name, self.config_plugin_name)
-            self.config_plugin = loaded.plugin(
-                PluginCtor(
-                    app_id=self.app_id,
-                    mode=self.mode,
-                    plugin_name=loaded.name,
-                    cwd=self.cwd,
-                    package_cwd=loaded.package_cwd,
-                    plugin_cwd=loaded.plugin_cwd,
-                    config=None,
-                    plugin_version=loaded.version,
-                    observable_backend=self.obs,
-                )
-            )
-        await self.config_plugin.init(trace)
+    async def dispose(self) -> None:
+        if self.config_plugin is not None:
+            await dispose_all([self.config_plugin])
 
-    def dispose(self) -> None:
-        self.config_plugin.dispose()
+    async def _read(self, method, *args):
+        trace = self.obs.create_trace("config." + method)
+        try:
+            return await getattr(self.config_plugin, method)(trace, *args)
+        finally:
+            trace.end()
 
-    async def get_plugin_config(self, plugin_type: str, name: str) -> dict[str, Any] | None:
-        return await self.config_plugin.get_plugin_config(self.obs.create_trace("config:get_plugin_config"), plugin_type, name)
+    async def get_plugin_config(self, plugin_type, name):
+        return await self._read("get_plugin_config", plugin_type, name)
 
-    async def get_service_plugins(self) -> dict[str, Any]:
-        return await self.config_plugin.get_service_plugins(self.obs.create_trace("config:get_service_plugins"))
+    async def get_service_plugins(self):
+        return await self._read("get_service_plugins")
 
-    async def get_events_plugins(self) -> dict[str, Any]:
-        return await self.config_plugin.get_events_plugins(self.obs.create_trace("config:get_events_plugins"))
+    async def get_service_references(self):
+        return await self._read("get_service_references" if hasattr(self.config_plugin, "get_service_references") else "get_service_plugins")
 
-    async def get_observable_plugins(self) -> dict[str, Any]:
-        return await self.config_plugin.get_observable_plugins(self.obs.create_trace("config:get_observable_plugins"))
+    async def get_events_plugins(self):
+        return await self._read("get_events_plugins")
 
-    async def get_service_plugin_definition(self, plugin_name: str) -> dict[str, Any]:
-        return await self.config_plugin.get_service_plugin_definition(self.obs.create_trace("config:get_service_plugin_definition"), plugin_name)
+    async def get_observable_plugins(self):
+        return await self._read("get_observable_plugins")
+
+    async def get_service_plugin_definition(self, name):
+        return await self._read("get_service_plugin_definition", name)

@@ -1,0 +1,19 @@
+{
+  "observable": { "observable-default": {} },
+  "events": { "events-default": {} },
+  "services": {
+    "service-default0": { "config": { "testa": 5, "testb": 3 } },
+    "service-default1": {},
+    "service-default2": {},
+    "service-default3": {},
+    "service-default4": {},
+    "service-benchmarkify": { "enabled": false, "config": { "iterations": 1000 } },
+    "service-demo-todo": {
+      "config": {
+        "storage": { "path": ".temp/demo-todos.json" },
+        "http": { "host": "127.0.0.1", "port": 3000, "cors": false },
+        "features": { "statsInterval": 30, "maxTodos": 1000 }
+      }
+    }
+  }
+}

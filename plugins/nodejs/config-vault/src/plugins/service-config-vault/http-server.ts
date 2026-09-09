@@ -1,3 +1,5 @@
+import { unwrapSchema, isSensitiveSchema, sensitiveSchemaPaths } from './schema-secrets.js';
+import { PLUGIN_LANGUAGES, normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -377,13 +379,13 @@ export class VaultHttpServer {
     app.use('/api/groups', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      return this.options.vault.createDeployment(user.userId, String(body.applicationId ?? ''), String(body.name ?? ''));
+      return this.options.vault.createDeployment(user.userId, String(body.applicationId ?? ''), String(body.name ?? ''), normalizePluginLanguage(body.language ?? 'nodejs'));
     }));
 
     app.use('/api/profiles/update', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      await this.options.vault.updateProfile(user.userId, String(body.id ?? ''), String(body.groupId ?? ''), String(body.name ?? ''));
+      await this.options.vault.updateProfile(user.userId, String(body.id ?? ''), String(body.groupId ?? ''), String(body.name ?? ''), body.language === undefined ? undefined : normalizePluginLanguage(body.language));
       return { success: true };
     }));
 
@@ -397,7 +399,7 @@ export class VaultHttpServer {
     app.use('/api/profiles', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
-      return this.options.vault.createProfile(user.userId, String(body.groupId ?? ''), String(body.name ?? 'default'));
+      return this.options.vault.createProfile(user.userId, String(body.groupId ?? ''), String(body.name ?? 'default'), normalizePluginLanguage(body.language ?? 'nodejs'));
     }));
 
     app.use('/api/plugins/publish', defineEventHandler(async (event) => {
@@ -419,7 +421,7 @@ export class VaultHttpServer {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       const pluginId = String(body.pluginId ?? '');
-      const credential = await this.options.vault.rotatePluginPublisher(user.userId, pluginId);
+      const credential = await this.options.vault.rotatePluginPublisher(user.userId, pluginId, normalizePluginLanguage(body.language ?? 'nodejs'));
       return { ...credential, publishCommand: vaultPublishCommand(this.options.publicUrl, pluginId, credential.secret) };
     }));
 
@@ -427,7 +429,7 @@ export class VaultHttpServer {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
       const pluginId = String(body.pluginId ?? '');
-      const credential = await this.options.vault.enablePluginPublisher(user.userId, pluginId);
+      const credential = await this.options.vault.enablePluginPublisher(user.userId, pluginId, normalizePluginLanguage(body.language ?? 'nodejs'));
       return { ...credential, publishCommand: vaultPublishCommand(this.options.publicUrl, pluginId, credential.secret) };
     }));
 
@@ -436,6 +438,7 @@ export class VaultHttpServer {
       const body = await readBody<Record<string, unknown>>(event);
       return this.options.vault.createPlugin(user.userId, {
         org: String(body.org ?? '_'),
+        language: normalizePluginLanguage(body.language ?? 'nodejs'),
         name: String(body.name ?? ''),
         pluginId: String(body.pluginId ?? body.name ?? ''),
         packageName: body.packageName === undefined || body.packageName === '' ? null : String(body.packageName),
@@ -462,6 +465,7 @@ export class VaultHttpServer {
           name: candidate.name,
           pluginId: candidate.pluginId,
           packageName: candidate.packageName,
+          language: candidate.language,
           version: candidate.version,
           kind: candidate.kind,
           source: 'registry',
@@ -494,6 +498,7 @@ export class VaultHttpServer {
       if (!schema && !manifest) throw createError({ statusCode: 400, statusMessage: 'Invalid plugin upload', message: 'Uploaded file is not a valid plugin upload: select a generated lib/schemas/{plugin-id}.plugin.json file' });
       const created = await this.options.vault.createPrivatePlugin(user.userId, {
         org: String(body.org ?? '_'),
+        language: body.language === undefined ? undefined : normalizePluginLanguage(body.language),
         packageName: String(body.packageName ?? ''),
         schemaFileName: body.schemaFileName === undefined ? undefined : String(body.schemaFileName),
         schema,
@@ -549,6 +554,7 @@ export class VaultHttpServer {
       const body = await readBody<Record<string, unknown>>(event);
       await this.options.vault.upsertApplicationProfilePlugin(user.userId, {
         applicationProfileId: String(body.applicationProfileId ?? ''),
+        language: normalizePluginLanguage(body.language ?? 'nodejs'),
         section: parseConfigSection(body.section),
         name: String(body.name ?? ''),
         plugin: String(body.plugin ?? ''),
@@ -897,6 +903,7 @@ type UserProfileData = Awaited<ReturnType<VaultService['userProfile']>>;
 type DeploymentProfileData = Awaited<ReturnType<VaultService['deploymentProfile']>>;
 type ApplicationProfileData = Awaited<ReturnType<VaultService['applicationProfile']>>;
 type RegistryCandidate = {
+  language: PluginLanguage;
   org: string;
   name: string;
   pluginId: string;
@@ -1331,6 +1338,7 @@ function deploymentsPage(data: DashboardData): string {
       <form data-api="/api/groups" data-redirect="/deployments">
         ${select('applicationId', 'Deployment Group', data.applications.map((x) => [x.id, x.name]))}
         ${input('name', 'Deployment Name', true)}
+        ${select('language', 'Host Language', PLUGIN_LANGUAGES.map(language => [language, language]))}
         <button class="success">Create Deployment</button><p class="status"></p>
       </form>
     </section>
@@ -1371,7 +1379,7 @@ function deploymentDetailPage(
     <section><h2>Create Profile</h2>
       <form data-api="/api/profiles" data-redirect="${escapeHtml(redirect)}">
         <input type="hidden" name="groupId" value="${escapeHtml(data.group.id)}">
-        ${input('name', 'Profile Name', true)}
+        ${input('name', 'Profile Name', true)}${select('language', 'Host Language', PLUGIN_LANGUAGES.map(language => [language, language]))}
         <button class="success">Create Profile</button><p class="status"></p>
       </form>
     </section>
@@ -1453,25 +1461,26 @@ function pluginCatalogTable(
   publishers: DashboardData['pluginPublishers'],
 ): string {
   if (plugins.length === 0) return '<p class="muted">No plugins imported.</p>';
-  const publisherByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisher]));
-  const publisherRowByPlugin = new Map(publishers.map((publisher) => [publisher.pluginId, publisherCatalogRow(plugins, publisher)?.id]));
+  const publisherByPlugin = new Map(publishers.map((publisher) => [`${publisher.pluginId}:${publisher.language ?? 'nodejs'}`, publisher]));
+  const publisherRowByPlugin = new Map(publishers.map((publisher) => [`${publisher.pluginId}:${publisher.language ?? 'nodejs'}`, publisherCatalogRow(plugins, publisher)?.id]));
   const renderedPublishers = new Set<string>();
   return `<table><thead><tr><th>Plugin</th><th>Version</th><th>Kind</th><th>Source</th><th>Package</th><th>Usage</th><th>Publishing</th><th>Update</th><th>Delete</th></tr></thead><tbody>${plugins.map((plugin) => {
+    const variantId = `${plugin.pluginId}:${plugin.language ?? 'nodejs'}`;
     const used = usage[plugin.id]?.count ?? 0;
-    const publisher = publisherByPlugin.get(plugin.pluginId);
+    const publisher = publisherByPlugin.get(variantId);
     const showPublisher = publisher
-      ? publisherRowByPlugin.get(plugin.pluginId) === plugin.id
-      : !renderedPublishers.has(plugin.pluginId) && plugin.source !== 'registry';
-    if (showPublisher) renderedPublishers.add(plugin.pluginId);
+      ? publisherRowByPlugin.get(variantId) === plugin.id
+      : !renderedPublishers.has(variantId) && plugin.source !== 'registry';
+    if (showPublisher) renderedPublishers.add(variantId);
     const publisherAction = !showPublisher ? '' : publisher
-      ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
-      : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
+      ? `<form data-api="/api/plugins/publish-key/rotate" data-confirm="Rotate this publish secret? The current CI secret will stop working immediately."><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><input type="hidden" name="language" value="${escapeHtml(plugin.language ?? 'nodejs')}"><button class="secondary">Rotate Publish Secret</button><p class="status"></p></form>`
+      : `<form data-api="/api/plugins/publish-key/enable" data-confirm="Enable CI schema publishing for this private plugin?"><input type="hidden" name="pluginId" value="${escapeHtml(plugin.pluginId)}"><input type="hidden" name="language" value="${escapeHtml(plugin.language ?? 'nodejs')}"><button class="secondary">Enable CI Publishing</button><p class="status"></p></form>`;
     const updateId = `plugin-update-${plugin.id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
     const updateAction = plugin.source === 'registry' ? '<span class="muted">Registry</span>' : `<form data-api="/api/plugins" data-redirect="/plugins"><button class="secondary" type="button" data-file-picker="${escapeHtml(updateId)}">Update</button><input id="${escapeHtml(updateId)}" name="manifestFile" type="file" accept="application/json,.json" required hidden data-submit-on-change><p class="status"></p></form>`;
     return `<tr>
       <td>${escapeHtml(pluginDisplayName(plugin))}</td>
       <td>${escapeHtml(plugin.version)}</td>
-      <td>${escapeHtml(plugin.kind)}</td>
+      <td>${escapeHtml(plugin.kind)} (${escapeHtml(plugin.language ?? 'nodejs')})</td>
       <td>${escapeHtml(plugin.source)}</td>
       <td>${escapeHtml(plugin.packageName ?? '')}</td>
       <td>${pluginUsageDetails(usage[plugin.id])}</td>
@@ -1491,6 +1500,7 @@ function publisherCatalogRow(
     plugin.org === publisher.org &&
     plugin.name === publisher.name &&
     plugin.packageName === publisher.packageName &&
+    (plugin.language ?? 'nodejs') === (publisher.language ?? 'nodejs') &&
     plugin.kind === publisher.kind
   );
   return latestCatalogPlugin(matching) ?? latestCatalogPlugin(privatePlugins);
@@ -1511,12 +1521,13 @@ function registryTable(items: RegistryCandidate[], importedPlugins: DashboardDat
     return `<tr>
     <td>${escapeHtml(pluginDisplayName(item))}</td>
     <td>${escapeHtml(item.version)}</td>
-    <td>${escapeHtml(item.kind)}</td>
+    <td>${escapeHtml(item.kind)} (${escapeHtml(item.language)})</td>
     <td>${escapeHtml(item.packageName ?? '')}</td>
     <td>${imported ? '<span class="state-badge live">Imported</span>' : '<span class="muted">Not imported</span>'}</td>
     <td>
       ${imported ? '<button class="secondary" disabled>Imported</button>' : `<form data-api="/api/plugins/import" data-redirect="/plugins">
         <input type="hidden" name="org" value="${escapeHtml(item.org)}">
+        <input type="hidden" name="language" value="${escapeHtml(item.language)}">
         <input type="hidden" name="name" value="${escapeHtml(item.name)}">
         <input type="hidden" name="pluginId" value="${escapeHtml(item.pluginId)}">
         <input type="hidden" name="packageName" value="${escapeHtml(item.packageName ?? '')}">
@@ -1534,6 +1545,7 @@ function registryTable(items: RegistryCandidate[], importedPlugins: DashboardDat
 function registryPluginImported(item: RegistryCandidate, importedPlugins: DashboardData['plugins']): boolean {
   return importedPlugins.some((plugin) =>
     plugin.pluginId === item.pluginId &&
+    (plugin.language ?? 'nodejs') === item.language &&
     plugin.version === item.version &&
     (item.packageName ? plugin.packageName === item.packageName : true)
   );
@@ -1633,6 +1645,7 @@ function profilesTable(data: DashboardData): string {
       <input type="hidden" name="id" value="${escapeHtml(profile.id)}">
       ${select('groupId', 'Deployment', selectedOptions(data.groups.map((x) => [x.id, groupLabel(x, data)]), profile.groupId))}
       ${input('name', 'Name', true, profile.name)}
+      ${select('language', 'Host Language', selectedOptions(PLUGIN_LANGUAGES.map(language => [language, language]), profile.language ?? 'nodejs'))}
       <span class="muted">${profile.activeVersionId ? 'published' : 'no published config'}</span>
       <button>Save</button><p class="status"></p>
     </form>
@@ -1761,7 +1774,7 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
   return `<details class="plugin-card"><summary><span>Add Plugin</span><span class="chip">${configurablePlugins.length} available</span></summary><div class="plugin-card-body">
     <form data-api="/api/profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
       <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
-      <input type="hidden" name="plugin">
+      <input type="hidden" name="plugin"><input type="hidden" name="language">
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
       <input type="hidden" name="section">
@@ -1769,7 +1782,7 @@ function addPluginForm(data: DeploymentProfileData, redirect: string): string {
       <input type="hidden" name="sensitiveClearPaths">
       <input type="hidden" name="allowEnvOverrides" value="false">
       <div class="form-grid">
-        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)} (${escapeHtml(plugin.language ?? 'nodejs')})</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
@@ -1790,14 +1803,14 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
   return `<details class="plugin-card"><summary><span>Add Shared Plugin</span><span class="chip">${configurablePlugins.length} available</span></summary><div class="plugin-card-body">
     <form data-api="/api/application-profile-plugins" data-redirect="${escapeHtml(redirect)}" data-config-form>
       <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
-      <input type="hidden" name="plugin">
+      <input type="hidden" name="plugin"><input type="hidden" name="language">
       <input type="hidden" name="packageName">
       <input type="hidden" name="version">
       <input type="hidden" name="section">
         <input type="hidden" name="config">
         <input type="hidden" name="sensitiveClearPaths">
       <div class="form-grid">
-        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)}</option>`).join('')}</select></label>
+        <label>Plugin<select data-plugin-picker required>${configurablePlugins.map((plugin) => `<option value="${escapeHtml(plugin.id)}">${escapeHtml(pluginDisplayName(plugin))} ${escapeHtml(plugin.version)} (${escapeHtml(plugin.language ?? 'nodejs')})</option>`).join('')}</select></label>
         <label>Type<input name="typeDisplay" disabled></label>
         ${input('name', 'Config Name', true)}
         <label>Enabled<select name="enabled"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
@@ -1819,8 +1832,8 @@ function configSectionEditor(
   const entries = Object.entries(draft[section] ?? {}).filter(([, entry]) => !entry.override);
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No plugins configured.</p>' : entries.map(([name, entry]) => {
-      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
-      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package);
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
+      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package, entry.language);
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
@@ -1830,7 +1843,7 @@ function configSectionEditor(
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -1870,8 +1883,8 @@ function applicationConfigSectionEditor(
   const entries = Object.entries(draft[section] ?? {});
   return `<section><h3>${escapeHtml(title)}</h3>
     ${entries.length === 0 ? '<p class="muted">No shared plugins configured.</p>' : entries.map(([name, entry]) => {
-      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
-      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package);
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
+      const latestCatalog = findCatalogPlugin(data, entry.plugin, undefined, entry.package, entry.language);
       const updateCatalog = lockedUpdateCatalog(entry, latestCatalog);
       const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
       return `<details class="plugin-card">
@@ -1881,7 +1894,7 @@ function applicationConfigSectionEditor(
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -1934,7 +1947,7 @@ function inheritedOverrideSection(
   return `<section><h3>${escapeHtml(title)}</h3>${entries.map(([name, entry]) => {
     const localEntry = local[section]?.[name];
     const effective = localEntry ? mergePluginEntry(entry, localEntry) : entry;
-    const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+    const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
     const pluginLabel = catalog ? pluginDisplayName(catalog) : entry.plugin;
     const enabledOverridden = localEntry?.enabled !== undefined;
     return `<details class="plugin-card">
@@ -1944,7 +1957,7 @@ function inheritedOverrideSection(
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}">
+          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -2007,7 +2020,7 @@ function environmentOverridesSummary(
       const override = local[section]?.[name];
       const entry = base && override ? mergePluginEntry(base, override) : override ?? base;
       if (!entry?.allowEnvOverrides) continue;
-      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package);
+      const catalog = findCatalogPlugin(data, entry.plugin, entry.version, entry.package, entry.language);
       const paths = envOverridePathsFromSchema(catalog?.configSchema);
       if (paths.length === 0) continue;
       rows.push(`<tr><td>${escapeHtml(labels[section])}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(catalog ? pluginDisplayName(catalog) : entry.plugin)}</td><td>${paths.map((path) => `<code>${escapeHtml(path)}</code>`).join('<br>')}</td></tr>`);
@@ -2049,10 +2062,12 @@ function findCatalogPlugin(
   pluginId: string,
   version?: string,
   packageName?: string,
+  language: PluginLanguage = 'nodejs',
 ): DeploymentProfileData['plugins'][number] | undefined {
   const matches = data.plugins.filter((plugin) =>
     (plugin.pluginId === pluginId || `${plugin.org}/${plugin.pluginId}` === pluginId) &&
     plugin.kind !== 'config' &&
+    (plugin.language ?? 'nodejs') === language &&
     (packageName ? plugin.packageName === packageName : true)
   );
   return version
@@ -2075,7 +2090,7 @@ function lockedUpdateCatalog(
 function latestImportedPluginGroups(plugins: DashboardData['plugins']): DashboardData['plugins'] {
   const byKey = new Map<string, DashboardData['plugins'][number]>();
   for (const plugin of plugins) {
-    const key = `${plugin.kind}:${plugin.org}:${plugin.pluginId}:${plugin.packageName ?? ''}`;
+    const key = `${plugin.kind}:${plugin.org}:${plugin.pluginId}:${plugin.language ?? 'nodejs'}:${plugin.packageName ?? ''}`;
     const existing = byKey.get(key);
     if (!existing || compareVersionStrings(plugin.version, existing.version) > 0) byKey.set(key, plugin);
   }
@@ -2089,6 +2104,7 @@ function latestRegistryCandidate(plugins: RegistryCandidate[]): RegistryCandidat
 function registryCandidateMatchesPlugin(candidate: RegistryCandidate, plugin: DashboardData['plugins'][number]): boolean {
   return candidate.kind === plugin.kind &&
     candidate.pluginId === plugin.pluginId &&
+    candidate.language === (plugin.language ?? 'nodejs') &&
     candidate.org === plugin.org &&
     (plugin.packageName ? candidate.packageName === plugin.packageName : true);
 }
@@ -2135,6 +2151,7 @@ function renderSchemaFields(schema: Record<string, unknown> | null | undefined, 
   if (!root || root.kind !== 'object' || !objectField(root.properties)) {
     return '<p class="muted">No config schema available for this plugin.</p>';
   }
+  if (isSensitiveSchema(root)) return '<p class="muted">This entire config is write-only. Replace it through the Vault API.</p>';
   return renderProperties(root.properties as Record<string, unknown>, config, '', requiredSet(root), false, {
     ...options,
     envOverridePaths: new Set(envOverridePathsFromSchema(schema)),
@@ -2168,9 +2185,13 @@ function renderSchemaControl(
   const node = unwrapSchema(rawNode);
   if (!node) return '';
   const value = rawValue ?? node.default ?? '';
-  const help = schemaHelp(rawNode, node, required);
+  const sensitive = isSensitiveSchema(rawNode);
+  const help = sensitive ? '' : schemaHelp(rawNode, node, required);
   let control = '';
-  if (node.kind === 'object' && objectField(node.properties)) {
+  if (sensitive) {
+    const isSet = rawValue !== undefined;
+    control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${escapeHtml(key)}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="${node.kind === 'string' ? 'string' : 'json'}" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${node.kind === 'string' ? '' : '<span class="schema-help">Enter the complete value as JSON to replace it.</span>'}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
+  } else if (node.kind === 'object' && objectField(node.properties)) {
     control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node), false, options)}</fieldset>`;
   } else if (node.kind === 'bool' || node.kind === 'boolean') {
     control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<select data-config-path="${escapeHtml(path)}" data-kind="bool" ${required ? 'required' : ''}><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
@@ -2200,16 +2221,11 @@ function renderSchemaControl(
       const kind = inputKind(child);
       return `<label>Item ${index + 1}<input data-tuple-index="${index}" data-kind="${escapeHtml(kind)}" ${kind === 'number' ? 'type="number"' : ''} value="${escapeHtml(String(values[index] ?? child?.default ?? ''))}"></label>`;
     }).join('')}</fieldset>`;
-  } else if (node.kind === 'union' && Array.isArray(node.variants)) {
+  } else if (node.kind === 'union' && Array.isArray(node.variants ?? node.schemas)) {
     control = renderUnionControl(key, rawNode, node, path, value, required, help, options);
   } else {
     const kind = inputKind(node);
-    if (isSensitiveSchema(rawNode, node)) {
-      const isSet = rawValue !== undefined;
-      control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="string" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${help}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
-    } else {
-      control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
-    }
+    control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<input data-config-path="${escapeHtml(path)}" data-kind="${escapeHtml(kind)}" ${inputAttrs(node, required, kind)} value="${escapeHtml(String(value ?? ''))}">${help}</label>`;
   }
   if (rawNode?.kind === 'optional') control = optionalShell(key, path, control, rawValue !== undefined);
   if (options.overrideMode && node.kind !== 'object' && !(node.kind === 'literal' && hideLiteralField)) {
@@ -2228,7 +2244,7 @@ function renderUnionControl(
   help: string,
   options: RenderSchemaOptions = {},
 ): string {
-  const variants = (node.variants as unknown[])
+  const variants = ((node.variants ?? node.schemas) as unknown[])
     .map((variant) => unwrapSchema(objectField(variant)))
     .filter((variant): variant is Record<string, unknown> => variant !== null);
   if (variants.length === 0) return '';
@@ -2301,31 +2317,15 @@ function schemaHelp(rawNode: Record<string, unknown> | null, node: Record<string
   return notes ? `<span class="schema-help">${escapeHtml(notes)}</span>` : '';
 }
 
-function isSensitiveSchema(rawNode: Record<string, unknown> | null, node: Record<string, unknown>): boolean {
-  const rawMetadata = objectField(rawNode?.metadata);
-  const metadata = objectField(node.metadata);
-  return rawMetadata?.sensitive === true || rawMetadata?.writeonly === true || metadata?.sensitive === true || metadata?.writeonly === true;
-}
-
 function redactSensitiveConfig(schema: Record<string, unknown> | null | undefined, config: Record<string, unknown>): Record<string, unknown> {
   const copy = structuredClone(config);
   const root = objectField(objectField(schema?.root) ?? schema);
   if (!root) return copy;
-  for (const path of sensitiveSchemaPaths(root)) deleteValueAtPath(copy, path);
+  for (const path of sensitiveSchemaPaths(root)) {
+    if (!path) return {};
+    deleteValueAtPath(copy, path);
+  }
   return copy;
-}
-
-function sensitiveSchemaPaths(node: Record<string, unknown>, prefix = ''): string[] {
-  const unwrapped = unwrapSchema(node);
-  if (!unwrapped) return [];
-  if (prefix && isSensitiveSchema(node, unwrapped)) return [prefix];
-  if (unwrapped.kind !== 'object') return [];
-  const properties = objectField(unwrapped.properties) ?? {};
-  return Object.entries(properties).flatMap(([key, child]) => {
-    const path = prefix ? `${prefix}.${key}` : key;
-    const childNode = objectField(child);
-    return childNode ? sensitiveSchemaPaths(childNode, path) : [];
-  });
 }
 
 function deleteValueAtPath(target: Record<string, unknown>, path: string): void {
@@ -2376,14 +2376,6 @@ function inputKind(node: Record<string, unknown> | null): 'number' | 'bool' | 's
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function unwrapSchema(node: Record<string, unknown> | null): Record<string, unknown> | null {
-  let current = node;
-  while (current && (current.kind === 'optional' || current.kind === 'nullable')) {
-    current = objectField(current.inner);
-  }
-  return current;
 }
 
 function valueAtPath(source: Record<string, unknown>, path: string): unknown {
@@ -2564,6 +2556,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     acc[plugin.id] = {
       id: plugin.id,
       plugin: plugin.pluginId,
+      language: plugin.language ?? 'nodejs',
       packageName: plugin.packageName ?? '',
       version: plugin.version,
       kind: plugin.kind,
@@ -2781,20 +2774,18 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     if (field.disabled) return undefined;
     const raw = field.value;
     if (raw === '' && field.dataset.sensitive !== 'true') return undefined;
+    if (field.dataset.kind === 'json') return JSON.parse(raw);
     if (field.dataset.kind === 'number') return Number(raw);
     if (field.dataset.kind === 'bool') return raw === 'true';
     return raw;
   }
   function schemaRoot(schema) {
-    return schema && schema.root && schema.root.kind === 'object' ? schema.root : null;
+    return schema && schema.root && schema.root.kind === 'object' && !isSensitiveClient(schema.root) ? schema.root : null;
   }
   function escapeClient(value) {
     return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   }
-  function unwrapNode(node) {
-    while (node && (node.kind === 'optional' || node.kind === 'nullable')) node = node.inner;
-    return node;
-  }
+  const unwrapNode = ${unwrapSchema.toString()};
   function inputKind(node) {
     node = unwrapNode(node);
     if (!node) return 'string';
@@ -2824,11 +2815,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     ].filter(Boolean).join(' ');
     return notes ? '<span class="schema-help">' + escapeClient(notes) + '</span>' : '';
   }
-  function isSensitiveClient(rawNode, node) {
-    const rawMeta = rawNode && rawNode.metadata || {};
-    const meta = node && node.metadata || {};
-    return rawMeta.sensitive === true || rawMeta.writeonly === true || meta.sensitive === true || meta.writeonly === true;
-  }
+  const isSensitiveClient = ${isSensitiveSchema.toString()};
   function optionalShellClient(key, path, control) {
     return '<div class="schema-optional" data-optional-field="' + escapeClient(path) + '">'
       + '<label class="schema-toggle"><input type="checkbox" data-optional-toggle>Enable ' + escapeClient(key) + '</label>'
@@ -2867,9 +2854,12 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       const path = prefix ? prefix + '.' + key : key;
       const required = requiredSet.has(key) && !(rawNode && rawNode.kind === 'optional') && !Object.prototype.hasOwnProperty.call(node, 'default');
       const overrideable = envOverridePaths.includes(path);
-      const help = schemaHelpClient(rawNode, node, required);
+      const sensitive = isSensitiveClient(rawNode);
+      const help = sensitive ? '' : schemaHelpClient(rawNode, node, required);
       let control = '';
-      if (node.kind === 'object' && node.properties) {
+      if (sensitive) {
+        control = '<label>' + escapeClient(key) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="' + (node.kind === 'string' ? 'string' : 'json') + '" data-sensitive="true"' + (required ? ' required' : '') + '></label>';
+      } else if (node.kind === 'object' && node.properties) {
         control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties), hideLiteralFields, envOverridePaths) + '</fieldset>';
       } else if (node.kind === 'bool' || node.kind === 'boolean') {
         control = '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"' + (required ? ' required' : '') + '><option value="true"' + (node.default === true ? ' selected' : '') + '>true</option><option value="false"' + (node.default === false ? ' selected' : '') + '>false</option></select>' + help + '</label>';
@@ -2888,13 +2878,11 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       } else if (node.kind === 'tuple') {
         const items = Array.isArray(node.items) ? node.items : Array.isArray(node.elements) ? node.elements : [];
         control = '<fieldset class="schema-box" data-tuple-path="' + escapeClient(path) + '"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + items.map((item, index) => '<label>Item ' + (index + 1) + primitiveInput('data-tuple-index="' + index + '"', inputKind(item), '') + '</label>').join('') + '</fieldset>';
-      } else if (node.kind === 'union' && Array.isArray(node.variants) && node.variants[0]) {
+      } else if (node.kind === 'union' && Array.isArray(node.variants ?? node.schemas) && (node.variants ?? node.schemas)[0]) {
         control = renderUnionClient(key, rawNode, node, path, required, help, envOverridePaths);
       } else {
         const kind = inputKind(node);
-        control = isSensitiveClient(rawNode, node)
-          ? '<div class="schema-sensitive" data-sensitive-field="' + escapeClient(path) + '"><label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="string" data-sensitive="true" ' + inputAttrsClient(node, required, 'string') + '>' + help + '</label></div>'
-          : '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
+        control = '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + primitiveInput('data-config-path="' + escapeClient(path) + '" ' + inputAttrsClient(node, required, kind), kind, node.default || '') + help + '</label>';
       }
       return rawNode && rawNode.kind === 'optional' ? optionalShellClient(key, path, control) : control;
     }).join('');
@@ -2910,7 +2898,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     return 'Option ' + (index + 1);
   }
   function renderUnionClient(key, rawNode, node, path, required, help, envOverridePaths) {
-    const variants = (node.variants || []).map(unwrapNode).filter(Boolean);
+    const variants = (node.variants || node.schemas || []).map(unwrapNode).filter(Boolean);
     const options = variants.map((variant, index) => '<option value="' + index + '">' + escapeClient(unionVariantLabelClient(variant, index)) + '</option>').join('');
     const panels = variants.map((variant, index) => {
       const fields = variant.kind === 'object' && variant.properties
@@ -2968,6 +2956,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     if (!item || !form) return;
     form.dataset.validationCatalogId = item.id || '';
     form.elements.plugin.value = item.plugin || '';
+    if (form.elements.language) form.elements.language.value = item.language || 'nodejs';
     form.elements.packageName.value = item.packageName || '';
     if (form.elements.version) {
       form.elements.version.value = form.querySelector('[data-version-lock]')?.checked ? item.version || '' : '';
@@ -3168,7 +3157,6 @@ function table(rows: string[][]): string {
 
 async function registrySearch(registryUrl: string, query: string, registryToken?: string): Promise<RegistryCandidate[]> {
   const url = new URL('/plugins', registryUrl);
-  url.searchParams.set('language', 'nodejs');
   url.searchParams.set('limit', '20');
   if (query.trim()) url.searchParams.set('query', query.trim());
   try {
@@ -3197,10 +3185,13 @@ function normalizeRegistryCandidate(input: unknown): RegistryCandidate | null {
   const pluginId = split.pluginId ?? rawPluginId;
   const name = stringField(value.name) ?? pluginId;
   if (!name || !pluginId) return null;
-  const packageName = stringField(value.packageName) ?? packageNameFromRegistry(value.package, 'nodejs') ?? null;
+  let language: PluginLanguage;
+  try { language = normalizePluginLanguage(value.language ?? 'nodejs'); } catch { return null; }
+  const packageName = stringField(value.packageName) ?? packageNameFromRegistry(value.package, language) ?? null;
   return {
     org,
     name,
+    language,
     pluginId,
     packageName,
     version: stringField(value.version) ?? '0.0.0',

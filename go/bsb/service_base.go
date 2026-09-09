@@ -2,6 +2,7 @@ package bsb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -235,6 +236,7 @@ func (sb *ServiceBase) Dispose() error {
 func (sb *ServiceBase) WaitForShutdown() error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	sig := <-sigChan
 	slog.Info("shutdown signal received", "signal", sig)
@@ -243,15 +245,17 @@ func (sb *ServiceBase) WaitForShutdown() error {
 }
 
 // RunAndWait is a convenience method that calls Init, Run, and WaitForShutdown.
-func (sb *ServiceBase) RunAndWait(ctx context.Context) error {
+func (sb *ServiceBase) RunAndWait(ctx context.Context) (err error) {
+	defer func() { err = errors.Join(err, sb.Dispose()) }()
 	if err := sb.Init(ctx); err != nil {
 		return err
 	}
 	if err := sb.Run(ctx); err != nil {
-		_ = sb.Dispose()
 		return err
 	}
-	return sb.WaitForShutdown()
+	shutdown, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	return sb.eventsCtrl.Wait(shutdown)
 }
 
 // Options returns the resolved options.

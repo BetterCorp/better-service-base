@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <PackageId>BetterCorp.BSB.Examples</PackageId>
+    <BsbGeneratedRoot>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\bsb-client</BsbGeneratedRoot>
+    <BsbSchemaCache>$(BsbGeneratedRoot)\.bsb\schemas</BsbSchemaCache>
+    <BsbClientOutput>$(BsbGeneratedRoot)\BsbClients</BsbClientOutput>
+    <BsbHostAssembly>$(MSBuildThisFileDirectory)..\..\..\..\dotnet\BetterServiceBase\bin\$(Configuration)\$(TargetFramework)\BetterServiceBase.dll</BsbHostAssembly>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../dotnet/BSB/BSB.csproj" Private="false" ExcludeAssets="runtime" />
+    <ProjectReference Include="../../../../dotnet/BetterServiceBase/BetterServiceBase.csproj" ReferenceOutputAssembly="false" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ExampleContract Include="../../../contracts/examples/*.json" />
+    <EmbeddedResource Include="@(ExampleContract)" LogicalName="Contracts.%(Filename).json" />
+    <EmbeddedResource Include="../../../../plugins/nodejs/demo-todo-app/src/plugins/service-demo-todo/static/*" LogicalName="Static.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Target Name="GenerateExampleClients" BeforeTargets="CoreCompile">
+    <RemoveDir Directories="$(BsbGeneratedRoot)" />
+    <MakeDir Directories="$(BsbSchemaCache)" />
+    <Copy SourceFiles="@(ExampleContract)" DestinationFolder="$(BsbSchemaCache)" />
+    <Exec Command="dotnet &quot;$(BsbHostAssembly)&quot; client generate" WorkingDirectory="$(BsbGeneratedRoot)" />
+    <ItemGroup>
+      <Compile Include="$(BsbClientOutput)\*.cs" />
+    </ItemGroup>
+  </Target>
+</Project>

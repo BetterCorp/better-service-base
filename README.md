@@ -3,7 +3,9 @@
 BSB (Better-Service-Base) is an event-driven microservices framework for Node.js and TypeScript with built-in cross-language schema validation (AnyVali / BSBType), type-safe events, and a pluggable architecture for config, logging, metrics, and events.  
 It is production-ready and secure-by-default for validated APIs and distributed services, and can run as a single node or a geo-scaled cluster.  
 Simplicity, flexibility, and expandability are core design goals.  
-Node.js is the primary implementation. Go, Python, .NET, and Rust ports are present in this repo and are being aligned toward the same contracts.
+Node.js is the primary implementation. Native [Go](go/README.md), [Python](python/README.md), [.NET](dotnet/README.md), and [Rust](rust/README.md) hosts run application plugins and generate clients from shared contracts. Registry, Vault, and syslog servers remain shared Node services. Each native guide documents packaging, runtime options, and remaining SDK limitations.
+
+See [repository layout and build outputs](docs/repository-layout.md) for framework/plugin separation, generated clients, SDK references and deployable artifacts.
 
 [![Intro 1](http://img.youtube.com/vi/-ulXL44D_ZI/0.jpg)](http://www.youtube.com/watch?v=-ulXL44D_ZI)  
 `#Sales pitch`

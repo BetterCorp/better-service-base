@@ -40,6 +40,7 @@ export const Config = createConfigSchema(
 );
 
 interface RuntimeResolveResponse {
+  language: 'nodejs';
   application: string;
   group: string;
   profile: string;
@@ -347,6 +348,9 @@ function parseRuntimeResolve(input: unknown, obs: Observable): RuntimeResolveRes
     throw new BSBError(obs.trace, 'Invalid Vault response: expected object');
   }
   const value = input as Record<string, unknown>;
+  if (value.language !== undefined && value.language !== 'nodejs') {
+    throw new BSBError(obs.trace, 'Vault deployment language does not match this Node.js host');
+  }
   if (![value.profile, value.application, value.group].every((item) => typeof item === 'string' && item.length > 0 && item.length <= 100)) {
     throw new BSBError(obs.trace, 'Invalid Vault response: missing application, group, or profile');
   }
@@ -361,6 +365,7 @@ function parseRuntimeResolve(input: unknown, obs: Observable): RuntimeResolveRes
   const profile = value.profile as string;
   const version = value.version as number;
   return {
+    language: 'nodejs',
     application,
     group,
     profile,

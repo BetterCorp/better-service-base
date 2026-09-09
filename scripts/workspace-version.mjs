@@ -27,6 +27,24 @@ function isSemver(value) {
 
 function syncVersions(baseVersion, options = {}) {
   const updates = [];
+  const pythonVersionPath = path.join(repoRoot, 'python', 'pyproject.toml');
+  if (fs.existsSync(pythonVersionPath)) {
+    const current = fs.readFileSync(pythonVersionPath, 'utf8');
+    const next = current.replace(/^version = "[^"]+"/m, `version = "${baseVersion}"`);
+    if (next !== current) {
+      fs.writeFileSync(pythonVersionPath, next, 'utf8');
+      updates.push(`python -> ${baseVersion}`);
+    }
+  }
+  const nativeVersionPath = path.join(repoRoot, 'dotnet', 'Directory.Build.props');
+  if (fs.existsSync(nativeVersionPath)) {
+    const current = fs.readFileSync(nativeVersionPath, 'utf8');
+    const next = current.replace(/(<Version\b[^>]*>)[^<]+(<\/Version>)/, (_, start, end) => `${start}${baseVersion}${end}`);
+    if (next !== current) {
+      fs.writeFileSync(nativeVersionPath, next, 'utf8');
+      updates.push(`dotnet -> ${baseVersion}`);
+    }
+  }
   const docsPackagePath = path.join(repoRoot, 'docs', 'package.json');
   const docsPackage = readJson(docsPackagePath);
   if (docsPackage.version !== baseVersion) {

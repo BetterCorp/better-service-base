@@ -7,127 +7,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { EventSchemaExport, EventExportDefinition } from '../interfaces/schema-events.js';
+import { clientSchemaCode } from './anyvali-client-schema.js';
 import { isMainModule } from '../base/module-runtime.js';
-
-/**
- * Convert an AnyVali schema node to BSBType builder code.
- * Produces typed calls like `bsb.object({...})` instead of untyped `av.importSchema()`.
- */
-function schemaNodeToCode(node: Record<string, any>): string {
-  const kind: string = node.kind;
-
-  switch (kind) {
-    case 'string': {
-      if (node.format === 'uuid') return 'bsb.uuid()';
-      if (node.format === 'date-time') return 'bsb.datetime()';
-      if (node.format === 'email') return 'bsb.email()';
-      if (node.format === 'url') return 'bsb.uri()';
-      const opts: string[] = [];
-      if (node.minLength !== undefined) opts.push(`min: ${node.minLength}`);
-      if (node.maxLength !== undefined) opts.push(`max: ${node.maxLength}`);
-      if (node.pattern !== undefined) opts.push(`pattern: ${JSON.stringify(node.pattern)}`);
-      return opts.length > 0 ? `bsb.string({ ${opts.join(', ')} })` : 'bsb.string()';
-    }
-
-    case 'int32': {
-      const opts: string[] = [];
-      if (node.min !== undefined) opts.push(`min: ${node.min}`);
-      if (node.max !== undefined) opts.push(`max: ${node.max}`);
-      return opts.length > 0 ? `bsb.int32({ ${opts.join(', ')} })` : 'bsb.int32()';
-    }
-
-    case 'int64': {
-      const opts: string[] = [];
-      if (node.min !== undefined) opts.push(`min: ${node.min}`);
-      if (node.max !== undefined) opts.push(`max: ${node.max}`);
-      return opts.length > 0 ? `bsb.int64({ ${opts.join(', ')} })` : 'bsb.int64()';
-    }
-
-    case 'float32': {
-      const opts: string[] = [];
-      if (node.min !== undefined) opts.push(`min: ${node.min}`);
-      if (node.max !== undefined) opts.push(`max: ${node.max}`);
-      return opts.length > 0 ? `bsb.float({ ${opts.join(', ')} })` : 'bsb.float()';
-    }
-
-    case 'float64': {
-      const opts: string[] = [];
-      if (node.min !== undefined) opts.push(`min: ${node.min}`);
-      if (node.max !== undefined) opts.push(`max: ${node.max}`);
-      return opts.length > 0 ? `bsb.double({ ${opts.join(', ')} })` : 'bsb.double()';
-    }
-
-    case 'number': {
-      const opts: string[] = [];
-      if (node.min !== undefined) opts.push(`min: ${node.min}`);
-      if (node.max !== undefined) opts.push(`max: ${node.max}`);
-      return opts.length > 0 ? `bsb.number({ ${opts.join(', ')} })` : 'bsb.number()';
-    }
-
-    case 'bool':
-      return 'bsb.boolean()';
-
-    case 'null':
-      return 'bsb.unknown()';
-
-    case 'unknown':
-      return 'bsb.unknown()';
-
-    case 'enum':
-      return `bsb.enum(${JSON.stringify(node.values)})`;
-
-    case 'array': {
-      const itemsCode = schemaNodeToCode(node.items);
-      const opts: string[] = [];
-      if (node.minItems !== undefined) opts.push(`min: ${node.minItems}`);
-      if (node.maxItems !== undefined) opts.push(`max: ${node.maxItems}`);
-      return opts.length > 0
-        ? `bsb.array(${itemsCode}, { ${opts.join(', ')} })`
-        : `bsb.array(${itemsCode})`;
-    }
-
-    case 'object': {
-      const props = node.properties as Record<string, any> | undefined;
-      if (!props || Object.keys(props).length === 0) {
-        return 'bsb.object({})';
-      }
-      const required = new Set<string>(node.required || []);
-      const entries = Object.entries(props).map(([key, value]) => {
-        const code = schemaNodeToCode(value as Record<string, any>);
-        // Non-required fields that aren't already optional get wrapped
-        if (!required.has(key) && (value as Record<string, any>).kind !== 'optional') {
-          return `${JSON.stringify(key)}: optional(${code})`;
-        }
-        return `${JSON.stringify(key)}: ${code}`;
-      });
-      return `bsb.object({\n    ${entries.join(',\n    ')}\n  })`;
-    }
-
-    case 'optional':
-      return `optional(${schemaNodeToCode(node.inner)})`;
-
-    case 'nullable':
-      return `nullable(${schemaNodeToCode(node.inner)})`;
-
-    case 'union': {
-      const variants = (node.variants as any[]).map((v: any) => schemaNodeToCode(v));
-      return `bsb.union([${variants.join(', ')}])`;
-    }
-
-    case 'record': {
-      const valueNode = node.valueSchema ?? node.values;
-      if (!valueNode) {
-        throw new Error('Record schema is missing valueSchema');
-      }
-      const valueCode = schemaNodeToCode(valueNode);
-      return `bsb.record(bsb.string(), ${valueCode})`;
-    }
-
-    default:
-      // Fallback for any unhandled kind
-      return 'bsb.unknown()';
-  }
-}
 
 function jsonSchemaNodeToCode(node: Record<string, any>): string {
   const type = node.type;
@@ -172,11 +53,13 @@ function jsonSchemaNodeToCode(node: Record<string, any>): string {
   }
 }
 
-function anyValiDocumentToCode(document: unknown): string {
+function anyValiDocumentToCode(document: unknown, name: string, lines: string[]): string {
   const doc = document as Record<string, any>;
   // AnyVali format (has root.kind)
   if (doc.root && doc.root.kind) {
-    return schemaNodeToCode(doc.root);
+    const code = clientSchemaCode(doc as any, name);
+    lines.push(...code.declarations);
+    return code.expression;
   }
   // Legacy JSON Schema format (has type)
   if (doc.type) {
@@ -186,7 +69,8 @@ function anyValiDocumentToCode(document: unknown): string {
 }
 
 function eventNameToMethodName(eventName: string): string {
-  return eventName.replace(/[.-](\w)/g, (_, c) => c.toUpperCase());
+  const name = eventName.replace(/[^a-zA-Z0-9_$]+(.)?/g, (_, c) => c ? c.toUpperCase() : "");
+  return /^[a-zA-Z_$]/.test(name) ? name : `_${name}`;
 }
 
 function pluginNameToClassName(pluginId: string): string {
@@ -196,13 +80,13 @@ function pluginNameToClassName(pluginId: string): string {
   }
 
   const pascal = name
-    .replace(/[^a-zA-Z0-9-]/g, '')
+    .replace(/[^a-zA-Z0-9-]+/g, '-')
     .split('-')
     .filter((part) => part.length > 0)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join('');
 
-  return `${pascal}Client`;
+  return `${/^\d/.test(pascal) ? "_" : ""}${pascal}Client`;
 }
 
 function eventNameToConstName(eventName: string, suffix: string): string {
@@ -221,18 +105,19 @@ const FLIP_MAP: Record<string, string> = {
 function generateVirtualClient(schemaExport: EventSchemaExport, importBase: string, pluginId: string): string {
   const lines: string[] = [];
   const className = pluginNameToClassName(pluginId);
-  const schemaName = schemaExport.displayName ?? schemaExport.pluginId ?? schemaExport.pluginName;
+  const comment = (value: unknown) => String(value).replace(/\*\//g, "* /").replace(/[\r\n]/g, " ");
+  const schemaName = comment(schemaExport.displayName ?? schemaExport.pluginId ?? schemaExport.pluginName);
 
   lines.push('/**');
   lines.push(` * Auto-generated BSB virtual client for ${schemaName}`);
   lines.push(' * DO NOT EDIT - Regenerated on every build');
-  lines.push(` * @version ${schemaExport.version}`);
+  lines.push(` * @version ${comment(schemaExport.version)}`);
   lines.push(' */');
   if (importBase === '@bsb/base') {
-    lines.push('import { ServiceClient, BSBService, bsb, optional, nullable, createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "@bsb/base";');
+    lines.push('import { ServiceClient, BSBService, bsb, optional, nullable, importPortableSchema, createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "@bsb/base";');
     lines.push('import type { Observable, BSBServiceClientDefinition, EventInputType, EventOutputType } from "@bsb/base";');
   } else {
-    lines.push('import { ServiceClient, BSBService, bsb, optional, nullable } from "../../index.js";');
+    lines.push('import { ServiceClient, BSBService, bsb, optional, nullable, importPortableSchema } from "../../index.js";');
     lines.push('import { createReturnableEvent, createFireAndForgetEvent, createBroadcastEvent, createEventSchemas } from "../../interfaces/schema-events.js";');
     lines.push('import type { Observable, BSBServiceClientDefinition, EventInputType, EventOutputType } from "../../index.js";');
   }
@@ -247,10 +132,23 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
     onBroadcast: [],
   };
 
+  const methods = new Set(['constructor', '_requireClientEvents']);
+  const types = new Set<string>();
   for (const [eventName, eventDef] of Object.entries(schemaExport.events)) {
-    if (categorizedEvents[eventDef.category]) {
-      categorizedEvents[eventDef.category].push({ name: eventName, def: eventDef });
+    const category = FLIP_MAP[eventDef.category];
+    if (!category) throw new Error(`Unknown event category: ${eventDef.category}`);
+    if (!['fire-and-forget', 'returnable', 'broadcast'].includes(eventDef.type)) throw new Error(`Unknown event type: ${eventDef.type}`);
+    if (eventDef.defaultTimeout !== undefined && (!Number.isFinite(eventDef.defaultTimeout) || eventDef.defaultTimeout <= 0 || eventDef.defaultTimeout > 86400)) {
+      throw new Error(`Invalid event timeout: ${eventName}`);
     }
+    const name = eventNameToMethodName(eventName);
+    const title = name.charAt(0).toUpperCase() + name.slice(1);
+    const method = category.startsWith('on') ? `on${title}` : category === 'emitBroadcast' ? `emit${title}` : name;
+    const generated = category.endsWith('Broadcast') ? [method] : [method, `${method}Specific`];
+    if (types.has(title) || generated.some(value => methods.has(value))) throw new Error(`Generated event name collision: ${eventName}`);
+    types.add(title);
+    generated.forEach(value => methods.add(value));
+    categorizedEvents[eventDef.category].push({ name: eventName, def: eventDef });
   }
 
   const constsDone = new Set<string>();
@@ -258,14 +156,14 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
     for (const { name, def } of events) {
       const inputConst = eventNameToConstName(name, 'Schema');
       if (!constsDone.has(inputConst)) {
-        lines.push(`const ${inputConst} = ${anyValiDocumentToCode(def.inputSchema)};`);
+        lines.push(`const ${inputConst} = ${anyValiDocumentToCode(def.inputSchema, inputConst, lines)};`);
         constsDone.add(inputConst);
       }
 
       if (def.type === 'returnable' && def.outputSchema) {
         const outputConst = eventNameToConstName(name, 'OutputSchema');
         if (!constsDone.has(outputConst)) {
-          lines.push(`const ${outputConst} = ${anyValiDocumentToCode(def.outputSchema)};`);
+          lines.push(`const ${outputConst} = ${anyValiDocumentToCode(def.outputSchema, outputConst, lines)};`);
           constsDone.add(outputConst);
         }
       }
@@ -289,17 +187,17 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const outputConst = eventNameToConstName(name, 'OutputSchema');
         if (def.defaultTimeout !== undefined) {
           if (def.description !== undefined) {
-            lines.push(`    '${name}': createReturnableEvent(${inputConst}, ${outputConst}, ${JSON.stringify(def.description)}, ${def.defaultTimeout}),`);
+            lines.push(`    [${JSON.stringify(name)}]: createReturnableEvent(${inputConst}, ${outputConst}, ${JSON.stringify(def.description)}, ${def.defaultTimeout}),`);
           } else {
-            lines.push(`    '${name}': createReturnableEvent(${inputConst}, ${outputConst}, undefined, ${def.defaultTimeout}),`);
+            lines.push(`    [${JSON.stringify(name)}]: createReturnableEvent(${inputConst}, ${outputConst}, undefined, ${def.defaultTimeout}),`);
           }
         } else {
-          lines.push(`    '${name}': createReturnableEvent(${inputConst}, ${outputConst}${descriptionArg}),`);
+          lines.push(`    [${JSON.stringify(name)}]: createReturnableEvent(${inputConst}, ${outputConst}${descriptionArg}),`);
         }
       } else if (def.type === 'broadcast') {
-        lines.push(`    '${name}': createBroadcastEvent(${inputConst}${descriptionArg}),`);
+        lines.push(`    [${JSON.stringify(name)}]: createBroadcastEvent(${inputConst}${descriptionArg}),`);
       } else {
-        lines.push(`    '${name}': createFireAndForgetEvent(${inputConst}${descriptionArg}),`);
+        lines.push(`    [${JSON.stringify(name)}]: createFireAndForgetEvent(${inputConst}${descriptionArg}),`);
       }
     }
     lines.push('  },');
@@ -333,7 +231,7 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
   lines.push('');
 
   lines.push('const _PLUGIN_CLIENT: BSBServiceClientDefinition = {');
-  lines.push(`  name: "${pluginId}",`);
+  lines.push(`  name: ${JSON.stringify(schemaExport.pluginId ?? pluginId)},`);
   lines.push('};');
   lines.push('');
   lines.push('class _PluginRef {');
@@ -368,20 +266,20 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
       const methodName = eventNameToMethodName(name);
       const typeName = methodName.charAt(0).toUpperCase() + methodName.slice(1);
       const inputTypeName = `${typeName}Input`;
-      const description = def.description || name;
+      const description = comment(def.description || name);
 
       lines.push('');
       if (clientCategory === 'emitEvents') {
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${methodName}(obs: Observable, input: ${inputTypeName}): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("emitEvent", "${name}");`);
-        lines.push(`    await events.emitEvent("${name}", obs, input);`);
+        lines.push(`    const events = this._requireClientEvents("emitEvent", ${JSON.stringify(name)});`);
+        lines.push(`    await events.emitEvent(${JSON.stringify(name)}, obs, input);`);
         lines.push('  }');
         lines.push('');
         lines.push(`  /** ${description} for a specific server */`);
         lines.push(`  async ${methodName}Specific(serverId: string, obs: Observable, input: ${inputTypeName}): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("emitEventSpecific", "${name}");`);
-        lines.push(`    await events.emitEventSpecific("${name}", serverId, obs, input);`);
+        lines.push(`    const events = this._requireClientEvents("emitEventSpecific", ${JSON.stringify(name)});`);
+        lines.push(`    await events.emitEventSpecific(${JSON.stringify(name)}, serverId, obs, input);`);
         lines.push('  }');
         continue;
       }
@@ -391,14 +289,14 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const timeout = def.defaultTimeout ?? 5;
         lines.push(`  /** ${description} (default timeout: ${timeout}s) */`);
         lines.push(`  async ${methodName}(obs: Observable, input: ${inputTypeName}, timeout: number = ${timeout}): Promise<${outputTypeName}> {`);
-        lines.push(`    const events = this._requireClientEvents("emitEventAndReturn", "${name}");`);
-        lines.push(`    return events.emitEventAndReturn("${name}", obs, input, timeout);`);
+        lines.push(`    const events = this._requireClientEvents("emitEventAndReturn", ${JSON.stringify(name)});`);
+        lines.push(`    return events.emitEventAndReturn(${JSON.stringify(name)}, obs, input, timeout);`);
         lines.push('  }');
         lines.push('');
         lines.push(`  /** ${description} for a specific server (default timeout: ${timeout}s) */`);
         lines.push(`  async ${methodName}Specific(serverId: string, obs: Observable, input: ${inputTypeName}, timeout: number = ${timeout}): Promise<${outputTypeName}> {`);
-        lines.push(`    const events = this._requireClientEvents("emitEventAndReturnSpecific", "${name}");`);
-        lines.push(`    return events.emitEventAndReturnSpecific("${name}", serverId, obs, input, timeout);`);
+        lines.push(`    const events = this._requireClientEvents("emitEventAndReturnSpecific", ${JSON.stringify(name)});`);
+        lines.push(`    return events.emitEventAndReturnSpecific(${JSON.stringify(name)}, serverId, obs, input, timeout);`);
         lines.push('  }');
         continue;
       }
@@ -407,14 +305,14 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const onMethodName = `on${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${onMethodName}(obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<void>): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("onEvent", "${name}");`);
-        lines.push(`    await events.onEvent("${name}", obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onEvent", ${JSON.stringify(name)});`);
+        lines.push(`    await events.onEvent(${JSON.stringify(name)}, obs, handler);`);
         lines.push('  }');
         lines.push('');
         lines.push(`  /** ${description} for a specific server */`);
         lines.push(`  async ${onMethodName}Specific(serverId: string, obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<void>): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("onEventSpecific", "${name}");`);
-        lines.push(`    await events.onEventSpecific("${name}", serverId, obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onEventSpecific", ${JSON.stringify(name)});`);
+        lines.push(`    await events.onEventSpecific(${JSON.stringify(name)}, serverId, obs, handler);`);
         lines.push('  }');
         continue;
       }
@@ -424,14 +322,14 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const onMethodName = `on${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${onMethodName}(obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<${outputTypeName}>): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("onReturnableEvent", "${name}");`);
-        lines.push(`    await events.onReturnableEvent("${name}", obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onReturnableEvent", ${JSON.stringify(name)});`);
+        lines.push(`    await events.onReturnableEvent(${JSON.stringify(name)}, obs, handler);`);
         lines.push('  }');
         lines.push('');
         lines.push(`  /** ${description} for a specific server */`);
         lines.push(`  async ${onMethodName}Specific(serverId: string, obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<${outputTypeName}>): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("onReturnableEventSpecific", "${name}");`);
-        lines.push(`    await events.onReturnableEventSpecific("${name}", serverId, obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onReturnableEventSpecific", ${JSON.stringify(name)});`);
+        lines.push(`    await events.onReturnableEventSpecific(${JSON.stringify(name)}, serverId, obs, handler);`);
         lines.push('  }');
         continue;
       }
@@ -440,8 +338,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const emitMethodName = `emit${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${emitMethodName}(obs: Observable, input: ${inputTypeName}): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("emitBroadcast", "${name}");`);
-        lines.push(`    await events.emitBroadcast("${name}", obs, input);`);
+        lines.push(`    const events = this._requireClientEvents("emitBroadcast", ${JSON.stringify(name)});`);
+        lines.push(`    await events.emitBroadcast(${JSON.stringify(name)}, obs, input);`);
         lines.push('  }');
         continue;
       }
@@ -450,8 +348,8 @@ function generateVirtualClient(schemaExport: EventSchemaExport, importBase: stri
         const onMethodName = `on${methodName.charAt(0).toUpperCase()}${methodName.slice(1)}`;
         lines.push(`  /** ${description} */`);
         lines.push(`  async ${onMethodName}(obs: Observable, handler: (handlerObs: Observable, input: ${inputTypeName}) => Promise<void>): Promise<void> {`);
-        lines.push(`    const events = this._requireClientEvents("onBroadcast", "${name}");`);
-        lines.push(`    await events.onBroadcast("${name}", obs, handler);`);
+        lines.push(`    const events = this._requireClientEvents("onBroadcast", ${JSON.stringify(name)});`);
+        lines.push(`    await events.onBroadcast(${JSON.stringify(name)}, obs, handler);`);
         lines.push('  }');
       }
     }
@@ -617,4 +515,4 @@ if (isMainModule(import.meta.url)) {
   });
 }
 
-export { main as generateClientTypes, generateVirtualClient };
+export { main as generateClientTypes, generateVirtualClient, pluginNameToClassName };

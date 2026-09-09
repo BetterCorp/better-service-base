@@ -2,117 +2,100 @@ namespace BSB.Base;
 
 using BSB.Interfaces;
 
-/// <summary>
-/// Event API for service plugins. Wraps the <see cref="BSBEvents"/> backend with
-/// plugin-scoped operations so that callers do not need to pass their plugin name
-/// on every call. Accessible via <c>BSBService.Events</c>.
-/// </summary>
+/// <summary>Plugin-scoped event API with AnyVali validation on both sides of every call.</summary>
 public class PluginEvents
 {
     private readonly string _pluginName;
-    private BSBEvents? _eventsBackend;
+    private BSBEvents? _backend;
+    private readonly Func<BSBEvents>? _resolveBackend;
+    private Dictionary<(string Category, string Name), (BSBType Input, BSBType? Output)>? _schemas;
 
-    /// <summary>
-    /// Create a new PluginEvents wrapper for the given plugin name.
-    /// The backend is set later by the framework via <see cref="SetBackend"/>.
-    /// </summary>
-    /// <param name="pluginName">The owning plugin's name.</param>
-    internal PluginEvents(string pluginName)
+    internal PluginEvents(string pluginName, Func<BSBEvents>? resolveBackend = null)
     {
         _pluginName = pluginName;
+        _resolveBackend = resolveBackend;
     }
+    internal void SetBackend(BSBEvents backend) => _backend = backend;
+    private BSBEvents Backend => _resolveBackend?.Invoke() ?? _backend
+        ?? throw new InvalidOperationException("Events backend not initialized");
 
-    /// <summary>
-    /// Wire up the underlying events backend. Called by the framework during plugin wiring.
-    /// </summary>
-    /// <param name="backend">The events plugin implementation.</param>
-    internal void SetBackend(BSBEvents backend)
+    internal void SetSchemas(BSBEventSchemas? schemas)
     {
-        _eventsBackend = backend;
+        _schemas = schemas?.Export(_pluginName, "0.0.0").Events.ToDictionary(
+            p => (p.Value.Category, p.Key),
+            p => (BSBType.Import(p.Value.InputSchema!), p.Value.OutputSchema is null ? null : BSBType.Import(p.Value.OutputSchema)));
     }
 
-    private BSBEvents Backend =>
-        _eventsBackend ?? throw new InvalidOperationException("Events backend not initialized");
+    /// <summary>Create a client in the service constructor; its backend is resolved when used.</summary>
+    public PluginEvents CreateClient(string targetPlugin, EventSchemaExport schema)
+    {
+        var client = new PluginEvents(targetPlugin, () => Backend);
+        client.SetSchemas(BSBEventSchemas.Import(schema, client: true));
+        return client;
+    }
 
-    // --- Fire-and-forget ---
+    private (BSBType? Input, BSBType? Output) Schema(string category, string name)
+    {
+        if (_schemas is null) return (null, null);
+        if (!_schemas.TryGetValue((category, name), out var schema))
+            throw new InvalidOperationException($"Undeclared event {_pluginName}.{name} in {category}");
+        return schema;
+    }
+    private static object? Parse(BSBType? schema, object? value) => schema is null ? value : schema.Parse(value);
 
-    /// <summary>
-    /// Register a handler for a fire-and-forget event on this plugin.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <param name="handler">The handler to invoke when the event is emitted.</param>
     public Task OnEvent(string eventName, IObservable obs, EventHandler handler)
-        => Backend.OnEvent(_pluginName, eventName, obs, handler);
-
-    /// <summary>
-    /// Emit a fire-and-forget event from this plugin.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <param name="data">Event payload data.</param>
+    {
+        var schema = Schema("onEvents", eventName);
+        return Backend.OnEvent(_pluginName, eventName, obs, (trace, data) => handler(trace, Parse(schema.Input, data)));
+    }
     public Task EmitEvent(string eventName, IObservable obs, object? data = null)
-        => Backend.EmitEvent(_pluginName, eventName, obs, data);
+        => Backend.EmitEvent(_pluginName, eventName, obs, Parse(Schema("emitEvents", eventName).Input, data));
 
-    // --- Returnable (request-response) ---
-
-    /// <summary>
-    /// Register a handler for a returnable event on this plugin.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <param name="handler">The handler that processes the request and returns a response.</param>
     public Task OnReturnableEvent(string eventName, IObservable obs, ReturnableEventHandler handler)
-        => Backend.OnReturnableEvent(_pluginName, eventName, obs, handler);
-
-    /// <summary>
-    /// Emit a returnable event and wait for a response.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <param name="data">Request payload data.</param>
-    /// <param name="timeoutSeconds">Maximum time to wait for a response.</param>
-    /// <returns>The response from the handler.</returns>
-    public Task<object?> EmitEventAndReturn(string eventName, IObservable obs, object? data = null, int timeoutSeconds = 30)
-        => Backend.EmitEventAndReturn(_pluginName, eventName, obs, data, timeoutSeconds);
-
-    // --- Broadcast ---
-
-    /// <summary>
-    /// Register a handler for a broadcast event on this plugin.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <param name="handler">The handler to invoke for each broadcast.</param>
+    {
+        var schema = Schema("onReturnableEvents", eventName);
+        return Backend.OnReturnableEvent(_pluginName, eventName, obs,
+            async (trace, data) => Parse(schema.Output, await handler(trace, Parse(schema.Input, data))));
+    }
+    public async Task<object?> EmitEventAndReturn(string eventName, IObservable obs, object? data = null, double timeoutSeconds = 30)
+    {
+        BSBEvents.TimeoutDuration(timeoutSeconds);
+        var schema = Schema("emitReturnableEvents", eventName);
+        return Parse(schema.Output, await Backend.EmitEventAndReturn(_pluginName, eventName, obs, Parse(schema.Input, data), timeoutSeconds));
+    }
     public Task OnBroadcast(string eventName, IObservable obs, BroadcastHandler handler)
-        => Backend.OnBroadcast(_pluginName, eventName, obs, handler);
-
-    /// <summary>
-    /// Emit a broadcast event to all registered handlers.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <param name="data">Broadcast payload data.</param>
+    {
+        var schema = Schema("onBroadcast", eventName);
+        return Backend.OnBroadcast(_pluginName, eventName, obs, (trace, data) => handler(trace, Parse(schema.Input, data)));
+    }
     public Task EmitBroadcast(string eventName, IObservable obs, object? data = null)
-        => Backend.EmitBroadcast(_pluginName, eventName, obs, data);
+        => Backend.EmitBroadcast(_pluginName, eventName, obs, Parse(Schema("emitBroadcast", eventName).Input, data));
+    public Task<Stream> ReceiveStream(string eventName, IObservable obs) => Backend.ReceiveStream(_pluginName, eventName, obs);
+    public Task SendStream(string eventName, IObservable obs, Stream data) => Backend.SendStream(_pluginName, eventName, obs, data);
+    public Task<string> ReceiveStream(string eventName, IObservable obs, StreamHandler handler, int timeoutSeconds = 5) =>
+        Backend.ReceiveStream(_pluginName, eventName, obs, handler, timeoutSeconds);
+    public Task SendStream(string eventName, IObservable obs, string streamId, Stream data) =>
+        Backend.SendStream(_pluginName, eventName, obs, streamId, data);
 
-    // --- Streams ---
-
-    /// <summary>
-    /// Open a stream to receive data from a named event channel.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <returns>A readable stream of incoming data.</returns>
-    public Task<Stream> ReceiveStream(string eventName, IObservable obs)
-        => Backend.ReceiveStream(_pluginName, eventName, obs);
-
-    /// <summary>
-    /// Send a stream of data to a named event channel.
-    /// </summary>
-    /// <param name="eventName">The event name.</param>
-    /// <param name="obs">Observable for tracing.</param>
-    /// <param name="data">The stream of data to send.</param>
-    public Task SendStream(string eventName, IObservable obs, Stream data)
-        => Backend.SendStream(_pluginName, eventName, obs, data);
+    public Task OnEventSpecific(string serverId, string eventName, IObservable obs, EventHandler handler)
+    {
+        var schema = Schema("onEvents", eventName);
+        return Backend.OnEvent(_pluginName, Specific(eventName, serverId), obs, (trace, data) => handler(trace, Parse(schema.Input, data)));
+    }
+    public Task EmitEventSpecific(string serverId, string eventName, IObservable obs, object? data = null) =>
+        Backend.EmitEvent(_pluginName, Specific(eventName, serverId), obs, Parse(Schema("emitEvents", eventName).Input, data));
+    public Task OnReturnableEventSpecific(string serverId, string eventName, IObservable obs, ReturnableEventHandler handler)
+    {
+        var schema = Schema("onReturnableEvents", eventName);
+        return Backend.OnReturnableEvent(_pluginName, Specific(eventName, serverId), obs,
+            async (trace, data) => Parse(schema.Output, await handler(trace, Parse(schema.Input, data))));
+    }
+    public async Task<object?> EmitEventAndReturnSpecific(string serverId, string eventName, IObservable obs, object? data = null, double timeoutSeconds = 30)
+    {
+        BSBEvents.TimeoutDuration(timeoutSeconds);
+        var schema = Schema("emitReturnableEvents", eventName);
+        return Parse(schema.Output, await Backend.EmitEventAndReturn(_pluginName, Specific(eventName, serverId), obs, Parse(schema.Input, data), timeoutSeconds));
+    }
+    private static string Specific(string name, string serverId) => !string.IsNullOrWhiteSpace(serverId) && !serverId.Contains('\0')
+        ? $"{name}-{serverId}" : throw new ArgumentException("Server ID is required", nameof(serverId));
 }

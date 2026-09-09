@@ -99,7 +99,13 @@ The admin UI validates plugin config with the portable AnyVali schema before sub
 
 ## Private Plugin CI Publishing
 
-On the Plugins page, upload one or more generated `lib/schemas/{plugin-id}.plugin.json` manifests. Vault processes each file independently, lists its result, and creates a plugin-specific `bv_p_` publish token for each new plugin. Store each token as a CI secret.
+Vault accepts AnyVali 1.1.2 documents from Node, .NET and Python, including native wrapper and union aliases. Sensitive collections are masked and replaced as a whole using JSON in the password field; omitted values preserve the existing collection. Referenced schemas use this same conservative editor. This avoids leaking nested credentials or restoring a secret to the wrong array element after reordering.
+
+Shared application profiles are validated against every active deployment profile before publication. Enable only implementations matching that deployment's host language; disabled references may point to services in another language. Deployment overrides can select the local implementation. Profile language is locked after publication. Adding a plugin creates disabled placeholders only in sibling profiles with the same language, records that language on each placeholder, and preserves existing sibling entries. Legacy profiles without a language default to Node.js.
+
+The `native-integration` CI job exercises real cross-language Rabbit RPC/streams and PostgreSQL catalog migrations. See [integration checks](../../../tests/integration/README.md) for local prerequisites.
+
+On the Plugins page, upload one or more generated `lib/schemas/{plugin-id}.plugin.json` manifests. Request, manifest and schema language declarations must agree; `dotnet` is normalized to `csharp`. A request language fills missing artifact metadata, and uploads with no language default to Node.js. Vault processes each file independently, lists its result, and creates a plugin-specific `bv_p_` publish token for each new plugin. Store each token as a CI secret.
 
 Publish the executable package to your private npm registry first, then append its generated schema to Vault:
 

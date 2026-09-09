@@ -1,3 +1,4 @@
+import { normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import { Pool } from 'pg';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import type {
@@ -271,6 +272,7 @@ export class VaultStore {
         created_at timestamptz not null
       );
     `);
+    await this.migratePluginLanguages();
     if (this.auditPool === this.pool) {
       await this.initAudit();
       await this.anchorLegacyAudit();
@@ -278,6 +280,33 @@ export class VaultStore {
       // The runtime read path remains available; every mutation preflight still fails closed until audit recovers.
       await this.initAudit().then(() => this.anchorLegacyAudit()).catch(() => undefined);
     }
+  }
+
+  private async migratePluginLanguages(): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      // Serialize additive migrations across simultaneously starting Vault instances.
+      await client.query("select pg_advisory_xact_lock(hashtext('vault-plugin-languages'))");
+      await client.query(`
+        alter table vault_profiles add column if not exists language text not null default 'nodejs'
+          check (language in ('nodejs', 'csharp', 'go', 'java', 'python', 'rust'));
+        alter table vault_plugin_catalog add column if not exists language text not null default 'nodejs'
+          check (language in ('nodejs', 'csharp', 'go', 'java', 'python', 'rust'));
+        alter table vault_plugin_publishers add column if not exists language text not null default 'nodejs'
+          check (language in ('nodejs', 'csharp', 'go', 'java', 'python', 'rust'));
+        alter table vault_plugin_catalog drop constraint if exists vault_plugin_catalog_plugin_id_version_key;
+        create unique index if not exists vault_plugin_catalog_variant_version
+          on vault_plugin_catalog (plugin_id, language, version);
+        alter table vault_plugin_publishers drop constraint if exists vault_plugin_publishers_pkey;
+        create unique index if not exists vault_plugin_publishers_variant
+          on vault_plugin_publishers (plugin_id, language);
+      `);
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally { client.release(); }
   }
 
   private async initAudit(): Promise<void> {
@@ -726,8 +755,8 @@ export class VaultStore {
         [group.id, group.applicationId, group.name, group.createdAt],
       );
       await client.query(
-        'insert into vault_profiles (id, group_id, name, active_version_id, created_at) values ($1, $2, $3, $4, $5)',
-        [profile.id, profile.groupId, profile.name, profile.activeVersionId, profile.createdAt],
+        'insert into vault_profiles (id, group_id, name, active_version_id, created_at, language) values ($1, $2, $3, $4, $5, $6)',
+        [profile.id, profile.groupId, profile.name, profile.activeVersionId, profile.createdAt, profile.language ?? 'nodejs'],
       );
       await client.query('commit');
     } catch (error) {
@@ -763,13 +792,19 @@ export class VaultStore {
 
   async createProfile(record: ProfileRecord): Promise<void> {
     await this.pool.query(
-      'insert into vault_profiles (id, group_id, name, active_version_id, created_at) values ($1, $2, $3, $4, $5)',
-      [record.id, record.groupId, record.name, record.activeVersionId, record.createdAt],
+      'insert into vault_profiles (id, group_id, name, active_version_id, created_at, language) values ($1, $2, $3, $4, $5, $6)',
+      [record.id, record.groupId, record.name, record.activeVersionId, record.createdAt, record.language ?? 'nodejs'],
     );
   }
 
-  async updateProfile(id: string, groupId: string, name: string): Promise<void> {
-    await this.pool.query('update vault_profiles set group_id = $1, name = $2 where id = $3', [groupId, name, id]);
+  async updateProfile(id: string, groupId: string, name: string, language?: PluginLanguage): Promise<void> {
+    const result = await this.pool.query(
+      `update vault_profiles set group_id = $1, name = $2, language = coalesce($4, language)
+       where id = $3 and ($4::text is null or language = $4 or
+         not exists (select 1 from vault_config_versions where profile_id = $3))`,
+      [groupId, name, id, language ?? null],
+    );
+    if (result.rowCount !== 1) throw new Error('Profile not found or language is locked by published versions; create a new profile to change language');
   }
 
   async deleteProfile(id: string): Promise<void> {
@@ -794,8 +829,8 @@ export class VaultStore {
   async createPlugin(record: PluginCatalogRecord): Promise<void> {
     await this.pool.query(
       `insert into vault_plugin_catalog
-       (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+       (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at, language)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         record.id,
         record.org,
@@ -808,6 +843,7 @@ export class VaultStore {
         record.configSchema,
         record.eventSchema,
         record.createdAt,
+        record.language ?? 'nodejs',
       ],
     );
   }
@@ -815,11 +851,11 @@ export class VaultStore {
   async createPluginIfAbsent(record: PluginCatalogRecord): Promise<boolean> {
     const result = await this.pool.query(
       `insert into vault_plugin_catalog
-       (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       on conflict (plugin_id, version) do nothing`,
+       (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at, language)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       on conflict (plugin_id, language, version) do nothing`,
       [record.id, record.org, record.name, record.pluginId, record.packageName, record.version, record.kind,
-        record.source, record.configSchema, record.eventSchema, record.createdAt],
+        record.source, record.configSchema, record.eventSchema, record.createdAt, record.language ?? 'nodejs'],
     );
     return result.rowCount === 1;
   }
@@ -830,17 +866,17 @@ export class VaultStore {
       await client.query('begin');
       await client.query(
         `insert into vault_plugin_catalog
-         (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+         (id, org, name, plugin_id, package_name, version, kind, source, config_schema, event_schema, created_at, language)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [record.id, record.org, record.name, record.pluginId, record.packageName, record.version, record.kind,
-          record.source, record.configSchema, record.eventSchema, record.createdAt],
+          record.source, record.configSchema, record.eventSchema, record.createdAt, record.language ?? 'nodejs'],
       );
       await client.query(
         `insert into vault_plugin_publishers
-         (plugin_id, org, name, package_name, kind, token_id, secret_hash, created_at, rotated_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         (plugin_id, org, name, package_name, kind, token_id, secret_hash, created_at, rotated_at, language)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [publisher.pluginId, publisher.org, publisher.name, publisher.packageName, publisher.kind,
-          publisher.tokenId, publisher.secretHash, publisher.createdAt, publisher.rotatedAt],
+          publisher.tokenId, publisher.secretHash, publisher.createdAt, publisher.rotatedAt, publisher.language ?? 'nodejs'],
       );
       await client.query('commit');
     } catch (error) {
@@ -854,15 +890,15 @@ export class VaultStore {
   async createPluginPublisher(record: PluginPublisherRecord): Promise<void> {
     await this.pool.query(
       `insert into vault_plugin_publishers
-       (plugin_id, org, name, package_name, kind, token_id, secret_hash, created_at, rotated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+       (plugin_id, org, name, package_name, kind, token_id, secret_hash, created_at, rotated_at, language)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [record.pluginId, record.org, record.name, record.packageName, record.kind,
-        record.tokenId, record.secretHash, record.createdAt, record.rotatedAt],
+        record.tokenId, record.secretHash, record.createdAt, record.rotatedAt, record.language ?? 'nodejs'],
     );
   }
 
-  async getPluginPublisher(pluginId: string): Promise<PluginPublisherRecord | null> {
-    const result = await this.pool.query('select * from vault_plugin_publishers where plugin_id = $1', [pluginId]);
+  async getPluginPublisher(pluginId: string, language: PluginLanguage = 'nodejs'): Promise<PluginPublisherRecord | null> {
+    const result = await this.pool.query('select * from vault_plugin_publishers where plugin_id = $1 and language = $2', [pluginId, language]);
     return result.rows[0] ? mapPluginPublisher(result.rows[0] as DbRow) : null;
   }
 
@@ -876,18 +912,18 @@ export class VaultStore {
     return result.rows.map((row) => mapPluginPublisher(row as DbRow));
   }
 
-  async rotatePluginPublisher(pluginId: string, tokenId: string, secretHash: string, rotatedAt: string): Promise<void> {
+  async rotatePluginPublisher(pluginId: string, tokenId: string, secretHash: string, rotatedAt: string, language: PluginLanguage = 'nodejs'): Promise<void> {
     const result = await this.pool.query(
-      'update vault_plugin_publishers set token_id = $1, secret_hash = $2, rotated_at = $3 where plugin_id = $4',
-      [tokenId, secretHash, rotatedAt, pluginId],
+      'update vault_plugin_publishers set token_id = $1, secret_hash = $2, rotated_at = $3 where plugin_id = $4 and language = $5',
+      [tokenId, secretHash, rotatedAt, pluginId, language],
     );
     if (result.rowCount !== 1) throw new Error('Plugin publisher not found');
   }
 
   async updatePluginPublisherIdentity(record: PluginPublisherRecord): Promise<void> {
     const result = await this.pool.query(
-      'update vault_plugin_publishers set org = $1, name = $2, package_name = $3, kind = $4 where plugin_id = $5',
-      [record.org, record.name, record.packageName, record.kind, record.pluginId],
+      'update vault_plugin_publishers set org = $1, name = $2, package_name = $3, kind = $4 where plugin_id = $5 and language = $6',
+      [record.org, record.name, record.packageName, record.kind, record.pluginId, record.language ?? 'nodejs'],
     );
     if (result.rowCount !== 1) throw new Error('Plugin publisher not found');
   }
@@ -901,13 +937,14 @@ export class VaultStore {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
-      const deleted = await client.query<{ plugin_id: string }>('delete from vault_plugin_catalog where id = $1 returning plugin_id', [id]);
+      const deleted = await client.query<{ plugin_id: string; language: PluginLanguage }>('delete from vault_plugin_catalog where id = $1 returning plugin_id, language', [id]);
       const pluginId = deleted.rows[0]?.plugin_id;
+      const language = deleted.rows[0]?.language;
       let publisherRemoved = false;
       if (pluginId) {
-        const remaining = await client.query('select 1 from vault_plugin_catalog where plugin_id = $1 limit 1', [pluginId]);
+        const remaining = await client.query('select 1 from vault_plugin_catalog where plugin_id = $1 and language = $2 limit 1', [pluginId, language]);
         if (remaining.rows.length === 0) {
-          const removed = await client.query('delete from vault_plugin_publishers where plugin_id = $1', [pluginId]);
+          const removed = await client.query('delete from vault_plugin_publishers where plugin_id = $1 and language = $2', [pluginId, language]);
           publisherRemoved = (removed.rowCount ?? 0) > 0;
         }
       }
@@ -1369,6 +1406,7 @@ function mapGroup(row: DbRow): GroupRecord {
 
 function mapProfile(row: DbRow): ProfileRecord {
   return {
+    language: normalizePluginLanguage(row.language ?? 'nodejs'),
     id: String(row.id),
     groupId: String(row.group_id),
     name: String(row.name),
@@ -1389,6 +1427,7 @@ function mapApplicationProfile(row: DbRow): ApplicationProfileRecord {
 
 function mapPlugin(row: DbRow): PluginCatalogRecord {
   return {
+    language: normalizePluginLanguage(row.language ?? 'nodejs'),
     id: String(row.id),
     org: String(row.org),
     name: String(row.name),
@@ -1405,6 +1444,7 @@ function mapPlugin(row: DbRow): PluginCatalogRecord {
 
 function mapPluginPublisher(row: DbRow): PluginPublisherRecord {
   return {
+    language: normalizePluginLanguage(row.language ?? 'nodejs'),
     pluginId: String(row.plugin_id),
     org: String(row.org),
     name: String(row.name),

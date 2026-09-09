@@ -83,3 +83,27 @@ func TestPluginRegistryListPlugins(t *testing.T) {
 		t.Errorf("expected 0 config plugins, got %d", len(configNames))
 	}
 }
+
+func TestPluginRegistryRejectsIDsAcrossCategories(t *testing.T) {
+	assertPanics := func(t *testing.T, register func()) {
+		t.Helper()
+		defer func() {
+			if recover() == nil {
+				t.Fatal("duplicate plugin ID accepted")
+			}
+		}()
+		register()
+	}
+
+	registry := bsb.NewPluginRegistry()
+	registry.RegisterService("shared", func(map[string]any) (bsb.ServicePlugin, error) { return &mockServicePlugin{}, nil })
+	assertPanics(t, func() {
+		registry.RegisterConfig("shared", func(map[string]any) (bsb.ConfigPlugin, error) { return &testConfigPlugin{}, nil })
+	})
+
+	contracts := bsb.NewPluginRegistry()
+	contracts.RegisterContract(bsb.PluginContract{Metadata: bsb.PluginMetadata{Name: "shared", Category: bsb.PluginTypeService}, Events: bsb.NewEventSchemas()})
+	assertPanics(t, func() {
+		contracts.RegisterContract(bsb.PluginContract{Metadata: bsb.PluginMetadata{Name: "shared", Category: bsb.PluginTypeEvents}, Events: bsb.NewEventSchemas()})
+	})
+}

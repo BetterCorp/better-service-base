@@ -16,6 +16,11 @@ public class LogMeta : Dictionary<string, object?>
     public LogMeta(IDictionary<string, object?> dict) : base(dict) { }
 }
 
+/// <summary>A completed span, delivered once to each configured exporter.</summary>
+public sealed record CompletedSpan(DTrace Trace, string? ParentSpanId, string PluginName, string Name,
+    ResourceContext Resource, DateTimeOffset StartedAt, TimeSpan Duration,
+    IReadOnlyDictionary<string, object?> Attributes, string? Error);
+
 /// <summary>
 /// Logging interface for observable spans. All log calls are attached to the current span context.
 /// </summary>
@@ -166,7 +171,7 @@ public interface IObservable
     /// <summary>
     /// Create a child span within the current trace.
     /// </summary>
-    IObservable StartSpan(string name, Dictionary<string, object?>? attributes = null);
+    IObservable StartSpan(string name, Dictionary<string, object?>? attributes = null, DTrace? parent = null);
 
     /// <summary>
     /// Set a single attribute on this span.

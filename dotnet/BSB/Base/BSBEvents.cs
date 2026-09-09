@@ -23,6 +23,7 @@ public delegate Task<object?> ReturnableEventHandler(IObservable obs, object? da
 /// <param name="obs">Observable for tracing and logging within the handler.</param>
 /// <param name="data">Broadcast payload data.</param>
 public delegate Task BroadcastHandler(IObservable obs, object? data);
+public delegate Task StreamHandler(IObservable obs, Exception? error, Stream? stream);
 
 /// <summary>
 /// Abstract base for event routing plugins. Routes events between service plugins
@@ -31,6 +32,9 @@ public delegate Task BroadcastHandler(IObservable obs, object? data);
 /// </summary>
 public abstract class BSBEvents : MainBase
 {
+    private static readonly Task NeverCompleted = Task.Delay(Timeout.Infinite);
+    /// <summary>Faults on a fatal transport failure so the host can shut down.</summary>
+    public virtual Task Completion => NeverCompleted;
     /// <summary>
     /// Construct a new events plugin.
     /// </summary>
@@ -90,7 +94,7 @@ public abstract class BSBEvents : MainBase
     /// <param name="data">Request payload data.</param>
     /// <param name="timeoutSeconds">Maximum time to wait for a response.</param>
     /// <returns>The response from the handler.</returns>
-    public abstract Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, int timeoutSeconds = 30);
+    public abstract Task<object?> EmitEventAndReturn(string pluginName, string eventName, IObservable obs, object? data, double timeoutSeconds = 30);
 
     // --- Broadcast events ---
 
@@ -131,4 +135,40 @@ public abstract class BSBEvents : MainBase
     /// <param name="obs">Observable for tracing.</param>
     /// <param name="data">The stream of data to send.</param>
     public abstract Task SendStream(string pluginName, string eventName, IObservable obs, Stream data);
+
+    /// <summary>Register a receiver and return an opaque ID to pass to the sender, as in Node.</summary>
+    public virtual Task<string> ReceiveStream(string pluginName, string eventName, IObservable obs, StreamHandler handler, int timeoutSeconds = 5)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutSeconds);
+        var id = Guid.NewGuid().ToString();
+        _ = Deliver();
+        return Task.FromResult(id);
+        async Task Deliver()
+        {
+            Stream? stream;
+            Task<Stream>? receive = null;
+            try
+            {
+                receive = ReceiveStream(pluginName, eventName + "-" + id, obs);
+                stream = await receive.WaitAsync(TimeSpan.FromSeconds(timeoutSeconds));
+            }
+            catch (Exception error)
+            {
+                if (receive is not null) _ = ObserveLate(receive);
+                try { await handler(obs, error, null); } catch (Exception failure) { obs.Error(failure); }
+                return;
+            }
+            try { await handler(obs, null, stream); } catch (Exception error) { obs.Error(error); }
+        }
+        static async Task ObserveLate(Task<Stream> receive)
+        {
+            // Legacy backends may return the sender's borrowed stream; only observe completion.
+            try { await receive; } catch { }
+        }
+    }
+    public virtual Task SendStream(string pluginName, string eventName, IObservable obs, string streamId, Stream data) =>
+        SendStream(pluginName, eventName + "-" + streamId, obs, data);
+
+    public static TimeSpan TimeoutDuration(double seconds) => double.IsFinite(seconds) && seconds is > 0 and <= 86400
+        ? TimeSpan.FromSeconds(seconds) : throw new ArgumentOutOfRangeException(nameof(seconds));
 }

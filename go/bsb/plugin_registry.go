@@ -2,6 +2,7 @@ package bsb
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -18,8 +19,9 @@ type registeredPlugin struct {
 // PluginRegistry holds all registered plugin factories.
 // Plugins are registered at startup before ServiceBase.Init().
 type PluginRegistry struct {
-	mu      sync.RWMutex
-	plugins map[string]*registeredPlugin // key: "type:name"
+	mu        sync.RWMutex
+	plugins   map[string]*registeredPlugin // key: "type:name"
+	contracts map[string]PluginContract
 }
 
 // NewPluginRegistry creates a new empty plugin registry.
@@ -53,6 +55,11 @@ func (r *PluginRegistry) register(pluginType PluginType, name string, factory an
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	key := string(pluginType) + ":" + name
+	for _, plugin := range r.plugins {
+		if plugin.name == name {
+			panic("duplicate plugin factory ID: " + name)
+		}
+	}
 	r.plugins[key] = &registeredPlugin{
 		pluginType: pluginType,
 		name:       name,
@@ -62,54 +69,46 @@ func (r *PluginRegistry) register(pluginType PluginType, name string, factory an
 
 // CreateConfig creates a config plugin instance by name.
 func (r *PluginRegistry) CreateConfig(name string, config map[string]any) (ConfigPlugin, error) {
-	factory, err := r.getFactory(PluginTypeConfig, name)
-	if err != nil {
-		return nil, err
-	}
-	f, ok := factory.(PluginFactory[ConfigPlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for config plugin %q", name)
-	}
-	return f(config)
+	return createPlugin[ConfigPlugin](r, PluginTypeConfig, name, config)
 }
 
 // CreateObservable creates an observable plugin instance by name.
-func (r *PluginRegistry) CreateObservable(name string, config map[string]any) (ObservablePlugin, error) {
-	factory, err := r.getFactory(PluginTypeObservable, name)
-	if err != nil {
-		return nil, err
-	}
-	f, ok := factory.(PluginFactory[ObservablePlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for observable plugin %q", name)
-	}
-	return f(config)
+func (r *PluginRegistry) CreateObservable(name string, config map[string]any, version ...string) (ObservablePlugin, error) {
+	return createPlugin[ObservablePlugin](r, PluginTypeObservable, name, config, version...)
 }
 
 // CreateEvents creates an events plugin instance by name.
-func (r *PluginRegistry) CreateEvents(name string, config map[string]any) (EventsPlugin, error) {
-	factory, err := r.getFactory(PluginTypeEvents, name)
-	if err != nil {
-		return nil, err
-	}
-	f, ok := factory.(PluginFactory[EventsPlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for events plugin %q", name)
-	}
-	return f(config)
+func (r *PluginRegistry) CreateEvents(name string, config map[string]any, version ...string) (EventsPlugin, error) {
+	return createPlugin[EventsPlugin](r, PluginTypeEvents, name, config, version...)
 }
 
 // CreateService creates a service plugin instance by name.
-func (r *PluginRegistry) CreateService(name string, config map[string]any) (ServicePlugin, error) {
-	factory, err := r.getFactory(PluginTypeService, name)
-	if err != nil {
-		return nil, err
+func (r *PluginRegistry) CreateService(name string, config map[string]any, version ...string) (ServicePlugin, error) {
+	return createPlugin[ServicePlugin](r, PluginTypeService, name, config, version...)
+}
+
+func requestedVersion(version []string) string {
+	if len(version) == 0 {
+		return ""
 	}
-	f, ok := factory.(PluginFactory[ServicePlugin])
-	if !ok {
-		return nil, fmt.Errorf("invalid factory type for service plugin %q", name)
+	return version[0]
+}
+
+func (r *PluginRegistry) validateVersion(kind PluginType, name, requested string) error {
+	if requested == "" {
+		return nil
 	}
-	return f(config)
+	r.mu.RLock()
+	contract, ok := r.contracts[string(kind)+":"+name]
+	r.mu.RUnlock()
+	if !ok || contract.Metadata.Version != requested {
+		available := "unregistered"
+		if ok {
+			available = contract.Metadata.Version
+		}
+		return fmt.Errorf("%s plugin %q requires version %q, registered version is %q", kind, name, requested, available)
+	}
+	return nil
 }
 
 // HasPlugin checks whether a plugin is registered.
@@ -126,12 +125,12 @@ func (r *PluginRegistry) ListPlugins(pluginType PluginType) []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var names []string
-	prefix := string(pluginType) + ":"
-	for key, p := range r.plugins {
-		if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+	for _, p := range r.plugins {
+		if p.pluginType == pluginType {
 			names = append(names, p.name)
 		}
 	}
+	sort.Strings(names)
 	return names
 }
 

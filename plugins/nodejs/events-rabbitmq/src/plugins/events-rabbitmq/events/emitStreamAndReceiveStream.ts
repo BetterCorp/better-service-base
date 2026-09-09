@@ -622,29 +622,26 @@ export class emitStreamAndReceiveStream
       for (const evnt of eventsToListenTo) {
         stream.on(
             evnt,
-            async (e: any, b: any, ack: { (): void }, nack: { (): void }) => {
-              if (
-                  !(
-                      await self.streamChannel.channel.sendToQueue(
-                          dstStreamQueueKey,
-                          {type: "event", event: evnt, data: e || null, trace: sendObs.trace},
-                          {
-                            expiration: self.queueOpts.messageTtl,
-                            correlationId: /*"r-" + */ streamId,
-                            messageId: randomUUID(),
-                            persistent: true,
-                            appId: self.plugin.myId,
-                            timestamp: new Date().getTime(),
-                          },
-                      )
-                  )
-              ) {
-                nack();
-                throw `Cannot send msg to queue [${dstEventsQueueKey}] ${streamId}`;
-              }
-              ack();
-              if (evnt === "error") {
-                reject(e);
+            async (e: any) => {
+              try {
+                // These are local Readable events, not broker deliveries to acknowledge.
+                await self.streamChannel.channel.sendToQueue(
+                    dstStreamQueueKey,
+                    {type: "event", event: evnt, data: e || null, trace: sendObs.trace},
+                    {
+                      expiration: self.queueOpts.messageTtl,
+                      correlationId: streamId,
+                      messageId: randomUUID(),
+                      persistent: true,
+                      appId: self.plugin.myId,
+                      timestamp: new Date().getTime(),
+                    },
+                );
+                if (evnt === "error") {
+                  await reject(e);
+                }
+              } catch (error) {
+                await reject(error instanceof Error ? error : new Error(String(error)));
               }
             },
         );

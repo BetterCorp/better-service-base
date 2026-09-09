@@ -8,7 +8,8 @@
  *     plugins/
  *       <org>/
  *         <name>/
- *           <version>.json            Full RegistryEntry for each version
+ *           <language>@<version>.json Full RegistryEntry for each implementation version
+ *           <version>.json            Legacy entries remain readable in place
  *     users.json                      User[] - all registered users
  *     tokens.json                     AuthToken[] - all auth tokens
  */
@@ -17,6 +18,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Observable } from '@bsb/base';
+import { normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import type { RegistryDB, RegistryEntryFilter } from './index.js';
 import type {
   RegistryEntry,
@@ -79,16 +81,17 @@ export class FileDB implements RegistryDB {
   // Plugin CRUD
   // ============================================================================
 
-  async versionExists(obs: Observable, org: string, name: string, version: string): Promise<boolean> {
-    return fs.existsSync(this.versionPath(org, name, version));
+  async versionExists(obs: Observable, org: string, name: string, version: string, language: PluginLanguage = 'nodejs'): Promise<boolean> {
+    return this.readAllVersions(org, name).some(entry => entry.version === version && entry.language === normalizePluginLanguage(language));
   }
 
   async insert(obs: Observable, entry: RegistryEntry): Promise<void> {
     const span = obs.startSpan('FileDB.insert', { pluginId: entry.id, version: entry.version });
     try {
-      const vPath = this.versionPath(entry.org, entry.name, entry.version);
+      entry = { ...entry, language: normalizePluginLanguage(entry.language ?? 'nodejs') };
+      const vPath = this.versionPath(entry.org, entry.name, entry.version, entry.language);
 
-      if (fs.existsSync(vPath)) {
+      if (this.readAllVersions(entry.org, entry.name).some(existing => existing.version === entry.version && existing.language === entry.language)) {
         throw new Error(
           `Version ${entry.version} of ${entry.id} already exists. Published versions are immutable.`
         );
@@ -111,45 +114,30 @@ export class FileDB implements RegistryDB {
     }
   }
 
-  async get(obs: Observable, org: string, name: string, version?: string, filter?: RegistryEntryFilter): Promise<RegistryEntry | null> {
+  async get(obs: Observable, org: string, name: string, version?: string, filter?: RegistryEntryFilter, language?: PluginLanguage): Promise<RegistryEntry | null> {
     const span = obs.startSpan('FileDB.get', { org, name, ...(version ? { version } : {}) });
     try {
-      if (version) {
-        const entry = this.readVersion(org, name, version);
-        return entry && (!filter || await filter(entry)) ? entry : null;
-      }
-      // No version specified -- return the latest
       const entries = await this.filterEntries(this.readAllVersions(org, name), filter);
-      if (entries.length === 0) return null;
-      return this.latestEntry(entries);
+      const selected = this.selectLanguage(entries, language);
+      return this.latestEntry(version ? selected.filter(entry => entry.version === version) : selected);
     } finally {
       span.end();
     }
   }
 
-  async delete(obs: Observable, org: string, name: string, version?: string): Promise<void> {
+  async delete(obs: Observable, org: string, name: string, version?: string, language?: PluginLanguage): Promise<void> {
     const span = obs.startSpan('FileDB.delete', { org, name, ...(version ? { version } : {}) });
     this.pluginIndex = undefined;
     try {
-      if (version) {
-        const vPath = this.versionPath(org, name, version);
-        if (fs.existsSync(vPath)) {
-          fs.unlinkSync(vPath);
-          obs.log.debug('Deleted version {org}/{name}@{version}', { org, name, version });
-        }
-        // If no versions remain, remove the plugin directory
-        const remaining = this.listVersionFiles(org, name);
-        if (remaining.length === 0) {
-          this.rmdir(this.pluginDir(org, name));
-        }
-      } else {
-        // Delete entire plugin
-        const dir = this.pluginDir(org, name);
-        if (fs.existsSync(dir)) {
-          fs.rmSync(dir, { recursive: true, force: true });
-          obs.log.debug('Deleted all versions of {org}/{name}', { org, name });
+      const selected = this.selectLanguage(this.readAllVersions(org, name), language);
+      for (const entry of selected.filter(entry => !version || entry.version === version)) {
+        fs.rmSync(this.versionPath(org, name, entry.version, entry.language), { force: true });
+        const legacy = safeChild(this.pluginsDir, org, name, `${entry.version}.json`);
+        if (fs.existsSync(legacy) && normalizePluginLanguage(this.readJson<RegistryEntry>(legacy).language ?? 'nodejs') === entry.language) {
+          fs.unlinkSync(legacy);
         }
       }
+      this.rmdir(this.pluginDir(org, name));
     } finally {
       span.end();
     }
@@ -211,12 +199,13 @@ export class FileDB implements RegistryDB {
     }
   }
 
-  async getVersions(obs: Observable, org: string, name: string, majorMinor?: string, filter?: RegistryEntryFilter): Promise<VersionInfo[]> {
+  async getVersions(obs: Observable, org: string, name: string, majorMinor?: string, filter?: RegistryEntryFilter, language?: PluginLanguage): Promise<VersionInfo[]> {
     const span = obs.startSpan('FileDB.getVersions', { org, name, ...(majorMinor ? { majorMinor } : {}) });
     try {
-      const entries = await this.filterEntries(this.readAllVersions(org, name), filter);
+      const entries = this.selectLanguage(await this.filterEntries(this.readAllVersions(org, name), filter), language);
       let infos: VersionInfo[] = entries.map(e => ({
         version: e.version,
+        language: e.language,
         majorMinor: e.majorMinor,
         publishedAt: e.publishedAt,
       }));
@@ -531,8 +520,8 @@ export class FileDB implements RegistryDB {
     return safeChild(this.pluginsDir, org, name);
   }
 
-  private versionPath(org: string, name: string, version: string): string {
-    return safeChild(this.pluginsDir, org, name, `${version}.json`);
+  private versionPath(org: string, name: string, version: string, language: PluginLanguage): string {
+    return safeChild(this.pluginsDir, org, name, `${normalizePluginLanguage(language)}@${version}.json`);
   }
 
   private orgPath(org: string): string {
@@ -546,13 +535,6 @@ export class FileDB implements RegistryDB {
     return fs.readdirSync(dir).filter(f => f.endsWith('.json'));
   }
 
-  /** Read a single version entry. Returns null if file does not exist. */
-  private readVersion(org: string, name: string, version: string): RegistryEntry | null {
-    const p = this.versionPath(org, name, version);
-    if (!fs.existsSync(p)) return null;
-    return this.readJson<RegistryEntry>(p);
-  }
-
   /** Read every version entry for a plugin. */
   private readAllVersions(org: string, name: string): RegistryEntry[] {
     const files = this.listVersionFiles(org, name);
@@ -560,7 +542,8 @@ export class FileDB implements RegistryDB {
     const entries: RegistryEntry[] = [];
     for (const f of files) {
       try {
-        entries.push(this.readJson<RegistryEntry>(path.join(dir, f)));
+        const entry = this.readJson<RegistryEntry>(path.join(dir, f));
+        entries.push({ ...entry, language: normalizePluginLanguage(entry.language ?? 'nodejs') });
       } catch {
         // Skip corrupt files
       }
@@ -609,7 +592,14 @@ export class FileDB implements RegistryDB {
             if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
           }
         }
-        entries.push(versions);
+        const languages = new Map<PluginLanguage, RegistryEntry[]>();
+        for (const entry of versions) {
+          const language = normalizePluginLanguage(entry.language ?? 'nodejs');
+          const group = languages.get(language) ?? [];
+          group.push({ ...entry, language });
+          languages.set(language, group);
+        }
+        entries.push(...languages.values());
       }
     }
     return entries;
@@ -619,6 +609,15 @@ export class FileDB implements RegistryDB {
     if (!filter) return entries;
     const allowed = await Promise.all(entries.map(filter));
     return entries.filter((_entry, index) => allowed[index]);
+  }
+
+  /** Apply legacy Node preference only after authorization has filtered entries. */
+  private selectLanguage(entries: RegistryEntry[], language?: PluginLanguage): RegistryEntry[] {
+    const languages = new Set(entries.map(entry => entry.language));
+    const selected = language !== undefined ? normalizePluginLanguage(language)
+      : languages.has('nodejs') ? 'nodejs' : languages.size === 1 ? [...languages][0] : undefined;
+    if (selected === undefined && languages.size > 1) throw new Error('Ambiguous plugin implementation: specify language');
+    return entries.filter(entry => entry.language === selected);
   }
 
   /** Pick the entry with the most recent publishedAt. */

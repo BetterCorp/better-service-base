@@ -24,7 +24,8 @@ module.exports = async ({ pluginRoot }) => {
           port: { kind: 'int32', min: 1, default: 3200 },
           enabled: { kind: 'bool', default: true },
           mode: { kind: 'enum', values: ['dev', 'prod'], default: 'dev' },
-          password: { kind: 'optional', inner: { kind: 'string' }, metadata: { sensitive: true, writeonly: true } },
+          password: { kind: 'optional', schema: { kind: 'nullable', metadata: { sensitive: true, writeonly: true }, schema: { kind: 'string' } } },
+          credentials: { kind: 'optional', schema: { kind: 'record', values: { kind: 'string', metadata: { sensitive: true } } } },
         },
       },
     },
@@ -147,7 +148,7 @@ module.exports = async ({ pluginRoot }) => {
     packageName: '@bsb/service-api',
     version: '1.0.0',
     enabled: true,
-    config: { port: 3210, enabled: false, mode: 'prod', password: 'vault-secret', ignored: 'strip-me' },
+    config: { port: 3210, enabled: false, mode: 'prod', password: 'vault-secret', credentials: { api: 'record-secret' }, ignored: 'strip-me' },
   });
 
   const saved = decryptDraft('profile-1');
@@ -157,9 +158,11 @@ module.exports = async ({ pluginRoot }) => {
     enabled: false,
     mode: 'prod',
     password: 'vault-secret',
+    credentials: { api: 'record-secret' },
   });
   const synced = decryptDraft('profile-2');
   assert.deepEqual(synced.prod.services.api, {
+    language: 'nodejs',
     plugin: 'service-api',
     package: '@bsb/service-api',
     version: '1.0.0',
@@ -173,6 +176,7 @@ module.exports = async ({ pluginRoot }) => {
     version: '1.0.0', enabled: true, config: { port: 3210, enabled: false, mode: 'prod' },
   });
   assert.equal(decryptDraft('profile-1').default.services.api.config.password, 'vault-secret');
+  assert.deepEqual(decryptDraft('profile-1').default.services.api.config.credentials, { api: 'record-secret' });
 
   await vault.upsertProfilePlugin('user-1', {
     profileId: 'profile-1', section: 'services', name: 'api', plugin: 'service-api', packageName: '@bsb/service-api',

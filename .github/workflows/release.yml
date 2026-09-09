@@ -397,14 +397,31 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip build
+          python -m pip install --upgrade pip build setuptools wheel
           python -m pip install -e ".[dev]"
+          python -m pip install -e ../plugins/python/builtins
+          python -m pip install --no-build-isolation -e ../plugins/python/examples
 
       - name: Run tests
         run: pytest
 
       - name: Build package
-        run: python -m build
+        env:
+          BSB_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          python -c 'import os,pathlib,re; paths=[pathlib.Path(p) for p in ("pyproject.toml", "../plugins/python/builtins/pyproject.toml", "../plugins/python/examples/pyproject.toml")]; [p.write_text(re.sub(r"(?m)^version = .*", "version = " + chr(34) + os.environ["BSB_VERSION"] + chr(34), p.read_text())) for p in paths]'
+          python -m build --no-isolation
+          python -m build --no-isolation ../plugins/python/builtins
+          python -m build --no-isolation ../plugins/python/examples
+
+      - name: Upload native Python packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: bsb-python-packages
+          path: |
+            python/dist/*
+            plugins/python/builtins/dist/*
+            plugins/python/examples/dist/*
 
   go:
     name: Go
@@ -423,13 +440,43 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: "1.26.1"
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: go.sum
 
       - name: Run tests
-        run: go test ./...
+        run: |
+          go generate ../plugins/go/examples
+          go test ./... ../plugins/go/...
 
       - name: Build CLI
         run: go build -o /tmp/bsb ./cmd/bsb
+
+  rust:
+    name: Rust
+    needs: [prepare]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Set up Rust
+        run: rustup toolchain install 1.95 --profile minimal && rustup default 1.95
+      - name: Verify and package native SDK and CLI
+        env:
+          BSB_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          cargo test --locked --workspace
+          sh set-version.sh "$BSB_VERSION"
+          cargo package --locked --allow-dirty
+          cargo build --locked --release -p better-service-base-cli --bin bsb
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bsb-rust-packages
+          path: |
+            target/package/*.crate
+            target/release/bsb
 
   dotnet:
     name: .NET
@@ -453,7 +500,19 @@ jobs:
         run: dotnet restore BSB.sln
 
       - name: Build
-        run: dotnet build BSB.sln --configuration Release --no-restore
+        run: dotnet build BSB.sln --configuration Release --no-restore -p:Version=${{ needs.prepare.outputs.version }}
+
+      - name: Verify and pack native SDK and CLI
+        run: |
+          dotnet run --project tests/RuntimeTests -c Release
+          dotnet pack BSB/BSB.csproj -c Release -o packages -p:Version=${{ needs.prepare.outputs.version }}
+          dotnet pack BetterServiceBase/BetterServiceBase.csproj -c Release -o packages -p:Version=${{ needs.prepare.outputs.version }}
+
+      - name: Upload native NuGet packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: bsb-dotnet-packages
+          path: dotnet/packages/*.nupkg
 
   docker-nodejs-forgejo:
     name: Docker Node.js Forgejo
@@ -756,7 +815,7 @@ jobs:
       - name: Build and push to Forgejo
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./go
+          context: .
           file: ./go/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
@@ -811,7 +870,7 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v7
         with:
-          context: ./go
+          context: .
           file: ./go/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
@@ -854,8 +913,9 @@ jobs:
       - name: Build and push to Forgejo
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./python
+          context: .
           file: ./python/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.forgejo_tags }}
@@ -909,8 +969,9 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v7
         with:
-          context: ./python
+          context: .
           file: ./python/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.dockerhub_tags }}
@@ -952,8 +1013,9 @@ jobs:
       - name: Build and push to Forgejo
         uses: useblacksmith/build-push-action@v2
         with:
-          context: ./dotnet
+          context: .
           file: ./dotnet/BetterServiceBase/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.forgejo_tags }}
@@ -1000,8 +1062,102 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v7
         with:
-          context: ./dotnet
+          context: .
           file: ./dotnet/BetterServiceBase/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.dockerhub_tags }}
+
+  docker-rust-forgejo:
+    name: Docker Rust Forgejo
+    needs: [rust, prepare]
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v2
+        with:
+          cache-key: rust/Dockerfile
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          FORGEJO_TAGS="${FORGEJO_SERVICE_BASE_IMAGE}:rust-${VERSION}"
+          FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:rust-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            FORGEJO_TAGS="${FORGEJO_TAGS},${FORGEJO_SERVICE_BASE_IMAGE}:rust"
+          fi
+          echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Forgejo
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.FORGEJO_REGISTRY }}
+          username: ${{ secrets.BC_CODE_USER }}
+          password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
+
+      - name: Build and push to Forgejo
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: .
+          file: ./rust/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.forgejo_tags }}
+
+  docker-rust-dockerhub:
+    name: Docker Rust Docker Hub
+    needs: [rust, prepare]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Compute tags
+        id: tags
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          NPM_TAG="${{ needs.prepare.outputs.npm-tag }}"
+          DOCKERHUB_TAGS="betterweb/service-base:rust-${VERSION}"
+          DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:rust-${NPM_TAG}"
+          if [ "${NPM_TAG}" = "latest" ]; then
+            DOCKERHUB_TAGS="${DOCKERHUB_TAGS},betterweb/service-base:rust"
+          fi
+          echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to DockerHub
+        continue-on-error: true
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push to DockerHub
+        continue-on-error: true
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./rust/Dockerfile
+          build-args: BSB_VERSION=${{ needs.prepare.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.dockerhub_tags }}

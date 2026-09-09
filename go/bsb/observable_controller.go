@@ -19,13 +19,11 @@ func (oc *ObservableController) Init(ctx context.Context, obs Observable, config
 
 	pluginDefs, err := config.GetObservablePlugins(ctx, obs)
 	if err != nil {
-		obs.Log().Warn("no observable plugins in config, using defaults", map[string]any{
-			"error": err.Error(),
-		})
-		return nil
+		return fmt.Errorf("load observable configuration: %w", err)
 	}
 
-	for name, def := range pluginDefs {
+	for _, name := range sortedPluginNames(pluginDefs) {
+		def := pluginDefs[name]
 		if !def.Enabled {
 			obs.Log().Debug("skipping disabled observable plugin", map[string]any{"plugin": name})
 			continue
@@ -37,30 +35,27 @@ func (oc *ObservableController) Init(ctx context.Context, obs Observable, config
 		}
 
 		if !oc.registry.HasPlugin(PluginTypeObservable, pluginName) {
-			obs.Log().Warn("observable plugin not registered, skipping", map[string]any{"plugin": pluginName})
-			continue
+			return fmt.Errorf("enabled observable plugin %q is not linked into this BSB host", pluginName)
 		}
 
 		pluginConfig, err := config.GetPluginConfig(ctx, obs, PluginTypeObservable, name)
 		if err != nil {
-			obs.Log().Warn("failed to get observable plugin config", map[string]any{
-				"plugin": pluginName,
-				"error":  err.Error(),
-			})
-			pluginConfig = def.Config
+			return fmt.Errorf("observable %q configuration: %w", pluginName, err)
 		}
-
-		plugin, err := oc.registry.CreateObservable(pluginName, pluginConfig)
+		plugin, err := oc.registry.CreateObservable(pluginName, pluginConfig, def.Version)
 		if err != nil {
 			return fmt.Errorf("failed to create observable plugin %q: %w", pluginName, err)
 		}
+		if cwdPlugin, ok := plugin.(interface{ SetCwd(string) }); ok {
+			cwdPlugin.SetCwd(oc.opts.Cwd)
+		}
 
+		oc.plugins = append(oc.plugins, plugin)
 		if err := plugin.Init(ctx, obs); err != nil {
 			return fmt.Errorf("failed to init observable plugin %q: %w", pluginName, err)
 		}
 
 		oc.backend.AddPlugin(plugin)
-		oc.plugins = append(oc.plugins, plugin)
 		obs.Log().Info("observable plugin loaded", map[string]any{"plugin": name})
 	}
 

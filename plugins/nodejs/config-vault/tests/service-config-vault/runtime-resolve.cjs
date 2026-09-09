@@ -147,6 +147,7 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(resolved.config.default.services.config.plugin, 'service-betterportal-config-manager');
   assert.equal(resolved.config.default.services.config.package, '@betterportal/config-manager');
   assert.deepEqual(resolved.config.default.services.auth, {
+    language: 'nodejs',
     plugin: 'service-auth-local',
     package: '@betterportal/auth-local',
     version: '2.0.0',

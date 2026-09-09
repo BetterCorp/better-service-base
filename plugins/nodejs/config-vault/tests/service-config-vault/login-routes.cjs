@@ -6,6 +6,11 @@ const http = require('node:http');
 const { createHash } = require('node:crypto');
 
 module.exports = async ({ pluginRoot }) => {
+  for (const [open, close] of [['<script>', '</script>'], ['<SCRIPT nonce="test">', '</SCRIPT >'], ['<script\nnonce="test">', '</script\t\r\n>'], ['<script>', '</script ignored="value">']]) {
+    assertScriptsParse(`${open}const valid = 1;${close}`);
+    assert.throws(() => assertScriptsParse(`${open}const = ;${close}`), SyntaxError);
+  }
+  assert.throws(() => assertScriptsParse('<p>No scripts</p>'), /No inline scripts found/);
   const { VaultHttpServer } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/http-server.js')).href);
   const port = await freePort();
   const registryPort = await freePort();
@@ -255,13 +260,14 @@ module.exports = async ({ pluginRoot }) => {
                 port: { kind: 'int32', default: 3200, metadata: { description: 'HTTP port' } },
                 enabled: { kind: 'bool', metadata: { description: 'Feature enabled' } },
                 token: { kind: 'optional', inner: { kind: 'string' }, metadata: { description: 'Optional token' } },
+                credentials: { kind: 'optional', schema: { kind: 'record', values: { kind: 'string', metadata: { sensitive: true } } } },
                 tags: { kind: 'array', items: { kind: 'string' }, metadata: { description: 'Tags' } },
                 headers: { kind: 'record', valueSchema: { kind: 'string' }, metadata: { description: 'Headers' } },
                 bind: { kind: 'tuple', items: [{ kind: 'string' }, { kind: 'int32' }], metadata: { description: 'Bind Address' } },
                 mode: { kind: 'enum', values: ['file', 'postgres'], default: 'file', metadata: { description: 'Storage mode' } },
                 storage: {
                   kind: 'union',
-                  variants: [{
+                  schemas: [{
                     kind: 'object',
                     properties: {
                       backend: { kind: 'literal', value: 'file' },
@@ -321,7 +327,7 @@ module.exports = async ({ pluginRoot }) => {
           applications: [{ id: 'app-1', name: 'App', description: 'Main app' }],
           applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
           plugins: pluginCatalog,
-          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true, autoPinned: true, allowEnvOverrides: true }, worker: { plugin: 'service-api', enabled: false } } },
+          draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true, autoPinned: true, allowEnvOverrides: true, config: { credentials: { api: 'must-stay-secret' } } }, worker: { plugin: 'service-api', enabled: false } } },
           inheritedDraft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
           configState: { state: 'draft-only', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: null },
           inheritedConfigState: { state: 'published', draftUpdatedAt: '2026-01-02T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
@@ -346,8 +352,16 @@ module.exports = async ({ pluginRoot }) => {
             source: 'manual',
             configSchema: { root: { kind: 'object', properties: { host: { kind: 'string' } } } },
             eventSchema: null,
-          }],
-          draft: { observable: {}, events: {}, services: { shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } } } },
+          }, ...['nodejs', 'csharp'].flatMap(language => ['1.0.0', '2.0.0'].map(version => ({
+            id: `shared-${language}-${version}`, org: 'acme', name: 'Shared', pluginId: 'service-shared', language,
+            packageName: '', version, kind: 'service', source: 'manual', eventSchema: null,
+            configSchema: { root: { kind: 'object', properties: { token: { kind: 'string', metadata: { sensitive: language === 'csharp' } } } } },
+          })))],
+          draft: { observable: {}, events: {}, services: {
+            shared: { plugin: 'service-api', enabled: true, config: { host: 'shared' } },
+            native: { plugin: 'service-shared', language: 'csharp', version: '1.0.0', enabled: true, config: { token: 'native-secret-must-not-appear' } },
+            legacy: { plugin: 'service-shared', version: '1.0.0', enabled: true, config: { token: 'public-node-value' } },
+          } },
           configState: { state: 'draft-pending', draftUpdatedAt: '2026-01-03T00:00:00.000Z', publishedAt: '2026-01-02T00:00:00.000Z' },
         };
       },
@@ -500,7 +514,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const deploymentHtml = await deployment.text();
     assert.equal(deployment.status, 200);
-    for (const script of deploymentHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)) new Function(script[1]);
+    assertScriptsParse(deploymentHtml);
     assert.match(deploymentHtml, /Profile Config/);
     assert.match(deploymentHtml, /state-badge live">Enabled/);
     assert.match(deploymentHtml, /state-badge disabled">Disabled/);
@@ -530,10 +544,12 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(deploymentHtml, /<select name="section"/);
     assert.match(deploymentHtml, /<input type="hidden" name="section"/);
     assert.match(deploymentHtml, /name="typeDisplay" disabled/);
-    assert.match(deploymentHtml, />syslog-client 1\.0\.0</);
+    assert.match(deploymentHtml, />syslog-client 1\.0\.0 \(nodejs\)</);
     assert.doesNotMatch(deploymentHtml, /_\/syslog-client/);
     assert.doesNotMatch(deploymentHtml, />config-vault 1\.0\.0</);
     assert.match(deploymentHtml, /data-config-path="host"/);
+    assert.doesNotMatch(deploymentHtml, /must-stay-secret/);
+    assert.match(deploymentHtml, /data-config-path="credentials" data-kind="json" data-sensitive="true" data-secret-set="true"/);
     assert.match(deploymentHtml, /schema-meta overrideable">overrideable/);
     assert.doesNotMatch(deploymentHtml, /declared path/);
     assert.match(deploymentHtml, /import\('\/assets\/anyvali\/index\.js'\)/);
@@ -570,6 +586,10 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(appConfigHtml, /Unpublished changes/);
     assert.match(appConfigHtml, /\/api\/application-profile-plugins/);
     assert.match(appConfigHtml, /\/api\/application-profile-publish/);
+    assert.match(appConfigHtml, /data-current-catalog-id="shared-csharp-1.0.0" data-update-catalog-id="shared-csharp-2.0.0"/);
+    assert.match(appConfigHtml, /data-current-catalog-id="shared-nodejs-1.0.0" data-update-catalog-id="shared-nodejs-2.0.0"/);
+    assert.doesNotMatch(appConfigHtml, /native-secret-must-not-appear/);
+    assert.match(appConfigHtml, /public-node-value/);
 
     const runtimeKeys = await fetch(`http://127.0.0.1:${port}/runtime-keys?keyId=vk_test&secret=vs_test`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
@@ -586,7 +606,7 @@ module.exports = async ({ pluginRoot }) => {
     });
     const pluginsHtml = await pluginsPage.text();
     assert.equal(pluginsPage.status, 200);
-    for (const script of pluginsHtml.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g)) new Function(script[1]);
+    assertScriptsParse(pluginsHtml);
     assert.match(pluginsHtml, /syslog-client/);
     assert.doesNotMatch(pluginsHtml, /_\/syslog-client/);
     assert.doesNotMatch(pluginsHtml, /config-vault/);
@@ -793,6 +813,13 @@ module.exports = async ({ pluginRoot }) => {
     await new Promise((resolve) => registryServer.close(resolve));
   }
 };
+
+function assertScriptsParse(html) {
+  // Syntax-check this fixture's generated inline scripts; this is not an HTML sanitizer.
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)];
+  assert.ok(scripts.length > 0, 'No inline scripts found');
+  for (const script of scripts) new Function(script[1]);
+}
 
 async function postJson(port, pathname, body) {
   const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {

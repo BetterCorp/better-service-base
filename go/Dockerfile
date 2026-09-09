@@ -7,11 +7,11 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bsb ./cmd/bsb
+RUN CGO_ENABLED=0 GOOS=linux go build -o /bsb ./go/cmd/bsb
 
 # Stage 2: Runtime
 FROM ${GO_RUNTIME_IMAGE}
-RUN adduser -D -u 1000 bsb
+RUN apk add --no-cache ca-certificates && adduser -D -u 1000 bsb
 WORKDIR /home/bsb
 COPY --from=builder /bsb /usr/local/bin/bsb
 RUN chown -R bsb:bsb /home/bsb

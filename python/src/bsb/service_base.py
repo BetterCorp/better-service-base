@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config_controller import SBConfig
+from .base import dispose_all
 from .events_controller import SBEvents
 from .interfaces import BSBOptions
 from .observable import ObservableBackend, SBObservable
@@ -22,7 +23,8 @@ class ServiceBase:
         self.cwd = str(Path(resolved.cwd).resolve())
         self.app_id = resolved.app_id or f"bsb-{uuid.uuid4().hex[:8]}"
 
-        self._keep: dict[str, int] = {"BSB": time.time_ns()}
+        self._keep: dict[str, int] = {"BSB": time.perf_counter_ns()}
+        self._stop = asyncio.Event()
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._disposing = False
 
@@ -45,13 +47,24 @@ class ServiceBase:
         return ServiceBase(BSBOptions(cwd=cwd or os.getcwd(), mode="production"))
 
     async def init(self) -> None:
+        print("BSB startup: Python runtime, loading configuration", flush=True)
+        try:
+            await self._init()
+        except BaseException as error:
+            try:
+                await self.dispose(reason="startup failed")
+            except BaseException as cleanup:
+                raise BaseExceptionGroup("Startup and cleanup failed", [error, cleanup]) from None
+            raise
+
+    async def _init(self) -> None:
         self._start("INIT")
         self._start("CONFIG")
         await self.config.init()
         self._end("CONFIG")
 
         self._start("OBSERVABLE")
-        await self.observable.init()
+        await self.observable.init(self.config, self.plugins, self.cwd)
         self._end("OBSERVABLE")
 
         self._start("EVENTS")
@@ -69,11 +82,26 @@ class ServiceBase:
         await self.observable.run()
         await self.events.run()
         await self.services.run()
-        self.config.dispose()
         self._end("RUN")
         self._end("BSB")
         self.boot_time_metric.set(self._ms("BSB"))
         self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+        print("BSB startup: all plugins running", flush=True)
+
+    def request_shutdown(self) -> None:
+        self._stop.set()
+
+    async def wait_for_shutdown(self) -> None:
+        stop = asyncio.create_task(self._stop.wait())
+        failure = asyncio.create_task(self.events.wait_for_failure())
+        try:
+            done, _ = await asyncio.wait([stop, failure], return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                await task
+        finally:
+            stop.cancel()
+            failure.cancel()
+            await asyncio.gather(stop, failure, return_exceptions=True)
 
     async def dispose(self, code: int = 0, reason: str = "shutdown", extra_data: Any = None) -> int:
         if self._disposing:
@@ -85,26 +113,27 @@ class ServiceBase:
             self.core_obs.error(trace, "Extra data: {data}", {"data": str(extra_data)})
         if self._heartbeat_task is not None:
             self._heartbeat_task.cancel()
-        self.services.dispose()
-        self.events.dispose()
-        self.observable.dispose()
-        self.config.dispose()
+            await asyncio.gather(self._heartbeat_task, return_exceptions=True)
+        trace.end()
+        await dispose_all([self.services, self.events, self.observable, self.config])
         return code
 
     def _start(self, key: str) -> None:
-        self._keep[key] = time.time_ns()
+        self._keep[key] = time.perf_counter_ns()
 
     def _end(self, key: str) -> None:
         start = self._keep.get(key)
         if start is None:
             return
-        duration_ns = time.time_ns() - start
+        duration_ns = time.perf_counter_ns() - start
         self._keep[key] = duration_ns
+        trace = self.core_obs.create_trace("timer", "ServiceBase")
         self.core_obs.info(
-            self.core_obs.create_trace("timer", "ServiceBase"),
+            trace,
             "[TIMER] {timerName} took ({nsTime}ns) ({msTime}ms)",
             {"timerName": key, "nsTime": duration_ns, "msTime": duration_ns / 1_000_000.0},
         )
+        trace.end()
 
     def _ms(self, key: str) -> float:
         return float(self._keep.get(key, 0)) / 1_000_000.0

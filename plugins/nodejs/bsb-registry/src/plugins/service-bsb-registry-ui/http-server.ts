@@ -15,11 +15,12 @@ import fastifyCors from '@fastify/cors';
 import fastifyMultipart, { MultipartFile } from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import fastifyView from '@fastify/view';
+import fastifyRateLimit from '@fastify/rate-limit';
 import handlebars from 'handlebars';
 import { marked } from 'marked';
-import safeRegex from 'safe-regex2';
+import { assertSafeSchemaDocument } from '@bsb/base';
 import * as av from 'anyvali';
-import { Observable } from '@bsb/base';
+import { Observable, PLUGIN_LANGUAGES, normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import type { Plugin } from './index.js';
 import type { BsbRegistryClient } from '../../.bsb/clients/service-bsb-registry.js';
 import {
@@ -105,7 +106,7 @@ function emptyStringToUndefined(value: unknown): unknown {
 const safeAscii = /^[\x20-\x7E]*$/;
 const slugField = () => registryIdentifier('Slug containing letters, numbers, dash, underscore, dot, or at-sign');
 const semverField = () => semanticVersion('Strict semantic version in major.minor.patch format with optional prerelease');
-const languageEnum = () => av.enum_(['nodejs', 'csharp', 'go', 'java', 'python'] as const)
+const languageEnum = () => av.enum_(PLUGIN_LANGUAGES)
   .describe('Plugin implementation language');
 const categoryEnum = () => av.enum_(['service', 'observable', 'events', 'config'] as const)
   .describe('Plugin category');
@@ -180,15 +181,18 @@ const BrowseQuerySchema = createValidator(objectSchema({
 });
 
 const VersionsQuerySchema = createValidator(objectSchema({
+  language: av.optional(languageEnum()),
   majorMinor: av.optional(majorMinorVersion('Optional major.minor version filter'))
     .describe('Optional major.minor version filter'),
 }).describe('Plugin versions query parameters'));
 
 const MatchQuerySchema = createValidator(objectSchema({
+  language: av.optional(languageEnum()),
   version: majorMinorVersion('Major.minor version to match'),
 }).describe('Plugin version match query parameters'));
 
 const DocsQuerySchema = createValidator(objectSchema({
+  language: av.optional(languageEnum()),
   index: av.optional(av.int32().coerce({ from: 'string' }).min(0).max(100))
     .describe('Zero-based documentation file index'),
 }).describe('Plugin documentation query parameters'));
@@ -259,6 +263,8 @@ const PublishBodyObjectSchema = objectSchema({
     csharp: av.optional(av.string().maxLength(5_000_000)).describe('C# type definition output'),
     go: av.optional(av.string().maxLength(5_000_000)).describe('Go type definition output'),
     java: av.optional(av.string().maxLength(5_000_000)).describe('Java type definition output'),
+    python: av.optional(av.string().maxLength(5_000_000)).describe('Python type definition output'),
+    rust: av.optional(av.string().maxLength(5_000_000)).describe('Rust type definition output'),
   }).describe('Generated type definitions by language')).describe('Language-specific generated type definitions'),
   documentation: av.array(av.string().maxLength(1_000_000)).minItems(1).maxItems(20)
     .describe('Markdown documentation files published with the plugin'),
@@ -272,6 +278,7 @@ const PublishBodyObjectSchema = objectSchema({
     go: av.optional(safeString(200)).describe('Go module path'),
     java: av.optional(safeString(200)).describe('Maven coordinates'),
     python: av.optional(safeString(200)).describe('PyPI package name'),
+    rust: av.optional(safeString(200)).describe('Cargo crate name'),
   }).describe('Package identifiers by language')).describe('Language-specific package identifiers'),
   runtime: av.optional(objectSchema({
     nodejs: av.optional(safeString(50)).describe('Node.js runtime requirement'),
@@ -279,6 +286,7 @@ const PublishBodyObjectSchema = objectSchema({
     go: av.optional(safeString(50)).describe('Go runtime requirement'),
     java: av.optional(safeString(50)).describe('Java runtime requirement'),
     python: av.optional(safeString(50)).describe('Python runtime requirement'),
+    rust: av.optional(safeString(50)).describe('Rust runtime requirement'),
   }).describe('Runtime requirements by language')).describe('Runtime version requirements'),
   visibility: av.optional(visibilityEnum()).describe('Optional plugin visibility override'),
 }).describe('Plugin publish request body');
@@ -317,28 +325,8 @@ export function validateAnyValiDocument(value: unknown, path: Array<string | num
 }
 
 function unsafeSchemaIssue(value: unknown, path: Array<string | number>): ValidationIssue | null {
-  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
-  let nodes = 0;
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    if (++nodes > 10_000 || current.depth > 64) {
-      return { code: 'invalid_schema', message: 'Schema is too complex', path };
-    }
-    if (Array.isArray(current.value)) {
-      for (const item of current.value) stack.push({ value: item, depth: current.depth + 1 });
-      continue;
-    }
-    if (!current.value || typeof current.value !== 'object') continue;
-    for (const [key, item] of Object.entries(current.value as Record<string, unknown>)) {
-      if (['__proto__', 'prototype', 'constructor'].includes(key)) {
-        return { code: 'invalid_schema', message: `Schema contains forbidden key ${key}`, path };
-      }
-      if (key === 'pattern' && typeof item === 'string' && (item.length > 1024 || !safeRegex(item))) {
-        return { code: 'invalid_schema', message: 'Schema contains an unsafe regular expression', path };
-      }
-      stack.push({ value: item, depth: current.depth + 1 });
-    }
-  }
+  try { assertSafeSchemaDocument(value); }
+  catch (error) { return { code: 'invalid_schema', message: (error as Error).message, path }; }
   return null;
 }
 
@@ -391,6 +379,7 @@ export class RegistryUIServer {
     badgesFile: string | undefined,
     maxImageUploadMb: number,
     corsOrigins: readonly string[],
+    private readonly rateLimitMax = 300,
   ) {
     this.port = port;
     this.host = host;
@@ -498,6 +487,8 @@ export class RegistryUIServer {
         const packageJson = JSON.parse(await fsp.readFile(packageJsonPath, 'utf-8')) as { version?: string };
         this.appVersion = packageJson.version ?? '';
       }
+
+      await this.registerRateLimit();
 
       // Register CORS
       const corsSpan = obs.startSpan('register.cors');
@@ -623,6 +614,15 @@ export class RegistryUIServer {
   // ============================================================================
 
   private registerRoutes(): void {
+    this.app.addHook('preValidation', async (request, reply) => {
+      for (const input of [request.query, request.params, request.body]) {
+        if (!input || typeof input !== 'object' || !('language' in input)) continue;
+        const record = input as Record<string, unknown>;
+        if (record.language === '' && input === request.query) { delete record.language; continue; }
+        try { record.language = normalizePluginLanguage(record.language); }
+        catch { return reply.code(400).send({ error: 'Unsupported plugin language', code: 'INVALID_LANGUAGE' }); }
+      }
+    });
     // --- Pages (HTML + JSON content negotiation) ---
 
     // Homepage
@@ -675,6 +675,13 @@ export class RegistryUIServer {
     });
 
     // Plugin versions
+    this.app.get('/plugins/:org/:name/implementations', async (request, reply) => {
+      const params = this.validateInput(PluginDetailParamsSchema, request.params, reply);
+      if (!params) return;
+      const trace = this.createTrace('api.implementations', { url: request.url, method: request.method });
+      return this.registryClient.registryPluginImplementations(trace, { ...params, ...this.readAuth(request) });
+    });
+
     this.app.get('/plugins/:org/:name/versions', async (request, reply) => {
       return this.handleVersions(request, reply);
     });
@@ -712,7 +719,7 @@ export class RegistryUIServer {
     });
 
     // Health check
-    this.app.get('/health', async (_request, _reply) => {
+    this.app.get('/health', { config: { rateLimit: false } }, async (_request, _reply) => {
       return { status: 'ok' };
     });
   }
@@ -770,6 +777,17 @@ export class RegistryUIServer {
   }
 
   /** Forward validly formatted bearer credentials to optional-auth read events. */
+  private readVariant(request: FastifyRequest): { language?: PluginLanguage } {
+    const query = request.query as { language?: PluginLanguage };
+    return query.language === undefined ? {} : { language: query.language };
+  }
+
+  private replyAmbiguity(error: unknown, reply: FastifyReply): boolean {
+    if (!(error instanceof Error) || !error.message.includes('Ambiguous plugin implementation')) return false;
+    reply.code(409).send({ error: 'Multiple implementations exist; specify the language query parameter', code: 'AMBIGUOUS_IMPLEMENTATION' });
+    return true;
+  }
+
   private readAuth(request: FastifyRequest): { token?: string } {
     const match = request.headers.authorization?.match(/^Bearer (.+)$/);
     return match ? { token: match[1] } : {};
@@ -1443,7 +1461,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
 
   private async listAllPluginsByLanguage(
     trace: Observable,
-    language: 'nodejs' | 'csharp' | 'go' | 'java' | 'python',
+    language: PluginLanguage,
     readAuth: { token?: string },
   ): Promise<any[]> {
     const all: any[] = [];
@@ -1508,7 +1526,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
         const org = String(only.org || '').trim();
         const name = String(only.name || '').trim();
         if (org && name) {
-          const location = `/plugins/${org}/${name}`;
+          const location = `/plugins/${org}/${name}?language=${params.language}`;
           if (this.wantsJson(request)) {
             reply.send({
               packageId,
@@ -1704,9 +1722,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, ...this.readAuth(request) }
+          { org: params.org, name: params.name, ...this.readVariant(request), ...this.readAuth(request) }
         );
-      } catch {
+      } catch (error) {
+        if (this.replyAmbiguity(error, reply)) return;
         plugin = null;
       }
       getSpan.end();
@@ -1718,7 +1737,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
       const versions = await this.registryClient.registryPluginVersions(
         trace,
-        { org: params.org, name: params.name, ...this.readAuth(request) }
+        { org: params.org, name: params.name, ...this.readVariant(request), ...this.readAuth(request) }
       );
       versionsSpan.end();
 
@@ -1790,10 +1809,13 @@ a.s:hover{background:#333;border-color:#FB8C00}
         };
 
         const renderSpan = trace.startSpan('handlebars.render');
+        const available = await this.registryClient.registryPluginImplementations(trace, { org: params.org, name: params.name, ...this.readAuth(request) });
         await reply.view('pages/plugin-detail.hbs', {
           title: `${plugin.displayName || plugin.name} - BSB Registry`,
           appVersion: this.appVersion,
           plugin: pluginView,
+          implementations: available.implementations.map(item => ({ language: item.language,
+            url: `/plugins/${encodeURIComponent(params.org)}/${encodeURIComponent(params.name)}?language=${item.language}` })),
           versions: versions.versions,
         });
         renderSpan.end();
@@ -1826,6 +1848,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       reply.send(stats);
     } catch (error) {
       trace.log.error('Failed to get stats: {error}', { error: (error as Error).message });
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -1847,7 +1870,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
       const result = await this.registryClient.registryPluginVersions(
         trace,
-        { org: params.org, name: params.name, majorMinor: query.majorMinor, ...this.readAuth(request) }
+        { org: params.org, name: params.name, ...this.readVariant(request), majorMinor: query.majorMinor, ...this.readAuth(request) }
       );
       versionsSpan.end();
 
@@ -1862,6 +1885,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       reply.send(result);
     } catch (error) {
       trace.log.error('Failed to get versions: {error}', { error: (error as Error).message });
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -1885,7 +1909,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       const versionsSpan = trace.startSpan('events.registry.plugin.versions');
       const result = await this.registryClient.registryPluginVersions(
         trace,
-        { org: params.org, name: params.name, majorMinor: requested, ...this.readAuth(request) }
+        { org: params.org, name: params.name, ...this.readVariant(request), majorMinor: requested, ...this.readAuth(request) }
       );
       versionsSpan.end();
 
@@ -1917,6 +1941,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       });
     } catch (error) {
       trace.log.error('Failed to match version: {error}', { error: (error as Error).message });
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -1938,9 +1963,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, version: params.version, ...this.readAuth(request) }
+          { org: params.org, name: params.name, ...this.readVariant(request), version: params.version, ...this.readAuth(request) }
         );
-      } catch {
+      } catch (error) {
+        if (this.replyAmbiguity(error, reply)) return;
         plugin = null;
       }
       getSpan.end();
@@ -1965,6 +1991,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       }
 
       reply.send({
+        pluginId: plugin.name,
         pluginName: plugin.displayName || plugin.name,
         version: plugin.version,
         events: eventsMap || {},
@@ -1973,6 +2000,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       });
     } catch (error) {
       trace.log.error('Failed to get schema: {error}', { error: (error as Error).message });
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -1995,9 +2023,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, version: params.version, ...this.readAuth(request) }
+          { org: params.org, name: params.name, ...this.readVariant(request), version: params.version, ...this.readAuth(request) }
         );
-      } catch {
+      } catch (error) {
+        if (this.replyAmbiguity(error, reply)) return;
         plugin = null;
       }
       getSpan.end();
@@ -2036,6 +2065,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       }
     } catch (error) {
       trace.log.error('Failed to get docs: {error}', { error: (error as Error).message });
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -2057,9 +2087,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, version: params.version, ...this.readAuth(request) }
+          { org: params.org, name: params.name, ...this.readVariant(request), version: params.version, ...this.readAuth(request) }
         );
-      } catch {
+      } catch (error) {
+        if (this.replyAmbiguity(error, reply)) return;
         plugin = null;
       }
       getSpan.end();
@@ -2083,6 +2114,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       reply.type('text/plain').send(plugin.typeDefinitions[params.language]);
     } catch (error) {
       trace.log.error('Failed to get types: {error}', { error: (error as Error).message });
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -2110,9 +2142,10 @@ a.s:hover{background:#333;border-color:#FB8C00}
       try {
         plugin = await this.registryClient.registryPluginGet(
           trace,
-          { org: params.org, name: params.name, ...this.readAuth(request) }
+          { org: params.org, name: params.name, ...this.readVariant(request), ...this.readAuth(request) }
         );
-      } catch {
+      } catch (error) {
+        if (this.replyAmbiguity(error, reply)) return;
         plugin = null;
       }
       getSpan.end();
@@ -2194,6 +2227,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       });
     } catch (error) {
       trace.log.error('Failed to upload plugin image: {error}', { error: (error as Error).message });
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -2267,6 +2301,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
         reply.code(status).send({ error: message, code: status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN' });
         return;
       }
+      if (this.replyAmbiguity(error, reply)) return;
       reply.code(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -2294,6 +2329,11 @@ a.s:hover{background:#333;border-color:#FB8C00}
     } finally {
       span.end();
     }
+  }
+
+  private async registerRateLimit(): Promise<void> {
+    // Per-instance bounded storage; use gateway limits for a shared replica budget.
+    await this.app.register(fastifyRateLimit, { max: this.rateLimitMax, timeWindow: 60000, cache: 10000 });
   }
 
   close(): void {

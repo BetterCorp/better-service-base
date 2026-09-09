@@ -6,20 +6,36 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>bsb</ToolCommandName>
+        <PackageId>BetterCorp.BSB.Cli</PackageId>
     </PropertyGroup>
 
     <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <ProjectReference Include="..\BSB\BSB.csproj" />
-        <ProjectReference Include="../plugins/config-default/config-default.csproj" ReferenceOutputAssembly="false" />
-        <ProjectReference Include="../plugins/observable-default/observable-default.csproj" ReferenceOutputAssembly="false" />
-        <ProjectReference Include="../plugins/events-default/events-default.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/config-default/config-default.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/config-env/config-env.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/config-vault/config-vault.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/config-vault-google/config-vault-google.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-default/observable-default.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/events-default/events-default.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/events-rabbitmq/events-rabbitmq.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-logging-file/observable-logging-file.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-pino/observable-pino.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-winston/observable-winston.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-axiom/observable-axiom.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-opentelemetry/observable-opentelemetry.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-zipkin/observable-zipkin.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-graylog/observable-graylog.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../plugins/dotnet/observable-syslog/observable-syslog.csproj" ReferenceOutputAssembly="false" />
         <Content Include="../bsb-config.json" Link="bsb-config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
-    <Target Name="PublishDefaultPlugins" AfterTargets="Publish">
+    <Target Name="IncludeDefaultPlugins" AfterTargets="ComputeFilesToPublish">
         <ItemGroup>
             <BundledPlugin Include="$(TargetDir)plugins/**/*" />
+            <ResolvedFileToPublish Include="@(BundledPlugin)" RelativePath="plugins/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
         </ItemGroup>
-        <Copy SourceFiles="@(BundledPlugin)" DestinationFiles="@(BundledPlugin->'$(PublishDir)plugins/%(RecursiveDir)%(Filename)%(Extension)')" />
     </Target>
 
 </Project>

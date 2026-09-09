@@ -2,19 +2,23 @@ package bsb
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
 // PluginEvents provides a service plugin with a scoped facade to the event bus.
 // All calls are automatically scoped to the owning plugin's name.
 type PluginEvents struct {
-	pluginName string
-	bus        EventsPlugin
-	backend    *ObservableBackend
-	resource   ResourceContext
-	schemas    BSBEventSchemas
-	validator  *EventValidator
+	pluginName  string
+	bus         EventsPlugin
+	backend     *ObservableBackend
+	resource    ResourceContext
+	schemas     BSBEventSchemas
+	validator   *EventValidator
+	suffix      string
+	definitions map[string]PluginDefinition
 }
 
 // NewPluginEvents creates a new event facade for a service plugin.
@@ -43,7 +47,7 @@ func NewPluginEventsWithValidator(pluginName string, bus EventsPlugin, backend *
 
 // OnEvent registers a listener for a fire-and-forget event.
 func (pe *PluginEvents) OnEvent(ctx context.Context, eventName string, listener EventListener) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Wrap the listener with input validation if a schema exists.
 	if schema, ok := pe.schemas.OnEvents[eventName]; ok && schema.Input != nil {
@@ -57,12 +61,12 @@ func (pe *PluginEvents) OnEvent(ctx context.Context, eventName string, listener 
 		}
 	}
 
-	return pe.bus.OnEvent(ctx, obs, pe.pluginName, eventName, listener)
+	return pe.bus.OnEvent(ctx, obs, pe.pluginName, eventName+pe.suffix, listener)
 }
 
 // EmitEvent fires a fire-and-forget event.
 func (pe *PluginEvents) EmitEvent(ctx context.Context, eventName string, payload any) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Validate outgoing payload if a schema exists.
 	if schema, ok := pe.schemas.EmitEvents[eventName]; ok && schema.Input != nil {
@@ -73,12 +77,12 @@ func (pe *PluginEvents) EmitEvent(ctx context.Context, eventName string, payload
 		payload = vr.Data
 	}
 
-	return pe.bus.EmitEvent(ctx, obs, pe.pluginName, eventName, payload)
+	return pe.bus.EmitEvent(ctx, obs, pe.pluginName, eventName+pe.suffix, payload)
 }
 
 // OnReturnableEvent registers a listener for a returnable event.
 func (pe *PluginEvents) OnReturnableEvent(ctx context.Context, eventName string, listener ReturnableListener) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Wrap the listener with input and output validation if a schema exists.
 	if schema, ok := pe.schemas.OnReturnableEvents[eventName]; ok {
@@ -111,12 +115,12 @@ func (pe *PluginEvents) OnReturnableEvent(ctx context.Context, eventName string,
 		}
 	}
 
-	return pe.bus.OnReturnableEvent(ctx, obs, pe.pluginName, eventName, listener)
+	return pe.bus.OnReturnableEvent(ctx, obs, pe.pluginName, eventName+pe.suffix, listener)
 }
 
 // EmitEventAndReturn fires a returnable event and waits for a response.
 func (pe *PluginEvents) EmitEventAndReturn(ctx context.Context, eventName string, payload any, timeout ...time.Duration) (any, error) {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 	t := 5 * time.Second
 	if len(timeout) > 0 {
 		t = timeout[0]
@@ -133,7 +137,7 @@ func (pe *PluginEvents) EmitEventAndReturn(ctx context.Context, eventName string
 		payload = vr.Data
 	}
 
-	result, err := pe.bus.EmitEventAndReturn(ctx, obs, pe.pluginName, eventName, t, payload)
+	result, err := pe.bus.EmitEventAndReturn(ctx, obs, pe.pluginName, eventName+pe.suffix, t, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +156,7 @@ func (pe *PluginEvents) EmitEventAndReturn(ctx context.Context, eventName string
 
 // OnBroadcast registers a listener for a broadcast event.
 func (pe *PluginEvents) OnBroadcast(ctx context.Context, eventName string, listener BroadcastListener) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Wrap the listener with input validation if a schema exists.
 	if schema, ok := pe.schemas.OnBroadcast[eventName]; ok && schema.Input != nil {
@@ -171,7 +175,7 @@ func (pe *PluginEvents) OnBroadcast(ctx context.Context, eventName string, liste
 
 // EmitBroadcast fires a broadcast event to all listeners.
 func (pe *PluginEvents) EmitBroadcast(ctx context.Context, eventName string, payload any) error {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 
 	// Validate outgoing payload if a schema exists.
 	if schema, ok := pe.schemas.EmitBroadcast[eventName]; ok && schema.Input != nil {
@@ -187,22 +191,92 @@ func (pe *PluginEvents) EmitBroadcast(ctx context.Context, eventName string, pay
 
 // ReceiveStream registers a stream listener and returns a stream ID.
 func (pe *PluginEvents) ReceiveStream(ctx context.Context, eventName string, listener StreamListener, timeout ...time.Duration) (string, error) {
-	obs := pe.createObs()
+	obs := pe.createObs(ctx)
 	t := 30 * time.Second
 	if len(timeout) > 0 {
 		t = timeout[0]
 	}
-	return pe.bus.ReceiveStream(ctx, obs, pe.pluginName, eventName, listener, t)
+	return pe.bus.ReceiveStream(ctx, obs, pe.pluginName, eventName+pe.suffix, listener, t)
 }
 
 // SendStream sends data through a stream.
 func (pe *PluginEvents) SendStream(ctx context.Context, eventName string, streamID string, stream io.Reader) error {
-	obs := pe.createObs()
-	return pe.bus.SendStream(ctx, obs, pe.pluginName, eventName, streamID, stream)
+	obs := pe.createObs(ctx)
+	return pe.bus.SendStream(ctx, obs, pe.pluginName, eventName+pe.suffix, streamID, stream)
 }
 
 // createObs creates a bootstrap Observable for event operations.
-func (pe *PluginEvents) createObs() Observable {
+func (pe *PluginEvents) createObs(ctx context.Context) Observable {
+	if obs, ok := ctx.Value(observableContextKey{}).(Observable); ok {
+		return obs
+	}
 	trace := NewDTrace()
 	return NewObservable(trace, pe.resource, pe.backend, pe.pluginName)
+}
+
+// WithObservable preserves the caller trace through generated clients and nested calls.
+type observableContextKey struct{}
+
+func WithObservable(ctx context.Context, obs Observable) context.Context {
+	return context.WithValue(ctx, observableContextKey{}, obs)
+}
+
+// ForTarget binds a generated client to the host transport and target service alias.
+func (pe *PluginEvents) ForTarget(target string, schemas BSBEventSchemas) *PluginEvents {
+	next := NewPluginEvents(target, pe.bus, pe.backend, pe.resource, schemas)
+	next.definitions = pe.definitions
+	return next
+}
+
+// Specific keeps validation on the unsuffixed contract while targeting an instance.
+func (pe *PluginEvents) Specific(serverID string) (*PluginEvents, error) {
+	if serverID == "" || len(serverID) > 200 || strings.ContainsAny(serverID, "\x00\r\n") {
+		return nil, fmt.Errorf("invalid server ID")
+	}
+	copy := *pe
+	copy.suffix = "-" + serverID
+	return &copy, nil
+}
+
+// ClientTarget resolves a wire plugin ID to its deployment alias, including remote references.
+func (pe *PluginEvents) ClientTarget(target string, schemas BSBEventSchemas) (*PluginEvents, error) {
+	if target == "" {
+		return nil, fmt.Errorf("empty client target")
+	}
+	if entry, exact := pe.definitions[target]; !exact || entry.Plugin == target {
+		resolved, err := resolveServiceTarget(pe.definitions, target)
+		if err != nil {
+			return nil, err
+		}
+		if resolved != "" {
+			target = resolved
+		}
+	}
+	return pe.ForTarget(target, schemas), nil
+}
+
+func resolveServiceTarget(definitions map[string]PluginDefinition, plugin string) (string, error) {
+	active, disabled := "", ""
+	disabledCount := 0
+	for alias, entry := range definitions {
+		if entry.Plugin != plugin {
+			continue
+		}
+		if entry.Enabled {
+			if active != "" {
+				return "", fmt.Errorf("ambiguous service %s; specify its alias", plugin)
+			}
+			active = alias
+		} else {
+			disabled = alias
+			disabledCount++
+		}
+	}
+	if active != "" {
+		return active, nil
+	}
+	if disabledCount > 1 {
+		return "", fmt.Errorf("ambiguous service %s; specify its alias", plugin)
+	}
+	return disabled, nil
 }

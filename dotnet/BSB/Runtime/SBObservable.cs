@@ -82,7 +82,14 @@ internal class SBObservable : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
-        foreach (var instance in _instances)
-            await instance.DisposeAsync();
+        List<Exception> errors = new();
+        foreach (var instance in _instances.AsEnumerable().Reverse())
+            try { await instance.DisposeAsync(); } catch (Exception error) { errors.Add(error); }
+        if (errors.Count > 0) throw new AggregateException(errors);
+    }
+
+    public async Task Run(IObservable obs)
+    {
+        foreach (var observer in _observers.Distinct()) await observer.Run(obs);
     }
 }

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"testing"
 
 	av "github.com/BetterCorp/AnyVali/sdk/go"
@@ -22,6 +23,48 @@ func TestCreateFireAndForgetEvent(t *testing.T) {
 	}
 	if schema.Input == nil {
 		t.Error("expected input schema to be non-nil")
+	}
+}
+
+func TestImportEventSchemasRejectsUnsafeMetadata(t *testing.T) {
+	schemas := bsb.NewEventSchemas()
+	schemas.OnReturnableEvents["lookup"] = bsb.CreateReturnableEvent(bsb.StringSchema(), bsb.StringSchema(), "lookup", 5)
+	data, err := json.Marshal(bsb.ExportSchemas("service-test", "1.0.0", schemas))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]any
+	if err = json.Unmarshal(data, &contract); err != nil {
+		t.Fatal(err)
+	}
+	events := contract["events"].(map[string]any)
+	definition := events["lookup"].(map[string]any)
+	delete(definition, "defaultTimeout")
+	omittedTimeout, _ := json.Marshal(contract)
+	imported, err := bsb.ImportEventSchemas(omittedTimeout, false)
+	if err != nil || imported.OnReturnableEvents["lookup"].DefaultTimeout != 5 {
+		t.Fatalf("omitted timeout did not default to five seconds: %v %v", imported.OnReturnableEvents["lookup"].DefaultTimeout, err)
+	}
+	definition["defaultTimeout"] = float64(0)
+	explicitZero, _ := json.Marshal(contract)
+	if _, err = bsb.ImportEventSchemas(explicitZero, false); err == nil {
+		t.Fatal("explicit zero event timeout accepted")
+	}
+	definition["defaultTimeout"] = float64(86401)
+	invalidTimeout, _ := json.Marshal(contract)
+	if _, err = bsb.ImportEventSchemas(invalidTimeout, false); err == nil {
+		t.Fatal("event timeout above portable maximum accepted")
+	}
+	definition["defaultTimeout"] = float64(86400)
+	maximumTimeout, _ := json.Marshal(contract)
+	if _, err = bsb.ImportEventSchemas(maximumTimeout, false); err != nil {
+		t.Fatalf("portable maximum timeout rejected: %v", err)
+	}
+	events["bad\nname"] = definition
+	delete(events, "lookup")
+	invalidName, _ := json.Marshal(contract)
+	if _, err = bsb.ImportEventSchemas(invalidName, false); err == nil {
+		t.Fatal("control character in event name accepted")
 	}
 }
 

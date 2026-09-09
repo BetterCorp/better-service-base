@@ -6,7 +6,7 @@ using BSB.Interfaces;
 /// Abstract base for observability plugins. Handles logging, metrics creation,
 /// and tracing. Observable plugins receive calls from the framework and route
 /// them to backends (console, files, OTLP, Graylog, etc).
-/// Observable plugins do NOT have a run() phase -- they are passive receivers.
+/// Observable plugins can start background export loops during Run.
 /// Implements <see cref="IObservablePlugin"/> so that <see cref="ObservableBackend"/>
 /// can dispatch to any observable regardless of its config type.
 /// </summary>
@@ -32,6 +32,8 @@ public abstract class BSBObservable<TConfig> : MainBase, IObservablePlugin
     /// </summary>
     /// <param name="obs">Observable for logging during initialization.</param>
     public virtual Task Init(IObservable obs) => Task.CompletedTask;
+    public virtual Task Run(IObservable obs) => Task.CompletedTask;
+    public virtual void SpanEnded(CompletedSpan span) { }
 
     // --- Logging methods ---
     // Override any or all to handle log output for your backend.
@@ -67,17 +69,17 @@ public abstract class BSBObservable<TConfig> : MainBase, IObservablePlugin
     // Override to record metric values in your backend.
 
     /// <inheritdoc />
-    public virtual void IncrementCounter(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void IncrementCounter(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void SetGauge(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void SetGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void IncrementGauge(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void IncrementGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void DecrementGauge(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void DecrementGauge(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 
     /// <inheritdoc />
-    public virtual void RecordHistogram(string name, double value, Dictionary<string, string>? labels = null) { }
+    public virtual void RecordHistogram(string pluginName, string name, double value, Dictionary<string, string>? labels = null) { }
 }

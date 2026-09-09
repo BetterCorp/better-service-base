@@ -1,8 +1,29 @@
 [package]
-name = "BetterServiceBase"
-version = "0.1.0"
-edition = "2021"
+name = "better-service-base"
+version = "9.1.11"
+edition = "2024"
+rust-version = "1.95"
+description = "BSB Rust SDK and native host runtime"
+license = "MIT"
+repository = "https://github.com/BetterCorp/better-service-base"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "bsb"
 
 [dependencies]
+anyhow = "1"
+anyvali = "=1.1.5"
+async-trait = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal", "time", "fs", "net", "io-util", "process"] }
+tokio-util = { version = "0.7", features = ["rt", "io"] }
+bytes = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+reqwest = { version = "0.13", features = ["json", "stream", "query"] }
+futures-util = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+rustls = "0.23"
+
+[dev-dependencies]
+tempfile = "3"

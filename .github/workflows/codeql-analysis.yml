@@ -39,7 +39,7 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: "1.26.1"
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: go.sum
 
       - name: Set up .NET
         if: matrix.language == 'csharp'
@@ -55,7 +55,9 @@ jobs:
       - name: Build Go
         if: matrix.language == 'go'
         working-directory: go
-        run: go build ./...
+        run: |
+          go generate ../plugins/go/examples
+          go build ./... ../plugins/go/...
 
       - name: Build .NET
         if: matrix.language == 'csharp'

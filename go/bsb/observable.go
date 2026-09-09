@@ -6,6 +6,9 @@ type Observable interface {
 	// Trace returns the distributed trace context.
 	Trace() DTrace
 
+	// WithTrace binds an incoming wire trace to this host's observable backend.
+	WithTrace(trace DTrace, pluginName string) Observable
+
 	// TraceID returns the 32-char hex trace ID.
 	TraceID() string
 
