@@ -1,6 +1,6 @@
 # BSB Python
 
-BSB is the executable host. Your application is a Python plugin distribution loaded by BSB; installing BSB as a dependency does not start it. Python 3.11+ and AnyVali 1.1.4 are required.
+BSB is the executable host. Your application is a Python plugin distribution loaded by BSB; installing BSB as a dependency does not start it. Python 3.11+ and AnyVali 1.1.5 are required.
 
 ## Run an application
 

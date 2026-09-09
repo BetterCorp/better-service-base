@@ -39,7 +39,7 @@
   "dependencies": {
     "@bsb/base": "^9.1.11",
     "@bsb/config-vault": "^0.0.1",
-    "anyvali": "^1.1.4",
+    "anyvali": "^1.1.5",
     "google-auth-library": "^11.0.2"
   },
   "devDependencies": {

@@ -16,8 +16,18 @@ public static class IntegerClientChecks
         {"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"object","properties":{"value":{"kind":"int"}},"required":["value"]},"definitions":{},"extensions":{}}
         """)!.AsObject();
         var schema = BSBType.Import(document);
-        foreach (var value in new[] { 9007199254740993L, long.MaxValue })
+        foreach (var value in new[] { long.MinValue, 9007199254740993L, long.MaxValue })
             if (!schema.Validate(new { value })) throw new Exception($"AnyVali generic int rejected {value}");
+
+        foreach (var (kind, value) in new[] { ("int64", (object)long.MinValue), ("int64", long.MaxValue),
+            ("uint64", 0UL), ("uint64", (ulong)long.MaxValue + 1), ("uint64", ulong.MaxValue) })
+        {
+            var integer = BSBType.Import(JsonNode.Parse($$$"""
+                {"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"{{{kind}}}"},"definitions":{},"extensions":{}}
+                """)!.AsObject());
+            if (!integer.Validate(value) || !Equals(integer.Parse(value), value))
+                throw new Exception($"AnyVali {kind} lost or rejected {value}");
+        }
 
         var literalDocument = JsonNode.Parse("""
         {"anyvaliVersion":"1.0","schemaVersion":"1.1","root":{"kind":"object","properties":{"value":{"kind":"int"},"signed":{"kind":"literal","value":9007199254740993},"signedExponent":{"kind":"literal","value":9007199254740993e0},"unsigned":{"kind":"literal","value":18446744073709551615},"fractional":{"kind":"literal","value":0.5}},"required":["value","signed","signedExponent","unsigned","fractional"]},"definitions":{},"extensions":{}}
@@ -38,7 +48,7 @@ public static class IntegerClientChecks
             await File.WriteAllTextAsync(Path.Combine(directory, "Program.cs"), """
             using System;
             using System.Text.Json;
-            foreach (var value in new[] { 9007199254740993L, long.MaxValue })
+            foreach (var value in new[] { long.MinValue, 9007199254740993L, long.MaxValue })
             {
                 var outbound = new IntegerClientEchoInput { Value = value, Signed = 9007199254740993L, SignedExponent = 9007199254740993L, Unsigned = ulong.MaxValue, Fractional = .5 };
                 var json = JsonSerializer.Serialize(outbound);
