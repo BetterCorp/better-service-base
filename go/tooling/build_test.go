@@ -2,6 +2,9 @@ package tooling
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -86,5 +89,34 @@ func Register(registry *bsb.PluginRegistry){
 	}
 	if _, err = os.Stat(filepath.Join(directory, "lib", "schemas", "service-worker.json")); err != nil {
 		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(directory, "lib", "schemas", "service-worker.plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata map[string]any
+	if err = json.Unmarshal(data, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if metadata["id"] != "service-worker" || metadata["language"] != "go" || metadata["category"] != "service" || metadata["packages"].(map[string]any)["go"] != "example.com/worker/plugin" {
+		t.Fatal(metadata)
+	}
+	var published map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if err := json.NewDecoder(request.Body).Decode(&published); err != nil {
+			t.Error(err)
+		}
+		_, _ = writer.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+	registry, err := NewRegistry(server.URL, "token", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = registry.Publish(context.Background(), directory, "_", "service-worker", true); err != nil {
+		t.Fatal(err)
+	}
+	if published["visibility"] != nil || published["documentation"] != nil || published["package"].(map[string]any)["go"] != "example.com/worker/plugin" {
+		t.Fatal(published)
 	}
 }

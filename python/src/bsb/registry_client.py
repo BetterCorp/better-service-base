@@ -8,7 +8,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, quote
 
-from .client_generator import generate_clients, generate_client_code, validate_client_names
+from .client_generator import contract_schema_files, generate_clients, generate_client_code, validate_client_names
 from .http import json_request, origin
 from .schema_export import build_project, read_project_metadata
 from .versions import EXACT_VERSION
@@ -147,7 +147,7 @@ def save_client_schema(schema: dict, local_name: str, project_root: str | Path) 
     project_root = Path(project_root)
     schemas_dir = project_root / ".bsb" / "schemas"
     schema_path = schemas_dir / f"{local_name}.json"
-    snapshots = [*schemas_dir.glob("*.json"), *(project_root / "src" / ".bsb" / "schemas").glob("*.json")]
+    snapshots = contract_schema_files(schemas_dir) + contract_schema_files(project_root / "src" / ".bsb" / "schemas")
     validate_client_names([file.stem for file in snapshots if file != schema_path] + [local_name])
     schemas_dir.mkdir(parents=True, exist_ok=True)
     ensure_gitignore(project_root)
@@ -258,6 +258,8 @@ def publish_plugins(project_root: str | Path, *, target=None, token=None, plugin
 
         if target:
             publish_request.pop("documentation", None)
+            publish_request.pop("visibility", None)
+            publish_request.pop("runtime", None)
             publish_request["eventSchema"]["pluginId"] = plugin_id
         published.append(registry_request("POST", "/api/plugins/publish" if target else "/plugins", publish_request,
             require_auth=True, target=target, token=token, allow_insecure=allow_insecure))

@@ -84,7 +84,7 @@ def test_optional_read_sends_configured_registry_token(monkeypatch) -> None:
 
 @pytest.mark.parametrize(("manifest_version", "expected"), [("2.4.6", "2.4.6"), (None, "1.2.3")])
 def test_publish_uses_discovered_plugin_version_consistently(tmp_path, monkeypatch, manifest_version, expected):
-    (tmp_path / "pyproject.toml").write_text('[project]\nname = "example-package"\nversion = "1.2.3"\n')
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "example-package"\nversion = "1.2.3"\nrequires-python = ">=3.11"\n')
     entry = {"id": "service-demo", "category": "service"}
     if manifest_version is not None:
         entry["version"] = manifest_version
@@ -106,4 +106,13 @@ def test_publish_uses_discovered_plugin_version_consistently(tmp_path, monkeypat
     assert body["version"] == expected
     assert body["eventSchema"]["version"] == expected
     assert body["package"] == {"python": "example-package"}
+    assert body["visibility"] == "public" and "documentation" in body and "runtime" in body
     assert options["require_auth"] is True and options["token"] == "token"
+
+    requests.clear()
+    registry_client.publish_plugins(tmp_path, target="https://vault.example", org="acme", token="token")
+    method, path, body, options = requests[0]
+    assert (method, path) == ("POST", "/api/plugins/publish")
+    assert set(body) == {"org", "name", "version", "language", "metadata", "eventSchema", "package"}
+    assert body["eventSchema"]["pluginId"] == "service-demo"
+    assert options["target"] == "https://vault.example"

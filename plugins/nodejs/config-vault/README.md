@@ -99,15 +99,27 @@ The admin UI validates plugin config with the portable AnyVali schema before sub
 
 ## Private Plugin CI Publishing
 
-Vault accepts AnyVali 1.1.2 documents from Node, .NET and Python, including native wrapper and union aliases. Sensitive collections are masked and replaced as a whole using JSON in the password field; omitted values preserve the existing collection. Referenced schemas use this same conservative editor. This avoids leaking nested credentials or restoring a secret to the wrong array element after reordering.
+Vault accepts portable AnyVali documents from Node.js, .NET, Python, Go and Rust, including native wrapper and union aliases. Sensitive collections are masked and replaced as a whole using JSON in the password field; omitted values preserve the existing collection. Referenced schemas use this same conservative editor. This avoids leaking nested credentials or restoring a secret to the wrong array element after reordering.
+
+Catalog identity is `(pluginId, language, version)`. Each implementation has its own `packageName` and publisher credential; the same plugin/version can therefore use different packages in different languages. Upload manifests use `packages[language]`, while CI publish requests use `package[language]`. Vault selects that language's coordinate and stores one catalog row per implementation. Import, sync and runtime resolution match the selected language; runtime `package` contains its native coordinate, not necessarily an npm name. Existing catalog rows and credentials migrate to `nodejs`.
+
+| Language | Package coordinate |
+| --- | --- |
+| `nodejs` | npm package, e.g. `@acme/reports` |
+| `csharp` | NuGet package ID, e.g. `Acme.Reports` |
+| `python` | Python distribution, e.g. `acme-reports` |
+| `go` | Go import path, e.g. `example.com/acme/reports/plugin` |
+| `rust` | Cargo crate name, e.g. `acme-reports` |
+
+The catalog also accepts `java` metadata; a Java host is not implemented.
 
 Shared application profiles are validated against every active deployment profile before publication. Enable only implementations matching that deployment's host language; disabled references may point to services in another language. Deployment overrides can select the local implementation. Profile language is locked after publication. Adding a plugin creates disabled placeholders only in sibling profiles with the same language, records that language on each placeholder, and preserves existing sibling entries. Legacy profiles without a language default to Node.js.
 
 The `native-integration` CI job exercises real cross-language Rabbit RPC/streams and PostgreSQL catalog migrations. See [integration checks](../../../tests/integration/README.md) for local prerequisites.
 
-On the Plugins page, upload one or more generated `lib/schemas/{plugin-id}.plugin.json` manifests. Request, manifest and schema language declarations must agree; `dotnet` is normalized to `csharp`. A request language fills missing artifact metadata, and uploads with no language default to Node.js. Vault processes each file independently, lists its result, and creates a plugin-specific `bv_p_` publish token for each new plugin. Store each token as a CI secret.
+Run the implementation's `bsb plugin build`, then upload one or more generated `lib/schemas/{plugin-id}.plugin.json` manifests on the Plugins page. These files contain the implementation language, package identity and config schema; the root `bsb-plugin.json` is a host discovery manifest and is not the upload file. Request, manifest and schema language declarations must agree; `dotnet` is normalized to `csharp`. A request language fills missing artifact metadata, and uploads with no language default to Node.js. Vault processes each file independently, lists its result, and creates a plugin-specific `bv_p_` publish token for each new plugin. Store each token as a CI secret.
 
-Publish the executable package to your private npm registry first, then append its generated schema to Vault:
+Publish the package to its native package repository and include it in the runtime image (Go/Rust plugins must be linked into the BSB host). Then run the implementation's CLI to append its generated schema to Vault:
 
 ```bash
 bsb client publish \
@@ -116,4 +128,6 @@ bsb client publish \
   --token "$VAULT_PLUGIN_TOKEN"
 ```
 
-The token can publish only newer schema versions for that exact plugin id, org, package, and kind. An identical CI retry is accepted unchanged; an attempt to alter an existing version is rejected. Rotate the token from the plugin catalog when required—the previous token stops working immediately. Vault stores schemas and package coordinates only; runtime containers still need access to the private npm package.
+If the manifest declares an `org` other than `_`, also pass that value with `--org`; the publish organization must match the uploaded identity.
+
+The token can publish only newer schema versions for that exact plugin id, language, org, package, and kind. An identical CI retry is accepted unchanged; an attempt to alter an existing version is rejected. Rotate the token from the plugin catalog when required—the previous token stops working immediately. Vault stores schemas and package coordinates only; runtime containers must already contain the appropriate native package or linked plugin.

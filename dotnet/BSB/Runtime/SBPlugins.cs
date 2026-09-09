@@ -450,6 +450,7 @@ public class SBPlugins
             result.Add(new JsonObject { ["id"] = id, ["language"] = "csharp", ["version"] = pluginVersion,
                 ["assembly"] = Path.GetFileName(path), ["type"] = type.FullName, ["category"] = category,
                 ["package"] = package ?? assembly.GetName().Name,
+                ["tags"] = new JsonArray((metadata?.Tags ?? []).Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
                 ["documentation"] = new JsonArray((metadata?.Documentation ?? []).Select(value => (JsonNode?)JsonValue.Create(value)).ToArray()),
                 ["description"] = metadata?.Description ?? id, ["schema"] = schema });
         }
