@@ -34,7 +34,7 @@ dotnet /path/to/BetterServiceBase.dll client generate
 dotnet /path/to/BetterServiceBase.dll client publish --org acme
 ```
 
-`plugin build` regenerates installed clients, publishes the class library, and exports static contracts without constructing the service. It writes `bsb-plugin.json` and `lib/schemas/`. Deploy the `lib` directory with its manifest and dependencies. Manifests allow plugin IDs to differ from assembly names. Declared `Metadata.Name` must match the requested plugin ID; the single-plugin legacy fallback applies only when metadata is absent. Multiple plugins in one assembly must each declare a unique `Metadata.Name`.
+`plugin build` regenerates installed clients, publishes the class library, and exports static contracts without constructing the service. It writes `bsb-plugin.json`, each portable schema as `lib/schemas/{id}.json`, and Vault upload metadata as `lib/schemas/{id}.plugin.json`. Deploy the `lib` directory with its manifest and dependencies. Manifests allow plugin IDs to differ from assembly names. Declared `Metadata.Name` must match the requested plugin ID; the single-plugin legacy fallback applies only when metadata is absent. Multiple plugins in one assembly must each declare a unique `Metadata.Name`.
 
 Syslog and GELF TLS logging require `clientCertificatePath` whenever `clientKeyPath` is configured. Invalid pairs fail before opening a connection.
 

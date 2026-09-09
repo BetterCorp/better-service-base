@@ -404,7 +404,8 @@ try
     await File.WriteAllTextAsync(Path.Combine(pluginDirectory, "Plugin.cs"), """
     using BSB.Base; using BSB.Interfaces;
     public class Plugin : BSBService<object> {
-      public new static BSBPluginMetadata Metadata => new() { Name = "service-worker", Description = "Fixture" };
+      public new static BSBPluginMetadata Metadata => new() { Name = "service-worker", Description = "Fixture", Tags = ["worker"] };
+      public static BSBType ConfigSchema => BSBTypes.Object(new() { ["enabled"] = BSBTypes.Boolean() });
       public Plugin(ServiceConstructorArgs<object> args) : base(args) { File.WriteAllText(Path.Combine(Cwd, "constructed"), "yes"); }
     }
     """);
@@ -417,8 +418,15 @@ try
         .Invoke(loader, [new PluginDefinition { Name = "worker", Plugin = "service-worker" }]) as string;
     Check(resolvedAssembly == Path.Combine(pluginDirectory, "lib", "Example.Worker.dll"), "Manifest-based assembly discovery failed");
     Check(File.Exists(Path.Combine(pluginDirectory, "lib", "schemas", "service-worker.json")), "Build did not export schema");
+    var vaultManifest = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(pluginDirectory, "lib", "schemas", "service-worker.plugin.json")))!;
+    Check(vaultManifest["id"]!.GetValue<string>() == "service-worker" && vaultManifest["name"]!.GetValue<string>() == "service-worker" &&
+        vaultManifest["org"]!.GetValue<string>() == "_" && vaultManifest["language"]!.GetValue<string>() == "csharp" &&
+        vaultManifest["version"]!.GetValue<string>() == "1.2.3-beta.1+build.7" && vaultManifest["tags"]![0]!.GetValue<string>() == "worker" &&
+        vaultManifest["category"]!.GetValue<string>() == "service" && vaultManifest["packages"]!["csharp"]!.GetValue<string>() == "Example.Worker" &&
+        vaultManifest["configSchema"]!["root"]!["kind"]!.GetValue<string>() == "object", "Build did not export Vault plugin metadata");
     using (var package = System.IO.Compression.ZipFile.OpenRead(Directory.GetFiles(Path.Combine(pluginDirectory, "packages"), "*.nupkg").Single()))
-        Check(package.GetEntry("bsb/bsb-plugin.json") is not null && package.GetEntry("bsb/schemas/service-worker.json") is not null,
+        Check(package.GetEntry("bsb/bsb-plugin.json") is not null && package.GetEntry("bsb/schemas/service-worker.json") is not null &&
+            package.GetEntry("bsb/schemas/service-worker.plugin.json") is not null,
             "NuGet package omitted BSB metadata");
     var previousPluginDir = Environment.GetEnvironmentVariable("BSB_PLUGIN_DIR");
     var previousNuget = Environment.GetEnvironmentVariable("NUGET_PACKAGES");

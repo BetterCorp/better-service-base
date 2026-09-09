@@ -78,10 +78,28 @@ def test_build_project_exports_schemas_and_manifest(tmp_path: Path, monkeypatch,
     assert exported["events"]["sum"]["category"] == "onReturnableEvents"
     assert exported["configSchema"]["root"]["unknownKeys"] == "strip"
 
+    plugin_manifest = json.loads((schema_path.parent / "service-demo.plugin.json").read_text(encoding="utf-8"))
+    assert plugin_manifest["id"] == "service-demo"
+    assert plugin_manifest["org"] == "_"
+    assert plugin_manifest["language"] == "python"
+    assert plugin_manifest["packages"] == {"python": "demo-bsb-plugin"}
+    assert plugin_manifest["version"] == exported["version"]
+    assert plugin_manifest["category"] == "service"
+    assert plugin_manifest["name"] == "service-demo"
+    assert plugin_manifest["configSchema"] == exported["configSchema"]
+
     manifest = json.loads(result["manifest"].read_text(encoding="utf-8"))
     assert manifest["python"][0]["id"] == "service-demo"
     assert manifest["python"][0]["category"] == "service"
     assert manifest["python"][0]["version"] == exported["version"]
+
+    saved_schemas = tmp_path / ".bsb" / "schemas"
+    saved_schemas.mkdir(parents=True, exist_ok=True)
+    (saved_schemas / "remote.json").write_text(json.dumps(exported), encoding="utf-8")
+    (saved_schemas / "remote.plugin.json").write_text(json.dumps(plugin_manifest), encoding="utf-8")
+    build_project(tmp_path)
+    synced = generate_clients(tmp_path)
+    assert [path.name for path in synced] == ["remote.py"]
 
 
 def test_package_entry_point_manifest_loads(tmp_path: Path) -> None:

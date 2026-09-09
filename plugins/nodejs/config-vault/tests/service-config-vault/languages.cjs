@@ -46,8 +46,12 @@ module.exports = async ({ pluginRoot }) => {
   };
   const vault = new VaultService({ store, masterKey: key, setupCode: 'test', publicUrl: 'https://vault.example' });
   const upload = (language, packageName) => ({
-    org: 'acme', packageName, manifestFileName: 'service-shared.plugin.json',
-    manifest: { id: 'service-shared', name: 'Shared', version: '1.0.0', category: 'service', language },
+    org: '_', manifestFileName: 'service-shared.plugin.json',
+    manifest: {
+      id: 'service-shared', org: 'acme', name: 'Shared', version: '1.0.0', category: 'service', language,
+      packages: { [language]: packageName },
+      configSchema: { root: { kind: 'object', properties: { label: { kind: 'string' } } } },
+    },
   });
   for (const [request, manifest, schema] of [
     ['python', 'csharp', undefined], ['python', undefined, 'csharp'],
@@ -65,6 +69,8 @@ module.exports = async ({ pluginRoot }) => {
   });
   assert.equal(plugins.length, 2);
   assert.equal(csharp.plugin.language, 'csharp');
+  assert.equal(csharp.plugin.packageName, 'Acme.Shared');
+  assert.deepEqual(csharp.plugin.configSchema, upload('csharp', 'Acme.Shared').manifest.configSchema);
   assert.notEqual(node.keyId, csharp.keyId);
   const publication = {
     org: 'acme', name: 'service-shared', language: 'csharp', version: '2.0.0',
@@ -86,9 +92,7 @@ module.exports = async ({ pluginRoot }) => {
   const legacyReference = (await vault.resolveRuntimeConfig('key', 'runtime-secret')).config.default.services.api;
   assert.equal(legacyReference.language, 'nodejs');
   assert.equal(legacyReference.package, '@acme/shared');
-  const deployment = await vault.createDeployment('admin', 'app', 'Python', 'python');
-  assert.equal(deployment.profile.language, 'python');
-  for (const [language, packageName] of [['go', 'example.com/acme/shared'], ['rust', 'acme_shared']]) {
+  for (const [language, packageName] of [['python', 'acme-shared'], ['go', 'example.com/acme/shared'], ['rust', 'acme_shared']]) {
     const native = await vault.createPrivatePlugin('admin', upload(language, packageName));
     const payload = { ...publication, language, package: { [language]: packageName } };
     await assert.rejects(vault.publishPrivatePlugin(csharp.secret, payload), /not authorized/);

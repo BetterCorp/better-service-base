@@ -255,6 +255,17 @@ impl RegistryClient {
             .await?;
             let contract: Contract = serde_json::from_slice(&data)?;
             ensure!(exact_version(&contract.version), "invalid plugin version");
+            let plugin_manifest: Value = serde_json::from_slice(
+                &read_bounded(
+                    &cwd.join("lib/schemas")
+                        .join(format!("{}.plugin.json", entry.id)),
+                    MAX_JSON,
+                )
+                .await?,
+            )?;
+            let native_package = plugin_manifest["packages"]["rust"]
+                .as_str()
+                .context("generated Rust plugin package required")?;
             let mut metadata = json!({"displayName":entry.id,"description":contract.description,"category":contract.category,"tags":[]});
             for key in ["author", "license", "homepage", "repository", "tags"] {
                 if let Some(value) = contract.metadata.get(key) {
@@ -265,11 +276,12 @@ impl RegistryClient {
             if vault {
                 events["pluginId"] = json!(entry.id)
             }
-            let mut body = json!({"org":org,"name":entry.id,"version":contract.version,"language":"rust","metadata":metadata,"eventSchema":events,"package":{"rust":entry.package},"visibility":"public"});
+            let mut body = json!({"org":org,"name":entry.id,"version":contract.version,"language":"rust","metadata":metadata,"eventSchema":events,"package":{"rust":native_package}});
             if let Some(schema) = contract.config_schema {
                 body["configSchema"] = schema
             }
             if !vault {
+                body["visibility"] = json!("public");
                 let paths = if contract.documentation.is_empty() {
                     vec!["README.md".into()]
                 } else {
@@ -486,12 +498,26 @@ pub async fn build_host(cwd: &Path) -> Result<PathBuf> {
         .push_str("bsb_cli::register_builtins(&mut registry).expect(\"builtin registration\");\n");
     let mut imports = BTreeSet::new();
     let mut ids = BTreeSet::new();
+    let mut plugin_packages = BTreeMap::new();
     for entry in &manifest.rust {
         plugin_id(&entry.id)?;
         ensure!(
             !entry.id.contains('/') && ids.insert(entry.id.clone()),
             "invalid or duplicate plugin ID"
         );
+        let native_package = if entry.package.replace('-', "_") == library {
+            package
+        } else {
+            let (alias, value) = dependencies
+                .iter()
+                .find(|(name, _)| name.replace('-', "_") == entry.package.replace('-', "_"))
+                .context("plugin crate missing from Cargo dependencies")?;
+            value
+                .get("package")
+                .and_then(toml::Value::as_str)
+                .unwrap_or(alias)
+        };
+        plugin_packages.insert(entry.id.clone(), native_package.to_owned());
         if !imports.insert(entry.package.clone()) {
             continue;
         }
@@ -579,10 +605,43 @@ pub async fn build_host(cwd: &Path) -> Result<PathBuf> {
             !contract.plugin_id.contains('/'),
             "export requires local plugin names"
         );
+        let exported = contract.export()?;
         atomic_write(
             &cwd.join("lib/schemas")
                 .join(format!("{}.json", contract.plugin_id)),
-            &serde_json::to_vec_pretty(&contract.export()?)?,
+            &serde_json::to_vec_pretty(&exported)?,
+        )
+        .await?;
+        let Some(native_package) = plugin_packages.get(&contract.plugin_id) else {
+            continue;
+        };
+        let mut metadata = json!({
+            "id": contract.plugin_id,
+            "name": exported.get("displayName").and_then(Value::as_str).unwrap_or(&contract.plugin_id),
+            "version": contract.version,
+            "category": contract.category,
+            "language": "rust",
+            "packages": {"rust": native_package},
+        });
+        for field in [
+            "description",
+            "tags",
+            "documentation",
+            "dependencies",
+            "configSchema",
+            "author",
+            "license",
+            "homepage",
+            "repository",
+        ] {
+            if let Some(value) = exported.get(field) {
+                metadata[field] = value.clone();
+            }
+        }
+        atomic_write(
+            &cwd.join("lib/schemas")
+                .join(format!("{}.plugin.json", contract.plugin_id)),
+            &serde_json::to_vec_pretty(&metadata)?,
         )
         .await?;
     }

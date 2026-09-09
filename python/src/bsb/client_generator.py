@@ -10,6 +10,10 @@ from typing import Any
 from .schema_events import FLIP_MAP, import_event_schemas
 
 
+def contract_schema_files(directory: str | Path) -> list[Path]:
+    return sorted(path for path in Path(directory).glob("*.json") if not path.name.endswith(".plugin.json"))
+
+
 def event_name_to_method_name(name: str) -> str:
     value = re.sub(r"[^0-9a-zA-Z]+", "_", name).strip("_").lower() or "event"
     if value[0].isdigit():
@@ -168,9 +172,9 @@ def validate_client_names(values) -> None:
 
 def generate_clients(project_root: str | Path) -> list[Path]:
     schemas_dir, clients_dir = ensure_generated_layout(project_root)
-    files = sorted(schemas_dir.glob("*.json"))
+    files = contract_schema_files(schemas_dir)
     legacy = Path(project_root) / "src" / ".bsb" / "schemas"
-    files += sorted(legacy.glob("*.json"))
+    files += contract_schema_files(legacy)
     validate_client_names([file.stem for file in files])
     generated = []
     for file in files:

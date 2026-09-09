@@ -99,6 +99,10 @@ func BuildHost(ctx context.Context, cwd string) (string, error) {
 		return "", err
 	}
 	found := map[string]bool{}
+	pluginPackages := map[string]string{}
+	for _, entry := range manifest.Go {
+		pluginPackages[entry.ID] = entry.Package
+	}
 	for _, contract := range contracts {
 		id, _ := contract["pluginId"].(string)
 		_, name, err := ParsePluginID(id)
@@ -118,6 +122,29 @@ func BuildHost(ctx context.Context, cwd string) (string, error) {
 			return "", err
 		}
 		if err = os.WriteFile(path, schema, 0644); err != nil {
+			return "", err
+		}
+		pluginPackage, configured := pluginPackages[id]
+		if !configured {
+			continue
+		}
+		metadata := map[string]any{
+			"id": id, "name": id, "version": contract["version"], "category": contract["category"],
+			"language": "go", "packages": map[string]string{"go": pluginPackage},
+		}
+		if displayName, ok := contract["displayName"].(string); ok && displayName != "" {
+			metadata["name"] = displayName
+		}
+		for _, field := range []string{"description", "tags", "documentation", "dependencies", "configSchema", "author", "license", "homepage", "repository"} {
+			if value := contract[field]; value != nil {
+				metadata[field] = value
+			}
+		}
+		pluginManifest, err := json.MarshalIndent(metadata, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		if err = os.WriteFile(filepath.Join(filepath.Dir(path), name+".plugin.json"), pluginManifest, 0644); err != nil {
 			return "", err
 		}
 	}

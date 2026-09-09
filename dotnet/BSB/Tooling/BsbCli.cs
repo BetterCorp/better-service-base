@@ -108,7 +108,17 @@ public static class BsbCli
         {
             var id = entry!["id"]!.GetValue<string>(); RegistryClient.ParsePluginId(id);
             if (id.Contains('/') || !names.Add(id)) throw new InvalidOperationException("Plugin IDs must be unique local names");
-            await File.WriteAllTextAsync(Path.Combine(schemas, id + ".json"), entry["schema"]!.ToJsonString(Interfaces.EventSchemaExport.JsonOptions));
+            var schema = entry["schema"]!.AsObject();
+            await File.WriteAllTextAsync(Path.Combine(schemas, id + ".json"), schema.ToJsonString(Interfaces.EventSchemaExport.JsonOptions));
+            var manifest = new JsonObject {
+                ["id"] = id, ["name"] = id, ["org"] = "_", ["language"] = "csharp", ["version"] = entry["version"]!.DeepClone(),
+                ["description"] = entry["description"]!.DeepClone(), ["category"] = entry["category"]!.DeepClone(),
+                ["tags"] = entry["tags"]!.DeepClone(), ["documentation"] = entry["documentation"]!.DeepClone(),
+                ["packages"] = new JsonObject { ["csharp"] = entry["package"]!.DeepClone() },
+                ["dependencies"] = schema["dependencies"]?.DeepClone() ?? new JsonArray(),
+            };
+            if (schema["configSchema"] is JsonNode configSchema) manifest["configSchema"] = configSchema.DeepClone();
+            await File.WriteAllTextAsync(Path.Combine(schemas, id + ".plugin.json"), manifest.ToJsonString(Interfaces.EventSchemaExport.JsonOptions));
             entry.AsObject().Remove("schema");
         }
         await File.WriteAllTextAsync(Path.Combine(cwd, "lib", "bsb-plugin.json"), new JsonObject { ["csharp"] = exports.DeepClone() }.ToJsonString(Interfaces.EventSchemaExport.JsonOptions));

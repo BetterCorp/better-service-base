@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from types import ModuleType
 
+from .client_generator import contract_schema_files
 from .schema_events import export_event_schemas
 
 
@@ -108,7 +109,7 @@ def prepare_contract_inputs(project_root: str | Path) -> list[Path]:
     package_dir.mkdir(parents=True, exist_ok=True)
     schema_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    for source in sorted(source_dir.glob("*.json")):
+    for source in contract_schema_files(source_dir):
         package_target = package_dir / source.name
         schema_target = schema_dir / source.name
         if source.resolve() != package_target.resolve():
@@ -294,7 +295,9 @@ def build_plugin_manifest(project_root: str | Path) -> Path:
         config_schema = getattr(plugin.config_cls, "validation_schema", None)
         entry: dict[str, Any] = {
             "id": plugin.plugin_id,
+            "org": metadata.get("org") or "_",
             "language": "python",
+            "packages": {"python": project_meta["name"]} if project_meta.get("name") else {},
             "version": plugin.version,
             "path": plugin.source_path.relative_to(project_root).as_posix(),
             "class": plugin.plugin_cls.__name__,
@@ -311,6 +314,9 @@ def build_plugin_manifest(project_root: str | Path) -> Path:
                 entry[key] = value
 
         manifest_plugins.append(entry)
+        metadata_path = project_root / "lib" / "schemas" / f"{plugin.plugin_id}.plugin.json"
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        metadata_path.write_text(json.dumps(entry, indent=2), encoding="utf-8")
 
     manifest = {"python": manifest_plugins}
     manifest_path = project_root / "bsb-plugin.json"

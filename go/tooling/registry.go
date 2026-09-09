@@ -218,7 +218,7 @@ func (r *Registry) Publish(ctx context.Context, cwd, org, selected string, vault
 		if capabilities := exported["capabilities"]; capabilities != nil {
 			contract["capabilities"] = capabilities
 		}
-		body := map[string]any{"org": org, "name": entry.ID, "version": version, "language": "go", "metadata": metadata, "eventSchema": contract, "package": map[string]any{"go": entry.Package}, "visibility": "public"}
+		body := map[string]any{"org": org, "name": entry.ID, "version": version, "language": "go", "metadata": metadata, "eventSchema": contract, "package": map[string]any{"go": entry.Package}}
 		if schema := exported["configSchema"]; schema != nil {
 			body["configSchema"] = schema
 		}
@@ -227,6 +227,7 @@ func (r *Registry) Publish(ctx context.Context, cwd, org, selected string, vault
 			path = "/api/plugins/publish"
 			contract["pluginId"] = entry.ID
 		} else {
+			body["visibility"] = "public"
 			paths, _ := exported["documentation"].([]any)
 			if len(paths) == 0 {
 				paths = []any{"README.md"}

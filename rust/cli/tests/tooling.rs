@@ -84,6 +84,49 @@ async fn plugin_build_uses_custom_library_name() -> Result<()> {
         cwd.join("lib/schemas/service-default0.json"),
     )?)?;
     assert_eq!(contract.plugin_id, "service-default0");
+    let metadata: bsb::Value = bsb::serde_json::from_str(&fs::read_to_string(
+        cwd.join("lib/schemas/service-default0.plugin.json"),
+    )?)?;
+    assert_eq!(metadata["id"], "service-default0");
+    assert_eq!(metadata["language"], "rust");
+    assert_eq!(metadata["category"], "service");
+    assert_eq!(metadata["packages"]["rust"], "orders-package");
+
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await?;
+        let mut request = vec![];
+        while !request.ends_with(b"\r\n\r\n") {
+            request.push(stream.read_u8().await?);
+        }
+        let headers = String::from_utf8(request)?;
+        let length = headers
+            .lines()
+            .find_map(|line| {
+                line.to_ascii_lowercase()
+                    .strip_prefix("content-length: ")?
+                    .parse::<usize>()
+                    .ok()
+            })
+            .context("publish content length")?;
+        let mut body = vec![0; length];
+        stream.read_exact(&mut body).await?;
+        let published: bsb::Value = bsb::serde_json::from_slice(&body)?;
+        assert_eq!(published["package"]["rust"], "orders-package");
+        assert!(published.get("visibility").is_none());
+        assert!(published.get("documentation").is_none());
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}")
+            .await?;
+        Ok::<_, anyhow::Error>(())
+    });
+    let client =
+        tooling::RegistryClient::new(Some(&format!("http://{address}")), Some("token"), true)?;
+    client
+        .publish(cwd, "_", Some("service-default0"), true)
+        .await?;
+    server.await??;
     Ok(())
 }
 

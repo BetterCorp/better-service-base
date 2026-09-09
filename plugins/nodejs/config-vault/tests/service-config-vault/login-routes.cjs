@@ -222,7 +222,7 @@ module.exports = async ({ pluginRoot }) => {
         throw new Error('Schema version is required');
       },
       async publishPrivatePlugin(token, input) {
-        calls.push(['publishPrivatePlugin', token, input.name, input.version]);
+        calls.push(['publishPrivatePlugin', token, input.name, input.version, input.language, input.package]);
         return { status: 'published', plugin: { version: input.version } };
       },
       async deletePlugin(userId, id) {
@@ -643,17 +643,23 @@ module.exports = async ({ pluginRoot }) => {
     assert.doesNotMatch(pluginsHtml, /max-width:1180px/);
     assert.doesNotMatch(pluginsHtml, /section\{background:var\(--panel\);border:1px solid var\(--line\)/);
 
-    const directPublish = await fetch(`http://127.0.0.1:${port}/api/plugins/publish`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer bv_p_test' },
-      body: JSON.stringify({
-        org: 'example', name: 'service-private', version: '1.1.0', language: 'nodejs',
-        metadata: { category: 'service' }, package: { nodejs: '@example/service-private' },
-        eventSchema: { pluginName: 'service-private', version: '1.1.0', events: {} },
-      }),
-    });
-    assert.equal(directPublish.status, 200);
-    assert.equal((await directPublish.json()).status, 'published');
+    const publicationPackages = {
+      nodejs: '@example/service-private', csharp: 'Example.ServicePrivate', python: 'example-service-private',
+      go: 'example.com/service-private', rust: 'example-service-private', java: 'com.example:service-private',
+    };
+    for (const [language, packageName] of Object.entries(publicationPackages)) {
+      const directPublish = await fetch(`http://127.0.0.1:${port}/api/plugins/publish`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer bv_p_test' },
+        body: JSON.stringify({
+          org: 'example', name: 'service-private', version: '1.1.0', language,
+          metadata: { category: 'service' }, package: { [language]: packageName },
+          eventSchema: { pluginName: 'service-private', version: '1.1.0', events: {} },
+        }),
+      });
+      assert.equal(directPublish.status, 200, `${language} publication should reach Vault`);
+      assert.equal((await directPublish.json()).status, 'published');
+    }
 
     const invalidPluginSchema = await fetch(`http://127.0.0.1:${port}/api/plugins`, {
       method: 'POST',
@@ -773,7 +779,8 @@ module.exports = async ({ pluginRoot }) => {
     assert.ok(registryAuthorization.length >= 2);
     assert.ok(registryAuthorization.every((value) => value === 'Bearer vault-registry-token'));
     assert.deepEqual(calls, [
-      ['publishPrivatePlugin', 'bv_p_test', 'service-private', '1.1.0'],
+      ...Object.entries(publicationPackages).map(([language, packageName]) =>
+        ['publishPrivatePlugin', 'bv_p_test', 'service-private', '1.1.0', language, { [language]: packageName }]),
       ['createPrivatePlugin', 'user-1', 'service-private.json'],
       ['createPrivatePlugin', 'user-1', 'service-private.plugin.json'],
       ['createDeployment', 'user-1', 'app-1', 'worker'],
