@@ -635,7 +635,7 @@ module.exports = async ({ pluginRoot }) => {
     }
     const escapedExample = renderFields({ values: { kind: 'tuple', items: [{ kind: 'literal', value: '</code><script>alert(1)</script>' }, { kind: 'string', metadata: { sensitive: true } }] } });
     assert.match(escapedExample, /&lt;\/code&gt;&lt;script&gt;/);
-    assert.doesNotMatch(escapedExample, /<script>/);
+    assert.doesNotMatch(escapedExample, /<script\b/i);
     const root = rabbitIdentity.export('extended').root;
     const browserHtml = renderFields({ ...root.properties, host: { kind: 'string' } }, '', [...root.required, 'host']);
     for (const html of [deploymentHtml, browserHtml]) {
