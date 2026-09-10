@@ -407,6 +407,7 @@ module.exports = async ({ pluginRoot }) => {
         calls.push(['removeProfilePlugin', userId, input.profileId, input.section, input.name]);
       },
       async copyProfilePlugin(userId, input) {
+        if (input.targetProfileId === 'changed-draft') throw new Error('Draft changed; reload before copying');
         calls.push(['copyProfilePlugin', userId, input.sourceProfileId, input.targetProfileId, input.section, input.name, input.overwrite, input.sourceType, input.targetType]);
       },
       async upsertApplicationProfilePlugin(userId, input) {
@@ -879,6 +880,11 @@ module.exports = async ({ pluginRoot }) => {
       assert.deepEqual(calls.at(-1), ['copyProfilePlugin', 'user-1', sourceProfileId, 'destination', 'events', 'rabbit', false, sourceType, targetType]);
     }
     const sharedCopyBody = { sourceProfileId: 'app-profile-1', sourceType: 'shared', target: 'shared:destination', section: 'events', name: 'rabbit' };
+    const conflict = await fetch(`http://127.0.0.1:${port}/api/profile-plugins/copy`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie: 'vault_session=session', 'x-csrf-token': 'csrf-token' },
+      body: JSON.stringify({ ...sharedCopyBody, target: 'shared:changed-draft' }),
+    });
+    assert.equal(conflict.status, 409);
     for (const body of [{ sourceType: 'invalid' }, { target: 'invalid:destination' }, { target: 'shared:bad/id' }, { targetProfileId: 'ambiguous-target' }]) {
       const response = await fetch(`http://127.0.0.1:${port}/api/profile-plugins/copy`, {
         method: 'POST', headers: { 'content-type': 'application/json', cookie: 'vault_session=session', 'x-csrf-token': 'csrf-token' },

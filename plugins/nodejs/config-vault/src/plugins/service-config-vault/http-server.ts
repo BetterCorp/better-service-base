@@ -874,7 +874,7 @@ function vaultErrorStatus(message: string): number {
   if (/not authorized|not allowed to use|csrf/i.test(message)) return 403;
   if (/too many authentication attempts/i.test(message)) return 429;
   if (/not found/i.test(message)) return 404;
-  if (/already exists|cannot |no longer available|no active config|no draft|expired|replay/i.test(message)) return 409;
+  if (/already exists|cannot |no longer available|no active config|no draft|draft changed|expired|replay/i.test(message)) return 409;
   if (/audit log integrity|audit.*unavailable/i.test(message)) return 503;
   if (/invalid|required|must |too short|too long|unsupported|expected|schema contains|schema exceeds/i.test(message)) return 400;
   return 500;

@@ -9,6 +9,10 @@ module.exports = async ({ pluginRoot }) => {
   const key = Buffer.alloc(32, 4);
   const sharedDrafts = new Map();
   const drafts = new Map();
+  const save = (records, id, record, expectedIv) => {
+    if (expectedIv !== undefined && (records.get(id)?.iv ?? null) !== expectedIv) throw new Error('Draft changed; reload before copying');
+    records.set(id, record);
+  };
   const audits = [];
   const sharedProfiles = [{ id: 'shared-source', applicationId: 'app-1', name: 'default' }, { id: 'shared-target', applicationId: 'app-2', name: 'prod' }];
   const profiles = [{ id: 'node', groupId: 'group-1', name: 'prod', language: 'nodejs' },
@@ -19,8 +23,8 @@ module.exports = async ({ pluginRoot }) => {
     async resolveProfileBinding(id) { const profile = profiles.find(profile => profile.id === id); return profile && { profile }; },
     async getApplicationDraft(id) { return sharedDrafts.get(id); },
     async getDraft(id) { return drafts.get(id); },
-    async upsertApplicationDraft(record) { sharedDrafts.set(record.applicationProfileId, record); },
-    async upsertDraft(record) { drafts.set(record.profileId, record); },
+    async upsertApplicationDraft(record, expectedIv) { save(sharedDrafts, record.applicationProfileId, record, expectedIv); },
+    async upsertDraft(record, expectedIv) { save(drafts, record.profileId, record, expectedIv); },
     async listPlugins() { return [{ pluginId: 'events-rabbitmq', language: 'nodejs', kind: 'events', version: '1.0.0', packageName: '@bsb/events-rabbitmq' }]; },
     async getUser() { return null; }, async audit(record) { audits.push(record); },
   };
@@ -69,4 +73,22 @@ module.exports = async ({ pluginRoot }) => {
   await vault.saveApplicationProfileDraft('admin', 'shared-source', { events: { rabbit: { ...source, enabled: false } } });
   await assert.rejects(vault.copyProfilePlugin('admin', { ...input, targetType: 'deployment', targetProfileId: 'python' }), /requires nodejs.*python/);
   assert.equal(drafts.has('python'), false);
+  for (const targetType of ['shared', 'deployment']) {
+    const targetProfileId = targetType === 'shared' ? 'shared-target' : 'other-node';
+    const records = targetType === 'shared' ? sharedDrafts : drafts;
+    for (const existing of [false, true]) {
+      records.delete(targetProfileId);
+      const keep = { services: { keep: { plugin: 'service-keep', enabled: false } } };
+      if (existing) {
+        if (targetType === 'shared') await vault.saveApplicationProfileDraft('admin', targetProfileId, keep);
+        else await vault.saveProfileDraft('admin', targetProfileId, keep);
+      }
+      const results = await Promise.allSettled([1, 2].map(() => vault.copyProfilePlugin('admin', { ...input, targetType, targetProfileId })));
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      assert.match(results.find(result => result.status === 'rejected').reason.message, /Draft changed/);
+      const result = targetType === 'shared' ? await vault.getApplicationProfileDraft(targetProfileId) : await vault.getProfileDraft(targetProfileId);
+      assert.equal(result.events.rabbit.config.credentials.password, 'copy-secret');
+      if (existing) assert.deepEqual(result.services, keep.services);
+    }
+  }
 };
