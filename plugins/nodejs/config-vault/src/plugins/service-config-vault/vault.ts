@@ -1133,25 +1133,40 @@ export class VaultService {
     input: {
       sourceProfileId: string;
       targetProfileId: string;
+      sourceType?: 'deployment' | 'shared';
+      targetType?: 'deployment' | 'shared';
       section: 'services' | 'events' | 'observable';
       name: string;
       overwrite: boolean;
     },
   ): Promise<void> {
-    const sourceDraft = await this.getProfileDraft(input.sourceProfileId) ?? { observable: {}, events: {}, services: {} };
-    const source = sourceDraft[input.section]?.[input.name];
+    validateConfigName(input.name);
+    const sourceShared = input.sourceType === 'shared';
+    const targetShared = input.targetType === 'shared';
+    if (sourceShared === targetShared && input.sourceProfileId === input.targetProfileId) throw new Error('Source and target profiles must differ');
+    const sourceDraft = await (sourceShared ? this.getApplicationProfileDraft(input.sourceProfileId) : this.getProfileDraft(input.sourceProfileId));
+    const source = sourceDraft?.[input.section]?.[input.name];
     if (!source) throw new Error('Source plugin config not found');
-    const binding = await this.store.resolveProfileBinding(input.targetProfileId);
-    if (!binding) throw new Error('Target deployment profile not found');
-    normalizeRuntimeSection({ [input.name]: source }, input.section, await this.store.listPlugins(), binding.profile.language ?? 'nodejs');
-    const targetDraft = await this.getProfileDraft(input.targetProfileId) ?? { observable: {}, events: {}, services: {} };
+    const sourceLanguage = source.language ?? 'nodejs';
+    let targetLanguage = sourceLanguage;
+    if (!targetShared) {
+      const binding = await this.store.resolveProfileBinding(input.targetProfileId);
+      if (!binding) throw new Error('Target deployment profile not found');
+      targetLanguage = binding.profile.language ?? 'nodejs';
+      if (targetLanguage !== sourceLanguage) throw new Error(`Plugin ${source.plugin} requires ${sourceLanguage}; deployment language must match (got ${targetLanguage})`);
+    }
+    normalizeRuntimeSection({ [input.name]: source }, input.section, await this.store.listPlugins(), targetLanguage);
+    const targetDraft = await (targetShared ? this.getApplicationProfileDraft(input.targetProfileId) : this.getProfileDraft(input.targetProfileId)) ?? { observable: {}, events: {}, services: {} };
     const section = targetDraft[input.section] ?? {};
+    if (section[input.name] && (section[input.name].language ?? 'nodejs') !== sourceLanguage) throw new Error(`Target plugin config language must match ${sourceLanguage}`);
     if (section[input.name] && !input.overwrite) throw new Error('Target plugin config already exists');
     section[input.name] = cloneJson(source) as RuntimePluginDefinition;
     targetDraft[input.section] = section;
-    await this.saveProfileDraft(userId, input.targetProfileId, targetDraft);
-    await this.audit(userId, 'config.plugin.copy', input.targetProfileId, {
+    if (targetShared) await this.saveApplicationProfileDraft(userId, input.targetProfileId, targetDraft);
+    else await this.saveProfileDraft(userId, input.targetProfileId, targetDraft);
+    await this.audit(userId, targetShared ? 'application-config.plugin.copy' : 'config.plugin.copy', input.targetProfileId, {
       sourceProfileId: input.sourceProfileId,
+      sourceType: input.sourceType ?? 'deployment',
       section: input.section,
       name: input.name,
       overwrite: input.overwrite,
@@ -1490,6 +1505,7 @@ export class VaultService {
     groups: GroupRecord[];
     applications: ApplicationRecord[];
     applicationProfiles: ApplicationProfileRecord[];
+    allApplicationProfiles: ApplicationProfileRecord[];
     inheritedDraft: RuntimeConfigDefinition | null;
     configState: ConfigState;
     inheritedConfigState: ConfigState;
@@ -1509,6 +1525,7 @@ export class VaultService {
       groups: await this.store.listAllGroups(),
       applications: await this.store.listApplications(),
       applicationProfiles: await this.store.listApplicationProfiles(binding.application.id),
+      allApplicationProfiles: await this.store.listAllApplicationProfiles(),
       plugins: (await this.store.listPlugins()).filter(plugin => (plugin.language ?? 'nodejs') === (binding.profile.language ?? 'nodejs')),
       draft: await this.getProfileDraft(profileId),
       inheritedDraft: await this.getApplicationProfileDraft(applicationProfile.id),
@@ -1522,6 +1539,10 @@ export class VaultService {
     application: ApplicationRecord;
     applicationProfile: ApplicationProfileRecord;
     applicationProfiles: ApplicationProfileRecord[];
+    allApplicationProfiles: ApplicationProfileRecord[];
+    allProfiles: ProfileRecord[];
+    applications: ApplicationRecord[];
+    groups: GroupRecord[];
     plugins: PluginCatalogRecord[];
     draft: RuntimeConfigDefinition | null;
     configState: ConfigState;
@@ -1533,6 +1554,10 @@ export class VaultService {
       application,
       applicationProfile,
       applicationProfiles: await this.store.listApplicationProfiles(applicationId),
+      allApplicationProfiles: await this.store.listAllApplicationProfiles(),
+      allProfiles: await this.store.listAllProfiles(),
+      applications: await this.store.listApplications(),
+      groups: await this.store.listAllGroups(),
       plugins: await this.store.listPlugins(),
       draft: await this.getApplicationProfileDraft(applicationProfile.id),
       configState: await this.applicationConfigState(applicationProfile),

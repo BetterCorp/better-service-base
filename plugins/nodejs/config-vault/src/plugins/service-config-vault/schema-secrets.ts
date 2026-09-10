@@ -5,7 +5,11 @@ export function unwrapSchema(node: Node | null): Node | null {
   while (current && (current.kind === 'optional' || current.kind === 'nullable')) {
     const inner = (current.inner ?? current.schema) as Node | undefined;
     if (!inner) return null;
-    current = { ...inner, metadata: { ...(inner.metadata as Node), ...(current.metadata as Node) } };
+    current = {
+      ...inner,
+      ...(Object.hasOwn(current, 'default') ? { default: current.default } : {}),
+      metadata: { ...(inner.metadata as Node), ...(current.metadata as Node) },
+    };
   }
   return current;
 }

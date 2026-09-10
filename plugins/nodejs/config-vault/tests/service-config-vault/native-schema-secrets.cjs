@@ -25,4 +25,15 @@ module.exports = async ({ pluginRoot }) => {
   const browserUnwrap = new Function('return (' + helpers.unwrapSchema.toString() + ')')();
   assert.equal(browserSensitive(schema.properties.array), true);
   assert.equal(browserUnwrap(wrapped).metadata.sensitive, true);
+  for (const unwrap of [helpers.unwrapSchema, browserUnwrap]) {
+    for (const defaultValue of [null, '', false, 0, 'worker']) {
+      const node = { kind: 'optional', default: defaultValue, schema: {
+        kind: 'nullable', default: 'inner', inner: { kind: 'string', default: 'leaf' },
+      } };
+      assert.equal(unwrap(node).default, defaultValue);
+      assert.equal(node.schema.default, 'inner');
+    }
+    assert.equal(unwrap({ kind: 'nullable', inner: { kind: 'string', default: 'leaf' } }).default, 'leaf');
+    assert.equal(Object.hasOwn(unwrap(wrapped), 'default'), false);
+  }
 };

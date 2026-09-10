@@ -45,6 +45,13 @@ const pluginConfig = {
   config: optionalJsonObjectInput,
   sensitiveClearPaths: av.optional(stringArrayJson),
 };
+const pluginCopy = {
+  sourceProfileId: uuid,
+  sourceType: av.optional(av.enum_(['deployment', 'shared'] as const)),
+  section: pluginConfig.section,
+  name: slug,
+  overwrite: checkbox,
+};
 
 export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
   '/setup': strict({ setupCode: token, email: av.string().maxLength(254).format('email'), password: requiredText(1024), passwordConfirm: requiredText(1024) }),
@@ -88,7 +95,10 @@ export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
   '/api/application-profile-plugins': strict({ applicationProfileId: uuid, ...pluginConfig }),
   '/api/application-profile-publish': strict({ applicationProfileId: uuid }),
   '/api/profile-plugins/delete': strict({ profileId: uuid, section: pluginConfig.section, name: slug }),
-  '/api/profile-plugins/copy': strict({ sourceProfileId: uuid, targetProfileId: uuid, section: pluginConfig.section, name: slug, overwrite: checkbox }),
+  '/api/profile-plugins/copy': av.union([
+    strict({ ...pluginCopy, targetProfileId: uuid }),
+    strict({ ...pluginCopy, target: av.string().maxLength(75).pattern(`^(deployment|shared):${uuidPattern.slice(1)}`) }),
+  ]),
   '/api/profile-plugins': strict({ profileId: uuid, ...pluginConfig, allowEnvOverrides: checkbox, baseEnabled: checkbox, baseConfig: optionalJsonObjectInput, overridePaths: av.optional(stringArrayJson) }),
   '/api/runtime-keys/rotate': strict({ keyId: av.string().maxLength(64).pattern('^vk_[A-Za-z0-9_-]+$'), name: optionalText(100) }),
   '/api/runtime-keys': strict({ name: requiredText(100), profileId: uuid, containerName: optionalText(255) }),

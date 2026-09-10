@@ -587,9 +587,12 @@ export class VaultHttpServer {
     app.use('/api/profile-plugins/copy', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
+      const target = typeof body.target === 'string' ? body.target.split(':') : null;
       await this.options.vault.copyProfilePlugin(user.userId, {
         sourceProfileId: String(body.sourceProfileId ?? ''),
-        targetProfileId: String(body.targetProfileId ?? ''),
+        targetProfileId: target?.[1] ?? String(body.targetProfileId ?? ''),
+        sourceType: (body.sourceType ?? 'deployment') as 'deployment' | 'shared',
+        targetType: target?.[0] as 'deployment' | 'shared' | undefined,
         section: parseConfigSection(body.section),
         name: String(body.name ?? ''),
         overwrite: body.overwrite === true || body.overwrite === 'true' || body.overwrite === 'on',
@@ -1860,7 +1863,7 @@ function configSectionEditor(
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
         </form>
-        ${copyPluginForm(data, section, name, redirect)}
+        ${copyPluginForm(data, section, name, entry.language ?? 'nodejs', redirect)}
         <form data-api="/api/profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove this plugin from the profile?">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
@@ -1909,6 +1912,7 @@ function applicationConfigSectionEditor(
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
         </form>
+        ${copyPluginForm(data, section, name, entry.language ?? 'nodejs', redirect)}
         <form data-api="/api/application-profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove this shared plugin from the deployment group profile?">
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
@@ -2044,14 +2048,23 @@ function cloneConfig<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value)) as T;
 }
 
-function copyPluginForm(data: DeploymentProfileData, section: 'services' | 'events' | 'observable', name: string, redirect: string): string {
-  const targets = data.allProfiles.filter((profile) => profile.id !== data.profile.id);
+function copyPluginForm(data: DeploymentProfileData | ApplicationProfileData, section: 'services' | 'events' | 'observable', name: string, language: PluginLanguage, redirect: string): string {
+  const shared = 'applicationProfile' in data;
+  const sourceId = shared ? data.applicationProfile.id : data.profile.id;
+  const targets: Array<[string, string]> = data.allProfiles
+    .filter((profile) => (shared || profile.id !== sourceId) && (profile.language ?? 'nodejs') === language)
+    .map((profile) => [`deployment:${profile.id}`, `Deployment: ${profileLabel(profile, data)} (${language})`]);
+  targets.unshift(...data.allApplicationProfiles.filter(profile => !shared || profile.id !== sourceId).map((profile): [string, string] => [
+    `shared:${profile.id}`,
+    `Shared: ${data.applications.find(application => application.id === profile.applicationId)?.name ?? profile.applicationId} / ${profile.name}`,
+  ]));
   if (targets.length === 0) return '';
-  return `<form data-api="/api/profile-plugins/copy" data-redirect="${escapeHtml(redirect)}" data-confirm="Copy this config to the selected deployment profile? Existing config is only overwritten when selected.">
-    <input type="hidden" name="sourceProfileId" value="${escapeHtml(data.profile.id)}">
+  return `<form data-api="/api/profile-plugins/copy" data-redirect="${escapeHtml(redirect)}" data-confirm="Copy this config to the selected profile? Existing config is only overwritten when selected.">
+    <input type="hidden" name="sourceProfileId" value="${escapeHtml(sourceId)}">
+    <input type="hidden" name="sourceType" value="${shared ? 'shared' : 'deployment'}">
     <input type="hidden" name="section" value="${escapeHtml(section)}">
     <input type="hidden" name="name" value="${escapeHtml(name)}">
-    ${select('targetProfileId', 'Copy To', targets.map((profile) => [profile.id, profileLabel(profile, data)]))}
+    ${select('target', 'Copy To', targets)}
     <label class="schema-toggle"><input type="checkbox" name="overwrite">Overwrite existing config</label>
     <button class="secondary">Copy</button><p class="status"></p>
   </form>`;
@@ -2184,6 +2197,7 @@ function renderSchemaControl(
 ): string {
   const node = unwrapSchema(rawNode);
   if (!node) return '';
+  required = required && rawNode?.kind !== 'optional' && !Object.hasOwn(node, 'default');
   const value = rawValue ?? node.default ?? '';
   const sensitive = isSensitiveSchema(rawNode);
   const help = sensitive ? '' : schemaHelp(rawNode, node, required);
@@ -2629,7 +2643,8 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       if (!path) return;
       const attrs = bindings.field(path);
       for (const [name, value] of Object.entries(attrs)) {
-        if (name === 'name' || value === undefined || value === null || field.hasAttribute(name)) continue;
+        // The renderer accounts for defaults; portable required lists include defaulted fields.
+        if (name === 'name' || name === 'required' || value === undefined || value === null || field.hasAttribute(name)) continue;
         if (typeof value === 'boolean') {
           if (value) field.setAttribute(name, '');
         } else {
