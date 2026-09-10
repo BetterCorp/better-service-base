@@ -25,6 +25,21 @@ module.exports = async ({ pluginRoot }) => {
   const browserUnwrap = new Function('return (' + helpers.unwrapSchema.toString() + ')')();
   assert.equal(browserSensitive(schema.properties.array), true);
   assert.equal(browserUnwrap(wrapped).metadata.sensitive, true);
+  const destinations = { kind: 'array', default: [{ password: 'composite-secret' }], items: { kind: 'object', properties: {
+    id: { kind: 'string' }, driver: { kind: 'enum', values: ['s3', 'backblaze', 'ftp', 'file'] },
+    capacityMode: { kind: 'enum', values: ['alert', 'overwrite'], default: 'alert' },
+    limits: { kind: 'object', properties: { maxBytes: { kind: 'optional', inner: { kind: 'int', min: 1 } } } },
+    password: { kind: 'optional', default: 'wrapper-secret', inner: { ...secret, default: 'leaf-secret' } },
+    tls: { kind: 'bool', default: true },
+  } } };
+  const browserExample = new Function('return (' + helpers.schemaJsonExample.toString() + ')')();
+  for (const example of [helpers.schemaJsonExample, browserExample]) {
+    assert.deepEqual(example(destinations), [{ id: 'example', driver: 's3', capacityMode: 'alert', limits: { maxBytes: 1 }, password: 'REPLACE_ME', tls: true }]);
+    assert.deepEqual(example({ kind: 'tuple', items: [{ kind: 'bool' }, { kind: 'record', values: secret }] }), [false, { key: 'REPLACE_ME' }]);
+    assert.equal(example({ kind: 'ref', name: 'Missing' }), null);
+    const recursive = { kind: 'array' }; recursive.items = recursive;
+    assert.doesNotThrow(() => JSON.stringify(example(recursive)));
+  }
   for (const unwrap of [helpers.unwrapSchema, browserUnwrap]) {
     for (const defaultValue of [null, '', false, 0, 'worker']) {
       const node = { kind: 'optional', default: defaultValue, schema: {

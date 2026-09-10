@@ -153,6 +153,7 @@ export class VaultStore {
         reset_at timestamptz not null
       );
       create index if not exists vault_auth_attempts_reset_idx on vault_auth_attempts (reset_at);
+      alter table vault_auth_attempts add column if not exists subject text;
       create table if not exists vault_auth_challenges (
         kind text not null,
         key_hash text not null,
@@ -622,14 +623,22 @@ export class VaultStore {
     return Number(result.rows[0]?.failure_count ?? 0) < maximum;
   }
 
-  async recordAuthenticationFailure(subjectHash: string): Promise<void> {
+  async listAuthenticationBlocks(): Promise<Array<{ subjectHash: string; subject: string | null; failureCount: number; resetAt: string }>> {
+    const result = await this.pool.query(
+      'select subject_hash, subject, failure_count, reset_at from vault_auth_attempts where failure_count >= 5 and reset_at > now() order by reset_at, subject_hash',
+    );
+    return result.rows.map((row) => ({ subjectHash: row.subject_hash, subject: row.subject, failureCount: Number(row.failure_count), resetAt: iso(row.reset_at) }));
+  }
+
+  async recordAuthenticationFailure(subjectHash: string, subject?: string): Promise<void> {
     await this.pool.query("delete from vault_auth_attempts where reset_at <= now() - interval '1 day'");
     await this.pool.query(
-      `insert into vault_auth_attempts (subject_hash, failure_count, reset_at) values ($1, 1, now() + interval '5 minutes')
+      `insert into vault_auth_attempts (subject_hash, subject, failure_count, reset_at) values ($1, $2, 1, now() + interval '5 minutes')
        on conflict (subject_hash) do update set
+         subject = coalesce(excluded.subject, vault_auth_attempts.subject),
          failure_count = case when vault_auth_attempts.reset_at <= now() then 1 else vault_auth_attempts.failure_count + 1 end,
          reset_at = case when vault_auth_attempts.reset_at <= now() then now() + interval '5 minutes' else vault_auth_attempts.reset_at end`,
-      [subjectHash],
+      [subjectHash, subject ?? null],
     );
   }
 
