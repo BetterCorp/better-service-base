@@ -52,6 +52,31 @@ try {
   await assert.rejects(store.updateProfile('profile', 'group', 'default', 'csharp'), /language is locked/);
   await store.updateProfile('profile', 'group', 'default', 'python');
   console.log('PASS: real PostgreSQL legacy migration, concurrent rerun, independent language versions/publishers and profile language locking');
+  await database.query("insert into vault_application_profiles (id,application_id,name,created_at) values ('shared','app','default',now())");
+  for (const shared of [false, true]) {
+    const table = shared ? 'vault_application_config_drafts' : 'vault_config_drafts';
+    const write = shared ? 'upsertApplicationDraft' : 'upsertDraft';
+    const read = shared ? 'getApplicationDraft' : 'getDraft';
+    const id = shared ? 'shared' : 'profile';
+    const record = { id: randomUUID(), [shared ? 'applicationProfileId' : 'profileId']: id,
+      encryptedPayload: 'test', iv: 'initial', authTag: 'test', keyVersion: 'v1', updatedAt: now };
+    for (const existing of [false, true]) {
+      await database.query(`delete from ${table}`);
+      if (existing) await store[write](record);
+      const expectedIv = existing ? record.iv : null;
+      const results = await Promise.allSettled([store, other].map((client, index) =>
+        client[write]({ ...record, id: randomUUID(), iv: `winner-${index}` }, expectedIv)));
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      assert.match(results.find(result => result.status === 'rejected').reason.message, /Draft changed/);
+      const winner = results.findIndex(result => result.status === 'fulfilled');
+      assert.equal((await store[read](id)).iv, `winner-${winner}`);
+      await assert.rejects(store[write](record, expectedIv), /Draft changed/);
+      await database.query(`delete from ${table}`);
+      await assert.rejects(store[write](record, `winner-${winner}`), /Draft changed/);
+      assert.equal(await store[read](id), null);
+    }
+  }
+  console.log('PASS: concurrent deployment and shared draft copies reject stale revisions');
 } finally {
   await Promise.allSettled([store.close(), other.close(), database.end()]);
   // Only this randomly named schema, created by this test, is removed.

@@ -958,8 +958,17 @@ export class VaultStore {
     }
   }
 
-  async upsertDraft(record: ConfigDraftRecord): Promise<void> {
-    await this.pool.query(
+  async upsertDraft(record: ConfigDraftRecord, expectedIv?: string | null): Promise<void> {
+    if (typeof expectedIv === 'string') {
+      const result = await this.pool.query(
+        `update vault_config_drafts set encrypted_payload=$1, iv=$2, auth_tag=$3, key_version=$4, updated_at=$5
+         where profile_id=$6 and iv=$7`,
+        [record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.updatedAt, record.profileId, expectedIv],
+      );
+      if (result.rowCount !== 1) throw new Error('Draft changed; reload before copying');
+      return;
+    }
+    const result = await this.pool.query(
       `insert into vault_config_drafts (id, profile_id, encrypted_payload, iv, auth_tag, key_version, updated_at)
        values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (profile_id) do update set
@@ -967,9 +976,10 @@ export class VaultStore {
          iv = excluded.iv,
          auth_tag = excluded.auth_tag,
          key_version = excluded.key_version,
-         updated_at = excluded.updated_at`,
-      [record.id, record.profileId, record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.updatedAt],
+         updated_at = excluded.updated_at where $8::boolean`,
+      [record.id, record.profileId, record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.updatedAt, expectedIv === undefined],
     );
+    if (result.rowCount !== 1) throw new Error('Draft changed; reload before copying');
   }
 
   async getDraft(profileId: string): Promise<ConfigDraftRecord | null> {
@@ -1011,8 +1021,17 @@ export class VaultStore {
     return result.rows[0] ? mapVersion(result.rows[0] as DbRow) : null;
   }
 
-  async upsertApplicationDraft(record: ApplicationConfigDraftRecord): Promise<void> {
-    await this.pool.query(
+  async upsertApplicationDraft(record: ApplicationConfigDraftRecord, expectedIv?: string | null): Promise<void> {
+    if (typeof expectedIv === 'string') {
+      const result = await this.pool.query(
+        `update vault_application_config_drafts set encrypted_payload=$1, iv=$2, auth_tag=$3, key_version=$4, updated_at=$5
+         where application_profile_id=$6 and iv=$7`,
+        [record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.updatedAt, record.applicationProfileId, expectedIv],
+      );
+      if (result.rowCount !== 1) throw new Error('Draft changed; reload before copying');
+      return;
+    }
+    const result = await this.pool.query(
       `insert into vault_application_config_drafts (id, application_profile_id, encrypted_payload, iv, auth_tag, key_version, updated_at)
        values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (application_profile_id) do update set
@@ -1020,9 +1039,10 @@ export class VaultStore {
          iv = excluded.iv,
          auth_tag = excluded.auth_tag,
          key_version = excluded.key_version,
-         updated_at = excluded.updated_at`,
-      [record.id, record.applicationProfileId, record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.updatedAt],
+         updated_at = excluded.updated_at where $8::boolean`,
+      [record.id, record.applicationProfileId, record.encryptedPayload, record.iv, record.authTag, record.keyVersion, record.updatedAt, expectedIv === undefined],
     );
+    if (result.rowCount !== 1) throw new Error('Draft changed; reload before copying');
   }
 
   async getApplicationDraft(applicationProfileId: string): Promise<ApplicationConfigDraftRecord | null> {

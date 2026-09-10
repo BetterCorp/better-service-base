@@ -6,6 +6,12 @@ const http = require('node:http');
 const { createHash } = require('node:crypto');
 
 module.exports = async ({ pluginRoot }) => {
+  const av = await import('anyvali');
+  const rabbitIdentity = av.object({
+    platformKey: av.nullable(av.string()).default(null),
+    uniqueId: av.nullable(av.string()).default('worker'),
+  });
+  assert.deepEqual(rabbitIdentity.parse({}), { platformKey: null, uniqueId: 'worker' });
   for (const [open, close] of [['<script>', '</script>'], ['<SCRIPT nonce="test">', '</SCRIPT >'], ['<script\nnonce="test">', '</script\t\r\n>'], ['<script>', '</script ignored="value">']]) {
     assertScriptsParse(`${open}const valid = 1;${close}`);
     assert.throws(() => assertScriptsParse(`${open}const = ;${close}`), SyntaxError);
@@ -257,6 +263,7 @@ module.exports = async ({ pluginRoot }) => {
               kind: 'object',
               properties: {
                 host: { kind: 'string', metadata: { description: 'HTTP host' } },
+                ...rabbitIdentity.export('extended').root.properties,
                 port: { kind: 'int32', default: 3200, metadata: { description: 'HTTP port' } },
                 enabled: { kind: 'bool', metadata: { description: 'Feature enabled' } },
                 token: { kind: 'optional', inner: { kind: 'string' }, metadata: { description: 'Optional token' } },
@@ -319,12 +326,16 @@ module.exports = async ({ pluginRoot }) => {
           allProfiles: [
             { id: 'profile-1', groupId: 'group-1', name: 'default', activeVersionId: null },
             { id: 'profile-2', groupId: 'group-2', name: 'staging', activeVersionId: null },
+            { id: 'other-node', groupId: 'group-3', name: 'prod', language: 'nodejs' },
+            { id: 'other-python', groupId: 'group-3', name: 'prod', language: 'python' },
           ],
+          allApplicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default' }, { id: 'other-shared', applicationId: 'app-2', name: 'prod' }],
           groups: [
             { id: 'group-1', applicationId: 'app-1', name: 'api' },
             { id: 'group-2', applicationId: 'app-1', name: 'worker' },
+            { id: 'group-3', applicationId: 'app-2', name: 'remote' },
           ],
-          applications: [{ id: 'app-1', name: 'App', description: 'Main app' }],
+          applications: [{ id: 'app-1', name: 'App', description: 'Main app' }, { id: 'app-2', name: 'Other App' }],
           applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
           plugins: pluginCatalog,
           draft: { observable: {}, events: {}, services: { api: { plugin: 'service-api', enabled: true, autoPinned: true, allowEnvOverrides: true, config: { credentials: { api: 'must-stay-secret' } } }, worker: { plugin: 'service-api', enabled: false } } },
@@ -341,6 +352,13 @@ module.exports = async ({ pluginRoot }) => {
           application: { id: 'app-1', name: 'App', description: 'Main app' },
           applicationProfile: { id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null },
           applicationProfiles: [{ id: 'app-profile-1', applicationId: 'app-1', name: 'default', activeVersionId: null }],
+          allApplicationProfiles: [
+            { id: 'app-profile-1', applicationId: 'app-1', name: 'default' },
+            { id: 'app-profile-2', applicationId: 'app-2', name: 'staging' },
+          ],
+          allProfiles: [{ id: 'profile-2', groupId: 'group-2', name: 'default' }, { id: 'other-csharp', groupId: 'group-2', name: 'native', language: 'csharp' }],
+          applications: [{ id: 'app-1', name: 'App' }, { id: 'app-2', name: 'Other App' }],
+          groups: [{ id: 'group-2', applicationId: 'app-2', name: 'worker' }],
           plugins: [{
             id: 'plugin-1',
             org: '@bsb',
@@ -389,7 +407,8 @@ module.exports = async ({ pluginRoot }) => {
         calls.push(['removeProfilePlugin', userId, input.profileId, input.section, input.name]);
       },
       async copyProfilePlugin(userId, input) {
-        calls.push(['copyProfilePlugin', userId, input.sourceProfileId, input.targetProfileId, input.section, input.name, input.overwrite]);
+        if (input.targetProfileId === 'changed-draft') throw new Error('Draft changed; reload before copying');
+        calls.push(['copyProfilePlugin', userId, input.sourceProfileId, input.targetProfileId, input.section, input.name, input.overwrite, input.sourceType, input.targetType]);
       },
       async upsertApplicationProfilePlugin(userId, input) {
         calls.push(['upsertApplicationProfilePlugin', userId, input.applicationProfileId, input.section, input.name, input.plugin, input.config]);
@@ -560,6 +579,41 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(deploymentHtml, /HTTP port/);
     assert.match(deploymentHtml, /required/);
     assert.match(deploymentHtml, /default: 3200/);
+    assert.match(deploymentHtml, /name="sourceType" value="deployment"/);
+    assert.match(deploymentHtml, /value="shared:app-profile-1"\s*>Shared: App \/ default/);
+    assert.match(deploymentHtml, /value="deployment:profile-2"/);
+    assert.doesNotMatch(deploymentHtml, /value="deployment:profile-1"/);
+    assert.match(deploymentHtml, /value="deployment:other-node"\s*>Deployment: Other App \/ remote \/ prod \(nodejs\)/);
+    assert.match(deploymentHtml, /value="shared:other-shared"\s*>Shared: Other App \/ prod/);
+    assert.doesNotMatch(deploymentHtml, /value="deployment:other-python"/);
+    // Exercise server-rendered edits and the actual browser renderer used for new plugins.
+    const clientSource = deploymentHtml.slice(deploymentHtml.indexOf('function escapeClient('), deploymentHtml.indexOf('function readCurrentConfig('));
+    const renderFields = new Function(clientSource + '; return renderFields;')();
+    const root = rabbitIdentity.export('extended').root;
+    const browserHtml = renderFields({ ...root.properties, host: { kind: 'string' } }, '', [...root.required, 'host']);
+    for (const html of [deploymentHtml, browserHtml]) {
+      for (const [key, defaultValue] of [['platformKey', 'null'], ['uniqueId', 'worker']]) {
+        const label = html.match(new RegExp('<label>' + key + '[\\s\\S]*?</label>'))?.[0];
+        assert.ok(label, 'Missing ' + key + ' control');
+        assert.match(label, new RegExp('default: ' + defaultValue));
+        assert.doesNotMatch(label, /\brequired\b|Required\./);
+      }
+      assert.match(html, /<input[^>]*data-config-path="host"[^>]*\brequired\b/);
+    }
+    const bindingSource = deploymentHtml.slice(deploymentHtml.indexOf('function activeCatalogId('), deploymentHtml.indexOf('function clearAnyValiErrors('));
+    const applyBindings = new Function('vaultPluginCatalog', 'anyValiForms', bindingSource + '; return applyAnyValiBindings;')(
+      { rabbit: { schema: rabbitIdentity.export('extended') } }, await import('anyvali/forms'),
+    );
+    const fields = Object.keys(root.properties).map(key => ({
+      dataset: { configPath: key }, attributes: new Map(),
+      hasAttribute(name) { return this.attributes.has(name); },
+      setAttribute(name, value) { this.attributes.set(name, value); },
+    }));
+    applyBindings({
+      dataset: { currentCatalogId: 'rabbit', anyvaliPrefix: 'test', anyvaliEvents: 'true' },
+      querySelectorAll(selector) { return selector === '[data-config-path]' ? fields : fields.map(field => ({ dataset: { anyvaliErrorFor: field.dataset.configPath } })); },
+    });
+    assert.ok(fields.every(field => !field.hasAttribute('required')));
     assert.match(deploymentHtml, /data-optional-field="token"/);
     assert.match(deploymentHtml, /Enable token/);
     assert.match(deploymentHtml, /Enable this field to send it; disable it to omit it/);
@@ -581,6 +635,16 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(appConfigHtml, /Deployment Group Config/);
     assert.match(appConfigHtml, /<details class="plugin-card"><summary><span>Add Shared Plugin/);
     assert.doesNotMatch(appConfigHtml, /<section><h3>Add Shared Plugin/);
+    assert.match(appConfigHtml, /name="sourceType" value="shared"/);
+    assert.match(appConfigHtml, /value="shared:app-profile-2"\s*>Shared: Other App \/ staging/);
+    assert.match(appConfigHtml, /value="deployment:profile-2"\s*>Deployment: Other App \/ worker \/ default/);
+    assert.doesNotMatch(appConfigHtml, /value="shared:app-profile-1"/);
+    for (const [name, compatible, incompatible] of [['shared', 'profile-2', 'other-csharp'], ['native', 'other-csharp', 'profile-2']]) {
+      const copyForm = [...appConfigHtml.matchAll(/<form data-api="\/api\/profile-plugins\/copy"[\s\S]*?<\/form>/g)]
+        .map(match => match[0]).find(form => form.includes(`name="name" value="${name}"`));
+      assert.ok(copyForm?.includes(`value="deployment:${compatible}"`));
+      assert.ok(!copyForm.includes(`value="deployment:${incompatible}"`));
+    }
     assert.doesNotMatch(appConfigHtml, /name="catalogId"/);
     assert.doesNotMatch(appConfigHtml, /name="lockVersion"/);
     assert.match(appConfigHtml, /Unpublished changes/);
@@ -794,7 +858,7 @@ module.exports = async ({ pluginRoot }) => {
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'shared', 'service-api', { host: 'service-specific' }],
       ['upsertProfilePlugin', 'user-1', 'profile-1', 'services', 'api', 'service-api', { host: '0.0.0.0', port: 3200 }],
       ['removeProfilePlugin', 'user-1', 'profile-1', 'services', 'api'],
-      ['copyProfilePlugin', 'user-1', 'profile-1', 'profile-2', 'services', 'api', true],
+      ['copyProfilePlugin', 'user-1', 'profile-1', 'profile-2', 'services', 'api', true, 'deployment', undefined],
       ['upsertApplicationProfilePlugin', 'user-1', 'app-profile-1', 'services', 'shared', 'service-api', { host: 'shared' }],
       ['removeApplicationProfilePlugin', 'user-1', 'app-profile-1', 'services', 'shared'],
       ['publishApplicationProfileDraft', 'user-1', 'app-profile-1'],
@@ -807,6 +871,31 @@ module.exports = async ({ pluginRoot }) => {
       ['updateProfile', 'user-1', 'profile-1', 'group-1', 'prod'],
       ['deleteProfile', 'user-1', 'profile-1'],
     ]);
+    for (const [sourceType, targetType] of [['shared', 'shared'], ['shared', 'deployment'], ['deployment', 'shared'], ['deployment', 'deployment']]) {
+      const sourceProfileId = sourceType === 'shared' ? 'app-profile-1' : 'profile-1';
+      await postJson(port, '/api/profile-plugins/copy', {
+        sourceProfileId, sourceType, target: `${targetType}:destination`,
+        section: 'events', name: 'rabbit', overwrite: false,
+      });
+      assert.deepEqual(calls.at(-1), ['copyProfilePlugin', 'user-1', sourceProfileId, 'destination', 'events', 'rabbit', false, sourceType, targetType]);
+    }
+    const sharedCopyBody = { sourceProfileId: 'app-profile-1', sourceType: 'shared', target: 'shared:destination', section: 'events', name: 'rabbit' };
+    const conflict = await fetch(`http://127.0.0.1:${port}/api/profile-plugins/copy`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie: 'vault_session=session', 'x-csrf-token': 'csrf-token' },
+      body: JSON.stringify({ ...sharedCopyBody, target: 'shared:changed-draft' }),
+    });
+    assert.equal(conflict.status, 409);
+    for (const body of [{ sourceType: 'invalid' }, { target: 'invalid:destination' }, { target: 'shared:bad/id' }, { targetProfileId: 'ambiguous-target' }]) {
+      const response = await fetch(`http://127.0.0.1:${port}/api/profile-plugins/copy`, {
+        method: 'POST', headers: { 'content-type': 'application/json', cookie: 'vault_session=session', 'x-csrf-token': 'csrf-token' },
+        body: JSON.stringify({ ...sharedCopyBody, ...body }),
+      });
+      assert.equal(response.status, 400);
+    }
+    const forbiddenCopy = await fetch(`http://127.0.0.1:${port}/api/profile-plugins/copy`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie: 'vault_session=session' }, body: JSON.stringify(sharedCopyBody),
+    });
+    assert.equal(forbiddenCopy.status, 403);
     assert.ok(spans.length > 1);
     assert.equal(spans.filter((span) => span.name === 'vault.http.request').every((span) => span.ended), true);
     assert.equal(spans.filter((span) => span.name === 'vault.http.request').every((span) => typeof span.endAttributes['http.response.status_code'] === 'number'), true);

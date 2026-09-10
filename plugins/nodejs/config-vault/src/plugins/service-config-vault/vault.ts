@@ -836,21 +836,21 @@ export class VaultService {
     return deleted;
   }
 
-  async saveDraft(userId: string, profileId: string, config: VaultRuntimeConfig): Promise<void> {
+  async saveDraft(userId: string, profileId: string, config: VaultRuntimeConfig, expectedIv?: string | null): Promise<void> {
     const encrypted = this.encrypt(config, profileDraftAad(profileId));
     await this.store.upsertDraft({
       id: newId(),
       profileId,
       ...encrypted,
       updatedAt: new Date().toISOString(),
-    });
+    }, expectedIv);
     await this.audit(userId, 'config.draft.save', profileId, {});
   }
 
-  async saveProfileDraft(userId: string, profileId: string, config: RuntimeConfigDefinition): Promise<void> {
+  async saveProfileDraft(userId: string, profileId: string, config: RuntimeConfigDefinition, expectedIv?: string | null): Promise<void> {
     const binding = await this.store.resolveProfileBinding(profileId);
     if (!binding) throw new Error('Deployment profile not found');
-    await this.saveDraft(userId, profileId, { [binding.profile.name]: config });
+    await this.saveDraft(userId, profileId, { [binding.profile.name]: config }, expectedIv);
   }
 
   async ensureApplicationProfile(applicationId: string, name: string, userId?: string): Promise<ApplicationProfileRecord> {
@@ -869,7 +869,7 @@ export class VaultService {
     return created;
   }
 
-  async saveApplicationProfileDraft(userId: string, applicationProfileId: string, config: RuntimeConfigDefinition): Promise<void> {
+  async saveApplicationProfileDraft(userId: string, applicationProfileId: string, config: RuntimeConfigDefinition, expectedIv?: string | null): Promise<void> {
     const profile = await this.store.getApplicationProfileById(applicationProfileId);
     if (!profile) throw new Error('Application profile not found');
     const encrypted = this.encrypt({ [profile.name]: config }, applicationDraftAad(applicationProfileId));
@@ -878,7 +878,7 @@ export class VaultService {
       applicationProfileId,
       ...encrypted,
       updatedAt: new Date().toISOString(),
-    });
+    }, expectedIv);
     await this.audit(userId, 'application-config.draft.save', applicationProfileId, {});
   }
 
@@ -1133,25 +1133,45 @@ export class VaultService {
     input: {
       sourceProfileId: string;
       targetProfileId: string;
+      sourceType?: 'deployment' | 'shared';
+      targetType?: 'deployment' | 'shared';
       section: 'services' | 'events' | 'observable';
       name: string;
       overwrite: boolean;
     },
   ): Promise<void> {
-    const sourceDraft = await this.getProfileDraft(input.sourceProfileId) ?? { observable: {}, events: {}, services: {} };
-    const source = sourceDraft[input.section]?.[input.name];
+    validateConfigName(input.name);
+    const sourceShared = input.sourceType === 'shared';
+    const targetShared = input.targetType === 'shared';
+    if (sourceShared === targetShared && input.sourceProfileId === input.targetProfileId) throw new Error('Source and target profiles must differ');
+    const sourceDraft = await (sourceShared ? this.getApplicationProfileDraft(input.sourceProfileId) : this.getProfileDraft(input.sourceProfileId));
+    const source = sourceDraft?.[input.section]?.[input.name];
     if (!source) throw new Error('Source plugin config not found');
-    const binding = await this.store.resolveProfileBinding(input.targetProfileId);
-    if (!binding) throw new Error('Target deployment profile not found');
-    normalizeRuntimeSection({ [input.name]: source }, input.section, await this.store.listPlugins(), binding.profile.language ?? 'nodejs');
-    const targetDraft = await this.getProfileDraft(input.targetProfileId) ?? { observable: {}, events: {}, services: {} };
+    const sourceLanguage = source.language ?? 'nodejs';
+    const targetProfile = targetShared
+      ? await this.store.getApplicationProfileById(input.targetProfileId)
+      : (await this.store.resolveProfileBinding(input.targetProfileId))?.profile;
+    if (!targetProfile) throw new Error('Target profile not found');
+    let targetLanguage = sourceLanguage;
+    if (!targetShared) {
+      targetLanguage = (targetProfile as ProfileRecord).language ?? 'nodejs';
+      if (targetLanguage !== sourceLanguage) throw new Error(`Plugin ${source.plugin} requires ${sourceLanguage}; deployment language must match (got ${targetLanguage})`);
+    }
+    normalizeRuntimeSection({ [input.name]: source }, input.section, await this.store.listPlugins(), targetLanguage);
+    const targetRecord = await (targetShared ? this.store.getApplicationDraft(input.targetProfileId) : this.store.getDraft(input.targetProfileId));
+    const targetAad = targetShared ? applicationDraftAad(input.targetProfileId) : profileDraftAad(input.targetProfileId);
+    const targetDraft = (targetRecord ? this.decrypt<VaultRuntimeConfig>(targetRecord, targetAad)[targetProfile.name] : null) ?? { observable: {}, events: {}, services: {} };
     const section = targetDraft[input.section] ?? {};
+    if (section[input.name] && (section[input.name].language ?? 'nodejs') !== sourceLanguage) throw new Error(`Target plugin config language must match ${sourceLanguage}`);
     if (section[input.name] && !input.overwrite) throw new Error('Target plugin config already exists');
     section[input.name] = cloneJson(source) as RuntimePluginDefinition;
     targetDraft[input.section] = section;
-    await this.saveProfileDraft(userId, input.targetProfileId, targetDraft);
-    await this.audit(userId, 'config.plugin.copy', input.targetProfileId, {
+    // Encryption generates a fresh IV on every write, so it also identifies this draft revision.
+    if (targetShared) await this.saveApplicationProfileDraft(userId, input.targetProfileId, targetDraft, targetRecord?.iv ?? null);
+    else await this.saveProfileDraft(userId, input.targetProfileId, targetDraft, targetRecord?.iv ?? null);
+    await this.audit(userId, targetShared ? 'application-config.plugin.copy' : 'config.plugin.copy', input.targetProfileId, {
       sourceProfileId: input.sourceProfileId,
+      sourceType: input.sourceType ?? 'deployment',
       section: input.section,
       name: input.name,
       overwrite: input.overwrite,
@@ -1490,6 +1510,7 @@ export class VaultService {
     groups: GroupRecord[];
     applications: ApplicationRecord[];
     applicationProfiles: ApplicationProfileRecord[];
+    allApplicationProfiles: ApplicationProfileRecord[];
     inheritedDraft: RuntimeConfigDefinition | null;
     configState: ConfigState;
     inheritedConfigState: ConfigState;
@@ -1509,6 +1530,7 @@ export class VaultService {
       groups: await this.store.listAllGroups(),
       applications: await this.store.listApplications(),
       applicationProfiles: await this.store.listApplicationProfiles(binding.application.id),
+      allApplicationProfiles: await this.store.listAllApplicationProfiles(),
       plugins: (await this.store.listPlugins()).filter(plugin => (plugin.language ?? 'nodejs') === (binding.profile.language ?? 'nodejs')),
       draft: await this.getProfileDraft(profileId),
       inheritedDraft: await this.getApplicationProfileDraft(applicationProfile.id),
@@ -1522,6 +1544,10 @@ export class VaultService {
     application: ApplicationRecord;
     applicationProfile: ApplicationProfileRecord;
     applicationProfiles: ApplicationProfileRecord[];
+    allApplicationProfiles: ApplicationProfileRecord[];
+    allProfiles: ProfileRecord[];
+    applications: ApplicationRecord[];
+    groups: GroupRecord[];
     plugins: PluginCatalogRecord[];
     draft: RuntimeConfigDefinition | null;
     configState: ConfigState;
@@ -1533,6 +1559,10 @@ export class VaultService {
       application,
       applicationProfile,
       applicationProfiles: await this.store.listApplicationProfiles(applicationId),
+      allApplicationProfiles: await this.store.listAllApplicationProfiles(),
+      allProfiles: await this.store.listAllProfiles(),
+      applications: await this.store.listApplications(),
+      groups: await this.store.listAllGroups(),
       plugins: await this.store.listPlugins(),
       draft: await this.getApplicationProfileDraft(applicationProfile.id),
       configState: await this.applicationConfigState(applicationProfile),
