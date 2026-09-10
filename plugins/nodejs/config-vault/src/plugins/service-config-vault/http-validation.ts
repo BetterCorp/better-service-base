@@ -103,6 +103,7 @@ export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
   '/api/runtime-keys/rotate': strict({ keyId: av.string().maxLength(64).pattern('^vk_[A-Za-z0-9_-]+$'), name: optionalText(100) }),
   '/api/runtime-keys': strict({ name: requiredText(100), profileId: uuid, containerName: optionalText(255) }),
   '/api/users/deactivate': strict({ userId: uuid }),
+  '/api/auth-blocks/clear': strict({ subjectHash: av.string().pattern('^[A-Za-z0-9_-]{43}$').maxLength(43) }),
   '/api/users/reset': strict({ userId: uuid }),
   '/api/users': strict({ email: av.string().maxLength(254).format('email') }),
   '/api/auth-methods/start': strict({ label: requiredText(100) }),

@@ -24,11 +24,27 @@ try {
       created_at timestamptz not null, rotated_at timestamptz not null);
     insert into vault_plugin_catalog values ('old','acme','Worker','service-worker','@acme/worker','1.0.0','service','manual',null,null,now());
     insert into vault_plugin_publishers values ('service-worker','acme','Worker','@acme/worker','service','node-token','hash',now(),now());
+    create table vault_auth_attempts (subject_hash text primary key, failure_count integer not null, reset_at timestamptz not null);
+    insert into vault_auth_attempts values ('legacy-block',5,now() + interval '5 minutes');
   `);
   await store.init();
   assert.equal((await store.listPlugins())[0].language, 'nodejs');
   assert.equal((await store.getPluginPublisher('service-worker')).tokenId, 'node-token');
   await Promise.all([store.init(), other.init()]);
+  assert.equal((await store.listAuthenticationBlocks())[0].subject, null);
+  for (let i = 0; i < 4; i++) await store.recordAuthenticationFailure('below-limit', 'login:below@example.com');
+  assert.equal(await store.authenticationAllowed('below-limit'), true);
+  assert.equal((await store.listAuthenticationBlocks()).length, 1);
+  await Promise.all(Array.from({ length: 5 }, (_, i) => (i % 2 ? store : other).recordAuthenticationFailure('blocked', 'runtime:vk_example')));
+  assert.equal(await other.authenticationAllowed('blocked'), false);
+  assert.deepEqual((await store.listAuthenticationBlocks()).find(row => row.subjectHash === 'blocked').failureCount, 5);
+  assert.equal((await store.listAuthenticationBlocks()).find(row => row.subjectHash === 'blocked').subject, 'runtime:vk_example');
+  await store.clearAuthenticationFailures('blocked');
+  assert.equal(await other.authenticationAllowed('blocked'), true);
+  assert.equal(await other.authenticationAllowed('legacy-block'), false);
+  await database.query("update vault_auth_attempts set reset_at = now() - interval '1 second'");
+  assert.deepEqual(await store.listAuthenticationBlocks(), []);
+  console.log('PASS: auth block migration, threshold, concurrent failures, expiry and shared force-clear state');
   const now = new Date().toISOString();
   for (const language of ['csharp', 'python', 'go', 'rust']) {
     const plugin = { id: language, org: 'acme', name: 'Worker', pluginId: 'service-worker', packageName: `${language}-worker`,

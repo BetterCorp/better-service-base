@@ -58,6 +58,7 @@ module.exports = async ({ pluginRoot }) => {
   });
   await new Promise((resolve) => registryServer.listen(registryPort, '127.0.0.1', resolve));
   const calls = [];
+  const authBlocks = [{ subjectHash: 'A'.repeat(43), subject: 'login:<script>example</script>', failureCount: 5, resetAt: '2026-09-10T22:00:00.000Z' }];
   const runtimeTraceIds = [];
   const spans = [];
   const logs = [];
@@ -105,6 +106,11 @@ module.exports = async ({ pluginRoot }) => {
     obs: createTrace('test-root'),
     createTrace,
     vault: {
+      async authenticationBlocks() { return authBlocks; },
+      async clearAuthenticationBlock(userId, subjectHash) {
+        calls.push(['clearAuthenticationBlock', userId, subjectHash]);
+        authBlocks.splice(0);
+      },
       async assertAuditWritable() {},
       async auditMutationIntent() { return 'mutation-1'; },
       async setupRequired() {
@@ -263,6 +269,7 @@ module.exports = async ({ pluginRoot }) => {
               kind: 'object',
               properties: {
                 host: { kind: 'string', metadata: { description: 'HTTP host' } },
+                network: { kind: 'object', properties: { retry: { kind: 'object', properties: { attempts: { kind: 'int', default: 3 } } } } },
                 ...rabbitIdentity.export('extended').root.properties,
                 port: { kind: 'int32', default: 3200, metadata: { description: 'HTTP port' } },
                 enabled: { kind: 'bool', metadata: { description: 'Feature enabled' } },
@@ -517,6 +524,32 @@ module.exports = async ({ pluginRoot }) => {
     assert.match(applicationsHtml, /\/api\/applications\/delete/);
     assert.match(applicationsHtml, /Deployment Group Config/);
 
+    const blockedPage = await fetch(`http://127.0.0.1:${port}/auth-blocks`, {
+      headers: { cookie: 'vault_session=session' },
+    });
+    assert.equal(blockedPage.status, 200);
+    const blockedHtml = await blockedPage.text();
+    assertScriptsParse(blockedHtml);
+    assert.match(blockedHtml, /Active auth blocks \(1\)/);
+    assert.match(blockedHtml, /login:&lt;script&gt;example&lt;\/script&gt;/);
+    assert.match(blockedHtml, /Force Clear/);
+    assert.match(blockedHtml, /2026-09-10T22:00:00.000Z/);
+    const anonymousBlockedPage = await fetch(`http://127.0.0.1:${port}/auth-blocks`, { redirect: 'manual' });
+    assert.equal(anonymousBlockedPage.status, 302);
+    const clearUrl = `http://127.0.0.1:${port}/api/auth-blocks/clear`;
+    const clearBody = JSON.stringify({ subjectHash: 'A'.repeat(43) });
+    for (const [headers, expected] of [[{}, 401], [{ cookie: 'vault_session=session' }, 403], [{ cookie: 'vault_session=session', 'x-csrf-token': 'csrf-token' }, 200]]) {
+      const cleared = await fetch(clearUrl, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: clearBody });
+      assert.equal(cleared.status, expected);
+      if (expected !== 200) assert.equal(authBlocks.length, 1);
+    }
+    assert.deepEqual(calls.at(-1), ['clearAuthenticationBlock', 'user-1', 'A'.repeat(43)]);
+    assert.equal((await fetch(clearUrl, { redirect: 'manual' })).status, 405);
+    const invalidClear = await fetch(clearUrl, { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'vault_session=session', 'x-csrf-token': 'csrf-token' }, body: JSON.stringify({ subjectHash: '../invalid' }) });
+    assert.equal(invalidClear.status, 400);
+    const emptyBlocks = await fetch(`http://127.0.0.1:${port}/auth-blocks`, { headers: { cookie: 'vault_session=session' } });
+    assert.match(await emptyBlocks.text(), /No active authentication blocks/);
+
     const deployments = await fetch(`http://127.0.0.1:${port}/deployments`, {
       headers: { cookie: 'vault_session=session; vault_csrf=csrf-token' },
     });
@@ -535,6 +568,11 @@ module.exports = async ({ pluginRoot }) => {
     assert.equal(deployment.status, 200);
     assertScriptsParse(deploymentHtml);
     assert.match(deploymentHtml, /Profile Config/);
+    assert.match(deploymentHtml, /data-config-explorer/);
+    assert.match(deploymentHtml, /data-config-source="Local config"/);
+    assert.match(deploymentHtml, /data-config-source="Inherited config"/);
+    assert.match(deploymentHtml, /data-config-group="network.retry"/);
+    assert.ok(deploymentHtml.indexOf('data-config-explorer>') < deploymentHtml.indexOf('<h2>Create Profile'));
     assert.match(deploymentHtml, /state-badge live">Enabled/);
     assert.match(deploymentHtml, /state-badge disabled">Disabled/);
     assert.match(deploymentHtml, /state-badge disabled">Locked/);
@@ -589,6 +627,15 @@ module.exports = async ({ pluginRoot }) => {
     // Exercise server-rendered edits and the actual browser renderer used for new plugins.
     const clientSource = deploymentHtml.slice(deploymentHtml.indexOf('function escapeClient('), deploymentHtml.indexOf('function readCurrentConfig('));
     const renderFields = new Function(clientSource + '; return renderFields;')();
+    const exampleHtml = renderFields({ credentials: { kind: 'record', values: { kind: 'string', default: 'do-not-expose', metadata: { sensitive: true } } } });
+    for (const html of [deploymentHtml, exampleHtml]) {
+      assert.match(html, /Example JSON structure/);
+      assert.match(html, /&quot;key&quot;: &quot;REPLACE_ME&quot;/);
+      assert.doesNotMatch(html, /do-not-expose/);
+    }
+    const escapedExample = renderFields({ values: { kind: 'tuple', items: [{ kind: 'literal', value: '</code><script>alert(1)</script>' }, { kind: 'string', metadata: { sensitive: true } }] } });
+    assert.match(escapedExample, /&lt;\/code&gt;&lt;script&gt;/);
+    assert.doesNotMatch(escapedExample, /<script>/);
     const root = rabbitIdentity.export('extended').root;
     const browserHtml = renderFields({ ...root.properties, host: { kind: 'string' } }, '', [...root.required, 'host']);
     for (const html of [deploymentHtml, browserHtml]) {
@@ -632,6 +679,8 @@ module.exports = async ({ pluginRoot }) => {
     });
     const appConfigHtml = await appConfig.text();
     assert.equal(appConfig.status, 200);
+    assertScriptsParse(appConfigHtml);
+    assert.match(appConfigHtml, /data-config-source="Shared config"/);
     assert.match(appConfigHtml, /Deployment Group Config/);
     assert.match(appConfigHtml, /<details class="plugin-card"><summary><span>Add Shared Plugin/);
     assert.doesNotMatch(appConfigHtml, /<section><h3>Add Shared Plugin/);
@@ -843,6 +892,7 @@ module.exports = async ({ pluginRoot }) => {
     assert.ok(registryAuthorization.length >= 2);
     assert.ok(registryAuthorization.every((value) => value === 'Bearer vault-registry-token'));
     assert.deepEqual(calls, [
+      ['clearAuthenticationBlock', 'user-1', 'A'.repeat(43)],
       ...Object.entries(publicationPackages).map(([language, packageName]) =>
         ['publishPrivatePlugin', 'bv_p_test', 'service-private', '1.1.0', language, { [language]: packageName }]),
       ['createPrivatePlugin', 'user-1', 'service-private.json'],

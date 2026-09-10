@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Vault explorer browser checks</title>
+<style>body{font:16px system-ui;margin:20px}iframe{width:100%;height:720px;border:1px solid #ccc}</style>
+<h1>Vault explorer browser checks</h1>
+<p>Run <code>node plugins/nodejs/config-vault/scripts/preview-config-explorer.mjs</code> after building Vault.</p>
+<p><a href="/deployment">Deployment preview</a> · <a href="/application-config">Shared preview</a></p>
+<pre id="result">Running…</pre><iframe title="Configuration preview" src="/deployment"></iframe>
+<script>
+const frame = document.querySelector('iframe');
+if (new URLSearchParams(location.search).has('mobile')) frame.style.width = '390px';
+const result = document.querySelector('#result');
+frame.onload = async () => {
+  try {
+    const doc = frame.contentDocument;
+    const win = frame.contentWindow;
+    const assert = (value, message) => { if (!value) throw new Error(message); };
+    const nav = () => [...doc.querySelectorAll('[data-config-tree] button[aria-controls]')];
+    const choose = (name) => { const button = nav().find(b => b.textContent === name); assert(button, 'Missing ' + name); button.click(); };
+    const current = () => [...doc.querySelectorAll('.config-editors .plugin-card')].filter(c => !c.hidden);
+    assert(doc.documentElement.scrollWidth <= doc.documentElement.clientWidth, 'Layout fits viewport');
+    assert(current().length === 1, 'Exactly one editor visible');
+    assert(nav().find(b => b.textContent === 'api').getAttribute('aria-current') === 'true', 'Select first existing config');
+    const original = current()[0];
+    const host = original.querySelector('[data-config-path="host"]');
+    host.value = 'unsaved.example';
+    host.dispatchEvent(new win.Event('input', { bubbles: true }));
+    choose('worker');
+    choose('api (unsaved)');
+    assert(current()[0] === original && host.value === 'unsaved.example', 'Retain form and edits while switching');
+    assert([...doc.querySelectorAll('.config-outline button')].some(b => b.textContent === 'network.retry'), 'Nested object navigation');
+    const search = doc.querySelector('[data-config-navigation] input');
+    search.value = 'no-config-matches';
+    search.dispatchEvent(new win.Event('input'));
+    assert(!doc.querySelector('[data-config-empty]').hidden, 'No-results state');
+    assert(current()[0] === original, 'Search never discards the active editor');
+    search.value = 'inherited';
+    search.dispatchEvent(new win.Event('input'));
+    assert(nav().filter(b => !b.parentElement.hidden).length === 1, 'Search by parent/source');
+    search.value = '';
+    search.dispatchEvent(new win.Event('input'));
+    choose('shared');
+    assert(current()[0].querySelector('[data-inherited-override-form]'), 'Inherited editor retains override form');
+    choose('Add Plugin');
+    assert(current()[0].querySelector('[data-plugin-picker]'), 'Add config remains accessible');
+    const leave = new win.Event('beforeunload', { cancelable: true });
+    win.dispatchEvent(leave);
+    assert(leave.defaultPrevented, 'Protect unsaved edits on page navigation');
+    original.querySelector('form[data-api="/api/profile-plugins/copy"]').dispatchEvent(new win.Event('vault:saved', { bubbles: true }));
+    const copied = new win.Event('beforeunload', { cancelable: true });
+    win.dispatchEvent(copied);
+    assert(copied.defaultPrevented, 'Copy does not clear unsaved config edits');
+    original.querySelector('form').dispatchEvent(new win.Event('vault:saved', { bubbles: true }));
+    const saved = new win.Event('beforeunload', { cancelable: true });
+    win.dispatchEvent(saved);
+    assert(!saved.defaultPrevented, 'Successful save clears dirty state');
+    original.querySelector('form[data-api="/api/profile-plugins/copy"] select').dispatchEvent(new win.Event('input', { bubbles: true }));
+    const destinationOnly = new win.Event('beforeunload', { cancelable: true });
+    win.dispatchEvent(destinationOnly);
+    assert(!destinationOnly.defaultPrevented, 'Copy destination selection is not a config edit');
+    assert(!doc.documentElement.innerHTML.includes('must-stay-secret'), 'Stored credentials stay redacted');
+    result.textContent = 'PASS: selection, retained edits, nested groups, search, inheritance, adding, unsaved protection, secret redaction';
+    choose('api');
+  } catch (error) { result.textContent = 'FAIL: ' + error.message; }
+};
+</script></html>

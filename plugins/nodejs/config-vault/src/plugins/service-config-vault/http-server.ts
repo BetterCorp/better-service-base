@@ -1,4 +1,5 @@
-import { unwrapSchema, isSensitiveSchema, sensitiveSchemaPaths } from './schema-secrets.js';
+import { initConfigExplorer } from './config-explorer.js';
+import { unwrapSchema, isSensitiveSchema, sensitiveSchemaPaths, schemaJsonExample } from './schema-secrets.js';
 import { PLUGIN_LANGUAGES, normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
@@ -35,7 +36,7 @@ const anyValiBrowserRoot = dirname(fileURLToPath(import.meta.resolve('anyvali'))
 const getOnlyPaths = new Set([
   '/health', '/health/live', '/health/ready', '/login', '/user-setup', '/passkeys/setup', '/',
   '/applications', '/users', '/audit', '/application-config', '/deployments', '/deployment',
-  '/configs', '/runtime-keys', '/plugins', '/profile',
+  '/configs', '/runtime-keys', '/plugins', '/profile', '/auth-blocks',
 ]);
 
 export interface VaultHttpOptions {
@@ -647,6 +648,13 @@ export class VaultHttpServer {
       return { success: true };
     }));
 
+    app.use('/api/auth-blocks/clear', defineEventHandler(async (event) => {
+      const user = await this.requireUser(event);
+      const body = await readBody<Record<string, unknown>>(event);
+      await this.options.vault.clearAuthenticationBlock(user.userId, String(body.subjectHash ?? ''));
+      return { success: true };
+    }));
+
     app.use('/api/users/reset', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -694,6 +702,11 @@ export class VaultHttpServer {
       const query = getQuery(event);
       const before = Number(query.before);
       return this.page(event, 'Audit Log', auditPage(await this.options.vault.auditLog(Number.isFinite(before) ? before : undefined)), 'audit');
+    }));
+
+    app.use('/auth-blocks', defineEventHandler(async (event) => {
+      await this.requireUser(event);
+      return this.page(event, 'Blocked Requests', authenticationBlocksPage(await this.options.vault.authenticationBlocks()), 'auth-blocks');
     }));
 
     app.use('/application-config', defineEventHandler(async (event) => {
@@ -900,7 +913,7 @@ function hashToken(value: string): string {
   return createHash('sha256').update(value).digest('base64url');
 }
 
-type NavItem = 'overview' | 'applications' | 'deployments' | 'runtime-keys' | 'plugins' | 'users' | 'audit' | 'profile';
+type NavItem = 'overview' | 'applications' | 'deployments' | 'runtime-keys' | 'plugins' | 'users' | 'audit' | 'profile' | 'auth-blocks';
 type DashboardData = Awaited<ReturnType<VaultService['dashboard']>>;
 type UserProfileData = Awaited<ReturnType<VaultService['userProfile']>>;
 type DeploymentProfileData = Awaited<ReturnType<VaultService['deploymentProfile']>>;
@@ -963,11 +976,24 @@ function html(title: string, body: string, active: NavItem, authenticated: boole
     .schema-help{display:block;color:var(--muted);font-size:12px;font-weight:500;margin:-6px 0 10px}.schema-help.danger{color:var(--danger)}.schema-meta{color:var(--muted);font-size:12px;font-weight:500}.schema-meta.overrideable{display:inline-block;border:1px solid #fedf89;border-radius:999px;background:#fffaeb;color:#b54708;padding:1px 6px}
     .schema-optional,.schema-override{border-left:3px solid #d0d5dd;margin:12px 0;padding-left:10px}.schema-override{border-left-color:#84c5a8}.schema-toggle{display:flex;gap:8px;align-items:center;margin:0 0 8px}.schema-toggle input{width:auto;margin:0}
     .schema-repeat{border:1px solid #edf0f5;border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.repeat-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:start}.schema-repeat[data-array-path] .repeat-row{grid-template-columns:minmax(0,1fr) auto}
+    .schema-json-example pre{max-height:320px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;border:1px solid var(--line);border-radius:6px;background:#f9fafb;font-size:12px}
     .schema-union{border:1px solid var(--line);border-radius:6px;margin:12px 0;padding:10px;background:#fbfcfe}.schema-union-panel[hidden]{display:none}
     details.plugin-card{border:1px solid var(--line);border-radius:6px;margin:10px 0;background:#fff}details.plugin-card>summary{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer;padding:12px 14px;font-weight:750;color:#344054}.plugin-card-body{border-top:1px solid var(--line);padding:14px}.chip{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:650;color:#344054;background:#f9fafb}
     .callout{border:1px solid #fedf89;background:#fffaeb;color:#93370d;border-radius:6px;padding:10px 12px;margin:10px 0;font-size:13px}
     .usage-list{margin:8px 0 0;padding-left:18px}.usage-list a{color:var(--primary);text-decoration:none}.usage-list a:hover{text-decoration:underline}
     .state-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:750;border:1px solid #d0d5dd;background:#f9fafb;color:#344054}.state-badge.live{border-color:#abefc6;background:#ecfdf3;color:#067647}.state-badge.disabled{border-color:#fecdca;background:#fef3f2;color:#b42318}.state-badge.pending,.state-badge.draft{border-color:#fedf89;background:#fffaeb;color:#b54708}.state-badge.empty{border-color:#d0d5dd;background:#f9fafb;color:#637083}
+    .config-explorer-ready{display:grid;grid-template-columns:260px minmax(0,1fr);border:1px solid var(--line);border-radius:8px;background:#fff;align-items:start}
+    [data-config-navigation]{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding:14px;background:#f9fafb;border-right:1px solid var(--line);border-radius:8px 0 0 8px;min-width:0}
+    [data-config-navigation] label{margin-top:0}[data-config-tree] summary{padding:9px 0;cursor:pointer;font-size:13px;font-weight:700;color:#475467}
+    [data-config-tree] [data-category]{margin-left:12px}[data-config-tree] button{display:block;width:100%;text-align:left;overflow-wrap:anywhere;border-radius:4px;padding:8px 10px;min-height:34px;font-size:13px;background:transparent;color:#344054;font-weight:500}
+    [data-config-tree] button[aria-current="true"]{background:#eaf1ff;color:#155eef;font-weight:700}[data-config-tree] button:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+    .config-outline{margin-left:14px;border-left:1px solid var(--line)}[data-config-tree] .config-outline button{font-size:12px;color:var(--muted)}
+    .config-explorer-ready .config-editors{min-width:0;padding:18px}.config-explorer-ready .config-editors section{border:0;padding:0}.config-explorer-ready .config-editors section>h3{display:none}
+    .config-explorer-ready details.plugin-card{margin:0;border:0}.config-explorer-ready details.plugin-card>summary{padding:0 0 14px;flex-wrap:wrap}.config-explorer-ready .plugin-card-body{padding:14px 0 0}
+    .config-context{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 20px;padding:12px 0;border-bottom:1px solid var(--line)}.config-context>div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .config-management{margin:20px 0}.config-management>summary{cursor:pointer;font-weight:650;padding:12px 0}[data-config-group]{scroll-margin-top:16px}
+    @media(max-width:1100px){.config-explorer-ready{grid-template-columns:210px minmax(0,1fr)}}
+    @media(max-width:760px){.config-explorer-ready{grid-template-columns:minmax(0,1fr)}[data-config-navigation]{position:static;max-height:280px;border-right:0;border-bottom:1px solid var(--line)}.repeat-row{grid-template-columns:minmax(0,1fr)}.config-explorer-ready .form-grid{grid-template-columns:minmax(0,1fr)}}
     footer{padding:14px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
     @media(max-width:760px){.shell{display:block}nav{border-right:0;border-bottom:1px solid var(--line)}main{padding:16px}.page-head{display:block}}
   </style>
@@ -1051,6 +1077,7 @@ function nav(active: NavItem): string {
     ['plugins', 'Plugins', '/plugins'],
     ['users', 'Users', '/users'],
     ['audit', 'Audit', '/audit'],
+    ['auth-blocks', 'Blocked Requests', '/auth-blocks'],
     ['profile', 'Profile', '/profile'],
   ];
   return `<nav>${items.map(([id, label, href]) => `<a class="${id === active ? 'active' : ''}" href="${href}">${label}</a>`).join('')}</nav>`;
@@ -1369,15 +1396,26 @@ function deploymentDetailPage(
   return `<div class="page-head"><div><h1>${escapeHtml(data.group.name)}</h1><p class="muted">${escapeHtml(data.application.name)} / ${escapeHtml(data.profile.name)}</p></div><a class="button secondary" href="/deployments">Back</a></div>
   <div class="tabs">${data.profiles.map((profile) => `<a class="${profile.id === data.profile.id ? 'active' : ''}" href="/deployment?profileId=${encodeURIComponent(profile.id)}">${escapeHtml(profile.name)}</a>`).join('')}</div>
   ${credential.secret ? runtimeEnvBlock(credential) : ''}
-  <div class="grid">
-    <section><h2>Deployment Group Config</h2>
-      <p>${configStateBadge(data.inheritedConfigState)} <span class="muted">Inherited from ${escapeHtml(data.application.name)} / ${escapeHtml(data.profile.name)}</span></p>
-      <p><a class="button secondary" href="/application-config?applicationId=${encodeURIComponent(data.application.id)}&profile=${encodeURIComponent(data.profile.name)}">Edit Deployment Group Config</a></p>
-    </section>
-    <section><h2>Deployment Config</h2>
-      <p>${configStateBadge(data.configState)} <span class="muted">Local overrides for this container group.</span></p>
-    </section>
+  <div class="config-context">
+    <div><strong>Deployment Group Config</strong> ${configStateBadge(data.inheritedConfigState)}
+      <span class="muted">Inherited from ${escapeHtml(data.application.name)} / ${escapeHtml(data.profile.name)}</span></div>
+    <a class="button secondary" href="/application-config?applicationId=${encodeURIComponent(data.application.id)}&profile=${encodeURIComponent(data.profile.name)}">Edit Shared Config</a>
   </div>
+  <section><div class="page-head"><div><h2>Profile Config</h2><p>${configStateBadge(data.configState)} <span class="chip">${escapeHtml(data.profile.language ?? 'nodejs')}</span></p></div>
+    <form data-api="/api/publish" data-redirect="${escapeHtml(redirect)}">
+      <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
+      <button class="secondary">Publish Draft</button><p class="status"></p>
+    </form>
+  </div>
+  ${configExplorer(`
+    <div data-config-source="Local config">${profileConfigEditor(data, draft, redirect)}</div>
+    ${hasConfigEntries(inherited) ? `<div data-config-source="Inherited config"><h3>Inherited Config</h3>
+      <p class="muted">These values come from the shared deployment group config. Save an override here to customize any field for this deployment profile.</p>
+      ${inheritedOverrideEditor(data, inherited, draft, redirect)}
+    </div>` : ''}
+  `)}
+  </section>
+  <details class="config-management"><summary>Profiles and container keys</summary>
   <div class="grid">
     <section><h2>Create Profile</h2>
       <form data-api="/api/profiles" data-redirect="${escapeHtml(redirect)}">
@@ -1395,20 +1433,9 @@ function deploymentDetailPage(
       </form>
     </section>
   </div>
-  ${hasConfigEntries(inherited) ? `<section><h2>Inherited Config</h2>
-    <p class="muted">These values come from the shared deployment group config. Save an override here to customize any field for this deployment profile.</p>
-    ${inheritedOverrideEditor(data, inherited, draft, redirect)}
-  </section>` : ''}
-  <section><h2>Profile Config</h2>
-    <p>${configStateBadge(data.configState)}</p>
-    ${profileConfigEditor(data, draft, redirect)}
-    <form data-api="/api/publish" data-redirect="${escapeHtml(redirect)}">
-      <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
-      <button class="secondary">Publish Draft</button><p class="status"></p>
-    </form>
-  </section>
-  ${environmentOverridesSummary(data, inherited, draft)}
   <section><h2>Container Keys</h2>${profileRuntimeKeyTable(data.runtimeKeys, data)}</section>
+  </details>
+  ${environmentOverridesSummary(data, inherited, draft)}
   ${pluginEditorScript(data.plugins)}
   ${formScript()}`;
 }
@@ -1420,11 +1447,11 @@ function applicationConfigPage(data: ApplicationProfileData): string {
   <div class="tabs">${data.applicationProfiles.map((profile) => `<a class="${profile.id === data.applicationProfile.id ? 'active' : ''}" href="/application-config?applicationId=${encodeURIComponent(data.application.id)}&profile=${encodeURIComponent(profile.name)}">${escapeHtml(profile.name)}</a>`).join('')}</div>
   <section><h2>Deployment Group Config</h2>
     <p>${configStateBadge(data.configState)} <span class="muted">Published values are inherited by deployments with the same profile name.</span></p>
-    ${applicationProfileConfigEditor(data, draft, redirect)}
     <form data-api="/api/application-profile-publish" data-redirect="${escapeHtml(redirect)}">
       <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
       <button class="secondary">Publish Shared Draft</button><p class="status"></p>
     </form>
+    ${configExplorer(`<div data-config-source="Shared config">${applicationProfileConfigEditor(data, draft, redirect)}</div>`)}
   </section>
   ${pluginEditorScript(data.plugins)}
   ${formScript()}`;
@@ -1604,6 +1631,17 @@ function usersPage(users: Awaited<ReturnType<VaultService['users']>>): string {
   </td></tr>`).join('')}</table></section>${formScript()}`;
 }
 
+function authenticationBlocksPage(blocks: Awaited<ReturnType<VaultService['authenticationBlocks']>>): string {
+  return `<div class="page-head"><div><h1>Blocked Requests</h1><p class="muted">Authentication is temporarily blocked after five failures within five minutes. Force clear resets the failure counter; valid credentials are still required.</p></div><a class="button secondary" href="/auth-blocks">Refresh</a></div>
+    <section><h2>Active auth blocks (${blocks.length})</h2>
+    ${blocks.length ? `<div style="overflow-x:auto"><table><thead><tr><th>Subject</th><th>Type</th><th>Failures</th><th>Expires (UTC)</th><th>Action</th></tr></thead><tbody>${blocks.map((block) => `<tr>
+      <td>${escapeHtml(block.subject ?? 'Unknown subject (older record)')}<br><small class="muted">${escapeHtml(block.subjectHash)}</small></td>
+      <td><span class="state-badge pending">Temporary</span></td><td>${block.failureCount}</td><td>${escapeHtml(block.resetAt)}</td>
+      <td><form data-api="/api/auth-blocks/clear" data-redirect="/auth-blocks" data-confirm="Clear this auth block and allow another authentication attempt?">
+        <input type="hidden" name="subjectHash" value="${escapeHtml(block.subjectHash)}"><button class="secondary">Force Clear</button><p class="status"></p>
+      </form></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No active authentication blocks.</p>'}</section>${formScript()}`;
+}
+
 function auditPage(data: Awaited<ReturnType<VaultService['auditLog']>>): string {
   const rows = data.entries.map((entry) => `<tr><td>${entry.ordinal ?? ''}</td><td>${escapeHtml(entry.createdAt)}</td><td>${escapeHtml(entry.actorEmail ?? entry.actor)}</td><td>${escapeHtml(entry.action)}</td><td>${escapeHtml(entry.target)}</td><td><code>${escapeHtml(JSON.stringify(entry.details))}</code></td><td>${entry.entryHash ? shortId(entry.entryHash) : 'legacy unsigned'}</td></tr>`).join('');
   return `<div class="page-head"><div><h1>Audit Log</h1><p class="${data.valid ? 'ok' : 'danger'}">${data.valid ? 'Signed chain verified.' : 'Audit integrity verification failed. Administrative mutations are blocked.'}</p></div></div><section><table>${rows}</table></section>`;
@@ -1749,6 +1787,16 @@ function hasConfigEntries(config: RuntimeConfigDefinition): boolean {
   return ['services', 'events', 'observable'].some((section) =>
     Object.keys(config[section as keyof RuntimeConfigDefinition] ?? {}).length > 0
   );
+}
+
+function configExplorer(editors: string): string {
+  return `<div data-config-explorer>
+    <aside data-config-navigation hidden aria-label="Configuration explorer">
+      <label>Find config<input type="search" placeholder="Name, plugin or field" autocomplete="off"></label>
+      <div data-config-tree></div><p class="muted" data-config-empty hidden>No matching configs.</p>
+    </aside>
+    <div class="config-editors">${editors}</div>
+  </div>`;
 }
 
 function profileConfigEditor(data: DeploymentProfileData, draft: RuntimeConfigDefinition, redirect: string): string {
@@ -2205,8 +2253,9 @@ function renderSchemaControl(
   if (sensitive) {
     const isSet = rawValue !== undefined;
     control = `<div class="schema-sensitive" data-sensitive-field="${escapeHtml(path)}"><label>${escapeHtml(key)}<input type="password" data-config-path="${escapeHtml(path)}" data-kind="${node.kind === 'string' ? 'string' : 'json'}" data-sensitive="true" data-secret-set="${isSet}" ${isSet ? 'disabled placeholder="(encrypted value set)"' : inputAttrs(node, required, 'string')}>${node.kind === 'string' ? '' : '<span class="schema-help">Enter the complete value as JSON to replace it.</span>'}</label>${isSet ? '<label class="schema-toggle"><input type="checkbox" data-sensitive-replace>Replace encrypted value</label>' : ''}</div>`;
+    if (node.kind !== 'string') control += `<div class="schema-json-example"><span class="schema-help">Example JSON structure (includes optional fields). Replace placeholders and adjust values for your setup.</span><pre><code>${escapeHtml(JSON.stringify(schemaJsonExample(rawNode), null, 2))}</code></pre></div>`;
   } else if (node.kind === 'object' && objectField(node.properties)) {
-    control = `<fieldset class="schema-box"><legend>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node), false, options)}</fieldset>`;
+    control = `<fieldset class="schema-box" data-config-group="${escapeHtml(path)}"><legend>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}</legend>${help}${renderProperties(node.properties as Record<string, unknown>, isRecord(value) ? value : {}, path, requiredSet(node), false, options)}</fieldset>`;
   } else if (node.kind === 'bool' || node.kind === 'boolean') {
     control = `<label>${fieldLabel(key, rawNode, node, required, options.envOverridePaths?.has(path))}<select data-config-path="${escapeHtml(path)}" data-kind="bool" ${required ? 'required' : ''}><option value="true" ${value === true ? 'selected' : ''}>true</option><option value="false" ${value === false ? 'selected' : ''}>false</option></select>${help}</label>`;
   } else if (node.kind === 'enum' && Array.isArray(node.values)) {
@@ -2544,6 +2593,7 @@ function formScript(): string {
           }
           return;
         }
+        form.dispatchEvent(new Event('vault:saved', { bubbles: true }));
         location.href = form.dataset.redirect || location.pathname;
       } catch (error) {
         if (status) {
@@ -2831,6 +2881,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
     return notes ? '<span class="schema-help">' + escapeClient(notes) + '</span>' : '';
   }
   const isSensitiveClient = ${isSensitiveSchema.toString()};
+  const schemaJsonExample = ${schemaJsonExample.toString()};
   function optionalShellClient(key, path, control) {
     return '<div class="schema-optional" data-optional-field="' + escapeClient(path) + '">'
       + '<label class="schema-toggle"><input type="checkbox" data-optional-toggle>Enable ' + escapeClient(key) + '</label>'
@@ -2874,8 +2925,9 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       let control = '';
       if (sensitive) {
         control = '<label>' + escapeClient(key) + '<input type="password" data-config-path="' + escapeClient(path) + '" data-kind="' + (node.kind === 'string' ? 'string' : 'json') + '" data-sensitive="true"' + (required ? ' required' : '') + '></label>';
+        if (node.kind !== 'string') control += '<div class="schema-json-example"><span class="schema-help">Example JSON structure (includes optional fields). Replace placeholders and adjust values for your setup.</span><pre><code>' + escapeClient(JSON.stringify(schemaJsonExample(rawNode), null, 2)) + '</code></pre></div>';
       } else if (node.kind === 'object' && node.properties) {
-        control = '<fieldset class="schema-box"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties), hideLiteralFields, envOverridePaths) + '</fieldset>';
+        control = '<fieldset class="schema-box" data-config-group="' + escapeClient(path) + '"><legend>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '</legend>' + help + renderFields(node.properties, path, requiredKeysClient(node, node.properties), hideLiteralFields, envOverridePaths) + '</fieldset>';
       } else if (node.kind === 'bool' || node.kind === 'boolean') {
         control = '<label>' + fieldLabelClient(key, rawNode, node, required, overrideable) + '<select data-config-path="' + escapeClient(path) + '" data-kind="bool"' + (required ? ' required' : '') + '><option value="true"' + (node.default === true ? ' selected' : '') + '>true</option><option value="false"' + (node.default === false ? ' selected' : '') + '>false</option></select>' + help + '</label>';
       } else if (node.kind === 'enum' && Array.isArray(node.values)) {
@@ -3108,6 +3160,7 @@ function pluginEditorScript(plugins: DeploymentProfileData['plugins']): string {
       }
     }, { capture: true });
   });
+  (${initConfigExplorer.toString()})();
   </script>`;
 }
 

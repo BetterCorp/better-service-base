@@ -1679,6 +1679,17 @@ export class VaultService {
     return { valid: await this.store.verifyAuditChain(), entries: await this.store.listAudit(100, before) };
   }
 
+  async authenticationBlocks(): ReturnType<VaultStore['listAuthenticationBlocks']> {
+    return this.store.listAuthenticationBlocks();
+  }
+
+  async clearAuthenticationBlock(userId: string, subjectHash: string): Promise<void> {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(subjectHash)) throw new Error('Invalid authentication block ID');
+    await this.auditMutationIntent(userId, `authentication.block.clear:${subjectHash}`);
+    await this.store.clearAuthenticationFailures(subjectHash);
+    await this.audit(userId, 'authentication.block.cleared', subjectHash, {});
+  }
+
   async assertAuditWritable(full = false): Promise<void> {
     await this.store.assertAuditWritable(full);
   }
@@ -1772,7 +1783,8 @@ export class VaultService {
   }
 
   private async recordFailure(key: string): Promise<void> {
-    await this.store.recordAuthenticationFailure(tokenHash(key));
+    // These keys contain an email, public key/user ID, or a hash of an invalid token; never a secret.
+    await this.store.recordAuthenticationFailure(tokenHash(key), key);
   }
 
   private async clearFailures(key: string): Promise<void> {
