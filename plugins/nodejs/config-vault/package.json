@@ -49,7 +49,7 @@
     "@types/node": "^26.5.0",
     "@types/pg": "^8.23.1",
     "rimraf": "^6.0.1",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "bsb": {
     "orgId": "bsb"

@@ -40,7 +40,7 @@
   "devDependencies": {
     "@types/node": "^26.5.0",
     "rimraf": "^6.0.1",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "homepage": "https://io.bsbcode.dev/packages/nodejs/@bsb/observable-zipkin",
   "repository": {

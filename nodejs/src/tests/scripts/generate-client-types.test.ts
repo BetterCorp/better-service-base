@@ -14,7 +14,7 @@ import { bsb } from '../../interfaces/schema-types.js';
 import { generateVirtualClient } from '../../scripts/generate-client-types.js';
 import { clientSchemaCode } from '../../scripts/anyvali-client-schema.js';
 import { importPortableSchema } from '../../interfaces/schema-types.js';
-import * as ts from 'typescript';
+import { stripTypeScriptTypes } from 'node:module';
 
 describe('generate-client-types', () => {
   it('accepts Python wrapper and tuple field names without losing runtime constraints', () => {
@@ -159,9 +159,9 @@ describe('generate-client-types', () => {
     };
     const generated = clientSchemaCode(document, '_Fixture');
     assert.ok(generated.declarations[0].includes('_FixtureDefinition0'));
-    const javascript = ts.transpileModule(`${generated.declarations.join('\n')}\nmodule.exports = ${generated.expression};`, {
-      compilerOptions: { module: ts.ModuleKind.CommonJS },
-    }).outputText;
+    const javascript = stripTypeScriptTypes(
+      `${generated.declarations.join('\n')}\nmodule.exports = ${generated.expression};`
+    );
     const module = { exports: undefined as any };
     new Function('module', 'importPortableSchema', javascript)(module, importPortableSchema);
     assert.deepEqual(module.exports.export().definitions, document.definitions);
