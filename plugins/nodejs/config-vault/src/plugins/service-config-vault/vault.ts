@@ -129,6 +129,31 @@ export class VaultService {
     }
   }
 
+  async migrateConfigNames(): Promise<number> {
+    return this.store.migrateConfigNames((record) => {
+      const aad = encryptedRecordAad(record);
+      const config = this.decrypt<VaultRuntimeConfig>(record, aad);
+      let changed = false;
+      for (const profile of Object.values(config)) {
+        for (const sectionName of ['services', 'events', 'observable'] as const) {
+          const section = profile[sectionName];
+          if (!section) continue;
+          for (const name of Object.keys(section)) {
+            if (!name.includes('/')) continue;
+            const replacement = name.replaceAll('/', '_');
+            if (Object.hasOwn(section, replacement)) {
+              throw new Error(`Config name migration collision in ${record.kind} ${record.id}: ${name} -> ${replacement}`);
+            }
+            section[replacement] = section[name];
+            delete section[name];
+            changed = true;
+          }
+        }
+      }
+      return changed ? { ...record, ...this.encrypt(config, aad) } : null;
+    });
+  }
+
   async migrateEncryption(): Promise<number> {
     const records = await this.store.listEncryptedRecordsExcept(this.masterKeyVersion);
     for (const record of records) {
@@ -1078,6 +1103,28 @@ export class VaultService {
         plugin: input.plugin,
       });
     }
+  }
+
+  async renameConfigPlugin(
+    userId: string,
+    input: { profileId: string; shared: boolean; section: 'services' | 'events' | 'observable'; originalName: string; name: string },
+  ): Promise<void> {
+    validateConfigName(input.name);
+    if (isBlockedKey(input.originalName)) throw new Error('Config name must be a safe identifier');
+    const draft = input.shared
+      ? await this.getApplicationProfileDraft(input.profileId)
+      : await this.getProfileDraft(input.profileId);
+    const section = draft?.[input.section];
+    if (!section || !Object.hasOwn(section, input.originalName)) throw new Error('Config entry not found');
+    if (input.name === input.originalName) return;
+    if (Object.hasOwn(section, input.name)) throw new Error('Config name already exists');
+    section[input.name] = section[input.originalName];
+    delete section[input.originalName];
+    if (input.shared) await this.saveApplicationProfileDraft(userId, input.profileId, draft!);
+    else await this.saveProfileDraft(userId, input.profileId, draft!);
+    await this.audit(userId, 'config.plugin.rename', input.profileId, {
+      section: input.section, originalName: input.originalName, name: input.name, shared: input.shared,
+    });
   }
 
   async removeProfilePlugin(

@@ -124,6 +124,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     if (auditReady) {
       await this.vault.migrateLegacyAuthentication();
       await this.vault.migrateEncryption();
+      await this.vault.migrateConfigNames();
     }
     if (await this.vault.setupRequired()) {
       obs.log.warn('Vault first admin setup required. Setup code: {setupCode}', {

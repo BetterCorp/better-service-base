@@ -99,6 +99,47 @@ export class VaultStore {
     );
   }
 
+  async migrateConfigNames(rewrite: (record: EncryptedRecord) => EncryptedRecord | null): Promise<number> {
+    const client = await this.pool.connect();
+    let changed = 0;
+    try {
+      await client.query('begin');
+      await client.query("select pg_advisory_xact_lock(hashtext('vault-config-name-slashes-v1'))");
+      await client.query('create table if not exists vault_data_migrations (name text primary key, completed_at timestamptz not null default now())');
+      const migration = 'config-name-slashes-v1';
+      const done = await client.query('select name from vault_data_migrations where name = $1', [migration]);
+      if (done.rows.length === 0) {
+        const targets = [
+          ['profile-draft', 'vault_config_drafts', 'profile_id'],
+          ['profile-version', 'vault_config_versions', 'profile_id'],
+          ['application-draft', 'vault_application_config_drafts', 'application_profile_id'],
+          ['application-version', 'vault_application_config_versions', 'application_profile_id'],
+        ] as const;
+        // Prevent concurrent writes while rewriting matching shared/local keys together.
+        await client.query(`lock table ${targets.map(([, table]) => table).join(', ')} in share row exclusive mode`);
+        for (const [kind, table, ownerColumn] of targets) {
+          const rows = await client.query(`select id, ${ownerColumn} as owner_id, encrypted_payload, iv, auth_tag, key_version from ${table}`);
+          for (const row of rows.rows) {
+            const updated = rewrite({ kind, id: row.id, ownerId: row.owner_id,
+              encryptedPayload: row.encrypted_payload, iv: row.iv, authTag: row.auth_tag, keyVersion: row.key_version });
+            if (!updated) continue;
+            await client.query(`update ${table} set encrypted_payload = $1, iv = $2, auth_tag = $3, key_version = $4 where id = $5`,
+              [updated.encryptedPayload, updated.iv, updated.authTag, updated.keyVersion, row.id]);
+            changed++;
+          }
+        }
+        await client.query('insert into vault_data_migrations (name) values ($1)', [migration]);
+      }
+      await client.query('commit');
+      return changed;
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async init(): Promise<void> {
     await this.pool.query(`
       create table if not exists vault_users (

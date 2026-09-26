@@ -91,6 +91,8 @@ export const requestSchemas: Readonly<Record<string, av.SchemaAny>> = {
   '/api/plugins': privatePluginUpload,
   '/api/drafts': strict({ profileId: uuid, config: jsonObjectInput }),
   '/api/publish': strict({ profileId: uuid }),
+  '/api/application-profile-plugins/rename': strict({ applicationProfileId: uuid, section: pluginConfig.section, originalName: requiredText(1024), name: slug }),
+  '/api/profile-plugins/rename': strict({ profileId: uuid, section: pluginConfig.section, originalName: requiredText(1024), name: slug }),
   '/api/application-profile-plugins/delete': strict({ applicationProfileId: uuid, section: pluginConfig.section, name: slug }),
   '/api/application-profile-plugins': strict({ applicationProfileId: uuid, ...pluginConfig }),
   '/api/application-profile-publish': strict({ applicationProfileId: uuid }),

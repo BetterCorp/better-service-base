@@ -539,6 +539,22 @@ export class VaultHttpServer {
       return this.options.vault.publishDraft(user.userId, String(body.profileId ?? ''));
     }));
 
+    for (const shared of [false, true]) {
+      const route = shared ? '/api/application-profile-plugins/rename' : '/api/profile-plugins/rename';
+      app.use(route, defineEventHandler(async (event) => {
+        const user = await this.requireUser(event);
+        const body = await readBody<Record<string, unknown>>(event);
+        await this.options.vault.renameConfigPlugin(user.userId, {
+          profileId: String(body[shared ? 'applicationProfileId' : 'profileId'] ?? ''),
+          shared,
+          section: parseConfigSection(body.section),
+          originalName: String(body.originalName ?? ''),
+          name: String(body.name ?? ''),
+        });
+        return { success: true };
+      }));
+    }
+
     app.use('/api/application-profile-plugins/delete', defineEventHandler(async (event) => {
       const user = await this.requireUser(event);
       const body = await readBody<Record<string, unknown>>(event);
@@ -1873,6 +1889,18 @@ function addApplicationPluginForm(data: ApplicationProfileData, redirect: string
   </div></details>`;
 }
 
+function renamePluginForm(profileId: string, shared: boolean, section: string, name: string, redirect: string): string {
+  let suggested = name.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^[^A-Za-z0-9]+/, '').slice(0, 100) || 'config';
+  if (['__proto__', 'prototype', 'constructor'].includes(suggested)) suggested = `config-${suggested}`;
+  return `<form data-api="${shared ? '/api/application-profile-plugins/rename' : '/api/profile-plugins/rename'}" data-redirect="${escapeHtml(redirect)}">
+    <input type="hidden" name="${shared ? 'applicationProfileId' : 'profileId'}" value="${escapeHtml(profileId)}">
+    <input type="hidden" name="section" value="${escapeHtml(section)}">
+    <input type="hidden" name="originalName" value="${escapeHtml(name)}">
+    ${input('name', 'Config Name', true, suggested)}
+    <button>Rename Config</button><p class="status"></p>
+  </form>`;
+}
+
 function configSectionEditor(
   data: DeploymentProfileData,
   draft: RuntimeConfigDefinition,
@@ -1894,7 +1922,7 @@ function configSectionEditor(
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
+          <input type="hidden" name="plugin" value="${escapeHtml(catalog?.pluginId ?? entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -1911,6 +1939,7 @@ function configSectionEditor(
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
         </form>
+        ${renamePluginForm(data.profile.id, false, section, name, redirect)}
         ${copyPluginForm(data, section, name, entry.language ?? 'nodejs', redirect)}
         <form data-api="/api/profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove this plugin from the profile?">
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
@@ -1945,7 +1974,7 @@ function applicationConfigSectionEditor(
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
+          <input type="hidden" name="plugin" value="${escapeHtml(catalog?.pluginId ?? entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
@@ -1960,6 +1989,7 @@ function applicationConfigSectionEditor(
           <div data-config-fields>${renderSchemaFields(catalog?.configSchema, entry.config ?? {})}</div>
           <button>Save</button><p class="status"></p>
         </form>
+        ${renamePluginForm(data.applicationProfile.id, true, section, name, redirect)}
         ${copyPluginForm(data, section, name, entry.language ?? 'nodejs', redirect)}
         <form data-api="/api/application-profile-plugins/delete" data-redirect="${escapeHtml(redirect)}" data-confirm="Remove this shared plugin from the deployment group profile?">
           <input type="hidden" name="applicationProfileId" value="${escapeHtml(data.applicationProfile.id)}">
@@ -2009,7 +2039,7 @@ function inheritedOverrideSection(
           <input type="hidden" name="profileId" value="${escapeHtml(data.profile.id)}">
           <input type="hidden" name="section" value="${escapeHtml(section)}">
           <input type="hidden" name="name" value="${escapeHtml(name)}">
-          <input type="hidden" name="plugin" value="${escapeHtml(entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
+          <input type="hidden" name="plugin" value="${escapeHtml(catalog?.pluginId ?? entry.plugin)}"><input type="hidden" name="language" value="${escapeHtml(entry.language ?? 'nodejs')}">
           <input type="hidden" name="packageName" value="${escapeHtml(entry.package ?? '')}">
           <input type="hidden" name="version" value="${escapeHtml(entry.version ?? '')}">
           <input type="hidden" name="config">
