@@ -122,6 +122,57 @@ default:
     );
   });
 
+  it("rejects ambiguous logical service references and resolves explicit aliases", async () => {
+    const { plugin, obs } = createPlugin(`
+default:
+  services:
+    tenant-a:
+      plugin: service-orders
+      enabled: true
+    tenant-b:
+      plugin: service-orders
+      enabled: true
+`);
+
+    await assert.rejects(
+      () => plugin.getServicePluginDefinition(obs, "service-orders"),
+      /ambiguous service reference/i,
+    );
+    assert.deepStrictEqual(await plugin.getServicePluginDefinition(obs, "tenant-a"), {
+      name: "tenant-a", enabled: true,
+    });
+    assert.deepStrictEqual(await plugin.getServicePluginDefinition(obs, "tenant-b"), {
+      name: "tenant-b", enabled: true,
+    });
+  });
+
+  it("prefers the sole active alias and rejects multiple disabled aliases", async () => {
+    const { plugin, obs } = createPlugin(`
+default:
+  services:
+    active:
+      plugin: service-orders
+      enabled: true
+    inactive:
+      plugin: service-orders
+      enabled: false
+    stopped-a:
+      plugin: service-stopped
+      enabled: false
+    stopped-b:
+      plugin: service-stopped
+      enabled: false
+`);
+
+    assert.deepStrictEqual(await plugin.getServicePluginDefinition(obs, "service-orders"), {
+      name: "active", enabled: true,
+    });
+    await assert.rejects(
+      () => plugin.getServicePluginDefinition(obs, "service-stopped"),
+      /ambiguous service reference/i,
+    );
+  });
+
   it("should throw a clear error when accessed before init", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "bsb-config-default-uninit-"));
     tempDirs.push(tempDir);

@@ -14,6 +14,7 @@ import {
   PluginTypes,
   Tools,
   createConfigSchema,
+  resolveServiceReference,
 } from '@bsb/base';
 import type { RuntimePluginDefinition, VaultRuntimeConfig } from '../service-config-vault/types.js';
 
@@ -258,14 +259,8 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
     pluginName: string,
   ): Promise<{ name: string; enabled: boolean }> {
     const services = this.appConfig[this.deploymentProfile].services ?? {};
-    const keydWithMap = Object.keys(services).map((key) => ({
-      mappedName: key,
-      ...services[key],
-    }));
-    const enabledPlugin = keydWithMap.find((plugin) => plugin.plugin === pluginName && plugin.enabled === true);
-    if (enabledPlugin) return { name: enabledPlugin.mappedName, enabled: enabledPlugin.enabled ?? false };
-    const plugin = keydWithMap.find((item) => item.plugin === pluginName);
-    if (plugin) return { name: plugin.mappedName, enabled: plugin.enabled ?? false };
+    const resolved = resolveServiceReference(services, pluginName);
+    if (resolved) return resolved;
     throw new BSBError(obs.trace, 'Cannot find the plugin {plugin} in the Vault config', {
       plugin: pluginName,
     });
