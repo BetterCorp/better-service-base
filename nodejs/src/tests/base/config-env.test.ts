@@ -111,6 +111,23 @@ describe("config-env plugin", () => {
     });
   });
 
+  it("does not guess among service aliases sharing a plugin", async () => {
+    const { plugin, obs } = createPlugin({
+      default: { services: {
+        north: { plugin: "service-orders", enabled: true },
+        south: { plugin: "service-orders", enabled: true },
+      } },
+    });
+
+    await assert.rejects(
+      () => plugin.getServicePluginDefinition(obs, "service-orders"),
+      /ambiguous service reference/i,
+    );
+    assert.deepStrictEqual(await plugin.getServicePluginDefinition(obs, "south"), {
+      name: "south", enabled: true,
+    });
+  });
+
   it("should tolerate missing observable and events sections", async () => {
     const { plugin, obs } = createPlugin({
       default: {

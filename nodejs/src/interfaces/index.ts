@@ -34,6 +34,7 @@ export * from "./result.js";
 export * from "./options.js";
 export * from "./schema-events.js";
 export * from "./schema-types.js";
+export * from "./service-reference.js";
 export * from "./observable.js";
 export * from "./observable-types.js";
 export type {

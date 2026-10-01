@@ -148,6 +148,10 @@ module.exports = async ({ pluginRoot }) => {
       },
     });
     assert.deepStrictEqual(await plugin.getPluginConfig(testObs, 'service', 'api'), { port: 3000 });
+    plugin.appConfig.production.services.canary = { plugin: 'service-api', enabled: true };
+    await assert.rejects(() => plugin.getServicePluginDefinition(testObs, 'service-api'), /ambiguous service reference/i);
+    assert.deepStrictEqual(await plugin.getServicePluginDefinition(testObs, 'canary'), { name: 'canary', enabled: true });
+    delete plugin.appConfig.production.services.canary;
     assert.deepStrictEqual(await plugin.getPluginConfig(testObs, 'observable', 'observable-axiom'), {
       axiom: {
         token: 'xaat-test',

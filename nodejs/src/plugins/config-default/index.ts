@@ -36,6 +36,7 @@ import {
   PluginTypes, Tools,
   BSBError,
   Observable,
+  resolveServiceReference,
 } from "../../index.js";
 import { BSBConfig, BSBConfigConstructor } from "../../base/BSBConfig.js";
 import { createConfigSchema } from "../../base/PluginConfig.js";
@@ -120,33 +121,8 @@ export class Plugin
     obs: Observable,
     pluginName: string,
   ): Promise<{ name: string; enabled: boolean }> {
-    const keydPlugins = Object.keys(
-      this.getProfileConfig(obs).services ?? {},
-    );
-    const keydWithMap = keydPlugins.map((x) => {
-      return {
-        mappedName: x,
-        ...this.getProfileConfig(obs).services[x],
-      };
-    });
-    let plugin = keydWithMap.find((x) => {
-      return x.plugin === pluginName && x.enabled === true;
-    });
-    if (plugin !== undefined) {
-      return {
-        name: plugin.mappedName,
-        enabled: plugin.enabled,
-      };
-    }
-    plugin = keydWithMap.find((x) => {
-      return x.plugin === pluginName;
-    });
-    if (plugin !== undefined) {
-      return {
-        name: plugin.mappedName,
-        enabled: plugin.enabled,
-      };
-    }
+    const resolved = resolveServiceReference(this.getProfileConfig(obs).services ?? {}, pluginName);
+    if (resolved) return resolved;
 
     throw new BSBError(
       obs.trace,
