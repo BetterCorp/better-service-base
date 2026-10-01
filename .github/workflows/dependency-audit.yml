@@ -1,7 +1,7 @@
 name: Dependency audit
 on:
   pull_request:
-    paths: [package.json, package-lock.json, '**/package.json']
+    paths: [package.json, package-lock.json, '**/package.json', go.mod, go.sum, scripts/security-regressions.test.mjs, .github/workflows/dependency-audit.yml]
   schedule:
     - cron: '17 6 * * 1'
   workflow_dispatch:
@@ -18,3 +18,5 @@ jobs:
         with:
           node-version: 24
       - run: npm audit --package-lock-only --audit-level=high
+      - run: npm ci --ignore-scripts
+      - run: node --test scripts/security-regressions.test.mjs
