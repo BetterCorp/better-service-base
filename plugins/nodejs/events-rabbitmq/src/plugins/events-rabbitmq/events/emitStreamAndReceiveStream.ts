@@ -96,8 +96,9 @@ export class emitStreamAndReceiveStream
                       queueKey,
                     });
                   }
-                  const rawBody = msg.content.toString();
-                  const deliveryKey = LIB.deliveryKey(msg, rawBody);
+                  const rawBody = LIB.messageBody(this.plugin, obs, iChannel, msg, "stream consume");
+                  if (rawBody === null) return;
+                  const deliveryKey = LIB.deliveryKey(msg);
                   try {
                     const body = JSON.parse(rawBody);
                     obs.log.debug("[RECEIVED {logMessage} {queueKey}]", {

@@ -7,8 +7,9 @@ const noop = () => undefined;
 const obs: any = { trace: { t: 'test', s: 'test' }, log: { debug: noop, info: noop, warn: noop, error: noop },
   startSpan() { return this; }, error: noop, end: noop };
 
-function setup() {
+function setup(maxMessageBytes = 16 * 1024 * 1024) {
   const transport = new emitAndReturn({ getPlatformName: (name: string) => name, myId: 'test',
+    config: { maxMessageBytes },
     createObservableFromTrace: () => obs } as any);
   const rpc = transport as any;
   let consumer: (message: any) => Promise<void>;
@@ -66,6 +67,37 @@ test('RPC confirms success/error replies before one ack and requeues failed repl
     await deliver();
     assert.deepEqual(actions, ['nack:true']);
   }
+});
+
+test('oversized RPC requests are dead-lettered before JSON decoding or handler execution', async () => {
+  const { rpc, transport, actions, deliver } = setup(1024);
+  let calls = 0;
+  await transport.onReturnableEvent(obs, 'service', 'event', async () => { calls++; return 42; });
+  await deliver({
+    content: Buffer.alloc(1025, 0x20),
+    properties: { appId: 'sender', correlationId: 'request', messageId: 'oversized' },
+    fields: { routingKey: 'test' },
+  });
+  assert.equal(calls, 0);
+  assert.deepEqual(actions, ['nack:false']);
+  assert.equal(rpc.deliveryAttempts.size, 0);
+  actions.length = 0;
+  await deliver({
+    content: Buffer.from(JSON.stringify({ trace: obs.trace, args: [] }).padEnd(1024, ' ')),
+    properties: { appId: 'sender', correlationId: 'request', messageId: 'at-limit' },
+    fields: { routingKey: 'test' },
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(actions, ['reply', 'ack']);
+});
+
+test('retry keys do not retain message bodies when publishers omit message IDs', () => {
+  const content = Buffer.alloc(1024 * 1024, 0x61);
+  const message = { content, properties: {}, fields: { routingKey: 'events' } } as any;
+  const key = LIB.deliveryKey(message);
+  assert.equal(key.length, 64);
+  assert.equal(key, LIB.deliveryKey(message));
+  assert.notEqual(key, LIB.deliveryKey({ ...message, content: Buffer.from('different') }));
 });
 
 test('a channel disconnect during nack does not become an unhandled consumer rejection', () => {
