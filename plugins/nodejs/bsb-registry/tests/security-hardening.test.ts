@@ -3,7 +3,10 @@ import { promises as fs } from 'node:fs';
 import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
+import handlebars from 'handlebars';
 import type { Observable } from '@bsb/base';
 import { AuthManager } from '../src/plugins/service-bsb-registry/auth.js';
 import { FileDB } from '../src/plugins/service-bsb-registry/db/file.js';
@@ -80,6 +83,39 @@ test('registry index is reused, invalidated by writes, and applies permissions o
   } finally { await rm(dataDir, { recursive: true, force: true }); }
 });
 
+test('public list and search only clone returned pages, while keeping cached entries isolated', async (t) => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-page-clones-'));
+  try {
+    const db = new FileDB(dataDir);
+    await db.init(obs);
+    for (let index = 0; index < 3; index++) {
+      await db.insert(obs, {
+        id: `org/plugin-${index}`, org: 'org', name: `plugin-${index}`,
+        displayName: `Plugin ${index}`, description: 'Example', tags: [],
+        version: '1.0.0', language: 'nodejs', category: 'service',
+        publishedAt: `2026-01-0${index + 1}T00:00:00Z`, documentation: ['large public document'],
+      } as any);
+    }
+    const original = structuredClone;
+    let copies = 0;
+    t.mock.method(globalThis, 'structuredClone', (value: unknown) => {
+      copies++;
+      return original(value);
+    });
+    const listed = await db.list(obs, { limit: 1 });
+    assert.equal(listed.total, 3);
+    assert.equal(copies, 1);
+    listed.results[0].description = 'changed by caller';
+    assert.equal((await db.list(obs, { limit: 1 })).results[0].description, 'Example');
+    copies = 0;
+    assert.equal((await db.search(obs, { query: 'plugin', limit: 1 })).total, 3);
+    assert.equal(copies, 1);
+    copies = 0;
+    await db.getStats(obs);
+    assert.equal(copies, 0);
+  } finally { await rm(dataDir, { recursive: true, force: true }); }
+});
+
 test('registry index tolerates removed directories but propagates other IO errors', async (t) => {
   const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-index-race-'));
   const readDirectory = fs.readdir;
@@ -116,6 +152,45 @@ test('registry markdown escapes raw HTML and rejects active URLs', () => {
   const html = (server as any).renderMarkdown('<script>alert(1)</script>\n[x](javascript:alert(1))\n![x](data:image/svg+xml,x)');
   assert.doesNotMatch(html, /<script|javascript:|data:image/i);
   assert.match(html, /&lt;script&gt;/);
+});
+
+test('publisher metadata cannot create active links in registry detail views', async () => {
+  const server = new RegistryUIServer(0, '127.0.0.1', 10, './unused', undefined, 1, []);
+  const template = handlebars.compile(await readFile(fileURLToPath(new URL('../src/plugins/service-bsb-registry-ui/templates/pages/plugin-detail.hbs', import.meta.url)), 'utf8'));
+  const plugin = {
+    id: 'org/plugin', name: 'plugin', displayName: 'Plugin', version: '1.0.0',
+    description: 'A plugin', language: 'nodejs', category: 'service',
+    repository: 'javascript:alert(1)', homepage: 'https://example.com/docs',
+  };
+  const source = await readFile(fileURLToPath(new URL('../src/plugins/service-bsb-registry-ui/static/js/app.js', import.meta.url)), 'utf8');
+  const modalBody = { innerHTML: '' };
+  const document = {
+    addEventListener: () => undefined,
+    getElementById: (id: string) => id === 'modalBody' ? modalBody : { classList: { add: () => undefined } },
+    createElement: () => ({
+      set textContent(value: string) { this.innerHTML = value.replace(/[&<>"']/g, (char: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!); },
+      innerHTML: '',
+    }),
+  };
+  const renderModal = runInNewContext(`${source}\nshowPluginDetail`, {
+    document, console, URL,
+    fetch: async () => ({ ok: true, json: async () => plugin }),
+  }) as (id: string) => Promise<void>;
+  for (const repository of ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,hi', '//evil.example/path', 'https://user:pass@evil.example/path']) {
+    plugin.repository = repository;
+    const html = template({ plugin: (server as any).enrichPlugin(plugin) }, { helpers: (server as any).getHandlebarsHelpers() });
+    assert.doesNotMatch(html, /href="(?:javascript:|data:|\/\/evil\.example|https:\/\/user:pass@)/i);
+    assert.match(html, /href="https:\/\/example\.com\/docs"/);
+    assert.ok(html.includes(repository));
+    await renderModal('org/plugin');
+    assert.doesNotMatch(modalBody.innerHTML, /href="(?:javascript:|data:|\/\/evil\.example|https:\/\/user:pass@)/i);
+    assert.match(modalBody.innerHTML, /href="https:\/\/example\.com\/docs"/);
+  }
+  plugin.repository = 'https://example.com/repo';
+  const validHtml = template({ plugin: (server as any).enrichPlugin(plugin) }, { helpers: (server as any).getHandlebarsHelpers() });
+  assert.match(validHtml, /href="https:\/\/example\.com\/repo"/);
+  await renderModal('org/plugin');
+  assert.match(modalBody.innerHTML, /href="https:\/\/example\.com\/repo"/);
 });
 
 test('core write authorization rejects valid tokens without package ownership', async () => {

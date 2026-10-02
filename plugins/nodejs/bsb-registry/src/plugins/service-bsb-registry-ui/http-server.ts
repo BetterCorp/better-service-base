@@ -50,6 +50,20 @@ function markdownHref(value: string): string | null {
   return !scheme || ['http', 'https', 'mailto'].includes(scheme) ? href : null;
 }
 
+function externalHttpHref(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const href = value.trim();
+  if (!/^https?:\/\//i.test(href) || /[\u0000-\u001f\u007f]/.test(href)) return null;
+  try {
+    const url = new URL(href);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname && !url.username && !url.password
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function objectSchema<T extends Record<string, av.BaseSchema<any, any>>>(shape: T) {
   return av.object(shape).unknownKeys('reject');
 }
@@ -939,6 +953,8 @@ export class RegistryUIServer {
     const id = String(plugin.id || '');
     return {
       ...plugin,
+      homepageHref: externalHttpHref(plugin.homepage),
+      repositoryHref: externalHttpHref(plugin.repository),
       imageUrl: this.resolvePluginImageUrl(id),
       badges: this.resolvePluginBadges(plugin),
     };
@@ -2340,5 +2356,4 @@ a.s:hover{background:#333;border-color:#FB8C00}
     this.app.close();
   }
 }
-
 
