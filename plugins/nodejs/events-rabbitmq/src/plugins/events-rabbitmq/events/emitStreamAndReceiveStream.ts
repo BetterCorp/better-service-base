@@ -99,6 +99,7 @@ export class emitStreamAndReceiveStream
                   const rawBody = LIB.messageBody(this.plugin, obs, iChannel, msg, "stream consume");
                   if (rawBody === null) return;
                   const deliveryKey = LIB.deliveryKey(msg);
+                  let deliverySettled = false;
                   try {
                     const body = JSON.parse(rawBody);
                     obs.log.debug("[RECEIVED {logMessage} {queueKey}]", {
@@ -106,30 +107,35 @@ export class emitStreamAndReceiveStream
                       queueKey,
                     });
 
-                    this.emit(
-                        channelKey +
-                        (
-                            logMessage === "stream" ? "r-" : ""
-                        ) +
-                        msg.properties.correlationId,
-                        body,
-                        () => {
-                          LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
-                          iChannel.ack(msg);
-                        },
-                        () => LIB.nackOrDeadLetter(
-                            obs,
-                            iChannel,
-                            msg,
-                            this.deliveryAttempts,
-                            deliveryKey,
-                            new Error("stream message rejected"),
-                            "stream consume",
-                        ),
-                    );
+                    const listenerKey = channelKey +
+                        (logMessage === "stream" ? "r-" : "") +
+                        msg.properties.correlationId;
+                    const listeners = this.rawListeners(listenerKey);
+                    if (listeners.length === 0) throw new Error("No stream listener for correlation ID");
+                    const acknowledge = () => {
+                      if (deliverySettled) return;
+                      deliverySettled = true;
+                      LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
+                      iChannel.ack(msg);
+                    };
+                    const reject = () => {
+                      if (deliverySettled) return;
+                      deliverySettled = true;
+                      LIB.nackOrDeadLetter(
+                        obs, iChannel, msg, this.deliveryAttempts, deliveryKey,
+                        new Error("stream message rejected"), "stream consume",
+                      );
+                    };
+                    await Promise.all(listeners.map(
+                        (listener) => listener(body, acknowledge, reject),
+                    ));
                   } catch (exc: any) {
                     const errorObj = exc instanceof Error ? exc : new Error(exc?.message || String(exc));
-                    LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "stream consume");
+                    if (!deliverySettled) {
+                      LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "stream consume");
+                    } else {
+                      obs.log.error("stream consume handler failed after delivery settled: {error}", { error: errorObj.message });
+                    }
                   }
                 },
                 {noAck: false},
