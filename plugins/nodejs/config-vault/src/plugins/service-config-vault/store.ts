@@ -1,5 +1,5 @@
 import { normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import type {
   AuthMethodRecord,
@@ -1166,23 +1166,24 @@ export class VaultStore {
   }
 
   async createRuntimeKey(record: RuntimeKeyRecord): Promise<void> {
-    await this.pool.query(
-      `insert into vault_runtime_keys
-       (id, name, secret_hash, application_id, group_id, profile_id, container_name, config_plugin_id, revoked_at, created_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [
-        record.id,
-        record.name,
-        record.secretHash,
-        record.applicationId,
-        record.groupId,
-        record.profileId,
-        record.containerName,
-        record.configPluginId,
-        record.revokedAt,
-        record.createdAt,
-      ],
-    );
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const binding = await this.lockRuntimeAncestry(client, record.profileId);
+      await client.query(
+        `insert into vault_runtime_keys
+         (id, name, secret_hash, application_id, group_id, profile_id, container_name, config_plugin_id, revoked_at, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [record.id, record.name, record.secretHash, binding.applicationId, binding.groupId, record.profileId,
+          record.containerName, record.configPluginId, record.revokedAt, record.createdAt],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async getRuntimeKey(id: string): Promise<RuntimeKeyRecord | null> {
@@ -1205,6 +1206,15 @@ export class VaultStore {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
+      const current = await client.query<{ profile_id: string }>(
+        'select profile_id from vault_runtime_keys where id = $1 and revoked_at is null', [id],
+      );
+      if (!current.rows[0]) {
+        await client.query('rollback');
+        return false;
+      }
+      const profileId = current.rows[0].profile_id;
+      const binding = await this.lockRuntimeAncestry(client, profileId);
       const revoked = await client.query('update vault_runtime_keys set revoked_at = now() where id = $1 and revoked_at is null', [id]);
       if (revoked.rowCount !== 1) {
         await client.query('rollback');
@@ -1214,8 +1224,8 @@ export class VaultStore {
         `insert into vault_runtime_keys
          (id, name, secret_hash, application_id, group_id, profile_id, container_name, config_plugin_id, revoked_at, created_at)
          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [replacement.id, replacement.name, replacement.secretHash, replacement.applicationId, replacement.groupId,
-          replacement.profileId, replacement.containerName, replacement.configPluginId, replacement.revokedAt, replacement.createdAt],
+        [replacement.id, replacement.name, replacement.secretHash, binding.applicationId, binding.groupId,
+          profileId, replacement.containerName, replacement.configPluginId, replacement.revokedAt, replacement.createdAt],
       );
       await client.query('commit');
       return true;
@@ -1225,6 +1235,20 @@ export class VaultStore {
     } finally {
       client.release();
     }
+  }
+
+  private async lockRuntimeAncestry(client: PoolClient, profileId: string): Promise<{ applicationId: string; groupId: string }> {
+    const result = await client.query<{ application_id: string; group_id: string }>(
+      `select a.id as application_id, g.id as group_id
+       from vault_profiles p
+       join vault_groups g on g.id = p.group_id
+       join vault_applications a on a.id = g.application_id
+       where p.id = $1 for share of a, g, p`,
+      [profileId],
+    );
+    const binding = result.rows[0];
+    if (!binding) throw new Error('Deployment profile not found');
+    return { applicationId: binding.application_id, groupId: binding.group_id };
   }
 
   async resolveRuntimeBinding(keyId: string): Promise<{
