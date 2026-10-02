@@ -8,6 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="../../../dotnet/BSB/BSB.csproj" Private="false" ExcludeAssets="runtime" />
     <ProjectReference Include="../config-vault/config-vault.csproj" />
-    <PackageReference Include="Google.Apis.Auth" Version="1.76.0" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.77.0" />
   </ItemGroup>
 </Project>
