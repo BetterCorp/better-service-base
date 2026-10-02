@@ -164,7 +164,7 @@ export class FileDB implements RegistryDB {
       const limit = query.limit || 50;
       const offset = query.offset || 0;
 
-      return { results: results.slice(offset, offset + limit), total };
+      return { results: results.slice(offset, offset + limit).map(entry => structuredClone(entry)), total };
     } finally {
       span.end();
     }
@@ -193,7 +193,7 @@ export class FileDB implements RegistryDB {
       const limit = query.limit || 20;
       const offset = query.offset || 0;
 
-      return { results: results.slice(offset, offset + limit), total };
+      return { results: results.slice(offset, offset + limit).map(entry => structuredClone(entry)), total };
     } finally {
       span.end();
     }
@@ -565,7 +565,7 @@ export class FileDB implements RegistryDB {
     for (const versions of await this.pluginIndex) {
       const entries = await this.filterEntries(versions, filter);
       const latest = this.latestEntry(entries);
-      if (latest) results.push(structuredClone(latest));
+      if (latest) results.push(latest);
     }
     return results;
   }
