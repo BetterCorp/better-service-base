@@ -1269,11 +1269,15 @@ export class VaultService {
   ): Promise<{ keyId: string; secret: string }> {
     const existing = await this.store.getRuntimeKey(input.keyId);
     if (!existing) throw new Error('Runtime key not found');
+    const binding = await this.store.resolveProfileBinding(existing.profileId);
+    if (!binding) throw new Error('Deployment profile not found');
     const keyId = `vk_${newToken(18)}`;
     const secret = `vs_${newToken(32)}`;
     const rotated = await this.store.rotateRuntimeKey(existing.id, {
       ...existing,
       id: keyId,
+      applicationId: binding.application.id,
+      groupId: binding.group.id,
       name: input.name || existing.name,
       secretHash: await hashSecret(secret),
       revokedAt: null,
@@ -1291,6 +1295,14 @@ export class VaultService {
     if (!binding || !(await verifySecret(secret, binding.key.secretHash))) {
       await this.recordFailure(attemptKey);
       await this.audit(keyId, 'runtime-config.auth.failed', keyId, {}).catch(() => undefined);
+      throw new Error('Invalid Vault API key');
+    }
+    if (binding.key.applicationId !== binding.application.id ||
+        binding.key.groupId !== binding.group.id ||
+        binding.key.profileId !== binding.profile.id ||
+        binding.group.applicationId !== binding.application.id ||
+        binding.profile.groupId !== binding.group.id) {
+      await this.audit(keyId, 'runtime-config.binding.rejected', keyId, {}).catch(() => undefined);
       throw new Error('Invalid Vault API key');
     }
     await this.clearFailures(attemptKey);
