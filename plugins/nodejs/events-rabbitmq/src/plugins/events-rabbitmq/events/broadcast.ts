@@ -100,8 +100,9 @@ export class broadcast {
                   obs.log.warn("Message received on broadcast queue was null");
                   return;
                 }
-                const body = msg.content.toString();
-                const deliveryKey = LIB.deliveryKey(msg, body);
+                const body = LIB.messageBody(this.plugin, obs, iChannel, msg, "broadcast listener");
+                if (body === null) return;
+                const deliveryKey = LIB.deliveryKey(msg);
                 let listenerObs: Observable | null = null;
                 try {
                   const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };

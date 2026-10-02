@@ -2,6 +2,7 @@ import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
 import { Plugin } from "../index.js";
 import { Observable } from "@bsb/base";
+import { createHash } from "node:crypto";
 
 export interface SetupChannel<T extends string | null = string | null> {
   exchangeName: T;
@@ -123,8 +124,34 @@ export class LIB {
     await channel.bindQueue(queue, exchange, "#");
   }
 
-  public static deliveryKey(msg: amqplibCore.ConsumeMessage, body: string): string {
-    return msg.properties.messageId || `${msg.fields.routingKey}:${body}`;
+  public static messageBody(
+    plugin: Plugin,
+    obs: Observable,
+    channel: amqplibCore.ConfirmChannel,
+    msg: amqplibCore.ConsumeMessage,
+    label: string,
+  ): string | null {
+    const limit = plugin.config?.maxMessageBytes ?? 16 * 1024 * 1024;
+    if (msg.content.length <= limit) return msg.content.toString("utf8");
+    try {
+      channel.nack(msg, false, false);
+    } catch (error) {
+      obs.log.warn("{label}: could not reject oversized delivery on closed channel: {error}", {
+        label, error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+    obs.log.warn("{label}: rejected oversized delivery ({size} bytes; limit {limit})", {
+      label, size: msg.content.length, limit,
+    });
+    return null;
+  }
+
+  public static deliveryKey(msg: amqplibCore.ConsumeMessage): string {
+    const messageId = typeof msg.properties.messageId === "string" ? msg.properties.messageId : "";
+    if (messageId) return messageId;
+    return createHash("sha256").update(msg.fields.routingKey).update("\0")
+      .update(msg.content).digest("hex");
   }
 
   public static clearDeliveryFailure(

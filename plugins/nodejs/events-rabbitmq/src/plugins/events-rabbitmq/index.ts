@@ -19,10 +19,33 @@ import {
 } from "@bsb/base";
 import * as av from "anyvali";
 
+export function redactAmqpEndpoint(endpoint: unknown): string {
+  try {
+    const url = new URL(String(endpoint));
+    if (url.protocol !== "amqp:" && url.protocol !== "amqps:") return "[invalid AMQP endpoint]";
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "[invalid AMQP endpoint]";
+  }
+}
+
+function connectionErrorKind(error: unknown): string {
+  const candidate = (error as { code?: unknown; name?: unknown } | null);
+  for (const value of [candidate?.code, candidate?.name]) {
+    if (typeof value === "string" && /^[A-Za-z0-9_]{2,40}$/.test(value)) return value;
+  }
+  return "unknown";
+}
+
 const ConfigSchema = av.object({
   platformKey: av.nullable(av.string()).default(null).describe("Optional platform key appended to RabbitMQ queue names"),
   fatalOnDisconnect: av.bool().default(true).describe("Whether the process should fail when RabbitMQ disconnects"),
   prefetch: av.int32().default(10).describe("RabbitMQ channel prefetch count"),
+  maxMessageBytes: av.int32().min(1024).max(64 * 1024 * 1024).default(16 * 1024 * 1024).describe("Maximum accepted incoming RabbitMQ message size in bytes"),
   endpoints: av.array(av.string()).default(["amqp://localhost"]).describe("RabbitMQ connection endpoint URLs"),
   credentials: av.object({
     username: av.string().default("guest").describe("RabbitMQ username"),
@@ -95,7 +118,7 @@ export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
     const credentials = this.config.credentials;
 
     obs.log.info('Connect to {endpoints}', {
-      endpoints,
+      endpoints: endpoints.map(redactAmqpEndpoint),
     });
     const socketOptions: amqplib.AmqpConnectionManagerOptions = {
       connectionOptions: {},
@@ -116,33 +139,34 @@ export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
         socketOptions
     );
     this.publishConnection.on("connect", async (data: any) => {
-      obs.log.info("AMQP CONNECTED: {url}", { url: data.url });
+      obs.log.info("AMQP CONNECTED: {url}", { url: redactAmqpEndpoint(data.url) });
     });
     this.publishConnection.on(
         "connectFailed",
         async (data: any): Promise<any> => {
-          const errMsg = data.err?.toString() ?? "unknown";
+          const errMsg = connectionErrorKind(data.err);
+          const url = redactAmqpEndpoint(data.url);
           if (fatalOnDisconnect || endpoints.length === 1) {
-            obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: data.url, err: errMsg });
-            throw new Error(`AMQP connection failed: ${data.url} (${errMsg})`);
+            obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url, err: errMsg });
+            throw new Error(`AMQP connection failed: ${url} (${errMsg})`);
           }
-          obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: data.url, err: errMsg });
+          obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url, err: errMsg });
         }
     );
     this.publishConnection.on("error", async (err: any) => {
       if (err.message !== "Connection closing") {
-        obs.log.error("AMQP publish error: {err}", { err: err.message });
+        obs.log.error("AMQP publish error: {err}", { err: connectionErrorKind(err) });
       }
       if (fatalOnDisconnect) {
-        throw new Error(`AMQP publish error (fatal): ${err.message}`);
+        throw new Error(`AMQP publish error (fatal): ${connectionErrorKind(err)}`);
       }
     });
     this.receiveConnection.on("error", async (err: any) => {
       if (err.message !== "Connection closing") {
-        obs.log.error("AMQP receive error: {err}", { err: err.message });
+        obs.log.error("AMQP receive error: {err}", { err: connectionErrorKind(err) });
       }
       if (fatalOnDisconnect) {
-        throw new Error(`AMQP receive error (fatal): ${err.message}`);
+        throw new Error(`AMQP receive error (fatal): ${connectionErrorKind(err)}`);
       }
     });
     this.publishConnection.on("close", async (): Promise<any> => {
@@ -153,7 +177,7 @@ export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
     });
 
     obs.log.info('Connected to {endpoints}x2? (s:{sendS}/p:{pubS})', {
-      endpoints,
+      endpoints: endpoints.map(redactAmqpEndpoint),
       sendS: this.receiveConnection.isConnected(),
       pubS: this.publishConnection.isConnected(),
     });

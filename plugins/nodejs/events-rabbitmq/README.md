@@ -34,6 +34,7 @@ plugins:
         username: "guest"
         password: "guest"
       prefetch: 10
+      maxMessageBytes: 16777216
       fatalOnDisconnect: true
       platformKey: null
       uniqueId: null
@@ -47,9 +48,12 @@ plugins:
 | `credentials.username` | RabbitMQ username | `guest` |
 | `credentials.password` | RabbitMQ password | `guest` |
 | `prefetch` | Messages to prefetch per consumer | `10` |
+| `maxMessageBytes` | Maximum incoming message size; larger deliveries go directly to the dead-letter queue | `16777216` (16 MiB) |
 | `fatalOnDisconnect` | Exit process on connection loss | `true` |
 | `platformKey` | Isolate multiple BSB platforms on same RabbitMQ | `null` |
 | `uniqueId` | Static client ID (uses hostname if not set) | `null` |
+
+Set RabbitMQ broker message and queue byte limits as well. The plugin checks size after RabbitMQ has delivered the message, so broker limits are needed to bound broker memory and disk use. Give each service only the queue permissions it needs.
 
 ## Usage
 

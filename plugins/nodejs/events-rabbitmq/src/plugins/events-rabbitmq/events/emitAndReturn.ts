@@ -79,8 +79,9 @@ export class emitAndReturn
                   });
                   return;
                 }
-                const body = msg.content.toString();
-                const deliveryKey = LIB.deliveryKey(msg, body);
+                const body = LIB.messageBody(this.plugin, obs, iChannel, msg, "EAR response consume");
+                if (body === null) return;
+                const deliveryKey = LIB.deliveryKey(msg);
                 try {
                   obs.log.debug("[RECEIVED {myEARQueueKey}]", {
                     myEARQueueKey,
@@ -137,19 +138,20 @@ export class emitAndReturn
                       "Message received on my EAR queue was null...",
                   );
                 }
-                const returnQueue = LIB.getMyQueueKey(
-                    this.plugin,
-                    this.myChannelKey,
-                    msg.properties.appId,
-                );
-                obs.log.debug("EAR: Received: {queueKey} from {returnQueue}", {
-                  queueKey,
-                  returnQueue,
-                });
-                const body = msg.content.toString();
-                const deliveryKey = LIB.deliveryKey(msg, body);
+                const body = LIB.messageBody(this.plugin, obs, iChannel, msg, "EAR request consume");
+                if (body === null) return;
+                const deliveryKey = LIB.deliveryKey(msg);
                 let handlerObs: Observable | null = null;
                 try {
+                  const returnQueue = LIB.getMyQueueKey(
+                      this.plugin,
+                      this.myChannelKey,
+                      msg.properties.appId,
+                  );
+                  obs.log.debug("EAR: Received: {queueKey} from {returnQueue}", {
+                    queueKey,
+                    returnQueue,
+                  });
                   const bodyObj = JSON.parse(body) as { trace?: any; args?: Array<any> };
                   if (!bodyObj || typeof bodyObj !== "object" || Array.isArray(bodyObj) ||
                       (bodyObj.args !== undefined && !Array.isArray(bodyObj.args))) {
