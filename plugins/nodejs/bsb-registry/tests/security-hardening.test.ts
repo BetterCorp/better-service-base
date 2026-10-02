@@ -118,6 +118,14 @@ test('registry markdown escapes raw HTML and rejects active URLs', () => {
   assert.match(html, /&lt;script&gt;/);
 });
 
+test('registry markdown link labels do not render publisher HTML', () => {
+  const server = new RegistryUIServer(0, '127.0.0.1', 10, './unused', undefined, 1, []);
+  const html = (server as any).renderMarkdown('[<img src=x onerror=alert(1)>](https://example.com) [**safe**](https://example.com)');
+  assert.doesNotMatch(html, /<img\b/i);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(html, /<a href="https:\/\/example\.com"[^>]*><strong>safe<\/strong><\/a>/);
+});
+
 test('core write authorization rejects valid tokens without package ownership', async () => {
   const core = Object.create(RegistryPlugin.prototype) as any;
   core.authManager = {
