@@ -1332,12 +1332,13 @@ a.s:hover{background:#333;border-color:#FB8C00}
     const renderer = new marked.Renderer();
 
     renderer.html = ({ text }) => escapeHtml(text);
-    renderer.link = ({ href, title, text }) => {
+    renderer.link = function ({ href, title, text, tokens, autolink }) {
+      const label = autolink ? escapeHtml(text) : this.parser.parseInline(tokens);
       const safeHref = markdownHref(href);
       const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
       return safeHref
-        ? `<a href="${escapeHtml(safeHref)}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`
-        : text;
+        ? `<a href="${escapeHtml(safeHref)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>`
+        : label;
     };
     renderer.image = ({ href, title, text }) => {
       const safeHref = markdownHref(href);
@@ -2340,5 +2341,4 @@ a.s:hover{background:#333;border-color:#FB8C00}
     this.app.close();
   }
 }
-
 
