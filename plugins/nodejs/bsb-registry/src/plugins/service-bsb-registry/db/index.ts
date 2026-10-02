@@ -65,6 +65,9 @@ export interface RegistryDB {
   /** Create an organization if it does not already exist. Returns the org. */
   createOrganization(obs: Observable, orgId: string, displayName: string, visibility: 'public' | 'private'): Promise<Organization>;
 
+  /** Atomically create a public organization with its first write member. False if already claimed. */
+  claimOrganization(obs: Observable, orgId: string, userId: string): Promise<boolean>;
+
   /** Add or update a member in an organization. */
   setOrgMember(obs: Observable, orgId: string, userId: string, permission: ResourcePermission): Promise<void>;
 

@@ -135,3 +135,39 @@ test('core write authorization rejects valid tokens without package ownership', 
     /Package write permission required/,
   );
 });
+
+test('concurrent organization claims grant write access only to the winner', async (t) => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-org-claim-'));
+  try {
+    const db = new FileDB(dataDir);
+    await db.init(obs);
+    const original = db.getOrganization.bind(db);
+    let arrivals = 0;
+    let release!: () => void;
+    const bothChecked = new Promise<void>((resolve) => { release = resolve; });
+    t.mock.method(db, 'getOrganization', async (...args: any[]) => {
+      const result = await (original as any)(...args);
+      if (++arrivals === 2) release();
+      await bothChecked;
+      return result;
+    });
+
+    const core = Object.create(RegistryPlugin.prototype) as any;
+    core.storage = db;
+    core.authManager = {
+      requireAuth: true,
+      resolveToken: async (_obs: unknown, token: string) => ({ userId: token }),
+      hasUserPermission: () => true,
+      hasResourcePermission: (userId: string, _permission: string, _package: unknown, members: Array<{ userId: string }>) =>
+        members.some((member) => member.userId === userId),
+    };
+    const attempts = await Promise.allSettled([
+      core.authorizePluginWrite(obs, 'race-org', 'one', 'alice', true, 'nodejs'),
+      core.authorizePluginWrite(obs, 'race-org', 'two', 'bob', true, 'nodejs'),
+    ]);
+    const winners = attempts.filter((attempt) => attempt.status === 'fulfilled');
+    assert.equal(winners.length, 1);
+    const members = await db.getOrgMembers(obs, 'race-org');
+    assert.deepEqual(members.map((member) => member.userId), [(winners[0] as PromiseFulfilledResult<string>).value]);
+  } finally { await rm(dataDir, { recursive: true, force: true }); }
+});
