@@ -149,8 +149,9 @@ export class LIB {
 
   public static deliveryKey(msg: amqplibCore.ConsumeMessage): string {
     const messageId = typeof msg.properties.messageId === "string" ? msg.properties.messageId : "";
+    if (messageId) return messageId;
     return createHash("sha256").update(msg.fields.routingKey).update("\0")
-      .update(messageId).update("\0").update(msg.content).digest("hex");
+      .update(msg.content).digest("hex");
   }
 
   public static clearDeliveryFailure(

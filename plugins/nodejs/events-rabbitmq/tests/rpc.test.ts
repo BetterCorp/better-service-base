@@ -100,6 +100,15 @@ test('retry keys do not retain message bodies when publishers omit message IDs',
   assert.notEqual(key, LIB.deliveryKey({ ...message, content: Buffer.from('different') }));
 });
 
+test('retry keys use publisher message IDs without reading the payload', () => {
+  const message = {
+    properties: { messageId: 'publisher-id' },
+    fields: { routingKey: 'events' },
+    get content(): Buffer { throw new Error('payload was read'); },
+  } as any;
+  assert.equal(LIB.deliveryKey(message), 'publisher-id');
+});
+
 test('a channel disconnect during nack does not become an unhandled consumer rejection', () => {
   const attempts = new Map<string, number>();
   const channel = { nack: () => { throw new Error('Channel closed'); } } as any;
