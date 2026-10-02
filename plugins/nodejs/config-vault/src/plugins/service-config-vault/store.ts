@@ -818,7 +818,21 @@ export class VaultStore {
   }
 
   async updateGroup(id: string, applicationId: string, name: string): Promise<void> {
-    await this.pool.query('update vault_groups set application_id = $1, name = $2 where id = $3', [applicationId, name, id]);
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const current = await client.query<{ application_id: string }>('select application_id from vault_groups where id = $1 for update', [id]);
+      await client.query('update vault_groups set application_id = $1, name = $2 where id = $3', [applicationId, name, id]);
+      if (current.rows[0] && current.rows[0].application_id !== applicationId) {
+        await client.query('update vault_runtime_keys set revoked_at = now() where group_id = $1 and revoked_at is null', [id]);
+      }
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteGroup(id: string): Promise<void> {
@@ -848,13 +862,27 @@ export class VaultStore {
   }
 
   async updateProfile(id: string, groupId: string, name: string, language?: PluginLanguage): Promise<void> {
-    const result = await this.pool.query(
-      `update vault_profiles set group_id = $1, name = $2, language = coalesce($4, language)
-       where id = $3 and ($4::text is null or language = $4 or
-         not exists (select 1 from vault_config_versions where profile_id = $3))`,
-      [groupId, name, id, language ?? null],
-    );
-    if (result.rowCount !== 1) throw new Error('Profile not found or language is locked by published versions; create a new profile to change language');
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      const current = await client.query<{ group_id: string }>('select group_id from vault_profiles where id = $1 for update', [id]);
+      const result = await client.query(
+        `update vault_profiles set group_id = $1, name = $2, language = coalesce($4, language)
+         where id = $3 and ($4::text is null or language = $4 or
+           not exists (select 1 from vault_config_versions where profile_id = $3))`,
+        [groupId, name, id, language ?? null],
+      );
+      if (result.rowCount !== 1) throw new Error('Profile not found or language is locked by published versions; create a new profile to change language');
+      if (current.rows[0]?.group_id !== groupId) {
+        await client.query('update vault_runtime_keys set revoked_at = now() where profile_id = $1 and revoked_at is null', [id]);
+      }
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteProfile(id: string): Promise<void> {
@@ -1213,8 +1241,8 @@ export class VaultStore {
          row_to_json(p.*) as profile
        from vault_runtime_keys rk
        join vault_applications a on a.id = rk.application_id
-       join vault_groups g on g.id = rk.group_id
-       join vault_profiles p on p.id = rk.profile_id
+       join vault_groups g on g.id = rk.group_id and g.application_id = a.id
+       join vault_profiles p on p.id = rk.profile_id and p.group_id = g.id
        where rk.id = $1 and rk.revoked_at is null`,
       [keyId],
     );

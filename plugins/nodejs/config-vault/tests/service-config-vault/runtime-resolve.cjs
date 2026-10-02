@@ -44,6 +44,7 @@ module.exports = async ({ pluginRoot }) => {
     },
   }, key);
 
+  let moved = null;
   const store = {
     async authenticationAllowed() { return true; },
     async recordAuthenticationFailure() {},
@@ -55,10 +56,11 @@ module.exports = async ({ pluginRoot }) => {
           id: 'vk_test',
           secretHash: await crypto.hashSecret(secret),
           configPluginId: 'config-vault',
+          applicationId: 'app-1', groupId: 'group-1', profileId: moved === 'key' ? 'profile-2' : 'profile-1',
         },
         application: { id: 'app-1', name: 'App' },
-        group: { name: 'api' },
-        profile: { id: 'profile-1', name: 'default', activeVersionId: 'version-1' },
+        group: { id: 'group-1', applicationId: moved === 'group' ? 'app-2' : 'app-1', name: 'api' },
+        profile: { id: 'profile-1', groupId: moved === 'profile' ? 'group-2' : 'group-1', name: 'default', activeVersionId: 'version-1' },
       };
     },
     async getVersion(id) {
@@ -155,4 +157,10 @@ module.exports = async ({ pluginRoot }) => {
     config: {},
   });
   assert.equal(resolved.config.default.events.rabbit, undefined);
+  moved = 'profile';
+  await assert.rejects(vault.resolveRuntimeConfig('vk_test', secret), /Invalid Vault API key/);
+  moved = 'group';
+  await assert.rejects(vault.resolveRuntimeConfig('vk_test', secret), /Invalid Vault API key/);
+  moved = 'key';
+  await assert.rejects(vault.resolveRuntimeConfig('vk_test', secret), /Invalid Vault API key/);
 };

@@ -38,9 +38,9 @@ module.exports = async ({ pluginRoot }) => {
     async getApplicationProfile() { return null; },
     async resolveRuntimeBinding() {
       return {
-        key: { configPluginId: 'config-vault', secretHash: await hashSecret('runtime-secret') },
-        application: { id: 'app', name: 'App' }, group: { name: 'API' },
-        profile: { id: 'profile', name: 'default', language: 'csharp', activeVersionId: 'v1' },
+        key: { applicationId: 'app', groupId: 'group', profileId: 'profile', configPluginId: 'config-vault', secretHash: await hashSecret('runtime-secret') },
+        application: { id: 'app', name: 'App' }, group: { id: 'group', applicationId: 'app', name: 'API' },
+        profile: { id: 'profile', groupId: 'group', name: 'default', language: 'csharp', activeVersionId: 'v1' },
       };
     },
   };
