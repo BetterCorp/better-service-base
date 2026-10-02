@@ -304,6 +304,23 @@ export class FileDB implements RegistryDB {
     }
   }
 
+  async claimOrganization(obs: Observable, orgId: string, userId: string): Promise<boolean> {
+    const span = obs.startSpan('FileDB.claimOrganization', { orgId, userId });
+    try {
+      const org: Organization = {
+        id: orgId,
+        name: orgId,
+        displayName: orgId,
+        pluginCount: 0,
+        visibility: 'public',
+        members: [{ userId, permission: 'write' }],
+      };
+      return this.writeJsonIfAbsent(this.orgPath(orgId), org);
+    } finally {
+      span.end();
+    }
+  }
+
   async setOrgMember(obs: Observable, orgId: string, userId: string, permission: ResourcePermission): Promise<void> {
     const span = obs.startSpan('FileDB.setOrgMember', { orgId, userId, permission });
     try {
@@ -654,6 +671,24 @@ export class FileDB implements RegistryDB {
         encoding: 'utf-8', flag: 'wx', mode: 0o600, flush: true,
       });
       fs.renameSync(temporary, filePath);
+    } finally {
+      fs.rmSync(temporary, { force: true });
+    }
+  }
+
+  private writeJsonIfAbsent(filePath: string, data: unknown): boolean {
+    const temporary = `${filePath}.${randomUUID()}.tmp`;
+    try {
+      fs.writeFileSync(temporary, JSON.stringify(data, null, 2), {
+        encoding: 'utf-8', flag: 'wx', mode: 0o600, flush: true,
+      });
+      try {
+        fs.linkSync(temporary, filePath);
+        return true;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+        throw error;
+      }
     } finally {
       fs.rmSync(temporary, { force: true });
     }
