@@ -45,7 +45,7 @@
     "@fastify/view": "^12.0.0",
     "anyvali": "^1.1.5",
     "fastify": "^5.12.3",
-    "handlebars": "^4.7.8",
+    "handlebars": "^4.7.10",
     "marked": "^18.0.12",
     "sql.js": "^1.12.0"
   },
