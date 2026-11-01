@@ -32,14 +32,6 @@ function pluginDirs() {
   return raw.split(",").map((d) => d.trim()).filter(Boolean);
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, {
-    stdio: "inherit",
-    env: process.env,
-  });
-  return result.status === 0;
-}
-
 async function ensurePluginDirs(dirs) {
   for (const dir of dirs) {
     await fs.mkdir(dir, { recursive: true });
@@ -75,14 +67,6 @@ async function main() {
     const startedAt = new Date();
     console.log(`[BSB] Plugin watcher sync started at ${startedAt.toISOString()}`);
     const ok = runSync();
-    if (isTruthy(process.env.BSB_SYNC_PERMISSIONS)) {
-      if (!run("/home/bsb/sync-permissions.sh", [])) {
-        throw new Error("BSB permission sync failed");
-      }
-    } else {
-      console.log("[BSB] Permission sync skipped (BSB_SYNC_PERMISSIONS=false)");
-    }
-
     if (ok) {
       console.log("[BSB] Plugin watcher sync completed");
     } else {

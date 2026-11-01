@@ -690,6 +690,9 @@ pub async fn command(cwd: &Path, args: &[String]) -> Result<bool> {
         }
         index += 1;
     }
+    if flags.contains_key("token") {
+        eprintln!("warning: --token exposes credentials through process arguments and shell history; use BSB_REGISTRY_TOKEN instead");
+    }
     if action == "sync" {
         println!("{}", json!(sync_clients(cwd).await?));
         return Ok(true);

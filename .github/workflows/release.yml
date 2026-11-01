@@ -50,12 +50,12 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -74,7 +74,7 @@ jobs:
         run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: nodejs-package
           path: |
@@ -92,18 +92,18 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: Download package artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: nodejs-package
           path: nodejs
@@ -123,12 +123,12 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -147,7 +147,7 @@ jobs:
         run: npm version ${{ needs.prepare.outputs.version }} --allow-same-version --no-git-tag-version
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: nodejs-tests-package
           path: |
@@ -164,18 +164,18 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
       - name: Download package artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: nodejs-tests-package
           path: tests/nodejs
@@ -197,7 +197,7 @@ jobs:
       matrix: ${{ steps.plugins.outputs.matrix }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -238,12 +238,12 @@ jobs:
       matrix: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -277,7 +277,7 @@ jobs:
         run: npm run build --workspace "${{ matrix.workspace }}"
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ matrix.artifact }}
           path: |
@@ -298,12 +298,12 @@ jobs:
       matrix: ${{ fromJson(needs.nodejs-plugin-list.outputs.matrix) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -312,13 +312,13 @@ jobs:
         run: npm ci
 
       - name: Download base package artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: nodejs-package
           path: nodejs
 
       - name: Download plugin package artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.workspace }}
@@ -352,12 +352,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
 
@@ -365,7 +365,7 @@ jobs:
         run: npm ci
 
       - name: Download package artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: nodejs-package
           path: nodejs
@@ -385,12 +385,12 @@ jobs:
         working-directory: python
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.13"
           cache: pip
@@ -415,7 +415,7 @@ jobs:
           python -m build --no-isolation ../plugins/python/examples
 
       - name: Upload native Python packages
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: bsb-python-packages
           path: |
@@ -432,12 +432,12 @@ jobs:
         working-directory: go
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.26.1"
           cache-dependency-path: go.sum
@@ -458,7 +458,7 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Set up Rust
@@ -471,7 +471,7 @@ jobs:
           sh set-version.sh "$BSB_VERSION"
           cargo package --locked --allow-dirty
           cargo build --locked --release -p better-service-base-cli --bin bsb
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: bsb-rust-packages
           path: |
@@ -487,12 +487,12 @@ jobs:
         working-directory: dotnet
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
@@ -509,7 +509,7 @@ jobs:
           dotnet pack BetterServiceBase/BetterServiceBase.csproj -c Release -o packages -p:Version=${{ needs.prepare.outputs.version }}
 
       - name: Upload native NuGet packages
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: bsb-dotnet-packages
           path: dotnet/packages/*.nupkg
@@ -520,7 +520,7 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -535,7 +535,7 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v2
+        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
         with:
           cache-key: nodejs/Dockerfile
 
@@ -552,14 +552,14 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Build and push to Forgejo
-        uses: useblacksmith/build-push-action@v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           build-args: |
             NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
@@ -578,7 +578,7 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -593,12 +593,12 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: all
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Compute tags
         id: tags
@@ -613,7 +613,7 @@ jobs:
           echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -621,7 +621,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -635,7 +635,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           build-args: |
             NODE_BASE_IMAGE=${{ env.FORGEJO_NODE_BASE_IMAGE }}
@@ -653,7 +653,7 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -668,7 +668,7 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v2
+        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
         with:
           cache-key: plugins/nodejs/config-vault/Dockerfile
 
@@ -685,14 +685,14 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Build and push to Forgejo
-        uses: useblacksmith/build-push-action@v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           build-args: |
             BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-${{ needs.prepare.outputs.version }}
@@ -710,7 +710,7 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -725,12 +725,12 @@ jobs:
           echo "platforms=${PLATFORMS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: all
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Compute tags
         id: tags
@@ -745,7 +745,7 @@ jobs:
           echo "dockerhub_tags=${DOCKERHUB_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
@@ -753,7 +753,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -767,7 +767,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           build-args: |
             BSB_BASE_IMAGE=${{ env.FORGEJO_SERVICE_BASE_IMAGE }}:node-${{ needs.prepare.outputs.version }}
@@ -784,12 +784,12 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v2
+        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
         with:
           cache-key: go/Dockerfile
 
@@ -806,14 +806,14 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Build and push to Forgejo
-        uses: useblacksmith/build-push-action@v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           context: .
           file: ./go/Dockerfile
@@ -828,17 +828,17 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: all
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Compute tags
         id: tags
@@ -854,7 +854,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -868,7 +868,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./go/Dockerfile
@@ -882,12 +882,12 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v2
+        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
         with:
           cache-key: python/Dockerfile
 
@@ -904,14 +904,14 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Build and push to Forgejo
-        uses: useblacksmith/build-push-action@v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           context: .
           file: ./python/Dockerfile
@@ -927,17 +927,17 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: all
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Compute tags
         id: tags
@@ -953,7 +953,7 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -967,7 +967,7 @@ jobs:
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./python/Dockerfile
@@ -982,12 +982,12 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v2
+        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
         with:
           cache-key: dotnet/BetterServiceBase/Dockerfile
 
@@ -1004,14 +1004,14 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Build and push to Forgejo
-        uses: useblacksmith/build-push-action@v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           context: .
           file: ./dotnet/BetterServiceBase/Dockerfile
@@ -1027,17 +1027,17 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: all
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Compute tags
         id: tags
@@ -1053,14 +1053,14 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./dotnet/BetterServiceBase/Dockerfile
@@ -1075,12 +1075,12 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v2
+        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
         with:
           cache-key: rust/Dockerfile
 
@@ -1097,14 +1097,14 @@ jobs:
           echo "forgejo_tags=${FORGEJO_TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Forgejo
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.FORGEJO_REGISTRY }}
           username: ${{ secrets.BC_CODE_USER }}
           password: ${{ secrets.BC_CODE_PACKAGE_TOKEN }}
 
       - name: Build and push to Forgejo
-        uses: useblacksmith/build-push-action@v2
+        uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
         with:
           context: .
           file: ./rust/Dockerfile
@@ -1120,17 +1120,17 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
         with:
           platforms: all
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Compute tags
         id: tags
@@ -1146,14 +1146,14 @@ jobs:
 
       - name: Login to DockerHub
         continue-on-error: true
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push to DockerHub
         continue-on-error: true
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: ./rust/Dockerfile

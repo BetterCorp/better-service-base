@@ -1,7 +1,17 @@
 name: Dependency audit
 on:
   pull_request:
-    paths: [package.json, package-lock.json, '**/package.json']
+    paths:
+      - package.json
+      - package-lock.json
+      - '**/package.json'
+      - python/pyproject.toml
+      - go.mod
+      - go.sum
+      - Cargo.toml
+      - Cargo.lock
+      - '**/*.csproj'
+      - dotnet/BSB.sln
   schedule:
     - cron: '17 6 * * 1'
   workflow_dispatch:
@@ -11,10 +21,64 @@ jobs:
   npm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
       - run: npm audit --package-lock-only --audit-level=high
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.13"
+      - name: Audit resolved Python dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --upgrade pip
+          python -m pip install --disable-pip-version-check ./python ./plugins/python/builtins pip-audit
+          python -m pip_audit --local --skip-editable
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Audit Go dependencies and reachable code
+        working-directory: go
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./... ../plugins/go/...
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Audit Rust lockfile
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: "10.0.x"
+      - name: Audit NuGet dependencies
+        run: dotnet list dotnet/BSB.sln package --vulnerable --include-transitive

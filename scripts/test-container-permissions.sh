@@ -33,7 +33,7 @@ docker build -t service-base:permission-ci "$WORK"
 mkdir "$WORK/readonly"
 touch "$WORK/file"
 chmod 600 "$WORK/file"
-printf 'console.log("Watcher install stub reached");\n' > "$WORK/entrypoint.js"
+printf 'if (process.getuid?.() === 0) throw new Error("plugin installer ran as root"); console.log("Watcher install stub reached");\n' > "$WORK/entrypoint.js"
 
 for MODE in default enabled; do
   OPTIONS=()
@@ -66,11 +66,9 @@ for MODE in default enabled; do
   timeout 60s docker start --attach "$CONTAINER" | tee "$WORK/watcher-$MODE.log"
   test "$(docker inspect --format '{{.State.ExitCode}}' "$CONTAINER")" = 0
   grep -Fx 'Watcher install stub reached' "$WORK/watcher-$MODE.log"
+  grep -Fx 'BSB entrypoint: start plugin watcher as node' "$WORK/watcher-$MODE.log"
   if [ "$MODE" = enabled ]; then
-    grep -Fx 'BSB permission sync complete' "$WORK/watcher-$MODE.log"
-  else
-    grep -Fx '[BSB] Permission sync skipped (BSB_SYNC_PERMISSIONS=false)' "$WORK/watcher-$MODE.log"
-    if grep -E 'BSB entrypoint: (chown|chmod|write probe)' "$WORK/watcher-$MODE.log"; then exit 1; fi
+    grep -Fx 'BSB entrypoint: permission sync is incompatible with a writable plugin watcher; skipping it' "$WORK/watcher-$MODE.log"
   fi
   docker rm "$CONTAINER" >/dev/null
   CONTAINER=
