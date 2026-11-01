@@ -115,7 +115,7 @@ Client Commands (Registry Operations):
   bsb client schema <org/name>  Get plugin event schema from registry
   bsb client install <org/name|https://origin> Download schema and generate types
   bsb client publish            Publish current plugin to registry
-  bsb client publish --target <vault-url> --plugin <id> --token <bv_p_...>
+  BSB_REGISTRY_TOKEN=<token> bsb client publish --target <vault-url> --plugin <id>
   bsb client token generate     Generate API token for registry
 
 Examples:

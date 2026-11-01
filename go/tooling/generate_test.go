@@ -37,7 +37,7 @@ func TestGeneratedClientCompilesAndPreservesOptionalNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files := map[string]string{"go.mod": "module generatedtest\n\ngo 1.26.1\nrequire github.com/bettercorp/service-base v0.0.0\nreplace github.com/bettercorp/service-base => " + strconv.Quote(filepath.ToSlash(module)) + "\n", "client.go": string(code), "client_test.go": `package bsbclients
+	files := map[string]string{"go.mod": "module generatedtest\n\ngo 1.26.10\nrequire github.com/bettercorp/service-base v0.0.0\nreplace github.com/bettercorp/service-base => " + strconv.Quote(filepath.ToSlash(module)) + "\n", "client.go": string(code), "client_test.go": `package bsbclients
 import("context";"encoding/json";"testing";"github.com/bettercorp/service-base/go/bsb";"github.com/bettercorp/service-base/plugins/go/eventsdefault")
 func TestRoundTrip(t *testing.T){
  input:=EchoClientEchoInput{Name:"ok"}

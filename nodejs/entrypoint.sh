@@ -27,6 +27,13 @@
 
 RAW_PLUGIN_DIRS="${BSB_PLUGIN_DIRS:-${BSB_PLUGINS_DIR:-${BSB_PLUGIN_DIR:-}}}"
 
+is_truthy() {
+  case "${1:-}" in
+    1|[Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Yy]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 printf '%s\n' 'BSB entrypoint: read runtime version'
 BSB_RUNTIME_VERSION="$(node -p "require('/home/bsb/node_modules/@bsb/base/package.json').version" 2>/dev/null || echo unknown)"
 echo "BSB runtime version: ${BSB_RUNTIME_VERSION}"
@@ -34,13 +41,11 @@ echo "BSB runtime version: ${BSB_RUNTIME_VERSION}"
 printf '%s\n' 'BSB entrypoint: mkdir /mnt/temp'
 mkdir -p /mnt/temp || true
 
-if [ "${BSB_PLUGIN_WATCHER:-}" = "1" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "true" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "TRUE" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "yes" ] || [ "${BSB_PLUGIN_WATCHER:-}" = "YES" ]; then
-  echo "BSB plugin watcher mode enabled"
-  printf '%s\n' 'BSB entrypoint: start plugin watcher'
-  exec node /home/bsb/plugin-watcher.js
-fi
-
 NEED_INSTALL=0
+NEED_PLUGIN_WRITE=0
+if [ -n "${BSB_PLUGINS:-}" ] || is_truthy "${BSB_PLUGIN_WATCHER:-}" || is_truthy "${BSB_PLUGIN_UPDATE:-}"; then
+  NEED_PLUGIN_WRITE=1
+fi
 if [ -n "$RAW_PLUGIN_DIRS" ]; then
   OLDIFS="$IFS"
   IFS=","
@@ -53,13 +58,30 @@ if [ -n "$RAW_PLUGIN_DIRS" ]; then
       mkdir -p "$DIR"
       NEED_INSTALL=1
     fi
+    if [ "$NEED_PLUGIN_WRITE" -eq 1 ] || [ "$NEED_INSTALL" -eq 1 ]; then
+      # Only the directory itself needs to be writable for the unprivileged
+      # installer. Never recursively chown plugin contents during bootstrap.
+      chown node:node "$DIR" 2>/dev/null || true
+      chmod u+rwx "$DIR" 2>/dev/null || true
+    fi
   done
   IFS="$OLDIFS"
 fi
 
+chown node:node /mnt/temp 2>/dev/null || true
+
+if is_truthy "${BSB_PLUGIN_WATCHER:-}"; then
+  echo "BSB plugin watcher mode enabled"
+  if is_truthy "${BSB_SYNC_PERMISSIONS:-false}"; then
+    printf '%s\n' 'BSB entrypoint: permission sync is incompatible with a writable plugin watcher; skipping it'
+  fi
+  printf '%s\n' 'BSB entrypoint: start plugin watcher as node'
+  exec gosu node:node node /home/bsb/plugin-watcher.js
+fi
+
 if [ -n "$RAW_PLUGIN_DIRS" ] && { [ "$NEED_INSTALL" -eq 1 ] || [ -n "$BSB_PLUGINS" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "true" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "TRUE" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "yes" ] || [ "${BSB_PLUGIN_UPDATE:-}" = "YES" ]; }; then
   echo "BSB plugin bootstrap: syncing plugins"
-  if ! node /home/bsb/entrypoint.js; then
+  if ! gosu node:node node /home/bsb/entrypoint.js; then
     echo "BSB plugin bootstrap failed; refusing to start BSB"
     exit 1
   fi
