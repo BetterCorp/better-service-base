@@ -31,6 +31,8 @@ This change responds to the security review of commit
   the unprivileged `node` user.
 - Packages that require npm install-time compilation are no longer suitable as
   runtime-installed BSB plugins. Publish prebuilt artifacts instead.
+- The core Node workspace uses TypeScript 6.x because TypeDoc 0.28 does not support
+  TypeScript 7.x; this also keeps clean workspace builds reproducible.
 - `--token` remains accepted for compatibility, but is deprecated because command
   arguments can be exposed through shell history and process inspection.
 
