@@ -58,6 +58,7 @@ jobs:
         working-directory: go
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
+          go generate ../plugins/go/examples
           govulncheck ./... ../plugins/go/...
 
   rust:
