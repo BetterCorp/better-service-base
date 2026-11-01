@@ -61,7 +61,7 @@ func TestBuildExternalPluginHostWithoutConstructingDuringExport(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := map[string]string{
-		"go.mod":          "module example.com/worker\n\ngo 1.26.1\nrequire github.com/bettercorp/service-base v0.0.0\nreplace github.com/bettercorp/service-base => " + strconv.Quote(filepath.ToSlash(module)) + "\n",
+		"go.mod":          "module example.com/worker\n\ngo 1.26.6\nrequire github.com/bettercorp/service-base v0.0.0\nreplace github.com/bettercorp/service-base => " + strconv.Quote(filepath.ToSlash(module)) + "\n",
 		"bsb-plugin.json": `{"go":[{"id":"service-worker","package":"example.com/worker/plugin"}]}`,
 		"plugin/plugin.go": `package plugin
 import("github.com/bettercorp/service-base/go/bsb")

@@ -1,6 +1,6 @@
 module github.com/bettercorp/service-base
 
-go 1.26.1
+go 1.26.6
 
 require (
 	github.com/BetterCorp/AnyVali/sdk/go v0.0.0-20260907212015-f98fa58c697c
