@@ -18,8 +18,9 @@ This change responds to the security review of commit
 - GitHub Actions are pinned to immutable commit SHAs. Dependabot remains responsible
   for proposing reviewed action updates.
 - Scheduled and dependency-change audits now cover npm, Python, Go, Rust, and NuGet.
-- The required Go patch release was raised from 1.26.1 to 1.26.9 after
-  `govulncheck` identified reachable standard-library vulnerabilities.
+- The required Go patch release was raised from 1.26.1 to 1.26.10 and
+  `golang.org/x/net` was raised to v0.60.0 after `govulncheck` identified
+  reachable standard-library and HTTP/2 vulnerabilities.
 - The cross-language CLIs warn when a registry token is supplied through `--token`,
   and Node help now demonstrates `BSB_REGISTRY_TOKEN` instead.
 

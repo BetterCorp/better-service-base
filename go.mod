@@ -1,6 +1,6 @@
 module github.com/bettercorp/service-base
 
-go 1.26.9
+go 1.26.10
 
 require (
 	github.com/BetterCorp/AnyVali/sdk/go v0.0.0-20260907212015-f98fa58c697c
@@ -27,7 +27,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
