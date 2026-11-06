@@ -680,7 +680,7 @@ export class VaultStore {
 
   async listAuthenticationBlocks(): Promise<Array<{ subjectHash: string; subject: string | null; failureCount: number; resetAt: string }>> {
     const result = await this.pool.query(
-      'select subject_hash, subject, failure_count, reset_at from vault_auth_attempts where failure_count >= 5 and reset_at > now() order by reset_at, subject_hash',
+      'select subject_hash, subject, failure_count, reset_at from vault_auth_attempts where failure_count >= 5 and reset_at > now() and (subject is null or subject not like \'global:%\') order by reset_at, subject_hash',
     );
     return result.rows.map((row) => ({ subjectHash: row.subject_hash, subject: row.subject, failureCount: Number(row.failure_count), resetAt: iso(row.reset_at) }));
   }
