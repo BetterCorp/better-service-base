@@ -457,17 +457,17 @@ async function main() {
     console.log(`[BSB] Requested plugins: ${rawPlugins.join(", ")}`);
   }
 
-  for (const dir of pluginDirs) {
-    await ensureDir(dir);
-    const pkgJsonPath = path.join(dir, "package.json");
-    if (!(await fileExists(pkgJsonPath))) {
-      console.log(`[BSB] Initializing ${ dir } with package.json`);
-      await fs.writeFile(
-        pkgJsonPath,
-        JSON.stringify({ name: "bsb-plugins", version: "1.0.0", private: true }, null, 2),
-        "utf-8",
-      );
-    }
+  // Only the first directory is an install target. Later entries are search
+  // paths and may intentionally be mounted read-only.
+  await ensureDir(pluginDir);
+  const pkgJsonPath = path.join(pluginDir, "package.json");
+  if (!(await fileExists(pkgJsonPath))) {
+    console.log(`[BSB] Initializing ${pluginDir} with package.json`);
+    await fs.writeFile(
+      pkgJsonPath,
+      JSON.stringify({ name: "bsb-plugins", version: "1.0.0", private: true }, null, 2),
+      "utf-8",
+    );
   }
 
   await ensureDir(tempRoot);
@@ -484,6 +484,7 @@ async function main() {
     return;
   }
 
+  const failures = [];
   for (const plugin of parsedPlugins) {
     try {
       await installPlugin({
@@ -494,7 +495,11 @@ async function main() {
       });
     } catch (err) {
       console.error(`[BSB] Plugin installation failed for ${plugin.pkg}:`, err && err.stack ? err.stack : err);
+      failures.push(plugin.pkg);
     }
+  }
+  if (failures.length > 0) {
+    throw new Error(`Failed to install ${failures.length} requested plugin(s): ${failures.join(", ")}`);
   }
 }
 
