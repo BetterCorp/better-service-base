@@ -178,6 +178,7 @@ async function registryRequest(
   requireAuth: boolean = false,
   baseUrl: string = REGISTRY_URL,
   token: string | undefined = REGISTRY_TOKEN,
+  allowInsecure: boolean = false,
 ): Promise<any> {
   if (requireAuth && !token) {
     throw new Error('Publish token is required');
@@ -187,7 +188,7 @@ async function registryRequest(
     const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
     const isHttps = url.protocol === 'https:';
     const isLoopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1' || url.hostname === '[::1]';
-    if (token && !isHttps && !isLoopback) {
+    if (token && !isHttps && !isLoopback && !allowInsecure) {
       throw new Error(`Refusing to send a registry token over insecure HTTP to ${url.hostname}`);
     }
     const lib = isHttps ? https : http;
@@ -668,7 +669,7 @@ async function publishPlugin(): Promise<void> {
         info(`Publishing ${display} @ ${pkg.version}...`);
 
         const result = await retryRegistryPublish(
-          () => registryRequest('POST', vaultTarget ? '/api/plugins/publish' : '/plugins', publishRequest, true, target, token),
+          () => registryRequest('POST', vaultTarget ? '/api/plugins/publish' : '/plugins', publishRequest, true, target, token, options.allowInsecure),
           {
             onRetry: (attempt, maxAttempts, err, delayMs) => {
               warn(`Publish failed with a network error (${err.message}); waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt}/${maxAttempts}...`);
