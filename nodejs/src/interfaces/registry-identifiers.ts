@@ -1,5 +1,5 @@
 export const REGISTRY_IDENTIFIER_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]*)$';
-export const REGISTRY_PLUGIN_ID_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]{0,99})(?:/(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]{0,99}))?$';
+export const REGISTRY_PLUGIN_ID_PATTERN = '^(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]{0,99}|(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]{0,99})/(?:_|@?[a-zA-Z0-9_][a-zA-Z0-9._-]{0,99}))$';
 
 export function parseRegistryPluginId(pluginId: string): { org: string; name: string } {
   if (pluginId.length > 200 || pluginId.trim() !== pluginId || !new RegExp(REGISTRY_PLUGIN_ID_PATTERN).test(pluginId)) {
