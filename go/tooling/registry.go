@@ -53,14 +53,17 @@ func NewRegistry(endpoint, token string, allowHTTP bool) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
-	configuredOrigin, err := bsb.EndpointOrigin(configuredEndpoint, allowHTTP)
-	if err != nil {
-		return nil, fmt.Errorf("invalid BSB_REGISTRY_URL: %w", err)
-	}
 	// Never rebind the configured Registry credential to a caller-selected
-	// origin. Custom targets must supply an explicit token.
-	if token == "" && origin == configuredOrigin {
-		token = os.Getenv("BSB_REGISTRY_TOKEN")
+	// origin. Custom targets must supply an explicit token. An explicit token
+	// does not depend on the configured default URL being valid for this request.
+	if token == "" {
+		configuredOrigin, err := bsb.EndpointOrigin(configuredEndpoint, allowHTTP)
+		if err != nil {
+			return nil, fmt.Errorf("invalid BSB_REGISTRY_URL: %w", err)
+		}
+		if origin == configuredOrigin {
+			token = os.Getenv("BSB_REGISTRY_TOKEN")
+		}
 	}
 	return &Registry{origin, token}, nil
 }
