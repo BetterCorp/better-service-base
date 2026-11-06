@@ -664,9 +664,23 @@ export class VaultStore {
     return Number(result.rows[0]?.failure_count ?? 0) < maximum;
   }
 
+  async consumeAuthenticationBudget(subjectHash: string, maximum: number, subject?: string): Promise<boolean> {
+    const result = await this.pool.query<{ failure_count: number }>(
+      `insert into vault_auth_attempts (subject_hash, subject, failure_count, reset_at)
+       values ($1, $2, 1, now() + interval '5 minutes')
+       on conflict (subject_hash) do update set
+         subject = coalesce(excluded.subject, vault_auth_attempts.subject),
+         failure_count = case when vault_auth_attempts.reset_at <= now() then 1 else vault_auth_attempts.failure_count + 1 end,
+         reset_at = case when vault_auth_attempts.reset_at <= now() then now() + interval '5 minutes' else vault_auth_attempts.reset_at end
+       returning failure_count`,
+      [subjectHash, subject ?? null],
+    );
+    return Number(result.rows[0]?.failure_count ?? maximum + 1) <= maximum;
+  }
+
   async listAuthenticationBlocks(): Promise<Array<{ subjectHash: string; subject: string | null; failureCount: number; resetAt: string }>> {
     const result = await this.pool.query(
-      'select subject_hash, subject, failure_count, reset_at from vault_auth_attempts where failure_count >= 5 and reset_at > now() order by reset_at, subject_hash',
+      'select subject_hash, subject, failure_count, reset_at from vault_auth_attempts where failure_count >= 5 and reset_at > now() and (subject is null or subject not like \'global:%\') order by reset_at, subject_hash',
     );
     return result.rows.map((row) => ({ subjectHash: row.subject_hash, subject: row.subject, failureCount: Number(row.failure_count), resetAt: iso(row.reset_at) }));
   }

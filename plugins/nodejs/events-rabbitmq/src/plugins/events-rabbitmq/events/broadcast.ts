@@ -100,6 +100,11 @@ export class broadcast {
                   obs.log.warn("Message received on broadcast queue was null");
                   return;
                 }
+                if (msg.content.length > LIB.MAX_MESSAGE_BYTES) {
+                  const error = new Error(`AMQP message exceeds ${LIB.MAX_MESSAGE_BYTES} byte limit`);
+                  LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, LIB.deliveryKey(msg, `oversized:${msg.content.length}`), error, "broadcast listener");
+                  return;
+                }
                 const body = msg.content.toString();
                 const deliveryKey = LIB.deliveryKey(msg, body);
                 let listenerObs: Observable | null = null;

@@ -178,6 +178,7 @@ async function registryRequest(
   requireAuth: boolean = false,
   baseUrl: string = REGISTRY_URL,
   token: string | undefined = REGISTRY_TOKEN,
+  allowInsecure: boolean = false,
 ): Promise<any> {
   if (requireAuth && !token) {
     throw new Error('Publish token is required');
@@ -186,6 +187,10 @@ async function registryRequest(
   return new Promise((resolve, reject) => {
     const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
     const isHttps = url.protocol === 'https:';
+    const isLoopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1' || url.hostname === '[::1]';
+    if (token && !isHttps && !isLoopback && !allowInsecure) {
+      throw new Error(`Refusing to send a registry token over insecure HTTP to ${url.hostname}`);
+    }
     const lib = isHttps ? https : http;
 
     const options = {
@@ -482,6 +487,7 @@ function parsePublishOptions(args: string[]): { target?: string; token?: string;
 async function publishPlugin(): Promise<void> {
   try {
     const options = parsePublishOptions(ARGS);
+    if (options.token) warn('--token exposes credentials through process arguments and shell history; use BSB_REGISTRY_TOKEN instead');
     const token = options.token ?? REGISTRY_TOKEN;
     if (!token) throw new Error('Provide --token or set BSB_REGISTRY_TOKEN');
     const vaultTarget = token.startsWith('bv_p_');
@@ -663,7 +669,7 @@ async function publishPlugin(): Promise<void> {
         info(`Publishing ${display} @ ${pkg.version}...`);
 
         const result = await retryRegistryPublish(
-          () => registryRequest('POST', vaultTarget ? '/api/plugins/publish' : '/plugins', publishRequest, true, target, token),
+          () => registryRequest('POST', vaultTarget ? '/api/plugins/publish' : '/plugins', publishRequest, true, target, token, options.allowInsecure),
           {
             onRetry: (attempt, maxAttempts, err, delayMs) => {
               warn(`Publish failed with a network error (${err.message}); waiting ${Math.ceil(delayMs / 1000)}s before retry ${attempt}/${maxAttempts}...`);

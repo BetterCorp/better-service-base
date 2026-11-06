@@ -6,9 +6,15 @@ const { createHash } = require('node:crypto');
 module.exports = async ({ pluginRoot }) => {
   const { VaultService } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/vault.js')).href);
   const failures = new Map();
+  const globalAttempts = new Map();
   const audits = [];
   let auditAvailable = true;
   const store = {
+    async consumeAuthenticationBudget(id, maximum) {
+      const count = (globalAttempts.get(id) ?? 0) + 1;
+      globalAttempts.set(id, count);
+      return count <= maximum;
+    },
     async authenticationAllowed(id) { return (failures.get(id)?.failureCount ?? 0) < 5; },
     async getUserByEmail() { return null; },
     async getUser() { return { email: 'admin@example.com' }; },
@@ -43,4 +49,15 @@ module.exports = async ({ pluginRoot }) => {
   await assert.rejects(vault.login('user@example.com', 'wrong', ''), /Invalid login/);
   assert.equal(failures.get(id).failureCount, 1);
   assert.ok(!JSON.stringify([...failures, ...audits]).includes('never-record-this-password'));
+
+  globalAttempts.clear();
+  failures.clear();
+  const rotatingVault = new VaultService({
+    store, masterKey: Buffer.alloc(32), setupCode: 'test', publicUrl: 'http://localhost',
+    authenticationBudgets: { login: 3 },
+  });
+  for (const email of ['one@example.com', 'two@example.com', 'three@example.com'])
+    await assert.rejects(rotatingVault.login(email, 'wrong', ''), /Invalid login/);
+  await assert.rejects(rotatingVault.login('four@example.com', 'wrong', ''), /Too many authentication attempts/);
+  assert.equal(globalAttempts.size, 1, 'rotating identities created multiple global limiter buckets');
 };

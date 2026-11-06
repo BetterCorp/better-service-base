@@ -74,7 +74,7 @@ export class LogFormatter {
       return referencedVar.toISOString();
     }
     if (Tools.isString(referencedVar)) {
-      return referencedVar;
+      return this.escapeText(referencedVar);
     }
     if (Tools.isArray(referencedVar)) {
       return (
@@ -97,6 +97,41 @@ export class LogFormatter {
     return JSON.stringify(referencedVar);
   }
 
+  private escapeText(value: string): string {
+    return value.replace(/[\r\n\u2028\u2029]/g, (character) =>
+      character === "\r" ? "\\r" : character === "\n" ? "\\n" : "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"),
+    );
+  }
+
+  /** Return metadata that is safe to export to a structured logging backend. */
+  public sanitizeMeta(meta?: LogMeta<any>): Record<string, unknown> | undefined {
+    if (!meta) return undefined;
+    const seen = new WeakSet<object>();
+    const sanitize = (value: unknown, depth: number): unknown => {
+      if (this.isUnsafeLogData(value)) return sanitize(value.safeValue, depth);
+      if (typeof value === "string") return this.escapeText(value).slice(0, 16_384);
+      if (value instanceof Date) return value.toISOString();
+      if (value instanceof Error) return {
+        name: this.escapeText(value.name).slice(0, 256),
+        message: this.escapeText(value.message).slice(0, 16_384),
+        ...(value.stack ? { stack: this.escapeText(value.stack).slice(0, 32_768) } : {}),
+      };
+      if (value === null || typeof value === "number" || typeof value === "boolean") return value;
+      if (typeof value === "bigint") return value.toString();
+      if (typeof value !== "object") return String(value);
+      if (depth >= 8) return "[MaxDepth]";
+      if (seen.has(value)) return "[Circular]";
+      seen.add(value);
+      if (Array.isArray(value)) return value.slice(0, 100).map((item) => sanitize(item, depth + 1));
+      const output: Record<string, unknown> = {};
+      for (const [key, item] of Object.entries(value).slice(0, 100)) {
+        output[key] = sanitize(item, depth + 1);
+      }
+      return output;
+    };
+    return sanitize(meta, 0) as Record<string, unknown>;
+  }
+
   public formatLog<T extends string>(trace: DTrace, message: T, meta?: LogMeta<T>): string {
 
     let nMeta = {
@@ -110,6 +145,6 @@ export class LogFormatter {
       const removedVar = dataToParse[i].split("}");
       outString += this.formatData(nMeta, removedVar[0]) + removedVar[1];
     }
-    return outString;
+    return this.escapeText(outString);
   }
 }

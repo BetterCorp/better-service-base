@@ -39,6 +39,16 @@ describe('generate-client-types', () => {
     assert.ok(code.includes('name: "service-orders"'));
     assert.ok(code.includes('class ExampleServiceOrdersCsharpClient'));
   });
+  it('rejects executable legacy JSON Schema numeric constraints', () => {
+    const schema = exportEventSchemas('service-legacy', createEventSchemas({
+      onEvents: { save: createFireAndForgetEvent(bsb.string()) },
+    }));
+    (schema.events.save as any).inputSchema = { type: 'string', minLength: '0 }); process.exit(1); //'};
+    assert.throws(
+      () => generateVirtualClient(schema, '@bsb/base', 'service-legacy'),
+      /Invalid legacy schema minLength/
+    );
+  });
   it('generates a clear client wiring error for listener methods', () => {
     const schemaExport = exportEventSchemas(
       'service-betterportal-config-manager',

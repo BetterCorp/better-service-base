@@ -20,6 +20,8 @@ public static class BsbCli
             if (++i >= args.Length || args[i].StartsWith("--")) throw new ArgumentException($"Missing value for {key}");
             options.Add(key, args[i]);
         }
+        if (options.ContainsKey("--token"))
+            Console.Error.WriteLine("warning: --token exposes credentials through process arguments and shell history; use BSB_REGISTRY_TOKEN instead");
         if (positional.Count > 1) throw new ArgumentException("Only one project, assembly or plugin ID is accepted");
         switch ((args[0], args[1]))
         {

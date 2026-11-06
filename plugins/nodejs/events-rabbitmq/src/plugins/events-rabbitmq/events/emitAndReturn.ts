@@ -79,6 +79,11 @@ export class emitAndReturn
                   });
                   return;
                 }
+                if (msg.content.length > LIB.MAX_MESSAGE_BYTES) {
+                  const error = new Error(`AMQP message exceeds ${LIB.MAX_MESSAGE_BYTES} byte limit`);
+                  LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, LIB.deliveryKey(msg, `oversized:${msg.content.length}`), error, "EAR response consume");
+                  return;
+                }
                 const body = msg.content.toString();
                 const deliveryKey = LIB.deliveryKey(msg, body);
                 try {
@@ -146,6 +151,11 @@ export class emitAndReturn
                   queueKey,
                   returnQueue,
                 });
+                if (msg.content.length > LIB.MAX_MESSAGE_BYTES) {
+                  const error = new Error(`AMQP message exceeds ${LIB.MAX_MESSAGE_BYTES} byte limit`);
+                  LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, LIB.deliveryKey(msg, `oversized:${msg.content.length}`), error, "EAR request consume");
+                  return;
+                }
                 const body = msg.content.toString();
                 const deliveryKey = LIB.deliveryKey(msg, body);
                 let handlerObs: Observable | null = null;

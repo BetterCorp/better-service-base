@@ -231,7 +231,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     }
 
     if (meta && Object.keys(meta).length > 0) {
-      logEntry.meta = meta;
+      logEntry.meta = this.logFormatter.sanitizeMeta(meta);
     }
 
     return JSON.stringify(logEntry);

@@ -639,9 +639,10 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     if (!allowCreate || !this.authManager.hasUserPermission(auth, 'create-org')) {
       throw new Error('Organization creation permission required');
     }
-    await this.storage.createOrganization(trace, org, org, 'public');
-    await this.storage.setOrgMember(trace, org, auth.userId, 'write');
-    return auth.userId;
+    if (await this.storage.claimOrganization(trace, org, auth.userId)) return auth.userId;
+    const members = await this.storage.getOrgMembers(trace, org);
+    if (this.authManager.hasResourcePermission(auth.userId, 'write', undefined, members)) return auth.userId;
+    throw new Error('Organization write permission required');
   }
 
   /**

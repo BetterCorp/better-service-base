@@ -244,7 +244,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
         "bsb.plugin": pluginName,
         "bsb.trace.t": trace.t,
         "bsb.trace.s": trace.s,
-        ...(meta && Object.keys(meta).length > 0 ? { "bsb.meta": JSON.stringify(meta) } : {}),
+        ...(meta && Object.keys(meta).length > 0 ? { "bsb.meta": JSON.stringify(this.logFormatter.sanitizeMeta(meta)) } : {}),
       },
       context,
     });

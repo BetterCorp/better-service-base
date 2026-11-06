@@ -31,6 +31,7 @@ import * as av from "anyvali";
 import { createFireAndForgetEvent } from "@bsb/base";
 // @ts-ignore - no types available
 import SyslogServer from "syslog-server";
+import { isIP } from "node:net";
 
 /**
  * Syslog message structure
@@ -50,8 +51,12 @@ export type SyslogMessage = av.Infer<typeof SyslogMessageSchema>;
  */
 export const SyslogServerConfigSchema = av.object({
   port: av.int32().min(1).max(65535).default(514).describe("UDP port the syslog server listens on"),
-  address: av.string().default("0.0.0.0").describe("Network address the syslog server binds to"),
+  address: av.string().default("127.0.0.1").describe("Network address the syslog server binds to"),
+  allowPublicBind: av.bool().default(false).describe("Explicitly allow a non-loopback listener"),
   exclusive: av.bool().default(false).describe("Whether the server requests exclusive address binding"),
+  maxQueue: av.int32().min(1).max(100000).default(1024).describe("Maximum pending syslog events before overload drops"),
+  concurrency: av.int32().min(1).max(64).default(4).describe("Maximum concurrent event publications"),
+  maxMessageBytes: av.int32().min(256).max(1048576).default(65536).describe("Maximum accepted UTF-8 message size"),
 }).describe("Syslog server plugin configuration");
 
 export type SyslogServerConfig = av.Infer<typeof SyslogServerConfigSchema>;
@@ -102,6 +107,9 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   public runAfterPlugins?: string[] | undefined;
 
   private _server: any;
+  private _queue: SyslogMessage[] = [];
+  private _inFlight = 0;
+  private _dropped = 0;
 
   constructor(config: BSBServiceConstructor<InstanceType<typeof Config>, typeof EventSchemas>) {
     super({
@@ -115,24 +123,28 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   }
 
   public async run(obs: Observable): Promise<void> {
+    if (!this.config.allowPublicBind && !isLoopback(this.config.address)) {
+      throw new Error("A non-loopback syslog listener requires allowPublicBind=true");
+    }
     this._server = new SyslogServer();
 
     this._server.on("message", (value: any) => {
-      obs.log.info(
-        "Syslog message from {host}: {message}",
-        {
-          host: value.host,
-          message: value.message,
+      const message = String(value.message ?? "");
+      if (Buffer.byteLength(message, "utf8") > this.config.maxMessageBytes || this._queue.length >= this.config.maxQueue) {
+        this._dropped++;
+        if ((this._dropped & (this._dropped - 1)) === 0) {
+          obs.log.warn("Dropped {count} syslog messages due to overload or size limits", { count: this._dropped });
         }
-      );
-
-      this.events.emitEvent("onMessage", obs, {
+        return;
+      }
+      this._queue.push({
         gatewayTime: Date.now(),
         date: new Date(value.date).getTime(),
-        host: value.host,
-        protocol: value.protocol,
-        message: value.message,
+        host: String(value.host ?? ""),
+        protocol: String(value.protocol ?? ""),
+        message,
       });
+      this.drain(obs);
     });
 
     this._server.start({
@@ -148,11 +160,32 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
   }
 
   public dispose(): void {
+    this._queue.length = 0;
     if (this._server) {
       this._server.stop();
       this._server = null;
     }
   }
+
+  private drain(obs: Observable): void {
+    while (this._inFlight < this.config.concurrency && this._queue.length > 0) {
+      const value = this._queue.shift()!;
+      this._inFlight++;
+      void this.events.emitEvent("onMessage", obs, value)
+        .catch((error: unknown) => obs.log.error("Syslog event publication failed: {error}", {
+          error: error instanceof Error ? error.name : "Error",
+        }))
+        .finally(() => {
+          this._inFlight--;
+          this.drain(obs);
+        });
+    }
+  }
+}
+
+export function isLoopback(address: string): boolean {
+  const normalized = address.trim().toLowerCase();
+  return normalized === "localhost" || normalized === "::1" || normalized === "[::1]" || (isIP(normalized) === 4 && normalized.startsWith("127."));
 }
 
 /**
