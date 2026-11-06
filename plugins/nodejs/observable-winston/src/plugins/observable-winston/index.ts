@@ -207,7 +207,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
         trace_id: trace.t,
         span_id: trace.s,
         level,
-        ...meta,
+        ...this.logFormatter.sanitizeMeta(meta),
       };
 
       // Log to Winston

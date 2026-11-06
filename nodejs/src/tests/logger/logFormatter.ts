@@ -192,5 +192,24 @@ describe("logFormatter", function () {
         new RegExp(`^\\[${ traceId }:${ spanId }\\] Test !@#\\$%\\^&\\*\\(\\)$`)
       );
     });
+
+    it("escapes line breaks in formatted values", () => {
+      const formatter = new LogFormatter();
+      const trace = createFakeDTrace(randomUUID(), randomUUID());
+      assert.match(formatter.formatLog(trace, "User {value}", { value: "safe\nFORGED" }), /safe\\nFORGED$/);
+    });
+
+    it("exports only safe metadata values", () => {
+      const formatter = new LogFormatter();
+      const circular: any = {};
+      circular.self = circular;
+      assert.deepEqual(formatter.sanitizeMeta({
+        secret: { value: "token", safeValue: "[redacted]" },
+        circular,
+      } as any), {
+        secret: "[redacted]",
+        circular: { self: "[Circular]" },
+      });
+    });
   });
 });

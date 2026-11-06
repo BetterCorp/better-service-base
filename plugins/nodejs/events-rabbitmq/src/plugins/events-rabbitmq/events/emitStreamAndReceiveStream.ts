@@ -96,6 +96,11 @@ export class emitStreamAndReceiveStream
                       queueKey,
                     });
                   }
+                  if (msg.content.length > LIB.MAX_MESSAGE_BYTES) {
+                    const error = new Error(`AMQP message exceeds ${LIB.MAX_MESSAGE_BYTES} byte limit`);
+                    LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, LIB.deliveryKey(msg, `oversized:${msg.content.length}`), error, "stream consume");
+                    return;
+                  }
                   const rawBody = msg.content.toString();
                   const deliveryKey = LIB.deliveryKey(msg, rawBody);
                   try {

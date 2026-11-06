@@ -485,11 +485,11 @@
         {{/if}}
         {{#if plugin.homepage}}
           <span class="metadata-label">Homepage</span>
-          <span class="metadata-value"><a href="{{plugin.homepage}}" target="_blank">{{plugin.homepage}}</a></span>
+          <span class="metadata-value">{{#if plugin.homepageHref}}<a href="{{plugin.homepageHref}}" target="_blank" rel="noopener noreferrer">{{plugin.homepage}}</a>{{else}}{{plugin.homepage}}{{/if}}</span>
         {{/if}}
         {{#if plugin.repository}}
           <span class="metadata-label">Repository</span>
-          <span class="metadata-value"><a href="{{plugin.repository}}" target="_blank">{{plugin.repository}}</a></span>
+          <span class="metadata-value">{{#if plugin.repositoryHref}}<a href="{{plugin.repositoryHref}}" target="_blank" rel="noopener noreferrer">{{plugin.repository}}</a>{{else}}{{plugin.repository}}{{/if}}</span>
         {{/if}}
         <span class="metadata-label">Published</span>
         <span class="metadata-value">{{plugin.publishedAt}}</span>

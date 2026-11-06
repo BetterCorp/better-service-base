@@ -31,6 +31,25 @@ const ConfigSchema = av.object({
   uniqueId: av.nullable(av.string()).default(hostname()).describe("Optional stable instance ID used in event consumer identity"),
 }).describe("RabbitMQ events plugin configuration");
 
+export function safeEndpoint(value: unknown): string {
+  if (typeof value !== "string") return "[unknown endpoint]";
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "amqp:" && parsed.protocol !== "amqps:") return "[invalid endpoint]";
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return "[invalid endpoint]";
+  }
+}
+
+function errorKind(value: unknown): string {
+  return value instanceof Error ? value.name : "Error";
+}
+
 export const Config = createConfigSchema(
   {
     name: 'events-rabbitmq',
@@ -91,11 +110,12 @@ export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
 
   private async _connectToAMQP(obs: Observable) {
     const endpoints = this.config.endpoints ?? ["amqp://localhost"];
+    const safeEndpoints = endpoints.map(safeEndpoint);
     const fatalOnDisconnect = this.config.fatalOnDisconnect ?? true;
     const credentials = this.config.credentials;
 
     obs.log.info('Connect to {endpoints}', {
-      endpoints,
+      endpoints: safeEndpoints,
     });
     const socketOptions: amqplib.AmqpConnectionManagerOptions = {
       connectionOptions: {},
@@ -116,17 +136,18 @@ export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
         socketOptions
     );
     this.publishConnection.on("connect", async (data: any) => {
-      obs.log.info("AMQP CONNECTED: {url}", { url: data.url });
+      obs.log.info("AMQP CONNECTED: {url}", { url: safeEndpoint(data.url) });
     });
     this.publishConnection.on(
         "connectFailed",
         async (data: any): Promise<any> => {
-          const errMsg = data.err?.toString() ?? "unknown";
+          const errMsg = errorKind(data.err);
+          const safeUrl = safeEndpoint(data.url);
           if (fatalOnDisconnect || endpoints.length === 1) {
-            obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: data.url, err: errMsg });
-            throw new Error(`AMQP connection failed: ${data.url} (${errMsg})`);
+            obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: safeUrl, err: errMsg });
+            throw new Error(`AMQP connection failed: ${safeUrl} (${errMsg})`);
           }
-          obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: data.url, err: errMsg });
+          obs.log.error("AMQP CONNECT FAIL: {url} ({err})", { url: safeUrl, err: errMsg });
         }
     );
     this.publishConnection.on("error", async (err: any) => {
@@ -153,7 +174,7 @@ export class Plugin extends BSBEvents<InstanceType<typeof Config>> {
     });
 
     obs.log.info('Connected to {endpoints}x2? (s:{sendS}/p:{pubS})', {
-      endpoints,
+      endpoints: safeEndpoints,
       sendS: this.receiveConnection.isConnected(),
       pubS: this.publishConnection.isConnected(),
     });

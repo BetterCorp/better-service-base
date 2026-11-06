@@ -39,6 +39,7 @@ export interface VaultServiceOptions {
   previousMasterKeys?: ReadonlyMap<string, Buffer>;
   setupCode: string;
   publicUrl: string;
+  authenticationBudgets?: Partial<Record<'login' | 'runtime' | 'publisher', number>>;
 }
 
 type ConfigState = {
@@ -84,6 +85,7 @@ export class VaultService {
   private readonly setupCode: string;
   private readonly origin: string;
   private readonly rpId: string;
+  private readonly authenticationBudgets: Record<string, number>;
 
   constructor(options: VaultServiceOptions) {
     this.store = options.store;
@@ -95,6 +97,11 @@ export class VaultService {
     const publicUrl = new URL(options.publicUrl);
     this.origin = publicUrl.origin;
     this.rpId = publicUrl.hostname;
+    this.authenticationBudgets = {
+      login: options.authenticationBudgets?.login ?? 200,
+      runtime: options.authenticationBudgets?.runtime ?? 10_000,
+      publisher: options.authenticationBudgets?.publisher ?? 1_000,
+    };
   }
 
   async setupRequired(): Promise<boolean> {
@@ -1824,6 +1831,17 @@ export class VaultService {
   }
 
   private async checkRateLimit(key: string): Promise<void> {
+    const scope = key.slice(0, key.indexOf(':'));
+    const globalMaximum = this.authenticationBudgets[scope] ?? 200;
+    const consumeBudget = (this.store as VaultStore & {
+      consumeAuthenticationBudget?: (subjectHash: string, maximum: number, subject?: string) => Promise<boolean>;
+    }).consumeAuthenticationBudget;
+    // VaultStore provides the global budget. Lightweight test doubles and older
+    // embedders may not yet implement it; their existing per-subject limit remains.
+    if (typeof consumeBudget === 'function'
+      && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
+      throw new Error('Too many authentication attempts; try again later');
+    }
     if (!(await this.store.authenticationAllowed(tokenHash(key)))) {
       throw new Error('Too many authentication attempts; try again later');
     }

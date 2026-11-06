@@ -3,7 +3,7 @@ import type { InferBSBType, PluginLanguage } from '@bsb/base';
 
 export { REGISTRY_IDENTIFIER_PATTERN, REGISTRY_PLUGIN_ID_PATTERN } from '@bsb/base';
 export const PACKAGE_LOOKUP_ID_PATTERN = '^(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9@._:-]+(?:/[A-Za-z0-9@._:-]+)*$';
-export const SEMANTIC_VERSION_PATTERN = '^\\d{1,5}\\.\\d{1,5}\\.\\d{1,5}(?:-[a-zA-Z0-9.]+)?$';
+export const SEMANTIC_VERSION_PATTERN = '^(?:\\d{1,5}\\.\\d{1,5}\\.\\d{1,5}|\\d{1,5}\\.\\d{1,5}\\.\\d{1,5}-[a-zA-Z0-9.]{1,32})$';
 export const MAJOR_MINOR_PATTERN = '^\\d{1,5}\\.\\d{1,5}$';
 
 export const registryIdentifier = (description: string) => bsb.string({

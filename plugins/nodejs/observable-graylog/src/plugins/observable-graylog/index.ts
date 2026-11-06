@@ -50,6 +50,9 @@ export const GraylogConfigSchema = av.object({
     av.bool().describe("Boolean additional field value"),
   ]))).default({}).describe("Additional static GELF fields added to every log message"),
   compress: av.bool().default(true).describe("Whether UDP GELF message compression is enabled"),
+  maxQueueSize: av.int32().min(1).max(100000).default(2048).describe("Maximum pending GELF messages before overload drops"),
+  concurrency: av.int32().min(1).max(32).default(4).describe("Maximum concurrent network sends"),
+  timeoutMs: av.int32().min(100).max(120000).default(5000).describe("Network send timeout"),
   levels: av.object({
     debug: av.bool().default(true).describe("Whether debug logs are sent to Graylog"),
     info: av.bool().default(true).describe("Whether info logs are sent to Graylog"),
@@ -99,6 +102,13 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   private logFormatter = new LogFormatter();
   private isDisposed = false;
   private defaultFields: Record<string, string | number | boolean> = {};
+  private queue: string[] = [];
+  private inFlight = 0;
+  private dropped = 0;
+  private udpSocket: dgram.Socket | null = null;
+  private active = new Set<{ destroy?: () => void }>();
+  private httpAgent = new http.Agent({ keepAlive: true, maxSockets: 4 });
+  private httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 4 });
 
   constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
@@ -109,6 +119,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       facility: this.config.facility,
       ...this.config.additionalFields,
     };
+    if (this.config.protocol === "udp") this.udpSocket = dgram.createSocket("udp4");
   }
 
   public async run(): Promise<void> {
@@ -142,8 +153,9 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       };
 
       // Add metadata fields with underscore prefix (GELF convention)
-      if (meta) {
-        for (const [key, value] of Object.entries(meta)) {
+      const safeMeta = this.logFormatter.sanitizeMeta(meta);
+      if (safeMeta) {
+        for (const [key, value] of Object.entries(safeMeta)) {
           if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
             extraFields[`_${key}`] = value;
           } else {
@@ -152,13 +164,13 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
         }
       }
 
-      this.sendGelfMessage(formattedMessage, gelfLevel, extraFields);
+      this.queueGelfMessage(formattedMessage, gelfLevel, extraFields);
     } catch (err) {
-      console.error(`[observable-graylog] Send error: ${(err as Error).message}`);
+      console.error(`[observable-graylog] Send error: ${err instanceof Error ? err.name : "Error"}`);
     }
   }
 
-  private sendGelfMessage(
+  private queueGelfMessage(
     shortMessage: string,
     level: number,
     extraFields: Record<string, string | number | boolean>
@@ -173,60 +185,87 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       ...extraFields,
     });
 
-    if (this.config.protocol === "http") {
-      this.sendHttp(payload);
+    if (this.queue.length >= this.config.maxQueueSize) {
+      this.dropped++;
+      if ((this.dropped & (this.dropped - 1)) === 0)
+        console.error(`[observable-graylog] Dropped ${this.dropped} messages because the queue is full`);
       return;
     }
-
-    if (this.config.protocol === "tcp") {
-      this.sendTcp(payload);
-      return;
-    }
-
-    this.sendUdp(payload);
+    this.queue.push(payload);
+    this.drain();
   }
 
-  private sendUdp(payload: string): void {
-    const socket = dgram.createSocket("udp4");
+  private drain(): void {
+    while (!this.isDisposed && this.inFlight < this.config.concurrency && this.queue.length > 0) {
+      const payload = this.queue.shift()!;
+      this.inFlight++;
+      void this.dispatch(payload)
+        .catch((error: unknown) => console.error(`[observable-graylog] Network send failed: ${error instanceof Error ? error.name : "Error"}`))
+        .finally(() => { this.inFlight--; this.drain(); });
+    }
+  }
+
+  private dispatch(payload: string): Promise<void> {
+    if (this.config.protocol === "http") return this.sendHttp(payload);
+    if (this.config.protocol === "tcp") return this.sendTcp(payload);
+    return this.sendUdp(payload);
+  }
+
+  private sendUdp(payload: string): Promise<void> {
+    const socket = this.udpSocket ??= dgram.createSocket("udp4");
     const message = this.config.compress ? gzipSync(Buffer.from(payload)) : Buffer.from(payload);
-    socket.send(message, this.config.port, this.config.host, (err) => {
-      socket.close();
-      if (err) {
-        console.error(`[observable-graylog] Failed to send UDP log: ${err.message}`);
-      }
+    return new Promise((resolve, reject) => {
+      socket.send(message, this.config.port, this.config.host, (err) => err ? reject(err) : resolve());
     });
   }
 
-  private sendTcp(payload: string): void {
-    const socket = net.createConnection({ host: this.config.host, port: this.config.port }, () => {
-      socket.end(`${payload}\0`);
-    });
-    socket.on("error", (err) => {
-      console.error(`[observable-graylog] Failed to send TCP log: ${err.message}`);
+  private sendTcp(payload: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const socket = net.createConnection({ host: this.config.host, port: this.config.port }, () => socket.end(`${payload}\0`));
+      this.active.add(socket);
+      socket.setTimeout(this.config.timeoutMs, () => socket.destroy(new Error("Graylog TCP timeout")));
+      socket.once("error", reject);
+      socket.once("close", () => { this.active.delete(socket); resolve(); });
     });
   }
 
-  private sendHttp(payload: string): void {
+  private sendHttp(payload: string): Promise<void> {
     const endpoint = new URL(this.config.httpEndpoint ?? `http://${this.config.host}:${this.config.port}/gelf`);
     const body = Buffer.from(payload);
     const client = endpoint.protocol === "https:" ? https : http;
-    const req = client.request(
-      endpoint,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "content-length": body.byteLength,
+    const agent = endpoint.protocol === "https:" ? this.httpsAgent : this.httpAgent;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        error ? reject(error) : resolve();
+      };
+      const req = client.request(
+        endpoint,
+        {
+          method: "POST",
+          agent,
+          headers: {
+            "content-type": "application/json",
+            "content-length": body.byteLength,
+          },
         },
-      },
-      (res) => {
-        res.resume();
-      }
-    );
-    req.on("error", (err) => {
-      console.error(`[observable-graylog] Failed to send HTTP log: ${err.message}`);
+        (res) => {
+          res.resume();
+          res.once("end", () => finish());
+          res.once("error", (error) => finish(error));
+          res.once("close", () => {
+            if (!res.complete) finish(new Error("Graylog HTTP response closed prematurely"));
+          });
+        }
+      );
+      this.active.add(req);
+      req.setTimeout(this.config.timeoutMs, () => req.destroy(new Error("Graylog HTTP timeout")));
+      req.once("error", (error) => finish(error));
+      req.once("close", () => this.active.delete(req));
+      req.end(body);
     });
-    req.end(body);
   }
 
   // Logging methods
@@ -269,5 +308,12 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
   public dispose(): void {
     this.isDisposed = true;
+    this.queue.length = 0;
+    this.udpSocket?.close();
+    this.udpSocket = null;
+    for (const resource of this.active) resource.destroy?.();
+    this.active.clear();
+    this.httpAgent.destroy();
+    this.httpsAgent.destroy();
   }
 }

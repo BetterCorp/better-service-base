@@ -1,4 +1,4 @@
-import { Plugin } from "../../../plugins/events-rabbitmq/index.js";
+import { Plugin, safeEndpoint } from "../../../plugins/events-rabbitmq/index.js";
 import { BSBEventsRef } from "@bsb/base";
 import { broadcast } from "./events/broadcast.js";
 import { emit } from "./events/emit.js";
@@ -83,6 +83,15 @@ describe("plugins/events-rabbitmq poison handling", () => {
     assert.deepStrictEqual(nacks.slice(0, -1).map((nack) => nack.requeue), Array(9).fill(true));
     assert.strictEqual(nacks[nacks.length - 1]?.requeue, false);
     assert.strictEqual(attempts.has("persistent-id"), false);
+  });
+});
+
+describe("plugins/events-rabbitmq endpoint redaction", () => {
+  it("removes credentials, query strings and fragments from logged endpoints", () => {
+    const rendered = safeEndpoint("amqps://user:secret@rabbit.example/vhost?token=also-secret#fragment");
+    assert.equal(rendered, "amqps://rabbit.example/vhost");
+    assert.equal(rendered.includes("secret"), false);
+    assert.equal(safeEndpoint("not a URL"), "[invalid endpoint]");
   });
 });
 

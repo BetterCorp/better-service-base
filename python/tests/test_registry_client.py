@@ -82,6 +82,27 @@ def test_optional_read_sends_configured_registry_token(monkeypatch) -> None:
     assert authorization == ['Bearer private-read-token']
 
 
+def test_custom_target_does_not_inherit_configured_registry_token(monkeypatch) -> None:
+    authorization: list[str | None] = []
+
+    def fake_request(method, url, **kwargs):
+        authorization.append(kwargs['headers'].get('Authorization'))
+        return {}
+
+    monkeypatch.setattr(registry_client, 'REGISTRY_URL', 'https://registry.example')
+    monkeypatch.setattr(registry_client, 'REGISTRY_TOKEN', 'must-not-leak')
+    monkeypatch.setattr(registry_client, 'json_request', fake_request)
+
+    registry_client.registry_request('GET', '/plugins', target='https://custom.example')
+    assert authorization == [None]
+
+    with pytest.raises(RuntimeError, match='explicit token'):
+        registry_client.registry_request('POST', '/plugins', require_auth=True, target='https://custom.example')
+
+    registry_client.registry_request('POST', '/plugins', require_auth=True, target='https://custom.example', token='custom-token')
+    assert authorization[-1] == 'Bearer custom-token'
+
+
 @pytest.mark.parametrize(("manifest_version", "expected"), [("2.4.6", "2.4.6"), (None, "1.2.3")])
 def test_publish_uses_discovered_plugin_version_consistently(tmp_path, monkeypatch, manifest_version, expected):
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "example-package"\nversion = "1.2.3"\nrequires-python = ">=3.11"\n')
