@@ -9,6 +9,18 @@ import * as path from 'path';
 import { EventSchemaExport, EventExportDefinition } from '../interfaces/schema-events.js';
 import { clientSchemaCode } from './anyvali-client-schema.js';
 import { isMainModule } from '../base/module-runtime.js';
+import { assertSafeSchemaDocument } from '../interfaces/schema-safety.js';
+
+function finiteConstraint(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`Invalid legacy schema ${name}`);
+  return value;
+}
+
+function lengthConstraint(value: unknown, name: string): number {
+  const number = finiteConstraint(value, name);
+  if (!Number.isSafeInteger(number) || number < 0 || number > 10_000_000) throw new Error(`Invalid legacy schema ${name}`);
+  return number;
+}
 
 function jsonSchemaNodeToCode(node: Record<string, any>): string {
   const type = node.type;
@@ -19,8 +31,8 @@ function jsonSchemaNodeToCode(node: Record<string, any>): string {
       if (node.format === 'email') return 'bsb.email()';
       if (node.format === 'url' || node.format === 'uri') return 'bsb.uri()';
       const opts: string[] = [];
-      if (node.minLength !== undefined) opts.push(`min: ${node.minLength}`);
-      if (node.maxLength !== undefined) opts.push(`max: ${node.maxLength}`);
+      if (node.minLength !== undefined) opts.push(`min: ${JSON.stringify(lengthConstraint(node.minLength, 'minLength'))}`);
+      if (node.maxLength !== undefined) opts.push(`max: ${JSON.stringify(lengthConstraint(node.maxLength, 'maxLength'))}`);
       if (node.pattern !== undefined) opts.push(`pattern: ${JSON.stringify(node.pattern)}`);
       return opts.length > 0 ? `bsb.string({ ${opts.join(', ')} })` : 'bsb.string()';
     }
@@ -28,8 +40,8 @@ function jsonSchemaNodeToCode(node: Record<string, any>): string {
     case 'number': {
       const fn = type === 'integer' ? 'int32' : 'number';
       const opts: string[] = [];
-      if (node.minimum !== undefined) opts.push(`min: ${node.minimum}`);
-      if (node.maximum !== undefined) opts.push(`max: ${node.maximum}`);
+      if (node.minimum !== undefined) opts.push(`min: ${JSON.stringify(finiteConstraint(node.minimum, 'minimum'))}`);
+      if (node.maximum !== undefined) opts.push(`max: ${JSON.stringify(finiteConstraint(node.maximum, 'maximum'))}`);
       return opts.length > 0 ? `bsb.${fn}({ ${opts.join(', ')} })` : `bsb.${fn}()`;
     }
     case 'boolean':
@@ -103,6 +115,7 @@ const FLIP_MAP: Record<string, string> = {
 };
 
 function generateVirtualClient(schemaExport: EventSchemaExport, importBase: string, pluginId: string): string {
+  assertSafeSchemaDocument(schemaExport);
   const lines: string[] = [];
   const className = pluginNameToClassName(pluginId);
   const comment = (value: unknown) => String(value).replace(/\*\//g, "* /").replace(/[\r\n]/g, " ");

@@ -42,17 +42,24 @@ func language(value string) (string, error) {
 type Registry struct{ Origin, Token string }
 
 func NewRegistry(endpoint, token string, allowHTTP bool) (*Registry, error) {
-	if endpoint == "" {
-		endpoint = os.Getenv("BSB_REGISTRY_URL")
+	configuredEndpoint := os.Getenv("BSB_REGISTRY_URL")
+	if configuredEndpoint == "" {
+		configuredEndpoint = "https://io.bsbcode.dev"
 	}
 	if endpoint == "" {
-		endpoint = "https://io.bsbcode.dev"
+		endpoint = configuredEndpoint
 	}
 	origin, err := bsb.EndpointOrigin(endpoint, allowHTTP)
 	if err != nil {
 		return nil, err
 	}
-	if token == "" {
+	configuredOrigin, err := bsb.EndpointOrigin(configuredEndpoint, allowHTTP)
+	if err != nil {
+		return nil, fmt.Errorf("invalid BSB_REGISTRY_URL: %w", err)
+	}
+	// Never rebind the configured Registry credential to a caller-selected
+	// origin. Custom targets must supply an explicit token.
+	if token == "" && origin == configuredOrigin {
 		token = os.Getenv("BSB_REGISTRY_TOKEN")
 	}
 	return &Registry{origin, token}, nil

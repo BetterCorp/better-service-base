@@ -60,6 +60,7 @@ const ConfigSchema = av.object({
   export: av.object({
     flushIntervalMs: av.int32().min(100).default(5000).describe("Interval in milliseconds between batched log flushes"),
     maxBatchSize: av.int32().min(1).default(1000).describe("Maximum number of log entries sent in one batch"),
+    maxQueueSize: av.int32().min(1).max(1000000).default(10000).describe("Maximum pending telemetry entries before overload drops"),
   }).describe("Axiom export batching settings"),
   resourceAttributes: av.record(av.string()).default({}).describe("Additional OpenTelemetry resource attributes attached to exported telemetry"),
 }).describe("Axiom observable plugin configuration");
@@ -135,6 +136,8 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   private spans = new Map<string, api.Span>();
   private pendingLogs: Array<Record<string, unknown>> = [];
   private flushTimer: NodeJS.Timeout | null = null;
+  private flushPromise: Promise<void> | null = null;
+  private droppedEntries = 0;
 
   constructor(config: BSBObservableConstructor<InstanceType<typeof Config>>) {
     super(config);
@@ -211,8 +214,9 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       );
     }
 
-    // Start periodic flush for logs
-    if (this.config.enabled.logs) {
+    // Logs and metrics share the bounded export queue, so either signal must
+    // start the drain timer.
+    if (this.config.enabled.logs || this.config.enabled.metrics) {
       this.flushTimer = setInterval(() => {
         this.flushLogs().catch((error) => {
           console.error("[observable-axiom] Failed to flush logs:", error);
@@ -232,14 +236,37 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     if (!this.axiom || this.pendingLogs.length === 0 || this.isDisposed) {
       return;
     }
+    if (this.flushPromise) return this.flushPromise;
+    this.flushPromise = (async () => {
+      // Drain the backlog visible at flush start. New producers can trigger a
+      // later flush, which prevents a hot producer from holding this task forever.
+      const batchCount = Math.ceil(this.pendingLogs.length / this.config.export.maxBatchSize);
+      for (let index = 0; index < batchCount && this.pendingLogs.length > 0; index++) {
+        const batch = this.pendingLogs.splice(0, this.config.export.maxBatchSize);
+        try {
+          await this.axiom!.ingest(this.config.axiom.dataset, batch);
+        } catch (error) {
+          console.error("[observable-axiom] Failed to ingest telemetry:", error instanceof Error ? error.name : "Error");
+          // Don't re-add to the bounded queue: retrying indefinitely would turn
+          // an exporter outage into process memory exhaustion.
+        }
+      }
+    })().finally(() => { this.flushPromise = null; });
+    return this.flushPromise;
+  }
 
-    const batch = this.pendingLogs.splice(0, this.config.export.maxBatchSize);
-
-    try {
-      await this.axiom.ingest(this.config.axiom.dataset, batch);
-    } catch (error) {
-      console.error("[observable-axiom] Failed to ingest logs:", error);
-      // Don't re-add to queue to avoid memory leak
+  private queueEntry(entry: Record<string, unknown>): void {
+    if (this.pendingLogs.length >= this.config.export.maxQueueSize) {
+      this.droppedEntries++;
+      if ((this.droppedEntries & (this.droppedEntries - 1)) === 0)
+        console.error(`[observable-axiom] Dropped ${this.droppedEntries} telemetry entries because the queue is full`);
+      return;
+    }
+    this.pendingLogs.push(entry);
+    if (this.pendingLogs.length >= this.config.export.maxBatchSize) {
+      void this.flushLogs().catch((error) => {
+        console.error("[observable-axiom] Failed to flush telemetry:", error instanceof Error ? error.name : "Error");
+      });
     }
   }
 
@@ -279,7 +306,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     }
 
     if (meta && Object.keys(meta).length > 0) {
-      logEntry.meta = meta;
+      logEntry.meta = this.logFormatter.sanitizeMeta(meta);
     }
 
     // Add resource attributes
@@ -287,14 +314,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       logEntry[`resource.${key}`] = value;
     }
 
-    this.pendingLogs.push(logEntry);
-
-    // Flush immediately if batch is full
-    if (this.pendingLogs.length >= this.config.export.maxBatchSize) {
-      this.flushLogs().catch((error) => {
-        console.error("[observable-axiom] Failed to flush logs:", error);
-      });
-    }
+    this.queueEntry(logEntry);
   }
 
 
@@ -358,7 +378,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       ...labels,
     };
 
-    this.pendingLogs.push(event);
+    this.queueEntry(event);
   }
 
   public createGauge(
@@ -393,7 +413,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       ...labels,
     };
 
-    this.pendingLogs.push(event);
+    this.queueEntry(event);
   }
 
   public createHistogram(
@@ -429,7 +449,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       ...labels,
     };
 
-    this.pendingLogs.push(event);
+    this.queueEntry(event);
   }
 
   /**

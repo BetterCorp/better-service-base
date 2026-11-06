@@ -62,19 +62,24 @@ def _format_registry_error(raw_body: str, status_code: int | None = None) -> str
 
 
 def registry_request(method: str, path: str, body: Any | None = None, require_auth: bool = False, *, target=None, token=None, allow_insecure=False) -> Any:
+    allow_http = allow_insecure or os.environ.get("BSB_REGISTRY_ALLOW_INSECURE_HTTP") == "true"
+    endpoint = origin(target or REGISTRY_URL, allow_http=allow_http)
+    default_endpoint = origin(REGISTRY_URL, allow_http=allow_http)
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
-    token = REGISTRY_TOKEN if token is None else token
+    # Environment credentials are scoped to the configured Registry origin.
+    # A custom target must provide its own explicit token so a developer or CI
+    # job cannot accidentally disclose the default Registry credential.
+    token = REGISTRY_TOKEN if token is None and endpoint == default_endpoint else token
     if require_auth and not token:
-        raise RuntimeError("BSB_REGISTRY_TOKEN environment variable not set")
+        raise RuntimeError("An explicit token is required for a custom Registry target" if endpoint != default_endpoint else "BSB_REGISTRY_TOKEN environment variable not set")
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
     if not path.startswith("/") or path.startswith("//"):
         raise ValueError("Registry request must use a relative API path")
-    endpoint = origin(target or REGISTRY_URL, allow_http=allow_insecure or os.environ.get("BSB_REGISTRY_ALLOW_INSECURE_HTTP") == "true")
     try:
         return json_request(method, endpoint + path, body=body, headers=headers)
     except HTTPError as error:

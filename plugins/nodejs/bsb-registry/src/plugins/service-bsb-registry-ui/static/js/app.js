@@ -259,6 +259,8 @@ async function showPluginDetail(pluginId) {
         if (!response.ok) throw new Error('Failed to fetch plugin details');
 
         const plugin = await response.json();
+        const homepageHref = externalHttpHref(plugin.homepage);
+        const repositoryHref = externalHttpHref(plugin.repository);
 
         modalBody.innerHTML = `
             <h2>${escapeHtml(plugin.name)}</h2>
@@ -276,8 +278,8 @@ async function showPluginDetail(pluginId) {
 
             ${plugin.author ? `<p><strong>Author:</strong> ${escapeHtml(plugin.author)}</p>` : ''}
             ${plugin.license ? `<p><strong>License:</strong> ${escapeHtml(plugin.license)}</p>` : ''}
-            ${plugin.homepage ? `<p><strong>Homepage:</strong> <a href="${escapeHtml(plugin.homepage)}" target="_blank">${escapeHtml(plugin.homepage)}</a></p>` : ''}
-            ${plugin.repository ? `<p><strong>Repository:</strong> <a href="${escapeHtml(plugin.repository)}" target="_blank">${escapeHtml(plugin.repository)}</a></p>` : ''}
+            ${plugin.homepage ? `<p><strong>Homepage:</strong> ${homepageHref ? `<a href="${escapeHtml(homepageHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(plugin.homepage)}</a>` : escapeHtml(plugin.homepage)}</p>` : ''}
+            ${plugin.repository ? `<p><strong>Repository:</strong> ${repositoryHref ? `<a href="${escapeHtml(repositoryHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(plugin.repository)}</a>` : escapeHtml(plugin.repository)}</p>` : ''}
 
             <h3 style="margin-top: 2rem;">Installation</h3>
             <pre style="background: var(--bg); padding: 1rem; border-radius: 0.5rem; overflow-x: auto;">npx bsb client install ${escapeHtml(plugin.id)}</pre>
@@ -333,4 +335,18 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function externalHttpHref(value) {
+    if (typeof value !== 'string') return null;
+    const href = value.trim();
+    if (!/^https?:\/\//i.test(href) || /[\u0000-\u001f\u007f]/.test(href)) return null;
+    try {
+        const url = new URL(href);
+        return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname && !url.username && !url.password
+            ? url.href
+            : null;
+    } catch {
+        return null;
+    }
 }

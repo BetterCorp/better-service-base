@@ -57,6 +57,8 @@ public abstract class StructuredLogging<TConfig>(ServiceConstructorArgs<TConfig>
 /// <summary>Serializes writes, rotates by size/time and retains only this writer's archives.</summary>
 public sealed class RotatingLogFile : IDisposable
 {
+    private const UnixFileMode PrivateFileMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+    private const UnixFileMode PrivateDirectoryMode = PrivateFileMode | UnixFileMode.UserExecute;
     private readonly string _path;
     private readonly long _maxBytes;
     private readonly int _maxFiles;
@@ -71,7 +73,10 @@ public sealed class RotatingLogFile : IDisposable
         if (maxBytes <= 0 || maxFiles < 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
         _path = Path.GetFullPath(path); _maxBytes = maxBytes; _maxFiles = maxFiles; _compress = compress;
         _interval = interval switch { "daily" => TimeSpan.FromDays(1), "hourly" => TimeSpan.FromHours(1), "none" => null, _ => throw new ArgumentException("Invalid log rotation interval") };
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        var directory = Path.GetDirectoryName(_path)!;
+        var createPrivateDirectory = !Directory.Exists(directory);
+        Directory.CreateDirectory(directory);
+        if (createPrivateDirectory && !OperatingSystem.IsWindows()) File.SetUnixFileMode(directory, PrivateDirectoryMode);
     }
     public void Write(string line)
     {
@@ -90,7 +95,7 @@ public sealed class RotatingLogFile : IDisposable
                     try
                     {
                         using (var input = File.OpenRead(archive))
-                        using (var output = File.Create(archive + ".gz"))
+                        using (var output = OpenPrivate(archive + ".gz", FileMode.Create))
                         using (var gzip = new GZipStream(output, CompressionLevel.Fastest)) input.CopyTo(gzip);
                         File.Delete(archive);
                     }
@@ -108,7 +113,14 @@ public sealed class RotatingLogFile : IDisposable
     {
         if (_file is not null) return;
         _opened = File.Exists(_path) ? File.GetLastWriteTimeUtc(_path) : DateTime.UtcNow;
-        _file = new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.Read);
+        _file = OpenPrivate(_path, FileMode.Append, FileShare.Read);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(_path, PrivateFileMode);
+    }
+    private static FileStream OpenPrivate(string path, FileMode mode, FileShare share = FileShare.None)
+    {
+        var options = new FileStreamOptions { Mode = mode, Access = FileAccess.Write, Share = share };
+        if (!OperatingSystem.IsWindows()) options.UnixCreateMode = PrivateFileMode;
+        return new FileStream(path, options);
     }
     public void Dispose() { lock (_gate) { if (_disposed) return; _disposed = true; _file?.Dispose(); _file = null; } }
 }

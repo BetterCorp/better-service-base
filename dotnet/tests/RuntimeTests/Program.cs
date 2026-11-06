@@ -280,6 +280,11 @@ try
         for (var i = 0; i < 6; i++) writer.Write("{\"value\":\"test-entry-" + i + "\"}");
     var archives = Directory.GetFiles(logDirectory, "*.gz");
     Check(archives.Length == 2, "File rotation did not retain exactly two archives");
+    if (!OperatingSystem.IsWindows())
+    {
+        Check(File.GetUnixFileMode(logFile) == (UnixFileMode.UserRead | UnixFileMode.UserWrite), "Active log permissions are not owner-only");
+        Check(archives.All(path => File.GetUnixFileMode(path) == (UnixFileMode.UserRead | UnixFileMode.UserWrite)), "Archive permissions are not owner-only");
+    }
     foreach (var archive in archives)
     {
         using var input = File.OpenRead(archive);

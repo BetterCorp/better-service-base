@@ -2,6 +2,7 @@ import * as amqplib from "amqp-connection-manager";
 import * as amqplibCore from "amqplib";
 import { Plugin } from "../index.js";
 import { Observable } from "@bsb/base";
+import { createHash } from "node:crypto";
 
 export interface SetupChannel<T extends string | null = string | null> {
   exchangeName: T;
@@ -11,6 +12,8 @@ export interface SetupChannel<T extends string | null = string | null> {
 const isNil = (value: unknown) => value === null || value === undefined;
 export class LIB {
   public static readonly MAX_DELIVERY_ATTEMPTS = 10;
+  public static readonly MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
+  public static readonly MAX_TRACKED_DELIVERIES = 4096;
   public static readonly deadLetterExchange = "better.service9.deadletter";
   public static readonly deadLetterQueue = "better.service9.deadletter";
 
@@ -124,7 +127,14 @@ export class LIB {
   }
 
   public static deliveryKey(msg: amqplibCore.ConsumeMessage, body: string): string {
-    return msg.properties.messageId || `${msg.fields.routingKey}:${body}`;
+    const material = msg.properties.messageId || `${msg.fields.routingKey}:${body}`;
+    return createHash("sha256").update(material).digest("hex");
+  }
+
+  public static assertMessageSize(msg: amqplibCore.ConsumeMessage): void {
+    if (msg.content.length > LIB.MAX_MESSAGE_BYTES) {
+      throw new Error(`AMQP message exceeds ${LIB.MAX_MESSAGE_BYTES} byte limit`);
+    }
   }
 
   public static clearDeliveryFailure(
@@ -146,6 +156,10 @@ export class LIB {
     const attempt = (attempts.get(key) ?? 0) + 1;
     const requeue = attempt < LIB.MAX_DELIVERY_ATTEMPTS;
     if (requeue) {
+      if (!attempts.has(key) && attempts.size >= LIB.MAX_TRACKED_DELIVERIES) {
+        const oldest = attempts.keys().next().value;
+        if (oldest !== undefined) attempts.delete(oldest);
+      }
       attempts.set(key, attempt);
     } else {
       attempts.delete(key);

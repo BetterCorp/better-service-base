@@ -173,7 +173,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
         plugin: pluginName,
         trace_id: trace.t,
         span_id: trace.s,
-        ...meta,
+        ...this.logFormatter.sanitizeMeta(meta),
       };
 
       // Log to Pino
