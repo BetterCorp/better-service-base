@@ -110,6 +110,12 @@ export class LogFormatter {
     const sanitize = (value: unknown, depth: number): unknown => {
       if (this.isUnsafeLogData(value)) return sanitize(value.safeValue, depth);
       if (typeof value === "string") return this.escapeText(value).slice(0, 16_384);
+      if (value instanceof Date) return value.toISOString();
+      if (value instanceof Error) return {
+        name: this.escapeText(value.name).slice(0, 256),
+        message: this.escapeText(value.message).slice(0, 16_384),
+        ...(value.stack ? { stack: this.escapeText(value.stack).slice(0, 32_768) } : {}),
+      };
       if (value === null || typeof value === "number" || typeof value === "boolean") return value;
       if (typeof value === "bigint") return value.toString();
       if (typeof value !== "object") return String(value);
@@ -139,6 +145,6 @@ export class LogFormatter {
       const removedVar = dataToParse[i].split("}");
       outString += this.formatData(nMeta, removedVar[0]) + removedVar[1];
     }
-    return outString;
+    return this.escapeText(outString);
   }
 }

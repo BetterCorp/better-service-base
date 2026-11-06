@@ -566,8 +566,10 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
       this.flushTimer = null;
     }
 
-    // Flush remaining logs
-    await this.flushLogs();
+    // Flush batches queued before or during an in-flight request without hanging shutdown indefinitely.
+    for (let attempt = 0; attempt < 10 && this.pendingLogs.length > 0; attempt++) {
+      await this.flushLogs();
+    }
     this.isDisposed = true;
 
     // Clear any active spans (but don't end them - they should already be ended)

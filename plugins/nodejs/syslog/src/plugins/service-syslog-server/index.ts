@@ -31,6 +31,7 @@ import * as av from "anyvali";
 import { createFireAndForgetEvent } from "@bsb/base";
 // @ts-ignore - no types available
 import SyslogServer from "syslog-server";
+import { isIP } from "node:net";
 
 /**
  * Syslog message structure
@@ -184,7 +185,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
 
 export function isLoopback(address: string): boolean {
   const normalized = address.trim().toLowerCase();
-  return normalized === "localhost" || normalized === "::1" || normalized === "[::1]" || normalized.startsWith("127.");
+  return normalized === "localhost" || normalized === "::1" || normalized === "[::1]" || (isIP(normalized) === 4 && normalized.startsWith("127."));
 }
 
 /**

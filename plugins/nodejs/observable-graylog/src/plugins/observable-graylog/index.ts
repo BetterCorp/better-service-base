@@ -235,6 +235,12 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     const client = endpoint.protocol === "https:" ? https : http;
     const agent = endpoint.protocol === "https:" ? this.httpsAgent : this.httpAgent;
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        error ? reject(error) : resolve();
+      };
       const req = client.request(
         endpoint,
         {
@@ -247,12 +253,16 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
         },
         (res) => {
           res.resume();
-          res.once("end", resolve);
+          res.once("end", () => finish());
+          res.once("error", (error) => finish(error));
+          res.once("close", () => {
+            if (!res.complete) finish(new Error("Graylog HTTP response closed prematurely"));
+          });
         }
       );
       this.active.add(req);
       req.setTimeout(this.config.timeoutMs, () => req.destroy(new Error("Graylog HTTP timeout")));
-      req.once("error", reject);
+      req.once("error", (error) => finish(error));
       req.once("close", () => this.active.delete(req));
       req.end(body);
     });

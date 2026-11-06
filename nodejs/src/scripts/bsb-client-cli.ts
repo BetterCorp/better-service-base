@@ -186,7 +186,7 @@ async function registryRequest(
   return new Promise((resolve, reject) => {
     const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
     const isHttps = url.protocol === 'https:';
-    const isLoopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1';
+    const isLoopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1' || url.hostname === '[::1]';
     if (token && !isHttps && !isLoopback) {
       throw new Error(`Refusing to send a registry token over insecure HTTP to ${url.hostname}`);
     }

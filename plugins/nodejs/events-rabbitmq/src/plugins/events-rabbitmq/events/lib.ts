@@ -160,6 +160,7 @@ export class LIB {
         const oldest = attempts.keys().next().value;
         if (oldest !== undefined) attempts.delete(oldest);
       }
+      attempts.delete(key);
       attempts.set(key, attempt);
     } else {
       attempts.delete(key);
