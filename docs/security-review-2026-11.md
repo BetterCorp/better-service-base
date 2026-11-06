@@ -31,12 +31,18 @@ This change responds to the security review of commit
 - `BSB_PLUGIN_WATCHER=true` needs a writable plugin directory, so
   `BSB_SYNC_PERMISSIONS=true` is ignored in watcher mode. The watcher still runs as
   the unprivileged `node` user.
+- Plugin bootstrap and watcher installs run with the `node` user's home directory.
+  Deployments using a private npm registry must mount a configuration file readable
+  by `node` and set `NPM_CONFIG_USERCONFIG` to that path; root's default `.npmrc` is
+  intentionally not inherited.
 - Packages that require npm install-time compilation are no longer suitable as
   runtime-installed BSB plugins. Publish prebuilt artifacts instead.
 - The core Node workspace uses TypeScript 6.x because TypeDoc 0.28 does not support
   TypeScript 7.x; this also keeps clean workspace builds reproducible.
 - `--token` remains accepted for compatibility, but is deprecated because command
-  arguments can be exposed through shell history and process inspection.
+  arguments can be exposed through shell history and process inspection. Set
+  `BSB_REGISTRY_TOKEN` outside the publish command rather than placing the token in
+  an inline shell assignment that may also be retained in shell history.
 
 ## Follow-up work
 
