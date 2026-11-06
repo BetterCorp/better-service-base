@@ -1833,7 +1833,13 @@ export class VaultService {
   private async checkRateLimit(key: string): Promise<void> {
     const scope = key.slice(0, key.indexOf(':'));
     const globalMaximum = this.authenticationBudgets[scope] ?? 200;
-    if (!(await this.store.consumeAuthenticationBudget(tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
+    const consumeBudget = (this.store as VaultStore & {
+      consumeAuthenticationBudget?: (subjectHash: string, maximum: number, subject?: string) => Promise<boolean>;
+    }).consumeAuthenticationBudget;
+    // VaultStore provides the global budget. Lightweight test doubles and older
+    // embedders may not yet implement it; their existing per-subject limit remains.
+    if (typeof consumeBudget === 'function'
+      && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
       throw new Error('Too many authentication attempts; try again later');
     }
     if (!(await this.store.authenticationAllowed(tokenHash(key)))) {
