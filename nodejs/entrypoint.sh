@@ -46,26 +46,92 @@ NEED_PLUGIN_WRITE=0
 if [ -n "${BSB_PLUGINS:-}" ] || is_truthy "${BSB_PLUGIN_WATCHER:-}" || is_truthy "${BSB_PLUGIN_UPDATE:-}"; then
   NEED_PLUGIN_WRITE=1
 fi
+
+INSTALL_TARGET=""
 if [ -n "$RAW_PLUGIN_DIRS" ]; then
   OLDIFS="$IFS"
   IFS=","
   for DIR in $RAW_PLUGIN_DIRS; do
     DIR=$(echo "$DIR" | xargs)
     [ -z "$DIR" ] && continue
-    printf 'BSB entrypoint: check plugin directory %s\n' "$DIR"
-    if [ ! -d "$DIR" ]; then
-      printf 'BSB entrypoint: mkdir %s\n' "$DIR"
-      mkdir -p "$DIR"
-      NEED_INSTALL=1
-    fi
-    if [ "$NEED_PLUGIN_WRITE" -eq 1 ] || [ "$NEED_INSTALL" -eq 1 ]; then
-      # Only the directory itself needs to be writable for the unprivileged
-      # installer. Never recursively chown plugin contents during bootstrap.
-      chown node:node "$DIR" 2>/dev/null || true
-      chmod u+rwx "$DIR" 2>/dev/null || true
-    fi
+    INSTALL_TARGET="$DIR"
+    break
   done
   IFS="$OLDIFS"
+fi
+
+if [ -n "$INSTALL_TARGET" ]; then
+  printf 'BSB entrypoint: check plugin install target %s\n' "$INSTALL_TARGET"
+  if [ ! -d "$INSTALL_TARGET" ] || [ ! -f "$INSTALL_TARGET/package.json" ]; then
+    NEED_INSTALL=1
+  fi
+
+  if [ "$NEED_PLUGIN_WRITE" -eq 1 ] || [ "$NEED_INSTALL" -eq 1 ]; then
+    printf 'BSB entrypoint: prepare plugin install target %s\n' "$INSTALL_TARGET"
+    mkdir -p "$INSTALL_TARGET"
+    chown node:node "$INSTALL_TARGET" 2>/dev/null || true
+    chmod u+rwx "$INSTALL_TARGET" 2>/dev/null || true
+
+    # Migrate installer state left by older root-run images or permission sync.
+    # These paths are installer-owned and must remain writable after privileges
+    # are dropped; secondary plugin search directories remain untouched.
+    for INSTALLER_DIR in \
+      "$INSTALL_TARGET/.bsb-plugin-install-locks" \
+      "$INSTALL_TARGET/.bsb-plugin-installer"; do
+      mkdir -p "$INSTALLER_DIR"
+      chown -R node:node "$INSTALLER_DIR" 2>/dev/null || true
+      chmod -R u+rwX "$INSTALLER_DIR" 2>/dev/null || true
+    done
+
+    # Updates replace version directories atomically. Prepare only the package
+    # roots explicitly requested for installation, never every search path.
+    if [ -n "${BSB_PLUGINS:-}" ]; then
+      OLDIFS="$IFS"
+      IFS=","
+      for SPEC in $BSB_PLUGINS; do
+        SPEC=$(echo "$SPEC" | xargs)
+        [ -z "$SPEC" ] && continue
+        case "$SPEC" in
+          *:*) PACKAGE_NAME=${SPEC%%:*} ;;
+          @*)
+            PACKAGE_TAIL=${SPEC#@}
+            case "$PACKAGE_TAIL" in
+              *@*) PACKAGE_NAME="@${PACKAGE_TAIL%@*}" ;;
+              *) PACKAGE_NAME="$SPEC" ;;
+            esac
+            ;;
+          *) PACKAGE_NAME=${SPEC%%@*} ;;
+        esac
+        case "$PACKAGE_NAME" in
+          ""|/*|*..*|*\\*|*/?*/*)
+            printf 'BSB entrypoint: invalid plugin package path %s\n' "$PACKAGE_NAME" >&2
+            exit 1
+            ;;
+          */*)
+            case "$PACKAGE_NAME" in
+              @*/*) ;;
+              *)
+                printf 'BSB entrypoint: invalid plugin package path %s\n' "$PACKAGE_NAME" >&2
+                exit 1
+                ;;
+            esac
+            ;;
+        esac
+        PACKAGE_ROOT="$INSTALL_TARGET/$PACKAGE_NAME"
+        PACKAGE_PARENT=${PACKAGE_ROOT%/*}
+        if [ "$PACKAGE_PARENT" != "$INSTALL_TARGET" ] && [ -d "$PACKAGE_PARENT" ]; then
+          chown node:node "$PACKAGE_PARENT" 2>/dev/null || true
+          chmod u+rwx "$PACKAGE_PARENT" 2>/dev/null || true
+        fi
+        if [ -d "$PACKAGE_ROOT" ]; then
+          printf 'BSB entrypoint: migrate writable plugin package %s\n' "$PACKAGE_ROOT"
+          chown -R node:node "$PACKAGE_ROOT" 2>/dev/null || true
+          chmod -R u+rwX "$PACKAGE_ROOT" 2>/dev/null || true
+        fi
+      done
+      IFS="$OLDIFS"
+    fi
+  fi
 fi
 
 chown node:node /mnt/temp 2>/dev/null || true
