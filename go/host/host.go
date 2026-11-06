@@ -76,6 +76,9 @@ func clientCommand(ctx context.Context, cwd string, args []string) error {
 		}
 		flags[key] = args[index]
 	}
+	if flags["token"] != "" {
+		fmt.Fprintln(os.Stderr, "warning: --token exposes credentials through process arguments and shell history; use BSB_REGISTRY_TOKEN instead")
+	}
 	if command == "sync" {
 		files, err := tooling.SyncClients(cwd)
 		if err != nil {

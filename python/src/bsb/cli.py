@@ -151,6 +151,8 @@ def main(argv: list[str] | None = None) -> int:
                     parser.add_argument("--" + option)
                 parser.add_argument("--allow-insecure", action="store_true")
                 options = parser.parse_args(args)
+                if options.token:
+                    print("warning: --token exposes credentials through process arguments and shell history; use BSB_REGISTRY_TOKEN instead", file=sys.stderr)
                 published = publish_plugins(cwd, target=options.target, token=options.token, plugin=options.plugin, org=options.org, allow_insecure=options.allow_insecure)
                 print(f"Published {len(published)} plugin(s)")
                 return 0

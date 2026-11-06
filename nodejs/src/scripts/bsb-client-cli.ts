@@ -482,6 +482,7 @@ function parsePublishOptions(args: string[]): { target?: string; token?: string;
 async function publishPlugin(): Promise<void> {
   try {
     const options = parsePublishOptions(ARGS);
+    if (options.token) warn('--token exposes credentials through process arguments and shell history; use BSB_REGISTRY_TOKEN instead');
     const token = options.token ?? REGISTRY_TOKEN;
     if (!token) throw new Error('Provide --token or set BSB_REGISTRY_TOKEN');
     const vaultTarget = token.startsWith('bv_p_');
