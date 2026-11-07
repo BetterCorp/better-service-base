@@ -69,6 +69,21 @@ function warn(message: string): void {
 // Get registry URL from env or use default
 const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'https://io.bsbcode.dev';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
+const MAX_DOCUMENTATION_FILE_BYTES = 256 * 1024;
+const MAX_DOCUMENTATION_TOTAL_BYTES = 1024 * 1024;
+
+function readProjectDocumentation(projectRoot: string, candidate: string): string {
+  if (path.isAbsolute(candidate)) throw new Error(`Documentation path must be relative: ${candidate}`);
+  const canonicalRoot = fs.realpathSync(projectRoot);
+  const canonicalFile = fs.realpathSync(path.resolve(canonicalRoot, candidate));
+  const relative = path.relative(canonicalRoot, canonicalFile);
+  if (!relative || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
+    throw new Error(`Documentation path escapes the project root: ${candidate}`);
+  }
+  const size = fs.statSync(canonicalFile).size;
+  if (size > MAX_DOCUMENTATION_FILE_BYTES) throw new Error(`Documentation file is too large: ${candidate}`);
+  return fs.readFileSync(canonicalFile, 'utf-8');
+}
 const REGISTRY_REQUEST_TIMEOUT_MS = Number.parseInt(process.env.BSB_REGISTRY_TIMEOUT_MS || '30000', 10);
 const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
 
@@ -487,11 +502,13 @@ function parsePublishOptions(args: string[]): { target?: string; token?: string;
 async function publishPlugin(): Promise<void> {
   try {
     const options = parsePublishOptions(ARGS);
-    if (options.token) warn('--token exposes credentials through process arguments and shell history; use BSB_REGISTRY_TOKEN instead');
-    const token = options.token ?? REGISTRY_TOKEN;
-    if (!token) throw new Error('Provide --token or set BSB_REGISTRY_TOKEN');
-    const vaultTarget = token.startsWith('bv_p_');
     const target = options.target ?? REGISTRY_URL;
+    const targetOrigin = new URL(target).origin;
+    const defaultOrigin = new URL(REGISTRY_URL).origin;
+    if (options.token) warn('--token exposes credentials through process arguments and shell history');
+    const token = options.token ?? (targetOrigin === defaultOrigin ? REGISTRY_TOKEN : undefined);
+    if (!token) throw new Error('Provide --token for a custom publish target, or set BSB_REGISTRY_TOKEN for the configured registry origin');
+    const vaultTarget = token.startsWith('bv_p_');
     if (vaultTarget && !options.target) throw new Error('Vault publishing requires --target <vault-url>');
     const targetUrl = new URL(target);
     if (targetUrl.protocol !== 'https:' && targetUrl.protocol !== 'http:') throw new Error('Publish target must use HTTP or HTTPS');
@@ -610,12 +627,16 @@ async function publishPlugin(): Promise<void> {
         const documentation: string[] = [];
         if (!vaultTarget) {
           const docPaths: string[] = Array.isArray(pluginMeta.documentation) ? pluginMeta.documentation : [];
+          let documentationBytes = 0;
           for (const docPath of docPaths) {
-            const fullPath = path.resolve(process.cwd(), docPath);
-            if (fs.existsSync(fullPath)) {
-              documentation.push(fs.readFileSync(fullPath, 'utf-8'));
-            } else {
-              warn(`Documentation file not found: ${docPath}`);
+            try {
+              const content = readProjectDocumentation(process.cwd(), docPath);
+              documentationBytes += Buffer.byteLength(content);
+              if (documentationBytes > MAX_DOCUMENTATION_TOTAL_BYTES) throw new Error('Documentation exceeds the aggregate size limit');
+              documentation.push(content);
+            } catch (cause) {
+              if ((cause as NodeJS.ErrnoException).code === 'ENOENT') warn(`Documentation file not found: ${docPath}`);
+              else throw cause;
             }
           }
 
