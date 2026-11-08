@@ -88,7 +88,7 @@ default:
 
           # Enable CORS headers
           # Allows API calls from web browsers on different origins
-          cors: true
+          cors: false
 
         # Feature configuration
         features:
@@ -140,7 +140,7 @@ development:
         http:
           port: 3000
           host: "127.0.0.1"  # Localhost only in dev
-          cors: true
+          cors: false
         features:
           statsInterval: 10  # More frequent stats in dev
           maxTodos: 100
@@ -228,7 +228,7 @@ testing:
         http:
           port: 13000  # Different port for tests
           host: "127.0.0.1"
-          cors: true
+          cors: false
         features:
           statsInterval: 0  # Disable stats broadcasts during tests
           maxTodos: 50
