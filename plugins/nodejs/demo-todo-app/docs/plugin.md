@@ -93,8 +93,8 @@ default:
           prettyPrint: true
         http:
           port: 3000
-          host: "0.0.0.0"
-          cors: true
+          host: "127.0.0.1"
+          cors: false
         features:
           statsInterval: 30
           maxTodos: 1000
@@ -122,11 +122,10 @@ default:
   - HTTP server port (1-65535)
   - Change if port is already in use
 
-- **`host`** (string, default: `"0.0.0.0"`)
-  - HTTP server bind address
-  - Use `"127.0.0.1"` for localhost-only access
+- **`host`** (string, default: `"127.0.0.1"`)
+  - Loopback bind address; this unauthenticated demo refuses non-loopback binds
 
-- **`cors`** (boolean, default: `true`)
+- **`cors`** (boolean, default: `false`)
   - Enable CORS headers for cross-origin requests
   - Useful for development and API testing
 
@@ -613,7 +612,7 @@ services:
 
 **Problem:** Browser blocks API requests from different origin
 
-**Solution:** Enable CORS in configuration (default: enabled):
+**Solution:** Enable CORS explicitly for local development:
 
 ```yaml
 services:

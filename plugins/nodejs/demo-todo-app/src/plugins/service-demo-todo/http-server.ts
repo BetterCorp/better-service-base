@@ -42,6 +42,10 @@ export class TodoHttpServer {
    */
   async start(obs: Observable, createTrace: TraceCreator): Promise<void> {
     this.createTrace = createTrace;
+    const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+    if (!loopbackHosts.has(this.config.host.toLowerCase())) {
+      throw new Error('The unauthenticated demo todo API may only bind to a loopback address');
+    }
 
     // Create Fastify instance
     this.server = Fastify({

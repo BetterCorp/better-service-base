@@ -36,6 +36,8 @@ module.exports = async ({ pluginRoot }) => {
   const id = createHash('sha256').update('login:user@example.com').digest('base64url');
   assert.deepEqual(await vault.authenticationBlocks(), [{ subjectHash: id, subject: 'login:user@example.com', failureCount: 5 }]);
   await assert.rejects(vault.login('user@example.com', 'wrong', ''), /Too many authentication attempts/);
+  assert.equal([...globalAttempts.values()].reduce((sum, value) => sum + value, 0), 5,
+    'blocked subjects continued consuming the shared authentication budget');
   await assert.rejects(vault.clearAuthenticationBlock('admin', '../invalid'), /Invalid authentication block ID/);
   auditAvailable = false;
   await assert.rejects(vault.clearAuthenticationBlock('admin', id), /Audit unavailable/);

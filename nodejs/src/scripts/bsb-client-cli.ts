@@ -69,6 +69,7 @@ function warn(message: string): void {
 // Get registry URL from env or use default
 const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'https://io.bsbcode.dev';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
+const MAX_REGISTRY_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_DOCUMENTATION_FILE_BYTES = 256 * 1024;
 const MAX_DOCUMENTATION_TOTAL_BYTES = 1024 * 1024;
 
@@ -86,6 +87,35 @@ function readProjectDocumentation(projectRoot: string, candidate: string): strin
 }
 const REGISTRY_REQUEST_TIMEOUT_MS = Number.parseInt(process.env.BSB_REGISTRY_TIMEOUT_MS || '30000', 10);
 const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
+
+async function readBoundedResponse(res: http.IncomingMessage, maximum = MAX_REGISTRY_RESPONSE_BYTES): Promise<string> {
+  const declared = Number.parseInt(res.headers['content-length'] ?? '', 10);
+  if (Number.isFinite(declared) && declared > maximum) {
+    res.resume();
+    throw new Error(`Registry response exceeds ${maximum} bytes`);
+  }
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of res) {
+    const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += value.length;
+    if (total > maximum) {
+      res.destroy();
+      throw new Error(`Registry response exceeds ${maximum} bytes`);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, total).toString('utf-8');
+}
+
+function applyRequestDeadline(req: http.ClientRequest, operation: string): void {
+  const deadline = setTimeout(() => {
+    const error = new Error(`${operation} timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
+    (error as NodeJS.ErrnoException).code = 'ETIMEDOUT';
+    req.destroy(error);
+  }, REGISTRY_REQUEST_TIMEOUT_MS);
+  req.once('close', () => clearTimeout(deadline));
+}
 
 const COMMAND = process.argv[2];
 const ARGS = process.argv.slice(3);
@@ -221,13 +251,7 @@ async function registryRequest(
     };
 
     const req = lib.request(options, (res) => {
-      let data = '';
-
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
+      void readBoundedResponse(res).then((data) => {
         try {
           const parsed = JSON.parse(data);
 
@@ -243,17 +267,13 @@ async function registryRequest(
             reject(new Error(formatRegistryError(undefined, res.statusCode, data)));
           }
         }
-      });
+      }).catch(reject);
     });
 
     req.on('error', (err) => {
       reject(err);
     });
-    req.setTimeout(REGISTRY_REQUEST_TIMEOUT_MS, () => {
-      const err = new Error(`Registry request timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
-      (err as NodeJS.ErrnoException).code = 'ETIMEDOUT';
-      req.destroy(err);
-    });
+    applyRequestDeadline(req, 'Registry request');
 
     if (body) {
       req.write(JSON.stringify(body));
@@ -318,9 +338,7 @@ async function uploadPluginImage(
         },
       },
       (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
+        void readBoundedResponse(res).then((data) => {
           let parsed: any = {};
           try {
             parsed = data ? JSON.parse(data) : {};
@@ -333,16 +351,12 @@ async function uploadPluginImage(
           } else {
             reject(new Error(parsed.error || data || `HTTP ${res.statusCode}`));
           }
-        });
+        }).catch(reject);
       }
     );
 
     req.on('error', reject);
-    req.setTimeout(REGISTRY_REQUEST_TIMEOUT_MS, () => {
-      const err = new Error(`Registry image upload timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
-      (err as NodeJS.ErrnoException).code = 'ETIMEDOUT';
-      req.destroy(err);
-    });
+    applyRequestDeadline(req, 'Registry image upload');
     req.write(body);
     req.end();
   });

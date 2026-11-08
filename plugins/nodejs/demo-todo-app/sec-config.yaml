@@ -83,10 +83,8 @@ default:
           # Change this if port 3000 is already in use
           port: 3000
 
-          # Host to bind to
-          # Use "0.0.0.0" to accept connections from any network interface
-          # Use "127.0.0.1" for localhost-only access
-          host: "0.0.0.0"
+          # This unauthenticated demo is intentionally loopback-only.
+          host: "127.0.0.1"
 
           # Enable CORS headers
           # Allows API calls from web browsers on different origins
@@ -193,7 +191,7 @@ production:
           prettyPrint: false  # Compact storage in production
         http:
           port: 8080
-          host: "0.0.0.0"
+          host: "127.0.0.1"
           cors: false  # Disable CORS in production (use reverse proxy)
         features:
           statsInterval: 300  # Stats every 5 minutes

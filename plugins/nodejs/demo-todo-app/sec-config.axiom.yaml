@@ -72,7 +72,7 @@ axiom:
           prettyPrint: true
         http:
           port: 3000
-          host: "0.0.0.0"
+          host: "127.0.0.1"
           cors: true
         features:
           statsInterval: 30
@@ -129,7 +129,7 @@ axiom-production:
           prettyPrint: false
         http:
           port: 8080
-          host: "0.0.0.0"
+          host: "127.0.0.1"
           cors: false
         features:
           statsInterval: 300

@@ -6,6 +6,41 @@ Node/TypeScript, Python, Go, .NET, and Rust. The review also rechecked the Vault
 Registry authorization fixes from PRs #123–#128 and the initial supply-chain change
 merged in PR #143.
 
+## Follow-up review — 8 November 2026
+
+The follow-up reviewed `master` at `229464b` and compared it with the 7 November
+scan at `7b4b93e`. PR #156 fixed the manifest-controlled documentation escape and
+the Node custom-origin token fallback. The remaining source-backed findings are
+addressed by the follow-up change:
+
+| Severity | Finding and evidence | Remediation |
+| --- | --- | --- |
+| Medium | A blocked Vault subject continued incrementing the shared login/runtime/publisher attempt budget before its per-subject block was checked (`plugins/nodejs/config-vault/src/plugins/service-config-vault/vault.ts`). Repeating one blocked identity could deny unrelated credentials. | Check the subject block first, charge shared budgets only after a failed verification, preserve rotating-identity protection, and return HTTP 429 for runtime and publisher throttling. |
+| Low | Node Registry consumers accumulated full remote bodies, and Vault Registry search had no application deadline (`nodejs/src/scripts/bsb-client-cli.ts`, `plugins/nodejs/config-vault/src/plugins/service-config-vault/http-server.ts`). | Enforce declared and streaming byte caps, abort on overflow, and apply a ten-second Vault search deadline. |
+| Low | The Registry mounted the image directory, including `images.json`, as unauthenticated static content (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry-ui/http-server.ts`). | Remove the static mount and serve mapped image files only after the normal package-read decision confirms at least one readable implementation. |
+| Low | The unauthenticated todo demo defaulted and documented all-interface listeners (`plugins/nodejs/demo-todo-app/src/plugins/service-demo-todo/index.ts`, `http-server.ts`, and example configs). | Default to loopback, reject every non-loopback bind, disable CORS by default, and update all examples and documentation. |
+| Low | .NET and Rust custom Registry targets inherited `BSB_REGISTRY_TOKEN` even when the selected origin differed (`dotnet/BSB/Tooling/RegistryClient.cs`, `dotnet/BSB/Tooling/BsbCli.cs`, `rust/cli/src/tooling.rs`). | Bind the environment credential to the configured Registry origin; require an explicit token for any different origin. |
+
+Regression coverage now verifies private image authorization, demo listener
+containment, and that blocked identities stop consuming the shared Vault budget.
+The Registry response limits are also enforced for fixed-length and chunked
+responses by the shared bounded reader.
+
+Follow-up verification:
+
+- Node 24 lockfile validation, TypeScript compilation, 184 base tests, and 47
+  plugin/security regression tests passed. One live RabbitMQ test was skipped
+  because no broker URL was configured.
+- Python 3.12 passed 65 tests. `pip-audit` reported no known vulnerability in
+  resolved third-party dependencies; the two local editable packages are not
+  published on PyPI and therefore cannot be matched by that advisory source.
+- `npm audit --omit=dev` still reports six moderate `glob`/`minimatch` findings
+  in Mocha/NYC/rimraf tooling. npm offers only a breaking forced remediation;
+  this remains a separately tracked upgrade rather than an unsafe forced change.
+- Go/govulncheck, .NET/NuGet audit, Rust/cargo audit, Docker builds, and container
+  permission tests could not run locally because usable Go, .NET, Rust, and Docker
+  toolchains were unavailable. The pinned CI jobs remain authoritative.
+
 ## Actionable findings addressed
 
 | Severity | Finding and evidence | Fix |

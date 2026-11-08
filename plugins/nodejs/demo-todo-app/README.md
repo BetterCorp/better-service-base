@@ -72,8 +72,8 @@ default:
           prettyPrint: true                 # Pretty-print JSON
         http:
           port: 3000                        # HTTP server port
-          host: "0.0.0.0"                   # HTTP server host
-          cors: true                        # Enable CORS
+          host: "127.0.0.1"                 # Loopback-only demo API
+          cors: false                       # Enable explicitly for local browser clients
         features:
           statsInterval: 30                 # Broadcast stats every N seconds (0 = disabled)
           maxTodos: 1000                    # Maximum number of todos
