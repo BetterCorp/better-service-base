@@ -708,6 +708,14 @@ function assertSafeSchemaModule(
     const trusted = source === '@bsb/base' || trustedImports.has(source)
       || TRUSTED_SCHEMA_PACKAGES.has(source) || isLocalRelativeImport(source);
     if (!trusted || !statement.importClause) continue;
+    const isExactTrustedSchemaBinding = (imported: string, local: string): boolean => (
+      (source === '@bsb/base' || trustedImports.has(source))
+      && imported === local
+      && SCHEMA_IDENTIFIERS.has(imported)
+    );
+    if (statement.importClause.name && allowedCalls.has(statement.importClause.name.text)) {
+      throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+    }
     if (statement.importClause.name
       && !isLocalRelativeImport(source)
       && schemaImportCallable(source, 'default', false, trustedImports)) {
@@ -715,6 +723,9 @@ function assertSafeSchemaModule(
       if (isLocalRelativeImport(source)) directOnlyCalls.add(statement.importClause.name.text);
     }
     const bindings = statement.importClause.namedBindings;
+    if (bindings && ts.isNamespaceImport(bindings) && allowedCalls.has(bindings.name.text)) {
+      throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+    }
     if (bindings && ts.isNamespaceImport(bindings)
       && schemaImportCallable(source, '*', true, trustedImports)) {
       allowedCalls.add(bindings.name.text);
@@ -731,6 +742,10 @@ function assertSafeSchemaModule(
     if (bindings && ts.isNamedImports(bindings)) {
       for (const element of bindings.elements) {
         const imported = element.propertyName?.text ?? element.name.text;
+        if (allowedCalls.has(element.name.text)
+          && !isExactTrustedSchemaBinding(imported, element.name.text)) {
+          throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+        }
         if (isLocalRelativeImport(source)) {
           const importedFile = resolveSchemaImportFile(path.dirname(canonical), source);
           if (!importedFile || !schemaCallableExports(importedFile).has(imported)) continue;
@@ -839,6 +854,9 @@ function assertSafeSchemaModule(
       continue;
     }
     if (ts.isEnumDeclaration(statement)) {
+      if (allowedCalls.has(statement.name.text)) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+      }
       for (const member of statement.members) {
         if (member.initializer) assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls, directOnlyCalls);
       }

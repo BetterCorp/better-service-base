@@ -218,6 +218,7 @@ export function helper() { return Reflect.set; }
 export function getFactory() { return Factory; }
 `);
       fs.writeFileSync(path.join(sourceDir, 'alias.ts'), 'export const run = Reflect.set;\n');
+      fs.writeFileSync(path.join(sourceDir, 'safe-helper.ts'), 'export function helper() { return {}; }\n');
       assert.throws(() => extractSchemaSource(`
 import { Factory } from './factory.js';
 export const Config = Factory.make();
@@ -241,6 +242,12 @@ import { run } from './alias.js';
 export const Config = run(process.env, 'BSB_REVIEW_EXECUTED', 'yes');
 export class Plugin { static Config = Config; }
 `, 'service-imported-callable-alias', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
+
+      assert.throws(() => extractSchemaSource(`
+import { helper as bsb } from './safe-helper.js';
+export const EventSchemas = bsb();
+export class Plugin { static EventSchemas = EventSchemas; }
+`, 'service-shadowed-import', 'external', sourceDir, 'file:///base.js', '1.0.0'), /shadowed callable binding/);
     } finally {
       fs.rmSync(sourceDir, { recursive: true, force: true });
     }
