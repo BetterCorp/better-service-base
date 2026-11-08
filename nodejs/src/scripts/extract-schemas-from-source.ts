@@ -39,7 +39,7 @@ const SCHEMA_IDENTIFIERS: Set<string> = new Set([
   'PLUGIN_LANGUAGES',
   'normalizePluginLanguage',
 ]);
-const TRUSTED_SCHEMA_PACKAGES = new Set(['anyvali', 'path', 'node:path']);
+const TRUSTED_SCHEMA_PACKAGES = new Set(['anyvali', 'os', 'node:os', 'path', 'node:path']);
 
 interface PluginSource {
   srcPath: string;
@@ -518,6 +518,37 @@ function resolveSchemaImportFile(baseDir: string, source: string): string | null
   return fs.existsSync(candidate) && fs.statSync(candidate).isFile() ? candidate : null;
 }
 
+function schemaIdentifierUsed(source: string, identifier: string, includeFunctionBodies = true): boolean {
+  const sourceFile = ts.createSourceFile(
+    '_bsb_schema_usage_.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const isTypeOnlyReference = (node: ts.Identifier): boolean => {
+    let current: ts.Node | undefined = node.parent;
+    while (current) {
+      if (ts.isTypeNode(current)) return true;
+      if (ts.isExpression(current) || ts.isStatement(current) || ts.isSourceFile(current)) return false;
+      current = current.parent;
+    }
+    return false;
+  };
+  let used = false;
+  const visit = (node: ts.Node): void => {
+    if (used) return;
+    if (!includeFunctionBodies && ts.isFunctionLike(node)) return;
+    if (ts.isIdentifier(node) && node.text === identifier && !isTypeOnlyReference(node)) {
+      used = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return used;
+}
+
 function assertSafeSchemaModule(
   sourceContent: string,
   filePath: string,
@@ -696,11 +727,7 @@ function extractSchemaSource(
   // Pass 2: filter local imports — only keep those whose identifiers are referenced in body
   const bodyText = [bodyLines.join('\n'), configBinding, eventSchemasBinding].filter(Boolean).join('\n');
   for (const pending of pendingLocalImports) {
-    const isUsed = pending.identifiers.some(id => {
-      // Use word boundary check to avoid false positives
-      const regex = new RegExp(`\\b${id}\\b`);
-      return regex.test(bodyText);
-    });
+    const isUsed = pending.identifiers.some((id) => schemaIdentifierUsed(bodyText, id));
     if (isUsed) {
       resolvedImports.push(
         pending.line.replace(
@@ -712,10 +739,9 @@ function extractSchemaSource(
   }
 
   for (const pending of pendingPackageImports) {
-    const isUsed = pending.identifiers.some(id => {
-      const regex = new RegExp(`\\b${id}\\b`);
-      return regex.test(bodyText);
-    });
+    // Runtime helpers declared before Plugin are copied into the extraction module but are
+    // never invoked. Their dependencies must not make arbitrary packages executable at build time.
+    const isUsed = pending.identifiers.some((id) => schemaIdentifierUsed(bodyText, id, false));
     if (isUsed) {
       resolvedImports.push(pending.line);
     }
