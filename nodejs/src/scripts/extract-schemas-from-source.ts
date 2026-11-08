@@ -801,6 +801,9 @@ function assertSafeSchemaModule(
       continue;
     }
     if (ts.isClassDeclaration(statement)) {
+      if (statement.name && allowedCalls.has(statement.name.text)) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+      }
       assertNoSchemaDecorators(statement, canonical);
       for (const clause of statement.heritageClauses ?? []) {
         for (const type of clause.types) assertSafeSchemaInitializer(type.expression, canonical, allowedCalls, directOnlyCalls);

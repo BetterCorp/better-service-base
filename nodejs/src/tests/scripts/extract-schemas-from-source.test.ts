@@ -195,6 +195,14 @@ export class Plugin { static Config = Config; }
 `, 'service-shadowed-call', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /shadowed callable binding/);
 
     assert.throws(() => extractSchemaSource(`
+class bsb {
+  static run() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return {}; }
+}
+export const EventSchemas = bsb.run();
+export class Plugin { static EventSchemas = EventSchemas; }
+`, 'service-shadowed-class', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /shadowed callable binding/);
+
+    assert.throws(() => extractSchemaSource(`
 function helper() { return Reflect.set; }
 export const Config = helper()(process.env, 'BSB_REVIEW_EXECUTED', 'yes');
 export class Plugin { static Config = Config; }
