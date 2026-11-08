@@ -193,6 +193,7 @@ export class VaultHttpServer {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Vault runtime request failed';
         const statusCode = message === 'Invalid Vault API key' ? 401
+          : message.includes('Too many authentication attempts') ? 429
           : message.includes('not allowed to use') ? 403
             : message.includes('No active config version') || message.includes('was not found') ? 409
               : 500;
@@ -3257,20 +3258,51 @@ async function registrySearch(registryUrl: string, query: string, registryToken?
   const url = new URL('/plugins', registryUrl);
   url.searchParams.set('limit', '20');
   if (query.trim()) url.searchParams.set('query', query.trim());
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
     const response = await fetch(url, {
+      signal: controller.signal,
       headers: {
         accept: 'application/json',
         ...(registryToken ? { authorization: `Bearer ${registryToken}` } : {}),
       },
     });
     if (!response.ok) return [];
-    const parsed = await response.json() as { plugins?: unknown[] };
+    const declared = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+    const maximum = 2 * 1024 * 1024;
+    if (Number.isFinite(declared) && declared > maximum) {
+      await response.body?.cancel();
+      return [];
+    }
+    if (!response.body) return [];
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maximum) {
+        await reader.cancel();
+        return [];
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as { plugins?: unknown[] };
     return (Array.isArray(parsed.plugins) ? parsed.plugins : [])
       .map(normalizeRegistryCandidate)
       .filter((item): item is RegistryCandidate => item !== null);
   } catch {
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -3358,6 +3390,7 @@ function parseOptionalBoolean(value: unknown): boolean | undefined {
 
 function pluginPublishStatus(message: string): number {
   if (message === 'Invalid plugin publish token') return 401;
+  if (message.includes('Too many authentication attempts')) return 429;
   if (message === 'Publish token is not authorized for this plugin') return 403;
   if (message.includes('already exists') || message.includes('must be newer')) return 409;
   return 400;
