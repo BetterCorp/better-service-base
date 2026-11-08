@@ -32,7 +32,6 @@ export const Config = createConfigSchema(
   {
     name: 'config-vault',
     description: 'Managed BSB config plugin that loads latest active config from Vault',
-    image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['vault', 'config', 'managed', 'runtime'],
     documentation: ['./docs/config-vault.md'],
   },
