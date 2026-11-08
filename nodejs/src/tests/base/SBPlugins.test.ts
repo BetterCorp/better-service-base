@@ -73,4 +73,35 @@ describe("SBPlugins", () => {
       assert.strictEqual(result.data.version, "2.3.4");
     }
   });
+
+  it("rejects plugin identifiers that can escape the plugin directory", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "bsb-cwd-"));
+    tempDirs.push(cwd);
+    const result = await new SBPlugins(cwd, "production").loadPlugin(
+      { debug() {}, error() {}, info() {} } as any,
+      null,
+      "../outside",
+      "outside",
+    );
+
+    assert.strictEqual(result.success, false);
+    if (!result.success) assert.match(result.error.message, /Invalid plugin identifier/);
+  });
+
+  it("rejects package names that can escape a referenced plugin root", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "bsb-cwd-"));
+    const pluginRoot = mkdtempSync(join(tmpdir(), "bsb-plugin-root-"));
+    tempDirs.push(cwd, pluginRoot);
+    process.env.BSB_PLUGIN_DIRS = pluginRoot;
+
+    const result = await new SBPlugins(cwd, "production").loadPlugin(
+      { debug() {}, error() {}, info() {} } as any,
+      "../outside",
+      "events-default",
+      "events-default",
+    );
+
+    assert.strictEqual(result.success, false);
+    if (!result.success) assert.match(result.error.message, /Invalid npm package name/);
+  });
 });
