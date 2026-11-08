@@ -251,12 +251,15 @@ export class Plugin
 
   constructor(config: BSBConfigConstructor<InstanceType<typeof Config>>) {
     super(config);
-    this._secConfigFilePath = path.resolve(this.cwd, this.config.BSB_CONFIG_FILE ?? "./sec-config.yaml");
+    this._secConfigFilePath = path.join(this.cwd, this.config.BSB_CONFIG_FILE ?? "./sec-config.yaml");
   }
 
   init(obs: Observable): void {
     this._deploymentProfile = this.config.BSB_PROFILE ?? "default";
-    this._secConfigFilePath = path.resolve(this.cwd, this.config.BSB_CONFIG_FILE ?? "./sec-config.yaml");
+    this._secConfigFilePath = path.resolve(
+      this.cwd,
+      this.config.BSB_CONFIG_FILE ?? "./sec-config.yaml",
+    );
     const defaultProfile = this.createDefaultProfile();
     this._appConfig = {
       default: defaultProfile,
