@@ -56,6 +56,40 @@ interface CachedRuntimeConfig {
 }
 
 const STARTUP_BUDGET_MS = 15_000;
+const MAX_VAULT_RESPONSE_BYTES = 4 * 1024 * 1024;
+
+async function readVaultJson(response: Response, obs: Observable): Promise<unknown> {
+  const declared = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+  if (Number.isFinite(declared) && declared > MAX_VAULT_RESPONSE_BYTES) {
+    await response.body?.cancel();
+    throw new BSBError(obs.trace, 'Vault response exceeded {maximum} bytes', { maximum: MAX_VAULT_RESPONSE_BYTES });
+  }
+  if (!response.body) throw new BSBError(obs.trace, 'Invalid Vault response: expected a body');
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_VAULT_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw new BSBError(obs.trace, 'Vault response exceeded {maximum} bytes', { maximum: MAX_VAULT_RESPONSE_BYTES });
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    throw new BSBError(obs.trace, 'Invalid Vault response: expected JSON');
+  }
+}
 
 export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
   static Config = Config;
@@ -120,12 +154,7 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
             signal: controller.signal,
           });
           if (retry.ok) {
-            let parsed: unknown;
-            try {
-              parsed = await retry.json();
-            } catch {
-              throw new BSBError(obs.trace, 'Invalid Vault response: expected JSON');
-            }
+            const parsed = await readVaultJson(retry, obs);
             return parseRuntimeResolve(parsed, obs);
           }
           throw new BSBError(obs.trace, 'Vault config fetch failed with HTTP {status}', { status: retry.status });
@@ -137,12 +166,7 @@ export class Plugin extends BSBConfig<InstanceType<typeof Config>> {
         } else if (!response.ok) {
           throw new BSBError(obs.trace, 'Vault config fetch failed with HTTP {status}', { status: response.status });
         } else {
-          let parsed: unknown;
-          try {
-            parsed = await response.json();
-          } catch {
-            throw new BSBError(obs.trace, 'Invalid Vault response: expected JSON');
-          }
+          const parsed = await readVaultJson(response, obs);
           return parseRuntimeResolve(parsed, obs);
         }
       } catch (error) {
