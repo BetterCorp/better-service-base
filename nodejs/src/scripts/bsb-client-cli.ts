@@ -615,15 +615,17 @@ async function publishPlugin(): Promise<void> {
     let errors = 0;
 
     for (const pluginMeta of plugins) {
-      const pluginName = validateManifestPluginId(pluginMeta.id);
-      const display = displayPluginId(org, pluginName);
-      if (publishIgnore.has(pluginName)) {
-        info(`Skipping ${display} (listed in package.json bsb.publishIgnore)`);
+      const ignoredName = normalizeIgnoredPluginId(String(pluginMeta.id ?? ''), org);
+      if (publishIgnore.has(ignoredName)) {
+        info(`Skipping ${displayPluginId(org, ignoredName)} (listed in package.json bsb.publishIgnore)`);
         skipped++;
         continue;
       }
 
+      let display = displayPluginId(org, ignoredName || '<invalid>');
       try {
+        const pluginName = validateManifestPluginId(pluginMeta.id);
+        display = displayPluginId(org, pluginName);
         const category = resolveCategory(pluginName);
         const imagePath = vaultTarget ? null : resolveImagePath({ basePath: pluginMeta.basePath, image: pluginMeta.image });
 
