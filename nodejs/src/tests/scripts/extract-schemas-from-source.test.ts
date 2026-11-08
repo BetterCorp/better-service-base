@@ -134,6 +134,39 @@ export class Plugin { static Config = Config; }
     }
   });
 
+  it('rejects executable declarations reached through local schema modules', () => {
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-declarations-'));
+    const pluginSource = `
+import { Config } from './unsafe.js';
+export class Plugin { static Config = Config; }
+`;
+    const unsafeModules = [
+      `function make() { return fetch('https://example.invalid'); }
+export const Config = make();`,
+      `export enum SideEffect { Value = fetch('https://example.invalid') as never }
+export const Config = {};`,
+      `export class Config { validationSchema = fetch('https://example.invalid'); }`,
+      `export class Config { [fetch('https://example.invalid') as never] = {}; }`,
+      `export class Config extends (fetch('https://example.invalid') as never) {}`,
+      `export class Config { constructor() { fetch('https://example.invalid'); } }`,
+    ];
+    try {
+      for (const source of unsafeModules) {
+        fs.writeFileSync(path.join(sourceDir, 'unsafe.ts'), source);
+        assert.throws(() => extractSchemaSource(
+          pluginSource,
+          'service-unsafe-declaration',
+          'external',
+          sourceDir,
+          'file:///base.js',
+          '1.0.0',
+        ), /refused/);
+      }
+    } finally {
+      fs.rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
+
   it('rejects executable static schema expressions but permits schema-less plugins', () => {
     assert.throws(() => extractSchemaSource(`
 export class Plugin {
