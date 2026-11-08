@@ -104,4 +104,31 @@ describe("SBPlugins", () => {
     assert.strictEqual(result.success, false);
     if (!result.success) assert.match(result.error.message, /Invalid npm package name/);
   });
+
+  it("allows dotted plugin identifiers without allowing dot traversal", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "bsb-cwd-"));
+    tempDirs.push(cwd);
+    const pluginRoot = join(cwd, "lib", "plugins", "service-hello.v2");
+    mkdirSync(pluginRoot, { recursive: true });
+    writeFileSync(join(cwd, "package.json"), JSON.stringify({ version: "1.0.0", type: "module" }));
+    writeFileSync(join(pluginRoot, "index.js"), "export class Plugin {}\n");
+
+    const loader = new SBPlugins(cwd, "production");
+    const result = await loader.loadPlugin(
+      { debug() {}, error() {}, info() {} } as any,
+      null,
+      "service-hello.v2",
+      "service-hello.v2",
+    );
+    const dot = await loader.loadPlugin(
+      { debug() {}, error() {}, info() {} } as any,
+      null,
+      "..",
+      "outside",
+    );
+
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(dot.success, false);
+    if (!dot.success) assert.match(dot.error.message, /Invalid plugin identifier/);
+  });
 });
