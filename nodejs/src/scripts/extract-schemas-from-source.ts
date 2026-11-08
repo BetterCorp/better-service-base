@@ -640,6 +640,18 @@ function assertSafeSchemaModule(
       assertSafeSchemaModule(fs.readFileSync(imported, 'utf-8'), imported, trustedImports, visited);
       continue;
     }
+    if (ts.isExportDeclaration(statement)) {
+      if (!statement.moduleSpecifier || statement.isTypeOnly) continue;
+      const source = ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : '';
+      if (source === '@bsb/base' || trustedImports.has(source) || TRUSTED_SCHEMA_PACKAGES.has(source)) continue;
+      if (!isLocalRelativeImport(source)) {
+        throw new Error(`Schema extraction refused package re-export ${source || '<dynamic>'} in ${canonical}`);
+      }
+      const exported = resolveSchemaImportFile(path.dirname(canonical), source);
+      if (!exported) throw new Error(`Schema extraction could not validate local re-export ${source} in ${canonical}`);
+      assertSafeSchemaModule(fs.readFileSync(exported, 'utf-8'), exported, trustedImports, visited);
+      continue;
+    }
     if (ts.isVariableStatement(statement)) {
       for (const declaration of statement.declarationList.declarations) {
         if (declaration.initializer) assertSafeSchemaInitializer(declaration.initializer, canonical, allowedCalls);
@@ -680,7 +692,7 @@ function assertSafeSchemaModule(
       continue;
     }
     if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)
-      || ts.isExportDeclaration(statement) || ts.isEmptyStatement(statement)) {
+      || ts.isEmptyStatement(statement)) {
       continue;
     }
     throw new Error(`Schema extraction refused executable top-level statement in ${canonical}`);
