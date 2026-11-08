@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { RegistryUIServer } from '../src/plugins/service-bsb-registry-ui/http-server.js';
 
 const noop = () => undefined;
@@ -105,6 +106,7 @@ test('private package images require package read authorization', async () => {
   };
   const app = Fastify();
   internals.app = app;
+  await app.register(fastifyRateLimit, { max: 10, timeWindow: 60_000 });
   app.get('/images/:filename', (request, reply) => internals.handlePluginImage(request, reply));
   try {
     const denied = await app.inject({ method: 'GET', url: `/images/${filename}` });
