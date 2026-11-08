@@ -236,8 +236,6 @@ export class VaultService {
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
     }
-    await this.clearFailures(attemptKey);
-
     const methods = await this.store.listAuthMethods(user.id);
     const activeMethods = methods.filter((method) => method.active && method.credentialId);
     if (activeMethods.length === 0) {
@@ -248,6 +246,7 @@ export class VaultService {
         await this.audit('anonymous', 'admin.login.failed', email, {});
         throw new Error('Invalid login');
       }
+      await this.clearFailures(attemptKey);
       await this.store.saveAuthChallenge('verified-enrollment', tokenHash(pending.id), { userId: user.id }, expiresIn(10));
       const setupToken = newToken();
       await this.store.saveAuthChallenge('passkey-setup', tokenHash(setupToken), { userId: user.id }, expiresIn(10));
@@ -255,6 +254,7 @@ export class VaultService {
       return { status: 'passkey_setup_required', setupToken };
     }
 
+    await this.clearFailures(attemptKey);
     const options = await generateAuthenticationOptions({
       rpID: this.rpId,
       allowCredentials: activeMethods.map((method) => ({ id: method.credentialId! })),
