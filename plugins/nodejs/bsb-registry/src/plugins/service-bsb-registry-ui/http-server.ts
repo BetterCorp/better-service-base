@@ -367,6 +367,14 @@ const PublishBodySchema = createValidator(PublishBodyObjectSchema, {
   ],
 });
 
+export function registryPathsOverlap(first: string, second: string): boolean {
+  const contains = (parent: string, child: string): boolean => {
+    const relative = path.relative(parent, child);
+    return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+  };
+  return contains(first, second) || contains(second, first);
+}
+
 export class RegistryUIServer {
   private app: FastifyInstance;
   public readonly port: number;
@@ -538,14 +546,17 @@ export class RegistryUIServer {
 
       // Register static file serving
       const staticSpan = obs.startSpan('register.static');
-      const staticPath = path.join(plugin.pluginCwd, 'static');
+      const staticPath = await fsp.realpath(path.join(plugin.pluginCwd, 'static'));
+      await fsp.mkdir(this.uploadDir, { recursive: true });
+      const uploadPath = await fsp.realpath(this.uploadDir);
+      if (registryPathsOverlap(staticPath, uploadPath)) {
+        throw new Error('Registry image upload directory must not overlap the public static directory');
+      }
       await this.app.register(fastifyStatic, {
         root: staticPath,
         prefix: '/static/',
         index: false,
       });
-
-      await fsp.mkdir(this.uploadDir, { recursive: true });
       staticSpan.end();
 
       await this.loadImageIndex(obs);
