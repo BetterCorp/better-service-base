@@ -73,7 +73,7 @@ axiom:
         http:
           port: 3000
           host: "127.0.0.1"
-          cors: true
+          cors: false
         features:
           statsInterval: 30
           maxTodos: 1000
