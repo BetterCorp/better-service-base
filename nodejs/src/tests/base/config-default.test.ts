@@ -40,6 +40,34 @@ describe("config-default plugin", () => {
     return { plugin, obs };
   }
 
+  it("resolves relative config files from the application root", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "bsb-config-default-relative-"));
+    tempDirs.push(tempDir);
+    writeFileSync(join(tempDir, "sec-config.yaml"), `
+default:
+  services:
+    rooted:
+      plugin: service-rooted
+      enabled: true
+`, "utf8");
+    const plugin = new DefaultConfigPlugin({
+      appId: "test-app",
+      mode: "development",
+      cwd: tempDir,
+      packageCwd: tempDir,
+      pluginCwd: tempDir,
+      pluginName: "config-default",
+      pluginVersion: "0.0.0",
+      config: { BSB_PROFILE: "default", BSB_CONFIG_FILE: "sec-config.yaml" },
+      sbObservable: MockSBObservable(),
+    });
+    const obs = createTestObservable();
+    plugin.init(obs);
+    assert.deepStrictEqual(await plugin.getServicePlugins(obs), {
+      rooted: { enabled: true, package: undefined, plugin: "service-rooted", version: undefined },
+    });
+  });
+
   it("should tolerate missing observable and events sections", async () => {
     const { plugin, obs } = createPlugin(`
 default:
