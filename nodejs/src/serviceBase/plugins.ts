@@ -65,7 +65,7 @@ export class SBPlugins {
   private static readonly MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
   private static readonly EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
   private static readonly SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
-  private static readonly PLUGIN_ID_REGEX = /^[A-Za-z0-9_-]+$/;
+  private static readonly PLUGIN_ID_REGEX = /^(?!\.{1,2}$)[A-Za-z0-9_.-]+$/;
   private static readonly PACKAGE_NAME_REGEX = /^(?:@[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
   constructor(cwd: string, runtimeMode: BSBRuntimeMode) {
