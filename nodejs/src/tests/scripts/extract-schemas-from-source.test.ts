@@ -83,18 +83,93 @@ export class Plugin extends BSBService {
     }
   });
 
-  it('retains aliased imports referenced only by static schema roots', () => {
-    const generated = extractSchemaSource(`
+  it('rejects package imports referenced by static schema roots', () => {
+    assert.throws(() => extractSchemaSource(`
 import { Config as ImportedConfig, EventSchemas as ImportedEvents } from 'schema-package';
 export class Plugin {
   static Config = ImportedConfig;
   static EventSchemas = ImportedEvents;
 }
-`, 'service-aliased-schema', 'external', process.cwd(), 'file:///base.js', '1.0.0');
+`, 'service-aliased-schema', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused package import/);
+  });
 
-    assert.match(generated, /Config as ImportedConfig/);
-    assert.match(generated, /_Config = ImportedConfig/);
-    assert.match(generated, /_EventSchemas = ImportedEvents/);
+  it('drops package imports referenced only by TypeScript types', () => {
+    const generated = extractSchemaSource(`
+import runtimePackage from 'runtime-package';
+type RuntimeValue = runtimePackage.Value;
+export const Config = {};
+export class Plugin { static Config = Config; }
+`, 'service-type-only-package', 'external', process.cwd(), 'file:///base.js', '1.0.0');
+    assert.doesNotMatch(generated, /runtime-package/);
+  });
+
+  it('drops package imports referenced only by unused runtime helpers', () => {
+    const generated = extractSchemaSource(`
+import runtimePackage from 'runtime-package';
+function runtimeOnly() { return runtimePackage.value; }
+export const Config = {};
+export class Plugin { static Config = Config; run() { return runtimeOnly(); } }
+`, 'service-runtime-helper', 'external', process.cwd(), 'file:///base.js', '1.0.0');
+    assert.doesNotMatch(generated, /import runtimePackage/);
+  });
+
+  it('rejects top-level and imported side effects before evaluation', () => {
+    assert.throws(() => extractSchemaSource(`
+writeFileSync('/tmp/schema-extraction-ran', 'unsafe');
+export class Plugin {}
+`, 'service-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable top-level statement/);
+
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-side-effect-'));
+    try {
+      fs.writeFileSync(path.join(sourceDir, 'unsafe.ts'), `
+export const Config = {};
+writeFileSync('/tmp/schema-extraction-import-ran', 'unsafe');
+`);
+      assert.throws(() => extractSchemaSource(`
+import { Config } from './unsafe.js';
+export class Plugin { static Config = Config; }
+`, 'service-import-side-effect', 'external', sourceDir, 'file:///base.js', '1.0.0'), /executable top-level statement/);
+    } finally {
+      fs.rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects constructor-chain calls and deceptively named imports', () => {
+    assert.throws(() => extractSchemaSource(`
+import { bsb } from '@bsb/base';
+export const Config = bsb.constructor.constructor('process.exit(1)')();
+export class Plugin { static Config = Config; }
+`, 'service-constructor-chain', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused call/);
+
+    assert.throws(() => extractSchemaSource(`
+import { Config } from 'evil-schema-types';
+export class Plugin { static Config = Config; }
+`, 'service-deceptive-import', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused package import/);
+  });
+
+  it('rejects executable config construction and imported helper bodies', () => {
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-construction-'));
+    try {
+      fs.writeFileSync(path.join(sourceDir, 'unsafe-config.ts'), `
+export function make() { return fetch('https://example.invalid'); }
+export class Config { validationSchema = make(); }
+`);
+      assert.throws(() => extractSchemaSource(`
+import { Config } from './unsafe-config.js';
+export class Plugin { static Config = Config; }
+`, 'service-unsafe-config', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
+    } finally {
+      fs.rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects decorators that execute while defining extracted classes', () => {
+    assert.throws(() => extractSchemaSource(`
+function decorate(value: unknown) { return value; }
+@decorate
+export class Config {}
+export class Plugin { static Config = Config; }
+`, 'service-decorated-config', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused a decorator/);
   });
 
   it('rejects executable static schema expressions but permits schema-less plugins', () => {
