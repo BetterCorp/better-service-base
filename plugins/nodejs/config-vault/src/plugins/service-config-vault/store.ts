@@ -672,8 +672,9 @@ export class VaultStore {
          subject = coalesce(excluded.subject, vault_auth_attempts.subject),
          failure_count = case when vault_auth_attempts.reset_at <= now() then 1 else vault_auth_attempts.failure_count + 1 end,
          reset_at = case when vault_auth_attempts.reset_at <= now() then now() + interval '5 minutes' else vault_auth_attempts.reset_at end
+       where vault_auth_attempts.reset_at <= now() or vault_auth_attempts.failure_count < $3
        returning failure_count`,
-      [subjectHash, subject ?? null],
+      [subjectHash, subject ?? null, maximum],
     );
     return Number(result.rows[0]?.failure_count ?? maximum + 1) <= maximum;
   }
@@ -693,6 +694,15 @@ export class VaultStore {
          subject = coalesce(excluded.subject, vault_auth_attempts.subject),
          failure_count = case when vault_auth_attempts.reset_at <= now() then 1 else vault_auth_attempts.failure_count + 1 end,
          reset_at = case when vault_auth_attempts.reset_at <= now() then now() + interval '5 minutes' else vault_auth_attempts.reset_at end`,
+      [subjectHash, subject ?? null],
+    );
+  }
+
+  async recordExistingAuthenticationFailure(subjectHash: string, subject?: string): Promise<void> {
+    await this.pool.query(
+      `update vault_auth_attempts
+       set subject = coalesce($2, subject), failure_count = failure_count + 1
+       where subject_hash = $1 and reset_at > now()`,
       [subjectHash, subject ?? null],
     );
   }
