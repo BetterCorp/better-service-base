@@ -157,6 +157,12 @@ export class Plugin { static Config = Config; }
 import { Config } from 'evil-schema-types';
 export class Plugin { static Config = Config; }
 `, 'service-deceptive-import', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused package import/);
+
+    assert.throws(() => extractSchemaSource(`
+import * as os from 'node:os';
+export const Config = os.setPriority(0, -1);
+export class Plugin { static Config = Config; }
+`, 'service-unsafe-os-call', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused call/);
   });
 
   it('rejects executable config construction and imported helper bodies', () => {
@@ -173,6 +179,15 @@ export class Plugin { static Config = Config; }
     } finally {
       fs.rmSync(sourceDir, { recursive: true, force: true });
     }
+  });
+
+  it('rejects assignment expressions in schema initializers and accessors', () => {
+    assert.throws(() => extractSchemaSource(`
+export class Config {
+  validationSchema = (process.env.BSB_REVIEW_EXECUTED = 'yes', {});
+}
+export class Plugin { static Config = Config; }
+`, 'service-assignment-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /assignment expression/);
   });
 
   it('rejects executable methods reachable through the extracted config schema', () => {
