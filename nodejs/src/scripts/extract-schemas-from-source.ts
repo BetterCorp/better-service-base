@@ -500,6 +500,34 @@ function schemaCallRoot(expression: ts.Expression): string | null {
   }
 }
 
+function schemaCallFirstMember(expression: ts.Expression): string | null {
+  let current: ts.Expression = expression;
+  let member: string | null = null;
+  while (true) {
+    if (ts.isIdentifier(current)) return member;
+    if (ts.isPropertyAccessExpression(current)) {
+      member = current.name.text;
+      current = current.expression;
+      continue;
+    }
+    if (ts.isElementAccessExpression(current)) {
+      if (!ts.isStringLiteralLike(current.argumentExpression)) return null;
+      member = current.argumentExpression.text;
+      current = current.expression;
+      continue;
+    }
+    if (ts.isCallExpression(current)
+      || ts.isParenthesizedExpression(current)
+      || ts.isAsExpression(current)
+      || ts.isTypeAssertionExpression(current)
+      || ts.isNonNullExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    return null;
+  }
+}
+
 function schemaBindingNames(name: ts.BindingName): string[] {
   if (ts.isIdentifier(name)) return [name.text];
   return name.elements.flatMap((element) => ts.isOmittedExpression(element) ? [] : schemaBindingNames(element.name));
@@ -561,8 +589,10 @@ function assertSafeSchemaInitializer(
   }
   if (ts.isCallExpression(node)) {
     const root = schemaCallRoot(node.expression);
+    const member = schemaCallFirstMember(node.expression);
     if (!root || !allowedCalls.has(root)
-      || (directOnlyCalls.has(root) && !ts.isIdentifier(node.expression))) {
+      || (directOnlyCalls.has(root) && !ts.isIdentifier(node.expression)
+        && (!member || !directOnlyCalls.has(`${root}.${member}`)))) {
       throw new Error(`Schema extraction refused call to ${root ?? 'an unknown function'} in ${filePath}`);
     }
   }
@@ -594,6 +624,27 @@ function resolveSchemaImportFile(baseDir: string, source: string): string | null
   const rewritten = resolveLocalImportSource(baseDir, source);
   const candidate = path.resolve(baseDir, rewritten);
   return fs.existsSync(candidate) && fs.statSync(candidate).isFile() ? candidate : null;
+}
+
+function schemaCallableExports(filePath: string): Set<string> {
+  const sourceFile = ts.createSourceFile(filePath, fs.readFileSync(filePath, 'utf-8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const exported = new Set<string>();
+  const isExported = (node: ts.Node): boolean => ts.canHaveModifiers(node)
+    && (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+  for (const statement of sourceFile.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name && isExported(statement)) {
+      exported.add(statement.name.text);
+      continue;
+    }
+    if (!ts.isVariableStatement(statement) || !isExported(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer
+        && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))) {
+        exported.add(declaration.name.text);
+      }
+    }
+  }
+  return exported;
 }
 
 function schemaIdentifierUsed(source: string, identifier: string, includeFunctionBodies = true): boolean {
@@ -666,7 +717,15 @@ function assertSafeSchemaModule(
     if (bindings && ts.isNamespaceImport(bindings)
       && schemaImportCallable(source, '*', true, trustedImports)) {
       allowedCalls.add(bindings.name.text);
-      if (isLocalRelativeImport(source)) directOnlyCalls.add(bindings.name.text);
+      if (isLocalRelativeImport(source)) {
+        directOnlyCalls.add(bindings.name.text);
+        const imported = resolveSchemaImportFile(path.dirname(canonical), source);
+        if (imported) {
+          for (const callable of schemaCallableExports(imported)) {
+            directOnlyCalls.add(`${bindings.name.text}.${callable}`);
+          }
+        }
+      }
     }
     if (bindings && ts.isNamedImports(bindings)) {
       for (const element of bindings.elements) {
