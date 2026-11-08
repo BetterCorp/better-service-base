@@ -23,9 +23,9 @@ independently checked against the source and reconciled as follows:
 
 | Severity | Finding and evidence | Disposition / recommended fix |
 | --- | --- | --- |
-| High | Schema extraction retained executable pre-class statements and schema imports, then dynamically imported the generated module with build/CI authority (`nodejs/src/scripts/extract-schemas-from-source.ts`). | **Fixed in this change.** Validate generated schema modules with the TypeScript AST before import, allow only declarative top-level constructs and vetted schema packages, recursively validate local imports, reject executable statements/unsafe calls, and cover direct and imported side effects. |
+| High | Schema extraction retained executable pre-class statements and schema imports, then dynamically imported the generated module with build/CI authority (`nodejs/src/scripts/extract-schemas-from-source.ts`). | **Fixed in this change.** Validate generated schema modules with the TypeScript AST before import, use exact trusted import targets, recursively validate local imports and reachable helper bodies, validate config construction, reject prototype/constructor call chains and decorators, and cover direct/imported bypasses. |
 | Medium | Vault shared authentication budgets were charged before subject isolation (`plugins/nodejs/config-vault/src/plugins/service-config-vault/vault.ts`). | **Fixed in this change.** Check the subject first and charge shared overload budgets only after failed verification. |
-| Medium | Private Registry package images and `images.json` were under an unauthenticated static mount (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry-ui/http-server.ts`). | **Fixed in this change.** Remove the static mount and authorize mapped image reads through package visibility. |
+| Medium | Private Registry package images and `images.json` were under an unauthenticated static mount (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry-ui/http-server.ts`). | **Fixed in this change.** Remove the image static mount, authorize mapped reads through package visibility, and reject any configured upload directory that canonically overlaps the remaining public static tree. |
 | Medium | Relative `BSB_CONFIG_FILE` was reset to an ambient-working-directory path during init (`nodejs/src/plugins/config-default/index.ts`). | **Fixed in this change.** Resolve once against the application root; regression coverage uses a relative file while the process runs elsewhere. |
 | Medium | Node Vault runtime responses used unbounded `Response.json()` (`plugins/nodejs/config-vault/src/plugins/config-vault/index.ts`). | **Fixed in this change.** Stream through a 4 MiB cap and fail hard on missing, oversized, or invalid bodies. |
 | Medium | Plugin/package identifiers could traverse or symlink outside authorized roots before dynamic import (`nodejs/src/serviceBase/plugins.ts`). | **Fixed in this change.** Validate identifiers, canonicalize roots and candidates, and enforce containment; tests cover traversal and a symlink escape. |
@@ -56,7 +56,7 @@ responses by the shared bounded reader.
 
 Follow-up verification:
 
-- Node 24 lockfile validation, TypeScript compilation, 188 base tests, and 47
+- Node 24 lockfile validation, TypeScript compilation, 192 base tests, and 47
   plugin/security regression tests passed. One live RabbitMQ test was skipped
   because no broker URL was configured.
 - Source-schema extraction completed successfully across all 14 Node plugin
