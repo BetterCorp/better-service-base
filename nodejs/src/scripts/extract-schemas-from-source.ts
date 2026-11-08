@@ -446,18 +446,32 @@ function isBsbBaseImport(source: string): boolean {
   );
 }
 
-/**
- * Check if a relative import is schema-related (schema-events, schema-types).
- */
-function isSchemaModuleImport(source: string): boolean {
-  return source.includes('schema-events') || source.includes('schema-types');
+const SELF_SCHEMA_IMPORTS = new Set([
+  '../../base/PluginConfig.js',
+  '../../interfaces/plugin-language.js',
+  '../../interfaces/schema-events.js',
+  '../../interfaces/schema-types.js',
+]);
+const FORBIDDEN_SCHEMA_MEMBERS = new Set(['constructor', '__proto__', 'prototype']);
+
+function assertNoSchemaDecorators(node: ts.Node, filePath: string): void {
+  if (ts.canHaveDecorators(node) && (ts.getDecorators(node)?.length ?? 0) > 0) {
+    throw new Error(`Schema extraction refused a decorator in ${filePath}`);
+  }
 }
 
 function schemaCallRoot(expression: ts.Expression): string | null {
   let current: ts.Expression = expression;
   while (true) {
     if (ts.isIdentifier(current)) return current.text;
-    if (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
+    if (ts.isPropertyAccessExpression(current)) {
+      if (FORBIDDEN_SCHEMA_MEMBERS.has(current.name.text)) return null;
+      current = current.expression;
+      continue;
+    }
+    if (ts.isElementAccessExpression(current)) {
+      const key = current.argumentExpression;
+      if (!ts.isStringLiteralLike(key) || FORBIDDEN_SCHEMA_MEMBERS.has(key.text)) return null;
       current = current.expression;
       continue;
     }
@@ -479,6 +493,10 @@ function schemaCallRoot(expression: ts.Expression): string | null {
 function assertSafeSchemaInitializer(node: ts.Node, filePath: string, allowedCalls: ReadonlySet<string>): void {
   if (ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node)
     || ts.isMethodDeclaration(node) || ts.isConstructorDeclaration(node)) {
+    for (const parameter of node.parameters) {
+      assertNoSchemaDecorators(parameter, filePath);
+      if (parameter.initializer) assertSafeSchemaInitializer(parameter.initializer, filePath, allowedCalls);
+    }
     if (!node.body) return;
     if (!ts.isBlock(node.body)) {
       assertSafeSchemaInitializer(node.body, filePath, allowedCalls);
@@ -510,6 +528,27 @@ function assertSafeSchemaInitializer(node: ts.Node, filePath: string, allowedCal
     }
   }
   ts.forEachChild(node, (child) => assertSafeSchemaInitializer(child, filePath, allowedCalls));
+}
+
+function pruneUnreferencedSchemaFunctions(source: string): string {
+  const sourceFile = ts.createSourceFile('_bsb_schema_prune_.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const removals: Array<{ start: number; end: number }> = [];
+  for (const statement of sourceFile.statements) {
+    if (!ts.isFunctionDeclaration(statement) || !statement.name) continue;
+    let referenced = false;
+    const visit = (node: ts.Node): void => {
+      if (referenced || node === statement) return;
+      if (ts.isIdentifier(node) && node.text === statement.name!.text) {
+        referenced = true;
+        return;
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    if (!referenced) removals.push({ start: statement.getStart(sourceFile), end: statement.end });
+  }
+  return removals.sort((a, b) => b.start - a.start)
+    .reduce((value, range) => value.slice(0, range.start) + value.slice(range.end), source);
 }
 
 function resolveSchemaImportFile(baseDir: string, source: string): string | null {
@@ -569,9 +608,8 @@ function assertSafeSchemaModule(
   for (const statement of sourceFile.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
     const source = statement.moduleSpecifier.text;
-    const trusted = isBsbBaseImport(source) || isSchemaModuleImport(source)
-      || trustedImports.has(source) || TRUSTED_SCHEMA_PACKAGES.has(source)
-      || isLocalRelativeImport(source);
+    const trusted = source === '@bsb/base' || trustedImports.has(source)
+      || TRUSTED_SCHEMA_PACKAGES.has(source) || isLocalRelativeImport(source);
     if (!trusted || !statement.importClause) continue;
     if (statement.importClause.name) allowedCalls.add(statement.importClause.name.text);
     const bindings = statement.importClause.namedBindings;
@@ -581,10 +619,7 @@ function assertSafeSchemaModule(
     }
   }
   for (const statement of sourceFile.statements) {
-    if (ts.isFunctionDeclaration(statement) && statement.name) {
-      allowedCalls.add(statement.name.text);
-      continue;
-    }
+    if (ts.isFunctionDeclaration(statement) && statement.name) allowedCalls.add(statement.name.text);
     if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (ts.isIdentifier(declaration.name) && declaration.initializer
@@ -596,8 +631,7 @@ function assertSafeSchemaModule(
   for (const statement of sourceFile.statements) {
     if (ts.isImportDeclaration(statement)) {
       const source = ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : '';
-      if (isBsbBaseImport(source) || isSchemaModuleImport(source)
-        || trustedImports.has(source) || TRUSTED_SCHEMA_PACKAGES.has(source)) continue;
+      if (source === '@bsb/base' || trustedImports.has(source) || TRUSTED_SCHEMA_PACKAGES.has(source)) continue;
       if (!isLocalRelativeImport(source)) {
         throw new Error(`Schema extraction refused package import ${source || '<dynamic>'} in ${canonical}`);
       }
@@ -613,28 +647,29 @@ function assertSafeSchemaModule(
       continue;
     }
     if (ts.isClassDeclaration(statement)) {
+      assertNoSchemaDecorators(statement, canonical);
       for (const clause of statement.heritageClauses ?? []) {
-        for (const type of clause.types) {
-          assertSafeSchemaInitializer(type.expression, canonical, allowedCalls);
-        }
+        for (const type of clause.types) assertSafeSchemaInitializer(type.expression, canonical, allowedCalls);
       }
       for (const member of statement.members) {
+        assertNoSchemaDecorators(member, canonical);
         if (ts.isClassStaticBlockDeclaration(member)) {
           throw new Error(`Schema extraction refused a static block in ${canonical}`);
         }
         if (member.name && ts.isComputedPropertyName(member.name)) {
           assertSafeSchemaInitializer(member.name.expression, canonical, allowedCalls);
         }
-        if (ts.isConstructorDeclaration(member) && member.body?.statements.length) {
-          throw new Error(`Schema extraction refused an executable constructor in ${canonical}`);
-        }
         if (ts.isPropertyDeclaration(member) && member.initializer) {
           assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls);
+        }
+        if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)) {
+          assertSafeSchemaInitializer(member, canonical, allowedCalls);
         }
       }
       continue;
     }
     if (ts.isFunctionDeclaration(statement)) {
+      assertNoSchemaDecorators(statement, canonical);
       assertSafeSchemaInitializer(statement, canonical, allowedCalls);
       continue;
     }
@@ -714,7 +749,7 @@ function extractSchemaSource(
       }
 
       // Keep schema module imports as-is
-      if (isSchemaModuleImport(parsed.source)) {
+      if (projectType === 'self' && SELF_SCHEMA_IMPORTS.has(parsed.source)) {
         resolvedImports.push(line);
         continue;
       }
@@ -737,7 +772,9 @@ function extractSchemaSource(
       }
 
       // Keep package imports only when their bindings are used by schema declarations.
-      if (parsed.identifiers.length > 0) {
+      if (TRUSTED_SCHEMA_PACKAGES.has(parsed.source)) {
+        resolvedImports.push(line);
+      } else if (parsed.identifiers.length > 0) {
         pendingPackageImports.push({ line, identifiers: parsed.identifiers });
       }
       continue;
@@ -771,11 +808,12 @@ function extractSchemaSource(
   }
 
   // Build final output: imports first, then body
-  const outputLines = [...resolvedImports, ...bodyLines];
+  let outputLines = [...resolvedImports, ...bodyLines];
+  outputLines = pruneUnreferencedSchemaFunctions(outputLines.join('\n')).split('\n');
   assertSafeSchemaModule(
     outputLines.join('\n'),
     path.join(sourceDir, '_bsb_extract_input_.ts'),
-    new Set([bsbBaseImportPath]),
+    new Set(projectType === 'self' ? SELF_SCHEMA_IMPORTS : [bsbBaseImportPath]),
   );
 
   // Append the extraction footer
