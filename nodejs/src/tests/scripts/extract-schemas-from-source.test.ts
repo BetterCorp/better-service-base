@@ -243,6 +243,14 @@ export class Config {
 }
 export class Plugin { static Config = Config; }
 `, 'service-method-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
+
+    assert.throws(() => extractSchemaSource(`
+export class Config {
+  validationSchema = this;
+  ['ex' + 'port']() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return {}; }
+}
+export class Plugin { static Config = Config; }
+`, 'service-computed-method-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
   });
 
   it('rejects decorators that execute while defining extracted classes', () => {

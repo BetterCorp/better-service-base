@@ -757,7 +757,7 @@ function assertSafeSchemaModule(
             : null;
         if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
           || ts.isSetAccessorDeclaration(member)
-          || (ts.isMethodDeclaration(member) && methodName === 'export')) {
+          || (ts.isMethodDeclaration(member) && (methodName === null || methodName === 'export'))) {
           assertSafeSchemaInitializer(member, canonical, allowedCalls, directOnlyCalls);
         }
       }
