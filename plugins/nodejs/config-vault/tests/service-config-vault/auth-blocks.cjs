@@ -65,6 +65,12 @@ module.exports = async ({ pluginRoot }) => {
   for (const email of ['one@example.com', 'two@example.com', 'three@example.com'])
     await assert.rejects(rotatingVault.login(email, 'wrong', ''), /Invalid login/);
   await assert.rejects(rotatingVault.login('four@example.com', 'wrong', ''), /Too many authentication attempts/);
+  const firstId = createHash('sha256').update('login:one@example.com').digest('base64url');
+  for (let i = 0; i < 4; i++)
+    await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
+  assert.equal(failures.get(firstId).failureCount, 5,
+    'an exhausted shared budget stopped advancing an existing subject lockout');
+  await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
   assert.equal(globalAttempts.size, 1, 'rotating identities created multiple global limiter buckets');
   assert.equal(failures.size, 3, 'an exhausted shared budget created another subject limiter row');
 };
