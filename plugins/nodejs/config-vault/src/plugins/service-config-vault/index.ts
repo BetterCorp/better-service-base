@@ -58,7 +58,6 @@ export const Config = createConfigSchema(
   {
     name: 'Vault',
     description: 'Secure BSB managed configuration service with Postgres, admin UI, plugin catalog, and runtime API keys',
-    image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['vault', 'config', 'security', 'postgres', 'h3', 'admin-ui'],
     documentation: ['./docs/service-config-vault.md'],
   },
