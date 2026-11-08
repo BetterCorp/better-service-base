@@ -1845,13 +1845,18 @@ export class VaultService {
     // Invalid attempts consume the shared overload budget only after credential
     // verification fails. Valid independent credentials therefore retain access,
     // while rotating invalid subjects are still bounded.
+    const subjectHash = tokenHash(key);
     if (typeof consumeBudget === 'function'
       && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
+      // Do not create rows for rotating attacker-controlled identities after the
+      // shared budget is exhausted, but keep charging an existing subject so its
+      // independent lockout cannot be bypassed with continued credential checks.
+      await this.store.recordExistingAuthenticationFailure(subjectHash, key);
       throw new Error('Too many authentication attempts; try again later');
     }
     // These keys contain an email, public key/user ID, or a hash of an invalid token; never a secret.
     // Charge the atomic shared budget first so rotating identifiers cannot create unbounded rows.
-    await this.store.recordAuthenticationFailure(tokenHash(key), key);
+    await this.store.recordAuthenticationFailure(subjectHash, key);
   }
 
   private async clearFailures(key: string): Promise<void> {
