@@ -500,27 +500,45 @@ function schemaCallRoot(expression: ts.Expression): string | null {
   }
 }
 
-function assertSafeSchemaInitializer(node: ts.Node, filePath: string, allowedCalls: ReadonlySet<string>): void {
+function schemaBindingNames(name: ts.BindingName): string[] {
+  if (ts.isIdentifier(name)) return [name.text];
+  return name.elements.flatMap((element) => ts.isOmittedExpression(element) ? [] : schemaBindingNames(element.name));
+}
+
+function assertSafeSchemaInitializer(
+  node: ts.Node,
+  filePath: string,
+  allowedCalls: ReadonlySet<string>,
+  directOnlyCalls: ReadonlySet<string> = new Set(),
+): void {
   if (ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node)
     || ts.isMethodDeclaration(node) || ts.isConstructorDeclaration(node)
     || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) {
     for (const parameter of node.parameters) {
       assertNoSchemaDecorators(parameter, filePath);
-      if (parameter.initializer) assertSafeSchemaInitializer(parameter.initializer, filePath, allowedCalls);
+      if (schemaBindingNames(parameter.name).some((name) => allowedCalls.has(name))) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${filePath}`);
+      }
+      assertSafeSchemaInitializer(parameter.name, filePath, allowedCalls, directOnlyCalls);
+      if (parameter.initializer) assertSafeSchemaInitializer(parameter.initializer, filePath, allowedCalls, directOnlyCalls);
     }
     if (!node.body) return;
     if (!ts.isBlock(node.body)) {
-      assertSafeSchemaInitializer(node.body, filePath, allowedCalls);
+      assertSafeSchemaInitializer(node.body, filePath, allowedCalls, directOnlyCalls);
       return;
     }
     for (const statement of node.body.statements) {
       if (ts.isReturnStatement(statement)) {
-        if (statement.expression) assertSafeSchemaInitializer(statement.expression, filePath, allowedCalls);
+        if (statement.expression) assertSafeSchemaInitializer(statement.expression, filePath, allowedCalls, directOnlyCalls);
         continue;
       }
       if (ts.isVariableStatement(statement)) {
         for (const declaration of statement.declarationList.declarations) {
-          if (declaration.initializer) assertSafeSchemaInitializer(declaration.initializer, filePath, allowedCalls);
+          if (schemaBindingNames(declaration.name).some((name) => allowedCalls.has(name))) {
+            throw new Error(`Schema extraction refused a shadowed callable binding in ${filePath}`);
+          }
+          assertSafeSchemaInitializer(declaration.name, filePath, allowedCalls, directOnlyCalls);
+          if (declaration.initializer) assertSafeSchemaInitializer(declaration.initializer, filePath, allowedCalls, directOnlyCalls);
         }
         continue;
       }
@@ -543,11 +561,12 @@ function assertSafeSchemaInitializer(node: ts.Node, filePath: string, allowedCal
   }
   if (ts.isCallExpression(node)) {
     const root = schemaCallRoot(node.expression);
-    if (!root || !allowedCalls.has(root)) {
+    if (!root || !allowedCalls.has(root)
+      || (directOnlyCalls.has(root) && !ts.isIdentifier(node.expression))) {
       throw new Error(`Schema extraction refused call to ${root ?? 'an unknown function'} in ${filePath}`);
     }
   }
-  ts.forEachChild(node, (child) => assertSafeSchemaInitializer(child, filePath, allowedCalls));
+  ts.forEachChild(node, (child) => assertSafeSchemaInitializer(child, filePath, allowedCalls, directOnlyCalls));
 }
 
 function pruneUnreferencedSchemaFunctions(source: string): string {
@@ -588,6 +607,12 @@ function schemaIdentifierUsed(source: string, identifier: string, includeFunctio
   const isTypeOnlyReference = (node: ts.Identifier): boolean => {
     let current: ts.Node | undefined = node.parent;
     while (current) {
+      if (ts.isExpressionWithTypeArguments(current)
+        && ts.isHeritageClause(current.parent)
+        && current.parent.token === ts.SyntaxKind.ExtendsKeyword
+        && ts.isClassLike(current.parent.parent)) {
+        return false;
+      }
       if (ts.isTypeNode(current)) return true;
       if (ts.isExpression(current) || ts.isStatement(current) || ts.isSourceFile(current)) return false;
       current = current.parent;
@@ -625,6 +650,7 @@ function assertSafeSchemaModule(
     canonical.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const allowedCalls = new Set(SCHEMA_IDENTIFIERS);
+  const directOnlyCalls = new Set<string>();
   for (const statement of sourceFile.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
     const source = statement.moduleSpecifier.text;
@@ -634,27 +660,38 @@ function assertSafeSchemaModule(
     if (statement.importClause.name
       && schemaImportCallable(source, 'default', false, trustedImports)) {
       allowedCalls.add(statement.importClause.name.text);
+      if (isLocalRelativeImport(source)) directOnlyCalls.add(statement.importClause.name.text);
     }
     const bindings = statement.importClause.namedBindings;
     if (bindings && ts.isNamespaceImport(bindings)
       && schemaImportCallable(source, '*', true, trustedImports)) {
       allowedCalls.add(bindings.name.text);
+      if (isLocalRelativeImport(source)) directOnlyCalls.add(bindings.name.text);
     }
     if (bindings && ts.isNamedImports(bindings)) {
       for (const element of bindings.elements) {
         const imported = element.propertyName?.text ?? element.name.text;
         if (schemaImportCallable(source, imported, false, trustedImports)) {
           allowedCalls.add(element.name.text);
+          if (isLocalRelativeImport(source)) directOnlyCalls.add(element.name.text);
         }
       }
     }
   }
   for (const statement of sourceFile.statements) {
-    if (ts.isFunctionDeclaration(statement) && statement.name) allowedCalls.add(statement.name.text);
+    if (ts.isFunctionDeclaration(statement) && statement.name) {
+      if (allowedCalls.has(statement.name.text)) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+      }
+      allowedCalls.add(statement.name.text);
+    }
     if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (ts.isIdentifier(declaration.name) && declaration.initializer
         && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))) {
+        if (allowedCalls.has(declaration.name.text)) {
+          throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+        }
         allowedCalls.add(declaration.name.text);
       }
     }
@@ -685,14 +722,22 @@ function assertSafeSchemaModule(
     }
     if (ts.isVariableStatement(statement)) {
       for (const declaration of statement.declarationList.declarations) {
-        if (declaration.initializer) assertSafeSchemaInitializer(declaration.initializer, canonical, allowedCalls);
+        const declared = schemaBindingNames(declaration.name);
+        if (declared.some((name) => allowedCalls.has(name)
+          && !(ts.isIdentifier(declaration.name)
+            && declaration.initializer
+            && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))))) {
+          throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+        }
+        assertSafeSchemaInitializer(declaration.name, canonical, allowedCalls, directOnlyCalls);
+        if (declaration.initializer) assertSafeSchemaInitializer(declaration.initializer, canonical, allowedCalls, directOnlyCalls);
       }
       continue;
     }
     if (ts.isClassDeclaration(statement)) {
       assertNoSchemaDecorators(statement, canonical);
       for (const clause of statement.heritageClauses ?? []) {
-        for (const type of clause.types) assertSafeSchemaInitializer(type.expression, canonical, allowedCalls);
+        for (const type of clause.types) assertSafeSchemaInitializer(type.expression, canonical, allowedCalls, directOnlyCalls);
       }
       for (const member of statement.members) {
         assertNoSchemaDecorators(member, canonical);
@@ -700,10 +745,10 @@ function assertSafeSchemaModule(
           throw new Error(`Schema extraction refused a static block in ${canonical}`);
         }
         if (member.name && ts.isComputedPropertyName(member.name)) {
-          assertSafeSchemaInitializer(member.name.expression, canonical, allowedCalls);
+          assertSafeSchemaInitializer(member.name.expression, canonical, allowedCalls, directOnlyCalls);
         }
         if (ts.isPropertyDeclaration(member) && member.initializer) {
-          assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls);
+          assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls, directOnlyCalls);
         }
         const methodName = member.name && (ts.isIdentifier(member.name) || ts.isStringLiteralLike(member.name))
           ? member.name.text
@@ -713,19 +758,19 @@ function assertSafeSchemaModule(
         if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
           || ts.isSetAccessorDeclaration(member)
           || (ts.isMethodDeclaration(member) && methodName === 'export')) {
-          assertSafeSchemaInitializer(member, canonical, allowedCalls);
+          assertSafeSchemaInitializer(member, canonical, allowedCalls, directOnlyCalls);
         }
       }
       continue;
     }
     if (ts.isFunctionDeclaration(statement)) {
       assertNoSchemaDecorators(statement, canonical);
-      assertSafeSchemaInitializer(statement, canonical, allowedCalls);
+      assertSafeSchemaInitializer(statement, canonical, allowedCalls, directOnlyCalls);
       continue;
     }
     if (ts.isEnumDeclaration(statement)) {
       for (const member of statement.members) {
-        if (member.initializer) assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls);
+        if (member.initializer) assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls, directOnlyCalls);
       }
       continue;
     }

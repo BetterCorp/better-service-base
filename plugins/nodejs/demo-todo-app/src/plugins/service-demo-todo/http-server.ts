@@ -42,8 +42,10 @@ export class TodoHttpServer {
    */
   async start(obs: Observable, createTrace: TraceCreator): Promise<void> {
     this.createTrace = createTrace;
-    const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-    if (!loopbackHosts.has(this.config.host.toLowerCase())) {
+    const configuredHost = this.config.host.toLowerCase();
+    const listenHost = configuredHost === 'localhost' ? '127.0.0.1' : configuredHost;
+    const loopbackHosts = new Set(['127.0.0.1', '::1', '[::1]']);
+    if (!loopbackHosts.has(listenHost)) {
       throw new Error('The unauthenticated demo todo API may only bind to a loopback address');
     }
 
@@ -129,9 +131,9 @@ export class TodoHttpServer {
     try {
       await this.server.listen({
         port: this.config.port,
-        host: this.config.host,
+        host: listenHost,
       });
-      obs.log.info(`HTTP server listening on http://${this.config.host}:${this.config.port}`);
+      obs.log.info(`HTTP server listening on http://${listenHost}:${this.config.port}`);
     } catch (error: any) {
       if (error.code === 'EADDRINUSE') {
         obs.log.error(`Port ${this.config.port} is already in use`);

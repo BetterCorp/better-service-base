@@ -128,3 +128,23 @@ test('private package images require package read authorization', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('ambiguous legacy image ownership fails closed', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'bsb-registry-ambiguous-image-'));
+  const filename = 'a___b.png';
+  await writeFile(join(root, filename), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  const server = new RegistryUIServer(0, '127.0.0.1', 10, root, undefined, 1, []);
+  const internals = server as unknown as TestableRegistryServer;
+  internals.imageIndex = { 'a_/b': filename, 'a/_b': filename };
+  const app = Fastify();
+  internals.app = app;
+  await app.register(fastifyRateLimit, { max: 10, timeWindow: 60_000 });
+  app.get('/images/:filename', (request, reply) => internals.handlePluginImage(request, reply));
+  try {
+    const response = await app.inject({ method: 'GET', url: `/images/${filename}` });
+    assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});

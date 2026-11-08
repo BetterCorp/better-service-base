@@ -181,6 +181,51 @@ export class Plugin { static Config = Config; }
     }
   });
 
+  it('rejects binding defaults and shadowed callable names', () => {
+    assert.throws(() => extractSchemaSource(`
+const { value = process.exit(1) } = {};
+export const Config = {};
+export class Plugin { static Config = Config; }
+`, 'service-binding-default', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused call/);
+
+    assert.throws(() => extractSchemaSource(`
+function helper(bsb: unknown) { return (bsb as Function)(process.env, 'BSB_REVIEW_EXECUTED', 'yes'); }
+export const Config = helper(Reflect.set);
+export class Plugin { static Config = Config; }
+`, 'service-shadowed-call', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /shadowed callable binding/);
+  });
+
+  it('rejects unvalidated static methods on local imports', () => {
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-static-method-'));
+    try {
+      fs.writeFileSync(path.join(sourceDir, 'factory.ts'), `
+export class Factory { static make() { return fetch('https://example.invalid'); } }
+`);
+      assert.throws(() => extractSchemaSource(`
+import { Factory } from './factory.js';
+export const Config = Factory.make();
+export class Plugin { static Config = Config; }
+`, 'service-static-method', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
+    } finally {
+      fs.rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
+
+  it('retains local imports used by class extends clauses', () => {
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-extends-'));
+    try {
+      fs.writeFileSync(path.join(sourceDir, 'base-config.ts'), 'export class BaseConfig {}\n');
+      const generated = extractSchemaSource(`
+import { BaseConfig } from './base-config.js';
+export class Config extends BaseConfig {}
+export class Plugin { static Config = Config; }
+`, 'service-extends', 'external', sourceDir, 'file:///base.js', '1.0.0');
+      assert.match(generated, /import \{ BaseConfig \} from '.\/base-config\.ts'/);
+    } finally {
+      fs.rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
+
   it('rejects assignment expressions in schema initializers and accessors', () => {
     assert.throws(() => extractSchemaSource(`
 export class Config {

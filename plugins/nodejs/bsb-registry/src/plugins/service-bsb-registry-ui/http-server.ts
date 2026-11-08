@@ -9,6 +9,7 @@
 import * as path from 'path';
 import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyCors from '@fastify/cors';
@@ -2152,7 +2153,8 @@ a.s:hover{background:#333;border-color:#FB8C00}
   /** GET /images/:filename — Serve an image only when its package is readable. */
   private async handlePluginImage(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const filename = String((request.params as { filename?: unknown }).filename ?? '');
-    const pluginId = Object.entries(this.imageIndex).find(([, value]) => value === filename)?.[0];
+    const owners = Object.entries(this.imageIndex).filter(([, value]) => value === filename);
+    const pluginId = owners.length === 1 ? owners[0]![0] : undefined;
     const filePath = this.tryUploadPath(filename);
     if (!pluginId || !filePath || !fs.existsSync(filePath)) {
       reply.code(404).send({ error: 'Image not found', code: 'IMAGE_NOT_FOUND' });
@@ -2250,7 +2252,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       }
 
       const pluginId = `${params.org}/${params.name}`;
-      const safeFileName = `${params.org}__${params.name}${ext}`;
+      const safeFileName = `${createHash('sha256').update(pluginId).digest('hex')}${ext}`;
       const outputPath = this.uploadPath(safeFileName);
       await fsp.mkdir(this.uploadDir, { recursive: true });
 

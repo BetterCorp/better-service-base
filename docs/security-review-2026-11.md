@@ -8,7 +8,7 @@ merged in PR #143.
 
 ## Follow-up review — 8 November 2026
 
-The follow-up reviewed `master` at `229464b` and compared it with the 7 November
+The follow-up reviewed `master` through `ddc7bb4` and compared it with the 7 November
 scan at `7b4b93e`. PR #156 fixed the manifest-controlled documentation escape and
 the Node custom-origin token fallback. The remaining source-backed findings are
 addressed by the follow-up change:
@@ -56,7 +56,7 @@ responses by the shared bounded reader.
 
 Follow-up verification:
 
-- Node 24 lockfile validation, TypeScript compilation, 196 base tests, and 47
+- Node 24 lockfile validation, TypeScript compilation, 201 base tests, and 47
   plugin/security regression tests passed. One live RabbitMQ test was skipped
   because no broker URL was configured.
 - Source-schema extraction completed successfully across all 14 Node plugin
