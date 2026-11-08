@@ -27,7 +27,7 @@
 
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { dirname, join } from "node:path";
 import { BSBPluginConfig, BSBPluginConfigRef } from "../base/index.js";
 import { createFakeDTrace, DTrace, IPluginLogging, LoadedPlugin, PluginType, PluginTypeDefinitionRef, Result, Ok, Err, fromPromise, BSBRuntimeMode } from "../interfaces/index.js";
 import { toImportUrl } from "../base/module-runtime.js";
@@ -43,23 +43,6 @@ interface ResolvedPackageVersion {
   version: string;
   packageCwd: string;
   pluginRoot: string;
-}
-
-const PLUGIN_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
-function validPluginPackage(value: string): boolean {
-  if (PLUGIN_SEGMENT.test(value)) return true;
-  const scoped = value.match(/^@([^/]+)\/([^/]+)$/);
-  return Boolean(scoped && PLUGIN_SEGMENT.test(scoped[1]) && PLUGIN_SEGMENT.test(scoped[2]));
-}
-
-function containedPluginDirectory(root: string, candidate: string): string | null {
-  if (!existsSync(root) || !existsSync(candidate)) return null;
-  const canonicalRoot = realpathSync.native(root);
-  const canonicalCandidate = realpathSync.native(candidate);
-  const rel = relative(canonicalRoot, canonicalCandidate);
-  if (!rel || rel.startsWith(`..${sep}`) || rel === '..' || isAbsolute(rel)) return null;
-  return canonicalCandidate;
 }
 
 /**
@@ -82,6 +65,8 @@ export class SBPlugins {
   private static readonly MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
   private static readonly EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
   private static readonly SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
+  private static readonly PLUGIN_ID_REGEX = /^(?!\.{1,2}$)[A-Za-z0-9_.-]+$/;
+  private static readonly PACKAGE_NAME_REGEX = /^(?:@[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
   constructor(cwd: string, runtimeMode: BSBRuntimeMode) {
     this.cwd = cwd;
@@ -196,11 +181,11 @@ export class SBPlugins {
     requestedVersion?: string | null,
   ): Promise<Result<LoadedPlugin<NamedType, ClassType>, Error>> {
     const tTrace = internalTrace(`loadPlugin:${ npmPackage }:${ plugin }`);
-    if (!PLUGIN_SEGMENT.test(plugin) || plugin === '.' || plugin === '..') {
-      return Err(new Error(`Invalid plugin identifier: ${plugin}`));
+    if (typeof plugin !== "string" || !SBPlugins.PLUGIN_ID_REGEX.test(plugin)) {
+      return Err(new Error("Invalid plugin identifier"));
     }
-    if (npmPackage !== null && !validPluginPackage(npmPackage)) {
-      return Err(new Error(`Invalid plugin package identifier: ${npmPackage}`));
+    if (npmPackage !== null && (typeof npmPackage !== "string" || !SBPlugins.PACKAGE_NAME_REGEX.test(npmPackage))) {
+      return Err(new Error("Invalid npm package name"));
     }
     log.debug(tTrace, `Plugin {name} from {package} try load as {pluginName}`, {
       name: plugin,
@@ -219,12 +204,13 @@ export class SBPlugins {
     if (!nodeModulesLib) {
       // If no package is defined in the config, we will not look anywhere else except for the local plugins
       if (this.runtimeMode === "dev") {
-        const root = join(this.cwd, "./src/plugins");
-        pluginPath = containedPluginDirectory(root, join(root, plugin)) ?? "";
+        pluginPath = join(this.cwd, "./src/plugins/" + plugin);
+        if (!existsSync(pluginPath)) {
+          pluginPath = "";
+        }
       }
       if (pluginPath == "") {
-        const root = join(this.cwd, "./lib/plugins");
-        pluginPath = containedPluginDirectory(root, join(root, plugin)) ?? "";
+        pluginPath = join(this.cwd, "./lib/plugins/" + plugin);
       }
       const packageJsonPath = join(packageCwd, "./package.json");
       if (existsSync(packageJsonPath)) {
@@ -244,9 +230,8 @@ export class SBPlugins {
         );
 
         if (resolved) {
-          const root = join(resolved.pluginRoot, "./lib/plugins");
-          const versionedPluginPath = containedPluginDirectory(root, join(root, plugin));
-          if (versionedPluginPath) {
+          const versionedPluginPath = join(resolved.pluginRoot, "./lib/plugins/" + plugin);
+          if (existsSync(versionedPluginPath)) {
             pluginPath = versionedPluginPath;
             packageCwd = resolved.packageCwd;
             version = resolved.version;
@@ -260,9 +245,8 @@ export class SBPlugins {
           const nodeModulesPackageCwd = realpathSync.native(
             dirname(requireFromCwd.resolve(`${ npmPackage }/package.json`))
           );
-          const root = join(nodeModulesPackageCwd, "./lib/plugins");
-          const nodeModulesPluginPath = containedPluginDirectory(root, join(root, plugin));
-          if (nodeModulesPluginPath) {
+          const nodeModulesPluginPath = join(nodeModulesPackageCwd, "./lib/plugins/" + plugin);
+          if (existsSync(nodeModulesPluginPath)) {
             pluginPath = nodeModulesPluginPath;
             packageCwd = nodeModulesPackageCwd;
           }
