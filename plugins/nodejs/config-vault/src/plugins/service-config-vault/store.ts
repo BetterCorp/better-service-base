@@ -698,6 +698,15 @@ export class VaultStore {
     );
   }
 
+  async recordExistingAuthenticationFailure(subjectHash: string, subject?: string): Promise<void> {
+    await this.pool.query(
+      `update vault_auth_attempts
+       set subject = coalesce($2, subject), failure_count = failure_count + 1
+       where subject_hash = $1 and reset_at > now()`,
+      [subjectHash, subject ?? null],
+    );
+  }
+
   async clearAuthenticationFailures(subjectHash: string): Promise<void> {
     await this.pool.query('delete from vault_auth_attempts where subject_hash = $1', [subjectHash]);
   }
