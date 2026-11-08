@@ -200,7 +200,7 @@ export class SBPlugins {
       return Err(new Error(`Invalid plugin identifier: ${plugin}`));
     }
     if (npmPackage !== null && !validPluginPackage(npmPackage)) {
-      return Err(new Error(`Invalid plugin package identifier: ${npmPackage}`));
+      return Err(new Error(`Invalid npm package name: ${npmPackage}`));
     }
     log.debug(tTrace, `Plugin {name} from {package} try load as {pluginName}`, {
       name: plugin,

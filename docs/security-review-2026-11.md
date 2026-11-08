@@ -56,7 +56,7 @@ responses by the shared bounded reader.
 
 Follow-up verification:
 
-- Node 24 lockfile validation, TypeScript compilation, 192 base tests, and 47
+- Node 24 lockfile validation, TypeScript compilation, 196 base tests, and 47
   plugin/security regression tests passed. One live RabbitMQ test was skipped
   because no broker URL was configured.
 - Source-schema extraction completed successfully across all 14 Node plugin

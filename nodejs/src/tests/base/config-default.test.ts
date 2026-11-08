@@ -93,6 +93,35 @@ default:
     });
   });
 
+  it("resolves relative configuration paths from the service cwd", () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "bsb-config-default-relative-"));
+    tempDirs.push(tempDir);
+    writeFileSync(join(tempDir, "custom.yaml"), `
+default:
+  services:
+    demo-service:
+      plugin: service-demo
+      enabled: true
+`, "utf8");
+
+    const plugin = new DefaultConfigPlugin({
+      appId: "test-app",
+      mode: "development",
+      cwd: tempDir,
+      packageCwd: tempDir,
+      pluginCwd: tempDir,
+      pluginName: "config-default",
+      pluginVersion: "0.0.0",
+      config: {
+        BSB_PROFILE: "default",
+        BSB_CONFIG_FILE: "custom.yaml",
+      },
+      sbObservable: MockSBObservable(),
+    });
+
+    assert.doesNotThrow(() => plugin.init(createTestObservable()));
+  });
+
   it("should normalize missing plugin config to an empty object", async () => {
     const { plugin, obs } = createPlugin(`
 default:
