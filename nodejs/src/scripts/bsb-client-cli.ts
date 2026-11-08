@@ -85,13 +85,16 @@ function readProjectDocumentation(projectRoot: string, candidate: string): strin
   if (size > MAX_DOCUMENTATION_FILE_BYTES) throw new Error(`Documentation file is too large: ${candidate}`);
   return fs.readFileSync(canonicalFile, 'utf-8');
 }
-const REGISTRY_REQUEST_TIMEOUT_MS = Number.parseInt(process.env.BSB_REGISTRY_TIMEOUT_MS || '30000', 10);
+const parsedRegistryRequestTimeoutMs = Number.parseInt(process.env.BSB_REGISTRY_TIMEOUT_MS || '30000', 10);
+const REGISTRY_REQUEST_TIMEOUT_MS = Number.isFinite(parsedRegistryRequestTimeoutMs) && parsedRegistryRequestTimeoutMs > 0
+  ? parsedRegistryRequestTimeoutMs
+  : 30000;
 const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
 
 async function readBoundedResponse(res: http.IncomingMessage, maximum = MAX_REGISTRY_RESPONSE_BYTES): Promise<string> {
   const declared = Number.parseInt(res.headers['content-length'] ?? '', 10);
   if (Number.isFinite(declared) && declared > maximum) {
-    res.resume();
+    res.destroy();
     throw new Error(`Registry response exceeds ${maximum} bytes`);
   }
   const chunks: Buffer[] = [];
@@ -110,7 +113,7 @@ async function readBoundedResponse(res: http.IncomingMessage, maximum = MAX_REGI
 
 function applyRequestDeadline(req: http.ClientRequest, operation: string): void {
   const deadline = setTimeout(() => {
-    const error = new Error(`${operation} timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
+    const error = new Error(`${operation} exceeded its total ${REGISTRY_REQUEST_TIMEOUT_MS}ms deadline`);
     (error as NodeJS.ErrnoException).code = 'ETIMEDOUT';
     req.destroy(error);
   }, REGISTRY_REQUEST_TIMEOUT_MS);
