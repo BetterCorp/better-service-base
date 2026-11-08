@@ -480,6 +480,15 @@ function schemaImportCallable(source: string, imported: string, namespace: boole
   return false;
 }
 
+function schemaImportIsTypeOnly(statement: ts.ImportDeclaration): boolean {
+  const clause = statement.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  return !clause.name && Boolean(clause.namedBindings && ts.isNamedImports(clause.namedBindings)
+    && clause.namedBindings.elements.length > 0
+    && clause.namedBindings.elements.every((element) => element.isTypeOnly));
+}
+
 function assertNoSchemaDecorators(node: ts.Node, filePath: string): void {
   if (ts.canHaveDecorators(node) && (ts.getDecorators(node)?.length ?? 0) > 0) {
     throw new Error(`Schema extraction refused a decorator in ${filePath}`);
@@ -711,6 +720,7 @@ function assertSafeSchemaModule(
   const directOnlyCalls = new Set<string>();
   for (const statement of sourceFile.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    if (schemaImportIsTypeOnly(statement)) continue;
     const source = statement.moduleSpecifier.text;
     const trusted = source === '@bsb/base' || trustedImports.has(source)
       || TRUSTED_SCHEMA_PACKAGES.has(source) || isLocalRelativeImport(source);
@@ -786,6 +796,7 @@ function assertSafeSchemaModule(
   }
   for (const statement of sourceFile.statements) {
     if (ts.isImportDeclaration(statement)) {
+      if (schemaImportIsTypeOnly(statement)) continue;
       const source = ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : '';
       if (source === '@bsb/base' || trustedImports.has(source) || TRUSTED_SCHEMA_PACKAGES.has(source)) continue;
       if (!isLocalRelativeImport(source)) {

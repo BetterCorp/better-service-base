@@ -225,6 +225,10 @@ export function getFactory() { return Factory; }
 `);
       fs.writeFileSync(path.join(sourceDir, 'alias.ts'), 'export const run = Reflect.set;\n');
       fs.writeFileSync(path.join(sourceDir, 'safe-helper.ts'), 'export function helper() { return {}; }\n');
+      fs.writeFileSync(path.join(sourceDir, 'typed-config.ts'), `
+import type { DB } from 'untrusted-runtime-db';
+export class Config { declare db: DB; }
+`);
       assert.throws(() => extractSchemaSource(`
 import { Factory } from './factory.js';
 export const Config = Factory.make();
@@ -254,6 +258,11 @@ import { helper as bsb } from './safe-helper.js';
 export const EventSchemas = bsb();
 export class Plugin { static EventSchemas = EventSchemas; }
 `, 'service-shadowed-import', 'external', sourceDir, 'file:///base.js', '1.0.0'), /shadowed callable binding/);
+
+      assert.doesNotThrow(() => extractSchemaSource(`
+import { Config } from './typed-config.js';
+export class Plugin { static Config = Config; }
+`, 'service-type-only-transitive-import', 'external', sourceDir, 'file:///base.js', '1.0.0'));
     } finally {
       fs.rmSync(sourceDir, { recursive: true, force: true });
     }
