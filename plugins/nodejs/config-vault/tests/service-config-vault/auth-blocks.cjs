@@ -21,6 +21,10 @@ module.exports = async ({ pluginRoot }) => {
     async recordAuthenticationFailure(id, subject) {
       failures.set(id, { subjectHash: id, subject, failureCount: (failures.get(id)?.failureCount ?? 0) + 1 });
     },
+    async recordExistingAuthenticationFailure(id, subject) {
+      const existing = failures.get(id);
+      if (existing) failures.set(id, { subjectHash: id, subject, failureCount: existing.failureCount + 1 });
+    },
     async listAuthenticationBlocks() { return [...failures.values()].filter(row => row.failureCount >= 5); },
     async clearAuthenticationFailures(id) {
       assert.equal(audits.at(-1).outcome, 'intent');
@@ -36,6 +40,8 @@ module.exports = async ({ pluginRoot }) => {
   const id = createHash('sha256').update('login:user@example.com').digest('base64url');
   assert.deepEqual(await vault.authenticationBlocks(), [{ subjectHash: id, subject: 'login:user@example.com', failureCount: 5 }]);
   await assert.rejects(vault.login('user@example.com', 'wrong', ''), /Too many authentication attempts/);
+  assert.equal([...globalAttempts.values()].reduce((sum, value) => sum + value, 0), 5,
+    'blocked subjects continued consuming the shared authentication budget');
   await assert.rejects(vault.clearAuthenticationBlock('admin', '../invalid'), /Invalid authentication block ID/);
   auditAvailable = false;
   await assert.rejects(vault.clearAuthenticationBlock('admin', id), /Audit unavailable/);
@@ -59,5 +65,12 @@ module.exports = async ({ pluginRoot }) => {
   for (const email of ['one@example.com', 'two@example.com', 'three@example.com'])
     await assert.rejects(rotatingVault.login(email, 'wrong', ''), /Invalid login/);
   await assert.rejects(rotatingVault.login('four@example.com', 'wrong', ''), /Too many authentication attempts/);
+  const firstId = createHash('sha256').update('login:one@example.com').digest('base64url');
+  for (let i = 0; i < 4; i++)
+    await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
+  assert.equal(failures.get(firstId).failureCount, 5,
+    'an exhausted shared budget stopped advancing an existing subject lockout');
+  await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
   assert.equal(globalAttempts.size, 1, 'rotating identities created multiple global limiter buckets');
+  assert.equal(failures.size, 3, 'an exhausted shared budget created another subject limiter row');
 };
