@@ -743,6 +743,7 @@ function assertSafeSchemaModule(
         throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
       }
       allowedCalls.add(statement.name.text);
+      directOnlyCalls.add(statement.name.text);
     }
     if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
@@ -752,6 +753,7 @@ function assertSafeSchemaModule(
           throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
         }
         allowedCalls.add(declaration.name.text);
+        directOnlyCalls.add(declaration.name.text);
       }
     }
   }

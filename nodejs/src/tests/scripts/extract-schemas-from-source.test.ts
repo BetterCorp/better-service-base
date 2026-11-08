@@ -193,6 +193,12 @@ function helper(bsb: unknown) { return (bsb as Function)(process.env, 'BSB_REVIE
 export const Config = helper(Reflect.set);
 export class Plugin { static Config = Config; }
 `, 'service-shadowed-call', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /shadowed callable binding/);
+
+    assert.throws(() => extractSchemaSource(`
+function helper() { return Reflect.set; }
+export const Config = helper()(process.env, 'BSB_REVIEW_EXECUTED', 'yes');
+export class Plugin { static Config = Config; }
+`, 'service-returned-callable', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused call/);
   });
 
   it('rejects unvalidated static methods on local imports', () => {
