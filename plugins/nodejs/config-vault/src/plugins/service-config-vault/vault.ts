@@ -232,22 +232,21 @@ export class VaultService {
     await this.checkRateLimit(attemptKey);
     const user = await this.store.getUserByEmail(normalizedEmail);
     if (!user || user.status !== 'active' || !user.passwordHash || !(await verifySecret(password, user.passwordHash))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, Boolean(user && user.status === 'active' && user.passwordHash));
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
     }
-    await this.clearFailures(attemptKey);
-
     const methods = await this.store.listAuthMethods(user.id);
     const activeMethods = methods.filter((method) => method.active && method.credentialId);
     if (activeMethods.length === 0) {
       const pending = methods.find((method) => !method.active);
       if (pending && !totpCode) return { status: 'totp_setup_verification_required' };
       if (!pending || !this.verifyMethodTotp(pending, totpCode)) {
-        await this.recordFailure(attemptKey);
+        await this.recordFailure(attemptKey, true);
         await this.audit('anonymous', 'admin.login.failed', email, {});
         throw new Error('Invalid login');
       }
+      await this.clearFailures(attemptKey);
       await this.store.saveAuthChallenge('verified-enrollment', tokenHash(pending.id), { userId: user.id }, expiresIn(10));
       const setupToken = newToken();
       await this.store.saveAuthChallenge('passkey-setup', tokenHash(setupToken), { userId: user.id }, expiresIn(10));
@@ -255,6 +254,7 @@ export class VaultService {
       return { status: 'passkey_setup_required', setupToken };
     }
 
+    await this.clearFailures(attemptKey);
     const options = await generateAuthenticationOptions({
       rpID: this.rpId,
       allowCredentials: activeMethods.map((method) => ({ id: method.credentialId! })),
@@ -309,7 +309,7 @@ export class VaultService {
     if (!method || !method.active) throw new Error('Invalid authentication method');
     const step = matchingTotpStep(this.decryptMethodTotp(method), code);
     if (step === null || !(await this.store.useTotpStep(method.id, step))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, true);
       await this.audit(pendingUserId, 'admin.totp.failed', method.id, {});
       throw new Error('Invalid TOTP code');
     }
@@ -751,7 +751,7 @@ export class VaultService {
     await this.checkRateLimit(attemptKey);
     const publisher = tokenId ? await this.store.getPluginPublisherByTokenId(tokenId) : null;
     if (!publisher || !(await verifySecret(token, publisher.secretHash))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, Boolean(publisher));
       await this.audit(`publisher:${tokenId ?? 'unknown'}`, 'plugin.publish.auth.failed', 'plugin', {}).catch(() => undefined);
       throw new Error('Invalid plugin publish token');
     }
@@ -1296,7 +1296,7 @@ export class VaultService {
     await this.checkRateLimit(attemptKey);
     const binding = await this.store.resolveRuntimeBinding(keyId);
     if (!binding || !(await verifySecret(secret, binding.key.secretHash))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, Boolean(binding));
       await this.audit(keyId, 'runtime-config.auth.failed', keyId, {}).catch(() => undefined);
       throw new Error('Invalid Vault API key');
     }
@@ -1831,25 +1831,32 @@ export class VaultService {
   }
 
   private async checkRateLimit(key: string): Promise<void> {
-    const scope = key.slice(0, key.indexOf(':'));
-    const globalMaximum = this.authenticationBudgets[scope] ?? 200;
-    const consumeBudget = (this.store as VaultStore & {
-      consumeAuthenticationBudget?: (subjectHash: string, maximum: number, subject?: string) => Promise<boolean>;
-    }).consumeAuthenticationBudget;
-    // VaultStore provides the global budget. Lightweight test doubles and older
-    // embedders may not yet implement it; their existing per-subject limit remains.
-    if (typeof consumeBudget === 'function'
-      && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
-      throw new Error('Too many authentication attempts; try again later');
-    }
     if (!(await this.store.authenticationAllowed(tokenHash(key)))) {
       throw new Error('Too many authentication attempts; try again later');
     }
   }
 
-  private async recordFailure(key: string): Promise<void> {
+  private async recordFailure(key: string, knownSubject = false): Promise<void> {
+    const scope = key.slice(0, key.indexOf(':'));
+    const globalMaximum = this.authenticationBudgets[scope] ?? 200;
+    const consumeBudget = (this.store as VaultStore & {
+      consumeAuthenticationBudget?: (subjectHash: string, maximum: number, subject?: string) => Promise<boolean>;
+    }).consumeAuthenticationBudget;
+    // Invalid attempts consume the shared overload budget only after credential
+    // verification fails. Valid independent credentials therefore retain access,
+    // while rotating invalid subjects are still bounded.
+    const subjectHash = tokenHash(key);
+    if (typeof consumeBudget === 'function'
+      && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
+      // Do not create rows for rotating unknown identities after the shared cap.
+      // Known credentials must still create/advance their independent lockout.
+      if (knownSubject) await this.store.recordAuthenticationFailure(subjectHash, key);
+      else await this.store.recordExistingAuthenticationFailure(subjectHash, key);
+      throw new Error('Too many authentication attempts; try again later');
+    }
     // These keys contain an email, public key/user ID, or a hash of an invalid token; never a secret.
-    await this.store.recordAuthenticationFailure(tokenHash(key), key);
+    // Charge the atomic shared budget first so rotating identifiers cannot create unbounded rows.
+    await this.store.recordAuthenticationFailure(subjectHash, key);
   }
 
   private async clearFailures(key: string): Promise<void> {

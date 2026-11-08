@@ -55,9 +55,16 @@ public static class BsbCli
                 var selected = options.GetValueOrDefault("--plugin");
                 var entries = manifest.Where(x => selected is null || x!["id"]!.GetValue<string>() == selected).ToArray();
                 if (entries.Length == 0) throw new ArgumentException("No matching plugin in manifest; run plugin build first");
-                var token = options.GetValueOrDefault("--token") ?? Environment.GetEnvironmentVariable("BSB_REGISTRY_TOKEN");
+                var target = options.GetValueOrDefault("--target");
+                var token = options.GetValueOrDefault("--token");
+                if (token is null)
+                {
+                    var configuredRegistry = new Uri(Environment.GetEnvironmentVariable("BSB_REGISTRY_URL") ?? "https://io.bsbcode.dev");
+                    if (target is null || RegistryClient.SameOrigin(new Uri(target), configuredRegistry))
+                        token = Environment.GetEnvironmentVariable("BSB_REGISTRY_TOKEN");
+                }
                 if (string.IsNullOrEmpty(token)) throw new ArgumentException("Publishing requires --token or BSB_REGISTRY_TOKEN");
-                using (var registry = new RegistryClient(options.GetValueOrDefault("--target"), token, options.ContainsKey("--allow-insecure")))
+                using (var registry = new RegistryClient(target, token, options.ContainsKey("--allow-insecure")))
                 {
                     foreach (var entry in entries)
                     {

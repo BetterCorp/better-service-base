@@ -9,6 +9,7 @@
 import * as path from 'path';
 import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyCors from '@fastify/cors';
@@ -367,6 +368,14 @@ const PublishBodySchema = createValidator(PublishBodyObjectSchema, {
   ],
 });
 
+export function registryPathsOverlap(first: string, second: string): boolean {
+  const contains = (parent: string, child: string): boolean => {
+    const relative = path.relative(parent, child);
+    return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+  };
+  return contains(first, second) || contains(second, first);
+}
+
 export class RegistryUIServer {
   private app: FastifyInstance;
   public readonly port: number;
@@ -538,18 +547,16 @@ export class RegistryUIServer {
 
       // Register static file serving
       const staticSpan = obs.startSpan('register.static');
-      const staticPath = path.join(plugin.pluginCwd, 'static');
+      const staticPath = await fsp.realpath(path.join(plugin.pluginCwd, 'static'));
+      await fsp.mkdir(this.uploadDir, { recursive: true });
+      const uploadPath = await fsp.realpath(this.uploadDir);
+      if (registryPathsOverlap(staticPath, uploadPath)) {
+        throw new Error('Registry image upload directory must not overlap the public static directory');
+      }
       await this.app.register(fastifyStatic, {
         root: staticPath,
         prefix: '/static/',
         index: false,
-      });
-
-      await fsp.mkdir(this.uploadDir, { recursive: true });
-      await this.app.register(fastifyStatic, {
-        root: this.uploadDir,
-        prefix: '/images/',
-        decorateReply: false,
       });
       staticSpan.end();
 
@@ -679,6 +686,10 @@ export class RegistryUIServer {
     // Plugin details page
     this.app.get('/plugins/:org/:name', async (request, reply) => {
       return this.handlePluginDetail(request, reply);
+    });
+
+    this.app.get('/images/:filename', async (request, reply) => {
+      return this.handlePluginImage(request, reply);
     });
 
     // --- API-only routes (JSON) ---
@@ -2139,6 +2150,40 @@ a.s:hover{background:#333;border-color:#FB8C00}
   // Write Handlers (require auth)
   // ============================================================================
 
+  /** GET /images/:filename — Serve an image only when its package is readable. */
+  private async handlePluginImage(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const filename = String((request.params as { filename?: unknown }).filename ?? '');
+    const owners = Object.entries(this.imageIndex).filter(([, value]) => value === filename);
+    const pluginId = owners.length === 1 ? owners[0]![0] : undefined;
+    const filePath = this.tryUploadPath(filename);
+    if (!pluginId || !filePath || !fs.existsSync(filePath)) {
+      reply.code(404).send({ error: 'Image not found', code: 'IMAGE_NOT_FOUND' });
+      return;
+    }
+    const [org, name] = pluginId.split('/');
+    const trace = this.createTrace('api.image.get', { url: request.url, method: request.method });
+    try {
+      const result = await this.registryClient.registryPluginImplementations(
+        trace,
+        { org, name, ...this.readAuth(request) },
+      ) as { implementations?: unknown[] };
+      if (!Array.isArray(result?.implementations) || result.implementations.length === 0) {
+        reply.code(404).send({ error: 'Image not found', code: 'IMAGE_NOT_FOUND' });
+        return;
+      }
+      const extension = path.extname(filename).toLowerCase();
+      const contentType = extension === '.png' ? 'image/png'
+        : extension === '.webp' ? 'image/webp'
+          : extension === '.gif' ? 'image/gif' : 'image/jpeg';
+      reply.type(contentType).send(fs.createReadStream(filePath));
+    } catch (error) {
+      if (this.replyAmbiguity(error, reply)) return;
+      reply.code(404).send({ error: 'Image not found', code: 'IMAGE_NOT_FOUND' });
+    } finally {
+      trace.end();
+    }
+  }
+
   /** POST /plugins/:org/:name/image — Upload or replace plugin image */
   private async handleImageUpload(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const params = this.validateInput(PluginDetailParamsSchema, request.params, reply);
@@ -2207,7 +2252,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
       }
 
       const pluginId = `${params.org}/${params.name}`;
-      const safeFileName = `${params.org}__${params.name}${ext}`;
+      const safeFileName = `${createHash('sha256').update(pluginId).digest('hex')}${ext}`;
       const outputPath = this.uploadPath(safeFileName);
       await fsp.mkdir(this.uploadDir, { recursive: true });
 
@@ -2231,8 +2276,11 @@ a.s:hover{background:#333;border-color:#FB8C00}
       await this.saveImageIndex();
 
       if (previousFile && previousFile !== safeFileName) {
-        const previousPath = this.tryUploadPath(previousFile);
-        if (previousPath) await fsp.unlink(previousPath).catch(() => {});
+        const stillReferenced = Object.values(this.imageIndex).includes(previousFile);
+        if (!stillReferenced) {
+          const previousPath = this.tryUploadPath(previousFile);
+          if (previousPath) await fsp.unlink(previousPath).catch(() => {});
+        }
       }
 
       trace.log.info('Plugin image updated for {id} by {userId}', { id: pluginId, userId: auth.userId });

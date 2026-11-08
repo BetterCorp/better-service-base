@@ -145,8 +145,8 @@ export const TodoConfigSchema = av.object({
   }).describe('Todo storage settings'),
   http: av.object({
     port: av.int32().min(1).max(65535).default(3000).describe('HTTP server port for the todo API'),
-    host: av.string().default('0.0.0.0').describe('HTTP server bind address for the todo API'),
-    cors: av.bool().default(true).describe('Whether CORS is enabled for the todo API'),
+    host: av.string().default('127.0.0.1').describe('Loopback bind address for the unauthenticated demo API'),
+    cors: av.bool().default(false).describe('Whether CORS is enabled for the todo API'),
   }).describe('Todo HTTP API settings'),
   features: av.object({
     statsInterval: av.int32().min(0).default(30).describe('Interval in seconds between todo statistics broadcasts, or 0 to disable'),

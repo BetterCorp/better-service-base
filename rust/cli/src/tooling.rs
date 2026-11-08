@@ -109,14 +109,22 @@ pub struct RegistryClient {
 }
 impl RegistryClient {
     pub fn new(endpoint: Option<&str>, token: Option<&str>, allow_http: bool) -> Result<Self> {
-        let endpoint = endpoint.map(str::to_owned).unwrap_or_else(|| {
-            std::env::var("BSB_REGISTRY_URL").unwrap_or_else(|_| "https://io.bsbcode.dev".into())
-        });
+        let configured_endpoint =
+            std::env::var("BSB_REGISTRY_URL").unwrap_or_else(|_| "https://io.bsbcode.dev".into());
+        let endpoint = endpoint.unwrap_or(&configured_endpoint);
+        let origin = http::origin(endpoint, allow_http)?;
+        let mut token = token.map(str::to_owned);
+        if token.is_none() {
+            let inherit_environment_token = endpoint == configured_endpoint
+                || http::origin(&configured_endpoint, allow_http)
+                    .is_ok_and(|configured_origin| configured_origin == origin);
+            if inherit_environment_token {
+                token = Some(std::env::var("BSB_REGISTRY_TOKEN").unwrap_or_default());
+            }
+        }
         Ok(Self {
-            origin: http::origin(&endpoint, allow_http)?,
-            token: token
-                .map(str::to_owned)
-                .unwrap_or_else(|| std::env::var("BSB_REGISTRY_TOKEN").unwrap_or_default()),
+            origin,
+            token: token.unwrap_or_default(),
         })
     }
     async fn request(

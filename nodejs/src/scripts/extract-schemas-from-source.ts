@@ -20,6 +20,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createRequire } from 'node:module';
+import ts from 'typescript';
 import { isMainModule, toImportUrl } from '../base/module-runtime.js';
 
 const CWD = process.cwd();
@@ -38,6 +39,7 @@ const SCHEMA_IDENTIFIERS: Set<string> = new Set([
   'PLUGIN_LANGUAGES',
   'normalizePluginLanguage',
 ]);
+const TRUSTED_SCHEMA_PACKAGES = new Set(['anyvali', 'os', 'node:os', 'path', 'node:path']);
 
 interface PluginSource {
   srcPath: string;
@@ -444,11 +446,446 @@ function isBsbBaseImport(source: string): boolean {
   );
 }
 
-/**
- * Check if a relative import is schema-related (schema-events, schema-types).
- */
-function isSchemaModuleImport(source: string): boolean {
-  return source.includes('schema-events') || source.includes('schema-types');
+const SELF_SCHEMA_IMPORTS = new Set([
+  '../../base/PluginConfig.js',
+  '../../interfaces/plugin-language.js',
+  '../../interfaces/schema-events.js',
+  '../../interfaces/schema-types.js',
+]);
+const FORBIDDEN_SCHEMA_MEMBERS = new Set([
+  '__proto__',
+  'apply',
+  'bind',
+  'call',
+  'constructor',
+  'prototype',
+]);
+const REACHABLE_SCHEMA_METHODS = new Set([
+  'export',
+  'next',
+  'return',
+  'throw',
+  'toJSON',
+  'toString',
+  'valueOf',
+]);
+const PURE_PATH_CALLS = new Set(['basename', 'dirname', 'extname', 'isAbsolute', 'join', 'normalize', 'parse', 'relative', 'resolve']);
+
+function schemaImportCallable(source: string, imported: string, namespace: boolean, trustedImports: ReadonlySet<string>): boolean {
+  if (isLocalRelativeImport(source) || trustedImports.has(source)) return true;
+  if (source === 'anyvali') return true;
+  if (source === 'os' || source === 'node:os') return !namespace && imported === 'hostname';
+  if (source === 'path' || source === 'node:path') return !namespace && PURE_PATH_CALLS.has(imported);
+  if (source === '@bsb/base') return !namespace && SCHEMA_IDENTIFIERS.has(imported);
+  return false;
+}
+
+function schemaImportIsTypeOnly(statement: ts.ImportDeclaration): boolean {
+  const clause = statement.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  return !clause.name && Boolean(clause.namedBindings && ts.isNamedImports(clause.namedBindings)
+    && clause.namedBindings.elements.length > 0
+    && clause.namedBindings.elements.every((element) => element.isTypeOnly));
+}
+
+function assertNoSchemaDecorators(node: ts.Node, filePath: string): void {
+  if (ts.canHaveDecorators(node) && (ts.getDecorators(node)?.length ?? 0) > 0) {
+    throw new Error(`Schema extraction refused a decorator in ${filePath}`);
+  }
+}
+
+function schemaCallRoot(expression: ts.Expression): string | null {
+  let current: ts.Expression = expression;
+  while (true) {
+    if (ts.isIdentifier(current)) return current.text;
+    if (ts.isPropertyAccessExpression(current)) {
+      if (FORBIDDEN_SCHEMA_MEMBERS.has(current.name.text)) return null;
+      current = current.expression;
+      continue;
+    }
+    if (ts.isElementAccessExpression(current)) {
+      const key = current.argumentExpression;
+      if (!ts.isStringLiteralLike(key) || FORBIDDEN_SCHEMA_MEMBERS.has(key.text)) return null;
+      current = current.expression;
+      continue;
+    }
+    if (ts.isCallExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    if (ts.isParenthesizedExpression(current)
+      || ts.isAsExpression(current)
+      || ts.isTypeAssertionExpression(current)
+      || ts.isNonNullExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    return null;
+  }
+}
+
+function schemaDirectCalleeKey(expression: ts.Expression): string | null {
+  let current: ts.Expression = expression;
+  while (ts.isParenthesizedExpression(current)
+      || ts.isAsExpression(current)
+      || ts.isTypeAssertionExpression(current)
+      || ts.isNonNullExpression(current)) {
+    current = current.expression;
+  }
+  if (ts.isIdentifier(current)) return current.text;
+  if (ts.isPropertyAccessExpression(current) && ts.isIdentifier(current.expression)) {
+    return `${current.expression.text}.${current.name.text}`;
+  }
+  if (ts.isElementAccessExpression(current) && ts.isIdentifier(current.expression)
+    && ts.isStringLiteralLike(current.argumentExpression)) {
+    return `${current.expression.text}.${current.argumentExpression.text}`;
+  }
+  return null;
+}
+
+function schemaBindingNames(name: ts.BindingName): string[] {
+  if (ts.isIdentifier(name)) return [name.text];
+  return name.elements.flatMap((element) => ts.isOmittedExpression(element) ? [] : schemaBindingNames(element.name));
+}
+
+function assertSafeSchemaInitializer(
+  node: ts.Node,
+  filePath: string,
+  allowedCalls: ReadonlySet<string>,
+  directOnlyCalls: ReadonlySet<string> = new Set(),
+): void {
+  if (ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node)
+    || ts.isMethodDeclaration(node) || ts.isConstructorDeclaration(node)
+    || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) {
+    for (const parameter of node.parameters) {
+      assertNoSchemaDecorators(parameter, filePath);
+      if (schemaBindingNames(parameter.name).some((name) => allowedCalls.has(name))) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${filePath}`);
+      }
+      assertSafeSchemaInitializer(parameter.name, filePath, allowedCalls, directOnlyCalls);
+      if (parameter.initializer) assertSafeSchemaInitializer(parameter.initializer, filePath, allowedCalls, directOnlyCalls);
+    }
+    if (!node.body) return;
+    if (!ts.isBlock(node.body)) {
+      assertSafeSchemaInitializer(node.body, filePath, allowedCalls, directOnlyCalls);
+      return;
+    }
+    for (const statement of node.body.statements) {
+      if (ts.isReturnStatement(statement)) {
+        if (statement.expression) assertSafeSchemaInitializer(statement.expression, filePath, allowedCalls, directOnlyCalls);
+        continue;
+      }
+      if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          if (schemaBindingNames(declaration.name).some((name) => allowedCalls.has(name))) {
+            throw new Error(`Schema extraction refused a shadowed callable binding in ${filePath}`);
+          }
+          assertSafeSchemaInitializer(declaration.name, filePath, allowedCalls, directOnlyCalls);
+          if (declaration.initializer) assertSafeSchemaInitializer(declaration.initializer, filePath, allowedCalls, directOnlyCalls);
+        }
+        continue;
+      }
+      throw new Error(`Schema extraction refused an executable helper statement in ${filePath}`);
+    }
+    return;
+  }
+  if (ts.isNewExpression(node) || ts.isAwaitExpression(node) || ts.isYieldExpression(node)
+    || ts.isTaggedTemplateExpression(node) || ts.isDeleteExpression(node)) {
+    throw new Error(`Schema extraction refused executable expression in ${filePath}`);
+  }
+  if (ts.isBinaryExpression(node)
+    && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+    && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+    throw new Error(`Schema extraction refused an assignment expression in ${filePath}`);
+  }
+  if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+    && (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken)) {
+    throw new Error(`Schema extraction refused an update expression in ${filePath}`);
+  }
+  if (ts.isCallExpression(node)) {
+    const root = schemaCallRoot(node.expression);
+    const calleeKey = schemaDirectCalleeKey(node.expression);
+    if (!root || !allowedCalls.has(root)
+      || (directOnlyCalls.has(root)
+        && (calleeKey === null || (calleeKey !== root && !directOnlyCalls.has(calleeKey))))) {
+      throw new Error(`Schema extraction refused call to ${root ?? 'an unknown function'} in ${filePath}`);
+    }
+  }
+  ts.forEachChild(node, (child) => assertSafeSchemaInitializer(child, filePath, allowedCalls, directOnlyCalls));
+}
+
+function pruneUnreferencedSchemaFunctions(source: string): string {
+  const sourceFile = ts.createSourceFile('_bsb_schema_prune_.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const removals: Array<{ start: number; end: number }> = [];
+  for (const statement of sourceFile.statements) {
+    if (!ts.isFunctionDeclaration(statement) || !statement.name) continue;
+    let referenced = false;
+    const visit = (node: ts.Node): void => {
+      if (referenced || node === statement) return;
+      if (ts.isIdentifier(node) && node.text === statement.name!.text) {
+        referenced = true;
+        return;
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    if (!referenced) removals.push({ start: statement.getStart(sourceFile), end: statement.end });
+  }
+  return removals.sort((a, b) => b.start - a.start)
+    .reduce((value, range) => value.slice(0, range.start) + value.slice(range.end), source);
+}
+
+function resolveSchemaImportFile(baseDir: string, source: string): string | null {
+  const rewritten = resolveLocalImportSource(baseDir, source);
+  const candidate = path.resolve(baseDir, rewritten);
+  return fs.existsSync(candidate) && fs.statSync(candidate).isFile() ? candidate : null;
+}
+
+function schemaCallableExports(filePath: string): Set<string> {
+  const sourceFile = ts.createSourceFile(filePath, fs.readFileSync(filePath, 'utf-8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const exported = new Set<string>();
+  const isExported = (node: ts.Node): boolean => ts.canHaveModifiers(node)
+    && (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+  for (const statement of sourceFile.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name && isExported(statement)) {
+      exported.add(statement.name.text);
+      continue;
+    }
+    if (!ts.isVariableStatement(statement) || !isExported(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer
+        && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))) {
+        exported.add(declaration.name.text);
+      }
+    }
+  }
+  return exported;
+}
+
+function schemaIdentifierUsed(source: string, identifier: string, includeFunctionBodies = true): boolean {
+  const sourceFile = ts.createSourceFile(
+    '_bsb_schema_usage_.ts',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const isTypeOnlyReference = (node: ts.Identifier): boolean => {
+    let current: ts.Node | undefined = node.parent;
+    while (current) {
+      if (ts.isExpressionWithTypeArguments(current)
+        && ts.isHeritageClause(current.parent)
+        && current.parent.token === ts.SyntaxKind.ExtendsKeyword
+        && ts.isClassLike(current.parent.parent)) {
+        return false;
+      }
+      if (ts.isTypeNode(current)) return true;
+      if (ts.isExpression(current) || ts.isStatement(current) || ts.isSourceFile(current)) return false;
+      current = current.parent;
+    }
+    return false;
+  };
+  let used = false;
+  const visit = (node: ts.Node): void => {
+    if (used) return;
+    if (!includeFunctionBodies && ts.isFunctionLike(node)) return;
+    if (ts.isIdentifier(node) && node.text === identifier && !isTypeOnlyReference(node)) {
+      used = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return used;
+}
+
+function assertSafeSchemaModule(
+  sourceContent: string,
+  filePath: string,
+  trustedImports: ReadonlySet<string>,
+  visited = new Set<string>(),
+): void {
+  const canonical = path.resolve(filePath);
+  if (visited.has(canonical)) return;
+  visited.add(canonical);
+  const sourceFile = ts.createSourceFile(
+    canonical,
+    sourceContent,
+    ts.ScriptTarget.Latest,
+    true,
+    canonical.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const allowedCalls = new Set(SCHEMA_IDENTIFIERS);
+  const directOnlyCalls = new Set<string>();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    if (schemaImportIsTypeOnly(statement)) continue;
+    const source = statement.moduleSpecifier.text;
+    const trusted = source === '@bsb/base' || trustedImports.has(source)
+      || TRUSTED_SCHEMA_PACKAGES.has(source) || isLocalRelativeImport(source);
+    if (!trusted || !statement.importClause) continue;
+    const isExactTrustedSchemaBinding = (imported: string, local: string): boolean => (
+      (source === '@bsb/base' || trustedImports.has(source))
+      && imported === local
+      && SCHEMA_IDENTIFIERS.has(imported)
+    );
+    if (statement.importClause.name && allowedCalls.has(statement.importClause.name.text)) {
+      throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+    }
+    if (statement.importClause.name
+      && !isLocalRelativeImport(source)
+      && schemaImportCallable(source, 'default', false, trustedImports)) {
+      allowedCalls.add(statement.importClause.name.text);
+      if (isLocalRelativeImport(source)) directOnlyCalls.add(statement.importClause.name.text);
+    }
+    const bindings = statement.importClause.namedBindings;
+    if (bindings && ts.isNamespaceImport(bindings) && allowedCalls.has(bindings.name.text)) {
+      throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+    }
+    if (bindings && ts.isNamespaceImport(bindings)
+      && schemaImportCallable(source, '*', true, trustedImports)) {
+      allowedCalls.add(bindings.name.text);
+      if (isLocalRelativeImport(source)) {
+        directOnlyCalls.add(bindings.name.text);
+        const imported = resolveSchemaImportFile(path.dirname(canonical), source);
+        if (imported) {
+          for (const callable of schemaCallableExports(imported)) {
+            directOnlyCalls.add(`${bindings.name.text}.${callable}`);
+          }
+        }
+      }
+    }
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        const imported = element.propertyName?.text ?? element.name.text;
+        if (allowedCalls.has(element.name.text)
+          && !isExactTrustedSchemaBinding(imported, element.name.text)) {
+          throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+        }
+        if (isLocalRelativeImport(source)) {
+          const importedFile = resolveSchemaImportFile(path.dirname(canonical), source);
+          if (!importedFile || !schemaCallableExports(importedFile).has(imported)) continue;
+        }
+        if (schemaImportCallable(source, imported, false, trustedImports)) {
+          allowedCalls.add(element.name.text);
+          if (isLocalRelativeImport(source)) directOnlyCalls.add(element.name.text);
+        }
+      }
+    }
+  }
+  for (const statement of sourceFile.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name) {
+      if (allowedCalls.has(statement.name.text)) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+      }
+      allowedCalls.add(statement.name.text);
+      directOnlyCalls.add(statement.name.text);
+    }
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer
+        && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))) {
+        if (allowedCalls.has(declaration.name.text)) {
+          throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+        }
+        allowedCalls.add(declaration.name.text);
+        directOnlyCalls.add(declaration.name.text);
+      }
+    }
+  }
+  for (const statement of sourceFile.statements) {
+    if (ts.isImportDeclaration(statement)) {
+      if (schemaImportIsTypeOnly(statement)) continue;
+      const source = ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : '';
+      if (source === '@bsb/base' || trustedImports.has(source) || TRUSTED_SCHEMA_PACKAGES.has(source)) continue;
+      if (!isLocalRelativeImport(source)) {
+        throw new Error(`Schema extraction refused package import ${source || '<dynamic>'} in ${canonical}`);
+      }
+      const imported = resolveSchemaImportFile(path.dirname(canonical), source);
+      if (!imported) throw new Error(`Schema extraction could not validate local import ${source} in ${canonical}`);
+      assertSafeSchemaModule(fs.readFileSync(imported, 'utf-8'), imported, trustedImports, visited);
+      continue;
+    }
+    if (ts.isExportDeclaration(statement)) {
+      if (!statement.moduleSpecifier || statement.isTypeOnly) continue;
+      const source = ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : '';
+      if (source === '@bsb/base' || trustedImports.has(source) || TRUSTED_SCHEMA_PACKAGES.has(source)) continue;
+      if (!isLocalRelativeImport(source)) {
+        throw new Error(`Schema extraction refused package re-export ${source || '<dynamic>'} in ${canonical}`);
+      }
+      const exported = resolveSchemaImportFile(path.dirname(canonical), source);
+      if (!exported) throw new Error(`Schema extraction could not validate local re-export ${source} in ${canonical}`);
+      assertSafeSchemaModule(fs.readFileSync(exported, 'utf-8'), exported, trustedImports, visited);
+      continue;
+    }
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        const declared = schemaBindingNames(declaration.name);
+        if (declared.some((name) => allowedCalls.has(name)
+          && !(ts.isIdentifier(declaration.name)
+            && declaration.initializer
+            && (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))))) {
+          throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+        }
+        assertSafeSchemaInitializer(declaration.name, canonical, allowedCalls, directOnlyCalls);
+        if (declaration.initializer) assertSafeSchemaInitializer(declaration.initializer, canonical, allowedCalls, directOnlyCalls);
+      }
+      continue;
+    }
+    if (ts.isClassDeclaration(statement)) {
+      if (statement.name && allowedCalls.has(statement.name.text)) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+      }
+      assertNoSchemaDecorators(statement, canonical);
+      for (const clause of statement.heritageClauses ?? []) {
+        for (const type of clause.types) assertSafeSchemaInitializer(type.expression, canonical, allowedCalls, directOnlyCalls);
+      }
+      for (const member of statement.members) {
+        assertNoSchemaDecorators(member, canonical);
+        if (ts.isClassStaticBlockDeclaration(member)) {
+          throw new Error(`Schema extraction refused a static block in ${canonical}`);
+        }
+        if (member.name && ts.isComputedPropertyName(member.name)) {
+          assertSafeSchemaInitializer(member.name.expression, canonical, allowedCalls, directOnlyCalls);
+        }
+        if (ts.isPropertyDeclaration(member) && member.initializer) {
+          assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls, directOnlyCalls);
+        }
+        const methodName = member.name && (ts.isIdentifier(member.name) || ts.isStringLiteralLike(member.name))
+          ? member.name.text
+          : member.name && ts.isComputedPropertyName(member.name) && ts.isStringLiteralLike(member.name.expression)
+            ? member.name.expression.text
+            : null;
+        if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
+          || ts.isSetAccessorDeclaration(member)
+          || (ts.isMethodDeclaration(member)
+            && (methodName === null || REACHABLE_SCHEMA_METHODS.has(methodName)))) {
+          assertSafeSchemaInitializer(member, canonical, allowedCalls, directOnlyCalls);
+        }
+      }
+      continue;
+    }
+    if (ts.isFunctionDeclaration(statement)) {
+      assertNoSchemaDecorators(statement, canonical);
+      assertSafeSchemaInitializer(statement, canonical, allowedCalls, directOnlyCalls);
+      continue;
+    }
+    if (ts.isEnumDeclaration(statement)) {
+      if (allowedCalls.has(statement.name.text)) {
+        throw new Error(`Schema extraction refused a shadowed callable binding in ${canonical}`);
+      }
+      for (const member of statement.members) {
+        if (member.initializer) assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls, directOnlyCalls);
+      }
+      continue;
+    }
+    if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)
+      || ts.isEmptyStatement(statement)) {
+      continue;
+    }
+    throw new Error(`Schema extraction refused executable top-level statement in ${canonical}`);
+  }
 }
 
 /**
@@ -513,7 +950,7 @@ function extractSchemaSource(
       }
 
       // Keep schema module imports as-is
-      if (isSchemaModuleImport(parsed.source)) {
+      if (projectType === 'self' && SELF_SCHEMA_IMPORTS.has(parsed.source)) {
         resolvedImports.push(line);
         continue;
       }
@@ -536,7 +973,9 @@ function extractSchemaSource(
       }
 
       // Keep package imports only when their bindings are used by schema declarations.
-      if (parsed.identifiers.length > 0) {
+      if (TRUSTED_SCHEMA_PACKAGES.has(parsed.source)) {
+        resolvedImports.push(line);
+      } else if (parsed.identifiers.length > 0) {
         pendingPackageImports.push({ line, identifiers: parsed.identifiers });
       }
       continue;
@@ -549,11 +988,7 @@ function extractSchemaSource(
   // Pass 2: filter local imports — only keep those whose identifiers are referenced in body
   const bodyText = [bodyLines.join('\n'), configBinding, eventSchemasBinding].filter(Boolean).join('\n');
   for (const pending of pendingLocalImports) {
-    const isUsed = pending.identifiers.some(id => {
-      // Use word boundary check to avoid false positives
-      const regex = new RegExp(`\\b${id}\\b`);
-      return regex.test(bodyText);
-    });
+    const isUsed = pending.identifiers.some((id) => schemaIdentifierUsed(bodyText, id));
     if (isUsed) {
       resolvedImports.push(
         pending.line.replace(
@@ -565,17 +1000,22 @@ function extractSchemaSource(
   }
 
   for (const pending of pendingPackageImports) {
-    const isUsed = pending.identifiers.some(id => {
-      const regex = new RegExp(`\\b${id}\\b`);
-      return regex.test(bodyText);
-    });
+    // Runtime helpers declared before Plugin are copied into the extraction module but are
+    // never invoked. Their dependencies must not make arbitrary packages executable at build time.
+    const isUsed = pending.identifiers.some((id) => schemaIdentifierUsed(bodyText, id, false));
     if (isUsed) {
       resolvedImports.push(pending.line);
     }
   }
 
   // Build final output: imports first, then body
-  const outputLines = [...resolvedImports, ...bodyLines];
+  let outputLines = [...resolvedImports, ...bodyLines];
+  outputLines = pruneUnreferencedSchemaFunctions(outputLines.join('\n')).split('\n');
+  assertSafeSchemaModule(
+    outputLines.join('\n'),
+    path.join(sourceDir, '_bsb_extract_input_.ts'),
+    new Set(projectType === 'self' ? SELF_SCHEMA_IMPORTS : [bsbBaseImportPath]),
+  );
 
   // Append the extraction footer
   const exportEventSchemasImport = projectType === 'self'

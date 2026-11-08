@@ -23,7 +23,7 @@ default:
       enabled: true
       # All settings will use defaults:
       # - Storage: ./.temp/demo-todos.json
-      # - HTTP Server: http://0.0.0.0:3000
+      # - HTTP Server: http://127.0.0.1:3000
       # - Auto-save: every 5 seconds
       # - Stats broadcast: every 30 seconds
       # - Max todos: 1000

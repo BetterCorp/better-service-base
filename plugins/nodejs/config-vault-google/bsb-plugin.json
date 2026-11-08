@@ -17,7 +17,6 @@
         "./README.md"
       ],
       "pluginPath": "src/plugins/config-vault-google/",
-      "image": "../../../docs/public/assets/images/bsb-logo.png",
       "links": {
         "github": "https://github.com/BetterCorp/better-service-base"
       }

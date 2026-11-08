@@ -10,6 +10,7 @@ module.exports = async ({ pluginRoot }) => {
   const authMethods = [];
   const audits = [];
   const challenges = new Map();
+  const failures = new Map();
   const store = {
     async countAdmins() { return users.length; },
     async createFirstUser(user, method) {
@@ -22,9 +23,9 @@ module.exports = async ({ pluginRoot }) => {
     async getUserByEmail(email) { return users.find((user) => user.email === email) ?? null; },
     async listPasskeys() { return []; },
     async listAuthMethods(userId) { return authMethods.filter((method) => method.userId === userId); },
-    async authenticationAllowed() { return true; },
-    async recordAuthenticationFailure() {},
-    async clearAuthenticationFailures() {},
+    async authenticationAllowed(id) { return (failures.get(id) ?? 0) < 5; },
+    async recordAuthenticationFailure(id) { failures.set(id, (failures.get(id) ?? 0) + 1); },
+    async clearAuthenticationFailures(id) { failures.delete(id); },
     async saveAuthChallenge(kind, key, payload) { challenges.set(`${kind}:${key}`, payload); },
     async getAuthChallenge(kind, key) { return challenges.get(`${kind}:${key}`) ?? null; },
     async deleteAuthChallenge(kind, key) { challenges.delete(`${kind}:${key}`); },
@@ -72,8 +73,20 @@ module.exports = async ({ pluginRoot }) => {
     passwordConfirm: 'correct horse battery staple',
   }), /admin already exists/i);
 
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const currentTotp = crypto.generateTotp(result.totpSecret);
+    const invalidTotp = currentTotp === '000000' ? '000001' : '000000';
+    await assert.rejects(
+      () => vault.login('admin@example.com', 'correct horse battery staple', invalidTotp),
+      /Invalid login/,
+    );
+  }
+  assert.equal([...failures.values()].reduce((sum, count) => sum + count, 0), 4,
+    'password verification reset pending-enrollment TOTP failures');
+
   const login = await vault.login('admin@example.com', 'correct horse battery staple', crypto.generateTotp(result.totpSecret));
   assert.equal(login.status, 'passkey_setup_required');
+  assert.equal(failures.size, 0);
   assert.equal(typeof login.setupToken, 'string');
   assert.equal(await vault.consumePasskeySetupToken(login.setupToken), users[0].id);
 
