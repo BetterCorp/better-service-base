@@ -109,6 +109,8 @@ test('private package images require package read authorization', async () => {
   try {
     const denied = await app.inject({ method: 'GET', url: `/images/${filename}` });
     assert.equal(denied.statusCode, 404);
+    const authenticatedDenied = await app.inject({ method: 'GET', url: `/images/${filename}`, headers: { authorization: 'Bearer reader' } });
+    assert.equal(authenticatedDenied.statusCode, 404);
     readable = true;
     const allowed = await app.inject({ method: 'GET', url: `/images/${filename}`, headers: { authorization: 'Bearer reader' } });
     assert.equal(allowed.statusCode, 200);
