@@ -674,7 +674,14 @@ function assertSafeSchemaModule(
         if (ts.isPropertyDeclaration(member) && member.initializer) {
           assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls);
         }
-        if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)) {
+        const methodName = member.name && (ts.isIdentifier(member.name) || ts.isStringLiteralLike(member.name))
+          ? member.name.text
+          : member.name && ts.isComputedPropertyName(member.name) && ts.isStringLiteralLike(member.name.expression)
+            ? member.name.expression.text
+            : null;
+        if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
+          || ts.isSetAccessorDeclaration(member)
+          || (ts.isMethodDeclaration(member) && methodName === 'export')) {
           assertSafeSchemaInitializer(member, canonical, allowedCalls);
         }
       }
