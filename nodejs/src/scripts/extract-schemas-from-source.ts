@@ -709,6 +709,7 @@ function assertSafeSchemaModule(
       || TRUSTED_SCHEMA_PACKAGES.has(source) || isLocalRelativeImport(source);
     if (!trusted || !statement.importClause) continue;
     if (statement.importClause.name
+      && !isLocalRelativeImport(source)
       && schemaImportCallable(source, 'default', false, trustedImports)) {
       allowedCalls.add(statement.importClause.name.text);
       if (isLocalRelativeImport(source)) directOnlyCalls.add(statement.importClause.name.text);
@@ -730,6 +731,10 @@ function assertSafeSchemaModule(
     if (bindings && ts.isNamedImports(bindings)) {
       for (const element of bindings.elements) {
         const imported = element.propertyName?.text ?? element.name.text;
+        if (isLocalRelativeImport(source)) {
+          const importedFile = resolveSchemaImportFile(path.dirname(canonical), source);
+          if (!importedFile || !schemaCallableExports(importedFile).has(imported)) continue;
+        }
         if (schemaImportCallable(source, imported, false, trustedImports)) {
           allowedCalls.add(element.name.text);
           if (isLocalRelativeImport(source)) directOnlyCalls.add(element.name.text);

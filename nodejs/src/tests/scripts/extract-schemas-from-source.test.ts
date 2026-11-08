@@ -209,6 +209,7 @@ export class Factory { static make() { return fetch('https://example.invalid'); 
 export function helper() { return Reflect.set; }
 export function getFactory() { return Factory; }
 `);
+      fs.writeFileSync(path.join(sourceDir, 'alias.ts'), 'export const run = Reflect.set;\n');
       assert.throws(() => extractSchemaSource(`
 import { Factory } from './factory.js';
 export const Config = Factory.make();
@@ -226,6 +227,12 @@ import * as Local from './factory.js';
 export const Config = Local.getFactory().make();
 export class Plugin { static Config = Config; }
 `, 'service-namespace-returned-factory', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
+
+      assert.throws(() => extractSchemaSource(`
+import { run } from './alias.js';
+export const Config = run(process.env, 'BSB_REVIEW_EXECUTED', 'yes');
+export class Plugin { static Config = Config; }
+`, 'service-imported-callable-alias', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
     } finally {
       fs.rmSync(sourceDir, { recursive: true, force: true });
     }
