@@ -72,6 +72,22 @@ const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
 const MAX_REGISTRY_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_DOCUMENTATION_FILE_BYTES = 256 * 1024;
 const MAX_DOCUMENTATION_TOTAL_BYTES = 1024 * 1024;
+const MAX_PLUGIN_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PLUGIN_SCHEMA_BYTES = 4 * 1024 * 1024;
+
+function resolveProjectRegularFile(projectRoot: string, candidate: string, label: string, maximum: number): string {
+  if (path.isAbsolute(candidate)) throw new Error(`${label} path must be relative: ${candidate}`);
+  const canonicalRoot = fs.realpathSync(projectRoot);
+  const canonicalFile = fs.realpathSync(path.resolve(canonicalRoot, candidate));
+  const relative = path.relative(canonicalRoot, canonicalFile);
+  if (!relative || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
+    throw new Error(`${label} path escapes the project root: ${candidate}`);
+  }
+  const stat = fs.statSync(canonicalFile);
+  if (!stat.isFile()) throw new Error(`${label} path is not a regular file: ${candidate}`);
+  if (stat.size > maximum) throw new Error(`${label} file is too large: ${candidate}`);
+  return canonicalFile;
+}
 
 function readProjectDocumentation(projectRoot: string, candidate: string): string {
   if (path.isAbsolute(candidate)) throw new Error(`Documentation path must be relative: ${candidate}`);
@@ -185,7 +201,19 @@ function resolveCategory(pluginId: string): string {
 function resolveImagePath(pluginMeta: { basePath?: string; image?: string }): string | null {
   if (!pluginMeta.image) return null;
   const basePath = pluginMeta.basePath || '.';
-  return path.resolve(process.cwd(), basePath, pluginMeta.image);
+  return resolveProjectRegularFile(
+    process.cwd(),
+    path.join(basePath, pluginMeta.image),
+    'Plugin image',
+    MAX_PLUGIN_IMAGE_BYTES,
+  );
+}
+
+function validateManifestPluginId(pluginId: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/.test(pluginId) || pluginId === '.' || pluginId === '..') {
+    throw new Error(`Invalid plugin ID in publish manifest: ${pluginId}`);
+  }
+  return pluginId;
 }
 
 function formatRegistryError(parsed: any, statusCode?: number, raw?: string): string {
@@ -587,7 +615,7 @@ async function publishPlugin(): Promise<void> {
     let errors = 0;
 
     for (const pluginMeta of plugins) {
-      const pluginName: string = pluginMeta.id;
+      const pluginName = validateManifestPluginId(pluginMeta.id);
       const display = displayPluginId(org, pluginName);
       if (publishIgnore.has(pluginName)) {
         info(`Skipping ${display} (listed in package.json bsb.publishIgnore)`);
@@ -600,12 +628,15 @@ async function publishPlugin(): Promise<void> {
         const imagePath = vaultTarget ? null : resolveImagePath({ basePath: pluginMeta.basePath, image: pluginMeta.image });
 
         // Read event schema from lib/schemas/{pluginId}.json
-        const schemaPath = path.join(schemasDir, `${pluginName}.json`);
+        const schemaCandidate = path.join('lib', 'schemas', `${pluginName}.json`);
+        const schemaPath = fs.existsSync(path.resolve(process.cwd(), schemaCandidate))
+          ? resolveProjectRegularFile(process.cwd(), schemaCandidate, 'Plugin schema', MAX_PLUGIN_SCHEMA_BYTES)
+          : null;
         let eventSchema: Record<string, any> = { pluginId: pluginName, pluginName, version: pkg.version, events: {} };
         let configSchema: Record<string, any> | undefined;
         let schemaDeps: Array<{ id: string; version: string }> | undefined;
 
-        if (fs.existsSync(schemaPath)) {
+        if (schemaPath) {
           try {
             const parsed = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
             const displayName = typeof parsed.displayName === 'string' && parsed.displayName.trim()
