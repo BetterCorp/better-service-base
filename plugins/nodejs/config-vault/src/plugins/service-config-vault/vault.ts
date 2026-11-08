@@ -1831,25 +1831,32 @@ export class VaultService {
   }
 
   private async checkRateLimit(key: string): Promise<void> {
-    const scope = key.slice(0, key.indexOf(':'));
-    const globalMaximum = this.authenticationBudgets[scope] ?? 200;
-    const consumeBudget = (this.store as VaultStore & {
-      consumeAuthenticationBudget?: (subjectHash: string, maximum: number, subject?: string) => Promise<boolean>;
-    }).consumeAuthenticationBudget;
-    // VaultStore provides the global budget. Lightweight test doubles and older
-    // embedders may not yet implement it; their existing per-subject limit remains.
-    if (typeof consumeBudget === 'function'
-      && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
-      throw new Error('Too many authentication attempts; try again later');
-    }
     if (!(await this.store.authenticationAllowed(tokenHash(key)))) {
       throw new Error('Too many authentication attempts; try again later');
     }
   }
 
   private async recordFailure(key: string): Promise<void> {
+    const scope = key.slice(0, key.indexOf(':'));
+    const globalMaximum = this.authenticationBudgets[scope] ?? 200;
+    const consumeBudget = (this.store as VaultStore & {
+      consumeAuthenticationBudget?: (subjectHash: string, maximum: number, subject?: string) => Promise<boolean>;
+    }).consumeAuthenticationBudget;
+    // Invalid attempts consume the shared overload budget only after credential
+    // verification fails. Valid independent credentials therefore retain access,
+    // while rotating invalid subjects are still bounded.
+    const subjectHash = tokenHash(key);
+    if (typeof consumeBudget === 'function'
+      && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
+      // Do not create rows for rotating attacker-controlled identities after the
+      // shared budget is exhausted, but keep charging an existing subject so its
+      // independent lockout cannot be bypassed with continued credential checks.
+      await this.store.recordExistingAuthenticationFailure(subjectHash, key);
+      throw new Error('Too many authentication attempts; try again later');
+    }
     // These keys contain an email, public key/user ID, or a hash of an invalid token; never a secret.
-    await this.store.recordAuthenticationFailure(tokenHash(key), key);
+    // Charge the atomic shared budget first so rotating identifiers cannot create unbounded rows.
+    await this.store.recordAuthenticationFailure(subjectHash, key);
   }
 
   private async clearFailures(key: string): Promise<void> {
