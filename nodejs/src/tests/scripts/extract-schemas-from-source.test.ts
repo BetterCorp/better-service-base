@@ -129,6 +129,18 @@ writeFileSync('/tmp/schema-extraction-import-ran', 'unsafe');
 import { Config } from './unsafe.js';
 export class Plugin { static Config = Config; }
 `, 'service-import-side-effect', 'external', sourceDir, 'file:///base.js', '1.0.0'), /executable top-level statement/);
+
+      fs.writeFileSync(path.join(sourceDir, 'unsafe-reexport.mjs'), `
+export class ReexportedConfig {}
+writeFileSync('/tmp/schema-reexport-ran', 'unsafe');
+`);
+      fs.writeFileSync(path.join(sourceDir, 'bridge.ts'), `
+export { ReexportedConfig as Config } from './unsafe-reexport.mjs';
+`);
+      assert.throws(() => extractSchemaSource(`
+import { Config } from './bridge.js';
+export class Plugin { static Config = Config; }
+`, 'service-reexport-side-effect', 'external', sourceDir, 'file:///base.js', '1.0.0'), /executable top-level statement/);
     } finally {
       fs.rmSync(sourceDir, { recursive: true, force: true });
     }
