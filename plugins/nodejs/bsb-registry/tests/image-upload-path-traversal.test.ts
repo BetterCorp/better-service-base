@@ -7,7 +7,7 @@ import test from 'node:test';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyRateLimit from '@fastify/rate-limit';
-import { RegistryUIServer } from '../src/plugins/service-bsb-registry-ui/http-server.js';
+import { RegistryUIServer, registryPathsOverlap } from '../src/plugins/service-bsb-registry-ui/http-server.js';
 
 const noop = () => undefined;
 const trace = {
@@ -15,6 +15,12 @@ const trace = {
   startSpan: () => ({ end: noop }),
   log: { debug: noop, info: noop, warn: noop, error: noop },
 };
+
+test('registry upload storage cannot overlap public static storage', () => {
+  assert.equal(registryPathsOverlap('/srv/plugin/static', '/srv/plugin/static/images'), true);
+  assert.equal(registryPathsOverlap('/srv/plugin/static/images', '/srv/plugin/static'), true);
+  assert.equal(registryPathsOverlap('/srv/plugin/static', '/srv/plugin/private-images'), false);
+});
 
 type TestableRegistryServer = {
   app: FastifyInstance;
