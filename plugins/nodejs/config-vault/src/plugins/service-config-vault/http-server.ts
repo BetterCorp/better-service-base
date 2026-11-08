@@ -3271,7 +3271,10 @@ async function registrySearch(registryUrl: string, query: string, registryToken?
     if (!response.ok) return [];
     const declared = Number.parseInt(response.headers.get('content-length') ?? '', 10);
     const maximum = 2 * 1024 * 1024;
-    if (Number.isFinite(declared) && declared > maximum) return [];
+    if (Number.isFinite(declared) && declared > maximum) {
+      await response.body?.cancel();
+      return [];
+    }
     if (!response.body) return [];
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
