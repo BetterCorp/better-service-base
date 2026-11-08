@@ -453,7 +453,15 @@ const SELF_SCHEMA_IMPORTS = new Set([
   '../../interfaces/schema-types.js',
 ]);
 const FORBIDDEN_SCHEMA_MEMBERS = new Set(['constructor', '__proto__', 'prototype']);
-const REACHABLE_SCHEMA_METHODS = new Set(['export', 'toJSON', 'toString', 'valueOf']);
+const REACHABLE_SCHEMA_METHODS = new Set([
+  'export',
+  'next',
+  'return',
+  'throw',
+  'toJSON',
+  'toString',
+  'valueOf',
+]);
 const PURE_PATH_CALLS = new Set(['basename', 'dirname', 'extname', 'isAbsolute', 'join', 'normalize', 'parse', 'relative', 'resolve']);
 
 function schemaImportCallable(source: string, imported: string, namespace: boolean, trustedImports: ReadonlySet<string>): boolean {

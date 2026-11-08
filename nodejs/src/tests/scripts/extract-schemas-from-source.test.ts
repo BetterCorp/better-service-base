@@ -279,6 +279,15 @@ export class Config {
 export const EventSchemas = { description: '' + Config };
 export class Plugin { static Config = Config; static EventSchemas = EventSchemas; }
 `, 'service-coercion-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
+
+    assert.throws(() => extractSchemaSource(`
+export class Iter {
+  static [Symbol.iterator]() { return { next: this.next }; }
+  static next() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return { done: true }; }
+}
+export const EventSchemas = { description: [...Iter] };
+export class Plugin { static EventSchemas = EventSchemas; }
+`, 'service-iterator-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
   });
 
   it('rejects decorators that execute while defining extracted classes', () => {
