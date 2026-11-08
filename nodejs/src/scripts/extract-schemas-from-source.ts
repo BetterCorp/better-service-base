@@ -452,7 +452,14 @@ const SELF_SCHEMA_IMPORTS = new Set([
   '../../interfaces/schema-events.js',
   '../../interfaces/schema-types.js',
 ]);
-const FORBIDDEN_SCHEMA_MEMBERS = new Set(['constructor', '__proto__', 'prototype']);
+const FORBIDDEN_SCHEMA_MEMBERS = new Set([
+  '__proto__',
+  'apply',
+  'bind',
+  'call',
+  'constructor',
+  'prototype',
+]);
 const REACHABLE_SCHEMA_METHODS = new Set([
   'export',
   'next',

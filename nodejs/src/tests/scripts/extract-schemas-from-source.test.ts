@@ -163,6 +163,12 @@ import * as os from 'node:os';
 export const Config = os.setPriority(0, -1);
 export class Plugin { static Config = Config; }
 `, 'service-unsafe-os-call', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused call/);
+
+    assert.throws(() => extractSchemaSource(`
+import { hostname } from 'node:os';
+export const Config = hostname.call.call(Reflect.set, null, process.env, 'BSB_REVIEW_EXECUTED', 'yes');
+export class Plugin { static Config = Config; }
+`, 'service-function-prototype-call', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused call/);
   });
 
   it('rejects executable config construction and imported helper bodies', () => {
