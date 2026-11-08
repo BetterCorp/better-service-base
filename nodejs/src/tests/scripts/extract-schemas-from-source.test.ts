@@ -206,12 +206,26 @@ export class Plugin { static Config = Config; }
     try {
       fs.writeFileSync(path.join(sourceDir, 'factory.ts'), `
 export class Factory { static make() { return fetch('https://example.invalid'); } }
+export function helper() { return Reflect.set; }
+export function getFactory() { return Factory; }
 `);
       assert.throws(() => extractSchemaSource(`
 import { Factory } from './factory.js';
 export const Config = Factory.make();
 export class Plugin { static Config = Config; }
 `, 'service-static-method', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
+
+      assert.throws(() => extractSchemaSource(`
+import * as Local from './factory.js';
+export const Config = Local.helper()(process.env, 'BSB_REVIEW_EXECUTED', 'yes');
+export class Plugin { static Config = Config; }
+`, 'service-namespace-returned-callable', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
+
+      assert.throws(() => extractSchemaSource(`
+import * as Local from './factory.js';
+export const Config = Local.getFactory().make();
+export class Plugin { static Config = Config; }
+`, 'service-namespace-returned-factory', 'external', sourceDir, 'file:///base.js', '1.0.0'), /refused call/);
     } finally {
       fs.rmSync(sourceDir, { recursive: true, force: true });
     }

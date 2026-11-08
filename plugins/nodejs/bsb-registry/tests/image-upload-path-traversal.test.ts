@@ -43,7 +43,7 @@ function multipartImage(boundary: string): Buffer {
       + 'Content-Disposition: form-data; name="image"; filename="poc.png"\r\n'
       + 'Content-Type: image/png\r\n\r\n',
     ),
-    Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     Buffer.from(`\r\n--${boundary}--\r\n`),
   ]);
 }
@@ -143,6 +143,45 @@ test('ambiguous legacy image ownership fails closed', async () => {
   try {
     const response = await app.inject({ method: 'GET', url: `/images/${filename}` });
     assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('replacing one ambiguous legacy image keeps the shared file', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'bsb-registry-shared-image-'));
+  const legacy = 'a___b.png';
+  await writeFile(join(root, legacy), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  const server = new RegistryUIServer(0, '127.0.0.1', 10, root, undefined, 1, []);
+  const internals = server as unknown as TestableRegistryServer;
+  internals.createTrace = () => trace;
+  internals.imageIndex = { 'a_/b': legacy, 'a/_b': legacy };
+  internals.registryClient = {
+    registryAuthVerify: async () => ({ valid: true, userId: 'publisher', permissions: ['write'] }),
+    registryPluginGet: async () => ({ id: 'a_/b', publishedBy: 'publisher' }),
+    registryPluginImplementations: async () => ({ implementations: [] }),
+  };
+  const app = Fastify();
+  internals.app = app;
+  await internals.registerRateLimit();
+  await app.register(fastifyMultipart);
+  app.post('/plugins/:org/:name/image', (request, reply) => internals.handleImageUpload(request, reply));
+  const boundary = 'bsb-shared-image';
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/plugins/a_/b/image',
+      headers: {
+        authorization: 'Bearer valid-token',
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+      },
+      body: multipartImage(boundary),
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(existsSync(join(root, legacy)), true);
+    assert.equal(internals.imageIndex['a/_b'], legacy);
+    assert.notEqual(internals.imageIndex['a_/b'], legacy);
   } finally {
     await app.close();
     await rm(root, { recursive: true, force: true });

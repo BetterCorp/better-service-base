@@ -500,32 +500,23 @@ function schemaCallRoot(expression: ts.Expression): string | null {
   }
 }
 
-function schemaCallFirstMember(expression: ts.Expression): string | null {
+function schemaDirectCalleeKey(expression: ts.Expression): string | null {
   let current: ts.Expression = expression;
-  let member: string | null = null;
-  while (true) {
-    if (ts.isIdentifier(current)) return member;
-    if (ts.isPropertyAccessExpression(current)) {
-      member = current.name.text;
-      current = current.expression;
-      continue;
-    }
-    if (ts.isElementAccessExpression(current)) {
-      if (!ts.isStringLiteralLike(current.argumentExpression)) return null;
-      member = current.argumentExpression.text;
-      current = current.expression;
-      continue;
-    }
-    if (ts.isCallExpression(current)
-      || ts.isParenthesizedExpression(current)
+  while (ts.isParenthesizedExpression(current)
       || ts.isAsExpression(current)
       || ts.isTypeAssertionExpression(current)
       || ts.isNonNullExpression(current)) {
-      current = current.expression;
-      continue;
-    }
-    return null;
+    current = current.expression;
   }
+  if (ts.isIdentifier(current)) return current.text;
+  if (ts.isPropertyAccessExpression(current) && ts.isIdentifier(current.expression)) {
+    return `${current.expression.text}.${current.name.text}`;
+  }
+  if (ts.isElementAccessExpression(current) && ts.isIdentifier(current.expression)
+    && ts.isStringLiteralLike(current.argumentExpression)) {
+    return `${current.expression.text}.${current.argumentExpression.text}`;
+  }
+  return null;
 }
 
 function schemaBindingNames(name: ts.BindingName): string[] {
@@ -589,10 +580,10 @@ function assertSafeSchemaInitializer(
   }
   if (ts.isCallExpression(node)) {
     const root = schemaCallRoot(node.expression);
-    const member = schemaCallFirstMember(node.expression);
+    const calleeKey = schemaDirectCalleeKey(node.expression);
     if (!root || !allowedCalls.has(root)
-      || (directOnlyCalls.has(root) && !ts.isIdentifier(node.expression)
-        && (!member || !directOnlyCalls.has(`${root}.${member}`)))) {
+      || (directOnlyCalls.has(root)
+        && (calleeKey === null || (calleeKey !== root && !directOnlyCalls.has(calleeKey))))) {
       throw new Error(`Schema extraction refused call to ${root ?? 'an unknown function'} in ${filePath}`);
     }
   }

@@ -2276,8 +2276,11 @@ a.s:hover{background:#333;border-color:#FB8C00}
       await this.saveImageIndex();
 
       if (previousFile && previousFile !== safeFileName) {
-        const previousPath = this.tryUploadPath(previousFile);
-        if (previousPath) await fsp.unlink(previousPath).catch(() => {});
+        const stillReferenced = Object.values(this.imageIndex).includes(previousFile);
+        if (!stillReferenced) {
+          const previousPath = this.tryUploadPath(previousFile);
+          if (previousPath) await fsp.unlink(previousPath).catch(() => {});
+        }
       }
 
       trace.log.info('Plugin image updated for {id} by {userId}', { id: pluginId, userId: auth.userId });
