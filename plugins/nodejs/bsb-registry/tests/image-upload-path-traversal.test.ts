@@ -1,18 +1,26 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
-import { RegistryUIServer } from '../src/plugins/service-bsb-registry-ui/http-server.js';
+import fastifyRateLimit from '@fastify/rate-limit';
+import { RegistryUIServer, registryPathsOverlap } from '../src/plugins/service-bsb-registry-ui/http-server.js';
 
 const noop = () => undefined;
 const trace = {
+  end: noop,
   startSpan: () => ({ end: noop }),
   log: { debug: noop, info: noop, warn: noop, error: noop },
 };
+
+test('registry upload storage cannot overlap public static storage', () => {
+  assert.equal(registryPathsOverlap('/srv/plugin/static', '/srv/plugin/static/images'), true);
+  assert.equal(registryPathsOverlap('/srv/plugin/static/images', '/srv/plugin/static'), true);
+  assert.equal(registryPathsOverlap('/srv/plugin/static', '/srv/plugin/private-images'), false);
+});
 
 type TestableRegistryServer = {
   app: FastifyInstance;
@@ -21,8 +29,11 @@ type TestableRegistryServer = {
   registryClient: {
     registryAuthVerify: () => Promise<{ valid: boolean; userId: string }>;
     registryPluginGet: () => Promise<{ id: string; publishedBy: string }>;
+    registryPluginImplementations: () => Promise<{ implementations: unknown[] }>;
   };
+  imageIndex: Record<string, string>;
   handleImageUpload(request: FastifyRequest, reply: FastifyReply): Promise<void>;
+  handlePluginImage(request: FastifyRequest, reply: FastifyReply): Promise<void>;
 };
 
 function multipartImage(boundary: string): Buffer {
@@ -48,6 +59,7 @@ for (const encodedOrg of ['..%2Foutside', '%2E%2E%2Foutside']) {
     internals.registryClient = {
       registryAuthVerify: async () => ({ valid: true, userId: 'attacker' }),
       registryPluginGet: async () => ({ id: '../outside/plugin', publishedBy: 'attacker' }),
+      registryPluginImplementations: async () => ({ implementations: [] }),
     };
 
     const app = Fastify();
@@ -83,3 +95,36 @@ for (const encodedOrg of ['..%2Foutside', '%2E%2E%2Foutside']) {
     }
   });
 }
+
+test('private package images require package read authorization', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'bsb-registry-private-image-'));
+  const filename = 'private__plugin.png';
+  await writeFile(join(root, filename), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  const server = new RegistryUIServer(0, '127.0.0.1', 10, root, undefined, 1, []);
+  const internals = server as unknown as TestableRegistryServer;
+  internals.createTrace = () => trace;
+  internals.imageIndex = { 'private/plugin': filename };
+  let readable = false;
+  internals.registryClient = {
+    registryAuthVerify: async () => ({ valid: true, userId: 'reader' }),
+    registryPluginGet: async () => ({ id: 'private/plugin', publishedBy: 'publisher' }),
+    registryPluginImplementations: async () => ({ implementations: readable ? [{}] : [] }),
+  };
+  const app = Fastify();
+  internals.app = app;
+  await app.register(fastifyRateLimit, { max: 10, timeWindow: 60_000 });
+  app.get('/images/:filename', (request, reply) => internals.handlePluginImage(request, reply));
+  try {
+    const denied = await app.inject({ method: 'GET', url: `/images/${filename}` });
+    assert.equal(denied.statusCode, 404);
+    const authenticatedDenied = await app.inject({ method: 'GET', url: `/images/${filename}`, headers: { authorization: 'Bearer reader' } });
+    assert.equal(authenticatedDenied.statusCode, 404);
+    readable = true;
+    const allowed = await app.inject({ method: 'GET', url: `/images/${filename}`, headers: { authorization: 'Bearer reader' } });
+    assert.equal(allowed.statusCode, 200);
+    assert.equal(allowed.headers['content-type'], 'image/png');
+  } finally {
+    await app.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
