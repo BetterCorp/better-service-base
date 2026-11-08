@@ -453,6 +453,7 @@ const SELF_SCHEMA_IMPORTS = new Set([
   '../../interfaces/schema-types.js',
 ]);
 const FORBIDDEN_SCHEMA_MEMBERS = new Set(['constructor', '__proto__', 'prototype']);
+const REACHABLE_SCHEMA_METHODS = new Set(['export', 'toJSON', 'toString', 'valueOf']);
 const PURE_PATH_CALLS = new Set(['basename', 'dirname', 'extname', 'isAbsolute', 'join', 'normalize', 'parse', 'relative', 'resolve']);
 
 function schemaImportCallable(source: string, imported: string, namespace: boolean, trustedImports: ReadonlySet<string>): boolean {
@@ -809,7 +810,8 @@ function assertSafeSchemaModule(
             : null;
         if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
           || ts.isSetAccessorDeclaration(member)
-          || (ts.isMethodDeclaration(member) && (methodName === null || methodName === 'export'))) {
+          || (ts.isMethodDeclaration(member)
+            && (methodName === null || REACHABLE_SCHEMA_METHODS.has(methodName)))) {
           assertSafeSchemaInitializer(member, canonical, allowedCalls, directOnlyCalls);
         }
       }
