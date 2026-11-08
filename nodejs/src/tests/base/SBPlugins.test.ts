@@ -73,4 +73,21 @@ describe("SBPlugins", () => {
       assert.strictEqual(result.data.version, "2.3.4");
     }
   });
+
+  it("rejects traversal identifiers and plugin-root symlink escapes", async () => {
+    const app = mkdtempSync(join(tmpdir(), "bsb-plugin-app-"));
+    const outside = mkdtempSync(join(tmpdir(), "bsb-plugin-outside-"));
+    tempDirs.push(app, outside);
+    mkdirSync(join(app, "lib", "plugins"), { recursive: true });
+    writeFileSync(join(app, "package.json"), JSON.stringify({ type: "module" }));
+    writeFileSync(join(outside, "index.js"), "export class Plugin {}\n");
+    symlinkSync(outside, join(app, "lib", "plugins", "escaped"), process.platform === "win32" ? "junction" : "dir");
+    const loader = new SBPlugins(app, "production");
+    const log = { debug() {}, error() {}, info() {} } as any;
+
+    const traversal = await loader.loadPlugin(log, null, "../outside", "outside");
+    assert.strictEqual(traversal.success, false);
+    const symlinkEscape = await loader.loadPlugin(log, null, "escaped", "escaped");
+    assert.strictEqual(symlinkEscape.success, false);
+  });
 });
