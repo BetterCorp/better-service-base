@@ -65,6 +65,8 @@ export class SBPlugins {
   private static readonly MINOR_SELECTOR_REGEX = /^\d+\.\d+$/;
   private static readonly EXACT_VERSION_REGEX = /^\d+\.\d+\.\d+$/;
   private static readonly SEMVER_REGEX = /^(\d+)\.(\d+)\.(\d+)$/;
+  private static readonly PLUGIN_ID_REGEX = /^[A-Za-z0-9_-]+$/;
+  private static readonly PACKAGE_NAME_REGEX = /^(?:@[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
   constructor(cwd: string, runtimeMode: BSBRuntimeMode) {
     this.cwd = cwd;
@@ -179,6 +181,12 @@ export class SBPlugins {
     requestedVersion?: string | null,
   ): Promise<Result<LoadedPlugin<NamedType, ClassType>, Error>> {
     const tTrace = internalTrace(`loadPlugin:${ npmPackage }:${ plugin }`);
+    if (typeof plugin !== "string" || !SBPlugins.PLUGIN_ID_REGEX.test(plugin)) {
+      return Err(new Error("Invalid plugin identifier"));
+    }
+    if (npmPackage !== null && (typeof npmPackage !== "string" || !SBPlugins.PACKAGE_NAME_REGEX.test(npmPackage))) {
+      return Err(new Error("Invalid npm package name"));
+    }
     log.debug(tTrace, `Plugin {name} from {package} try load as {pluginName}`, {
       name: plugin,
       pluginName: name,
