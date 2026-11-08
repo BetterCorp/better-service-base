@@ -19,7 +19,6 @@ export const Config = createConfigSchema(
   {
     name: 'config-vault-google',
     description: 'Managed BSB config plugin that loads Vault config with Google Cloud Run authentication',
-    image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['vault', 'config', 'managed', 'runtime', 'google', 'cloud-run'],
     documentation: ['./README.md'],
   },
