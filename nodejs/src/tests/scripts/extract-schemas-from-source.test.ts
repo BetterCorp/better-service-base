@@ -83,18 +83,35 @@ export class Plugin extends BSBService {
     }
   });
 
-  it('retains aliased imports referenced only by static schema roots', () => {
-    const generated = extractSchemaSource(`
+  it('rejects package imports referenced by static schema roots', () => {
+    assert.throws(() => extractSchemaSource(`
 import { Config as ImportedConfig, EventSchemas as ImportedEvents } from 'schema-package';
 export class Plugin {
   static Config = ImportedConfig;
   static EventSchemas = ImportedEvents;
 }
-`, 'service-aliased-schema', 'external', process.cwd(), 'file:///base.js', '1.0.0');
+`, 'service-aliased-schema', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused package import/);
+  });
 
-    assert.match(generated, /Config as ImportedConfig/);
-    assert.match(generated, /_Config = ImportedConfig/);
-    assert.match(generated, /_EventSchemas = ImportedEvents/);
+  it('rejects top-level and imported side effects before evaluation', () => {
+    assert.throws(() => extractSchemaSource(`
+writeFileSync('/tmp/schema-extraction-ran', 'unsafe');
+export class Plugin {}
+`, 'service-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable top-level statement/);
+
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bsb-schema-side-effect-'));
+    try {
+      fs.writeFileSync(path.join(sourceDir, 'unsafe.ts'), `
+export const Config = {};
+writeFileSync('/tmp/schema-extraction-import-ran', 'unsafe');
+`);
+      assert.throws(() => extractSchemaSource(`
+import { Config } from './unsafe.js';
+export class Plugin { static Config = Config; }
+`, 'service-import-side-effect', 'external', sourceDir, 'file:///base.js', '1.0.0'), /executable top-level statement/);
+    } finally {
+      fs.rmSync(sourceDir, { recursive: true, force: true });
+    }
   });
 
   it('rejects executable static schema expressions but permits schema-less plugins', () => {
