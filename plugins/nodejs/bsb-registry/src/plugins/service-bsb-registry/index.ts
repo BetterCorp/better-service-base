@@ -145,7 +145,6 @@ export const Config = createConfigSchema(
   {
     name: 'BSB Registry Core',
     description: 'Event-driven plugin registry core for multi-language BSB plugin storage and discovery',
-    image: '../../../docs/public/assets/images/bsb-logo.png',
     tags: ['registry', 'plugin', 'marketplace', 'discovery', 'publishing', 'events', 'storage'],
     documentation: ['./docs/service-bsb-registry.md', './docs/bsb-registry-db-file.md'],
   },
