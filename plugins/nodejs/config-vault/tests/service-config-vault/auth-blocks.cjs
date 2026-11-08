@@ -62,4 +62,5 @@ module.exports = async ({ pluginRoot }) => {
     await assert.rejects(rotatingVault.login(email, 'wrong', ''), /Invalid login/);
   await assert.rejects(rotatingVault.login('four@example.com', 'wrong', ''), /Too many authentication attempts/);
   assert.equal(globalAttempts.size, 1, 'rotating identities created multiple global limiter buckets');
+  assert.equal(failures.size, 3, 'an exhausted shared budget created another subject limiter row');
 };
