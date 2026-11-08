@@ -1837,8 +1837,6 @@ export class VaultService {
   }
 
   private async recordFailure(key: string): Promise<void> {
-    // These keys contain an email, public key/user ID, or a hash of an invalid token; never a secret.
-    await this.store.recordAuthenticationFailure(tokenHash(key), key);
     const scope = key.slice(0, key.indexOf(':'));
     const globalMaximum = this.authenticationBudgets[scope] ?? 200;
     const consumeBudget = (this.store as VaultStore & {
@@ -1851,6 +1849,9 @@ export class VaultService {
       && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
       throw new Error('Too many authentication attempts; try again later');
     }
+    // These keys contain an email, public key/user ID, or a hash of an invalid token; never a secret.
+    // Charge the atomic shared budget first so rotating identifiers cannot create unbounded rows.
+    await this.store.recordAuthenticationFailure(tokenHash(key), key);
   }
 
   private async clearFailures(key: string): Promise<void> {
