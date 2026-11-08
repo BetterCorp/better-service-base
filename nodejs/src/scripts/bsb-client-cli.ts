@@ -69,8 +69,25 @@ function warn(message: string): void {
 // Get registry URL from env or use default
 const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'https://io.bsbcode.dev';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
+const MAX_REGISTRY_RESPONSE_BYTES = 8 * 1024 * 1024;
 const MAX_DOCUMENTATION_FILE_BYTES = 256 * 1024;
 const MAX_DOCUMENTATION_TOTAL_BYTES = 1024 * 1024;
+const MAX_PLUGIN_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PLUGIN_SCHEMA_BYTES = 4 * 1024 * 1024;
+
+function resolveProjectRegularFile(projectRoot: string, candidate: string, label: string, maximum: number): string {
+  if (path.isAbsolute(candidate)) throw new Error(`${label} path must be relative: ${candidate}`);
+  const canonicalRoot = fs.realpathSync(projectRoot);
+  const canonicalFile = fs.realpathSync(path.resolve(canonicalRoot, candidate));
+  const relative = path.relative(canonicalRoot, canonicalFile);
+  if (!relative || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
+    throw new Error(`${label} path escapes the project root: ${candidate}`);
+  }
+  const stat = fs.statSync(canonicalFile);
+  if (!stat.isFile()) throw new Error(`${label} path is not a regular file: ${candidate}`);
+  if (stat.size > maximum) throw new Error(`${label} file is too large: ${candidate}`);
+  return canonicalFile;
+}
 
 function readProjectDocumentation(projectRoot: string, candidate: string): string {
   if (path.isAbsolute(candidate)) throw new Error(`Documentation path must be relative: ${candidate}`);
@@ -84,8 +101,40 @@ function readProjectDocumentation(projectRoot: string, candidate: string): strin
   if (size > MAX_DOCUMENTATION_FILE_BYTES) throw new Error(`Documentation file is too large: ${candidate}`);
   return fs.readFileSync(canonicalFile, 'utf-8');
 }
-const REGISTRY_REQUEST_TIMEOUT_MS = Number.parseInt(process.env.BSB_REGISTRY_TIMEOUT_MS || '30000', 10);
+const parsedRegistryRequestTimeoutMs = Number.parseInt(process.env.BSB_REGISTRY_TIMEOUT_MS || '30000', 10);
+const REGISTRY_REQUEST_TIMEOUT_MS = Number.isFinite(parsedRegistryRequestTimeoutMs) && parsedRegistryRequestTimeoutMs > 0
+  ? parsedRegistryRequestTimeoutMs
+  : 30000;
 const VALID_CATEGORIES = new Set(['service', 'observable', 'events', 'config']);
+
+async function readBoundedResponse(res: http.IncomingMessage, maximum = MAX_REGISTRY_RESPONSE_BYTES): Promise<string> {
+  const declared = Number.parseInt(res.headers['content-length'] ?? '', 10);
+  if (Number.isFinite(declared) && declared > maximum) {
+    res.destroy();
+    throw new Error(`Registry response exceeds ${maximum} bytes`);
+  }
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of res) {
+    const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += value.length;
+    if (total > maximum) {
+      res.destroy();
+      throw new Error(`Registry response exceeds ${maximum} bytes`);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, total).toString('utf-8');
+}
+
+function applyRequestDeadline(req: http.ClientRequest, operation: string): void {
+  const deadline = setTimeout(() => {
+    const error = new Error(`${operation} exceeded its total ${REGISTRY_REQUEST_TIMEOUT_MS}ms deadline`);
+    (error as NodeJS.ErrnoException).code = 'ETIMEDOUT';
+    req.destroy(error);
+  }, REGISTRY_REQUEST_TIMEOUT_MS);
+  req.once('close', () => clearTimeout(deadline));
+}
 
 const COMMAND = process.argv[2];
 const ARGS = process.argv.slice(3);
@@ -152,7 +201,19 @@ function resolveCategory(pluginId: string): string {
 function resolveImagePath(pluginMeta: { basePath?: string; image?: string }): string | null {
   if (!pluginMeta.image) return null;
   const basePath = pluginMeta.basePath || '.';
-  return path.resolve(process.cwd(), basePath, pluginMeta.image);
+  return resolveProjectRegularFile(
+    process.cwd(),
+    path.join(basePath, pluginMeta.image),
+    'Plugin image',
+    MAX_PLUGIN_IMAGE_BYTES,
+  );
+}
+
+function validateManifestPluginId(pluginId: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/.test(pluginId) || pluginId === '.' || pluginId === '..') {
+    throw new Error(`Invalid plugin ID in publish manifest: ${pluginId}`);
+  }
+  return pluginId;
 }
 
 function formatRegistryError(parsed: any, statusCode?: number, raw?: string): string {
@@ -221,13 +282,7 @@ async function registryRequest(
     };
 
     const req = lib.request(options, (res) => {
-      let data = '';
-
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      res.on('end', () => {
+      void readBoundedResponse(res).then((data) => {
         try {
           const parsed = JSON.parse(data);
 
@@ -243,17 +298,13 @@ async function registryRequest(
             reject(new Error(formatRegistryError(undefined, res.statusCode, data)));
           }
         }
-      });
+      }).catch(reject);
     });
 
     req.on('error', (err) => {
       reject(err);
     });
-    req.setTimeout(REGISTRY_REQUEST_TIMEOUT_MS, () => {
-      const err = new Error(`Registry request timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
-      (err as NodeJS.ErrnoException).code = 'ETIMEDOUT';
-      req.destroy(err);
-    });
+    applyRequestDeadline(req, 'Registry request');
 
     if (body) {
       req.write(JSON.stringify(body));
@@ -318,9 +369,7 @@ async function uploadPluginImage(
         },
       },
       (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
+        void readBoundedResponse(res).then((data) => {
           let parsed: any = {};
           try {
             parsed = data ? JSON.parse(data) : {};
@@ -333,16 +382,12 @@ async function uploadPluginImage(
           } else {
             reject(new Error(parsed.error || data || `HTTP ${res.statusCode}`));
           }
-        });
+        }).catch(reject);
       }
     );
 
     req.on('error', reject);
-    req.setTimeout(REGISTRY_REQUEST_TIMEOUT_MS, () => {
-      const err = new Error(`Registry image upload timed out after ${REGISTRY_REQUEST_TIMEOUT_MS}ms`);
-      (err as NodeJS.ErrnoException).code = 'ETIMEDOUT';
-      req.destroy(err);
-    });
+    applyRequestDeadline(req, 'Registry image upload');
     req.write(body);
     req.end();
   });
@@ -570,25 +615,30 @@ async function publishPlugin(): Promise<void> {
     let errors = 0;
 
     for (const pluginMeta of plugins) {
-      const pluginName: string = pluginMeta.id;
-      const display = displayPluginId(org, pluginName);
-      if (publishIgnore.has(pluginName)) {
-        info(`Skipping ${display} (listed in package.json bsb.publishIgnore)`);
+      const ignoredName = normalizeIgnoredPluginId(String(pluginMeta.id ?? ''), org);
+      if (publishIgnore.has(ignoredName)) {
+        info(`Skipping ${displayPluginId(org, ignoredName)} (listed in package.json bsb.publishIgnore)`);
         skipped++;
         continue;
       }
 
+      let display = displayPluginId(org, ignoredName || '<invalid>');
       try {
+        const pluginName = validateManifestPluginId(pluginMeta.id);
+        display = displayPluginId(org, pluginName);
         const category = resolveCategory(pluginName);
         const imagePath = vaultTarget ? null : resolveImagePath({ basePath: pluginMeta.basePath, image: pluginMeta.image });
 
         // Read event schema from lib/schemas/{pluginId}.json
-        const schemaPath = path.join(schemasDir, `${pluginName}.json`);
+        const schemaCandidate = path.join('lib', 'schemas', `${pluginName}.json`);
+        const schemaPath = fs.existsSync(path.resolve(process.cwd(), schemaCandidate))
+          ? resolveProjectRegularFile(process.cwd(), schemaCandidate, 'Plugin schema', MAX_PLUGIN_SCHEMA_BYTES)
+          : null;
         let eventSchema: Record<string, any> = { pluginId: pluginName, pluginName, version: pkg.version, events: {} };
         let configSchema: Record<string, any> | undefined;
         let schemaDeps: Array<{ id: string; version: string }> | undefined;
 
-        if (fs.existsSync(schemaPath)) {
+        if (schemaPath) {
           try {
             const parsed = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
             const displayName = typeof parsed.displayName === 'string' && parsed.displayName.trim()
