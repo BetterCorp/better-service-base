@@ -581,6 +581,10 @@ function assertSafeSchemaModule(
     }
   }
   for (const statement of sourceFile.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name) {
+      allowedCalls.add(statement.name.text);
+      continue;
+    }
     if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (ts.isIdentifier(declaration.name) && declaration.initializer
@@ -609,19 +613,38 @@ function assertSafeSchemaModule(
       continue;
     }
     if (ts.isClassDeclaration(statement)) {
+      for (const clause of statement.heritageClauses ?? []) {
+        for (const type of clause.types) {
+          assertSafeSchemaInitializer(type.expression, canonical, allowedCalls);
+        }
+      }
       for (const member of statement.members) {
         if (ts.isClassStaticBlockDeclaration(member)) {
           throw new Error(`Schema extraction refused a static block in ${canonical}`);
         }
-        if (ts.isPropertyDeclaration(member) && member.initializer
-          && member.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword)) {
+        if (member.name && ts.isComputedPropertyName(member.name)) {
+          assertSafeSchemaInitializer(member.name.expression, canonical, allowedCalls);
+        }
+        if (ts.isConstructorDeclaration(member) && member.body?.statements.length) {
+          throw new Error(`Schema extraction refused an executable constructor in ${canonical}`);
+        }
+        if (ts.isPropertyDeclaration(member) && member.initializer) {
           assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls);
         }
       }
       continue;
     }
+    if (ts.isFunctionDeclaration(statement)) {
+      assertSafeSchemaInitializer(statement, canonical, allowedCalls);
+      continue;
+    }
+    if (ts.isEnumDeclaration(statement)) {
+      for (const member of statement.members) {
+        if (member.initializer) assertSafeSchemaInitializer(member.initializer, canonical, allowedCalls);
+      }
+      continue;
+    }
     if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)
-      || ts.isFunctionDeclaration(statement) || ts.isEnumDeclaration(statement)
       || ts.isExportDeclaration(statement) || ts.isEmptyStatement(statement)) {
       continue;
     }
