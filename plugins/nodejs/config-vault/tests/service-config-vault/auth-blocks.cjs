@@ -21,6 +21,10 @@ module.exports = async ({ pluginRoot }) => {
     async recordAuthenticationFailure(id, subject) {
       failures.set(id, { subjectHash: id, subject, failureCount: (failures.get(id)?.failureCount ?? 0) + 1 });
     },
+    async recordExistingAuthenticationFailure(id, subject) {
+      const existing = failures.get(id);
+      if (existing) failures.set(id, { subjectHash: id, subject, failureCount: existing.failureCount + 1 });
+    },
     async listAuthenticationBlocks() { return [...failures.values()].filter(row => row.failureCount >= 5); },
     async clearAuthenticationFailures(id) {
       assert.equal(audits.at(-1).outcome, 'intent');
