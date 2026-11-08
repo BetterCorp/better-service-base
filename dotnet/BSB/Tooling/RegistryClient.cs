@@ -14,14 +14,21 @@ public sealed class RegistryClient : IDisposable
     private readonly Uri _url;
     public RegistryClient(string? url = null, string? token = null, bool allowInsecure = false)
     {
-        _url = new Uri(url ?? Environment.GetEnvironmentVariable("BSB_REGISTRY_URL") ?? "https://io.bsbcode.dev");
+        var configuredUrl = Environment.GetEnvironmentVariable("BSB_REGISTRY_URL") ?? "https://io.bsbcode.dev";
+        _url = new Uri(url ?? configuredUrl);
         if (_url.Scheme != "https" && !(_url.Scheme == "http" && allowInsecure)) throw new ArgumentException("Registry requires HTTPS; use --allow-insecure only for local development");
         if (!string.IsNullOrEmpty(_url.UserInfo)) throw new ArgumentException("Registry URL must not contain credentials");
         _http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30), MaxResponseContentBufferSize = 16 * 1024 * 1024 };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        token ??= Environment.GetEnvironmentVariable("BSB_REGISTRY_TOKEN");
+        token ??= url is null || SameOrigin(_url, new Uri(configuredUrl))
+            ? Environment.GetEnvironmentVariable("BSB_REGISTRY_TOKEN")
+            : null;
         if (!string.IsNullOrEmpty(token)) _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
+    internal static bool SameOrigin(Uri left, Uri right) =>
+        left.Scheme.Equals(right.Scheme, StringComparison.OrdinalIgnoreCase)
+        && left.IdnHost.Equals(right.IdnHost, StringComparison.OrdinalIgnoreCase)
+        && left.Port == right.Port;
     public static (string Org, string Name) ParsePluginId(string id)
     {
         if (id.Length > 200 || !Regex.IsMatch(id, "\\A@?[A-Za-z0-9_][A-Za-z0-9._-]*(?:/@?[A-Za-z0-9_][A-Za-z0-9._-]*)?\\z")) throw new ArgumentException("Plugin ID must be name or org/name");
