@@ -550,7 +550,6 @@ function assertSafeSchemaModule(
     }
   }
   for (const statement of sourceFile.statements) {
-    if (ts.isFunctionDeclaration(statement) && statement.name) allowedCalls.add(statement.name.text);
     if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (ts.isIdentifier(declaration.name) && declaration.initializer
@@ -591,12 +590,8 @@ function assertSafeSchemaModule(
       continue;
     }
     if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)
-      || ts.isEnumDeclaration(statement)
+      || ts.isFunctionDeclaration(statement) || ts.isEnumDeclaration(statement)
       || ts.isExportDeclaration(statement) || ts.isEmptyStatement(statement)) {
-      continue;
-    }
-    if (ts.isFunctionDeclaration(statement)) {
-      assertSafeSchemaInitializer(statement, canonical, allowedCalls);
       continue;
     }
     throw new Error(`Schema extraction refused executable top-level statement in ${canonical}`);
