@@ -232,7 +232,7 @@ export class VaultService {
     await this.checkRateLimit(attemptKey);
     const user = await this.store.getUserByEmail(normalizedEmail);
     if (!user || user.status !== 'active' || !user.passwordHash || !(await verifySecret(password, user.passwordHash))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, Boolean(user && user.status === 'active' && user.passwordHash));
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
     }
@@ -244,7 +244,7 @@ export class VaultService {
       const pending = methods.find((method) => !method.active);
       if (pending && !totpCode) return { status: 'totp_setup_verification_required' };
       if (!pending || !this.verifyMethodTotp(pending, totpCode)) {
-        await this.recordFailure(attemptKey);
+        await this.recordFailure(attemptKey, true);
         await this.audit('anonymous', 'admin.login.failed', email, {});
         throw new Error('Invalid login');
       }
@@ -309,7 +309,7 @@ export class VaultService {
     if (!method || !method.active) throw new Error('Invalid authentication method');
     const step = matchingTotpStep(this.decryptMethodTotp(method), code);
     if (step === null || !(await this.store.useTotpStep(method.id, step))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, true);
       await this.audit(pendingUserId, 'admin.totp.failed', method.id, {});
       throw new Error('Invalid TOTP code');
     }
@@ -751,7 +751,7 @@ export class VaultService {
     await this.checkRateLimit(attemptKey);
     const publisher = tokenId ? await this.store.getPluginPublisherByTokenId(tokenId) : null;
     if (!publisher || !(await verifySecret(token, publisher.secretHash))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, Boolean(publisher));
       await this.audit(`publisher:${tokenId ?? 'unknown'}`, 'plugin.publish.auth.failed', 'plugin', {}).catch(() => undefined);
       throw new Error('Invalid plugin publish token');
     }
@@ -1296,7 +1296,7 @@ export class VaultService {
     await this.checkRateLimit(attemptKey);
     const binding = await this.store.resolveRuntimeBinding(keyId);
     if (!binding || !(await verifySecret(secret, binding.key.secretHash))) {
-      await this.recordFailure(attemptKey);
+      await this.recordFailure(attemptKey, Boolean(binding));
       await this.audit(keyId, 'runtime-config.auth.failed', keyId, {}).catch(() => undefined);
       throw new Error('Invalid Vault API key');
     }
@@ -1836,7 +1836,7 @@ export class VaultService {
     }
   }
 
-  private async recordFailure(key: string): Promise<void> {
+  private async recordFailure(key: string, knownSubject = false): Promise<void> {
     const scope = key.slice(0, key.indexOf(':'));
     const globalMaximum = this.authenticationBudgets[scope] ?? 200;
     const consumeBudget = (this.store as VaultStore & {
@@ -1848,10 +1848,10 @@ export class VaultService {
     const subjectHash = tokenHash(key);
     if (typeof consumeBudget === 'function'
       && !(await consumeBudget.call(this.store, tokenHash(`global:${scope}`), globalMaximum, `global:${scope}`))) {
-      // Do not create rows for rotating attacker-controlled identities after the
-      // shared budget is exhausted, but keep charging an existing subject so its
-      // independent lockout cannot be bypassed with continued credential checks.
-      await this.store.recordExistingAuthenticationFailure(subjectHash, key);
+      // Do not create rows for rotating unknown identities after the shared cap.
+      // Known credentials must still create/advance their independent lockout.
+      if (knownSubject) await this.store.recordAuthenticationFailure(subjectHash, key);
+      else await this.store.recordExistingAuthenticationFailure(subjectHash, key);
       throw new Error('Too many authentication attempts; try again later');
     }
     // These keys contain an email, public key/user ID, or a hash of an invalid token; never a secret.
