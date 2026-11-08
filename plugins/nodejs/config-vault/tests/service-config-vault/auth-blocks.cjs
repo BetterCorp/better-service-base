@@ -71,6 +71,11 @@ module.exports = async ({ pluginRoot }) => {
   assert.equal(failures.get(firstId).failureCount, 5,
     'an exhausted shared budget stopped advancing an existing subject lockout');
   await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
+  const knownKey = 'login:known@example.com';
+  await assert.rejects(rotatingVault.recordFailure(knownKey, true), /Too many authentication attempts/);
+  const knownId = createHash('sha256').update(knownKey).digest('base64url');
+  assert.equal(failures.get(knownId).failureCount, 1,
+    'an exhausted shared budget disabled lockout for a known subject without prior failures');
   assert.equal(globalAttempts.size, 1, 'rotating identities created multiple global limiter buckets');
-  assert.equal(failures.size, 3, 'an exhausted shared budget created another subject limiter row');
+  assert.equal(failures.size, 4, 'an exhausted shared budget created an unknown subject limiter row');
 };
