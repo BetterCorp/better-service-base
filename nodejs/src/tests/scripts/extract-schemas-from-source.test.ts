@@ -93,6 +93,26 @@ export class Plugin {
 `, 'service-aliased-schema', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /refused package import/);
   });
 
+  it('drops package imports referenced only by TypeScript types', () => {
+    const generated = extractSchemaSource(`
+import runtimePackage from 'runtime-package';
+type RuntimeValue = runtimePackage.Value;
+export const Config = {};
+export class Plugin { static Config = Config; }
+`, 'service-type-only-package', 'external', process.cwd(), 'file:///base.js', '1.0.0');
+    assert.doesNotMatch(generated, /runtime-package/);
+  });
+
+  it('drops package imports referenced only by unused runtime helpers', () => {
+    const generated = extractSchemaSource(`
+import runtimePackage from 'runtime-package';
+function runtimeOnly() { return runtimePackage.value; }
+export const Config = {};
+export class Plugin { static Config = Config; run() { return runtimeOnly(); } }
+`, 'service-runtime-helper', 'external', process.cwd(), 'file:///base.js', '1.0.0');
+    assert.doesNotMatch(generated, /import runtimePackage/);
+  });
+
   it('rejects top-level and imported side effects before evaluation', () => {
     assert.throws(() => extractSchemaSource(`
 writeFileSync('/tmp/schema-extraction-ran', 'unsafe');
