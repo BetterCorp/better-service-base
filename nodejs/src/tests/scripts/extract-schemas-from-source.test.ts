@@ -175,6 +175,16 @@ export class Plugin { static Config = Config; }
     }
   });
 
+  it('rejects executable methods reachable through the extracted config schema', () => {
+    assert.throws(() => extractSchemaSource(`
+export class Config {
+  validationSchema = this;
+  export() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return {}; }
+}
+export class Plugin { static Config = Config; }
+`, 'service-method-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
+  });
+
   it('rejects decorators that execute while defining extracted classes', () => {
     assert.throws(() => extractSchemaSource(`
 function decorate(value: unknown) { return value; }
