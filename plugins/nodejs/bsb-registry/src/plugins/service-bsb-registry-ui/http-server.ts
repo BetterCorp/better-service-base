@@ -367,6 +367,14 @@ const PublishBodySchema = createValidator(PublishBodyObjectSchema, {
   ],
 });
 
+export function registryPathsOverlap(first: string, second: string): boolean {
+  const contains = (parent: string, child: string): boolean => {
+    const relative = path.relative(parent, child);
+    return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+  };
+  return contains(first, second) || contains(second, first);
+}
+
 export class RegistryUIServer {
   private app: FastifyInstance;
   public readonly port: number;
@@ -538,18 +546,16 @@ export class RegistryUIServer {
 
       // Register static file serving
       const staticSpan = obs.startSpan('register.static');
-      const staticPath = path.join(plugin.pluginCwd, 'static');
+      const staticPath = await fsp.realpath(path.join(plugin.pluginCwd, 'static'));
+      await fsp.mkdir(this.uploadDir, { recursive: true });
+      const uploadPath = await fsp.realpath(this.uploadDir);
+      if (registryPathsOverlap(staticPath, uploadPath)) {
+        throw new Error('Registry image upload directory must not overlap the public static directory');
+      }
       await this.app.register(fastifyStatic, {
         root: staticPath,
         prefix: '/static/',
         index: false,
-      });
-
-      await fsp.mkdir(this.uploadDir, { recursive: true });
-      await this.app.register(fastifyStatic, {
-        root: this.uploadDir,
-        prefix: '/images/',
-        decorateReply: false,
       });
       staticSpan.end();
 
@@ -679,6 +685,10 @@ export class RegistryUIServer {
     // Plugin details page
     this.app.get('/plugins/:org/:name', async (request, reply) => {
       return this.handlePluginDetail(request, reply);
+    });
+
+    this.app.get('/images/:filename', async (request, reply) => {
+      return this.handlePluginImage(request, reply);
     });
 
     // --- API-only routes (JSON) ---
@@ -2138,6 +2148,39 @@ a.s:hover{background:#333;border-color:#FB8C00}
   // ============================================================================
   // Write Handlers (require auth)
   // ============================================================================
+
+  /** GET /images/:filename — Serve an image only when its package is readable. */
+  private async handlePluginImage(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const filename = String((request.params as { filename?: unknown }).filename ?? '');
+    const pluginId = Object.entries(this.imageIndex).find(([, value]) => value === filename)?.[0];
+    const filePath = this.tryUploadPath(filename);
+    if (!pluginId || !filePath || !fs.existsSync(filePath)) {
+      reply.code(404).send({ error: 'Image not found', code: 'IMAGE_NOT_FOUND' });
+      return;
+    }
+    const [org, name] = pluginId.split('/');
+    const trace = this.createTrace('api.image.get', { url: request.url, method: request.method });
+    try {
+      const result = await this.registryClient.registryPluginImplementations(
+        trace,
+        { org, name, ...this.readAuth(request) },
+      ) as { implementations?: unknown[] };
+      if (!Array.isArray(result?.implementations) || result.implementations.length === 0) {
+        reply.code(404).send({ error: 'Image not found', code: 'IMAGE_NOT_FOUND' });
+        return;
+      }
+      const extension = path.extname(filename).toLowerCase();
+      const contentType = extension === '.png' ? 'image/png'
+        : extension === '.webp' ? 'image/webp'
+          : extension === '.gif' ? 'image/gif' : 'image/jpeg';
+      reply.type(contentType).send(fs.createReadStream(filePath));
+    } catch (error) {
+      if (this.replyAmbiguity(error, reply)) return;
+      reply.code(404).send({ error: 'Image not found', code: 'IMAGE_NOT_FOUND' });
+    } finally {
+      trace.end();
+    }
+  }
 
   /** POST /plugins/:org/:name/image — Upload or replace plugin image */
   private async handleImageUpload(request: FastifyRequest, reply: FastifyReply): Promise<void> {
