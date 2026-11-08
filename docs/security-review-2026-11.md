@@ -56,9 +56,11 @@ responses by the shared bounded reader.
 
 Follow-up verification:
 
-- Node 24 lockfile validation, TypeScript compilation, 187 base tests, and 47
+- Node 24 lockfile validation, TypeScript compilation, 188 base tests, and 47
   plugin/security regression tests passed. One live RabbitMQ test was skipped
   because no broker URL was configured.
+- Source-schema extraction completed successfully across all 14 Node plugin
+  workspaces after the build-time execution guard was enabled.
 - Python 3.12 passed 65 tests. `pip-audit` reported no known vulnerability in
   resolved third-party dependencies; the two local editable packages are not
   published on PyPI and therefore cannot be matched by that advisory source.
