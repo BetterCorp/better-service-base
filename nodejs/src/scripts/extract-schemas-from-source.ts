@@ -453,6 +453,16 @@ const SELF_SCHEMA_IMPORTS = new Set([
   '../../interfaces/schema-types.js',
 ]);
 const FORBIDDEN_SCHEMA_MEMBERS = new Set(['constructor', '__proto__', 'prototype']);
+const PURE_PATH_CALLS = new Set(['basename', 'dirname', 'extname', 'isAbsolute', 'join', 'normalize', 'parse', 'relative', 'resolve']);
+
+function schemaImportCallable(source: string, imported: string, namespace: boolean, trustedImports: ReadonlySet<string>): boolean {
+  if (isLocalRelativeImport(source) || trustedImports.has(source)) return true;
+  if (source === 'anyvali') return true;
+  if (source === 'os' || source === 'node:os') return !namespace && imported === 'hostname';
+  if (source === 'path' || source === 'node:path') return !namespace && PURE_PATH_CALLS.has(imported);
+  if (source === '@bsb/base') return !namespace && SCHEMA_IDENTIFIERS.has(imported);
+  return false;
+}
 
 function assertNoSchemaDecorators(node: ts.Node, filePath: string): void {
   if (ts.canHaveDecorators(node) && (ts.getDecorators(node)?.length ?? 0) > 0) {
@@ -492,7 +502,8 @@ function schemaCallRoot(expression: ts.Expression): string | null {
 
 function assertSafeSchemaInitializer(node: ts.Node, filePath: string, allowedCalls: ReadonlySet<string>): void {
   if (ts.isArrowFunction(node) || ts.isFunctionExpression(node) || ts.isFunctionDeclaration(node)
-    || ts.isMethodDeclaration(node) || ts.isConstructorDeclaration(node)) {
+    || ts.isMethodDeclaration(node) || ts.isConstructorDeclaration(node)
+    || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) {
     for (const parameter of node.parameters) {
       assertNoSchemaDecorators(parameter, filePath);
       if (parameter.initializer) assertSafeSchemaInitializer(parameter.initializer, filePath, allowedCalls);
@@ -520,6 +531,15 @@ function assertSafeSchemaInitializer(node: ts.Node, filePath: string, allowedCal
   if (ts.isNewExpression(node) || ts.isAwaitExpression(node) || ts.isYieldExpression(node)
     || ts.isTaggedTemplateExpression(node) || ts.isDeleteExpression(node)) {
     throw new Error(`Schema extraction refused executable expression in ${filePath}`);
+  }
+  if (ts.isBinaryExpression(node)
+    && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+    && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+    throw new Error(`Schema extraction refused an assignment expression in ${filePath}`);
+  }
+  if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node))
+    && (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken)) {
+    throw new Error(`Schema extraction refused an update expression in ${filePath}`);
   }
   if (ts.isCallExpression(node)) {
     const root = schemaCallRoot(node.expression);
@@ -611,11 +631,22 @@ function assertSafeSchemaModule(
     const trusted = source === '@bsb/base' || trustedImports.has(source)
       || TRUSTED_SCHEMA_PACKAGES.has(source) || isLocalRelativeImport(source);
     if (!trusted || !statement.importClause) continue;
-    if (statement.importClause.name) allowedCalls.add(statement.importClause.name.text);
+    if (statement.importClause.name
+      && schemaImportCallable(source, 'default', false, trustedImports)) {
+      allowedCalls.add(statement.importClause.name.text);
+    }
     const bindings = statement.importClause.namedBindings;
-    if (bindings && ts.isNamespaceImport(bindings)) allowedCalls.add(bindings.name.text);
+    if (bindings && ts.isNamespaceImport(bindings)
+      && schemaImportCallable(source, '*', true, trustedImports)) {
+      allowedCalls.add(bindings.name.text);
+    }
     if (bindings && ts.isNamedImports(bindings)) {
-      for (const element of bindings.elements) allowedCalls.add(element.name.text);
+      for (const element of bindings.elements) {
+        const imported = element.propertyName?.text ?? element.name.text;
+        if (schemaImportCallable(source, imported, false, trustedImports)) {
+          allowedCalls.add(element.name.text);
+        }
+      }
     }
   }
   for (const statement of sourceFile.statements) {
