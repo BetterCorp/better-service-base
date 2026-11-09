@@ -34,10 +34,23 @@ This follow-up fixes the newly identified concrete issues:
 - **Low:** the default .NET observable allowed newline/terminal-control log
   forging; caller-controlled plugin names and interpolated messages are encoded.
 
+Post-merge review found and fixed four edge cases before release:
+
+- The release validator now implements SemVer core and numeric-prerelease
+  leading-zero rules while retaining valid hyphens inside identifiers.
+- Python wheelhouse installs ignore inherited pip configuration and environment
+  sources, force resolution from local wheels, reject source distributions and
+  direct-URL dependencies, and reinstall the selected distribution.
+- Registry CLI output encodes every C0/C1 control, including newlines, in plugin
+  display names and metadata.
+- RabbitMQ rejects unmatched correlations without requeue, treats publish
+  backpressure separately from failure, notifies timeout listeners independently
+  of the broker, and contains detached-listener failures.
+
 The scan also reconfirmed the open design items documented below: legacy Registry
 namespace migration, validation at the core Registry event boundary, exact package
-lookup indexing, Vault dummy-hash timing equalization, unknown RabbitMQ correlation
-settlement, RabbitMQ backpressure and bounded dead-letter retention. These require
+lookup indexing, Vault dummy-hash timing equalization, stream-consumer backpressure
+and bounded dead-letter retention. These require
 storage migration or cross-language transport policy rather than a compatibility-
 safe point fix.
 
@@ -69,7 +82,7 @@ independently checked against the source and reconciled as follows:
 | Medium | Manifest plugin IDs could select schemas outside `lib/schemas` (`nodejs/src/scripts/bsb-client-cli.ts`). | **Fixed in this change.** Enforce a single safe plugin-ID segment plus canonical project containment and a 4 MiB schema cap. |
 | Medium | Auth-disabled file storage can contain populated namespaces without organization records; enabling auth lets the first create-org user claim them (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry/index.ts`, `db/file.ts`). | **Open design migration.** Before enabling auth, require an administrator-approved ownership migration; reject claims for populated unowned namespaces and add an auth-transition regression. |
 | Medium | Direct `registry.plugin.publish` event callers bypass the HTTP transport's schema-safety and aggregate-size validation (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry/index.ts`). | **Open defense-in-depth item.** Move bounded structural/schema validation into the core handler or a shared validator invoked by every transport. |
-| Medium | Unknown RabbitMQ stream correlations are left unacknowledged and can exhaust prefetch (`plugins/nodejs/events-rabbitmq/.../emitStreamAndReceiveStream.ts`). | **Open transport item.** Explicitly reject/acknowledge unknown correlations without requeue and test beyond the prefetch count. |
+| Medium | Unknown RabbitMQ stream correlations were left unacknowledged and could exhaust prefetch (`plugins/nodejs/events-rabbitmq/.../emitStreamAndReceiveStream.ts`). | **Fixed in the post-merge follow-up.** Reject unmatched deliveries without requeue so they are settled through the configured dead-letter path. |
 | Medium | Node RabbitMQ stream chunks are acknowledged even when `Readable.push()` reports backpressure (`plugins/nodejs/events-rabbitmq/.../emitStreamAndReceiveStream.ts`). | **Open transport item.** Pause acknowledgement/consumption until demand resumes and enforce an aggregate byte limit. |
 | Medium | Node, Go, Python, Rust, and .NET transports configure a durable seven-day dead-letter queue without a count/byte ceiling. | **Open cross-language item.** Add `x-max-length-bytes`, an explicit overflow policy, tenant/service separation, reduced retention, and a broker-capacity regression. |
 | Low | Unknown/inactive Vault users skip scrypt while active administrators execute it, exposing an email-existence timing signal (`plugins/nodejs/config-vault/src/plugins/service-config-vault/vault.ts`). | **Open hardening item.** Verify one valid dummy scrypt hash on every syntactically valid unknown/inactive login and compare timing paths in tests. |
