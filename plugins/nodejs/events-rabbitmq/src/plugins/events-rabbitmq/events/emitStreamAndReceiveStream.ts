@@ -394,6 +394,11 @@ export class emitStreamAndReceiveStream
                     streamId,
                   });
                 }
+                // Stream payloads arrive on the stream channel rather than the
+                // events channel. Treat every valid delivery as activity so a
+                // long-running transfer cannot time out while chunks are still
+                // arriving.
+                updateLastResponseTimer();
                 if (
                     !(
                         await self.eventsChannel.channel.sendToQueue(
