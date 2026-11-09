@@ -1,16 +1,42 @@
 """Use wheels, entry points and pip's dependency resolver for native Python plugins."""
 import configparser
+from email.parser import BytesParser
 import importlib.metadata
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tomllib
 import zipfile
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 from .schema_export import build_project
 from .versions import EXACT_VERSION
+
+
+def _validate_wheelhouse(source):
+    root = Path(source).resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("Python plugin --source must be a local wheelhouse directory")
+    wheels = sorted(root.glob("*.whl"))
+    if not wheels:
+        raise ValueError("Python plugin --source must contain wheel packages")
+    for wheel in wheels:
+        with zipfile.ZipFile(wheel) as archive:
+            metadata = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+            if len(metadata) != 1:
+                raise ValueError(f"Wheel {wheel.name} must contain exactly one METADATA file")
+            message = BytesParser().parsebytes(archive.read(metadata[0]))
+            for value in message.get_all("Requires-Dist", []):
+                try:
+                    dependency = Requirement(value)
+                except InvalidRequirement as exc:
+                    raise ValueError(f"Wheel {wheel.name} has an invalid dependency requirement") from exc
+                if dependency.url:
+                    raise ValueError(f"Wheel {wheel.name} contains a direct URL dependency")
+    return root
 
 
 def pack(project_root):
@@ -50,13 +76,19 @@ def install(package, version=None, source=None):
             raise ValueError("A distribution name and exact --version are required")
         requirement = f"{package}=={Version(version)}"
     args = [sys.executable, "-m", "pip", "install", requirement]
+    environment = os.environ.copy()
     if source:
-        # An explicitly selected source is authoritative. Mixing --find-links
-        # with ambient indexes lets a higher-version dependency or package with
-        # the same name win resolution and execute before BSB validates its
-        # entry point.
-        args.extend(["--no-index", "--find-links", source])
-    subprocess.run(args, check=True)
+        wheelhouse = _validate_wheelhouse(source)
+        # Disable every ambient pip source. --no-index does not suppress
+        # inherited find-links settings, and an installed distribution could
+        # otherwise satisfy the requirement without coming from this source.
+        environment = {key: value for key, value in environment.items() if not key.upper().startswith("PIP_")}
+        environment["PIP_CONFIG_FILE"] = os.devnull
+        args.extend([
+            "--no-index", "--only-binary=:all:", "--force-reinstall",
+            "--find-links", str(wheelhouse),
+        ])
+    subprocess.run(args, check=True, env=environment)
     importlib.invalidate_caches()
     if not is_wheel:
         distribution = importlib.metadata.distribution(package)
