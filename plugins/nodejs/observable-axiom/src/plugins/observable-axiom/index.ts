@@ -144,6 +144,12 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
   }
 
   public async init(): Promise<void> {
+    if (this.config.axiom.url) {
+      const endpoint = new URL(this.config.axiom.url);
+      if (endpoint.protocol !== "https:") {
+        throw new Error("Custom Axiom endpoints must use HTTPS");
+      }
+    }
     // Initialize Axiom client for logs and events
     if (this.config.enabled.logs || this.config.enabled.metrics) {
       const axiomOptions: {

@@ -6,6 +6,41 @@ Node/TypeScript, Python, Go, .NET, and Rust. The review also rechecked the Vault
 Registry authorization fixes from PRs #123–#128 and the initial supply-chain change
 merged in PR #143.
 
+## Reconciliation review — 9 November 2026
+
+A fresh high-reasoning scan reviewed merged `master` at `087f1578`. The scan
+completed with 14 validated findings, but its bundle-level schema validation
+reported a warning; the digest-verified findings artifact remained readable and
+was reconciled directly against the source.
+
+This follow-up fixes the newly identified concrete issues:
+
+- **Medium:** release tags were interpolated into publishing shell scripts without
+  a strict grammar. The prepare job now rejects anything outside the supported
+  SemVer form before exposing the value to credentialed jobs.
+- **Medium:** Python `--source` installs mixed `--find-links` with ambient indexes.
+  Explicit sources are now authoritative through `--no-index`, with regression
+  coverage.
+- **Medium:** the Node syslog exporter advertised TLS through a dependency that
+  only implements UDP/TCP and also ignored the configured port. The port is now
+  passed and TLS fails closed instead of silently using plaintext.
+- **Medium:** the Node RabbitMQ receive-stream activity timer retained an expired
+  handle and stopped rearming. The handle is cleared before the deadline is
+  scheduled again.
+- **Low:** custom Node Axiom endpoints could send bearer tokens over HTTP. Custom
+  endpoints now require HTTPS.
+- **Low:** Registry descriptions and related metadata could inject terminal
+  controls into `bsb-client`; displayed remote fields now encode controls.
+- **Low:** the default .NET observable allowed newline/terminal-control log
+  forging; caller-controlled plugin names and interpolated messages are encoded.
+
+The scan also reconfirmed the open design items documented below: legacy Registry
+namespace migration, validation at the core Registry event boundary, exact package
+lookup indexing, Vault dummy-hash timing equalization, unknown RabbitMQ correlation
+settlement, RabbitMQ backpressure and bounded dead-letter retention. These require
+storage migration or cross-language transport policy rather than a compatibility-
+safe point fix.
+
 ## Follow-up review — 8 November 2026
 
 The follow-up reviewed `master` through `ddc7bb4` and compared it with the 7 November

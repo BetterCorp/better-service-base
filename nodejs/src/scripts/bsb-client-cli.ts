@@ -66,6 +66,12 @@ function warn(message: string): void {
   log(`[WARN] ${message}`, 'yellow');
 }
 
+function terminalSafe(value: unknown): string {
+  return String(value).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, (character) => {
+    return `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`;
+  });
+}
+
 // Get registry URL from env or use default
 const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'https://io.bsbcode.dev';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
@@ -411,7 +417,7 @@ async function listPlugins(): Promise<void> {
 
     result.results.forEach((plugin: any) => {
       log(`  ${plugin.id} @ ${plugin.version}`, 'cyan');
-      log(`    ${plugin.description}`, 'reset');
+      log(`    ${terminalSafe(plugin.description)}`, 'reset');
       log(`    Language: ${plugin.language} | Category: ${plugin.category}`, 'reset');
       log('');
     });
@@ -444,7 +450,7 @@ async function searchPlugins(query: string): Promise<void> {
 
     result.results.forEach((plugin: any) => {
       log(`  ${plugin.id} @ ${plugin.version}`, 'cyan');
-      log(`    ${plugin.description}`, 'reset');
+      log(`    ${terminalSafe(plugin.description)}`, 'reset');
       log(`    Language: ${plugin.language} | Category: ${plugin.category}`, 'reset');
       log('');
     });
@@ -477,11 +483,11 @@ async function getPluginInfo(pluginId: string): Promise<void> {
     log(`  Version:      ${plugin.version}`, 'reset');
     log(`  Language:     ${plugin.language}`, 'reset');
     log(`  Category:     ${plugin.category}`, 'reset');
-    log(`  Description:  ${plugin.description}`, 'reset');
-    log(`  Author:       ${plugin.author || 'N/A'}`, 'reset');
-    log(`  License:      ${plugin.license || 'N/A'}`, 'reset');
-    log(`  Homepage:     ${plugin.homepage || 'N/A'}`, 'reset');
-    log(`  Repository:   ${plugin.repository || 'N/A'}`, 'reset');
+    log(`  Description:  ${terminalSafe(plugin.description)}`, 'reset');
+    log(`  Author:       ${terminalSafe(plugin.author || 'N/A')}`, 'reset');
+    log(`  License:      ${terminalSafe(plugin.license || 'N/A')}`, 'reset');
+    log(`  Homepage:     ${terminalSafe(plugin.homepage || 'N/A')}`, 'reset');
+    log(`  Repository:   ${terminalSafe(plugin.repository || 'N/A')}`, 'reset');
     log(`  Events:       ${plugin.eventCount} total`, 'reset');
     log(`  Downloads:    ${plugin.downloads || 0}`, 'reset');
     log('');

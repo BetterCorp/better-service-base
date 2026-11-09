@@ -51,6 +51,8 @@ def test_prerelease_manifest_distribution_and_installer(tmp_path, monkeypatch):
     monkeypatch.setattr(packages.importlib.metadata, "distribution", lambda _: distribution)
     packages.install("demo-package", "1.2.3-beta.1")
     assert commands[0][-1] == "demo-package==1.2.3b1"
+    packages.install("demo-package", "1.2.3-beta.1", str(tmp_path / "wheelhouse"))
+    assert commands[1][-4:] == ["demo-package==1.2.3b1", "--no-index", "--find-links", str(tmp_path / "wheelhouse")]
     distribution.entry_points = []
     with pytest.raises(ValueError, match="does not declare bsb.plugins"):
         packages.install("ordinary-package", "1.2.3")

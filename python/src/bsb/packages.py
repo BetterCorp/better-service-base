@@ -51,7 +51,11 @@ def install(package, version=None, source=None):
         requirement = f"{package}=={Version(version)}"
     args = [sys.executable, "-m", "pip", "install", requirement]
     if source:
-        args.extend(["--find-links", source])
+        # An explicitly selected source is authoritative. Mixing --find-links
+        # with ambient indexes lets a higher-version dependency or package with
+        # the same name win resolution and execute before BSB validates its
+        # entry point.
+        args.extend(["--no-index", "--find-links", source])
     subprocess.run(args, check=True)
     importlib.invalidate_caches()
     if not is_wheel:

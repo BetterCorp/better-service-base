@@ -105,6 +105,7 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
 
   public async init(): Promise<void> {
     const options: any = {
+      port: this.config.port,
       syslogHostname: this.config.hostname || hostname(),
       appName: this.config.appName,
       facility: this.config.facility,
@@ -114,6 +115,9 @@ export class Plugin extends BSBObservable<InstanceType<typeof Config>> {
     if (this.config.protocol === "tcp") {
       options.transport = SyslogClient.Transport.Tcp;
     } else if (this.config.protocol === "tls") {
+      if (!("Tls" in SyslogClient.Transport) || SyslogClient.Transport.Tls === undefined) {
+        throw new Error("Configured syslog client does not support TLS; refusing to send logs over plaintext");
+      }
       options.transport = SyslogClient.Transport.Tls;
       if (this.config.tls) {
         options.tlsOptions = {
