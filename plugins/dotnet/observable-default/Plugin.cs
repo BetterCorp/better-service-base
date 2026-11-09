@@ -48,8 +48,8 @@ public class Plugin : BSBObservable<ObservableDefaultConfig>
     {
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff");
         var traceStr = Config.ShowTraceId ? $" [{trace.TraceId[..8]}]" : "";
-        var interpolated = InterpolateMessage(message, meta);
-        var line = $"{timestamp} {level}{traceStr} [{pluginName}] {interpolated}";
+        var interpolated = EncodeControls(InterpolateMessage(message, meta));
+        var line = $"{timestamp} {level}{traceStr} [{EncodeControls(pluginName)}] {interpolated}";
 
         if (color.HasValue)
         {
@@ -71,5 +71,18 @@ public class Plugin : BSBObservable<ObservableDefaultConfig>
         foreach (var (key, value) in meta)
             result = result.Replace($"{{{key}}}", value?.ToString() ?? "null");
         return result;
+    }
+
+    private static string EncodeControls(string value)
+    {
+        var output = new System.Text.StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            if (char.IsControl(character))
+                output.Append($"\\u{(int)character:x4}");
+            else
+                output.Append(character);
+        }
+        return output.ToString();
     }
 }

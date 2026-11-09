@@ -35,6 +35,10 @@ jobs:
         id: version
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
+          if [[ ! "${TAG}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "Refusing release tag outside the supported SemVer grammar: ${GITHUB_REF}" >&2
+            exit 1
+          fi
           echo "version=${TAG}" >> "$GITHUB_OUTPUT"
           if [[ "${TAG}" == *"-"* ]]; then
             PRE="${TAG#*-}"

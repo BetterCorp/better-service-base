@@ -248,6 +248,10 @@ export class emitStreamAndReceiveStream
         if (lastResponseTimeoutHandler === null) {
           return;
         }
+        // The callback owns an expired handle. Clear it before attempting to
+        // rearm, otherwise createTimeout() sees a non-null handle and the
+        // activity deadline silently stops after its first tick.
+        lastResponseTimeoutHandler = null;
         if (lastResponseTimeoutCount === -2) {
           return;
         }
