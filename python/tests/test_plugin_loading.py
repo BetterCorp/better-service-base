@@ -47,16 +47,39 @@ def test_prerelease_manifest_distribution_and_installer(tmp_path, monkeypatch):
             asyncio.run(SBPlugins(str(root), False).load_plugin("service", None, "service-demo", "alias", invalid))
     monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
     commands = []
-    monkeypatch.setattr(packages.subprocess, "run", lambda args, **_: commands.append(args))
+    monkeypatch.setattr(packages.subprocess, "run", lambda args, **kwargs: commands.append((args, kwargs)))
     monkeypatch.setattr(packages.importlib.metadata, "distribution", lambda _: distribution)
     packages.install("demo-package", "1.2.3-beta.1")
-    assert commands[0][-1] == "demo-package==1.2.3b1"
-    packages.install("demo-package", "1.2.3-beta.1", str(tmp_path / "wheelhouse"))
-    assert commands[1][-4:] == ["demo-package==1.2.3b1", "--no-index", "--find-links", str(tmp_path / "wheelhouse")]
+    assert commands[0][0][-1] == "demo-package==1.2.3b1"
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    with zipfile.ZipFile(wheelhouse / "demo_package-1.2.3-py3-none-any.whl", "w") as archive:
+        archive.writestr("demo_package-1.2.3.dist-info/METADATA", "Metadata-Version: 2.1\nName: demo-package\nVersion: 1.2.3\n")
+    monkeypatch.setenv("PIP_FIND_LINKS", str(tmp_path / "ambient"))
+    packages.install("demo-package", "1.2.3-beta.1", str(wheelhouse))
+    restricted_args, restricted_options = commands[1]
+    assert restricted_args[-5:] == ["--no-index", "--only-binary=:all:", "--force-reinstall", "--find-links", str(wheelhouse)]
+    assert "PIP_FIND_LINKS" not in restricted_options["env"]
+    assert restricted_options["env"]["PIP_CONFIG_FILE"] == packages.os.devnull
     distribution.entry_points = []
     with pytest.raises(ValueError, match="does not declare bsb.plugins"):
         packages.install("ordinary-package", "1.2.3")
-    assert commands[-1][-1] == "ordinary-package==1.2.3"
+    assert commands[-1][0][-1] == "ordinary-package==1.2.3"
+
+
+def test_source_installer_rejects_direct_url_dependencies(tmp_path, monkeypatch):
+    from bsb import packages
+
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    with zipfile.ZipFile(wheelhouse / "demo-1.0.0-py3-none-any.whl", "w") as archive:
+        archive.writestr(
+            "demo-1.0.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: demo\nVersion: 1.0.0\nRequires-Dist: helper @ https://evil.example/helper.whl\n",
+        )
+    with pytest.raises(ValueError, match="direct URL dependency"):
+        packages.install("demo", "1.0.0", str(wheelhouse))
 
 
 @pytest.mark.parametrize("entries", ["[bsb.plugins.extra]\ndemo = package:Plugin\n", "[bsb.plugins]\n"])

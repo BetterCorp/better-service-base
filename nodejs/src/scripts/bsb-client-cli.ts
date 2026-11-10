@@ -67,7 +67,7 @@ function warn(message: string): void {
 }
 
 function terminalSafe(value: unknown): string {
-  return String(value).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, (character) => {
+  return String(value).replace(/[\u0000-\u001f\u007f-\u009f]/g, (character) => {
     return `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`;
   });
 }
@@ -478,7 +478,7 @@ async function getPluginInfo(pluginId: string): Promise<void> {
     const result = await registryRequest('GET', `/plugins/${org}/${name}`);
     const plugin = result.plugin || result;
 
-    log(`\nPlugin: ${plugin.displayName}\n`, 'bright');
+    log(`\nPlugin: ${terminalSafe(plugin.displayName)}\n`, 'bright');
     log(`  ID:           ${plugin.id}`, 'reset');
     log(`  Version:      ${plugin.version}`, 'reset');
     log(`  Language:     ${plugin.language}`, 'reset');

@@ -110,7 +110,7 @@ export class emitStreamAndReceiveStream
                       queueKey,
                     });
 
-                    this.emit(
+                    const delivered = this.emit(
                         channelKey +
                         (
                             logMessage === "stream" ? "r-" : ""
@@ -131,6 +131,11 @@ export class emitStreamAndReceiveStream
                             "stream consume",
                         ),
                     );
+                    if (!delivered) {
+                      LIB.clearDeliveryFailure(this.deliveryAttempts, deliveryKey);
+                      obs.log.warn("Rejecting unmatched {logMessage} delivery", {logMessage});
+                      iChannel.nack(msg, false, false);
+                    }
                   } catch (exc: any) {
                     const errorObj = exc instanceof Error ? exc : new Error(exc?.message || String(exc));
                     LIB.nackOrDeadLetter(obs, iChannel, msg, this.deliveryAttempts, deliveryKey, errorObj, "stream consume");
@@ -216,33 +221,46 @@ export class emitStreamAndReceiveStream
           streamObs.end();
         }
       };
-      receiptTimeoutHandler = setTimeout(async () => {
+      const publishTimeout = async (err: Error, phase: string) => {
+        try {
+          const accepted = await self.eventsChannel.channel.sendToQueue(
+              dstEventsQueueKey,
+              {
+                type: "timeout",
+                data: err,
+                trace: streamObs?.trace ?? obs.trace,
+              },
+              {
+                expiration: self.queueOpts.messageTtl,
+                correlationId: "s-" + streamId,
+                messageId: randomUUID(),
+                persistent: true,
+                appId: self.plugin.myId,
+                timestamp: new Date().getTime(),
+              },
+          );
+          if (!accepted) {
+            obs.log.warn("Broker applied backpressure to {phase} timeout notification", {phase});
+          }
+        } catch (exc: any) {
+          obs.log.warn("Unable to publish {phase} timeout notification: {error}", {
+            phase,
+            error: exc?.message || String(exc),
+          });
+        }
+      };
+      const notifyTimeout = (err: Error, phase: string) => {
+        const listenerResult = listener(streamObs ?? obs, err, null!).catch((exc: any) => {
+          obs.log.error("Timeout listener failed: {error}", {error: exc?.message || String(exc)});
+        });
+        void publishTimeout(err, phase);
+        return listenerResult;
+      };
+      receiptTimeoutHandler = setTimeout(() => {
         obs.log.debug("Receive Receipt Timeout");
         const err = new Error("Receive Receipt Timeout");
         cleanup();
-        if (
-            !(
-                await self.eventsChannel.channel.sendToQueue(
-                    dstEventsQueueKey,
-                    {
-                      type: "timeout",
-                      data: err,
-                      trace: streamObs?.trace ?? obs.trace,
-                    },
-                    {
-                      expiration: self.queueOpts.messageTtl,
-                      correlationId: "s-" + streamId,
-                      messageId: randomUUID(),
-                      persistent: true,
-                      appId: self.plugin.myId,
-                      timestamp: new Date().getTime(),
-                    },
-                )
-            )
-        ) {
-          throw `Cannot send msg to queue [${dstEventsQueueKey}]`;
-        }
-        await listener(streamObs ?? obs, err, null!);
+        void notifyTimeout(err, "receipt");
       }, thisTimeoutMS);
       const timeoutFunc = async () => {
         if (lastResponseTimeoutHandler === null) {
@@ -263,29 +281,7 @@ export class emitStreamAndReceiveStream
         const err = new Error("Receive Active Timeout");
         obs.log.error("Receive Active Timeout");
         cleanup();
-        if (
-            !(
-                await self.eventsChannel.channel.sendToQueue(
-                    dstEventsQueueKey,
-                    {
-                      type: "timeout",
-                      data: err,
-                      trace: streamObs?.trace ?? obs.trace,
-                    },
-                    {
-                      expiration: self.queueOpts.messageTtl,
-                      correlationId: "s-" + streamId,
-                      messageId: randomUUID(),
-                      persistent: true,
-                      appId: self.plugin.myId,
-                      timestamp: new Date().getTime(),
-                    },
-                )
-            )
-        ) {
-          throw `Cannot send msg to queue [${dstEventsQueueKey}]`;
-        }
-        await listener(streamObs ?? obs, err, null!);
+        await notifyTimeout(err, "active");
       };
       createTimeout = async () => {
         if (lastResponseTimeoutCount === -2) {
@@ -399,9 +395,7 @@ export class emitStreamAndReceiveStream
                 // long-running transfer cannot time out while chunks are still
                 // arriving.
                 updateLastResponseTimer();
-                if (
-                    !(
-                        await self.eventsChannel.channel.sendToQueue(
+                const receiptAccepted = await self.eventsChannel.channel.sendToQueue(
                             dstEventsQueueKey,
                             {
                               type: "receipt",
@@ -416,10 +410,9 @@ export class emitStreamAndReceiveStream
                               appId: self.plugin.myId,
                               timestamp: new Date().getTime(),
                             },
-                        )
-                    )
-                ) {
-                  throw `Cannot send msg to queue [${dstEventsQueueKey}] ${streamId}`;
+                        );
+                if (!receiptAccepted) {
+                  obs.log.warn("Broker applied backpressure to stream receipt {streamId}", {streamId});
                 }
                 if (data.type === "event") {
                   stream!.emit(
@@ -446,7 +439,6 @@ export class emitStreamAndReceiveStream
                 obs.log.error("Stream NOT OK: {e}", {
                   e: x.message,
                 });
-                throw new Error(`Stream processing failed: ${x.message}`);
               });
         } catch (exc: any) {
           cleanup();
