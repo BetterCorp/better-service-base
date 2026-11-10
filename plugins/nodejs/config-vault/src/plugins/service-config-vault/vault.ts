@@ -32,6 +32,12 @@ import type {
   VaultRuntimeConfig,
 } from './types.js';
 
+// A fixed, syntactically valid scrypt record used only to equalize the password
+// verification work for unknown, inactive, and passwordless administrators. The
+// corresponding plaintext is intentionally irrelevant: these subjects remain
+// ineligible for authentication regardless of the comparison result.
+const DUMMY_LOGIN_PASSWORD_HASH = 'scrypt$paWlpaWlpaWlpaWlpaWlpQ$whF1cVVIxEqgHaTNq1G9hRZCCl15nQFZCFbJvPIZEG3n9MoskVLHe0jual65dVDuqAzFeiBnM-YRGCsjlHk2Rw';
+
 export interface VaultServiceOptions {
   store: VaultStore;
   masterKey: Buffer;
@@ -231,7 +237,14 @@ export class VaultService {
     const attemptKey = `login:${normalizedEmail}`;
     await this.checkRateLimit(attemptKey);
     const user = await this.store.getUserByEmail(normalizedEmail);
-    if (!user || user.status !== 'active' || !user.passwordHash || !(await verifySecret(password, user.passwordHash))) {
+    const passwordHash = user?.status === 'active' && user.passwordHash
+      ? user.passwordHash
+      : DUMMY_LOGIN_PASSWORD_HASH;
+    // Always perform exactly one valid scrypt verification after admission so
+    // response timing does not reveal whether an administrator email exists or
+    // whether that account is inactive/passwordless.
+    const passwordMatches = await verifySecret(password, passwordHash);
+    if (!user || user.status !== 'active' || !user.passwordHash || !passwordMatches) {
       await this.recordFailure(attemptKey, Boolean(user && user.status === 'active' && user.passwordHash));
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
