@@ -72,6 +72,15 @@ function terminalSafe(value: unknown): string {
   });
 }
 
+function terminalSafeJson(value: unknown): string {
+  // JSON.stringify already escapes C0 characters inside strings. Preserve its
+  // trusted indentation newlines while neutralizing the C1 range that JSON
+  // permits literally and some terminals still interpret as control bytes.
+  return JSON.stringify(value, null, 2).replace(/[\u007f-\u009f]/g, (character) => {
+    return `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`;
+  });
+}
+
 // Get registry URL from env or use default
 const REGISTRY_URL = process.env.BSB_REGISTRY_URL || 'https://io.bsbcode.dev';
 const REGISTRY_TOKEN = process.env.BSB_REGISTRY_TOKEN;
@@ -518,7 +527,7 @@ async function getPluginSchema(pluginId: string): Promise<void> {
     const schema = await registryRequest('GET', `/plugins/${org}/${name}/${plugin.version}/schema`);
 
     log(`\nEvent Schema for ${terminalSafe(pluginId)} @ ${terminalSafe(plugin.version)}:\n`, 'bright');
-    log(JSON.stringify(schema, null, 2), 'reset');
+    log(terminalSafeJson(schema), 'reset');
 
     success('Schema retrieved');
   } catch (err: any) {
