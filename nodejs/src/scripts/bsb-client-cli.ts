@@ -50,24 +50,33 @@ function log(message: string, color: ColorName = 'reset'): void {
 }
 
 function error(message: string): never {
-  log(`ERROR: ${message}`, 'red');
+  log(`ERROR: ${terminalSafe(message)}`, 'red');
   process.exit(1);
 }
 
 function success(message: string): void {
-  log(`[OK] ${message}`, 'green');
+  log(`[OK] ${terminalSafe(message)}`, 'green');
 }
 
 function info(message: string): void {
-  log(`→ ${message}`, 'cyan');
+  log(`→ ${terminalSafe(message)}`, 'cyan');
 }
 
 function warn(message: string): void {
-  log(`[WARN] ${message}`, 'yellow');
+  log(`[WARN] ${terminalSafe(message)}`, 'yellow');
 }
 
 function terminalSafe(value: unknown): string {
   return String(value).replace(/[\u0000-\u001f\u007f-\u009f]/g, (character) => {
+    return `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`;
+  });
+}
+
+function terminalSafeJson(value: unknown): string {
+  // JSON.stringify already escapes C0 characters inside strings. Preserve its
+  // trusted indentation newlines while neutralizing the C1 range that JSON
+  // permits literally and some terminals still interpret as control bytes.
+  return JSON.stringify(value, null, 2).replace(/[\u007f-\u009f]/g, (character) => {
     return `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`;
   });
 }
@@ -413,12 +422,12 @@ async function listPlugins(): Promise<void> {
       return;
     }
 
-    log(`\nFound ${result.total} plugins:\n`, 'bright');
+    log(`\nFound ${terminalSafe(result.total)} plugins:\n`, 'bright');
 
     result.results.forEach((plugin: any) => {
-      log(`  ${plugin.id} @ ${plugin.version}`, 'cyan');
+      log(`  ${terminalSafe(plugin.id)} @ ${terminalSafe(plugin.version)}`, 'cyan');
       log(`    ${terminalSafe(plugin.description)}`, 'reset');
-      log(`    Language: ${plugin.language} | Category: ${plugin.category}`, 'reset');
+      log(`    Language: ${terminalSafe(plugin.language)} | Category: ${terminalSafe(plugin.category)}`, 'reset');
       log('');
     });
 
@@ -446,12 +455,12 @@ async function searchPlugins(query: string): Promise<void> {
       return;
     }
 
-    log(`\nFound ${result.total} matches:\n`, 'bright');
+    log(`\nFound ${terminalSafe(result.total)} matches:\n`, 'bright');
 
     result.results.forEach((plugin: any) => {
-      log(`  ${plugin.id} @ ${plugin.version}`, 'cyan');
+      log(`  ${terminalSafe(plugin.id)} @ ${terminalSafe(plugin.version)}`, 'cyan');
       log(`    ${terminalSafe(plugin.description)}`, 'reset');
-      log(`    Language: ${plugin.language} | Category: ${plugin.category}`, 'reset');
+      log(`    Language: ${terminalSafe(plugin.language)} | Category: ${terminalSafe(plugin.category)}`, 'reset');
       log('');
     });
 
@@ -479,17 +488,17 @@ async function getPluginInfo(pluginId: string): Promise<void> {
     const plugin = result.plugin || result;
 
     log(`\nPlugin: ${terminalSafe(plugin.displayName)}\n`, 'bright');
-    log(`  ID:           ${plugin.id}`, 'reset');
-    log(`  Version:      ${plugin.version}`, 'reset');
-    log(`  Language:     ${plugin.language}`, 'reset');
-    log(`  Category:     ${plugin.category}`, 'reset');
+    log(`  ID:           ${terminalSafe(plugin.id)}`, 'reset');
+    log(`  Version:      ${terminalSafe(plugin.version)}`, 'reset');
+    log(`  Language:     ${terminalSafe(plugin.language)}`, 'reset');
+    log(`  Category:     ${terminalSafe(plugin.category)}`, 'reset');
     log(`  Description:  ${terminalSafe(plugin.description)}`, 'reset');
     log(`  Author:       ${terminalSafe(plugin.author || 'N/A')}`, 'reset');
     log(`  License:      ${terminalSafe(plugin.license || 'N/A')}`, 'reset');
     log(`  Homepage:     ${terminalSafe(plugin.homepage || 'N/A')}`, 'reset');
     log(`  Repository:   ${terminalSafe(plugin.repository || 'N/A')}`, 'reset');
-    log(`  Events:       ${plugin.eventCount} total`, 'reset');
-    log(`  Downloads:    ${plugin.downloads || 0}`, 'reset');
+    log(`  Events:       ${terminalSafe(plugin.eventCount)} total`, 'reset');
+    log(`  Downloads:    ${terminalSafe(plugin.downloads || 0)}`, 'reset');
     log('');
 
     success('Plugin info retrieved');
@@ -517,8 +526,8 @@ async function getPluginSchema(pluginId: string): Promise<void> {
     const plugin = result.plugin || result;
     const schema = await registryRequest('GET', `/plugins/${org}/${name}/${plugin.version}/schema`);
 
-    log(`\nEvent Schema for ${pluginId} @ ${plugin.version}:\n`, 'bright');
-    log(JSON.stringify(schema, null, 2), 'reset');
+    log(`\nEvent Schema for ${terminalSafe(pluginId)} @ ${terminalSafe(plugin.version)}:\n`, 'bright');
+    log(terminalSafeJson(schema), 'reset');
 
     success('Schema retrieved');
   } catch (err: any) {
@@ -769,7 +778,7 @@ async function publishPlugin(): Promise<void> {
         success(`${result.status === 'unchanged' ? 'Unchanged' : 'Published'}: ${display} @ ${publishedVersion}${imagePath ? ' (with image)' : ''}`);
         published++;
       } catch (err: any) {
-        log(`  Failed to publish ${display}: ${err.message}`, 'red');
+        log(`  Failed to publish ${terminalSafe(display)}: ${terminalSafe(err.message)}`, 'red');
         errors++;
       }
     }
