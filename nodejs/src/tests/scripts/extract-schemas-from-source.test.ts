@@ -325,6 +325,24 @@ export class Iter {
 export const EventSchemas = { description: [...Iter] };
 export class Plugin { static EventSchemas = EventSchemas; }
 `, 'service-iterator-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
+
+    assert.throws(() => extractSchemaSource(`
+export class Iter {
+  static [Symbol.iterator]() { return { next: this.unsafe }; }
+  static unsafe() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return { done: true }; }
+}
+export const EventSchemas = { description: [...Iter] };
+export class Plugin { static EventSchemas = EventSchemas; }
+`, 'service-iterator-alias-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
+
+    assert.throws(() => extractSchemaSource(`
+export class Iter {
+  static [Symbol.iterator]() { return { next: Iter['unsafe'] }; }
+  static unsafe() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return { done: true }; }
+}
+export const EventSchemas = { description: [...Iter] };
+export class Plugin { static EventSchemas = EventSchemas; }
+`, 'service-iterator-class-alias-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
   });
 
   it('rejects decorators that execute while defining extracted classes', () => {
