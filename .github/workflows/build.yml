@@ -307,6 +307,7 @@ jobs:
 
   docker-nodejs:
     name: Node.js Docker image
+    if: github.event_name != 'pull_request'
     needs: [nodejs]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
@@ -365,6 +366,7 @@ jobs:
 
   docker-nodejs-vault:
     name: Node.js Vault Docker image
+    if: github.event_name != 'pull_request'
     needs: [nodejs]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
@@ -448,6 +450,7 @@ jobs:
           cache-key: go/Dockerfile
 
       - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
         continue-on-error: true
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
@@ -455,6 +458,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Check Docker Hub quota
+        if: github.event_name != 'pull_request'
         continue-on-error: true
         env:
           DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
@@ -485,6 +489,7 @@ jobs:
           cache-key: python/Dockerfile
 
       - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
         continue-on-error: true
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
@@ -492,6 +497,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Check Docker Hub quota
+        if: github.event_name != 'pull_request'
         continue-on-error: true
         env:
           DOCKER_HUB_USER: ${{ secrets.DOCKER_HUB_USER }}
@@ -522,6 +528,7 @@ jobs:
           cache-key: dotnet/BetterServiceBase/Dockerfile
 
       - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
         continue-on-error: true
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
