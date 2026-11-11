@@ -552,10 +552,18 @@ function schemaBindingNames(name: ts.BindingName): string[] {
 /** Find class methods whose function values can be reached while evaluating a validated member. */
 function schemaReferencedClassMethods(node: ts.Node, className: string | null): Set<string> {
   const referenced = new Set<string>();
-  const isClassReceiver = (expression: ts.Expression): boolean => (
-    expression.kind === ts.SyntaxKind.ThisKeyword
-    || (className !== null && ts.isIdentifier(expression) && expression.text === className)
-  );
+  const isClassReceiver = (expression: ts.Expression): boolean => {
+    let current = expression;
+    while (ts.isParenthesizedExpression(current)
+        || ts.isAsExpression(current)
+        || ts.isTypeAssertionExpression(current)
+        || ts.isNonNullExpression(current)
+        || ts.isSatisfiesExpression(current)) {
+      current = current.expression;
+    }
+    return current.kind === ts.SyntaxKind.ThisKeyword
+      || (className !== null && ts.isIdentifier(current) && current.text === className);
+  };
   const visit = (current: ts.Node): void => {
     if (ts.isPropertyAccessExpression(current) && isClassReceiver(current.expression)) {
       referenced.add(current.name.text);
@@ -885,7 +893,8 @@ function assertSafeSchemaModule(
           methods.push(member);
           methodsByName.set(methodName, methods);
         }
-        if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
+        if ((ts.isPropertyDeclaration(member) && member.initializer)
+          || ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
           || ts.isSetAccessorDeclaration(member)
           || (ts.isMethodDeclaration(member)
             && (methodName === null || REACHABLE_SCHEMA_METHODS.has(methodName)))) {
