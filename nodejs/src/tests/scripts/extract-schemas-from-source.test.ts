@@ -343,6 +343,30 @@ export class Iter {
 export const EventSchemas = { description: [...Iter] };
 export class Plugin { static EventSchemas = EventSchemas; }
 `, 'service-iterator-class-alias-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
+
+    for (const [receiver, service] of [
+      ['(this)', 'service-iterator-parenthesized-this-side-effect'],
+      ['(Iter)', 'service-iterator-parenthesized-class-side-effect'],
+      ['(this as typeof Iter)', 'service-iterator-asserted-this-side-effect'],
+    ]) {
+      assert.throws(() => extractSchemaSource(`
+export class Iter {
+  static [Symbol.iterator]() { return { next: ${receiver}.unsafe }; }
+  static unsafe() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return { done: true }; }
+}
+export const EventSchemas = { description: [...Iter] };
+export class Plugin { static EventSchemas = EventSchemas; }
+`, service, 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
+    }
+
+    assert.throws(() => extractSchemaSource(`
+export class Iter {
+  static [Symbol.iterator] = () => ({ next: this.unsafe });
+  static unsafe() { process.env.BSB_REVIEW_EXECUTED = 'yes'; return { done: true }; }
+}
+export const EventSchemas = { description: [...Iter] };
+export class Plugin { static EventSchemas = EventSchemas; }
+`, 'service-iterator-class-field-side-effect', 'external', process.cwd(), 'file:///base.js', '1.0.0'), /executable helper statement/);
   });
 
   it('rejects decorators that execute while defining extracted classes', () => {
