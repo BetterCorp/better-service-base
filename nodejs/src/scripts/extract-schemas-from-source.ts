@@ -549,6 +549,7 @@ function schemaBindingNames(name: ts.BindingName): string[] {
   return name.elements.flatMap((element) => ts.isOmittedExpression(element) ? [] : schemaBindingNames(element.name));
 }
 
+/** Find class methods whose function values can be reached while evaluating a validated member. */
 function schemaReferencedClassMethods(node: ts.Node, className: string | null): Set<string> {
   const referenced = new Set<string>();
   const isClassReceiver = (expression: ts.Expression): boolean => (
