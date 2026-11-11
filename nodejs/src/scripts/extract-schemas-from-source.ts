@@ -549,6 +549,26 @@ function schemaBindingNames(name: ts.BindingName): string[] {
   return name.elements.flatMap((element) => ts.isOmittedExpression(element) ? [] : schemaBindingNames(element.name));
 }
 
+function schemaReferencedClassMethods(node: ts.Node, className: string | null): Set<string> {
+  const referenced = new Set<string>();
+  const isClassReceiver = (expression: ts.Expression): boolean => (
+    expression.kind === ts.SyntaxKind.ThisKeyword
+    || (className !== null && ts.isIdentifier(expression) && expression.text === className)
+  );
+  const visit = (current: ts.Node): void => {
+    if (ts.isPropertyAccessExpression(current) && isClassReceiver(current.expression)) {
+      referenced.add(current.name.text);
+    } else if (ts.isElementAccessExpression(current)
+      && isClassReceiver(current.expression)
+      && ts.isStringLiteralLike(current.argumentExpression)) {
+      referenced.add(current.argumentExpression.text);
+    }
+    ts.forEachChild(current, visit);
+  };
+  visit(node);
+  return referenced;
+}
+
 function assertSafeSchemaInitializer(
   node: ts.Node,
   filePath: string,
@@ -841,6 +861,8 @@ function assertSafeSchemaModule(
       for (const clause of statement.heritageClauses ?? []) {
         for (const type of clause.types) assertSafeSchemaInitializer(type.expression, canonical, allowedCalls, directOnlyCalls);
       }
+      const methodsByName = new Map<string, ts.MethodDeclaration[]>();
+      const reachableMembers: ts.ClassElement[] = [];
       for (const member of statement.members) {
         assertNoSchemaDecorators(member, canonical);
         if (ts.isClassStaticBlockDeclaration(member)) {
@@ -857,11 +879,26 @@ function assertSafeSchemaModule(
           : member.name && ts.isComputedPropertyName(member.name) && ts.isStringLiteralLike(member.name.expression)
             ? member.name.expression.text
             : null;
+        if (ts.isMethodDeclaration(member) && methodName !== null) {
+          const methods = methodsByName.get(methodName) ?? [];
+          methods.push(member);
+          methodsByName.set(methodName, methods);
+        }
         if (ts.isConstructorDeclaration(member) || ts.isGetAccessorDeclaration(member)
           || ts.isSetAccessorDeclaration(member)
           || (ts.isMethodDeclaration(member)
             && (methodName === null || REACHABLE_SCHEMA_METHODS.has(methodName)))) {
-          assertSafeSchemaInitializer(member, canonical, allowedCalls, directOnlyCalls);
+          reachableMembers.push(member);
+        }
+      }
+      const validatedMembers = new Set<ts.ClassElement>();
+      while (reachableMembers.length > 0) {
+        const member = reachableMembers.pop()!;
+        if (validatedMembers.has(member)) continue;
+        validatedMembers.add(member);
+        assertSafeSchemaInitializer(member, canonical, allowedCalls, directOnlyCalls);
+        for (const referenced of schemaReferencedClassMethods(member, statement.name?.text ?? null)) {
+          for (const method of methodsByName.get(referenced) ?? []) reachableMembers.push(method);
         }
       }
       continue;
