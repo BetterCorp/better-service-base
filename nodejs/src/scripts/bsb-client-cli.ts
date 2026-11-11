@@ -46,7 +46,7 @@ const colors = {
 };
 
 function log(message: string, color: ColorName = 'reset'): void {
-  console.log(`${colors[color]}${message}${colors.reset}`);
+  console.log(`${colors[color]}${terminalSafe(message)}${colors.reset}`);
 }
 
 function error(message: string): never {
