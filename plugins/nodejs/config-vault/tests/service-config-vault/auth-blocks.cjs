@@ -16,7 +16,15 @@ module.exports = async ({ pluginRoot }) => {
       return count <= maximum;
     },
     async authenticationAllowed(id) { return (failures.get(id)?.failureCount ?? 0) < 5; },
-    async getUserByEmail() { return null; },
+    async getUserByEmail(email) {
+      if (email === 'inactive@example.com') return {
+        id: 'inactive-user',
+        email,
+        status: 'inactive',
+        passwordHash: 'scrypt$paWlpaWlpaWlpaWlpaWlpQ$whF1cVVIxEqgHaTNq1G9hRZCCl15nQFZCFbJvPIZEG3n9MoskVLHe0jual65dVDuqAzFeiBnM-YRGCsjlHk2Rw',
+      };
+      return null;
+    },
     async getUser() { return { email: 'admin@example.com' }; },
     async recordAuthenticationFailure(id, subject) {
       failures.set(id, { subjectHash: id, subject, failureCount: (failures.get(id)?.failureCount ?? 0) + 1 });
@@ -36,6 +44,13 @@ module.exports = async ({ pluginRoot }) => {
     },
   };
   const vault = new VaultService({ store, masterKey: Buffer.alloc(32), setupCode: 'test', publicUrl: 'http://localhost' });
+  await assert.rejects(
+    vault.login('inactive@example.com', 'not-a-real-vault-password', ''),
+    /Invalid login/,
+    'an inactive account matching the dummy verification record must remain ineligible',
+  );
+  globalAttempts.clear();
+  failures.clear();
   for (let i = 0; i < 5; i++) await assert.rejects(vault.login(' User@example.com ', 'never-record-this-password', ''), /Invalid login/);
   const id = createHash('sha256').update('login:user@example.com').digest('base64url');
   assert.deepEqual(await vault.authenticationBlocks(), [{ subjectHash: id, subject: 'login:user@example.com', failureCount: 5 }]);
