@@ -136,7 +136,7 @@ def test_rabbit_wire_confirmations_poison_and_streams(tmp_path):
         await first.init(trace)
         await second.init(second._obs.create_trace("init"))
         try:
-            deadletter = next(options for name, options in declarations if name == "test-better.service9.deadletter")
+            deadletter = next(options for name, options in declarations if name == "better.service9.deadletter-test")
             assert deadletter["arguments"] == {
                 "x-message-ttl": 86400000,
                 "x-max-length": 100000,
