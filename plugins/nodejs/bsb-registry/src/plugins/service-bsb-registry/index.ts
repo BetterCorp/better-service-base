@@ -462,7 +462,13 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     if (data.documentation.length > 20 || data.documentation.some(document => Buffer.byteLength(document, 'utf8') > 1_000_000)) {
       throw new Error('Invalid publish request: documentation exceeds publication limits');
     }
-    if ((data.dependencies?.length ?? 0) > 100) {
+    const eventSchema = data.eventSchema && typeof data.eventSchema === 'object' && !Array.isArray(data.eventSchema)
+      ? data.eventSchema as Record<string, unknown>
+      : undefined;
+    const effectiveDependencies = data.dependencies && data.dependencies.length > 0
+      ? data.dependencies
+      : eventSchema?.dependencies;
+    if (Array.isArray(effectiveDependencies) && effectiveDependencies.length > 100) {
       throw new Error('Invalid publish request: at most 100 dependencies are allowed');
     }
     for (const definition of Object.values(data.typeDefinitions ?? {})) {

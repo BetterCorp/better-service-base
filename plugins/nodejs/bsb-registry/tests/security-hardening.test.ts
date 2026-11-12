@@ -202,4 +202,12 @@ test('core publish validation applies to direct event callers', () => {
   }), /Invalid publish request: eventSchema\.events\.unsafe\.inputSchema/);
   assert.throws(() => core.validatePublishPayload({ ...base, documentation: ['x'.repeat(1_000_001)] }),
     /documentation exceeds publication limits/);
+  assert.throws(() => core.validatePublishPayload({
+    ...base,
+    eventSchema: { dependencies: Array(101).fill({ id: 'safe/dependency', version: '1.0.0' }) },
+  }), /at most 100 dependencies/);
+  assert.rejects(() => core.handlePluginPublish({} as Observable, {
+    ...base,
+    metadata: { ...base.metadata, tags: Array(31).fill('tag') },
+  }), /at most 30 tags/);
 });

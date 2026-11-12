@@ -33,7 +33,7 @@ Vault bootstrap settings use environment variables `vaultUrl`, `apiKeyId`, `apiS
 
 `events-default` provides in-process events and bounded streams. A stream timeout limits registration until claim, then starts a fresh transfer deadline. `events-rabbitmq` uses `platformKey`, `endpoints`, `credentials.username/password`, `uniqueId`, `prefetch` (10), and `fatalOnDisconnect` (true); an omitted or null `uniqueId` falls back to the hostname. Producer and consumer declare matching durable RPC/event queues, preserving requests sent before a listener starts. Replies are confirmed before acknowledging requests. Failed deliveries are requeued up to ten times; poison counts are process-local. With `fatalOnDisconnect=false`, consumers restore topology and publications reconnect. Active streams do not resume across disconnects.
 
-The shared dead-letter queue retains messages for 24 hours and is bounded to 100,000 messages or 256 MiB with oldest-message eviction. Drain and recreate an existing queue during maintenance before upgrading because RabbitMQ does not allow these declaration arguments to change in place.
+The shared dead-letter queue retains messages for 24 hours and is bounded to 100,000 messages or 256 MiB with oldest-message eviction. Before upgrading, stop every old application instance, drain and recreate the existing queue during maintenance, deploy the upgrade, and only then restart the applications; RabbitMQ does not allow these declaration arguments to change in place.
 
 ```sh
 bsb client info @org/service-orders --source-language nodejs

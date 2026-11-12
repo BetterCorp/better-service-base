@@ -37,7 +37,7 @@
     "url": "https://bettercorp.dev/"
   },
   "dependencies": {
-    "@bsb/base": "^9.1.11",
+    "@bsb/base": "^9.7.0",
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^10.1.1",
     "@fastify/rate-limit": "^11.2.0",

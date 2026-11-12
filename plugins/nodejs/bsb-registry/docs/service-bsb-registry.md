@@ -52,13 +52,13 @@ All operations are exposed as returnable events. The UI/API plugin (or any other
 | Event | Input | Output | Description |
 |-------|-------|--------|-------------|
 | `registry.plugin.publish` | PublishRequest including `token?` | PublishResponse | Publish a new plugin version |
-
-All publication transports are validated again in the Registry core. The shared boundary limits the serialized request to 10 MiB, documentation to 20 files and 1 MB per file, type definitions to 5 MB each, dependencies to 100, tags to 30, and events to 1,000. Supplied configuration and event schemas must import as safe AnyVali documents; direct event callers do not bypass these checks.
 | `registry.plugin.get` | `{ org, name, version? }` | RegistryEntry | Get plugin details (latest if no version) |
 | `registry.plugin.list` | ListQuery | ListResults | List plugins with filtering and pagination |
 | `registry.plugin.search` | SearchQuery | SearchResults | Full-text search across names, tags, descriptions |
 | `registry.plugin.delete` | `{ org, name, version?, token? }` | `{ success, deleted }` | Delete a plugin or specific version |
 | `registry.plugin.versions` | `{ org, name, majorMinor? }` | VersionList | Get all versions of a plugin |
+
+All publication transports are validated again in the Registry core. The shared boundary limits the serialized request to 10 MiB, documentation to 20 files and 1 MB per file, type definitions to 5 MB each, dependencies to 100, tags to 30, and events to 1,000. Supplied configuration and event schemas must import as safe AnyVali documents; direct event callers do not bypass these checks.
 
 ### Stats and Auth
 
@@ -96,18 +96,20 @@ The publish request is the primary write operation. The body is validated by the
         "type": "returnable",
         "category": "onReturnableEvents",
         "description": "Does something",
-        "inputSchema": { "type": "object", "properties": {} },
-        "outputSchema": { "type": "object", "properties": {} }
+        "inputSchema": { "root": { "kind": "object", "properties": {} } },
+        "outputSchema": { "root": { "kind": "object", "properties": {} } }
       }
     },
     "dependencies": []
   },
   "configSchema": {
-    "type": "object",
-    "properties": {
-      "port": { "type": "number", "default": 3000, "description": "Server port" }
-    },
-    "required": ["port"]
+    "root": {
+      "kind": "object",
+      "properties": {
+        "port": { "kind": "int32", "default": 3000, "description": "Server port" }
+      },
+      "required": ["port"]
+    }
   },
   "documentation": [
     "# My Plugin\n\nThis is the main readme content...",
