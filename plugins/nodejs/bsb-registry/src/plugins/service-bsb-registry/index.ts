@@ -11,6 +11,7 @@ import {
   normalizePluginLanguage,
   PLUGIN_LANGUAGES,
   assertSafeSchemaDocument,
+  parseRegistryPluginId,
   type PluginLanguage,
 } from '@bsb/base';
 import { type RegistryDB, createStorage } from './db/index.js';
@@ -468,8 +469,30 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     const effectiveDependencies = data.dependencies && data.dependencies.length > 0
       ? data.dependencies
       : eventSchema?.dependencies;
-    if (Array.isArray(effectiveDependencies) && effectiveDependencies.length > 100) {
-      throw new Error('Invalid publish request: at most 100 dependencies are allowed');
+    if (effectiveDependencies !== undefined) {
+      if (!Array.isArray(effectiveDependencies)) {
+        throw new Error('Invalid publish request: dependencies must be an array');
+      }
+      if (effectiveDependencies.length > 100) {
+        throw new Error('Invalid publish request: at most 100 dependencies are allowed');
+      }
+      for (const dependency of effectiveDependencies) {
+        if (!dependency || typeof dependency !== 'object' || Array.isArray(dependency)) {
+          throw new Error('Invalid publish request: dependency must be an object');
+        }
+        const { id, version } = dependency as Record<string, unknown>;
+        if (typeof id !== 'string') {
+          throw new Error('Invalid publish request: dependency id must be a string');
+        }
+        try {
+          parseRegistryPluginId(id);
+        } catch {
+          throw new Error('Invalid publish request: dependency id is invalid');
+        }
+        if (typeof version !== 'string' || version.length < 1 || version.length > 50 || /[\u0000-\u001f\u007f]/.test(version)) {
+          throw new Error('Invalid publish request: dependency version is invalid');
+        }
+      }
     }
     for (const definition of Object.values(data.typeDefinitions ?? {})) {
       if (definition !== undefined && Buffer.byteLength(definition, 'utf8') > 5_000_000) {

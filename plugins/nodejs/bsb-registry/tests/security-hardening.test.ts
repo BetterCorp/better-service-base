@@ -206,6 +206,13 @@ test('core publish validation applies to direct event callers', () => {
     ...base,
     eventSchema: { dependencies: Array(101).fill({ id: 'safe/dependency', version: '1.0.0' }) },
   }), /at most 100 dependencies/);
+  assert.throws(() => core.validatePublishPayload({ ...base, eventSchema: { dependencies: 'invalid' } }),
+    /dependencies must be an array/);
+  assert.throws(() => core.validatePublishPayload({ ...base, eventSchema: { dependencies: [null] } }),
+    /dependency must be an object/);
+  assert.throws(() => core.validatePublishPayload({
+    ...base, eventSchema: { dependencies: [{ id: '../escape', version: '1.0.0' }] },
+  }), /dependency id is invalid/);
   assert.rejects(() => core.handlePluginPublish({} as Observable, {
     ...base,
     metadata: { ...base.metadata, tags: Array(31).fill('tag') },
