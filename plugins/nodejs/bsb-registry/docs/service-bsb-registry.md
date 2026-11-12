@@ -52,6 +52,8 @@ All operations are exposed as returnable events. The UI/API plugin (or any other
 | Event | Input | Output | Description |
 |-------|-------|--------|-------------|
 | `registry.plugin.publish` | PublishRequest including `token?` | PublishResponse | Publish a new plugin version |
+
+All publication transports are validated again in the Registry core. The shared boundary limits the serialized request to 10 MiB, documentation to 20 files and 1 MB per file, type definitions to 5 MB each, dependencies to 100, tags to 30, and events to 1,000. Supplied configuration and event schemas must import as safe AnyVali documents; direct event callers do not bypass these checks.
 | `registry.plugin.get` | `{ org, name, version? }` | RegistryEntry | Get plugin details (latest if no version) |
 | `registry.plugin.list` | ListQuery | ListResults | List plugins with filtering and pagination |
 | `registry.plugin.search` | SearchQuery | SearchResults | Full-text search across names, tags, descriptions |

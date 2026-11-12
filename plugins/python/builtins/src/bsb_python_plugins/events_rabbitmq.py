@@ -84,7 +84,12 @@ class Plugin(BSBEvents):
         self.publisher = await self._connections[0].channel(publisher_confirms=True, on_return_raises=True)
         self.deadletter = self.platform("better.service9.deadletter")
         exchange = await self.publisher.declare_exchange(self.deadletter, "topic", durable=True)
-        queue = await self.publisher.declare_queue(self.deadletter, durable=True, arguments={"x-message-ttl": 604800000})
+        queue = await self.publisher.declare_queue(self.deadletter, durable=True, arguments={
+            "x-message-ttl": 86400000,
+            "x-max-length": 100000,
+            "x-max-length-bytes": 256 * 1024 * 1024,
+            "x-overflow": "drop-head",
+        })
         await queue.bind(exchange, "#")
         self.broadcast = await self.publisher.declare_exchange(self.platform("better.service9.broadcast.direct"), "direct")
         await self.consume(self.queue("91kr", self.my_id), 60000, True, self.reply)

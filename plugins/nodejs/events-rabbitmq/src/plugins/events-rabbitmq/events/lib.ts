@@ -14,6 +14,9 @@ export class LIB {
   public static readonly MAX_DELIVERY_ATTEMPTS = 10;
   public static readonly MAX_MESSAGE_BYTES = 16 * 1024 * 1024;
   public static readonly MAX_TRACKED_DELIVERIES = 4096;
+  public static readonly DEAD_LETTER_TTL_MS = 24 * 60 * 60 * 1000;
+  public static readonly DEAD_LETTER_MAX_MESSAGES = 100_000;
+  public static readonly DEAD_LETTER_MAX_BYTES = 256 * 1024 * 1024;
   public static readonly deadLetterExchange = "better.service9.deadletter";
   public static readonly deadLetterQueue = "better.service9.deadletter";
 
@@ -121,7 +124,12 @@ export class LIB {
     await channel.assertQueue(queue, {
       durable: true,
       autoDelete: false,
-      messageTtl: 7 * 24 * 60 * 60 * 1000,
+      messageTtl: LIB.DEAD_LETTER_TTL_MS,
+      maxLength: LIB.DEAD_LETTER_MAX_MESSAGES,
+      arguments: {
+        "x-max-length-bytes": LIB.DEAD_LETTER_MAX_BYTES,
+        "x-overflow": "drop-head",
+      },
     });
     await channel.bindQueue(queue, exchange, "#");
   }

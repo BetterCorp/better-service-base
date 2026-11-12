@@ -171,3 +171,35 @@ test('concurrent organization claims grant write access only to the winner', asy
     assert.deepEqual(members.map((member) => member.userId), [(winners[0] as PromiseFulfilledResult<string>).value]);
   } finally { await rm(dataDir, { recursive: true, force: true }); }
 });
+
+test('core publish validation applies to direct event callers', () => {
+  const core = Object.create(RegistryPlugin.prototype) as any;
+  const base = {
+    org: 'safe-org',
+    name: 'safe-plugin',
+    version: '1.0.0',
+    language: 'nodejs',
+    metadata: {
+      displayName: 'Safe plugin', description: 'Safe plugin description', category: 'service', tags: [],
+    },
+    eventSchema: {},
+    documentation: ['# Safe plugin'],
+  };
+
+  assert.doesNotThrow(() => core.validatePublishPayload(base));
+  assert.throws(() => core.validatePublishPayload({ ...base, metadata: { ...base.metadata, tags: Array(31).fill('tag') } }),
+    /at most 30 tags/);
+  assert.throws(() => core.validatePublishPayload({
+    ...base,
+    eventSchema: {
+      events: {
+        unsafe: {
+          inputSchema: { root: { kind: 'string', pattern: '(a+)+$' } },
+          outputSchema: null,
+        },
+      },
+    },
+  }), /Invalid publish request: eventSchema\.events\.unsafe\.inputSchema/);
+  assert.throws(() => core.validatePublishPayload({ ...base, documentation: ['x'.repeat(1_000_001)] }),
+    /documentation exceeds publication limits/);
+});

@@ -75,6 +75,29 @@ test('a channel disconnect during nack does not become an unhandled consumer rej
   assert.equal(attempts.size, 0);
 });
 
+test('dead-letter topology has bounded count, bytes and retention', async () => {
+  const queues: Array<{ name: string; options: any }> = [];
+  const channel = {
+    assertExchange: async () => {},
+    assertQueue: async (name: string, options: any) => { queues.push({ name, options }); },
+    bindQueue: async () => {},
+  } as any;
+  await LIB.setupDeadLetterQueue({ getPlatformName: (name: string) => `test-${name}` } as any, channel);
+  assert.deepEqual(queues, [{
+    name: 'test-better.service9.deadletter',
+    options: {
+      durable: true,
+      autoDelete: false,
+      messageTtl: 86_400_000,
+      maxLength: 100_000,
+      arguments: {
+        'x-max-length-bytes': 256 * 1024 * 1024,
+        'x-overflow': 'drop-head',
+      },
+    },
+  }]);
+});
+
 test('RPC queue declaration, response cleanup, missing listener, publish failure and disposal', async () => {
   const { rpc, transport, queues } = setup();
   await transport.onReturnableEvent(obs, 'service', 'event', async () => 42);
