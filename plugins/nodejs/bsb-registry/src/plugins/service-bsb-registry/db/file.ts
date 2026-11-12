@@ -307,6 +307,14 @@ export class FileDB implements RegistryDB {
   async claimOrganization(obs: Observable, orgId: string, userId: string): Promise<boolean> {
     const span = obs.startSpan('FileDB.claimOrganization', { orgId, userId });
     try {
+      // A registry may predate organization ownership records. Never let the
+      // first authenticated publisher claim a namespace that already contains
+      // legacy packages; an administrator must migrate that ownership first.
+      const legacyOrgDir = safeChild(this.pluginsDir, orgId);
+      if (fs.existsSync(legacyOrgDir) && fs.readdirSync(legacyOrgDir, { withFileTypes: true })
+        .some(entry => entry.isDirectory())) {
+        return false;
+      }
       const org: Organization = {
         id: orgId,
         name: orgId,

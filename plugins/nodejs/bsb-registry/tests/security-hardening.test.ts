@@ -172,6 +172,26 @@ test('concurrent organization claims grant write access only to the winner', asy
   } finally { await rm(dataDir, { recursive: true, force: true }); }
 });
 
+test('legacy populated namespaces cannot be claimed by a new publisher', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-legacy-org-'));
+  try {
+    const db = new FileDB(dataDir);
+    await db.init(obs);
+    await db.insert(obs, {
+      id: 'legacy-org/existing',
+      org: 'legacy-org',
+      name: 'existing',
+      version: '1.0.0',
+      publishedAt: '2025-01-01T00:00:00.000Z',
+    } as any);
+
+    assert.equal(await db.claimOrganization(obs, 'legacy-org', 'attacker'), false);
+    assert.equal(await db.getOrganization(obs, 'legacy-org'), null);
+    assert.equal(await db.claimOrganization(obs, 'empty-org', 'publisher'), true);
+    assert.deepEqual((await db.getOrgMembers(obs, 'empty-org')).map(member => member.userId), ['publisher']);
+  } finally { await rm(dataDir, { recursive: true, force: true }); }
+});
+
 test('core publish validation applies to direct event callers', () => {
   const core = Object.create(RegistryPlugin.prototype) as any;
   const base = {
