@@ -39,7 +39,7 @@
   "dependencies": {
     "@bsb/base": "^9.1.11",
     "@fastify/cors": "^11.2.0",
-    "@fastify/multipart": "^10.1.1",
+    "@fastify/multipart": "^10.1.8",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/static": "^10.1.10",
     "@fastify/view": "^12.0.0",
