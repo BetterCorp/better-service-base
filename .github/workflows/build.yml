@@ -288,7 +288,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
+      - uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267 # v2
         with:
           cache-key: rust/Dockerfile
       - uses: useblacksmith/build-push-action@9b0579bbec7a6cad2f171596c57e7ac1e7658850 # v2
@@ -317,7 +317,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267 # v2
         with:
           cache-key: nodejs/Dockerfile
 
@@ -376,7 +376,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267 # v2
         with:
           cache-key: plugins/nodejs/config-vault/Dockerfile
 
@@ -445,7 +445,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267 # v2
         with:
           cache-key: go/Dockerfile
 
@@ -484,7 +484,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267 # v2
         with:
           cache-key: python/Dockerfile
 
@@ -523,7 +523,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@19215110ab936351210feebdfa5b440b4493e184 # v2
+        uses: useblacksmith/setup-docker-builder@06dd9c83a5d541274d2e3ac67625560979275267 # v2
         with:
           cache-key: dotnet/BetterServiceBase/Dockerfile
 
