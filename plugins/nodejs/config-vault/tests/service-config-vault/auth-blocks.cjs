@@ -102,10 +102,15 @@ module.exports = async ({ pluginRoot }) => {
     store, masterKey: Buffer.alloc(32), setupCode: 'test', publicUrl: 'http://localhost',
     authenticationBudgets: { runtime: 10_000 },
   });
-  for (let i = 0; i < 10_000; i++) {
-    await assert.rejects(runtimeVault.resolveRuntimeConfig(`fabricated-${i}`, 'wrong'),
-      /Invalid Vault API key|Too many authentication attempts/);
-  }
+  await Promise.all(Array.from({ length: 10_000 }, (_, i) =>
+    assert.rejects(runtimeVault.resolveRuntimeConfig(`fabricated-${i}`, 'wrong'),
+      /Invalid Vault API key|Too many authentication attempts/)));
+  const restartedRuntimeVault = new VaultService({
+    store, masterKey: Buffer.alloc(32), setupCode: 'test', publicUrl: 'http://localhost',
+    authenticationBudgets: { runtime: 10_000 },
+  });
+  await assert.rejects(restartedRuntimeVault.resolveRuntimeConfig('fabricated-after-restart', 'wrong'),
+    /Too many authentication attempts/);
   assert.deepEqual([...failures.values()].map((failure) => failure.subject), ['runtime:unknown'],
     'rotating runtime key IDs created independent lockout rows');
   assert.equal(globalAttempts.size, 1, 'rotating runtime key IDs created multiple shared-budget rows');
