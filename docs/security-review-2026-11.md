@@ -6,6 +6,33 @@ Node/TypeScript, Python, Go, .NET, and Rust. The review also rechecked the Vault
 Registry authorization fixes from PRs #123–#128 and the initial supply-chain change
 merged in PR #143.
 
+## Reconciliation review — 14 November 2026
+
+The latest review revalidated authentication, authorization, input validation,
+plugin loading, secrets, dependencies, containers, and CI against `master` at
+`feebec1826535089ddccb2f4e7b4fb45bb65c0cb` and the open hardening branch.
+
+- **Medium:** RabbitMQ receive streams acknowledged chunks even when Node signaled
+  backpressure, allowing broker delivery to outrun application consumption. The
+  receiver now defers acknowledgement until `_read()` resumes demand and enforces
+  a 256 MiB aggregate stream limit.
+- **Medium:** the Rust lockfile contained `quinn-proto` 0.11.18,
+  `quinn-udp` 0.5.15, `rustix` 1.1.4, and Tokio 1.53.1, which are affected by
+  RUSTSEC-2026-0524, RUSTSEC-2026-0523, RUSTSEC-2026-0538,
+  RUSTSEC-2026-0486, and RUSTSEC-2026-0386. The lockfile now selects patched
+  releases; the complete locked Rust workspace test suite passes.
+- **Medium:** the file Registry still materializes and sorts all package versions
+  before visibility filtering and pagination. Issue #157 tracks an indexed,
+  authorized query that bounds internal work.
+- **Low:** fabricated Vault runtime credentials can append unique immutable audit
+  rows until storage capacity is exhausted. Issue #182 tracks aggregation and
+  bounded enqueueing without weakening integrity or fail-closed behavior.
+
+The hosted high-reasoning scan could not be queued after three attempts because
+the scanner returned a transient service error. The source review and native CI
+checks were therefore used directly; the hosted scan remains an unavailable
+check, not a clean result.
+
 ## Reconciliation review — 9 November 2026
 
 A fresh high-reasoning scan reviewed merged `master` at `087f1578`. The scan
