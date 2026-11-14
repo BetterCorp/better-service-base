@@ -47,12 +47,11 @@ Post-merge review found and fixed four edge cases before release:
   backpressure separately from failure, notifies timeout listeners independently
   of the broker, and contains detached-listener failures.
 
-The scan also reconfirmed the open design items documented below: legacy Registry
-namespace migration, validation at the core Registry event boundary, exact package
-lookup indexing, Vault dummy-hash timing equalization, stream-consumer backpressure
-and bounded dead-letter retention. These require
-storage migration or cross-language transport policy rather than a compatibility-
-safe point fix.
+The scan also reconfirmed the design items documented below. The follow-up branch
+now protects legacy Registry namespaces, validates every Registry publication
+transport, bounds cross-language dead-letter storage, and couples Node stream
+acknowledgement to consumer demand. Exact package lookup indexing and bounded
+Vault audit retention remain open storage-capacity work.
 
 ## Follow-up review — 8 November 2026
 
@@ -80,11 +79,11 @@ independently checked against the source and reconciled as follows:
 | Medium | Registry CLI responses had neither cumulative byte caps nor total deadlines (`nodejs/src/scripts/bsb-client-cli.ts`). | **Fixed in this change.** Enforce an 8 MiB cap, destroy oversized responses, validate timeout configuration, and apply a total request deadline. |
 | Medium | Publish-manifest image paths could escape the project and be uploaded with Registry credentials (`nodejs/src/scripts/bsb-client-cli.ts`). | **Fixed in this change.** Require a canonical regular file under the project root and cap it at 5 MiB. |
 | Medium | Manifest plugin IDs could select schemas outside `lib/schemas` (`nodejs/src/scripts/bsb-client-cli.ts`). | **Fixed in this change.** Enforce a single safe plugin-ID segment plus canonical project containment and a 4 MiB schema cap. |
-| Medium | Auth-disabled file storage can contain populated namespaces without organization records; enabling auth lets the first create-org user claim them (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry/index.ts`, `db/file.ts`). | **Open design migration.** Before enabling auth, require an administrator-approved ownership migration; reject claims for populated unowned namespaces and add an auth-transition regression. |
-| Medium | Direct `registry.plugin.publish` event callers bypass the HTTP transport's schema-safety and aggregate-size validation (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry/index.ts`). | **Open defense-in-depth item.** Move bounded structural/schema validation into the core handler or a shared validator invoked by every transport. |
+| Medium | Auth-disabled file storage can contain populated namespaces without organization records; enabling auth lets the first create-org user claim them (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry/index.ts`, `db/file.ts`). | **Fixed in the follow-up branch.** Populated namespaces without ownership metadata cannot be claimed; an administrator must complete the documented migration. |
+| Medium | Direct `registry.plugin.publish` event callers bypass the HTTP transport's schema-safety and aggregate-size validation (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry/index.ts`). | **Fixed in the follow-up branch.** Shared core validation now applies structural, schema, count, depth, and aggregate-size limits to every transport. |
 | Medium | Unknown RabbitMQ stream correlations were left unacknowledged and could exhaust prefetch (`plugins/nodejs/events-rabbitmq/.../emitStreamAndReceiveStream.ts`). | **Fixed in the post-merge follow-up.** Reject unmatched deliveries without requeue so they are settled through the configured dead-letter path. |
-| Medium | Node RabbitMQ stream chunks are acknowledged even when `Readable.push()` reports backpressure (`plugins/nodejs/events-rabbitmq/.../emitStreamAndReceiveStream.ts`). | **Open transport item.** Pause acknowledgement/consumption until demand resumes and enforce an aggregate byte limit. |
-| Medium | Node, Go, Python, Rust, and .NET transports configure a durable seven-day dead-letter queue without a count/byte ceiling. | **Open cross-language item.** Add `x-max-length-bytes`, an explicit overflow policy, tenant/service separation, reduced retention, and a broker-capacity regression. |
+| Medium | Node RabbitMQ stream chunks are acknowledged even when `Readable.push()` reports backpressure (`plugins/nodejs/events-rabbitmq/.../emitStreamAndReceiveStream.ts`). | **Fixed in the follow-up branch.** Acknowledgement is deferred until `_read()` signals renewed demand; cleanup settles accepted buffers and each stream has a 256 MiB aggregate cap. |
+| Medium | Node, Go, Python, Rust, and .NET transports configure a durable seven-day dead-letter queue without a count/byte ceiling. | **Fixed in the follow-up branch.** Every runtime declares 24-hour retention, 100,000-message and 256 MiB ceilings with oldest-message eviction; existing queues require the documented one-time recreation. |
 | Low | Unknown/inactive Vault users skipped scrypt while active administrators executed it, exposing an email-existence timing signal (`plugins/nodejs/config-vault/src/plugins/service-config-vault/vault.ts`). | **Fixed in the 2026-11-10 follow-up.** Every admitted login now performs exactly one valid scrypt verification; unknown, inactive, and passwordless users use a fixed dummy record and remain ineligible even if its comparison matches. |
 | Low | Fabricated runtime credentials append immutable audit rows; sustained traffic can consume audit capacity and trip the fail-closed control plane (`plugins/nodejs/config-vault/src/plugins/service-config-vault/store.ts`). | **Open capacity item.** Aggregate unknown-key failures, bound audit enqueueing, and partition/archive integrity-protected audit data. |
 | Low | Public exact package lookup repeatedly scans and sorts the file registry (`plugins/nodejs/bsb-registry/src/plugins/service-bsb-registry-ui/http-server.ts`, `db/file.ts`). | **Open performance hardening.** Add an indexed exact-ID query and charge rate limits by internal work. |
