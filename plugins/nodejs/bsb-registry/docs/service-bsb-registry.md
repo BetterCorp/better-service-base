@@ -27,6 +27,15 @@ service-bsb-registry:
   database:
     type: file                   # 'file' or 'postgres'
     path: ./.temp/data           # file storage directory (type: file)
+    publicationLimits:
+      maxEntryBytes: 10485760
+      maxVersionsPerPackage: 200
+      maxPackagesPerOrganization: 5000
+      maxPackagesPerPublisher: 2500
+      maxBytesPerOrganization: 1073741824
+      maxBytesPerPublisher: 536870912
+      maxPublicationsPerMinute: 120
+      maxTotalVersions: 100000
   auth:
     requireAuth: true            # require bearer token for write operations
 ```
@@ -35,9 +44,25 @@ service-bsb-registry:
 |--------|------|---------|-------------|
 | `database.type` | `'file'` or `'postgres'` | `'file'` | Storage backend |
 | `database.path` | string | `./.temp/data` | Directory for file-based storage |
+| `database.publicationLimits.maxEntryBytes` | integer | `10485760` | Maximum encoded bytes in one immutable version |
+| `database.publicationLimits.maxVersionsPerPackage` | integer | `200` | Versions retained for one org/name/language package |
+| `database.publicationLimits.maxPackagesPerOrganization` | integer | `5000` | Distinct package implementations owned by one organization |
+| `database.publicationLimits.maxPackagesPerPublisher` | integer | `2500` | Distinct package implementations created by one publisher |
+| `database.publicationLimits.maxBytesPerOrganization` | integer | `1073741824` | Stored version bytes attributed to one organization |
+| `database.publicationLimits.maxBytesPerPublisher` | integer | `536870912` | Stored version bytes attributed to one publisher |
+| `database.publicationLimits.maxPublicationsPerMinute` | integer | `120` | Successful publishes per organization and publisher per minute |
+| `database.publicationLimits.maxTotalVersions` | integer | `100000` | Global file-backend version ceiling |
 | `auth.requireAuth` | boolean | `true` | Require authentication for publish/delete |
 
 Absolute database paths are used unchanged. Relative paths retain the existing Node.js behaviour and resolve from the service process working directory. The directory is created automatically during initialization and is never placed under the versioned plugin directory.
+
+The file backend maintains `registry-index-v1.json`, a compact metadata/access
+index that excludes schemas, documentation, capabilities and type definitions.
+List, search, statistics and exact package queries authorize and paginate this
+index before loading full immutable records, so request memory is independent of
+stored payload size. Existing storage is indexed once on first access. The file
+backend remains single-writer; stop the Registry and remove the index before
+manually changing version files so it can be rebuilt safely.
 
 ## Scope and extension boundary
 

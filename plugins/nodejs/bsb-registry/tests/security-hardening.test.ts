@@ -59,7 +59,7 @@ test('file storage rejects paths outside its data directory', async () => {
   }
 });
 
-test('registry index is reused, invalidated by writes, and applies permissions on every read', async () => {
+test('registry index is reused, updated by writes, and applies permissions on every read', async () => {
   const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-index-'));
   try {
     const db = new FileDB(dataDir);
@@ -76,7 +76,7 @@ test('registry index is reused, invalidated by writes, and applies permissions o
     assert.equal((await db.list(obs, {})).total, 2);
     await db.delete(obs, 'org', 'plugin');
     assert.equal((await db.list(obs, {})).total, 1);
-    assert.equal(scans, 3);
+    assert.equal(scans, 1);
   } finally { await rm(dataDir, { recursive: true, force: true }); }
 });
 
@@ -92,6 +92,9 @@ test('registry index tolerates removed directories but propagates other IO error
         const entry = { id: 'org/plugin', org: 'org', name: 'plugin', version: '1.0.0', publishedAt: '2026-01-01T00:00:00Z' } as any;
         await db.delete(obs, 'org', 'plugin');
         await db.insert(obs, entry);
+        await rm(join(dataDir, 'registry-index-v1.json'), { force: true });
+        const reopened = new FileDB(dataDir);
+        await reopened.init(obs);
         let intercepted = false;
         const mocked = t.mock.method(fs, 'readdir', async (...args: any[]) => {
           if (args[0] === directory) {
@@ -101,13 +104,85 @@ test('registry index tolerates removed directories but propagates other IO error
           return (readDirectory as any)(...args);
         });
         try {
-          if (code === 'ENOENT') assert.equal((await db.list(obs, {})).total, 0);
-          else await assert.rejects(db.list(obs, {}), { code });
+          if (code === 'ENOENT') assert.equal((await reopened.list(obs, {})).total, 0);
+          else await assert.rejects(reopened.list(obs, {}), { code });
           assert.ok(intercepted);
         } finally { mocked.mock.restore(); }
-        if (code === 'EACCES') assert.equal((await db.list(obs, {})).total, 1);
+        if (code === 'EACCES') assert.equal((await reopened.list(obs, {})).total, 1);
       }
     }
+  } finally { await rm(dataDir, { recursive: true, force: true }); }
+});
+
+test('compact Registry index loads only the authorized page and supports exact package lookup', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-compact-index-'));
+  try {
+    const db = new FileDB(dataDir);
+    await db.init(obs);
+    const base = {
+      org: 'org', displayName: 'Plugin', description: 'description', version: '1.0.0', majorMinor: '1.0',
+      language: 'nodejs', category: 'service', tags: [], eventSchema: {}, eventCount: 0, emitEventCount: 0,
+      onEventCount: 0, returnableEventCount: 0, broadcastEventCount: 0, publishedBy: 'publisher',
+      publishedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', downloads: 0,
+    } as const;
+    await db.insert(obs, { ...base, id: 'org/one', name: 'one', visibility: 'public', package: { nodejs: '@pkg/one' },
+      documentation: ['x'.repeat(100_000)] } as any);
+    await db.insert(obs, { ...base, id: 'org/two', name: 'two', visibility: 'private', package: { nodejs: '@pkg/two' },
+      documentation: ['y'.repeat(100_000)] } as any);
+
+    const reopened = new FileDB(dataDir);
+    await reopened.init(obs);
+    const readJson = (reopened as any).readJson.bind(reopened);
+    let fullEntriesRead = 0;
+    (reopened as any).readJson = (file: string) => {
+      if (file.includes(`${join('plugins', 'org')}`)) fullEntriesRead++;
+      return readJson(file);
+    };
+    const page = await reopened.list(obs, { limit: 1, offset: 0 }, async (entry) => entry.visibility === 'public');
+    assert.equal(page.total, 1);
+    assert.equal(page.results[0].name, 'one');
+    assert.equal(fullEntriesRead, 1, 'list parsed payloads outside the authorized page');
+    fullEntriesRead = 0;
+    const exact = await reopened.list(obs, { language: 'nodejs', packageName: '@pkg/one', limit: 100, offset: 0 });
+    assert.deepEqual(exact.results.map((entry) => entry.id), ['org/one']);
+    assert.equal(fullEntriesRead, 1, 'exact package lookup parsed unrelated payloads');
+    const persisted = JSON.parse(await readFile(join(dataDir, 'registry-index-v1.json'), 'utf8'));
+    assert.equal(JSON.stringify(persisted).includes('x'.repeat(100)), false, 'compact index retained documentation payloads');
+  } finally { await rm(dataDir, { recursive: true, force: true }); }
+});
+
+test('file Registry enforces publication quotas atomically', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-quotas-'));
+  try {
+    const db = new FileDB(dataDir, {
+      maxEntryBytes: 20_000,
+      maxVersionsPerPackage: 2,
+      maxPackagesPerOrganization: 2,
+      maxPackagesPerPublisher: 2,
+      maxBytesPerOrganization: 30_000,
+      maxBytesPerPublisher: 30_000,
+      maxPublicationsPerMinute: 3,
+      maxTotalVersions: 10,
+    });
+    await db.init(obs);
+    const entry = (name: string, version: string, padding = '') => ({
+      id: `org/${name}`, org: 'org', name, displayName: name, description: 'description', version,
+      majorMinor: version.split('.').slice(0, 2).join('.'), language: 'nodejs', category: 'service', tags: [],
+      visibility: 'public', eventSchema: {}, documentation: [padding], eventCount: 0, emitEventCount: 0,
+      onEventCount: 0, returnableEventCount: 0, broadcastEventCount: 0, publishedBy: 'publisher',
+      publishedAt: `2026-01-01T00:00:0${version[0]}Z`, updatedAt: '2026-01-01T00:00:00Z', downloads: 0,
+    }) as any;
+    await db.insert(obs, entry('one', '1.0.0'));
+    const concurrent = await Promise.allSettled([
+      db.insert(obs, entry('one', '1.0.1')),
+      db.insert(obs, entry('one', '1.0.2')),
+    ]);
+    assert.equal(concurrent.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal((await db.getVersions(obs, 'org', 'one')).length, 2);
+    await db.insert(obs, entry('two', '2.0.0'));
+    await assert.rejects(db.insert(obs, entry('three', '3.0.0')), /package quota|rate quota/);
+    await assert.rejects(db.insert(obs, entry('large', '4.0.0', 'x'.repeat(25_000))), /entry limit/);
+    assert.equal((await db.list(obs, {})).total, 2);
   } finally { await rm(dataDir, { recursive: true, force: true }); }
 });
 

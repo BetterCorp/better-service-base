@@ -27,6 +27,25 @@ export const RegistryConfigSchema = av.object({
   database: av.object({
     type: av.enum_(['file', 'postgres'] as const).default('file').describe('Storage backend used by the registry database'),
     path: av.string().default('./.temp/data').describe('Filesystem path used by the file storage backend'),
+    publicationLimits: av.object({
+      maxEntryBytes: av.int32().min(1).default(10 * 1024 * 1024),
+      maxVersionsPerPackage: av.int32().min(1).default(200),
+      maxPackagesPerOrganization: av.int32().min(1).default(5_000),
+      maxPackagesPerPublisher: av.int32().min(1).default(2_500),
+      maxBytesPerOrganization: av.int32().min(1).default(1024 * 1024 * 1024),
+      maxBytesPerPublisher: av.int32().min(1).default(512 * 1024 * 1024),
+      maxPublicationsPerMinute: av.int32().min(1).default(120),
+      maxTotalVersions: av.int32().min(1).default(100_000),
+    }).describe('File-backend publication quotas').default({
+      maxEntryBytes: 10 * 1024 * 1024,
+      maxVersionsPerPackage: 200,
+      maxPackagesPerOrganization: 5_000,
+      maxPackagesPerPublisher: 2_500,
+      maxBytesPerOrganization: 1024 * 1024 * 1024,
+      maxBytesPerPublisher: 512 * 1024 * 1024,
+      maxPublicationsPerMinute: 120,
+      maxTotalVersions: 100_000,
+    }),
   }).describe('Registry database configuration'),
   auth: av.object({
     requireAuth: av.bool().default(true).describe('Whether write operations require API token authentication'),
@@ -208,6 +227,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
     this.storage = createStorage({
       type: this.config.database.type,
       path: this.config.database.path,
+      publicationLimits: this.config.database.publicationLimits,
     });
 
     // Create auth manager -- delegates all storage to the same RegistryDB

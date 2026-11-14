@@ -46,6 +46,9 @@ service-bsb-registry:
   database:
     type: file                   # 'file' or 'postgres'
     path: ./.temp/data           # runtime data directory
+    publicationLimits:           # bounded file-backend growth
+      maxVersionsPerPackage: 200
+      maxPublicationsPerMinute: 120
   auth:
     requireAuth: true            # require token for publish/delete
 

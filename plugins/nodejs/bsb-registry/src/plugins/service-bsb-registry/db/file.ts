@@ -19,7 +19,12 @@ import * as path from 'path';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Observable } from '@bsb/base';
 import { normalizePluginLanguage, type PluginLanguage } from '@bsb/base';
-import type { RegistryDB, RegistryEntryFilter } from './index.js';
+import {
+  DEFAULT_PUBLICATION_LIMITS,
+  type PublicationLimits,
+  type RegistryDB,
+  type RegistryEntryFilter,
+} from './index.js';
 import type {
   RegistryEntry,
   ListQuery,
@@ -33,20 +38,49 @@ import type {
   AuthToken,
 } from '../types.js';
 
+type RegistryIndexRecord = {
+  file: string;
+  bytes: number;
+  id: string;
+  org: string;
+  name: string;
+  displayName: string;
+  description: string;
+  version: string;
+  majorMinor: string;
+  language: PluginLanguage;
+  package?: RegistryEntry['package'];
+  category: RegistryEntry['category'];
+  tags: string[];
+  visibility: RegistryEntry['visibility'];
+  permissions?: RegistryEntry['permissions'];
+  publishedBy: string;
+  publishedAt: string;
+  downloads: number;
+};
+
+type RegistryIndexFile = { version: 1; records: RegistryIndexRecord[] };
+
 export class FileDB implements RegistryDB {
   private readonly dataDir: string;
   private readonly pluginsDir: string;
   private readonly orgsDir: string;
   private readonly usersFile: string;
   private readonly tokensFile: string;
-  private pluginIndex?: Promise<RegistryEntry[][]>;
+  private readonly indexFile: string;
+  private readonly publicationLimits: PublicationLimits;
+  private readonly publicationWindows = new Map<string, { startedAt: number; count: number }>();
+  private pluginIndex?: Promise<RegistryIndexRecord[]>;
+  private mutationQueue: Promise<void> = Promise.resolve();
 
-  constructor(dataDir: string) {
+  constructor(dataDir: string, publicationLimits: Partial<PublicationLimits> = {}) {
     this.dataDir = dataDir;
     this.pluginsDir = path.join(dataDir, 'plugins');
     this.orgsDir = path.join(dataDir, 'orgs');
     this.usersFile = path.join(dataDir, 'users.json');
     this.tokensFile = path.join(dataDir, 'tokens.json');
+    this.indexFile = path.join(dataDir, 'registry-index-v1.json');
+    this.publicationLimits = { ...DEFAULT_PUBLICATION_LIMITS, ...publicationLimits };
   }
 
   // ============================================================================
@@ -82,20 +116,31 @@ export class FileDB implements RegistryDB {
   // ============================================================================
 
   async versionExists(obs: Observable, org: string, name: string, version: string, language: PluginLanguage = 'nodejs'): Promise<boolean> {
-    return this.readAllVersions(org, name).some(entry => entry.version === version && entry.language === normalizePluginLanguage(language));
+    const records = await this.indexRecords();
+    const normalized = normalizePluginLanguage(language);
+    return records.some(entry => entry.org === org && entry.name === name && entry.version === version && entry.language === normalized);
   }
 
   async insert(obs: Observable, entry: RegistryEntry): Promise<void> {
+    return this.serializeMutation(() => this.insertUnlocked(obs, entry));
+  }
+
+  private async insertUnlocked(obs: Observable, entry: RegistryEntry): Promise<void> {
     const span = obs.startSpan('FileDB.insert', { pluginId: entry.id, version: entry.version });
     try {
       entry = { ...entry, language: normalizePluginLanguage(entry.language ?? 'nodejs') };
       const vPath = this.versionPath(entry.org, entry.name, entry.version, entry.language);
-
-      if (this.readAllVersions(entry.org, entry.name).some(existing => existing.version === entry.version && existing.language === entry.language)) {
+      const records = await this.indexRecords();
+      if (records.some(existing => existing.org === entry.org && existing.name === entry.name
+        && existing.version === entry.version && existing.language === entry.language)) {
         throw new Error(
           `Version ${entry.version} of ${entry.id} already exists. Published versions are immutable.`
         );
       }
+
+      const encoded = JSON.stringify(entry, null, 2);
+      const bytes = Buffer.byteLength(encoded, 'utf8');
+      this.enforcePublicationLimits(records, entry, bytes);
 
       // Ensure plugin directory exists
       const pluginDir = this.pluginDir(entry.org, entry.name);
@@ -103,7 +148,15 @@ export class FileDB implements RegistryDB {
 
       // Write version entry
       this.writeJson(vPath, entry);
-      this.pluginIndex = undefined;
+      const updated = [...records, this.indexRecord(entry, vPath, bytes)];
+      try {
+        this.persistIndex(updated);
+      } catch (error) {
+        fs.rmSync(vPath, { force: true });
+        throw error;
+      }
+      this.pluginIndex = Promise.resolve(updated);
+      this.recordPublication(entry);
 
       obs.log.debug('Plugin inserted: {id}@{version}', { id: entry.id, version: entry.version });
     } catch (error) {
@@ -117,26 +170,36 @@ export class FileDB implements RegistryDB {
   async get(obs: Observable, org: string, name: string, version?: string, filter?: RegistryEntryFilter, language?: PluginLanguage): Promise<RegistryEntry | null> {
     const span = obs.startSpan('FileDB.get', { org, name, ...(version ? { version } : {}) });
     try {
-      const entries = await this.filterEntries(this.readAllVersions(org, name), filter);
-      const selected = this.selectLanguage(entries, language);
-      return this.latestEntry(version ? selected.filter(entry => entry.version === version) : selected);
+      const records = await this.filterIndexRecords(
+        (await this.indexRecords()).filter(entry => entry.org === org && entry.name === name), filter);
+      const selected = this.selectLanguage(records, language);
+      const latest = this.latestEntry(version ? selected.filter(entry => entry.version === version) : selected);
+      return latest ? this.readIndexedEntry(latest) : null;
     } finally {
       span.end();
     }
   }
 
   async delete(obs: Observable, org: string, name: string, version?: string, language?: PluginLanguage): Promise<void> {
+    return this.serializeMutation(() => this.deleteUnlocked(obs, org, name, version, language));
+  }
+
+  private async deleteUnlocked(obs: Observable, org: string, name: string, version?: string, language?: PluginLanguage): Promise<void> {
     const span = obs.startSpan('FileDB.delete', { org, name, ...(version ? { version } : {}) });
-    this.pluginIndex = undefined;
     try {
-      const selected = this.selectLanguage(this.readAllVersions(org, name), language);
-      for (const entry of selected.filter(entry => !version || entry.version === version)) {
-        fs.rmSync(this.versionPath(org, name, entry.version, entry.language), { force: true });
+      const records = await this.indexRecords();
+      const selected = this.selectLanguage(records.filter(entry => entry.org === org && entry.name === name), language);
+      const removed = new Set(selected.filter(entry => !version || entry.version === version));
+      for (const entry of removed) {
+        fs.rmSync(this.indexedPath(entry), { force: true });
         const legacy = safeChild(this.pluginsDir, org, name, `${entry.version}.json`);
         if (fs.existsSync(legacy) && normalizePluginLanguage(this.readJson<RegistryEntry>(legacy).language ?? 'nodejs') === entry.language) {
           fs.unlinkSync(legacy);
         }
       }
+      const updated = records.filter(entry => !removed.has(entry));
+      this.persistIndex(updated);
+      this.pluginIndex = Promise.resolve(updated);
       this.rmdir(this.pluginDir(org, name));
     } finally {
       span.end();
@@ -150,12 +213,13 @@ export class FileDB implements RegistryDB {
   async list(obs: Observable, query: ListQuery, filter?: RegistryEntryFilter): Promise<{ results: RegistryEntry[]; total: number }> {
     const span = obs.startSpan('FileDB.list');
     try {
-      let results = await this.allLatestEntries(filter);
+      let results = await this.allLatestIndexRecords(filter);
 
       // Apply filters
       if (query.org) results = results.filter(e => e.org === query.org);
       if (query.language) results = results.filter(e => e.language === query.language);
       if (query.category) results = results.filter(e => e.category === query.category);
+      if (query.packageName) results = results.filter(e => String(e.package?.[e.language] ?? '').trim() === query.packageName);
 
       // Sort newest first
       results.sort((a, b) => cmpDate(b.publishedAt, a.publishedAt));
@@ -164,7 +228,7 @@ export class FileDB implements RegistryDB {
       const limit = query.limit || 50;
       const offset = query.offset || 0;
 
-      return { results: results.slice(offset, offset + limit), total };
+      return { results: results.slice(offset, offset + limit).map((entry) => this.readIndexedEntry(entry)), total };
     } finally {
       span.end();
     }
@@ -174,7 +238,7 @@ export class FileDB implements RegistryDB {
     const span = obs.startSpan('FileDB.search', { query: query.query });
     try {
       const q = query.query.toLowerCase();
-      let results = (await this.allLatestEntries(filter)).filter(e => {
+      let results = (await this.allLatestIndexRecords(filter)).filter(e => {
         return (
           e.id.toLowerCase().includes(q) ||
           e.name.toLowerCase().includes(q) ||
@@ -193,7 +257,7 @@ export class FileDB implements RegistryDB {
       const limit = query.limit || 20;
       const offset = query.offset || 0;
 
-      return { results: results.slice(offset, offset + limit), total };
+      return { results: results.slice(offset, offset + limit).map((entry) => this.readIndexedEntry(entry)), total };
     } finally {
       span.end();
     }
@@ -202,7 +266,8 @@ export class FileDB implements RegistryDB {
   async getVersions(obs: Observable, org: string, name: string, majorMinor?: string, filter?: RegistryEntryFilter, language?: PluginLanguage): Promise<VersionInfo[]> {
     const span = obs.startSpan('FileDB.getVersions', { org, name, ...(majorMinor ? { majorMinor } : {}) });
     try {
-      const entries = this.selectLanguage(await this.filterEntries(this.readAllVersions(org, name), filter), language);
+      const entries = this.selectLanguage(await this.filterIndexRecords(
+        (await this.indexRecords()).filter(entry => entry.org === org && entry.name === name), filter), language);
       let infos: VersionInfo[] = entries.map(e => ({
         version: e.version,
         language: e.language,
@@ -224,7 +289,7 @@ export class FileDB implements RegistryDB {
   async getStats(obs: Observable, filter?: RegistryEntryFilter): Promise<RegistryStats> {
     const span = obs.startSpan('FileDB.getStats');
     try {
-      const latest = await this.allLatestEntries(filter);
+      const latest = await this.allLatestIndexRecords(filter);
       const byLanguage: Record<string, number> = {};
       const byCategory: Record<string, number> = {};
       let totalDownloads = 0;
@@ -545,32 +610,9 @@ export class FileDB implements RegistryDB {
     return safeChild(this.orgsDir, `${org}.json`);
   }
 
-  /** List version JSON files in a plugin directory. Returns filenames (no path). */
-  private listVersionFiles(org: string, name: string): string[] {
-    const dir = this.pluginDir(org, name);
-    if (!fs.existsSync(dir)) return [];
-    return fs.readdirSync(dir).filter(f => f.endsWith('.json'));
-  }
-
-  /** Read every version entry for a plugin. */
-  private readAllVersions(org: string, name: string): RegistryEntry[] {
-    const files = this.listVersionFiles(org, name);
-    const dir = this.pluginDir(org, name);
-    const entries: RegistryEntry[] = [];
-    for (const f of files) {
-      try {
-        const entry = this.readJson<RegistryEntry>(path.join(dir, f));
-        entries.push({ ...entry, language: normalizePluginLanguage(entry.language ?? 'nodejs') });
-      } catch {
-        // Skip corrupt files
-      }
-    }
-    return entries;
-  }
-
-  /** Index immutable plugin versions once between writes; always recheck read permissions. */
-  private async allLatestEntries(filter?: RegistryEntryFilter): Promise<RegistryEntry[]> {
-    // ponytail: one process owns this file database; use transactional storage for multiple writers.
+  /** Load the compact persistent index, rebuilding it once for legacy storage. */
+  private async indexRecords(): Promise<RegistryIndexRecord[]> {
+    // One process owns this file database; use transactional storage for multiple writers.
     if (!this.pluginIndex) {
       const index = this.readPluginIndex();
       this.pluginIndex = index;
@@ -578,58 +620,82 @@ export class FileDB implements RegistryDB {
         if (this.pluginIndex === index) this.pluginIndex = undefined;
       });
     }
-    const results: RegistryEntry[] = [];
-    for (const versions of await this.pluginIndex) {
-      const entries = await this.filterEntries(versions, filter);
-      const latest = this.latestEntry(entries);
-      if (latest) results.push(structuredClone(latest));
+    return this.pluginIndex;
+  }
+
+  private async allLatestIndexRecords(filter?: RegistryEntryFilter): Promise<RegistryIndexRecord[]> {
+    const groups = new Map<string, RegistryIndexRecord[]>();
+    for (const record of await this.filterIndexRecords(await this.indexRecords(), filter)) {
+      const key = `${record.org}\0${record.name}\0${record.language}`;
+      const group = groups.get(key) ?? [];
+      group.push(record);
+      groups.set(key, group);
+    }
+    const results: RegistryIndexRecord[] = [];
+    for (const versions of groups.values()) {
+      const latest = this.latestEntry(versions);
+      if (latest) results.push(latest);
     }
     return results;
   }
 
-  private async readPluginIndex(): Promise<RegistryEntry[][]> {
+  private async readPluginIndex(): Promise<RegistryIndexRecord[]> {
+    if (fs.existsSync(this.indexFile)) {
+      try {
+        const persisted = this.readJson<RegistryIndexFile>(this.indexFile);
+        if (persisted.version !== 1 || !Array.isArray(persisted.records)
+          || persisted.records.some((record) => !this.validIndexRecord(record))) {
+          throw new SyntaxError('Invalid Registry index');
+        }
+        return persisted.records;
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+      }
+    }
+
     const ignoreRemovedDirectory = (error: NodeJS.ErrnoException): never[] => {
       if (error.code === 'ENOENT') return [];
       throw error;
     };
-    const entries: RegistryEntry[][] = [];
+    const records: RegistryIndexRecord[] = [];
     const orgs = await fs.promises.readdir(this.pluginsDir, { withFileTypes: true }).catch(ignoreRemovedDirectory);
     for (const org of orgs.filter(item => item.isDirectory())) {
       const orgPath = path.join(this.pluginsDir, org.name);
       const plugins = await fs.promises.readdir(orgPath, { withFileTypes: true }).catch(ignoreRemovedDirectory);
       for (const plugin of plugins.filter(item => item.isDirectory())) {
         const directory = path.join(orgPath, plugin.name);
-        const versions: RegistryEntry[] = [];
         for (const file of await fs.promises.readdir(directory).catch(ignoreRemovedDirectory)) {
           if (!file.endsWith('.json')) continue;
           try {
-            versions.push(JSON.parse(await fs.promises.readFile(path.join(directory, file), 'utf-8')));
+            const filePath = path.join(directory, file);
+            const [raw, stat] = await Promise.all([
+              fs.promises.readFile(filePath, 'utf-8'),
+              fs.promises.stat(filePath),
+            ]);
+            const entry = JSON.parse(raw) as RegistryEntry;
+            entry.language = normalizePluginLanguage(entry.language ?? 'nodejs');
+            records.push(this.indexRecord(entry, filePath, stat.size));
           } catch (error) {
-            // Match readAllVersions: skip corrupt or concurrently removed version files.
             if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
           }
         }
-        const languages = new Map<PluginLanguage, RegistryEntry[]>();
-        for (const entry of versions) {
-          const language = normalizePluginLanguage(entry.language ?? 'nodejs');
-          const group = languages.get(language) ?? [];
-          group.push({ ...entry, language });
-          languages.set(language, group);
-        }
-        entries.push(...languages.values());
       }
     }
-    return entries;
+    this.persistIndex(records);
+    return records;
   }
 
-  private async filterEntries(entries: RegistryEntry[], filter?: RegistryEntryFilter): Promise<RegistryEntry[]> {
-    if (!filter) return entries;
-    const allowed = await Promise.all(entries.map(filter));
-    return entries.filter((_entry, index) => allowed[index]);
+  private async filterIndexRecords(records: RegistryIndexRecord[], filter?: RegistryEntryFilter): Promise<RegistryIndexRecord[]> {
+    if (!filter) return records;
+    const allowed: RegistryIndexRecord[] = [];
+    for (const record of records) {
+      if (await filter(this.accessEntry(record))) allowed.push(record);
+    }
+    return allowed;
   }
 
   /** Apply legacy Node preference only after authorization has filtered entries. */
-  private selectLanguage(entries: RegistryEntry[], language?: PluginLanguage): RegistryEntry[] {
+  private selectLanguage<T extends { language: PluginLanguage }>(entries: T[], language?: PluginLanguage): T[] {
     const languages = new Set(entries.map(entry => entry.language));
     const selected = language !== undefined ? normalizePluginLanguage(language)
       : languages.has('nodejs') ? 'nodejs' : languages.size === 1 ? [...languages][0] : undefined;
@@ -638,7 +704,7 @@ export class FileDB implements RegistryDB {
   }
 
   /** Pick the entry with the most recent publishedAt. */
-  private latestEntry(entries: RegistryEntry[]): RegistryEntry | null {
+  private latestEntry<T extends { publishedAt: string }>(entries: T[]): T | null {
     if (entries.length === 0) return null;
     let best = entries[0];
     for (let i = 1; i < entries.length; i++) {
@@ -647,6 +713,126 @@ export class FileDB implements RegistryDB {
       }
     }
     return best;
+  }
+
+  private indexRecord(entry: RegistryEntry, filePath: string, bytes: number): RegistryIndexRecord {
+    const language = normalizePluginLanguage(entry.language ?? 'nodejs');
+    return {
+      file: path.relative(this.dataDir, filePath).split(path.sep).join('/'),
+      bytes,
+      id: entry.id,
+      org: entry.org,
+      name: entry.name,
+      displayName: entry.displayName ?? entry.name,
+      description: entry.description ?? '',
+      version: entry.version,
+      majorMinor: entry.majorMinor ?? entry.version.split('.').slice(0, 2).join('.'),
+      language,
+      package: entry.package,
+      category: entry.category ?? 'service',
+      tags: Array.isArray(entry.tags) ? entry.tags : [],
+      visibility: entry.visibility ?? 'public',
+      permissions: entry.permissions,
+      publishedBy: entry.publishedBy ?? 'system',
+      publishedAt: entry.publishedAt,
+      downloads: entry.downloads ?? 0,
+    };
+  }
+
+  private accessEntry(record: RegistryIndexRecord): RegistryEntry {
+    return {
+      id: record.id, org: record.org, name: record.name,
+      displayName: record.displayName, description: record.description,
+      version: record.version, majorMinor: record.majorMinor, language: record.language,
+      package: record.package, category: record.category, tags: record.tags,
+      visibility: record.visibility, permissions: record.permissions,
+      eventSchema: {}, eventCount: 0, emitEventCount: 0, onEventCount: 0,
+      returnableEventCount: 0, broadcastEventCount: 0,
+      publishedBy: record.publishedBy, publishedAt: record.publishedAt,
+      updatedAt: record.publishedAt, downloads: record.downloads,
+    };
+  }
+
+  private readIndexedEntry(record: RegistryIndexRecord): RegistryEntry {
+    const entry = this.readJson<RegistryEntry>(this.indexedPath(record));
+    const language = normalizePluginLanguage(entry.language ?? 'nodejs');
+    if (entry.org !== record.org || entry.name !== record.name || entry.version !== record.version || language !== record.language) {
+      throw new Error('Registry index does not match stored entry');
+    }
+    return { ...entry, language };
+  }
+
+  private indexedPath(record: RegistryIndexRecord): string {
+    return safeChild(this.dataDir, ...record.file.split('/'));
+  }
+
+  private validIndexRecord(record: RegistryIndexRecord): boolean {
+    if (!record || typeof record !== 'object' || typeof record.file !== 'string' || typeof record.bytes !== 'number'
+      || !Number.isSafeInteger(record.bytes) || record.bytes < 0 || typeof record.org !== 'string'
+      || typeof record.name !== 'string' || typeof record.version !== 'string' || typeof record.language !== 'string'
+      || typeof record.publishedAt !== 'string' || typeof record.publishedBy !== 'string') return false;
+    try {
+      this.indexedPath(record);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private persistIndex(records: RegistryIndexRecord[]): void {
+    this.writeJson(this.indexFile, { version: 1, records } satisfies RegistryIndexFile);
+  }
+
+  private enforcePublicationLimits(records: RegistryIndexRecord[], entry: RegistryEntry, bytes: number): void {
+    const limits = this.publicationLimits;
+    const publisher = entry.publishedBy || 'system';
+    const packageKey = `${entry.org}\0${entry.name}\0${entry.language}`;
+    const orgRecords = records.filter(record => record.org === entry.org);
+    const publisherRecords = records.filter(record => record.publishedBy === publisher);
+    const packageRecords = orgRecords.filter(record => `${record.org}\0${record.name}\0${record.language}` === packageKey);
+    const orgPackages = new Set(orgRecords.map(record => `${record.org}\0${record.name}\0${record.language}`));
+    const publisherPackages = new Set(publisherRecords.map(record => `${record.org}\0${record.name}\0${record.language}`));
+
+    if (bytes > limits.maxEntryBytes) throw new Error(`Publication exceeds ${limits.maxEntryBytes} byte entry limit`);
+    if (records.length >= limits.maxTotalVersions) throw new Error('Registry version quota exceeded');
+    if (packageRecords.length >= limits.maxVersionsPerPackage) throw new Error('Package version quota exceeded');
+    if (!orgPackages.has(packageKey) && orgPackages.size >= limits.maxPackagesPerOrganization) throw new Error('Organization package quota exceeded');
+    if (!publisherPackages.has(packageKey) && publisherPackages.size >= limits.maxPackagesPerPublisher) throw new Error('Publisher package quota exceeded');
+    if (orgRecords.reduce((total, record) => total + record.bytes, 0) + bytes > limits.maxBytesPerOrganization) {
+      throw new Error('Organization storage quota exceeded');
+    }
+    if (publisherRecords.reduce((total, record) => total + record.bytes, 0) + bytes > limits.maxBytesPerPublisher) {
+      throw new Error('Publisher storage quota exceeded');
+    }
+    this.checkPublicationWindow(`org:${entry.org}`);
+    this.checkPublicationWindow(`publisher:${publisher}`);
+  }
+
+  private checkPublicationWindow(key: string): void {
+    const now = Date.now();
+    const current = this.publicationWindows.get(key);
+    if (current && now - current.startedAt < 60_000 && current.count >= this.publicationLimits.maxPublicationsPerMinute) {
+      throw new Error('Publication rate quota exceeded');
+    }
+  }
+
+  private recordPublication(entry: RegistryEntry): void {
+    const now = Date.now();
+    for (const [key, value] of this.publicationWindows) {
+      if (now - value.startedAt >= 60_000) this.publicationWindows.delete(key);
+    }
+    for (const key of [`org:${entry.org}`, `publisher:${entry.publishedBy || 'system'}`]) {
+      const current = this.publicationWindows.get(key);
+      this.publicationWindows.set(key, current && now - current.startedAt < 60_000
+        ? { ...current, count: current.count + 1 }
+        : { startedAt: now, count: 1 });
+    }
+  }
+
+  private async serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.mutationQueue.then(operation, operation);
+    this.mutationQueue = result.then(() => undefined, () => undefined);
+    return result;
   }
 
   /** Remove a directory if it exists and is empty. */
