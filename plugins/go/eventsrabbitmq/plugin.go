@@ -168,7 +168,12 @@ func (p *Plugin) topology(channel *amqp.Channel) error {
 	if err := channel.ExchangeDeclare(deadletter, "topic", true, false, false, false, nil); err != nil {
 		return err
 	}
-	if _, err := channel.QueueDeclare(deadletter, true, false, false, false, amqp.Table{"x-message-ttl": int32(604800000)}); err != nil {
+	if _, err := channel.QueueDeclare(deadletter, true, false, false, false, amqp.Table{
+		"x-message-ttl":      int32(86400000),
+		"x-max-length":       int32(100000),
+		"x-max-length-bytes": int32(256 * 1024 * 1024),
+		"x-overflow":         "drop-head",
+	}); err != nil {
 		return err
 	}
 	if err := channel.QueueBind(deadletter, "#", deadletter, false, nil); err != nil {

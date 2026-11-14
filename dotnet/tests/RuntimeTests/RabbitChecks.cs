@@ -29,6 +29,12 @@ static class RabbitChecks
         var obs = new ObservableBackend("test", "rabbit", new(), new());
         await rabbit.Init(obs);
         Check(broker.Confirmed, "Publisher confirm tracking disabled");
+        var deadLetter = broker.Queues["better.service9.deadletter-fixture"];
+        Check((int)deadLetter.Arguments["x-message-ttl"]! == 86400000 &&
+            (int)deadLetter.Arguments["x-max-length"]! == 100000 &&
+            (int)deadLetter.Arguments["x-max-length-bytes"]! == 256 * 1024 * 1024 &&
+            (string)deadLetter.Arguments["x-overflow"]! == "drop-head",
+            "Dead-letter retention is not bounded");
         await rabbit.EmitEvent("worker", "late", obs, new { value = 1 });
         var declaration = broker.Queues["91eq-fixture-worker-late"];
         Check(declaration.Durable && !declaration.Exclusive && !declaration.AutoDelete &&

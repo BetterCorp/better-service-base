@@ -398,4 +398,6 @@ Both callers and listeners declare the same durable request queue, including its
 
 Delivery is at least once: handlers that change state must tolerate redelivery if a consumer fails after performing work but before acknowledgement. A vanished caller's temporary reply queue does not require replaying business operations indefinitely.
 
-Before upgrading queues created by an older publisher without dead-letter arguments, drain them and recreate them with the matching declaration during maintenance. RabbitMQ rejects redeclaration with incompatible arguments; the application does not delete queues automatically.
+Before upgrading queues created by an older publisher without dead-letter arguments, stop every old application instance, drain and recreate the queues with the matching declaration during maintenance, deploy the upgrade, and only then restart the applications. RabbitMQ rejects redeclaration with incompatible arguments; the application does not delete queues automatically, and an old reconnecting instance would otherwise reintroduce the incompatible declaration.
+
+The shared dead-letter queue retains messages for 24 hours and is bounded to 100,000 messages or 256 MiB. When either capacity limit is reached, RabbitMQ drops the oldest dead-lettered messages so newer diagnostic evidence remains available. Existing dead-letter queues must also be drained and recreated once when adopting these arguments.

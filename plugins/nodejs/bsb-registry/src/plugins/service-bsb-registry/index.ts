@@ -10,6 +10,8 @@ import {
   optional,
   normalizePluginLanguage,
   PLUGIN_LANGUAGES,
+  assertSafeSchemaDocument,
+  parseRegistryPluginId,
   type PluginLanguage,
 } from '@bsb/base';
 import { type RegistryDB, createStorage } from './db/index.js';
@@ -312,6 +314,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
    * Handle plugin publish request
    */
   private async handlePluginPublish(trace: Observable, data: Types.PublishRequest): Promise<Types.PublishResponse> {
+    this.validatePublishPayload(data);
     data = { ...data, language: normalizePluginLanguage(data.language) };
     const span = trace.startSpan('registry.plugin.publish', {
       org: data.org,
@@ -352,7 +355,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       const buildSpan = trace.startSpan('build.entry');
       const majorMinor = data.version.split('.').slice(0, 2).join('.');
 
-      // eventSchema arrives as a parsed object (validated at the HTTP boundary).
+      // eventSchema arrives as a parsed object validated by the shared core.
       // It's the full EventSchemaExport: { pluginName, version, events, dependencies? }
       const parsedExport = (data.eventSchema && typeof data.eventSchema === 'object')
         ? data.eventSchema as Record<string, unknown>
@@ -365,8 +368,7 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       // Compute event counts from the events map
       const counts = this.countEvents(eventsMap);
 
-      // configSchema arrives as a parsed JSON Schema object (validated at HTTP boundary).
-      // If present, it must have type: "object" and properties -- the HTTP layer enforces this.
+      // configSchema arrives as a parsed AnyVali document validated by the shared core.
       const configSchema = (data.configSchema && typeof data.configSchema === 'object')
         ? data.configSchema
         : undefined;
@@ -438,6 +440,108 @@ export class Plugin extends BSBService<InstanceType<typeof Config>, typeof Event
       throw error;
     } finally {
       span.end();
+    }
+  }
+
+  /**
+   * Enforce the publication boundary in the shared core so non-HTTP event
+   * transports cannot bypass the REST gateway's structural and size checks.
+   */
+  private validatePublishPayload(data: Types.PublishRequest): void {
+    let encoded: string;
+    try {
+      encoded = JSON.stringify(data);
+    } catch {
+      throw new Error('Invalid publish request: payload must be acyclic JSON');
+    }
+    if (Buffer.byteLength(encoded, 'utf8') > 10 * 1024 * 1024) {
+      throw new Error('Invalid publish request: payload exceeds 10 MiB');
+    }
+    if (data.metadata.tags.length > 30) {
+      throw new Error('Invalid publish request: at most 30 tags are allowed');
+    }
+    if (data.documentation.length > 20 || data.documentation.some(document => Buffer.byteLength(document, 'utf8') > 1_000_000)) {
+      throw new Error('Invalid publish request: documentation exceeds publication limits');
+    }
+    const eventSchema = data.eventSchema && typeof data.eventSchema === 'object' && !Array.isArray(data.eventSchema)
+      ? data.eventSchema as Record<string, unknown>
+      : undefined;
+    const effectiveDependencies = data.dependencies && data.dependencies.length > 0
+      ? data.dependencies
+      : eventSchema?.dependencies;
+    if (effectiveDependencies !== undefined) {
+      if (!Array.isArray(effectiveDependencies)) {
+        throw new Error('Invalid publish request: dependencies must be an array');
+      }
+      if (effectiveDependencies.length > 100) {
+        throw new Error('Invalid publish request: at most 100 dependencies are allowed');
+      }
+      for (const dependency of effectiveDependencies) {
+        if (!dependency || typeof dependency !== 'object' || Array.isArray(dependency)) {
+          throw new Error('Invalid publish request: dependency must be an object');
+        }
+        const { id, version } = dependency as Record<string, unknown>;
+        if (typeof id !== 'string') {
+          throw new Error('Invalid publish request: dependency id must be a string');
+        }
+        try {
+          parseRegistryPluginId(id);
+        } catch {
+          throw new Error('Invalid publish request: dependency id is invalid');
+        }
+        if (typeof version !== 'string' || version.length < 1 || version.length > 50 || /[\u0000-\u001f\u007f]/.test(version)) {
+          throw new Error('Invalid publish request: dependency version is invalid');
+        }
+      }
+    }
+    for (const definition of Object.values(data.typeDefinitions ?? {})) {
+      if (definition !== undefined && Buffer.byteLength(definition, 'utf8') > 5_000_000) {
+        throw new Error('Invalid publish request: a type definition exceeds 5 MB');
+      }
+    }
+
+    if (data.configSchema !== undefined) {
+      this.validateAnyValiDocument(data.configSchema, 'configSchema');
+    }
+    if (!data.eventSchema || typeof data.eventSchema !== 'object' || Array.isArray(data.eventSchema)) {
+      throw new Error('Invalid publish request: eventSchema must be an object');
+    }
+    const events = (data.eventSchema as Record<string, unknown>).events;
+    // Legacy local publications used an empty object. Preserve that shape, but
+    // validate every supplied event document when an events map is present.
+    if (events !== undefined) {
+      if (!events || typeof events !== 'object' || Array.isArray(events)) {
+        throw new Error('Invalid publish request: eventSchema.events must be an object');
+      }
+      const entries = Object.entries(events as Record<string, unknown>);
+      if (entries.length > 1_000) {
+        throw new Error('Invalid publish request: at most 1000 events are allowed');
+      }
+      for (const [name, value] of entries) {
+        if (!name || name.length > 200 || /[\u0000-\u001f\u007f]/.test(name)) {
+          throw new Error('Invalid publish request: event name is invalid');
+        }
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+          throw new Error(`Invalid publish request: event ${name} must be an object`);
+        }
+        const event = value as Record<string, unknown>;
+        this.validateAnyValiDocument(event.inputSchema, `eventSchema.events.${name}.inputSchema`);
+        if (event.outputSchema !== null) {
+          this.validateAnyValiDocument(event.outputSchema, `eventSchema.events.${name}.outputSchema`);
+        }
+      }
+    }
+  }
+
+  private validateAnyValiDocument(value: unknown, label: string): void {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error(`Invalid publish request: ${label} must be an AnyVali document`);
+    }
+    try {
+      assertSafeSchemaDocument(value);
+      av.importSchema(value as av.AnyValiDocument);
+    } catch (error) {
+      throw new Error(`Invalid publish request: ${label}: ${(error as Error).message}`);
     }
   }
 

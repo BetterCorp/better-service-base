@@ -42,7 +42,7 @@
     "anyvali": "^1.1.7",
     "h3": "^1.15.4",
     "pg": "^8.23.0",
-    "@bsb/base": "^9.1.11"
+    "@bsb/base": "^9.7.0"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

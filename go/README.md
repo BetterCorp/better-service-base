@@ -14,6 +14,8 @@ Vault uses `vaultUrl`, `apiKeyId`, `apiSecret`, `timeoutMs` (5000), `staleAllowe
 
 Lifecycle before/after dependencies must name a configured service alias or logical plugin name. Unknown targets fail startup; configured disabled targets add no ordering constraint, and explicit aliases take precedence over logical names. Unclaimed `events-default` stream registrations notify their listener with a reader that returns an expiry error.
 
+The RabbitMQ shared dead-letter queue retains messages for 24 hours and is bounded to 100,000 messages or 256 MiB with oldest-message eviction. Before upgrading, stop every old application instance, drain and recreate the existing queue during maintenance, deploy the upgrade, and only then restart the applications; RabbitMQ does not allow these declaration arguments to change in place.
+
 The repository-level `go.mod` includes the framework under `go/` and native plugins under `plugins/go/`, preserving the framework's `/go/bsb` import path. From the repository root run `go generate ./plugins/go/examples` then `go test ./go/... ./plugins/go/...`. Real multi-language Rabbit tests run in the repository integration CI with a RabbitMQ service.
 
 ## Package builds and generated clients

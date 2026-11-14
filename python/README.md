@@ -97,6 +97,8 @@ Registry, hosted, telemetry, and Vault JSON requests use one monotonic deadline 
 
 Producers declare durable fire/RPC queues so absent/crashed listeners do not lose queued messages. Existing protocol TTLs remain: fire queues one hour, RPC queues one minute, per-request expiration based on timeout. Replies are confirmed before acknowledging requests. Failed publishes requeue the request. Handlers must tolerate duplicate execution. Ten failures in a running consumer dead-letter a poison message; retry counts are process-local and bounded to 10,000 tracked messages.
 
+The shared dead-letter queue retains messages for 24 hours and is bounded to 100,000 messages or 256 MiB with oldest-message eviction. Before upgrading, stop every old application instance, drain and recreate the existing queue during maintenance, deploy the upgrade, and only then restart the applications; RabbitMQ does not allow these declaration arguments to change in place.
+
 Register streams with `await events.receive_stream(event, handler, timeout_seconds=5)`, pass the returned opaque ID to `send_stream`, and consume the receiver through EOF. Timeouts use whole seconds for cross-language IDs. Queues bound buffered chunks, and senders retain ownership of the source. Synchronous sources must provide a prompt, thread-safe `close()` that unblocks `read`; BSB calls it when an in-flight read is cancelled and rejects sources without it. Distributed streams are transient and fail on interrupted transfers; they do not provide durable resume.
 
 ## Observability plugins

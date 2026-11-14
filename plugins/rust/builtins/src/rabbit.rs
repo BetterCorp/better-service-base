@@ -261,7 +261,16 @@ impl Rabbit {
             )
             .await?;
         let mut args = FieldTable::default();
-        args.insert("x-message-ttl".into(), AMQPValue::LongInt(604800000));
+        args.insert("x-message-ttl".into(), AMQPValue::LongInt(86400000));
+        args.insert("x-max-length".into(), AMQPValue::LongInt(100000));
+        args.insert(
+            "x-max-length-bytes".into(),
+            AMQPValue::LongInt(256 * 1024 * 1024),
+        );
+        args.insert(
+            "x-overflow".into(),
+            AMQPValue::LongString("drop-head".into()),
+        );
         channel
             .queue_declare(
                 deadletter.clone().into(),
