@@ -26,6 +26,7 @@ module.exports = async ({ pluginRoot }) => {
       return null;
     },
     async getUser() { return { email: 'admin@example.com' }; },
+    async resolveRuntimeBinding() { return null; },
     async recordAuthenticationFailure(id, subject) {
       failures.set(id, { subjectHash: id, subject, failureCount: (failures.get(id)?.failureCount ?? 0) + 1 });
     },
@@ -93,4 +94,30 @@ module.exports = async ({ pluginRoot }) => {
     'an exhausted shared budget disabled lockout for a known subject without prior failures');
   assert.equal(globalAttempts.size, 1, 'rotating identities created multiple global limiter buckets');
   assert.equal(failures.size, 4, 'an exhausted shared budget created an unknown subject limiter row');
+
+  globalAttempts.clear();
+  failures.clear();
+  audits.length = 0;
+  const runtimeVault = new VaultService({
+    store, masterKey: Buffer.alloc(32), setupCode: 'test', publicUrl: 'http://localhost',
+    authenticationBudgets: { runtime: 10_000 },
+  });
+  await Promise.all(Array.from({ length: 10_000 }, (_, i) =>
+    assert.rejects(runtimeVault.resolveRuntimeConfig(`fabricated-${i}`, 'wrong'),
+      /Invalid Vault API key|Too many authentication attempts/)));
+  const restartedRuntimeVault = new VaultService({
+    store, masterKey: Buffer.alloc(32), setupCode: 'test', publicUrl: 'http://localhost',
+    authenticationBudgets: { runtime: 10_000 },
+  });
+  await assert.rejects(restartedRuntimeVault.resolveRuntimeConfig('fabricated-after-restart', 'wrong'),
+    /Too many authentication attempts/);
+  assert.deepEqual([...failures.values()].map((failure) => failure.subject), ['runtime:unknown'],
+    'rotating runtime key IDs created independent lockout rows');
+  assert.equal(globalAttempts.size, 1, 'rotating runtime key IDs created multiple shared-budget rows');
+  assert.equal(audits.length, 1, 'rotating runtime key IDs created more than one audit row per bucket');
+  assert.equal(audits[0].actor, 'runtime:unknown');
+  assert.equal(audits[0].target, 'runtime:unknown');
+  assert.deepEqual(audits[0].details.aggregated, true);
+  assert.equal(JSON.stringify(audits).includes('fabricated-'), false,
+    'fabricated runtime key IDs leaked into the audit log');
 };

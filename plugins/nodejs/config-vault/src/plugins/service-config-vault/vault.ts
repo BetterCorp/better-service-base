@@ -92,6 +92,7 @@ export class VaultService {
   private readonly origin: string;
   private readonly rpId: string;
   private readonly authenticationBudgets: Record<string, number>;
+  private unknownRuntimeAuditBucket: number | undefined;
 
   constructor(options: VaultServiceOptions) {
     this.store = options.store;
@@ -1305,11 +1306,19 @@ export class VaultService {
   }
 
   async resolveRuntimeConfig(keyId: string, secret: string, obs?: Observable): Promise<ResolvedRuntimeConfig> {
-    const attemptKey = `runtime:${keyId}`;
-    await this.checkRateLimit(attemptKey);
     const binding = await this.store.resolveRuntimeBinding(keyId);
-    if (!binding || !(await verifySecret(secret, binding.key.secretHash))) {
-      await this.recordFailure(attemptKey, Boolean(binding));
+    const attemptKey = binding ? `runtime:${keyId}` : 'runtime:unknown';
+    await this.checkRateLimit(attemptKey);
+    if (!binding) {
+      // Caller-controlled key IDs must not create one lockout row and immutable
+      // audit record each. Unknown IDs share a coarse limiter and a single
+      // deterministic audit record per five-minute window.
+      await this.recordFailure(attemptKey);
+      await this.auditUnknownRuntimeFailure().catch(() => undefined);
+      throw new Error('Invalid Vault API key');
+    }
+    if (!(await verifySecret(secret, binding.key.secretHash))) {
+      await this.recordFailure(attemptKey, true);
       await this.audit(keyId, 'runtime-config.auth.failed', keyId, {}).catch(() => undefined);
       throw new Error('Invalid Vault API key');
     }
@@ -1814,6 +1823,26 @@ export class VaultService {
       target,
       details,
       outcome: action.endsWith('.failed') ? 'failure' : 'success',
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  private async auditUnknownRuntimeFailure(): Promise<void> {
+    const bucket = Math.floor(Date.now() / (5 * 60_000));
+    if (this.unknownRuntimeAuditBucket === bucket) return;
+    // Set this before I/O so concurrent failures in one process cannot enqueue
+    // duplicate writes. The deterministic primary key also deduplicates across
+    // replicas without adding mutable state to the append-only audit chain.
+    this.unknownRuntimeAuditBucket = bucket;
+    const bucketStart = new Date(bucket * 5 * 60_000).toISOString();
+    await this.store.audit({
+      id: `runtime-auth-unknown:${bucket}`,
+      actor: 'runtime:unknown',
+      actorEmail: null,
+      action: 'runtime-config.auth.failed',
+      target: 'runtime:unknown',
+      details: { aggregated: true, bucketStart },
+      outcome: 'failure',
       createdAt: new Date().toISOString(),
     });
   }
