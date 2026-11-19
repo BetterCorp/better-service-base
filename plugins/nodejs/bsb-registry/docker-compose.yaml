@@ -24,7 +24,9 @@ services:
 
   # OpenTelemetry Collector (optional - for tracing)
   otel-collector:
-    image: otel/opentelemetry-collector:latest
+    # Pin development infrastructure so a fresh checkout is reproducible and
+    # does not silently execute a newly published image.
+    image: otel/opentelemetry-collector:0.165.0
     container_name: bsb-registry-otel
     command: ["--config=/etc/otel-collector-config.yaml"]
     ports:

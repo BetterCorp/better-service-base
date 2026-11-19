@@ -87,6 +87,11 @@ const streamId = await this.events.receiveStream("file.upload", handler, 30);
 await this.events.sendStream("file.upload", streamId, fileStream);
 ```
 
+RabbitMQ deliveries remain unacknowledged while the receiving `Readable` is
+backpressured, so the configured broker prefetch bounds in-flight chunks. A
+single stream is capped at 256 MiB; split larger transfers into independently
+authorized streams or use object storage.
+
 ## RabbitMQ Setup
 
 For local development, the RabbitMQ management image is a quick start:

@@ -80,7 +80,12 @@ public partial class Plugin : BSBEvents
         _publisher = await _publishConnection.CreateChannelAsync(new CreateChannelOptions(true, true), timeout.Token);
         await _publisher.ExchangeDeclareAsync(DeadLetter, "topic", durable: true, cancellationToken: timeout.Token);
         await _publisher.QueueDeclareAsync(DeadLetter, durable: true, exclusive: false, autoDelete: false,
-            arguments: new Dictionary<string, object?> { ["x-message-ttl"] = 604800000 }, cancellationToken: timeout.Token);
+            arguments: new Dictionary<string, object?> {
+                ["x-message-ttl"] = 86400000,
+                ["x-max-length"] = 100000,
+                ["x-max-length-bytes"] = 256 * 1024 * 1024,
+                ["x-overflow"] = "drop-head"
+            }, cancellationToken: timeout.Token);
         await _publisher.QueueBindAsync(DeadLetter, DeadLetter, "#", cancellationToken: timeout.Token);
         await _publisher.ExchangeDeclareAsync(BroadcastExchange, "direct", durable: false, cancellationToken: timeout.Token);
         await Consume(PrivateQueue("91kr", _myId), 60000, true, obs, async (message, body) => {

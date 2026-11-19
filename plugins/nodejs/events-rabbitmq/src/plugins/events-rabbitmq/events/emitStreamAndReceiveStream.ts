@@ -192,6 +192,8 @@ export class emitStreamAndReceiveStream
     return new Promise(async (resolve) => {
       await self.setupChannelsIfNotSetup(obs);
       let stream: Readable | null = null;
+      let receivedStreamBytes = 0;
+      const pendingDataAcks: Array<() => void> = [];
       let lastResponseTimeoutHandler: NodeJS.Timeout | null = null;
       let lastResponseTimeoutCount: number = 1;
       let receiptTimeoutHandler: NodeJS.Timeout | null;
@@ -201,6 +203,18 @@ export class emitStreamAndReceiveStream
       };
       const cleanup = () => {
         self.cleanupSelf(streamId, "r-");
+        // A failed/closed stream cannot ever resume demand. Settle deliveries
+        // already accepted into its local buffer so RabbitMQ does not redeliver
+        // them to a listener that has been removed.
+        for (const ack of pendingDataAcks.splice(0)) {
+          try {
+            ack();
+          } catch (error) {
+            obs.log.warn("Unable to acknowledge buffered stream delivery during cleanup: {error}", {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
         createTimeout = async (e) => {
           obs.log.debug("voided timeout creator: {e}", {e});
         };
@@ -323,6 +337,10 @@ export class emitStreamAndReceiveStream
           stream = new Readable({
             objectMode: true,
             async read() {
+              // push(false) means the chunk is buffered but downstream demand
+              // is exhausted. A later _read is the signal that capacity has
+              // returned; only then release one broker delivery.
+              pendingDataAcks.shift()?.();
               if (
                   !(
                       await self.eventsChannel.channel.sendToQueue(
@@ -423,8 +441,25 @@ export class emitStreamAndReceiveStream
                   return;
                 }
                 if (data.type === "data") {
-                  stream!.push(Buffer.from(data.data));
-                  ack();
+                  const chunk = Buffer.from(data.data);
+                  try {
+                    receivedStreamBytes = LIB.addStreamBytes(receivedStreamBytes, chunk.byteLength);
+                  } catch (error) {
+                    ack();
+                    const streamError = error instanceof Error ? error : new Error(String(error));
+                    obs.log.error("Rejecting oversized AMQP stream {streamId}: {error}", {
+                      streamId,
+                      error: streamError.message,
+                    });
+                    stream!.destroy(streamError);
+                    cleanup();
+                    return;
+                  }
+                  if (stream!.push(chunk)) {
+                    ack();
+                  } else {
+                    pendingDataAcks.push(ack);
+                  }
                   return;
                 }
                 nack();

@@ -171,3 +171,70 @@ test('concurrent organization claims grant write access only to the winner', asy
     assert.deepEqual(members.map((member) => member.userId), [(winners[0] as PromiseFulfilledResult<string>).value]);
   } finally { await rm(dataDir, { recursive: true, force: true }); }
 });
+
+test('legacy populated namespaces cannot be claimed by a new publisher', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'bsb-registry-legacy-org-'));
+  try {
+    const db = new FileDB(dataDir);
+    await db.init(obs);
+    await db.insert(obs, {
+      id: 'legacy-org/existing',
+      org: 'legacy-org',
+      name: 'existing',
+      version: '1.0.0',
+      publishedAt: '2025-01-01T00:00:00.000Z',
+    } as any);
+
+    assert.equal(await db.claimOrganization(obs, 'legacy-org', 'attacker'), false);
+    assert.equal(await db.getOrganization(obs, 'legacy-org'), null);
+    assert.equal(await db.claimOrganization(obs, 'empty-org', 'publisher'), true);
+    assert.deepEqual((await db.getOrgMembers(obs, 'empty-org')).map(member => member.userId), ['publisher']);
+  } finally { await rm(dataDir, { recursive: true, force: true }); }
+});
+
+test('core publish validation applies to direct event callers', () => {
+  const core = Object.create(RegistryPlugin.prototype) as any;
+  const base = {
+    org: 'safe-org',
+    name: 'safe-plugin',
+    version: '1.0.0',
+    language: 'nodejs',
+    metadata: {
+      displayName: 'Safe plugin', description: 'Safe plugin description', category: 'service', tags: [],
+    },
+    eventSchema: {},
+    documentation: ['# Safe plugin'],
+  };
+
+  assert.doesNotThrow(() => core.validatePublishPayload(base));
+  assert.throws(() => core.validatePublishPayload({ ...base, metadata: { ...base.metadata, tags: Array(31).fill('tag') } }),
+    /at most 30 tags/);
+  assert.throws(() => core.validatePublishPayload({
+    ...base,
+    eventSchema: {
+      events: {
+        unsafe: {
+          inputSchema: { root: { kind: 'string', pattern: '(a+)+$' } },
+          outputSchema: null,
+        },
+      },
+    },
+  }), /Invalid publish request: eventSchema\.events\.unsafe\.inputSchema/);
+  assert.throws(() => core.validatePublishPayload({ ...base, documentation: ['x'.repeat(1_000_001)] }),
+    /documentation exceeds publication limits/);
+  assert.throws(() => core.validatePublishPayload({
+    ...base,
+    eventSchema: { dependencies: Array(101).fill({ id: 'safe/dependency', version: '1.0.0' }) },
+  }), /at most 100 dependencies/);
+  assert.throws(() => core.validatePublishPayload({ ...base, eventSchema: { dependencies: 'invalid' } }),
+    /dependencies must be an array/);
+  assert.throws(() => core.validatePublishPayload({ ...base, eventSchema: { dependencies: [null] } }),
+    /dependency must be an object/);
+  assert.throws(() => core.validatePublishPayload({
+    ...base, eventSchema: { dependencies: [{ id: '../escape', version: '1.0.0' }] },
+  }), /dependency id is invalid/);
+  assert.rejects(() => core.handlePluginPublish({} as Observable, {
+    ...base,
+    metadata: { ...base.metadata, tags: Array(31).fill('tag') },
+  }), /at most 30 tags/);
+});

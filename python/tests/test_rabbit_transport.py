@@ -136,6 +136,13 @@ def test_rabbit_wire_confirmations_poison_and_streams(tmp_path):
         await first.init(trace)
         await second.init(second._obs.create_trace("init"))
         try:
+            deadletter = next(options for name, options in declarations if name == "better.service9.deadletter-test")
+            assert deadletter["arguments"] == {
+                "x-message-ttl": 86400000,
+                "x-max-length": 100000,
+                "x-max-length-bytes": 256 * 1024 * 1024,
+                "x-overflow": "drop-head",
+            }
             await first.emit_event(trace, "service-absent", "event", {"value": 1})
             declaration = next(options for name, options in declarations if name == "91eq-test-service-absent-event")
             assert declaration["durable"] and not declaration["auto_delete"]
