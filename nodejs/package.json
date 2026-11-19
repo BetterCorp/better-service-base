@@ -105,7 +105,7 @@
   },
   "dependencies": {
     "anyvali": "^1.1.7",
-    "chokidar": "^5.0.0",
+    "chokidar": "^6.0.0",
     "uuid": "^14.0.1",
     "yaml": "^2.8.2",
     "safe-regex2": "^5.1.0",
