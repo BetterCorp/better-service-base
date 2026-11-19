@@ -278,6 +278,7 @@ export const ListQuerySchema = bsb.object({
   org: optional(registryIdentifier('Filter by organization')),
   language: optional(bsb.enum([...PLUGIN_LANGUAGES], 'Filter by language')),
   category: optional(bsb.enum(['service', 'observable', 'events', 'config'], 'Filter by category')),
+  packageName: optional(bsb.string({ min: 1, max: 500, description: 'Exact package identifier lookup' })),
   limit: optional(bsb.int32({ min: 1, max: 100, description: 'Results per page (default: 50)' })),
   offset: optional(bsb.int32({ min: 0, description: 'Pagination offset (default: 0)' })),
   token: optional(ReadTokenSchema),

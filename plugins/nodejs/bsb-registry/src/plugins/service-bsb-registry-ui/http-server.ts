@@ -1486,27 +1486,22 @@ a.s:hover{background:#333;border-color:#FB8C00}
     return this._handleBrowseInternal(request, reply, params.org);
   }
 
-  private async listAllPluginsByLanguage(
+  private async findPluginsByPackage(
     trace: Observable,
     language: PluginLanguage,
+    packageName: string,
     readAuth: { token?: string },
   ): Promise<any[]> {
-    const all: any[] = [];
-    const limit = 100;
-    let offset = 0;
-    let total = 0;
-
-    do {
-      const pageSpan = trace.startSpan('events.registry.plugin.list.page', { limit, offset, language });
-      const page = await this.registryClient.registryPluginList(trace, { language, limit, offset, ...readAuth });
+    const pageSpan = trace.startSpan('events.registry.plugin.list.package', { language, packageName });
+    try {
+      const page = await this.registryClient.registryPluginList(trace, {
+        language, packageName, limit: 100, offset: 0, ...readAuth,
+      });
+      if (Number(page.total || 0) > 100) throw new Error('Package lookup returned too many matches');
+      return page.results || [];
+    } finally {
       pageSpan.end();
-
-      all.push(...(page.results || []));
-      total = Number(page.total || 0);
-      offset += limit;
-    } while (offset < total);
-
-    return all;
+    }
   }
 
   private async handlePackageLookup(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -1529,12 +1524,7 @@ a.s:hover{background:#333;border-color:#FB8C00}
     const span = trace.startSpan('render.package-lookup');
 
     try {
-      const allLanguagePlugins = await this.listAllPluginsByLanguage(trace, params.language, this.readAuth(request));
-      const matches = allLanguagePlugins.filter((plugin: any) => {
-        const pkg = plugin?.package;
-        if (!pkg || typeof pkg !== 'object') return false;
-        return String(pkg[params.language] ?? '').trim() === packageId;
-      });
+      const matches = await this.findPluginsByPackage(trace, params.language, packageId, this.readAuth(request));
 
       if (!matches.length) {
         if (this.wantsJson(request)) {

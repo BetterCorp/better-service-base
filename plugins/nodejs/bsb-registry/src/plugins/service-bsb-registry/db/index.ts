@@ -115,7 +115,30 @@ export interface RegistryDB {
 export interface StorageConfig {
   type: 'file' | 'postgres';
   path: string;
+  publicationLimits?: Partial<PublicationLimits>;
 }
+
+export interface PublicationLimits {
+  maxEntryBytes: number;
+  maxVersionsPerPackage: number;
+  maxPackagesPerOrganization: number;
+  maxPackagesPerPublisher: number;
+  maxBytesPerOrganization: number;
+  maxBytesPerPublisher: number;
+  maxPublicationsPerMinute: number;
+  maxTotalVersions: number;
+}
+
+export const DEFAULT_PUBLICATION_LIMITS: PublicationLimits = {
+  maxEntryBytes: 10 * 1024 * 1024,
+  maxVersionsPerPackage: 200,
+  maxPackagesPerOrganization: 5_000,
+  maxPackagesPerPublisher: 2_500,
+  maxBytesPerOrganization: 1024 * 1024 * 1024,
+  maxBytesPerPublisher: 512 * 1024 * 1024,
+  maxPublicationsPerMinute: 120,
+  maxTotalVersions: 100_000,
+};
 
 /**
  * Create the appropriate RegistryDB implementation for the given config.
@@ -123,7 +146,7 @@ export interface StorageConfig {
 export function createStorage(config: StorageConfig): RegistryDB {
   switch (config.type) {
     case 'file':
-      return new FileDB(config.path);
+      return new FileDB(config.path, config.publicationLimits);
 
     case 'postgres':
       throw new Error('PostgreSQL storage is not yet implemented');
