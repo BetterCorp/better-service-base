@@ -7,6 +7,7 @@ module.exports = async ({ pluginRoot }) => {
   const { VaultService } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/vault.js')).href);
   const failures = new Map();
   const globalAttempts = new Map();
+  const authenticationChecks = [];
   const audits = [];
   let auditAvailable = true;
   const store = {
@@ -15,7 +16,10 @@ module.exports = async ({ pluginRoot }) => {
       globalAttempts.set(id, count);
       return count <= maximum;
     },
-    async authenticationAllowed(id) { return (failures.get(id)?.failureCount ?? 0) < 5; },
+    async authenticationAllowed(id, maximum = 5) {
+      authenticationChecks.push({ id, maximum });
+      return (globalAttempts.get(id) ?? failures.get(id)?.failureCount ?? 0) < maximum;
+    },
     async getUserByEmail(email) {
       if (email === 'inactive@example.com') return {
         id: 'inactive-user',
@@ -81,6 +85,9 @@ module.exports = async ({ pluginRoot }) => {
   for (const email of ['one@example.com', 'two@example.com', 'three@example.com'])
     await assert.rejects(rotatingVault.login(email, 'wrong', ''), /Invalid login/);
   await assert.rejects(rotatingVault.login('four@example.com', 'wrong', ''), /Too many authentication attempts/);
+  const globalLoginId = createHash('sha256').update('global:login').digest('base64url');
+  assert.deepEqual(authenticationChecks.at(-1), { id: globalLoginId, maximum: 3 },
+    'an exhausted shared budget was not checked before dummy password verification');
   const firstId = createHash('sha256').update('login:one@example.com').digest('base64url');
   for (let i = 0; i < 4; i++)
     await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
