@@ -247,7 +247,7 @@ export class VaultService {
     // to a real password check, while still allowing an eligible administrator
     // with independent credentials to authenticate.
     if (!sharedAdmissionAllowed && !knownPasswordSubject) {
-      await this.rejectExhaustedLogin(attemptKey, startedAt);
+      await this.rejectExhaustedLogin(attemptKey, startedAt, false);
     }
     const passwordHash = knownPasswordSubject
       ? user!.passwordHash!
@@ -257,7 +257,7 @@ export class VaultService {
     // whether that account is inactive/passwordless.
     const passwordMatches = await verifySecret(password, passwordHash);
     if (!user || user.status !== 'active' || !user.passwordHash || !passwordMatches) {
-      if (!sharedAdmissionAllowed) await this.rejectExhaustedLogin(attemptKey, startedAt);
+      if (!sharedAdmissionAllowed) await this.rejectExhaustedLogin(attemptKey, startedAt, knownPasswordSubject);
       await this.recordFailure(attemptKey, Boolean(user && user.status === 'active' && user.passwordHash));
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
@@ -1896,8 +1896,9 @@ export class VaultService {
     return this.store.authenticationAllowed(tokenHash(`global:${scope}`), globalMaximum);
   }
 
-  private async rejectExhaustedLogin(key: string, startedAt: number): Promise<never> {
-    await this.store.recordExistingAuthenticationFailure(tokenHash(key), key);
+  private async rejectExhaustedLogin(key: string, startedAt: number, knownSubject: boolean): Promise<never> {
+    if (knownSubject) await this.store.recordAuthenticationFailure(tokenHash(key), key);
+    else await this.store.recordExistingAuthenticationFailure(tokenHash(key), key);
     const remaining = EXHAUSTED_LOGIN_MIN_DURATION_MS - (Date.now() - startedAt);
     if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
     throw new Error('Too many authentication attempts; try again later');
