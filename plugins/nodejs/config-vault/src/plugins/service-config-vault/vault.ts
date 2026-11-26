@@ -2398,3 +2398,256 @@ async function createPublisherCredential(
       kind: plugin.kind,
       tokenId,
       secretHash: await hashSecret(secret),
+      createdAt: 'createdAt' in plugin ? plugin.createdAt : now,
+      rotatedAt: now,
+    },
+  };
+}
+
+function publisherTokenId(token: string): string | null {
+  return /^bv_p_[a-z0-9-]{1,48}_([A-Za-z0-9_-]{12})_[A-Za-z0-9_-]{43}$/.exec(token)?.[1] ?? null;
+}
+
+function sectionForKind(kind: PluginCatalogRecord['kind']): 'services' | 'events' | 'observable' | null {
+  if (kind === 'service') return 'services';
+  if (kind === 'events') return 'events';
+  if (kind === 'observable') return 'observable';
+  return null;
+}
+
+function latestPlugin(plugins: PluginCatalogRecord[]): PluginCatalogRecord | undefined {
+  return [...plugins].sort((left, right) => compareVersions(right.version, left.version))[0];
+}
+
+function compareVersions(left: string, right: string): number {
+  const leftParts = left.split(/[.-]/).map(versionPart);
+  const rightParts = right.split(/[.-]/).map(versionPart);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = leftParts[index] ?? 0;
+    const b = rightParts[index] ?? 0;
+    if (typeof a === 'number' && typeof b === 'number' && a !== b) return a - b;
+    const textA = String(a);
+    const textB = String(b);
+    if (textA !== textB) return textA.localeCompare(textB);
+  }
+  return 0;
+}
+
+function versionPart(value: string): number | string {
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+function normalizePluginCatalogInput(input: Omit<PluginCatalogRecord, 'id' | 'createdAt'>): Omit<PluginCatalogRecord, 'id' | 'createdAt'> {
+  const slashIndex = input.pluginId.indexOf('/');
+  const orgFromPluginId = slashIndex > 0 ? input.pluginId.slice(0, slashIndex) : null;
+  const pluginId = slashIndex > 0 ? input.pluginId.slice(slashIndex + 1) : input.pluginId;
+  const org = orgFromPluginId ?? input.org;
+  if (input.source === 'registry' && org !== '_' && !input.packageName) {
+    throw new Error(`Package name is required for registry plugin ${org}/${pluginId}`);
+  }
+  if (!input.packageName && input.pluginId.includes('/')) {
+    throw new Error(`Package name is required for plugin ${input.pluginId}`);
+  }
+  return {
+    ...input,
+    language: normalizePluginLanguage(input.language ?? 'nodejs'),
+    org,
+    pluginId,
+  };
+}
+
+function normalizeRuntimeConfig(config: RuntimeConfigDefinition, plugins: PluginCatalogRecord[], language: PluginLanguage): RuntimeConfigDefinition {
+  return {
+    observable: normalizeRuntimeSection(config.observable, 'observable', plugins, language),
+    events: normalizeRuntimeSection(config.events, 'events', plugins, language),
+    services: normalizeRuntimeSection(config.services, 'services', plugins, language),
+  };
+}
+
+function normalizeRuntimeSection(
+  section: Record<string, RuntimePluginDefinition> | undefined,
+  sectionName: 'services' | 'events' | 'observable',
+  plugins: PluginCatalogRecord[],
+  language: PluginLanguage,
+): Record<string, RuntimePluginDefinition> | undefined {
+  if (!section) return undefined;
+  return Object.fromEntries(Object.entries(section).map(([name, entry]) => {
+    if (entry.enabled !== false && entry.language && entry.language !== language) {
+      throw new Error(`Plugin ${entry.plugin} requires ${entry.language}; deployment targets ${language}`);
+    }
+    const entryLanguage = entry.enabled === false ? entry.language ?? 'nodejs' : language;
+    const nativePlugins = plugins.filter(plugin => (plugin.language ?? 'nodejs') === entryLanguage);
+    const catalog = resolveCatalogForEntry(nativePlugins, sectionName, entry);
+    if (!catalog && entry.enabled !== false && plugins.some(plugin =>
+      plugin.pluginId === entry.plugin || `${plugin.org}/${plugin.pluginId}` === entry.plugin)) {
+      throw new Error(`Plugin ${entry.plugin} package/version is not available for ${language}`);
+    }
+    const normalized: RuntimePluginDefinition = {
+      ...entry,
+      language: entryLanguage,
+      plugin: catalog?.pluginId ?? entry.plugin,
+      package: entry.package ?? catalog?.packageName ?? undefined,
+    };
+    if (catalog?.configSchema && entry.enabled !== false) {
+      const root = objectField(catalog.configSchema.root) ?? catalog.configSchema;
+      normalized.config = validateAnyValiNode(root, entry.config ?? {}, `${sectionName}.${name}.config`, catalog.configSchema) as Record<string, unknown>;
+    }
+    const envOverridePaths = envOverridePathsFromSchema(catalog?.configSchema);
+    if (entry.allowEnvOverrides && envOverridePaths.length > 0) normalized.envOverridePaths = envOverridePaths;
+    else delete normalized.envOverridePaths;
+    delete normalized.allowEnvOverrides;
+    delete normalized.override;
+    delete normalized.autoPinned;
+    if (!normalized.package) delete normalized.package;
+    return [name, normalized];
+  }));
+}
+
+function mergeRuntimeConfig(shared: RuntimeConfigDefinition, local: RuntimeConfigDefinition): RuntimeConfigDefinition {
+  return {
+    observable: mergePluginSection(shared.observable, local.observable),
+    events: mergePluginSection(shared.events, local.events),
+    services: mergePluginSection(shared.services, local.services),
+  };
+}
+
+function addMissingServiceReferences(
+  config: RuntimeConfigDefinition,
+  services: Record<string, RuntimePluginDefinition>,
+): void {
+  const section = config.services ?? {};
+  for (const [name, service] of Object.entries(services)) {
+    if (section[name]) continue;
+    defineSafeProperty(section, name, service);
+  }
+  config.services = section;
+}
+
+function mergePluginSection(
+  shared: Record<string, RuntimePluginDefinition> | undefined,
+  local: Record<string, RuntimePluginDefinition> | undefined,
+): Record<string, RuntimePluginDefinition> {
+  const output: Record<string, RuntimePluginDefinition> = {};
+  for (const [name, plugin] of Object.entries(shared ?? {})) {
+    defineSafeProperty(output, name, cloneJson(plugin) as RuntimePluginDefinition);
+  }
+  for (const [name, plugin] of Object.entries(local ?? {})) {
+    const base = output[name];
+    defineSafeProperty(output, name, base ? {
+      ...base,
+      ...plugin,
+      config: deepMergeObjects(base.config ?? {}, plugin.config ?? {}),
+    } : cloneJson(plugin) as RuntimePluginDefinition);
+    if (output[name].override) delete output[name].override;
+  }
+  return output;
+}
+
+function resolveCatalogForEntry(
+  plugins: PluginCatalogRecord[],
+  section: 'services' | 'events' | 'observable',
+  entry: RuntimePluginDefinition,
+): PluginCatalogRecord | undefined {
+  const expectedKind = section === 'services' ? 'service' : section;
+  const matches = plugins.filter((plugin) =>
+    (plugin.pluginId === entry.plugin || `${plugin.org}/${plugin.pluginId}` === entry.plugin) &&
+    plugin.kind === expectedKind &&
+    (entry.language ? (plugin.language ?? 'nodejs') === entry.language : true) &&
+    (entry.package ? plugin.packageName === entry.package : true)
+  );
+  return entry.version
+    ? matches.find((plugin) => plugin.version === entry.version)
+    : latestPlugin(matches);
+}
+
+function deepMergeObjects(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+  const output = cloneJson(base) as Record<string, unknown>;
+  for (const [key, value] of Object.entries(override)) {
+    const existing = output[key];
+    defineSafeProperty(output, key, isPlainObject(existing) && isPlainObject(value)
+      ? deepMergeObjects(existing, value)
+      : cloneJson(value));
+  }
+  return output;
+}
+
+function pickConfigPaths(source: Record<string, unknown>, paths: string[]): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  for (const path of paths) {
+    if (!path) continue;
+    const value = valueAtPath(source, path);
+    if (value === undefined) continue;
+    setValueAtPath(output, path, value);
+  }
+  return output;
+}
+
+function valueAtPath(source: Record<string, unknown>, path: string): unknown {
+  return safePathParts(path).reduce<unknown>((acc, part) => isPlainObject(acc) && Object.prototype.hasOwnProperty.call(acc, part) ? acc[part] : undefined, source);
+}
+
+function setValueAtPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = safePathParts(path);
+  let current = target;
+  for (const part of parts.slice(0, -1)) {
+    const existing = current[part];
+    if (!isPlainObject(existing)) defineSafeProperty(current, part, {});
+    current = current[part] as Record<string, unknown>;
+  }
+  defineSafeProperty(current, parts[parts.length - 1] ?? path, cloneJson(value));
+}
+
+function mergeSensitiveConfig(
+  schema: Record<string, unknown> | null,
+  incoming: Record<string, unknown>,
+  existing: Record<string, unknown>,
+  clearPaths: string[],
+): Record<string, unknown> {
+  const output = cloneJson(incoming) as Record<string, unknown>;
+  const root = objectField(objectField(schema?.root) ?? schema);
+  if (!root) return output;
+  const clear = new Set(clearPaths);
+  for (const path of sensitiveSchemaPaths(root)) {
+    if (!path) return clear.has('') ? {} : Object.keys(output).length ? output : cloneJson(existing) as Record<string, unknown>;
+    if (clear.has(path)) {
+      deleteValueAtPath(output, path);
+      continue;
+    }
+    const prior = valueAtPath(existing, path);
+    if (valueAtPath(output, path) === undefined && prior !== undefined) setValueAtPath(output, path, prior);
+  }
+  return output;
+}
+
+
+function deleteValueAtPath(target: Record<string, unknown>, path: string): void {
+  const parts = safePathParts(path);
+  let current: Record<string, unknown> | null = target;
+  for (const part of parts.slice(0, -1)) current = objectField(current?.[part]);
+  if (current) delete current[parts[parts.length - 1] ?? path];
+}
+
+function safePathParts(path: string): string[] {
+  const parts = path.split('.');
+  if (parts.some((part) => !part || isBlockedKey(part))) throw new Error('Config path contains a forbidden segment');
+  return parts;
+}
+
+function isBlockedKey(key: string): boolean {
+  return key === '__proto__' || key === 'prototype' || key === 'constructor';
+}
+
+function defineSafeProperty(target: Record<string, unknown>, key: string, value: unknown): void {
+  if (isBlockedKey(key)) throw new Error(`Forbidden object key ${key}`);
+  Object.defineProperty(target, key, { value, writable: true, enumerable: true, configurable: true });
+}
+
+function configState(draftUpdatedAt: string | null, publishedAt: string | null): ConfigState {
+  if (!draftUpdatedAt && !publishedAt) return { state: 'empty', draftUpdatedAt, publishedAt };
+  if (draftUpdatedAt && !publishedAt) return { state: 'draft-only', draftUpdatedAt, publishedAt };
+  if (draftUpdatedAt && publishedAt && Date.parse(draftUpdatedAt) > Date.parse(publishedAt)) {
+    return { state: 'draft-pending', draftUpdatedAt, publishedAt };
+  }
+  return { state: 'published', draftUpdatedAt, publishedAt };
+}
