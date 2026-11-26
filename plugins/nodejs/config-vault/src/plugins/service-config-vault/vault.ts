@@ -37,6 +37,7 @@ import type {
 // corresponding plaintext is intentionally irrelevant: these subjects remain
 // ineligible for authentication regardless of the comparison result.
 const DUMMY_LOGIN_PASSWORD_HASH = 'scrypt$paWlpaWlpaWlpaWlpaWlpQ$whF1cVVIxEqgHaTNq1G9hRZCCl15nQFZCFbJvPIZEG3n9MoskVLHe0jual65dVDuqAzFeiBnM-YRGCsjlHk2Rw';
+const EXHAUSTED_LOGIN_MIN_DURATION_MS = 250;
 
 export interface VaultServiceOptions {
   store: VaultStore;
@@ -234,15 +235,20 @@ export class VaultService {
   }
 
   async login(email: string, password: string, totpCode: string): Promise<LoginStartResult> {
+    const startedAt = Date.now();
     const normalizedEmail = email.trim().toLowerCase();
     const attemptKey = `login:${normalizedEmail}`;
     await this.checkRateLimit(attemptKey);
-    // Apply the shared admission limit before looking up the account or
-    // performing scrypt. Exhausted requests must take the same path for known
-    // and unknown emails, otherwise the limiter becomes an account oracle.
-    await this.checkSharedRateLimit(attemptKey);
     const user = await this.store.getUserByEmail(normalizedEmail);
     const knownPasswordSubject = Boolean(user?.status === 'active' && user.passwordHash);
+    const sharedAdmissionAllowed = await this.sharedRateLimitAllowed(attemptKey);
+    // Once rotating failures exhaust the shared budget, fabricated subjects no
+    // longer receive scrypt work. Keep the rejection time-bounded and similar
+    // to a real password check, while still allowing an eligible administrator
+    // with independent credentials to authenticate.
+    if (!sharedAdmissionAllowed && !knownPasswordSubject) {
+      await this.rejectExhaustedLogin(attemptKey, startedAt);
+    }
     const passwordHash = knownPasswordSubject
       ? user!.passwordHash!
       : DUMMY_LOGIN_PASSWORD_HASH;
@@ -251,6 +257,7 @@ export class VaultService {
     // whether that account is inactive/passwordless.
     const passwordMatches = await verifySecret(password, passwordHash);
     if (!user || user.status !== 'active' || !user.passwordHash || !passwordMatches) {
+      if (!sharedAdmissionAllowed) await this.rejectExhaustedLogin(attemptKey, startedAt);
       await this.recordFailure(attemptKey, Boolean(user && user.status === 'active' && user.passwordHash));
       await this.audit('anonymous', 'admin.login.failed', email, {});
       throw new Error('Invalid login');
@@ -1883,11 +1890,16 @@ export class VaultService {
     }
   }
 
-  private async checkSharedRateLimit(key: string): Promise<void> {
+  private async sharedRateLimitAllowed(key: string): Promise<boolean> {
     const scope = key.slice(0, key.indexOf(':'));
     const globalMaximum = this.authenticationBudgets[scope] ?? 200;
-    if (await this.store.authenticationAllowed(tokenHash(`global:${scope}`), globalMaximum)) return;
+    return this.store.authenticationAllowed(tokenHash(`global:${scope}`), globalMaximum);
+  }
+
+  private async rejectExhaustedLogin(key: string, startedAt: number): Promise<never> {
     await this.store.recordExistingAuthenticationFailure(tokenHash(key), key);
+    const remaining = EXHAUSTED_LOGIN_MIN_DURATION_MS - (Date.now() - startedAt);
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
     throw new Error('Too many authentication attempts; try again later');
   }
 
