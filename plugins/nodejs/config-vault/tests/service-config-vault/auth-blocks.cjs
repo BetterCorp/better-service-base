@@ -106,8 +106,11 @@ module.exports = async ({ pluginRoot }) => {
   const knownLoginId = createHash('sha256').update('login:known@example.com').digest('base64url');
   assert.equal(failures.get(knownLoginId).failureCount, 5,
     'shared-budget rejection did not advance the known account lockout');
+  const blockedStartedAt = Date.now();
   await assert.rejects(rotatingVault.login('known@example.com', 'correct-known-password', ''), /Too many authentication attempts/,
     'the independent known-account lockout did not activate');
+  assert.ok(Date.now() - blockedStartedAt >= 200,
+    'an exhausted known-account lockout exposed a fast account-enumeration path');
   const firstId = createHash('sha256').update('login:one@example.com').digest('base64url');
   for (let i = 0; i < 4; i++)
     await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
