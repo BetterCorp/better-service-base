@@ -5,6 +5,8 @@ const { createHash } = require('node:crypto');
 
 module.exports = async ({ pluginRoot }) => {
   const { VaultService } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/vault.js')).href);
+  const { hashSecret } = await import(pathToFileURL(path.join(pluginRoot, 'lib/plugins/service-config-vault/crypto.js')).href);
+  const knownPasswordHash = await hashSecret('correct-known-password');
   const failures = new Map();
   const globalAttempts = new Map();
   const authenticationChecks = [];
@@ -25,7 +27,7 @@ module.exports = async ({ pluginRoot }) => {
         id: 'known-user',
         email,
         status: 'active',
-        passwordHash: { split() { throw new Error('password verification invoked after shared admission failed'); } },
+        passwordHash: knownPasswordHash,
       };
       if (email === 'inactive@example.com') return {
         id: 'inactive-user',
@@ -36,6 +38,8 @@ module.exports = async ({ pluginRoot }) => {
       return null;
     },
     async getUser() { return { email: 'admin@example.com' }; },
+    async listAuthMethods(userId) { return [{ id: 'known-passkey', userId, active: true, credentialId: 'known-credential' }]; },
+    async saveAuthChallenge() {},
     async resolveRuntimeBinding() { return null; },
     async recordAuthenticationFailure(id, subject) {
       failures.set(id, { subjectHash: id, subject, failureCount: (failures.get(id)?.failureCount ?? 0) + 1 });
@@ -46,7 +50,7 @@ module.exports = async ({ pluginRoot }) => {
     },
     async listAuthenticationBlocks() { return [...failures.values()].filter(row => row.failureCount >= 5); },
     async clearAuthenticationFailures(id) {
-      assert.equal(audits.at(-1).outcome, 'intent');
+      if (failures.has(id)) assert.equal(audits.at(-1).outcome, 'intent');
       failures.delete(id);
     },
     async audit(record) {
@@ -91,24 +95,35 @@ module.exports = async ({ pluginRoot }) => {
   for (const email of ['one@example.com', 'two@example.com', 'three@example.com'])
     await assert.rejects(rotatingVault.login(email, 'wrong', ''), /Invalid login/);
   await assert.rejects(rotatingVault.login('four@example.com', 'wrong', ''), /Too many authentication attempts/);
-  await assert.rejects(rotatingVault.login('known@example.com', 'wrong', ''), /Too many authentication attempts/,
-    'an exhausted shared budget reached password verification for a known account');
   const globalLoginId = createHash('sha256').update('global:login').digest('base64url');
   assert.deepEqual(authenticationChecks.at(-1), { id: globalLoginId, maximum: 3 },
     'an exhausted shared budget was not checked before dummy password verification');
+  const knownLogin = await rotatingVault.login('known@example.com', 'correct-known-password', '');
+  assert.equal(knownLogin.status, 'passkey_required',
+    'an exhausted shared budget blocked valid independent administrator credentials');
+  for (let i = 0; i < 5; i++)
+    await assert.rejects(rotatingVault.login('known@example.com', 'wrong', ''), /Too many authentication attempts/);
+  const knownLoginId = createHash('sha256').update('login:known@example.com').digest('base64url');
+  assert.equal(failures.get(knownLoginId).failureCount, 5,
+    'shared-budget rejection did not advance the known account lockout');
+  const blockedStartedAt = Date.now();
+  await assert.rejects(rotatingVault.login('known@example.com', 'correct-known-password', ''), /Too many authentication attempts/,
+    'the independent known-account lockout did not activate');
+  assert.ok(Date.now() - blockedStartedAt >= 200,
+    'an exhausted known-account lockout exposed a fast account-enumeration path');
   const firstId = createHash('sha256').update('login:one@example.com').digest('base64url');
   for (let i = 0; i < 4; i++)
     await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
   assert.equal(failures.get(firstId).failureCount, 5,
     'an exhausted shared budget stopped advancing an existing subject lockout');
   await assert.rejects(rotatingVault.login('one@example.com', 'wrong', ''), /Too many authentication attempts/);
-  const knownKey = 'login:known@example.com';
+  const knownKey = 'login:second-known@example.com';
   await assert.rejects(rotatingVault.recordFailure(knownKey, true), /Too many authentication attempts/);
   const knownId = createHash('sha256').update(knownKey).digest('base64url');
   assert.equal(failures.get(knownId).failureCount, 1,
     'an exhausted shared budget disabled lockout for a known subject without prior failures');
   assert.equal(globalAttempts.size, 1, 'rotating identities created multiple global limiter buckets');
-  assert.equal(failures.size, 4, 'an exhausted shared budget created an unknown subject limiter row');
+  assert.equal(failures.size, 5, 'an exhausted shared budget created an unknown subject limiter row');
 
   globalAttempts.clear();
   failures.clear();
