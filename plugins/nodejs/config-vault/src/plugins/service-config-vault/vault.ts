@@ -237,9 +237,14 @@ export class VaultService {
     const normalizedEmail = email.trim().toLowerCase();
     const attemptKey = `login:${normalizedEmail}`;
     await this.checkRateLimit(attemptKey);
+    // Apply the shared admission limit before looking up the account or
+    // performing scrypt. Exhausted requests must take the same path for known
+    // and unknown emails, otherwise the limiter becomes an account oracle.
+    await this.checkSharedRateLimit(attemptKey);
     const user = await this.store.getUserByEmail(normalizedEmail);
-    const passwordHash = user?.status === 'active' && user.passwordHash
-      ? user.passwordHash
+    const knownPasswordSubject = Boolean(user?.status === 'active' && user.passwordHash);
+    const passwordHash = knownPasswordSubject
+      ? user!.passwordHash!
       : DUMMY_LOGIN_PASSWORD_HASH;
     // Always perform exactly one valid scrypt verification after admission so
     // response timing does not reveal whether an administrator email exists or
@@ -1876,6 +1881,14 @@ export class VaultService {
     if (!(await this.store.authenticationAllowed(tokenHash(key)))) {
       throw new Error('Too many authentication attempts; try again later');
     }
+  }
+
+  private async checkSharedRateLimit(key: string): Promise<void> {
+    const scope = key.slice(0, key.indexOf(':'));
+    const globalMaximum = this.authenticationBudgets[scope] ?? 200;
+    if (await this.store.authenticationAllowed(tokenHash(`global:${scope}`), globalMaximum)) return;
+    await this.store.recordExistingAuthenticationFailure(tokenHash(key), key);
+    throw new Error('Too many authentication attempts; try again later');
   }
 
   private async recordFailure(key: string, knownSubject = false): Promise<void> {
