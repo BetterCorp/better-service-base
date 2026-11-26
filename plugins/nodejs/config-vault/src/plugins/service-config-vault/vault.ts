@@ -238,10 +238,14 @@ export class VaultService {
     const startedAt = Date.now();
     const normalizedEmail = email.trim().toLowerCase();
     const attemptKey = `login:${normalizedEmail}`;
-    await this.checkRateLimit(attemptKey);
+    const subjectAdmissionAllowed = await this.store.authenticationAllowed(tokenHash(attemptKey));
+    const sharedAdmissionAllowed = await this.sharedRateLimitAllowed(attemptKey);
+    if (!subjectAdmissionAllowed) {
+      if (!sharedAdmissionAllowed) await this.delayExhaustedLogin(startedAt);
+      throw new Error('Too many authentication attempts; try again later');
+    }
     const user = await this.store.getUserByEmail(normalizedEmail);
     const knownPasswordSubject = Boolean(user?.status === 'active' && user.passwordHash);
-    const sharedAdmissionAllowed = await this.sharedRateLimitAllowed(attemptKey);
     // Once rotating failures exhaust the shared budget, fabricated subjects no
     // longer receive scrypt work. Keep the rejection time-bounded and similar
     // to a real password check, while still allowing an eligible administrator
@@ -1899,9 +1903,13 @@ export class VaultService {
   private async rejectExhaustedLogin(key: string, startedAt: number, knownSubject: boolean): Promise<never> {
     if (knownSubject) await this.store.recordAuthenticationFailure(tokenHash(key), key);
     else await this.store.recordExistingAuthenticationFailure(tokenHash(key), key);
+    await this.delayExhaustedLogin(startedAt);
+    throw new Error('Too many authentication attempts; try again later');
+  }
+
+  private async delayExhaustedLogin(startedAt: number): Promise<void> {
     const remaining = EXHAUSTED_LOGIN_MIN_DURATION_MS - (Date.now() - startedAt);
     if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
-    throw new Error('Too many authentication attempts; try again later');
   }
 
   private async recordFailure(key: string, knownSubject = false): Promise<void> {
