@@ -21,6 +21,12 @@ module.exports = async ({ pluginRoot }) => {
       return (globalAttempts.get(id) ?? failures.get(id)?.failureCount ?? 0) < maximum;
     },
     async getUserByEmail(email) {
+      if (email === 'known@example.com') return {
+        id: 'known-user',
+        email,
+        status: 'active',
+        passwordHash: { split() { throw new Error('password verification invoked after shared admission failed'); } },
+      };
       if (email === 'inactive@example.com') return {
         id: 'inactive-user',
         email,
@@ -85,6 +91,8 @@ module.exports = async ({ pluginRoot }) => {
   for (const email of ['one@example.com', 'two@example.com', 'three@example.com'])
     await assert.rejects(rotatingVault.login(email, 'wrong', ''), /Invalid login/);
   await assert.rejects(rotatingVault.login('four@example.com', 'wrong', ''), /Too many authentication attempts/);
+  await assert.rejects(rotatingVault.login('known@example.com', 'wrong', ''), /Too many authentication attempts/,
+    'an exhausted shared budget reached password verification for a known account');
   const globalLoginId = createHash('sha256').update('global:login').digest('base64url');
   assert.deepEqual(authenticationChecks.at(-1), { id: globalLoginId, maximum: 3 },
     'an exhausted shared budget was not checked before dummy password verification');
