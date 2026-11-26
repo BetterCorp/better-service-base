@@ -237,13 +237,12 @@ export class VaultService {
     const normalizedEmail = email.trim().toLowerCase();
     const attemptKey = `login:${normalizedEmail}`;
     await this.checkRateLimit(attemptKey);
+    // Apply the shared admission limit before looking up the account or
+    // performing scrypt. Exhausted requests must take the same path for known
+    // and unknown emails, otherwise the limiter becomes an account oracle.
+    await this.checkSharedRateLimit(attemptKey);
     const user = await this.store.getUserByEmail(normalizedEmail);
     const knownPasswordSubject = Boolean(user?.status === 'active' && user.passwordHash);
-    // Once rotating failures exhaust the shared budget, reject ineligible
-    // subjects before dummy scrypt. Existing subject rows still advance so a
-    // caller cannot evade the normal per-subject lockout, while a fresh
-    // fabricated email does not acquire a row.
-    if (!knownPasswordSubject) await this.checkSharedRateLimit(attemptKey);
     const passwordHash = knownPasswordSubject
       ? user!.passwordHash!
       : DUMMY_LOGIN_PASSWORD_HASH;
