@@ -37,7 +37,7 @@ import type {
 // corresponding plaintext is intentionally irrelevant: these subjects remain
 // ineligible for authentication regardless of the comparison result.
 const DUMMY_LOGIN_PASSWORD_HASH = 'scrypt$paWlpaWlpaWlpaWlpaWlpQ$whF1cVVIxEqgHaTNq1G9hRZCCl15nQFZCFbJvPIZEG3n9MoskVLHe0jual65dVDuqAzFeiBnM-YRGCsjlHk2Rw';
-const EXHAUSTED_LOGIN_MIN_DURATION_MS = 250;
+const EXHAUSTED_LOGIN_MIN_DURATION_MS = 1000;
 
 export interface VaultServiceOptions {
   store: VaultStore;
@@ -94,6 +94,7 @@ export class VaultService {
   private readonly rpId: string;
   private readonly authenticationBudgets: Record<string, number>;
   private unknownRuntimeAuditBucket: number | undefined;
+  private exhaustedLoginVerificationInFlight = false;
 
   constructor(options: VaultServiceOptions) {
     this.store = options.store;
@@ -259,7 +260,20 @@ export class VaultService {
     // Always perform exactly one valid scrypt verification after admission so
     // response timing does not reveal whether an administrator email exists or
     // whether that account is inactive/passwordless.
-    const passwordMatches = await verifySecret(password, passwordHash);
+    let ownsExhaustedVerification = false;
+    if (!sharedAdmissionAllowed) {
+      if (this.exhaustedLoginVerificationInFlight) {
+        await this.delayExhaustedLogin(startedAt);
+        throw new Error('Too many authentication attempts; try again later');
+      }
+      this.exhaustedLoginVerificationInFlight = ownsExhaustedVerification = true;
+    }
+    let passwordMatches: boolean;
+    try {
+      passwordMatches = await verifySecret(password, passwordHash);
+    } finally {
+      if (ownsExhaustedVerification) this.exhaustedLoginVerificationInFlight = false;
+    }
     if (!user || user.status !== 'active' || !user.passwordHash || !passwordMatches) {
       if (!sharedAdmissionAllowed) await this.rejectExhaustedLogin(attemptKey, startedAt, knownPasswordSubject);
       await this.recordFailure(attemptKey, Boolean(user && user.status === 'active' && user.passwordHash));
